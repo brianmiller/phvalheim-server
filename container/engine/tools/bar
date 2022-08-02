@@ -1,0 +1,9 @@
+World 'Bolverk' has the following mods: 
+ Top-Level Mod: 
+  Name: 2ezModpack
+  UUID: c4e0421a-844d-4c60-a8e9-a022b49b80ec
+    Depdendencies:
+     Mod: EpicValheim
+     Version: 3.6.6
+     Version UUID: 5852d2ab-f490-44bb-8114-32f4a47ef02c
+     Depends: yes

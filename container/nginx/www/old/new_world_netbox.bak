@@ -1,0 +1,103 @@
+<?php
+
+include 'includes/config.php';
+include 'db_sets.php';
+include 'db_gets.php';
+
+
+if (!empty($_POST)) {
+  $world = $_POST['world'];
+  $seed = $_POST['seed'];
+  $thunderstore_mods = $_POST['thunderstore_mods'];
+  $nexus_mods = $_POST['nexus_mods'];
+  $custom_mods = $_POST['custom_mods'];
+
+ 
+  #Get next available IP for new world
+  $netbox_getPrefixID = netbox_getPrefixID($NETBOX_PREFIX,$NETBOX_TOKEN,$NETBOX_URL);
+  $netbox_GetNextAvailableIP = netbox_GetNextAvailableIP($netbox_getPrefixID,$NETBOX_TOKEN,$NETBOX_URL,$NETBOX_IP_EXCLUDES);
+
+
+  if (empty($netbox_GetNextAvailableIP)){
+	$msg = "ERROR: Could not get IP from Netbox, can't continue...";
+	#header("Location: new_world.php");
+	#die();	
+  }
+
+  #Calculate port to use
+  $lastOctetOfIP = substr($netbox_GetNextAvailableIP, 0, strpos($netbox_GetNextAvailableIP, "/"));
+  $lastOctetOfIP = explode(".", $lastOctetOfIP);
+  $lastOctetOfIP = $lastOctetOfIP[3];
+  $port = $lastOctetOfIP+$basePort; 
+
+
+  #Add new world to database
+  $addWorld = addWorld($myPDO,$world,$netbox_GetNextAvailableIP,$port,"$alias.$domain",$seed,$thunderstore_mods,$nexus_mods,$custom_mods);
+  if ($addWorld == 0) {
+	$msg = "World '$world' created...";
+	
+	#Reserve the IP Netbox told us is available, after we've determined the new world being asked for doesn't already exist.
+	$netbox_ReserveIP_result = netbox_ReserveIP($netbox_GetNextAvailableIP,"phvalheim-$world",$NETBOX_TOKEN,$NETBOX_URL);
+
+	#IP reservation check, if the IP reservation failed, delete newly added world for database and throw error.
+ 	$netbox_getIPID = netbox_getIPID($netbox_GetNextAvailableIP,$NETBOX_TOKEN,$NETBOX_URL);	
+	if (empty($netbox_getIPID)){
+		$msg = "ERROR: Could not reserve IP from Netbox, can't continue...";
+		deleteWorld($myPDO,$world);
+		
+	} else {
+		#Go back to home after creation	
+		header("Location: index.php");
+	}
+  }
+
+  if ($addWorld == 2) {
+        $msg = "World '$world' already exists...";
+  }
+
+}
+
+?>
+
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="css/jquery.dataTables.css">
+		<script type="text/javascript" charset="utf8" src="js/jquery-3.6.0.js"></script>
+		<script type="text/javascript" charset="utf8" src="js/jquery.dataTables.js"></script>
+
+		<script>
+			$(document).ready( function () {
+	    			$('#new_world.disabled').DataTable();
+	    		} );
+		</script>
+	</head>
+
+	<body>
+		<form name="new_world" method="post" action="new_world.php">
+			<table style="margin-top: 45px;" align=center border=0 id="new_world" class="display">
+			    <thead>
+				<th>World Name</th>
+				<th>Seed</td>
+				<th>Thunderstore Mods</th>
+				<th>Nexus Mods</th>
+				<th>Custom Mods</th>
+			    </thead>
+			    <tbody>
+				<td><input type="text" name="world"></td>
+				<td><input type="text" name="seed"></td>
+				<td><input type="text" name="thunderstore_mods"></td>
+				<td><input type="text" name="nexus_mods"></td>
+				<td><input type="text" name="custom_mods"></td>
+			    </tbody>
+			    <tfoot>
+				<td colspan=5 align=center>
+					<a href='index.php'><button type="button">Back</button></a>
+					<button type="submit">Save</button>
+					<div class='visiblemsg' id='notification'><?php print "$msg"; ?></div>
+				</td>
+			    </tfoot>
+			</table>
+		</form>
+	</body>
+</html>

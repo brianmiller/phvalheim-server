@@ -1,0 +1,24 @@
+#!/bin/bash
+
+if [ ! "$1" ]; then
+	echo "ERROR: SQL statement missing."
+	echo " Example: sql worlds"
+	echo " Example: sql systemstats"
+	echo " Example: sql tsmods"
+	echo " Example: sql \"SELECT * FROM worlds;\""
+	exit 1
+fi
+
+#pull in PhValheim's config
+source /opt/stateless/engine/includes/phvalheim.conf
+
+#A simple tool to query PhValheim's database.
+if [ "$1" = "worlds" ]; then
+	/usr/bin/mysql --database=phvalheim -e "SELECT * FROM worlds;"
+elif [ "$1" = "systemstats" ]; then
+        /usr/bin/mysql --database=phvalheim -e "SELECT * FROM systemstats;"
+elif [ "$1" = "mods" ]; then
+	/usr/bin/mysql --database=phvalheim -e "SELECT * FROM tsmods;"
+else
+	/usr/bin/mysql --skip-column-names --database=phvalheim -e "$1"
+fi

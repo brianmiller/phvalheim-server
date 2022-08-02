@@ -1,0 +1,3 @@
+#!/bin/bash
+
+touch /tmp/world_backup_$$.test

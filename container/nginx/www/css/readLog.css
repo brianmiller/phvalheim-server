@@ -1,0 +1,11 @@
+body {
+	color: #DEDEDE;
+	background: #262626;
+	font-family: "Lucida Console", "Courier New", monospace;
+}
+
+#roundCorners {
+	border-radius: 2px;
+	padding-left: 8px; 
+	padding-right: 8px;
+}

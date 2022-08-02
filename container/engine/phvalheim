@@ -1,0 +1,228 @@
+#!/bin/bash
+
+echo
+echo "[NOTICE : phvalheim] Starting PhValheim engine..."
+echo "[phvalheim] Loading PhValheim engine config ['/opt/stateless/engine/phvalheim.conf']...";
+source /opt/stateless/engine/includes/phvalheim.conf
+source /opt/stateless/engine/includes/0-functions.sh
+source /opt/stateless/engine/includes/1-waitfordatabase.sh
+source /opt/stateless/engine/includes/2-phvalheimprep.sh
+
+
+####### BEGIN: Main loop #######
+while [ true ]; do
+	sleep 2
+
+	WORLDS=$(SQL "SELECT id FROM worlds;")
+
+	for WORLD in $WORLDS; do
+		worldID=$WORLD
+		worldMode=$(SQL "SELECT mode FROM worlds WHERE id='$worldID';")
+		worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldID';")
+		worldPort=$(SQL "SELECT port FROM worlds WHERE id='$worldID';")
+		worldSeed=$(SQL "SELECT seed FROM worlds WHERE id='$worldID';")
+		worldHost=$(SQL "SELECT external_endpoint FROM worlds WHERE id='$worldID';")
+		worldPassword="hammertime";
+
+
+		if [ "$worldMode" = "stopped" ]; then
+			orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
+			for orphanedPID in $orphanedPIDs; do
+				echo "Murdering orphaned PID: $orphanedPID"
+				kill -9 $orphanedPID
+			done
+		fi
+
+
+		if [ -z "$worldSeed" ]; then
+			worldSeed="$defaultSeed"
+		fi
+
+
+		if [ "$worldMode" = "create" ]; then
+			echo "[NOTICE : phvalheim] New world '$worldName' detected, creating..."
+			SQL "UPDATE worlds SET mode='creating' WHERE name='$worldName'"
+			if [ ! -d "$worldsDirectoryRoot/$worldName" ]; then
+				echo "[NOTICE : phvalheim] Worlds directory for '$worldName' is missing, creating..."
+
+				#get next availble port
+				worldPort=$(getNextPort)
+				SQL "UPDATE worlds SET port='$worldPort' WHERE name='$worldName'"
+
+				mkdir -p $worldsDirectoryRoot/$worldName/game
+				echo "[NOTICE : phvalheim] Deploying new world '$worldName'..."
+				chown -R phvalheim: $worldsDirectoryRoot/$worldName
+				su phvalheim -c "bash /opt/stateless/games/valheim/scripts/deployValheim.sh $worldName $worldSeed"
+				RESULT=$?
+				if [ $RESULT = 0 ]; then
+					echo "[NOTICE : phvalheim] World '$worldName' successfully created..."
+					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
+			
+					echo "[NOTICE : phvalheim] Checking for required mods..."
+					SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
+
+					#resolve mod deps and install to local world context
+					downloadAndInstallTsModsForWorld "$worldName"
+
+	                                #Generate quick connect config
+	                                createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+
+					#packge the local world context into something usable for PhValheim clients
+	                                packageClient "$worldName"
+	
+        	                        #Update the database to reflect new client pacakge version via MD5
+                	                worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
+                        	        setMD5 "$worldName" "$worldMD5"
+	                        
+				        SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"	
+			
+				else
+					echo "[FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
+					SQL "DELETE FROM worlds WHERE name='$worldName'"
+				fi
+			fi
+		fi
+
+		if [ "$worldMode" = "delete" ]; then
+			echo "[WARN : phvalheim] Delete command received for world '$worldName':"
+			worldNameLength=$(echo "$worldName"|wc -c)
+			if [ $worldNameLength -gt 1 ]; then
+				echo "[WARN : phvalheim] Deleting world '$worldName'..."
+	                        orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
+	                        for orphanedPID in $orphanedPIDs; do
+	                                echo "[WARN : phvalheim] Murdering orphaned PID: $orphanedPID"
+	                                kill -9 $orphanedPID
+	                        done
+				rm -rf $worldsDirectoryRoot/$worldName
+				SQL "DELETE FROM worlds WHERE name='$worldName'"
+			fi
+		fi
+
+                if [ "$worldMode" = "stop" ]; then
+			echo "[NOTICE : phvalheim] Stop command received for world '$worldName':"
+			#worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")	
+			#ps -p $worldPID > /dev/null 2>&1
+			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+                        worldPID_status=$?
+			if [ $? = 0 ]; then
+				SQL "UPDATE worlds SET mode='stopping' WHERE name='$worldName'"
+				echo "[NOTICE : phvalheim] Stopping world '$worldName'..."
+				/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
+				
+                                #list_descendants (){
+                                #        local children=$(ps -o pid= --ppid "$1")
+                                #        for pid in $children; do
+                                #                list_descendants "$pid"
+                                #        done
+                                #        echo "$children"
+                                #}
+
+                                #kill -INT $(list_descendants $worldPID)
+			else
+				echo "[WARN : phvalheim] World '$worldName' doesn't appear to be running..."
+				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
+			fi
+
+			#Give it time to stop (we're sending a graceful shutdown, SIGINT)
+			killLoop=0
+			while [ $killLoop -le 5 ]; do
+				sleep 10 
+				let killLoop=killLoop+1
+				ps -p $worldPID > /dev/null 2>&1
+	                        if [ ! $? = 0 ]; then
+	                                echo "[NOTICE : phvalheim] World '$worldName' successfully stopped."
+					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
+					break
+				else
+					echo "[WARN : phvalheim] World '$worldName' did not stop in the allowed time of 10 seconds. The world may still stop soon. You should probably check this..."
+	                        fi
+			done
+		
+		fi
+
+		if [ "$worldMode" = "start" ]; then
+			echo "[NOTICE : phvalheim] Start command recieved for world '$worldName':"
+
+			#worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")
+			#ps -p $worldPID > /dev/null 2>&1
+			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+			worldPID_status=$?
+			if [ $worldPID_status = 0 ]; then
+				echo "[WARN : phvalheim] World '$worldName' is already running..."
+				SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
+			else
+				SQL "UPDATE worlds SET mode='starting' WHERE name='$worldName'"
+				#su phvalheim -c "/opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort" &
+				/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
+				if [ $? != 0 ]; then
+					echo "[ERROR : phvalheim] ERROR: Could not start world '$worldName', exiting..."
+					exit 1
+				fi
+
+				
+				#worldPID=$(ps -ef |grep "sh -c /opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort"|grep -v grep|tr -s " "|cut -d " " -f2|tail -1)
+				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+				worldPID_status=$?		
+				while [ $worldPID_status != 0 ]; do
+					echo "[NOTICE : phvalheim] Waiting for world '$worldName' to start..."
+					sleep 2
+					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+					#worldPID=$(ps -ef |grep "sh -c /opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort"|grep -v grep|tr -s " "|cut -d " " -f2|tail -1)
+	                                worldPID_status=$?
+				done
+	
+				
+				#worldPID=$(ps -ef |grep "sh -c /opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort"|grep -v grep|tr -s " "|cut -d " " -f2|tail -1)
+				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+                                worldPID_status=$?	
+				if [ $worldPID_status = 0 ]; then
+					echo "[NOTICE : phvalheim] World '$worldName' has started!"
+					#SQL "UPDATE worlds SET pid='$worldPID' WHERE name='$worldName'"
+					SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
+				else
+					echo "World '$worldName' wasn't able to start, exiting..."
+					SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
+				fi
+			fi
+		fi
+
+		if [ "$worldMode" = "update" ]; then
+			echo "[NOTICE : phvalheim] Update command recieved for world '$worldName':"
+	                worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")
+                        ps -p $worldPID > /dev/null 2>&1
+                        if [ $? = 0 ]; then
+                                echo "[WARN : phvalheim] World '$worldName' is running. Stop the world before updating..."
+			else
+				echo "[NOTICE : phvalheim] Updating world..."
+				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
+
+				#Update Steam
+				#Update Valheim
+
+				#Install mods
+				downloadAndInstallTsModsForWorld "$worldName"
+
+				#Generate quick connect config
+				createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+
+                                #Packge client
+                                packageClient "$worldName"
+
+				#Update the database to reflect new client pacakge version via MD5
+                                worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
+                                setMD5 "$worldName" "$worldMD5"
+
+				#finally, set the world to stopped state
+				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
+
+								
+
+			fi
+		fi
+
+
+
+	done
+
+done
+####### END: Main loop #######
