@@ -1,5 +1,4 @@
 ### NOTICE: 
-<br>
 PhValheim is undergoing a complete redesign to include more elaborate platform capabilities and error handling. The features listed below will be archived to "PhValheim_legacy" and will no longer be maintained.
 <br>
 
