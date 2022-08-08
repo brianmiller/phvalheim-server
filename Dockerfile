@@ -32,6 +32,7 @@ RUN mkdir -p /tmp/dumps
 RUN touch /var/log/cron.log
 COPY container/scripts/ /opt/stateless/scripts/
 COPY container/supervisor.d/ /opt/stateless/supervisor.d/
+COPY container/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 COPY container/nginx/nginx.conf	/etc/nginx/nginx.conf
 COPY container/nginx/phvalheim.conf /etc/nginx/sites-available/phvalheim.conf
 COPY container/nginx/www/ /opt/stateless/nginx/www/

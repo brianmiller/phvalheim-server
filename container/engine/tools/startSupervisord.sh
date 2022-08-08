@@ -8,7 +8,7 @@ if [ ! -d "$logsDir" ]; then
 fi
 
 function startSupervisord() {
-	/usr/bin/supervisord -n -c /opt/stateless/supervisor.d/supervisord.conf
+	/usr/bin/supervisord -n -c /etc/supervisor/supervisord.conf
 }
 
 

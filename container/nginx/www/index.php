@@ -107,6 +107,7 @@ function populateTable($pdo,$phvalheimHost,$alias,$domain){
 		    <tfoot>
 			<form>
 				<td colspan=4 align=center><a href='new_world.php'><button>Add</button></a></td>
+				<td colspan=4 align=center><a href='/supervisor/'><button>Supervisor</button></a></td>
 			</form>
 		    </tfoot>
 		</table>
