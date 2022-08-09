@@ -47,6 +47,13 @@ function getSeed($pdo,$world) {
 	return $result;
 }
 
+function getMyWorlds($pdo,$citizen) {
+        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%'");
+        $result = $sth->fetchAll(PDO::FETCH_COLUMN);
+        return $result;
+}
+
+
 function getMD5($pdo,$world) {
         $sth = $pdo->prepare("SELECT world_md5 FROM worlds WHERE name='$world'");
         $sth->execute();
@@ -61,10 +68,21 @@ function modExistCheck($pdo,$world,$modUUID) {
 	return $result;
 }
 
-#function worldModeCheck($pdo,$world) {
-#        $sth = $pdo->prepare("SELECT mode FROM worlds WHERE name='$world';");
-#        $sth->execute();
-#        $result = $sth->fetchColumn();
-#        return $result;
-#}
+
+function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost) {
+        $getWorldData = $pdo->query("SELECT status,name,port FROM worlds WHERE name='$world'");
+        foreach($getWorldData as $row)
+        {
+                $status = $row['status'];
+                $world = $row['name'];
+                $port = $row['port'];
+                $password = "hammertime";
+                #$password = $row['password'];
+                $launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost");
+
+		return $launchString;
+	}
+}
+
+
 ?>

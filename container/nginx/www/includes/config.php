@@ -4,10 +4,19 @@
 $pdo = new PDO('mysql:host=localhost;dbname=phvalheim', 'phvalheim_user', 'phvalheim_secretpassword');
 
 #Global configs
-$phvalheimHost = "37648-dev1.phospher.com:8080";
+$phvalheimHost = "phvalheim.phospher.com";
+#$phvalheimHost = "37648-dev1.phospher.com:8080"; //the hostname and port PhValheim is hosted on
+$gameDNS = "valheim.phospher.com"; //the dns hostname that your clients will connect to
 $basePort = 4000; //the port we start incrementing from
 $alias = "37648-dev1"; //this is DNS CNAME record that will be our external endpoint (outside interface of inbound NAT, multi-level NATs are ok.)
 $domain = "phospher.com"; //our domain
+$phvalheimClientURL = "https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe";
+
+
+
+#Google Auth configs
+$googleClientId = "756055221455-0hts3eg5c1ukht4c2t4j66a8ao0uc84a.apps.googleusercontent.com";
+$googleAutoLogin = "true";
 
 #Log configs
 #Log exclusions: insensitive
@@ -35,13 +44,13 @@ $logExclusions = array(
 #highlighter: "keyword_to_highlight" => "alert type" --keywords are insensitive, types=error,warn,notice,
 #highlighter colors
 $logHighlightError = "#ffbaba";
-$logHighlightErrorDarker = "#e95358";
+$logHighlightErrorDarker = "#BB4347";
 $logHighlightWarn = "#ffefb3";
-$logHighlightWarnDarker = "#bd8e3d";
+$logHighlightWarnDarker = "#805F26";
 $logHighlightNotice = "#bde5f9";
-$logHighlightNoticeDarker = "#3c81b9";
+$logHighlightNoticeDarker = "#0e5da2";
 $logHighlightGreen = "#dff2bf";
-$logHighlightGreenDarker = "#75a540";
+$logHighlightGreenDarker = "#486F1E";
 
 
 

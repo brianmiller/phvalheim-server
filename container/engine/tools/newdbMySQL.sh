@@ -21,6 +21,7 @@ SQL "
 	status TEXT,\
 	mode TEXT,\
 	pid TEXT,\
+	citizens TEXT,\
 	external_endpoint TEXT,\
 	world_md5 TEXT,\
 	timestamp DATETIME\

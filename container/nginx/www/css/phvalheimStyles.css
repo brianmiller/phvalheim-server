@@ -1,0 +1,254 @@
+body {
+        color: #DEDEDE !important;
+        background: #131729;
+        font-family:  "Lucida Console", "Courier New", monospace;
+}
+
+a:visited {
+  color: green;
+
+}
+
+.client_download_button {
+  text-align: right;
+  padding-top: 20px;
+  padding-right: 20px;
+  display: block; 
+  font-family: "Lucida Console", "Courier New", monospace !important;
+}
+
+.client_download_button img {
+  padding-top: 1px;
+  padding-left: 2px;
+  padding-right: 2px;
+  padding-bottom: 1px;
+  width: 12px;
+  height: 12px;
+  /* display: block; */
+  filter: invert(60%) sepia(23%) saturate(1327%) hue-rotate(259deg) brightness(93%) contrast(84%);
+}
+
+.client_download_button:hover img {
+  filter: invert(97%) sepia(43%) saturate(961%) hue-rotate(49deg) brightness(98%) contrast(101%);
+}
+
+.client_download_button:active img {
+  filter: invert(60%) sepia(23%) saturate(1327%) hue-rotate(259deg) brightness(93%) contrast(84%);
+}
+
+.client_download_button_font {
+  font-family: "Lucida Console", "Courier New", monospace !important;
+  font-weight: normal; 
+}
+
+.name_header {
+  color: #00CED1;
+  text-align: left;
+  padding-left: 20px; 
+  padding-top: 15px;
+}
+
+.google_header {
+  text-align: left;
+  padding-left: 20px;
+  padding-top:15px;
+  
+}
+
+.google_header img {
+  width: 75px;
+  height: 75px;
+  border-radius: 50%;
+}
+
+
+.outer {
+  height: 100%;
+  width: 100%;
+  max-height: 100%;
+  margin-top: 100px;
+  /* background-color:green */
+}
+
+.inner {
+  width: 1225px;
+  padding-top: 50px;
+  padding-left: 50px;
+  padding-right: 50px; 
+  padding-bottom: 50px;
+  height: auto;
+  /* background-color:yellow; */
+  max-height:100%;
+  overflow:hidden; 
+  margin: auto;
+  display: flex;
+  justify-content: center;
+ 
+}
+
+.wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 200px); 
+  grid-gap: 30px;
+  background-color: #131729;
+  /* background-color: orange;  */
+  padding-top: 50px;
+  padding-bottom: 50px;
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+
+}
+
+.catbox {
+  background-color: #131729;
+  border-radius: 6px;
+  padding: 20px;
+  font-size: 125%;
+  outline: 2px solid #34e2e2;
+
+}
+
+.card_worldName {
+  color: #32afff;
+  font-size: 18px;
+}
+
+.card_worldLaunch {
+  font-size: 15px;
+}
+
+a.card_worldLaunch:link {
+  color: orchid;
+}
+
+a.card_worldLaunch:visited {
+  color: orchid;
+  /* color: rgba(255,34,34); */
+}
+
+a.card_worldLaunch:hover{
+  color: palegreen;
+}
+
+.card_worldInfo {
+  color: #d3d7cf;
+  font-size: 12px;
+}
+
+
+div.dataTables_info {
+  color: white !important;
+}
+
+div.dataTables_length {
+  color: white !important;
+}
+
+div.dataTables_length select {
+  color: white !important;
+  background-color: #262626 !important; 
+}
+
+div.dataTables_filter input {
+  color: white !important;
+}
+
+div.dataTables_filter {
+  color: white !important;
+}
+
+a#worlds_previous.paginate_button.previous.disabled {
+  color: white !important;
+}
+
+a#worlds_previous.paginate_button.previous {
+  color: white !important;
+}
+
+a#worlds_next.paginate_button.next.disabled {
+  color: white !important;
+}
+
+a#worlds_next.paginate_button.next {
+  color: white !important;
+}
+
+.dataTables_paginate .paginate_button:hover {
+  background: #626262 !important;
+}
+.dataTables_paginate .paginate_button.current {
+  background: #999999 !important;
+}
+
+.dataTables_paginate .page-item.active .page-link {
+    background-color: black !important;
+    border: 1px solid black;
+}
+.dataTables_paginate .page-link {
+    color: green !important;
+}
+
+table#worlds.dataTable tbody tr:hover {
+  background-color: #999999;
+}
+
+table#worlds.dataTable tbody tr:hover > .sorting_1 {
+  background-color: #999999;
+}
+
+table#worlds.dataTable thead:hover {
+  background-color: #999999;
+}
+
+table.dataTable tbody tr.myeven{
+    background-color:#404040;
+}
+table.dataTable tbody tr.myodd{
+    background-color:#303030;
+}
+
+:not(td) > table > thead > tr:first-child th {
+   background: #262626 !important;
+}
+
+
+/* from MBBS container, don't leave this shit here */
+
+.btn-outline-download {
+  color: orchid; /* font color */
+  border-color: #34e2e2;
+}
+
+.btn-outline-download:hover {
+  color: palegreen;
+  background-color: #131729;
+  border-color: #34e2e2;
+}
+
+/*.btn-outline-download:focus, .btn-outline-download.focus {
+  box-shadow: 0 0 0 0.2rem rgba(209, 209, 0, 0.5);
+}*/
+
+/*.btn-outline-download.disabled, .btn-outline-download:disabled {
+  color: orchid;
+  background-color: transparent;
+}*/
+
+/* depressed */
+.btn-outline-download:not(:disabled):not(.disabled):active, .btn-outline-download:not(:disabled):not(.disabled).active,
+.show > .btn-outline-download.dropdown-toggle {
+  color: orchid;
+  background-color: #131729;
+  border-color: #aa0000;
+}
+
+.btn-sm, .btn-group-sm > .btn {
+  padding: 0.25rem 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.0;
+  border-radius: 0.2rem;
+  background-color: #131729;
+}
