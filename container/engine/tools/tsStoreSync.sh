@@ -1,5 +1,5 @@
 #!/bin/bash
-source /opt/stateless/engine/includes/phvalheim.conf
+source /opt/stateful/config/phvalheim-backend.conf
 
 curl -X GET "https://valheim.thunderstore.io/api/v1/package/" -H  "accept: application/json" -H  "X-CSRFToken: bFFKrJ6Rzai7fMXn3MWh4ZF1lYGRa99EHoWGGqf1ObRAS42U33PFifUYmZr8vJhT" |jq '.[]' > json
 

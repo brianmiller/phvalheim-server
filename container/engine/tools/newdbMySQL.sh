@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /opt/stateless/engine/includes/phvalheim.conf
+source /opt/stateful/config/phvalheim-backend.conf
 
 
 function newDB () {

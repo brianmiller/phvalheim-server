@@ -1,6 +1,7 @@
 <?php
 
-include 'config.php';
+include '/opt/stateful/config/phvalheim-frontend.conf';
+#include 'config.php';
 
 #Get next available port. Returns the next available port(int).
 #function getNextPort($pdo, $basePort){

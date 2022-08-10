@@ -1,6 +1,7 @@
 <?php
 
-include '../includes/config.php';
+include '/opt/stateful/config/phvalheim-frontend.conf';
+#include '../includes/config.php';
 include '../includes/db_gets.php';
 
 if (!empty($_GET)) {

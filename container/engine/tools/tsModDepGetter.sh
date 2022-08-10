@@ -1,5 +1,5 @@
 #!/bin/bash
-source /opt/stateless/engine/includes/phvalheim.conf
+source /opt/stateful/config/phvalheim-backend.conf
 
 if [ ! $1 ]; then
 	echo "ERROR: World name wasn't provided, exiting..."

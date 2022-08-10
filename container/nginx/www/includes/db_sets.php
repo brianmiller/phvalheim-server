@@ -1,6 +1,7 @@
 <?php
 
-include 'config.php';
+include '/opt/stateful/config/phvalheim-frontend.conf';
+#include 'config.php';
 
 #return codes: 0=world created, 1=world failed to create, 2=world exists
 function addWorld($pdo,$new_world,$external_endpoint,$seed){

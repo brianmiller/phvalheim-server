@@ -1,5 +1,5 @@
 #!/bin/bash
-source /opt/stateless/engine/includes/phvalheim.conf
+source /opt/stateful/config/phvalheim-backend.conf
 
 if [ ! -d "$worldsDirectoryRoot" ]; then
         echo " Worlds directory Root missing, creating..."
@@ -16,10 +16,10 @@ if [ ! -d "$customModsDir" ]; then
         mkdir -p $customModsDir
 fi
 
-if [ ! -d "$logsDir" ]; then
-        echo "Logs directory missing, creating..."
-        mkdir -p $logsDir
-fi
+#if [ ! -d "$logsDir" ]; then
+#        echo "Logs directory missing, creating..."
+#        mkdir -p $logsDir
+#fi
 
 
 #prep perms

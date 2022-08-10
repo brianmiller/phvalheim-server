@@ -1,5 +1,6 @@
 <?php
-include '../includes/config.php';
+include '/opt/stateful/config/phvalheim-frontend.conf';
+#include '../includes/config.php';
 
 #from publicAuthenticated.php
 if (!empty($_GET['isAutoLoginDisabled'])) {

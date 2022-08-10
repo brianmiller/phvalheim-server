@@ -3,10 +3,14 @@
 echo
 echo "[NOTICE : phvalheim] Starting PhValheim engine..."
 echo "[phvalheim] Loading PhValheim engine config ['/opt/stateless/engine/phvalheim.conf']...";
-source /opt/stateless/engine/includes/phvalheim.conf
+
+#bootstrap out configs
+/opt/stateless/engine/tools/bootstrap.sh
+
+source /opt/stateful/config/phvalheim-backend.conf
 source /opt/stateless/engine/includes/0-functions.sh
 source /opt/stateless/engine/includes/1-waitfordatabase.sh
-source /opt/stateless/engine/includes/2-phvalheimprep.sh
+/opt/stateless/engine/tools/phvalheimprep.sh
 
 
 ####### BEGIN: Main loop #######

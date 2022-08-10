@@ -1,6 +1,5 @@
 #!/bin/bash
-source /opt/stateless/engine/includes/phvalheim.conf
-
+logsDir="/opt/stateful/logs"
 
 if [ ! -d "$logsDir" ]; then
         echo "Logs directory missing, creating..."
