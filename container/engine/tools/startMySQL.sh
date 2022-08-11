@@ -6,6 +6,8 @@ if [ ! -d "/opt/stateful/mysql" ]; then
 	mkdir -p /opt/stateful/mysql/data
 	mkdir -p /opt/stateful/mysql/temp
 	mkdir -p /opt/stateful/mysql/lc-messages
+        touch /opt/stateful/logs/mysqld.log
+	chown mysql:mysql /opt/stateful/logs/mysqld.log
 	chown -R mysql:mysql /opt/stateful/mysql
 	/usr/sbin/mysqld --initialize --init-file=/etc/mysql/init-file --user=mysql
 fi
