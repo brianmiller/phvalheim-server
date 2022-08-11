@@ -10,6 +10,7 @@ table="$1"
 column="$2"
 columnDef="$3"
 
+source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateful/config/phvalheim-backend.conf
 
 echo

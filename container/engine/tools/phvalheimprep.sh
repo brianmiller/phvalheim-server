@@ -1,4 +1,5 @@
 #!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateful/config/phvalheim-backend.conf
 
 if [ ! -d "$worldsDirectoryRoot" ]; then
@@ -16,6 +17,11 @@ if [ ! -d "$customModsDir" ]; then
         mkdir -p $customModsDir
 fi
 
+if [ ! -d "$tsWIP" ]; then
+	echo " Thunderstore WIP directory missing, creating..."
+	mkdir -p $tsWIP
+fi
+
 #if [ ! -d "$logsDir" ]; then
 #        echo "Logs directory missing, creating..."
 #        mkdir -p $logsDir
@@ -29,6 +35,7 @@ chown phvalheim: /opt/stateful/games
 chown phvalheim: /opt/stateful/logs
 chown mysql: /opt/stateful/mysql
 chown -R phvalheim: /tmp/dumps
+chown -R phvalheim: $tsWIP
 
 
 #world prep: ensure all worlds are in a stopped state (fresh PhValheim start)

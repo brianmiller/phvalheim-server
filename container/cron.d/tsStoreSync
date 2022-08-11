@@ -1,0 +1,1 @@
+0 */12 * * * phvalheim /opt/stateless/engine/tools/tsStoreSync.sh

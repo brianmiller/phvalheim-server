@@ -1,13 +1,4 @@
 #!/bin/bash
 
-function SQL(){
-        /usr/bin/mysql --skip-column-names -uroot --database=phvalheim -e "$1"
-}
-
-thunderstoreServiceAccount="PhValheim"
-thunderstoreToken="tss_GiXAEgYceHRFhGuJ2NehQbGyZJ5pIo38TYXJ"
 basePort=4000
 defaultSeed="szN8qp2lBn"
-worldsDirectoryRoot="/opt/stateful/games/valheim/worlds"
-tsModsDir="/opt/stateful/games/valheim/mods/ts"
-customModsDir="/opt/stateful/games/valheim/mods/custom"

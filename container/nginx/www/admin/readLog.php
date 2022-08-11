@@ -1,6 +1,5 @@
 <?php
 include '/opt/stateful/config/phvalheim-frontend.conf';
-#include '../includes/config.php';
 
 
 if (!empty($_GET['logfile'])) {

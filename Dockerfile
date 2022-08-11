@@ -24,13 +24,11 @@ RUN useradd phvalheim
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/stateful/games/steamcmd:/opt/stateless/engine:/opt/stateless/engine/tools:/opt/stateless/games/valheim/scripts
 
 #RUN and COPY
-RUN mkdir -p /opt/stateless/scripts
 RUN mkdir -p /opt/stateless/supervisor.d
 RUN mkdir -p /opt/stateless/nginx/www
 RUN mkdir -p /opt/stateless/engine
 RUN mkdir -p /tmp/dumps
 RUN touch /var/log/cron.log
-COPY container/scripts/ /opt/stateless/scripts/
 COPY container/supervisor.d/ /opt/stateless/supervisor.d/
 COPY container/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 COPY container/nginx/nginx.conf	/etc/nginx/nginx.conf
@@ -45,17 +43,11 @@ COPY container/php-fpm/php-fpm.conf /etc/php/7.4/fpm/php-fpm.conf
 COPY container/mysql/* /etc/mysql/
 COPY container/cron.d/* /etc/cron.d/
 
-RUN chmod +x /opt/stateless/scripts/*
 RUN chown -R phvalheim: /opt/stateless
 RUN chown -R phvalheim: /run/php
 
 #Enable PhValheim within NGINX
 RUN ln -s /etc/nginx/sites-available/phvalheim.conf /etc/nginx/sites-enabled/phvalheim
-
-#Set our custom environment vars.  These are for convenience when interacting with the console/shell.
-
-#Install and setup MariaDB
-#RUN /opt/stateless/scripts/setupMySQL.sh
 
 #Dooyet
 CMD ["/opt/stateless/engine/tools/startSupervisord.sh"]

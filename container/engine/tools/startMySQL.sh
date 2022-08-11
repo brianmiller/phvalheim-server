@@ -35,7 +35,7 @@ _term() {
 
 trap _term SIGTERM
 
-echo "Starting mysql FOOOOOOOOOOOOOOOOOOOOOO...";
+echo "Starting mysql...";
 /usr/bin/pidproxy /opt/stateful/mysql/mysqld.pid /usr/bin/mysqld_safe --log-error=/opt/stateful/logs/mysqld.log --init-file=/etc/mysql/init-file --user=mysql > /opt/stateful/logs/mysqld.log 2>&1 &
 
 child=$!

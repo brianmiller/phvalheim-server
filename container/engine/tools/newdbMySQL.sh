@@ -1,5 +1,6 @@
 #!/bin/bash
 
+source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateful/config/phvalheim-backend.conf
 
 
@@ -74,14 +75,12 @@ SQL "
 "
 }
 
+function tsStoreSeed () {
+	mysql phvalheim < /etc/mysql/tsmods_seed.sql 
+}
 
 echo "Creating PhValheim database..."
 newDB
-#addWorld
-#SQL "DESCRIBE worlds;"
-#SQL "DESCRIBE systemstats;"
-#SQL "SELECT user FROM mysql.user;"
 
-#echo
-#echo
-#SQL "SELECT * FROM worlds;"
+echo "Seeding database with Thunderstore stuff..."
+tsStoreSeed

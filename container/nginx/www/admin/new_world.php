@@ -1,9 +1,8 @@
 <?php
 
 include '/opt/stateful/config/phvalheim-frontend.conf';
-#include 'includes/config.php';
-include 'includes/db_sets.php';
-include 'includes/db_gets.php';
+include '../includes/db_sets.php';
+include '../includes/db_gets.php';
 
 
 function populateModList($pdo,$world) {
@@ -58,10 +57,10 @@ if (!empty($_POST)) {
 <!DOCTYPE HTML>
 <html>
 	<head>
-		<link rel="stylesheet" type="text/css" href="css/jquery.dataTables.css">
-		<script type="text/javascript" charset="utf8" src="js/jquery-3.6.0.js"></script>
-		<script type="text/javascript" charset="utf8" src="js/jquery.dataTables.js"></script>
-		<link rel="stylesheet" type="text/css" href="css/multicheckbox.css">
+		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
+		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
+		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
+		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css">
 
 		<script>
 			$(document).ready( function () {
