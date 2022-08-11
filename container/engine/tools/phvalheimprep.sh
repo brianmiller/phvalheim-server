@@ -22,18 +22,18 @@ if [ ! -d "$tsWIP" ]; then
 	mkdir -p $tsWIP
 fi
 
-#if [ ! -d "$logsDir" ]; then
-#        echo "Logs directory missing, creating..."
-#        mkdir -p $logsDir
-#fi
+if [ ! -d "$worldSupervisorConfigs" ]; then
+        echo " World supervisor config directory missing, creating..."
+        mkdir -p $worldSupervisorConfigs
+fi
 
 
 #prep perms
 useradd phvalheim > /dev/null 2>&1
 chown phvalheim: /opt/stateful
-chown phvalheim: /opt/stateful/games
-chown phvalheim: /opt/stateful/logs
-chown mysql: /opt/stateful/mysql
+chown -R phvalheim: /opt/stateful/games
+chown -R phvalheim: /opt/stateful/logs
+chown -R mysql:mysql /opt/stateful/mysql
 chown -R phvalheim: /tmp/dumps
 chown -R phvalheim: $tsWIP
 

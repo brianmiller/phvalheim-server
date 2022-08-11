@@ -69,15 +69,18 @@ while [ true ]; do
 					#resolve mod deps and install to local world context
 					downloadAndInstallTsModsForWorld "$worldName"
 
-	                                #Generate quick connect config
+	                                #generate quick connect config
 	                                createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
 
-					#packge the local world context into something usable for PhValheim clients
+					#package the local world context into something usable for PhValheim clients
 	                                packageClient "$worldName"
 	
-        	                        #Update the database to reflect new client pacakge version via MD5
+        	                        #update the database to reflect new client pacakge version via MD5
                 	                worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
                         	        setMD5 "$worldName" "$worldMD5"
+					
+					#create supervisor config file for this world
+					createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
 	                        
 				        SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"	
 			

@@ -149,6 +149,29 @@ function packageClient(){
 	return $?
 }
 
+#create supervisor config file for this world
+#$1=worldName, $2=worldPassword, $3=worldPort
+function createSupervisorWorldConfig() {
+	worldName="$1"
+	worldPassword="$2"
+	worldPort="$3"
+
+	echo "
+	[program:valheimworld_$worldName]
+	command=/opt/stateless/games/valheim/scripts/startWorld.sh $worldName $worldPassword $worldPort
+	user=root
+	autostart=false
+	autorestart=true
+	stdout_logfile=/opt/stateful/logs/valheimworld_$worldName.log
+	stdout_logfile_maxbytes=5242880
+	redirect_stderr=true
+	" > $worldSupervisorConfigs/valheimworld_$worldName.conf
+
+	/usr/bin/supervisorctl reread
+	/usr/bin/supervisorctl update
+
+}
+
 
 #$1=input file, returns md5sum
 function getMD5 (){
