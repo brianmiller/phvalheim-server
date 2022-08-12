@@ -102,6 +102,10 @@ while [ true ]; do
 	                                kill -9 $orphanedPID
 	                        done
 				rm -rf $worldsDirectoryRoot/$worldName
+			        
+				#delete supervisor config file for this world
+                                deleteSupervisorWorldConfig "$worldName"
+
 				SQL "DELETE FROM worlds WHERE name='$worldName'"
 			fi
 		fi

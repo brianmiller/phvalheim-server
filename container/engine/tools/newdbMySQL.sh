@@ -76,7 +76,7 @@ SQL "
 }
 
 function tsStoreSeed () {
-	mysql phvalheim < /etc/mysql/tsmods_seed.sql 
+	/usr/bin/mysql phvalheim < /etc/mysql/tsmods_seed.sql 
 }
 
 echo "Creating PhValheim database..."

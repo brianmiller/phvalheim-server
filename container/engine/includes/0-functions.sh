@@ -172,6 +172,15 @@ function createSupervisorWorldConfig() {
 
 }
 
+#delete supervisor config file for this world
+#$1=worldName
+function deleteSupervisorWorldConfig(){
+	worldName="$1"
+	rm $worldSupervisorConfigs/valheimworld_$worldName.conf
+	/usr/bin/supervisorctl reread
+	/usr/bin/supervisorctl update
+}
+
 
 #$1=input file, returns md5sum
 function getMD5 (){
