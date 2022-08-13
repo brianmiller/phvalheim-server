@@ -11,7 +11,7 @@ fi
 
 
 #echo
-echo "`date` [NOTICE: phvalheim] #### Mods detected for world '$world', running dependency checks, this could take a while... ####"
+echo "`date` [NOTICE : phvalheim] #### Mods detected for world '$world', running dependency checks, this could take a while... ####"
 
 
 worldMods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$world';")

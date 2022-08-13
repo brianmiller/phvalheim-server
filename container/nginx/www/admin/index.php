@@ -126,6 +126,11 @@ function populateTable($pdo,$phvalheimHost,$alias,$domain){
 				<td colspan=4 align=center>
 					<a href='new_world.php'><button>Add World</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='/supervisor/'><button>Service Management</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=phvalheim.log#bottom'><button>Engine Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=mysqld.log#bottom'><button>MySQL Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=php.log#bottom'><button>PHP Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=nginx.log#bottom'><button>NGINX Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=cron.log#bottom'><button>CRON Logs</button></a>
 				</td>
 			</form>
 		    </tfoot>
