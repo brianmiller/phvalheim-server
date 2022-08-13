@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Base UDP port to start incrementing from. 
-## Default is 4000
-basePort=4000
+## Default is 25000
+basePort=25000
 
 # Seed to use when not specified during world creation
 ## Default is szN8qp2lBn
