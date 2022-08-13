@@ -12,7 +12,7 @@ RUN apt-get -y upgrade
 
 #Basic tools
 RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip unzip supervisor curl vim jq wget language-pack-en rsync ca-certificates bc
-RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql cron inetutils-ping
+RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql cron inetutils-ping time
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk
 

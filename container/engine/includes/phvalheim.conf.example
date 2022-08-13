@@ -1,4 +1,14 @@
 #!/bin/bash
 
+# Base UDP port to start incrementing from. 
+## Default is 4000
 basePort=4000
+
+# Seed to use when not specified during world creation
+## Default is szN8qp2lBn
 defaultSeed="szN8qp2lBn"
+
+# This is the maximum number of backups to keep for each world. Backups run every 30 minutes.
+## FYI: lowering this will remove existing backups to meet the number specificed below
+### Default is 10
+backupsToKeep=10

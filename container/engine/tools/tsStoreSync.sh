@@ -2,11 +2,26 @@
 source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateful/config/phvalheim-backend.conf
 
-curl -X GET "https://valheim.thunderstore.io/api/v1/package/" -H  "accept: application/json" |jq '.[]' > json
+#PID stuff
+touch /tmp/tsSync.pid
+previousPID=$(cat /tmp/tsSync.pid)
+echo $$ > /tmp/tsSync.pid
+ps -p $previousPID > /dev/null 2>&1
+RESULT=$?
+if [ "$RESULT" = 0 ]; then
+	#echo
+	echo "`date` [WARN : phvalheim] A previous Thunderstore sync is running, killing..."
+	kill -9 $previousPID
+fi
 
-echo
-echo "Parsing JSON..."
-json=$(cat json)
+
+#echo
+echo "`date` [NOTICE : phvalheim] Downloading Thunderstore's Valheim database..."
+curl -s -X GET "https://valheim.thunderstore.io/api/v1/package/" -H  "accept: application/json" |jq '.[]' > $tsWIP/json
+
+
+echo "`date` [phvalheim] Mangling Thunderstore JSON..."
+json=$(cat $tsWIP/json)
 allMods=$(jq -r ".uuid4" <<<$json)
 
 
@@ -43,10 +58,10 @@ function toDatabase(){
 
 	existCheck=$(SQL "SELECT id FROM tsmods WHERE versionuuid='$ts_versionUUID';")
 	if [ -z $existCheck ]; then
-		echo "'$ts_versionUUID' does not exist in the database, adding..."
+		echo "`date` [phvalheim] '$ts_versionUUID' does not exist in the database, adding..."
 		SQL "INSERT INTO tsmods (owner,name,url,created,updated,moduuid,versionuuid,version,deps,version_date_created) VALUES ('$ts_owner','$ts_name','$ts_package_url','$ts_date_created','$ts_date_updated','$ts_uuid4','$ts_versionUUID','$ts_version','$ts_deps','$ts_version_date_created');"
 	else
-		echo "'$ts_versionUUID' already exists in database, updating..."
+		echo "`date` [phvalheim] '$ts_versionUUID' already exists in database, updating..."
 		SQL "UPDATE tsmods SET owner='$ts_owner',name='$ts_name',url='$ts_package_url',created='$ts_date_created',updated='$ts_date_updated',moduuid='$ts_uuid4',versionuuid='$ts_versionUUID',version='$ts_version',deps='$ts_deps',version_date_created='$ts_version_date_created' WHERE versionUUID='$ts_versionUUID';"
 
 	fi

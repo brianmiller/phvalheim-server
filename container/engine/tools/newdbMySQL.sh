@@ -68,19 +68,12 @@ SQL "
 }
 
 
-function addWorld () {
-SQL " 
-	INSERT INTO worlds (status,name,port,external_endpoint) VALUES ('Up','Thrudheim','4015','valheim.phospher.com');
-	INSERT INTO worlds (status,name,port,external_endpoint) VALUES ('Down','Bolverk','4002','valheim.phospher.com');
-"
-}
-
 function tsStoreSeed () {
 	/usr/bin/mysql phvalheim < /etc/mysql/tsmods_seed.sql 
 }
 
-echo "Creating PhValheim database..."
+echo "`date` [NOTICE : mysqld] Creating PhValheim database..."
 newDB
 
-echo "Seeding database with Thunderstore stuff..."
+echo "`date` [NOTICE : phalheim] Seeding database with Thunderstore stuff..."
 tsStoreSeed

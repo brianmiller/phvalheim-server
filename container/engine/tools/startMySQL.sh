@@ -26,18 +26,14 @@ chown -R mysql:phvalheim /var/run/mysqld
 chmod -R 770 /var/run/mysqld
 
 
-#trap 'echo "Supervisor stop detected for mysqld"' SIGTERM
-#/usr/bin/pidproxy /opt/stateful/mysql/mysqld.pid /usr/bin/mysqld_safe --log-error=/opt/stateful/logs/mysqld.log --init-file=/etc/mysql/init-file --user=mysql > /opt/stateful/logs/mysqld.log 2>&1
-
-
 _term() {
-  echo "Caught SIGTERM signal!"
+  echo "`date` [NOTICE : mysqld] Caught SIGTERM signal!"
   kill -TERM "$child" 2>/dev/null
 }
 
 trap _term SIGTERM
 
-echo "Starting mysql...";
+echo "`date` [NOTICE: mysqld] Starting mysql...";
 /usr/bin/pidproxy /opt/stateful/mysql/mysqld.pid /usr/bin/mysqld_safe --log-error=/opt/stateful/logs/mysqld.log --init-file=/etc/mysql/init-file --user=mysql > /opt/stateful/logs/mysqld.log 2>&1 &
 
 child=$!

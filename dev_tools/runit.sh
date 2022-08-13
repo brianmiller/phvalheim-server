@@ -11,4 +11,5 @@ podman create \
 	       -p '7777:9001/tcp' \
 	       -p '4000-5000:4000-5000/udp' \
 	       -v '/home/brian/Development/docker/phvalheim-server/running_container/':'/opt/stateful':Z \
+	       -v '/tmp/test_backups/':'/opt/stateful/backups':Z \
 	        localhost/phvalheim

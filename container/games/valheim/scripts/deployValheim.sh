@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ ! $1 ] || [ ! $2 ]; then
-	echo "ERROR: Missing arguments, exiting..."
+	echo "`date` [ERROR : phvalheim] Missing arguments, exiting..."
 	echo " Example: ./deployValheim.sh \"world_name\" \"world_seed\""
 	exit 1
 else
@@ -17,9 +17,9 @@ function InstallAndUpdateBepInEx() {
 	installed_version=$(cat /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt 2> /dev/null)
 	
 	if [ "$latest_version" == "$installed_version" ]; then
-	        echo "BepInEx is up-to-date."
+	        echo "`date` [phvalheim] BepInEx is up-to-date."
 	else
-	        echo "BepInEx is out-of-date and will be updated..."
+	        echo "`date` [NOTICE : phvalheim] BepInEx is out-of-date and will be updated..."
 	        curl -sfSL $download_url --output /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip
 	        unzip /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip "BepInExPack_Valheim/*" -d "/opt/stateful/games/valheim/worlds/$worldName/game"
 	        rm /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip
@@ -32,9 +32,9 @@ function InstallAndUpdateBepInEx() {
 
 function InstallCustomSeed() {
 	if [ ! -f "/opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll" ]; then
-	        echo "CustomSeed.dll is missing, installing..."
+	        echo "`date` [phvalheim] CustomSeed.dll is missing, installing..."
 	        if [ ! -f "/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll" ]; then
-	                echo "Install source for CustomSeed.dll is missing from '/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll', exiting..."
+	                echo "`date` [ERROR : phvalheim] Install source for CustomSeed.dll is missing from '/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll', exiting..."
 	                exit 1
 	        else
 	                mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/plugins/ZeroBandwidth-CustomSeed
@@ -65,7 +65,7 @@ function InstallAndUpdateValheim() {
 	fi
 
 	#Install Valheim once Steam is installed
-	echo "Installing and/or checking for Valheim updates..."
+	echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
 	/opt/stateful/games/steamcmd/steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit
 }
 

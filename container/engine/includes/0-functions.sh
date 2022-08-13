@@ -43,26 +43,26 @@ function downloadAndInstallTsModsForWorld(){
 		modName=$(SQL "SELECT name FROM tsmods WHERE moduuid='$worldMod' LIMIT 1;")
 		modVersionLatest=$(SQL "SELECT version FROM tsmods WHERE moduuid='$worldMod' ORDER BY version_date_created DESC LIMIT 1;"|sed 's/"//g')
 
-		echo
-		echo "World '$worldName' wants the following mods: "
-		echo " Name: $modName"
-		echo " Author: $modAuthor"
-		echo " UUID: $worldMod"
-		echo " Latest Version: $modVersionLatest"
+		#echo
+		echo "`date` [phvalheim] World '$worldName' wants the following mods: "
+		echo "`date` [phvalheim]  Name: $modName"
+		echo "`date` [phvalheim]  Author: $modAuthor"
+		echo "`date` [phvalheim]  UUID: $worldMod"
+		echo "`date` [phvalheim]  Latest Version: $modVersionLatest"
 
 		modDownloadUrl="https://valheim.thunderstore.io/package/download/$modAuthor/$modName/$modVersionLatest"
-		echo " Download URL: $modDownloadUrl"
+		echo "`date` [phvalheim]  Download URL: $modDownloadUrl"
 
 		modFileConstructed="$modAuthor-$modName-$modVersionLatest.zip"
 		if [ ! -f $tsModsDir/$modFileConstructed ]; then
-			echo "  #### Downloading $modFileConstructed from Thunderstore... ####"
+			echo "`date` [phvalheim]   #### Downloading $modFileConstructed from Thunderstore... ####"
 			wget -q --show-progress -O $tsModsDir/$modFileConstructed $modDownloadUrl
 			
 		else
-			echo "  #### $modFileConstructed already exists in local repository, using it... ####"
+			echo "`date` [phvalheim]   #### $modFileConstructed already exists in local repository, using it... ####"
 		fi
 
-		echo "   #### Installing... ####"
+		echo "`date` [phvalheim]    #### Installing... ####"
 
                 #BepInEx is special
                 rm -rf /tmp/BepInEx_tmp
@@ -90,8 +90,8 @@ function downloadAndInstallTsModsForWorld(){
 		unzip -j -o $tsModsDir/$modFileConstructed patchers/* -d $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/$modName/ > /dev/null 2>&1
 	done 
 
-	echo
-	echo "Mods download and installation sequence complete. Note: This does NOT indicate success."
+	#echo
+	echo "`date` [NOTICE : phvalheim] Mods download and installation sequence complete. Note: This does NOT indicate success."
 	
 
 	#Remove empty directories
@@ -131,8 +131,8 @@ function createQuickConnectConfig(){
 #$1=worldName
 function packageClient(){
 
-	echo ""
-	echo "Building PhValheim client payload..."
+	#echo ""
+	echo "`date` [NOTICE : phvalheim] Building PhValheim client payload..."
 
 	worldName="$1"
 
@@ -193,7 +193,7 @@ function setMD5 (){
 	worldName="$1"
 	worldMD5="$2"
 
-	echo "Setting world md5sum for '$worldName' to '$worldMD5'"
+	echo "`date` [NOTICE : phvalheim] Setting world md5sum for '$worldName' to '$worldMD5'"
 	SQL "UPDATE worlds SET world_md5='$worldMD5' WHERE name='$worldName';"
 }
 

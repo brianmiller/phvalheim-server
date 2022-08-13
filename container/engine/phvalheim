@@ -1,8 +1,8 @@
 #!/bin/bash
 
 echo
-echo "[NOTICE : phvalheim] Starting PhValheim engine..."
-echo "[phvalheim] Loading PhValheim engine config ['/opt/stateless/engine/phvalheim.conf']...";
+echo "`date` [NOTICE : phvalheim] Starting PhValheim engine..."
+echo "`date` [phvalheim] Loading PhValheim engine config ['/opt/stateless/engine/phvalheim.conf']...";
 
 #bootstrap out configs
 /opt/stateless/engine/tools/bootstrap.sh
@@ -33,7 +33,7 @@ while [ true ]; do
 		if [ "$worldMode" = "stopped" ]; then
 			orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
 			for orphanedPID in $orphanedPIDs; do
-				echo "Murdering orphaned PID: $orphanedPID"
+				echo "`date` [WARN: phvalheim] Murdering orphaned PID: $orphanedPID"
 				kill -9 $orphanedPID
 			done
 		fi
@@ -45,25 +45,25 @@ while [ true ]; do
 
 
 		if [ "$worldMode" = "create" ]; then
-			echo "[NOTICE : phvalheim] New world '$worldName' detected, creating..."
+			echo "`date` [NOTICE : phvalheim] New world '$worldName' detected, creating..."
 			SQL "UPDATE worlds SET mode='creating' WHERE name='$worldName'"
 			if [ ! -d "$worldsDirectoryRoot/$worldName" ]; then
-				echo "[NOTICE : phvalheim] Worlds directory for '$worldName' is missing, creating..."
+				echo "`date` [NOTICE : phvalheim] Worlds directory for '$worldName' is missing, creating..."
 
 				#get next availble port
 				worldPort=$(getNextPort)
 				SQL "UPDATE worlds SET port='$worldPort' WHERE name='$worldName'"
 
 				mkdir -p $worldsDirectoryRoot/$worldName/game
-				echo "[NOTICE : phvalheim] Deploying new world '$worldName'..."
+				echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
 				chown -R phvalheim: $worldsDirectoryRoot/$worldName
 				su phvalheim -c "bash /opt/stateless/games/valheim/scripts/deployValheim.sh $worldName $worldSeed"
 				RESULT=$?
 				if [ $RESULT = 0 ]; then
-					echo "[NOTICE : phvalheim] World '$worldName' successfully created..."
+					echo "`date` [NOTICE : phvalheim] World '$worldName' successfully created..."
 					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 			
-					echo "[NOTICE : phvalheim] Checking for required mods..."
+					echo "`date` [NOTICE : phvalheim] Checking for required mods..."
 					SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
 					#resolve mod deps and install to local world context
@@ -85,20 +85,20 @@ while [ true ]; do
 				        SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"	
 			
 				else
-					echo "[FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
+					echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
 					SQL "DELETE FROM worlds WHERE name='$worldName'"
 				fi
 			fi
 		fi
 
 		if [ "$worldMode" = "delete" ]; then
-			echo "[WARN : phvalheim] Delete command received for world '$worldName':"
+			echo "`date` [WARN : phvalheim] Delete command received for world '$worldName':"
 			worldNameLength=$(echo "$worldName"|wc -c)
 			if [ $worldNameLength -gt 1 ]; then
-				echo "[WARN : phvalheim] Deleting world '$worldName'..."
+				echo "`date` [WARN : phvalheim] Deleting world '$worldName'..."
 	                        orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
 	                        for orphanedPID in $orphanedPIDs; do
-	                                echo "[WARN : phvalheim] Murdering orphaned PID: $orphanedPID"
+	                                echo "`date` [WARN : phvalheim] Murdering orphaned PID: $orphanedPID"
 	                                kill -9 $orphanedPID
 	                        done
 				rm -rf $worldsDirectoryRoot/$worldName
@@ -111,14 +111,14 @@ while [ true ]; do
 		fi
 
                 if [ "$worldMode" = "stop" ]; then
-			echo "[NOTICE : phvalheim] Stop command received for world '$worldName':"
+			echo "`date` [NOTICE : phvalheim] Stop command received for world '$worldName':"
 			#worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")	
 			#ps -p $worldPID > /dev/null 2>&1
 			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
                         worldPID_status=$?
 			if [ $? = 0 ]; then
 				SQL "UPDATE worlds SET mode='stopping' WHERE name='$worldName'"
-				echo "[NOTICE : phvalheim] Stopping world '$worldName'..."
+				echo "`date` [NOTICE : phvalheim] Stopping world '$worldName'..."
 				/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
 				
                                 #list_descendants (){
@@ -131,7 +131,7 @@ while [ true ]; do
 
                                 #kill -INT $(list_descendants $worldPID)
 			else
-				echo "[WARN : phvalheim] World '$worldName' doesn't appear to be running..."
+				echo "`date` [WARN : phvalheim] World '$worldName' doesn't appear to be running..."
 				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 			fi
 
@@ -142,32 +142,33 @@ while [ true ]; do
 				let killLoop=killLoop+1
 				ps -p $worldPID > /dev/null 2>&1
 	                        if [ ! $? = 0 ]; then
-	                                echo "[NOTICE : phvalheim] World '$worldName' successfully stopped."
+	                                echo "`date` [NOTICE : phvalheim] World '$worldName' successfully stopped."
 					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 					break
 				else
-					echo "[WARN : phvalheim] World '$worldName' did not stop in the allowed time of 10 seconds. The world may still stop soon. You should probably check this..."
+					echo "`date` [WARN : phvalheim] World '$worldName' did not stop in the allowed time of 10 seconds. The world may still stop soon. You should probably check this..."
 	                        fi
 			done
 		
 		fi
 
 		if [ "$worldMode" = "start" ]; then
-			echo "[NOTICE : phvalheim] Start command recieved for world '$worldName':"
+			echo "`date` [NOTICE : phvalheim] Start command recieved for world '$worldName':"
+			#echo
 
 			#worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")
 			#ps -p $worldPID > /dev/null 2>&1
 			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 			worldPID_status=$?
 			if [ $worldPID_status = 0 ]; then
-				echo "[WARN : phvalheim] World '$worldName' is already running..."
+				echo "`date` [WARN : phvalheim] World '$worldName' is already running..."
 				SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
 			else
 				SQL "UPDATE worlds SET mode='starting' WHERE name='$worldName'"
 				#su phvalheim -c "/opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort" &
 				/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
 				if [ $? != 0 ]; then
-					echo "[ERROR : phvalheim] ERROR: Could not start world '$worldName', exiting..."
+					echo "`date` [ERROR : phvalheim] ERROR: Could not start world '$worldName', exiting..."
 					exit 1
 				fi
 
@@ -176,7 +177,7 @@ while [ true ]; do
 				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 				worldPID_status=$?		
 				while [ $worldPID_status != 0 ]; do
-					echo "[NOTICE : phvalheim] Waiting for world '$worldName' to start..."
+					echo "`date` [NOTICE : phvalheim] Waiting for world '$worldName' to start..."
 					sleep 2
 					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 					#worldPID=$(ps -ef |grep "sh -c /opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort"|grep -v grep|tr -s " "|cut -d " " -f2|tail -1)
@@ -188,24 +189,24 @@ while [ true ]; do
 				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
                                 worldPID_status=$?	
 				if [ $worldPID_status = 0 ]; then
-					echo "[NOTICE : phvalheim] World '$worldName' has started!"
+					echo "`date` [NOTICE : phvalheim] World '$worldName' has started!"
 					#SQL "UPDATE worlds SET pid='$worldPID' WHERE name='$worldName'"
 					SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
 				else
-					echo "World '$worldName' wasn't able to start, exiting..."
+					echo "`date` World '$worldName' wasn't able to start, exiting..."
 					SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
 				fi
 			fi
 		fi
 
 		if [ "$worldMode" = "update" ]; then
-			echo "[NOTICE : phvalheim] Update command recieved for world '$worldName':"
+			echo "`date` [NOTICE : phvalheim] Update command recieved for world '$worldName':"
 	                worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")
                         ps -p $worldPID > /dev/null 2>&1
                         if [ $? = 0 ]; then
-                                echo "[WARN : phvalheim] World '$worldName' is running. Stop the world before updating..."
+                                echo "`date` [WARN : phvalheim] World '$worldName' is running. Stop the world before updating..."
 			else
-				echo "[NOTICE : phvalheim] Updating world..."
+				echo "`date` [NOTICE : phvalheim] Updating world..."
 				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
 				#Update Steam

@@ -9,7 +9,7 @@
 #fi
 
 if [ ! $1 ] || [ ! $2 ] || [ ! $3 ]; then
-        echo "ERROR: Missing arguments..."
+        echo "`date` [ERROR : phvalheim] Missing arguments..."
         echo " Example: startWorld.sh \"world_name\" \"world_password\" \"world_port\""
         exit 1
 else
@@ -20,11 +20,11 @@ fi
 
 
 echo ""
-echo "[NOTICE : phvalheim] World start command received: "
-echo "[phvalheim]  Time: `date`"
-echo "[phvalheim]  World: $worldName"
-echo "[phvalheim]  Password: $worldPassword"
-echo "[phvalheim]  Port: $worldPort/udp"
+echo "`date` [NOTICE : phvalheim] World start command received: "
+echo "`date` [phvalheim]  Time: `date`"
+echo "`date` [phvalheim]  World: $worldName"
+echo "`date` [phvalheim]  Password: $worldPassword"
+echo "`date` [phvalheim]  Port: $worldPort/udp"
 echo ""
 
 cd /opt/stateful/games/valheim/worlds/$worldName/game

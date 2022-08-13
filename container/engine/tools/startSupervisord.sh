@@ -2,7 +2,7 @@
 logsDir="/opt/stateful/logs"
 
 if [ ! -d "$logsDir" ]; then
-        echo "Logs directory missing, creating..."
+        echo "`date` [NOTICE : phvalheim] Logs directory missing, creating..."
         mkdir -p $logsDir
 fi
 
