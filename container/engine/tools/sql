@@ -11,7 +11,7 @@ fi
 
 #pull in PhValheim's config
 source /opt/stateless/engine/includes/phvalheim-static.conf
-source /opt/stateful/config/phvalheim-backend.conf
+#source /opt/stateful/config/phvalheim-backend.conf
 
 #A simple tool to query PhValheim's database.
 if [ "$1" = "worlds" ]; then

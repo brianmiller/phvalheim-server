@@ -1,6 +1,6 @@
 #!/bin/bash
 source /opt/stateless/engine/includes/phvalheim-static.conf
-source /opt/stateful/config/phvalheim-backend.conf
+#source /opt/stateful/config/phvalheim-backend.conf
 
 if [ ! -d "$worldsDirectoryRoot" ]; then
         echo "`date` [NOTICE : phvalheim] Worlds directory Root missing, creating..."

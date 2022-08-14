@@ -1,6 +1,7 @@
 <?php
 
-include '/opt/stateful/config/phvalheim-frontend.conf';
+include '/opt/stateless/nginx/www/includes/config_env_puller.php';
+include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
 
@@ -35,7 +36,7 @@ if (!empty($_POST)) {
   $custom_mods = $_POST['custom_mods'];
 
   #Add new world to database
-  $addWorld = addWorld($pdo,$world,"$alias.$domain",$seed);
+  $addWorld = addWorld($pdo,$world,$gameDNS,$seed);
   if ($addWorld == 0) {
 	$msg = "World '$world' created...";
 	foreach ($thunderstore_mods as $mod) {

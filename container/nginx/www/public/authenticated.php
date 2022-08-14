@@ -1,7 +1,8 @@
 <?php
 
 require_once '../vendor/autoload.php';
-include '/opt/stateful/config/phvalheim-frontend.conf';
+include '/opt/stateless/nginx/www/includes/config_env_puller.php';
+include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_gets.php';
 include '../includes/db_sets.php';
 

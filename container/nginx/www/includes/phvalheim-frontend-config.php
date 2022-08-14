@@ -5,20 +5,6 @@
 $pdo = new PDO('mysql:host=localhost;dbname=phvalheim', 'phvalheim_user', 'phvalheim_secretpassword');
 
 
-#Global configs
-$phvalheimHost = "phvalheim-dev.phospher.com";
-$gameDNS = "valheim.phospher.com"; //the dns hostname that your clients will connect to
-$basePort = 25000; //the port we start incrementing from
-$alias = "valheim"; //this is DNS CNAME record that will be our external endpoint (outside interface of inbound NAT, multi-level NATs are ok.)
-$domain = "phospher.com"; //our domain
-$phvalheimClientURL = "https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe";
-
-
-#Google Auth configs
-$googleClientId = "756055221455-0hts3eg5c1ukht4c2t4j66a8ao0uc84a.apps.googleusercontent.com";
-$googleAutoLogin = "true";
-
-
 #Log configs
 #Log exclusions are insensitive
 $logExclusions = array(

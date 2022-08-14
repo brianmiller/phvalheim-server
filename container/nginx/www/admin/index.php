@@ -1,5 +1,6 @@
 <?php
-include '/opt/stateful/config/phvalheim-frontend.conf';
+include '/opt/stateless/nginx/www/includes/config_env_puller.php';
+include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 
 
@@ -27,7 +28,7 @@ if (!empty($_GET['update_world'])) {
         header('Location: /admin/');
 }
 
-function populateTable($pdo,$phvalheimHost,$alias,$domain){
+function populateTable($pdo,$phvalheimHost,$gameDNS){
 	$getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint FROM worlds");
 	foreach($getWorlds as $row)
 	{
@@ -38,7 +39,7 @@ function populateTable($pdo,$phvalheimHost,$alias,$domain){
 		$password = "hammertime";
 		#$password = $row['password'];
 		$external_endpoint = $row['external_endpoint'];
-		$launchString = base64_encode("launch?$world?$password?$alias.$domain?$port?$phvalheimHost");
+		$launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost");
 		#$logsLink = "<a href='/readLog.php?logfile=valheimworld_$world.log'>Logs</a>";
 
 		$logsLink = "<a href=\"#\" onClick=\"window.open('/admin/readLog.php?logfile=valheimworld_$world.log','logReader','resizable,height=750,width=1600'); return false;\">Logs</a><noscript>You need Javascript to use the previous link or use <a href=\"/admin/readLog.php?logfile=valheimworld_$world.log\" target=\"_blank\" rel=\"noreferrer noopener\">Logs</a></noscript>";
@@ -119,7 +120,7 @@ function populateTable($pdo,$phvalheimHost,$alias,$domain){
 		        </tr>
 		    </thead>
 		    <tbody>
-			<?php populateTable($pdo,$phvalheimHost,$alias,$domain); ?>
+			<?php populateTable($pdo,$phvalheimHost,$gameDNS); ?>
 		    </tbody>
 		    <tfoot>
 			<form>

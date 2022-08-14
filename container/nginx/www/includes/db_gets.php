@@ -1,25 +1,8 @@
 <?php
 
-include '/opt/stateful/config/phvalheim-frontend.conf';
-#include 'config.php';
+include '/opt/stateless/nginx/www/includes/config_env_puller.php';
+include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
-#Get next available port. Returns the next available port(int).
-#function getNextPort($pdo, $basePort){
-#	$sth = $pdo->prepare("SELECT port FROM worlds");
-#	$sth->execute();
-#	$portExcludes = $sth->fetchAll(PDO::FETCH_COLUMN);
-#	$port = $basePort;
-
-#	$in_array = in_array($port,$portExcludes,true);
-#	while ($in_array){
-#		$port++;
-#		$in_array = array_search($port,$portExcludes,true);
-#	}
-
-#	return $port;
-#}
-
-#$getNextPort = getNextPort($pdo,$basePort);
 
 function getAllModUUIDs($pdo) {
 	$sth = $pdo->query("SELECT moduuid FROM tsmods;");

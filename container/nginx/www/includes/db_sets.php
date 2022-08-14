@@ -1,7 +1,7 @@
 <?php
 
-include '/opt/stateful/config/phvalheim-frontend.conf';
-#include 'config.php';
+include '/opt/stateless/nginx/www/includes/config_env_puller.php';
+include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
 #return codes: 0=world created, 1=world failed to create, 2=world exists
 function addWorld($pdo,$new_world,$external_endpoint,$seed){

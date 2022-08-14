@@ -1,6 +1,6 @@
 <?php
-include '/opt/stateful/config/phvalheim-frontend.conf';
-
+include '/opt/stateless/nginx/www/includes/config_env_puller.php';
+include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
 if (!empty($_GET['logfile'])) {
         $logFile = $_GET['logfile'];

@@ -1,6 +1,6 @@
 #!/bin/bash
 source /opt/stateless/engine/includes/phvalheim-static.conf
-source /opt/stateful/config/phvalheim-backend.conf
+#source /opt/stateful/config/phvalheim-backend.conf
 
 if [ ! $1 ]; then
 	echo "`date` [ERROR : phvalheim] World name wasn't provided, exiting..."

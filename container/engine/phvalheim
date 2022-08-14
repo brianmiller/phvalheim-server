@@ -2,15 +2,25 @@
 
 echo
 echo "`date` [NOTICE : phvalheim] Starting PhValheim engine..."
-echo "`date` [phvalheim] Loading PhValheim engine config ['/opt/stateless/engine/phvalheim.conf']...";
+echo "`date` [NOTICE : phvalheim] Loading PhValheim variables from environment...";
+echo "`date` [NOTICE : phvalheim] basePort: $basePort";
+echo "`date` [NOTICE : phvalheim] defaultSeed: $defaultSeed";
+echo "`date` [NOTICE : phvalheim] backupsToKeep: $backupsToKeep";
+echo "`date` [NOTICE : phvalheim] Game DNS: $gameDNS";
+echo "`date` [NOTICE : phvalheim] PhValheim Host: $phvalheimHost";
+echo "`date` [NOTICE : phvalheim] PhValheim Client URL: $phvalheimClientURL";
+echo "`date` [NOTICE : phvalheim] Google Client ID: $googleClientId";
+echo "`date` [NOTICE : phvalheim] Google Auto Login: $googleAutoLogin";
 
-#bootstrap out configs
-/opt/stateless/engine/tools/bootstrap.sh
 
+#load configs
 source /opt/stateless/engine/includes/phvalheim-static.conf
-source /opt/stateful/config/phvalheim-backend.conf
 source /opt/stateless/engine/includes/0-functions.sh
-source /opt/stateless/engine/includes/1-waitfordatabase.sh
+
+#wait for database
+/opt/stateless/engine/includes/1-waitfordatabase.sh
+
+#prep directories and filesystem
 /opt/stateless/engine/tools/phvalheimprep.sh
 
 
