@@ -99,7 +99,7 @@ if (!empty($_POST['google_id_token'])) { //if a google auth jwt token is passed
 		$isAuthenticated = false;
 	  print "You have attempt to login with an invalid Google auth token or ID.<br>"; //invalid token
 	  print "You are being redirected to the login page in 3 seconds...<br>";
-	  header('Refresh: 3; url=google.php?isAutoLoginDisabled=true');
+	  header('Refresh: 3; url=index.php?isAutoLoginDisabled=true');
 	}
 } else {
 	header('Location: ../index.php');
