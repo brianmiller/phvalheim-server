@@ -29,7 +29,7 @@ if (!empty($_GET['update_world'])) {
 }
 
 function populateTable($pdo,$phvalheimHost,$gameDNS){
-	$getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint FROM worlds");
+	$getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed FROM worlds");
 	foreach($getWorlds as $row)
 	{
 		$status = $row['status'];
@@ -39,6 +39,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 		$password = "hammertime";
 		#$password = $row['password'];
 		$external_endpoint = $row['external_endpoint'];
+		$seed = $row['seed'];
 		$launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost");
 		#$logsLink = "<a href='/readLog.php?logfile=valheimworld_$world.log'>Logs</a>";
 
@@ -72,6 +73,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 		echo "    <td>$mode</td>";
 		echo "    <td>$world</td>";
 		echo "    <td>$external_endpoint:$port</td>";
+		echo "	  <td>$seed</td>";
 		echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink | $updateLink | $deleteLink</td>";
 		echo "</tr>";
 	}
@@ -116,6 +118,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 			    <th>Engine Mode</th>
 			    <th>World</th>
 			    <th>External Endpoint</th>
+			    <th>Seed</th>
 			    <th>Controls</th>
 		        </tr>
 		    </thead>

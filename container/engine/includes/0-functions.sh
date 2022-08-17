@@ -179,6 +179,11 @@ function installCustomModsConfigsPatchers() {
 	cp -prf $customModsSourceDir/* $worldModsDestDir/. > /dev/null 2>&1
 	cp -prf $customConfigsSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
 	cp -prf $customPatchersSourceDir/* $worldPatchersDestDir/. > /dev/null 2>&1
+
+	chown -R phvalheim:phvalheim $customModsSourceDir
+	chown -R phvalheim:phvalheim $customConfigsSourceDir
+	chown -R phvalheim:phvalheim $customPatchersSourceDir
+
 }
 
 
