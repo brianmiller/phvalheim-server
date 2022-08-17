@@ -16,13 +16,13 @@ function populateModList($pdo,$world) {
 		if ($modExistCheck) {
 			print "<tr>";
 			print "<td><li><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked/></input></li></td>\n";
-			print "<td>$modOwner";
 			print "<td>$modName";
+			print "<td>$modOwner";
 		} else {
 			print "<tr>";
 			print "<td><li><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' /></input></li></td>\n";
-			print "<td>$modOwner";
 			print "<td>$modName";
+			print "<td>$modOwner";
 		}
         }
 }
@@ -83,8 +83,8 @@ if(isset($_POST['submit'])) {
         	                        <span class="anchor">Mods</span>
 	                                <ul class="items">
 				   		<table border=1>
-						     <th colspan=2>Mod Author</th>
-						     <th>Mod Name</th>
+						     <th colspan=2>Mod Name</th>
+						     <th>Mod Author</th>
 	                        	                <?php populateModList($pdo,$world); ?>
 						</table>
 	                                </ul>
