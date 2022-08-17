@@ -132,6 +132,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=php.log#bottom'><button>PHP Logs</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=nginx.log#bottom'><button>NGINX Logs</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=cron.log#bottom'><button>CRON Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button>File Browser</button></a>
 				</td>
 			</form>
 		    </tfoot>
