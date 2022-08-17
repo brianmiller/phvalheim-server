@@ -46,14 +46,14 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 
 
 		if ($mode == 'stopped') {
-			$editLink = "<a disabled href='edit_world.php?world=$world'>Edit</a>";
+			$editLink = "<a disabled href='edit_world.php?world=$world'>Edit Mods</a>";
 			$startLink = "<a href='?start_world=$world'>Start</a>";
 			$stopLink = "<font color=lightgrey>Stop</font>";
 			$deleteLink = "<a href='?delete_world=$world'>Delete</a>";
 			$updateLink = "<a href='?update_world=$world'>Update</a>";
 			$launchLink = "<font color=lightgrey>Launch</font>";
 		} else {
-			$editLink = "<font color=lightgrey>Edit</font>";
+			$editLink = "<font color=lightgrey>Edit Mods</font>";
 			$startLink = "<font color=lightgrey>Start</font>";
 			$deleteLink = "<font color=lightgrey>Delete</font>";
 			$stopLink = "<font color=lightgrey>Stop</font>";
