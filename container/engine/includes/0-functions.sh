@@ -158,7 +158,7 @@ function installCustomModsConfigsPatchers() {
 	customPatchersSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_patchers"
 
 	worldModsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/plugins"
-	worldConfigsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/configs"
+	worldConfigsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/config"
 	worldPatchersDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/patchers"
 
 	if [ ! -d $customModsSourceDir ]; then
@@ -176,9 +176,9 @@ function installCustomModsConfigsPatchers() {
                 mkdir -p $customPatchersSourceDir
         fi
 
-	cp -prf $customModsSourceDir/* $worldModsDestDir/.
-	cp -prf $customConfigsSourceDir/* $worldConfigsDestDir/.
-	cp -prf $customPatchersSourceDir/* $worldPatchersDestDir/.
+	cp -prf $customModsSourceDir/* $worldModsDestDir/. > /dev/null 2>&1
+	cp -prf $customConfigsSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
+	cp -prf $customPatchersSourceDir/* $worldPatchersDestDir/. > /dev/null 2>&1
 }
 
 
