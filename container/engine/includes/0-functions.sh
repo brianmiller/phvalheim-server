@@ -33,7 +33,7 @@ function purgeWorldModsConfigsPatchers(){
 	fi
 
 	rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/plugins/*
-	rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/configs/*
+	rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/config/*
 	rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/*
 }
 
