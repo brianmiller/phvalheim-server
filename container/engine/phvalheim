@@ -76,8 +76,15 @@ while [ true ]; do
 					echo "`date` [NOTICE : phvalheim] Checking for required mods..."
 					SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
+
+					#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
+					purgeWorldModsConfigsPatchers "$worldName"
+
 					#resolve mod deps and install to local world context
 					downloadAndInstallTsModsForWorld "$worldName"
+
+					#Install custom mods and config
+					installCustomModsConfigsPatchers "$worldName"
 
 	                                #generate quick connect config
 	                                createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
@@ -222,8 +229,14 @@ while [ true ]; do
 				#Update Steam
 				#Update Valheim
 
+				#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
+				purgeWorldModsConfigsPatchers "$worldName"
+
 				#Install mods
 				downloadAndInstallTsModsForWorld "$worldName"
+
+				#Install custom mods and config
+				installCustomModsConfigsPatchers "$worldName"
 
 				#Generate quick connect config
 				createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"

@@ -18,6 +18,24 @@ function getNextPort(){
         echo $port
 }
 
+#$1=world name
+function purgeWorldModsConfigsPatchers(){
+	worldName="$1"
+
+	if [ -z $worldsDirectoryRoot ]; then
+		echo "`date` [ERROR : phvalheim] Main worlds root directory missing, this is fatal. Exiting..."
+		break
+	fi
+
+	if [ -z $worldName ]; then
+		echo "`date` [ERROR : phvalheim] World name not specificed during purge, can't continue..."
+		break
+	fi
+
+	rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/plugins/*
+	rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/configs/*
+	rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/*
+}
 
 #$1=world name
 function downloadAndInstallTsModsForWorld(){
@@ -127,6 +145,42 @@ function createQuickConnectConfig(){
 
 	echo "$worldName:$worldHost:$worldPort:$worldPassword" > /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/config/quick_connect_servers.cfg
 }
+
+
+#$1=worldName
+function installCustomModsConfigsPatchers() {
+	echo "`date` [NOTICE : phvalheim] Installing custom mods, configs, and patchers..."
+
+	worldName="$1"
+
+	customModsSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_mods"
+	customConfigsSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_configs"
+	customPatchersSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_patchers"
+
+	worldModsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/plugins"
+	worldConfigsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/configs"
+	worldPatchersDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/patchers"
+
+	if [ ! -d $customModsSourceDir ]; then
+		echo "`date` [phvalheim] Custom mods source directory for this world is missing, creating..."
+		mkdir -p $customModsSourceDir
+	fi
+
+        if [ ! -d $customConfigsSourceDir ]; then
+                echo "`date` [phvalheim] Custom configs source directory for this world is missing, creating..."
+                mkdir -p $customConfigsSourceDir
+        fi
+
+        if [ ! -d $customPatchersSourceDir ]; then
+                echo "`date` [phvalheim] Custom patchers source directory for this world is missing, creating..."
+                mkdir -p $customPatchersSourceDir
+        fi
+
+	cp -prf $customModsSourceDir/* $worldModsDestDir/.
+	cp -prf $customConfigsSourceDir/* $worldConfigsDestDir/.
+	cp -prf $customPatchersSourceDir/* $worldPatchersDestDir/.
+}
+
 
 #$1=worldName
 function packageClient(){

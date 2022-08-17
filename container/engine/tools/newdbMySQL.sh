@@ -18,7 +18,6 @@ SQL "
 	seed TEXT,\
 	thunderstore_mods TEXT,\
 	thunderstore_mods_all TEXT,\
-	custom_mods TEXT,\
 	status TEXT,\
 	mode TEXT,\
 	pid TEXT,\

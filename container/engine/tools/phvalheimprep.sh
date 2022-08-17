@@ -12,11 +12,6 @@ if [ ! -d "$tsModsDir" ]; then
         mkdir -p $tsModsDir
 fi
 
-if [ ! -d "$customModsDir" ]; then
-        echo "`date` [NOTICE : phvalheim] Custom mods directory missing, creating..."
-        mkdir -p $customModsDir
-fi
-
 if [ ! -d "$tsWIP" ]; then
 	#echo " Thunderstore WIP directory missing, creating...", this will always display, tsWIP runs on stateless storage
 	mkdir -p $tsWIP
