@@ -218,7 +218,7 @@ function createSupervisorWorldConfig() {
 	echo "
 	[program:valheimworld_$worldName]
 	command=/opt/stateless/games/valheim/scripts/startWorld.sh $worldName $worldPassword $worldPort
-	user=root
+	user=phvalheim
 	autostart=false
 	autorestart=true
 	stdout_logfile=/opt/stateful/logs/valheimworld_$worldName.log
