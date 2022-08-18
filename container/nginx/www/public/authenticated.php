@@ -71,7 +71,7 @@ function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$pay
                                                         <td class='card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
                                                         <td class='card_worldInfo'>$dateDeployed</td>
                                                         <tr>
-                                                        <td class='card_worldInfo'>Updated&nbsp;&nbsp;:</td>
+                                                        <td class='card_worldInfo'>Updated&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='card_worldInfo'>$dateUpdated</td>
                                                         <tr>
                                                 </table>
