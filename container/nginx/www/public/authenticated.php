@@ -43,6 +43,9 @@ function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$pay
                 if(!empty($getMyWorlds)) {
                         foreach ($getMyWorlds as $myWorld) { //only query and return authorized worlds
                                 $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost); 
+				$md5 = getMD5($pdo,$myWorld);
+				$dateDeployed = getDateDeployed($pdo,$myWorld);
+				$dateUpdated = getDateUpdated($pdo,$myWorld);
 
                                 echo "
                                         <div class=\"catbox $myWorld\">
@@ -57,16 +60,19 @@ function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$pay
 
                                                         <tr>
                                                         <td class='card_worldInfo'>Citizens&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>pickles</td>
+                                                        <td class='card_worldInfo'>WIP</td>
                                                         <tr>
                                                         <td class='card_worldInfo'>Mods&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>view</td>
+                                                        <td class='card_worldInfo'>WIP</td>
                                                         <tr>
                                                         <td class='card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>d7ece378d0a098575af07c9dee8f53d7</td>
+                                                        <td class='card_worldInfo'>$md5</td>
                                                         <tr>
                                                         <td class='card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>date</td>
+                                                        <td class='card_worldInfo'>$dateDeployed</td>
+                                                        <tr>
+                                                        <td class='card_worldInfo'>Updated&nbsp;&nbsp;:</td>
+                                                        <td class='card_worldInfo'>$dateUpdated</td>
                                                         <tr>
                                                 </table>
                                         </div>

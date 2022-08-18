@@ -45,6 +45,20 @@ function getMD5($pdo,$world) {
         return $result;
 }
 
+function getDateDeployed($pdo,$world) {
+        $sth = $pdo->prepare("SELECT date_deployed FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getDateUpdated($pdo,$world) {
+        $sth = $pdo->prepare("SELECT date_updated FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
 function modExistCheck($pdo,$world,$modUUID) {
 	$sth = $pdo->prepare("SELECT thunderstore_mods FROM worlds WHERE thunderstore_mods LIKE '%$modUUID%' AND name='$world';");
 	$sth->execute();

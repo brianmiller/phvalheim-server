@@ -24,7 +24,8 @@ SQL "
 	citizens TEXT,\
 	external_endpoint TEXT,\
 	world_md5 TEXT,\
-	timestamp DATETIME\
+	date_deployed DATETIME,\
+	date_updated DATETIME\
 	);	
 "
 

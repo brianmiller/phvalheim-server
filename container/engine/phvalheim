@@ -98,8 +98,13 @@ while [ true ]; do
 					
 					#create supervisor config file for this world
 					createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
-	                        
-				        SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"	
+
+	                                #set create and updated timestamp for new deployment
+	                                SQL "UPDATE worlds SET date_deployed='`date +'%F %T'`' WHERE name='$worldName'"
+					SQL "UPDATE worlds SET date_updated='`date +'%F %T'`' WHERE name='$worldName'"
+	
+					#set new world to stopped state
+					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"	
 			
 				else
 					echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
@@ -247,6 +252,9 @@ while [ true ]; do
 				#Update the database to reflect new client pacakge version via MD5
                                 worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
                                 setMD5 "$worldName" "$worldMD5"
+
+				#set last updated timestamp
+				SQL "UPDATE worlds SET date_updated='`date +'%F %T'`' WHERE name='$worldName'"
 
 				#finally, set the world to stopped state
 				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
