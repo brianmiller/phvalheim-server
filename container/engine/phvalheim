@@ -232,7 +232,12 @@ while [ true ]; do
 				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
 				#Update Steam
+
 				#Update Valheim
+				InstallAndUpdateValheim "$worldName"
+
+				#Update BepInEx
+				InstallAndUpdateBepInEx "$worldName"
 
 				#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
 				purgeWorldModsConfigsPatchers "$worldName"

@@ -8,7 +8,7 @@ function purgeOldBackups() {
         worldName="$1"
         backupsToKeep="$2"
 
-        backupFiles=$(ls -alt $backupDir/valheimworld_$worldName-*+*.tar|rev|cut -d " " -f1|rev)
+        backupFiles=$(ls -alt $backupDir/valheimworld_$worldName-***.tar|rev|cut -d " " -f1|rev)
         totalBackups=$(echo "$backupFiles"|wc -l)
         keepBackups=$(echo "$backupFiles"|head -$backupsToKeep)
 
@@ -18,8 +18,7 @@ function purgeOldBackups() {
 
                 for deleteBackup in $deleteBackups; do
                         echo "`date` [phvalheim] Deleting old backup $deleteBackup..."
-			#echo
-                        rm $deleteBackup
+                        rm "$deleteBackup"
                 done
         fi
 }
