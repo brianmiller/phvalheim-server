@@ -254,6 +254,9 @@ function packageClient(){
 
 	worldName="$1"
 
+	#delete current world payload zip
+	rm /opt/stateful/games/valheim/worlds/$worldName/$worldName.zip	
+
         cd /opt/stateful/games/valheim/worlds/$worldName/game
 
         zip ../$worldName.zip -r \
