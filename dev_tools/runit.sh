@@ -9,7 +9,7 @@ podman create \
        --name='37648-phvalheim1' \
 	       -p '8080:8888/tcp' \
 	       -p '7777:9001/tcp' \
-	       -p '4000-5000:4000-5000/udp' \
+	       -p '25000-26000:25000-26000/udp' \
 	       -e 'basePort'='25000' \
 	       -e 'defaultSeed'='szN8qp2lBn' \
 	       -e 'backupsToKeep'='10' \
