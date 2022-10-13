@@ -89,9 +89,12 @@ function mergeRequiredTsMods(){
 	#update thunderstore_mods (not _all)
 	currentMods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
 
+	updatedModList=$(echo "$requiredTsMods" "$currentMods"|xargs -n 1|sort|uniq)
+	updatedModList=$(echo $updatedModList|xargs -d $'\n')
+
 	#update database
 	echo "`date` [phvalheim] Updating database..."
-	updateWorldTSMods=$(SQL "UPDATE worlds SET thunderstore_mods='$requiredTsMods $currentMods' WHERE name='$worldName';")
+	updateWorldTSMods=$(SQL "UPDATE worlds SET thunderstore_mods='$updatedModList' WHERE name='$worldName';")
 }
 
 #$1=world name

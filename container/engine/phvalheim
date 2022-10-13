@@ -245,6 +245,9 @@ while [ true ]; do
 				#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
 				purgeWorldModsConfigsPatchers "$worldName"
 
+                                #add required mods to final list
+                                mergeRequiredTsMods "$worldName"
+
 				#Install mods
 				downloadAndInstallTsModsForWorld "$worldName"
 
