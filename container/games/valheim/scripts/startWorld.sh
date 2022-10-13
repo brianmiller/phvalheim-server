@@ -10,7 +10,7 @@
 
 if [ ! $1 ] || [ ! $2 ] || [ ! $3 ]; then
         echo "`date` [ERROR : phvalheim] Missing arguments..."
-        echo " Example: startWorld.sh \"world_name\" \"world_password\" \"world_port\""
+        echo " Example: startWorld.sh \"world_name\" \"world_port\""
         exit 1
 else
         worldName="$1"
@@ -23,7 +23,6 @@ echo ""
 echo "`date` [NOTICE : phvalheim] World start command received: "
 echo "`date` [phvalheim]  Time: `date`"
 echo "`date` [phvalheim]  World: $worldName"
-echo "`date` [phvalheim]  Password: $worldPassword"
 echo "`date` [phvalheim]  Port: $worldPort/udp"
 echo ""
 
@@ -46,7 +45,6 @@ exec /opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64 \
 -port $worldPort \
 -world $worldName \
 -public 1 \
--password $worldPassword \
 -savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim 
 
 

@@ -83,9 +83,20 @@ function purgeWorldModsConfigsPatchers(){
 }
 
 #$1=world name
-function downloadAndInstallTsModsForWorld(){
+function mergeRequiredTsMods(){
 	worldName="$1"
 
+	#update thunderstore_mods (not _all)
+	currentMods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
+
+	#update database
+	echo "`date` [phvalheim] Updating database..."
+	updateWorldTSMods=$(SQL "UPDATE worlds SET thunderstore_mods='$requiredTsMods $currentMods' WHERE name='$worldName';")
+}
+
+#$1=world name
+function downloadAndInstallTsModsForWorld(){
+	worldName="$1"
 
 	#Ensure we know about all dependencies for everymod selected
 	/opt/stateless/engine/tools/tsModDepGetter.sh "$worldName"
