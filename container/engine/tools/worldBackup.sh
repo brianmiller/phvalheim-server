@@ -18,7 +18,7 @@ function purgeOldBackups() {
 
                 for deleteBackup in $deleteBackups; do
                         echo "`date` [phvalheim] Deleting old backup $deleteBackup..."
-                        rm "$deleteBackup"
+                        rm -f "$deleteBackup"
                 done
         fi
 }
