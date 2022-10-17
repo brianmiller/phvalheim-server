@@ -49,7 +49,7 @@ function worldDirPrep(){
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_configs
-        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_mods
+        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_plugins
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_patchers
 
 	chown -R phvalheim: $worldsDirectoryRoot/$worldName
@@ -256,7 +256,7 @@ function installCustomModsConfigsPatchers() {
 
 	worldName="$1"
 
-	customModsSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_mods"
+	customModsSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_plugins"
 	customConfigsSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_configs"
 	customPatchersSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_patchers"
 
