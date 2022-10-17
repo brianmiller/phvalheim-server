@@ -37,6 +37,8 @@ function InstallAndUpdateBepInEx() {
                 rm -r /opt/stateful/games/valheim/worlds/$worldName/game/BepInExPack_Valheim
                 echo $latest_version > /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt
         fi
+
+	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
 #$1=world name
@@ -50,6 +52,10 @@ function InstallAndUpdateValheim() {
         if [ ! -d "/opt/stateful/games/valheim" ]; then
                 mkdir -p /opt/stateful/games/valheim
         fi
+	#if [ ! -d "/opt/stateful/games/valheim/worlds/$worldName/game/steamapps" ]; then
+        #        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/steamapps
+	#	ls -ald /opt/stateful/games/valheim/worlds/$worldName/game/steamapps
+        #fi
 
         #If Steam isn't installed, install it
         if [ ! -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
@@ -60,7 +66,9 @@ function InstallAndUpdateValheim() {
 
         #Install Valheim once Steam is installed
         echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
-        /opt/stateful/games/steamcmd/steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit
+        su phvalheim -c "/opt/stateful/games/steamcmd/steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit"
+
+	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
 #$1=world name, $2=world seed
@@ -81,6 +89,8 @@ function createCustomSeedConfig() {
 
 	echo "[CustomSeed]" > /opt/stateful/games/valheim/worlds/$worldName/custom_configs/ZeroBandwidth.CustomSeed.cfg
         echo "custom_seed = $worldSeed" >> /opt/stateful/games/valheim/worlds/$worldName/custom_configs/ZeroBandwidth.CustomSeed.cfg
+
+	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
 #$1=world name

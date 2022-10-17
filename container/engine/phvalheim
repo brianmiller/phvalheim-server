@@ -117,6 +117,7 @@ while [ true ]; do
 				else
 					echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
 					SQL "DELETE FROM worlds WHERE name='$worldName'"
+					rm -rf /opt/stateful/games/valheim/worlds/$worldName
 				fi
 			fi
 		fi
