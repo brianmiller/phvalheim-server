@@ -42,6 +42,20 @@ function InstallAndUpdateBepInEx() {
 }
 
 #$1=world name
+function worldDirPrep(){
+	worldName="$1"
+
+	echo "`date` [NOTICE: phvalheim] Preparing directory structure for world..."
+	mkdir -p /opt/stateful/games/valheim/worlds/$worldName
+	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game
+	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_configs
+        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_mods
+        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_patchers
+
+	chown -R phvalheim: $worldsDirectoryRoot/$worldName
+}
+
+#$1=world name
 function InstallAndUpdateValheim() {
 	worldName="$1"
 
@@ -285,7 +299,7 @@ function packageClient(){
 	worldName="$1"
 
 	#delete current world payload zip
-	rm /opt/stateful/games/valheim/worlds/$worldName/$worldName.zip	
+	rm /opt/stateful/games/valheim/worlds/$worldName/$worldName.zip	> /dev/null 2>&1
 
         cd /opt/stateful/games/valheim/worlds/$worldName/game
 

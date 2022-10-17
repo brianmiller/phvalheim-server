@@ -64,10 +64,11 @@ while [ true ]; do
 				worldPort=$(getNextPort)
 				SQL "UPDATE worlds SET port='$worldPort' WHERE name='$worldName'"
 
-				mkdir -p $worldsDirectoryRoot/$worldName/game
+				#prep world directory structure
+				worldDirPrep "$worldName"
+
 				echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
 				chown -R phvalheim: $worldsDirectoryRoot/$worldName
-				#su phvalheim -c "bash /opt/stateless/games/valheim/scripts/deployValheim.sh $worldName $worldSeed"
 				InstallAndUpdateBepInEx "$worldName"
 				InstallAndUpdateValheim "$worldName"
 				RESULT=$?
