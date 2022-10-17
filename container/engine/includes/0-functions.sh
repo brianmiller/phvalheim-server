@@ -63,6 +63,26 @@ function InstallAndUpdateValheim() {
         /opt/stateful/games/steamcmd/steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit
 }
 
+#$1=world name, $2=world seed
+function createCustomSeedConfig() {
+	worldName="$1"
+	worldSeed="$2"
+
+        if [ ! -f "/opt/stateful/games/valheim/worlds/$worldName/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll" ]; then
+                echo "`date` [phvalheim] CustomSeed.dll is missing, installing..."
+                if [ ! -f "/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll" ]; then
+                        echo "`date` [ERROR : phvalheim] Install source for CustomSeed.dll is missing from '/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll', exiting..."
+                        exit 1
+                else
+                        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_plugins/ZeroBandwidth-CustomSeed
+                        cp /opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll /opt/stateful/games/valheim/worlds/$worldName/custom_plugins/ZeroBandwidth-CustomSeed/
+                fi
+        fi
+
+	echo "[CustomSeed]" > /opt/stateful/games/valheim/worlds/$worldName/custom_configs/ZeroBandwidth.CustomSeed.cfg
+        echo "custom_seed = $worldSeed" >> /opt/stateful/games/valheim/worlds/$worldName/custom_configs/ZeroBandwidth.CustomSeed.cfg
+}
+
 #$1=world name
 function purgeWorldModsConfigsPatchers(){
 	worldName="$1"

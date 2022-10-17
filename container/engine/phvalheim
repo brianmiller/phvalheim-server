@@ -67,7 +67,9 @@ while [ true ]; do
 				mkdir -p $worldsDirectoryRoot/$worldName/game
 				echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
 				chown -R phvalheim: $worldsDirectoryRoot/$worldName
-				su phvalheim -c "bash /opt/stateless/games/valheim/scripts/deployValheim.sh $worldName $worldSeed"
+				#su phvalheim -c "bash /opt/stateless/games/valheim/scripts/deployValheim.sh $worldName $worldSeed"
+				InstallAndUpdateBepInEx "$worldName"
+				InstallAndUpdateValheim "$worldName"
 				RESULT=$?
 				if [ $RESULT = 0 ]; then
 					echo "`date` [NOTICE : phvalheim] World '$worldName' successfully created..."
@@ -86,11 +88,14 @@ while [ true ]; do
 					#resolve mod deps and install to local world context
 					downloadAndInstallTsModsForWorld "$worldName"
 
-					#Install custom mods and config
-					installCustomModsConfigsPatchers "$worldName"
+					#generate custom seed config
+					createCustomSeedConfig "$worldName" "$worldSeed"
 
-	                                #generate quick connect config
+					#generate quick connect config
 	                                createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+
+                                        #Install custom mods and config
+                                        installCustomModsConfigsPatchers "$worldName"
 
 					#package the local world context into something usable for PhValheim clients
 	                                packageClient "$worldName"
@@ -251,13 +256,13 @@ while [ true ]; do
 				#Install mods
 				downloadAndInstallTsModsForWorld "$worldName"
 
-				#Install custom mods and config
-				installCustomModsConfigsPatchers "$worldName"
-
 				#Generate quick connect config
 				createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
 
-                                #Packge client
+                                #Install custom mods and config
+                                installCustomModsConfigsPatchers "$worldName"
+
+				#Packge client
                                 packageClient "$worldName"
 
 				#Update the database to reflect new client pacakge version via MD5
