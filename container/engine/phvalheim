@@ -17,6 +17,9 @@ echo "`date` [NOTICE : phvalheim] Google Auto Login: $googleAutoLogin";
 source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateless/engine/includes/0-functions.sh
 
+#make the container aware of the passed env vars (this solved the backups not being cleaned up problem)
+/usr/bin/printenv > /etc/environment
+
 #wait for database
 /opt/stateless/engine/includes/1-waitfordatabase.sh
 
