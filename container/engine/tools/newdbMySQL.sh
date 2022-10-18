@@ -25,7 +25,9 @@ SQL "
 	external_endpoint TEXT,\
 	world_md5 TEXT,\
 	date_deployed DATETIME,\
-	date_updated DATETIME\
+	date_updated DATETIME,\
+	currentMemory TEXT,\
+	currentCPU TEXT\
 	);	
 "
 
@@ -35,8 +37,10 @@ SQL "
 	id INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,\
 	cpuModel TEXT,\
 	cpuCores TEXT,\
-	cpuTotalMhz int,\
+	cpuTotalMhz TEXT,\
+	cpuFreeMhz TEXT,\
 	memTotal TEXT,\
+	memFree TEXT,\
 	timestamp DATETIME\
 	);
 "
