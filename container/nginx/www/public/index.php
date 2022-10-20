@@ -8,15 +8,6 @@
 	include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 	include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
-	if( isset( $_GET[ 'openid_claimed_id' ] ) )
-	{
-		print "Foo:" . $_GET[ 'openid_claimed_id' ];
-		print "<br>";
-		print "Bar:" . $_GET[ 'openid_identity' ];
-		
-	}
-
-
 ?>
 
 
@@ -82,8 +73,8 @@
 						<input type="hidden" name="openid.claimed_id" value="http://specs.openid.net/auth/2.0/identifier_select">
 						<input type="hidden" name="openid.ns" value="http://specs.openid.net/auth/2.0">
 						<input type="hidden" name="openid.mode" value="checkid_setup">
-						<input type="hidden" name="openid.realm" value="https://phvalheim-dev.phospher.com">
-						<input type="hidden" name="openid.return_to" value="https://phvalheim-dev.phospher.com/index.php">
+						<input type="hidden" name="openid.realm" value="https://<?php echo $phvalheimHost?>">
+						<input type="hidden" name="openid.return_to" value="https://<?php echo $phvalheimHost?>/authenticated.php">
 						<input type="image" name="submit" src="https://steamcommunity-a.akamaihd.net/public/images/signinthroughsteam/sits_01.png" border="0" alt="Submit">
 					</div>
 					

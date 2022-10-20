@@ -6,27 +6,53 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_gets.php';
 include '../includes/db_sets.php';
 
+# simple security: if this page is accessed from a source other than steam, redirect back to login page
+if ($_SERVER['HTTP_REFERER'] != "https://steamcommunity.com/")
+{
+	header('Location: ../index.php');
+}
 
-function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$payload,$phvalheimClientURL) {
-        if ($isAuthenticated) {
-                $userid = $payload['sub'];
-                $firstName = $payload['given_name'];
-                $lastName = $payload['family_name'];
-                $email = $payload['email'];
-                $picture = $payload['picture'];
 
-                $getMyWorlds = getMyWorlds($pdo,$email);
-                #$getMyWorlds = array('foo1','foo2','foo3');
-                #$getMyWorlds = array('foo1','foo2','foo3','foo4','foo5','foo6','foo7','foo8','foo9','foo10','foo2','foo3','foo4','foo5','foo6','foo7','foo8','foo9','foo10');
+function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey) {
+
+		# steam
+	        if( isset( $_GET[ 'openid_claimed_id' ] ) )
+	        {
+	                $steamIDArr = explode('/', $_GET[ 'openid_claimed_id' ]);
+	                $steamID = end($steamIDArr);
+			$steamJSON = file_get_contents("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=$steamAPIKey&steamids=$steamID");
+	                $steamJSONObj = json_decode($steamJSON);
+	                $steamJSONObj = $steamJSONObj->response->players;
+	                $steamJSONObj = $steamJSONObj[0];
+	
+	                $steamNickName = $steamJSONObj->personaname;
+	                $steamFullName = $steamJSONObj->realname;
+	                $steamAvatarURL = $steamJSONObj->avatarmedium;
+
+
+			# if steam profile is set to private, the fullname isn't visible, use the nickname instead 
+			if(!empty($steamFullName)) {
+				$playerName = explode(' ',$steamFullName)[0];
+			} else {
+				$playerName = $steamNickName;
+			}
+
+	        } else {
+		        header('Location: ../index.php');
+		}
+
+
+
+
 
                 echo "
                         <table width=100% height=100% border=0>
-                                <th class='google_header'><img src='$picture'></img></th>
+                                <th class='google_header'><img src='$steamAvatarURL'></img></th>
                                 <th class='client_download_button'>
                                         <a href='$phvalheimClientURL'><button type='button' class='btn btn-sm btn-outline-download client_download_button_font'><img src='../images/download.svg'></img>&nbsp;Download PhValheim Client</button></a>
                                 </th>
                                 <tr>
-                                <th colspan=2 class='name_header'>Welcome, $firstName!</th>
+                                <th colspan=2 class='name_header'>Welcome, $playerName!</th>
 
 
                                 <tr>
@@ -39,6 +65,7 @@ function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$pay
 
                 ";
 
+		$getMyWorlds = getMyWorlds($pdo,$steamID);
 
                 if(!empty($getMyWorlds)) {
                         foreach ($getMyWorlds as $myWorld) { //only query and return authorized worlds
@@ -96,29 +123,6 @@ function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$pay
                 </table>
 
                         ";
-
-
-        } else {
-                echo "Not authenticated";
-        }
-}
-
-
-if (!empty($_POST['google_id_token'])) { //if a google auth jwt token is passed
-        $id_token = $_POST['google_id_token'];
-
-        $client = new Google_Client(['client_id' => $googleClientId]);  // Specify the CLIENT_ID of the app that accesses the backend
-        $payload = $client->verifyIdToken($id_token);
-        if ($payload) { //authenticated if true
-                $isAuthenticated = true;
-        } else { //invalid token, not authenticated
-                $isAuthenticated = false;
-          print "You have attempt to login with an invalid Google auth token or ID.<br>"; //invalid token
-          print "You are being redirected to the login page in 3 seconds...<br>";
-          header('Refresh: 3; url=index.php?isAutoLoginDisabled=true');
-        }
-} else {
-        header('Location: ../index.php');
 }
 
 ?>
@@ -129,6 +133,6 @@ if (!empty($_POST['google_id_token'])) { //if a google auth jwt token is passed
                 <link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css">
         </head>
         <body>
-                <?php populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$payload,$phvalheimClientURL) ?>
+                <?php populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey) ?>
         </body>
 </html>
