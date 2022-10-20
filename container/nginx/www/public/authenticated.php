@@ -46,6 +46,7 @@ function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$pay
 				$md5 = getMD5($pdo,$myWorld);
 				$dateDeployed = getDateDeployed($pdo,$myWorld);
 				$dateUpdated = getDateUpdated($pdo,$myWorld);
+				$worldMemory = getWorldMemory($pdo,$myWorld);
 
                                 echo "
                                         <div class=\"catbox $myWorld\">
@@ -73,6 +74,9 @@ function populateTable($pdo,$isAuthenticated,$email,$gameDNS,$phvalheimHost,$pay
                                                         <tr>
                                                         <td class='card_worldInfo'>Updated&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='card_worldInfo'>$dateUpdated</td>
+                                                        <tr>
+                                                        <td class='card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='card_worldInfo'>$worldMemory</td>
                                                         <tr>
                                                 </table>
                                         </div>

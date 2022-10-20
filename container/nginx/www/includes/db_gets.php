@@ -45,6 +45,13 @@ function getMD5($pdo,$world) {
         return $result;
 }
 
+function getWorldMemory($pdo,$world) {
+        $sth = $pdo->prepare("SELECT currentMemory FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
 function getDateDeployed($pdo,$world) {
         $sth = $pdo->prepare("SELECT date_deployed FROM worlds WHERE name='$world'");
         $sth->execute();
