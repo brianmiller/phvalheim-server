@@ -1,21 +1,22 @@
 <?php
+
+	# Steam Auth stuff
+        declare(strict_types=1);
+        require '/opt/stateless/nginx/www/vendor/autoload.php';
+        #use xPaw\Steam\SteamOpenID;
+
 	include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 	include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
-	#from publicAuthenticated.php
-	if (!empty($_GET['isAutoLoginDisabled'])) {
-	        $isAutoLoginDisabled = $_GET['isAutoLoginDisabled'];
-	}
-	
-	#auto login toggle
-	function autoLogin($mode) {
-	        echo "<script>window.autoLogin = " . $mode . ";</script>";
+	if( isset( $_GET[ 'openid_claimed_id' ] ) )
+	{
+		print "Foo:" . $_GET[ 'openid_claimed_id' ];
+		print "<br>";
+		print "Bar:" . $_GET[ 'openid_identity' ];
+		
 	}
 
-	#if publicAuthenticated.php cannot authorize, disable auto login to prevent infinite loop/login attempts
-	if($isAutoLoginDisabled == "true") {
-	        $googleAutoLogin = "false";
-	}
+
 ?>
 
 
@@ -29,17 +30,6 @@
   <link rel="stylesheet" href="/css/login.css">
   <link rel="stylesheet" href="/css/phvalheimStyles.css">
 
-
-                <!-- Google Identity -->
-                <script src="https://accounts.google.com/gsi/client" async defer></script>
-
-                <?php autoLogin($googleAutoLogin); ?>
-        
-                <?php echo "<script>window.clientId = '" . $googleClientId . "';</script>" ?>
-
-                <!-- Google Identity for PhValheim -->
-                <script src="/js/googleAuth.js"></script>
-        
                 <!-- Google Fonts -->
                 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
 
@@ -60,7 +50,7 @@
 			</ul>
 
 			<div id="login">
-				<form class="form" id="authenticated_form" method="post" action="authenticated.php">
+				<form class="form" id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login">
 					<p class="fieldset">
 						<label class="image-replace email" for="signin-email">E-mail</label>
 						<input class="full-width has-padding has-border" id="signin-email" type="email" placeholder="E-mail">
@@ -87,9 +77,16 @@
 						or	
 					</p>
 
-					<div class="centered" id="googleSignInButton"></div>
-				 	
-                                        <input type="hidden" name="google_id_token" id="google_id_token" value=""></input>
+					<div class="centered" id="steamSignInButton">
+						<input type="hidden" name="openid.identity" value="http://specs.openid.net/auth/2.0/identifier_select">
+						<input type="hidden" name="openid.claimed_id" value="http://specs.openid.net/auth/2.0/identifier_select">
+						<input type="hidden" name="openid.ns" value="http://specs.openid.net/auth/2.0">
+						<input type="hidden" name="openid.mode" value="checkid_setup">
+						<input type="hidden" name="openid.realm" value="https://phvalheim-dev.phospher.com">
+						<input type="hidden" name="openid.return_to" value="https://phvalheim-dev.phospher.com/index.php">
+						<input type="image" name="submit" src="https://steamcommunity-a.akamaihd.net/public/images/signinthroughsteam/sits_01.png" border="0" alt="Submit">
+					</div>
+					
 				</form>
 				
 				<!--<p class="form-bottom-message"><a href="#0">Forgot your password?</a></p>-->
@@ -143,7 +140,7 @@
 		</div>
 	</div>
 <!-- partial -->
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js'></script><script  src="/js/login.js"></script>
+	<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js'></script><script  src="/js/login.js"></script> 
 
 </body>
 </html>
