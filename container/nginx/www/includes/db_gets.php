@@ -73,7 +73,6 @@ function modExistCheck($pdo,$world,$modUUID) {
 	return $result;
 }
 
-
 function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost) {
         $getWorldData = $pdo->query("SELECT status,name,port FROM worlds WHERE name='$world'");
         foreach($getWorldData as $row)
@@ -89,5 +88,10 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost) {
 	}
 }
 
-
+function getCitizens($pdo,$world) {
+        $sth = $pdo->query("SELECT citizens FROM worlds WHERE name='$world';");
+	$sth->execute();
+	$result = $sth->fetchColumn();
+        return $result;
+}
 ?>

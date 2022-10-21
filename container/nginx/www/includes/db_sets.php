@@ -26,7 +26,7 @@ function deleteAllWorldMods($pdo,$world) {
         if ($pdo->query($sql)) {
                 $msg = "Purging mods for world '$world'...";
         } else {
-                $msg = "ERROR: Coult not purge mods for '$world'...";
+                $msg = "ERROR: Could not purge mods for '$world'...";
         }
 }
 
@@ -45,7 +45,7 @@ function addModToWorld($pdo,$world,$mods) {
                 if ($pdo->query($sql)) {
                         $msg = "Adding mod '$mods' to world $world...";
                 } else {
-                        $msg = "ERROR: Coult not add '$mods' to '$world'...";
+                        $msg = "ERROR: Could not add '$mods' to '$world'...";
                 }
 	}
 }
@@ -62,7 +62,7 @@ function deleteModFromWorld($pdo,$world,$mod) {
         if ($pdo->query($sql)) {
         	$msg = "Updating mods for world '$world'...";
         } else {
-                $msg = "ERROR: Coult not update mods for '$world'...";
+                $msg = "ERROR: Could not update mods for '$world'...";
         }
 }
 
@@ -73,7 +73,7 @@ function deleteWorld($pdo,$world){
                 if ($pdo->query($sql)) {
                         $msg = "Deleting world $world...";
                 } else {
-                        $msg = "ERROR: Coult not delete $world...";
+                        $msg = "ERROR: Could not delete $world...";
                 }
         }
 }
@@ -85,7 +85,7 @@ function stopWorld($pdo,$world){
                 if ($pdo->query($sql)) {
                         $msg = "Stopping world $world...";
                 } else {
-                        $msg = "ERROR: Coult not stop $world...";
+                        $msg = "ERROR: Could not stop $world...";
                 }
         }
 }
@@ -97,7 +97,7 @@ function startWorld($pdo,$world){
                 if ($pdo->query($sql)) {
                         $msg = "Starting world $world...";
                 } else {
-                        $msg = "ERROR: Coult not start $world...";
+                        $msg = "ERROR: Could not start $world...";
                 }
         }
 }
@@ -108,8 +108,22 @@ function updateWorld($pdo,$world){
                 if ($pdo->query($sql)) {
                         $msg = "Updating world $world...";
                 } else {
-                        $msg = "ERROR: Coult not update $world...";
+                        $msg = "ERROR: Could not update $world...";
                 }
+        }
+}
+
+function setCitizens($pdo,$world,$citizen){
+        #$sql = "SELECT citizens FROM worlds WHERE name='$world'";
+        #$result = $pdo->query($sql);
+        #$row = $result->fetch(PDO::FETCH_ASSOC);
+        #$currentCitizens = $row['citizens'];
+
+	$sql = "UPDATE worlds SET citizens='$citizen' WHERE name='$world'";
+        if ($pdo->query($sql)) {
+		$msg = "Updating citizens for world $world...";
+        } else {
+                $msg = "ERROR: Could not update citizens for $world...";
         }
 }
 ?>
