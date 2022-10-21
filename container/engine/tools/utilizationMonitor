@@ -2,7 +2,7 @@
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 
-echo "`date` [NOTICE : phvalheim] Polling System Stats..."
+#echo "`date` [NOTICE : phvalheim] Polling System Stats..."
 
 allWorlds=$(SQL "SELECT name FROM worlds")
 
