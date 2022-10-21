@@ -7,6 +7,7 @@
 	--outline-light: #34e2e2;
 	--button-font-color-idle: orchid;
 	--button-font-color-hover: palegreen;
+	--main-alt-color: palegreen;
 	--tab-background-color-unfocused: var(--main-background-color);
 	--tab-background-color-focused: #2C355E;
 	--tab-font-color-focused: var(--main-font-color);
@@ -17,6 +18,7 @@
         --input-font-color-focused: var(--main-font-color);
         --input-font-color-unfocused: var(--main-font-color);
 
+	--disabled: dimgrey;
 
 	/* fonts */
 	--main-font: "Lucida Console", "Courier New", monospace;
@@ -33,6 +35,58 @@ body {
 a:visited {
   color: green;
 
+}
+
+.disabled {
+ color: var(--disabled) !important;
+}
+
+.textarea {
+ background-color: var(--main-background-color);
+ color: var(--main-font-color);
+}
+
+.pri-color {
+  color: var(--button-font-color-idle);
+}
+
+.alt-color {
+  color: var(--main-alt-color);
+}
+
+.outline {
+  border: 2px solid var(--outline-light);
+  border-radius: 6px;
+}
+
+.bottom_line {
+  border-bottom: 2px dashed var(--outline-light); 
+}
+
+.sm-bttn {
+  padding: 5px 9px;
+  cursor: pointer;
+  color: var(--button-font-color-idle);
+  background: var(--main-background-color);
+  border: none;
+  outline: 2px solid var(--outline-light);
+  border-radius: 6px;
+  font-size: 100%;
+
+ -webkit-appearance: none;
+  -moz-appearance: none;
+  -ms-appearance: none;
+  -o-appearance: none;
+  appearance: none;
+        -webkit-transition: all 0.30s ease-in-out;
+        -moz-transition: all 0.30s ease-in-out;
+        -ms-transition: all 0.30s ease-in-out;
+        -o-transition: all 0.30s ease-in-out;
+}
+
+.sm-bttn:hover {
+  color: var(--button-font-color-hover) !important;
+  background: var(--main-background-color) !important;
 }
 
 .client_download_button {

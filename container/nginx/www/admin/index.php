@@ -69,12 +69,14 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 			$launchLink = "<font color=lightgrey>Launch</font>";
 		}
 
+		$editCitizensLink = "<a href='citizensEditor.php?world=$world'>Edit Citizens</a>";
+
 		echo "<tr>";
 		echo "    <td>$mode</td>";
 		echo "    <td>$world</td>";
 		echo "    <td>$external_endpoint:$port</td>";
 		echo "	  <td>$seed</td>";
-		echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink | $updateLink | $deleteLink</td>";
+		echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink | $editCitizensLink | $updateLink | $deleteLink</td>";
 		echo "</tr>";
 	}
 }
