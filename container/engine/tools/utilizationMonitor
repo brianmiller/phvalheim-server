@@ -2,7 +2,7 @@
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 
-echo "`date` [NOTICE : phvalheim] System Stats: "
+echo "`date` [NOTICE : phvalheim] Polling System Stats..."
 
 allWorlds=$(SQL "SELECT name FROM worlds")
 
@@ -33,11 +33,11 @@ for world in $allWorlds; do
 			thisWorldState="offline"
 			thisWorldMemoryFriendly="offline"
 		fi
-	echo
-	echo "World Name: $world"
-	echo "World State: $thisWorldState"
-	echo "World PID: $thisWorldPID"
-	echo "World Memory: $thisWorldMemoryFriendly"
+	#echo
+	#echo "World Name: $world"
+	#echo "World State: $thisWorldState"
+	#echo "World PID: $thisWorldPID"
+	#echo "World Memory: $thisWorldMemoryFriendly"
 	
 	#Update database with latest data
 	SQL "UPDATE worlds SET currentMemory='$thisWorldMemoryFriendly' WHERE name='$world'"

@@ -1,1 +1,1 @@
-*/30 * * * * phvalheim /opt/stateless/engine/tools/worldBackup.sh >> /opt/stateful/logs/phvalheim.log
+*/30 * * * * phvalheim /opt/stateless/engine/tools/worldBackup >> /opt/stateful/logs/phvalheim.log
