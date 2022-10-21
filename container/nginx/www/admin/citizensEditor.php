@@ -64,7 +64,8 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 
 	<body>
 
-		<p class='pri-color' align='center'>FYI: <i>Only listed SteamIDs will be able to join this world.</i></p>
+		<p class='pri-color' style='margin-top: 1%;' align='center'><label class='alt-color'>Note:</label> <i><b>Only</b> listed SteamIDs will be able to join this world.</i></p>
+		<p class='pri-color' style='margin-top: -0.7%;font-size: 14px;' align='center'><label class='alt-color'>Note:</label> <i>If left empty, anyone can join.</i></p>
 		<form action='citizensEditor.php'>
 			<table style="margin-top: 45px;" align='center' border='0' class='outline'>
 
@@ -86,10 +87,10 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 
 				<tr>
 					<th>
-						<textarea class='outline textarea' cols='15' rows='20' name='citizens'><?php print $currentCitizens;?></textarea>
+						<textarea class='outline textarea' style='resize: none;' cols='15' rows='20' name='citizens'><?php print $currentCitizens;?></textarea>
 					</th>
 					<td>
-						<textarea class='disabled outline textarea' cols='40' rows='20' name='citizens' disabled><?php print $currentAllowListFile;?></textarea>
+						<textarea class='disabled outline textarea' style='resize: none;' cols='40' rows='20' name='citizens' disabled><?php print $currentAllowListFile;?></textarea>
 					</td>
 				</tr>
 
@@ -97,7 +98,7 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 				<tr>
 					<td align='center' style='text-align: center;' colspan='2'>
 						<table align='center' style='text-align: center;' border=0>
-							<td style='padding: 0 5px 0' align='center' style='text-align: center;'>
+							<td style='padding: 0 5px 0;' align='center' style='text-align: center;'>
 								<a href='index.php'><button class='sm-bttn' type="button">Back</button></a>
 							<td align='center' style='text-align: center;'>
 								<input class='sm-bttn' type="submit" value="Save">

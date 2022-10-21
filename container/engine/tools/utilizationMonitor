@@ -1,0 +1,68 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+
+
+echo "`date` [NOTICE : phvalheim] System Stats: "
+
+allWorlds=$(SQL "SELECT name FROM worlds")
+
+for world in $allWorlds; do
+	thisWorldState=$(/usr/bin/supervisorctl status|grep -w valheimworld_$world|tr -s " "|cut -d " " -f2)
+
+		if [ "$thisWorldState" = "RUNNING" ]; then
+			thisWorldPID=$(supervisorctl status|grep -w valheimworld_$world|tr -s " "|cut -d " " -f4|cut -d "," -f1)
+			thisWorldState="online"
+			thisWorldMemory=$(ps -p $thisWorldPID -o rss=)
+			thisWorldMemoryFriendly="${thisWorldMemory}bytes"
+
+			#convert to MB
+			if [ $thisWorldMemory -gt 1024 ]; then
+				thisWorldMemory=$(echo "$thisWorldMemory/1024"|bc)
+				thisWorldMemoryFriendly="${thisWorldMemory}MB"
+
+				#convert to GB
+				if [ $thisWorldMemory -gt 1024 ]; then
+					thisWorldMemory=$(echo "scale=2;$thisWorldMemory/1024"|bc)
+					thisWorldMemoryFriendly="${thisWorldMemory}GB"
+				fi
+
+			fi
+
+		else
+			thisWorldPID="offline"
+			thisWorldState="offline"
+			thisWorldMemoryFriendly="offline"
+		fi
+	echo
+	echo "World Name: $world"
+	echo "World State: $thisWorldState"
+	echo "World PID: $thisWorldPID"
+	echo "World Memory: $thisWorldMemoryFriendly"
+	
+	#Update database with latest data
+	SQL "UPDATE worlds SET currentMemory='$thisWorldMemoryFriendly' WHERE name='$world'"
+done
+
+
+
+
+
+# save, global stats
+
+
+#cpuModel=$(cat /proc/cpuinfo |grep "model name"|head -1|tr -s " "|cut -d " " -f3-)
+#cpuCores=$(cat /proc/cpuinfo |grep "model name"|wc -l)
+#cpuTotalMHz=$(cat /proc/cpuinfo |grep "cpu MHz"|cut -d " " -f3|paste -sd+ - | bc)
+#memTotal=$(cat /proc/meminfo |grep MemTotal|tr -s " "|cut -d " " -f2)
+#memTotal=$(echo $memTotal/1024|bc)
+
+
+#echo "CPU Model: $cpuModel"
+#echo "CPU Cores: $cpuCores"
+#echo "Total MHz in system: $cpuTotalMHz MHz"
+#echo "Total Memory in system: $memTotal MB"
+
+
+#if [ "$2" = "mem" ]; then
+#       ps -o size -p $1 --sort -size|tail -1|tr -s " "
+#fi
