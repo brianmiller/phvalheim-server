@@ -1,1 +1,1 @@
-*/5 * * * * phvalheim /opt/stateless/engine/tools/utilizationMonitor >> /opt/stateful/logs/phvalheim.log
+* * * * * phvalheim /opt/stateless/engine/tools/utilizationMonitor >> /opt/stateful/logs/phvalheim.log
