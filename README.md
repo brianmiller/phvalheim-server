@@ -1,5 +1,6 @@
 # PhValheim Server
 
+[![made-with-Docker](https://img.shields.io/badge/Made%20with-Docker-2496ed.svg)](https://www.docker.com/)
 [![made-with-BASH](https://img.shields.io/badge/Made%20with-BASH-a32c29.svg)](https://www.gnu.org/software/bash/)
 [![made-with-PHP](https://img.shields.io/badge/Made%20with-PHP-7a86b8.svg)]([https://en.wikipedia.org/wiki/PHP](https://www.php.net/))
 [![made-with-MariaDB](https://img.shields.io/badge/Made%20with-MariaDB-c0765a.svg)]([https://en.wikipedia.org/wiki/MariaDB](https://mariadb.org/))
