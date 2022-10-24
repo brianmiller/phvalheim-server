@@ -64,7 +64,7 @@ All of this is great but useless without a way to ensure the client behaves as e
 Access to each world is controlled by the PhValheim database. We associate the SteamID of each player to every world we want to grant access to.  The PhValheim Server will store SteamIDs to grant access to both the public web UI (library of worlds) and the allowList.txt file associated with each world.  This ensures only allowed "citizens" can see the world in the UI and make a logical connection to the world itself (UDP).
 #### Here is a swimlane depiction of the authentication and authorization workflow:
 
-![PhValheim-steam](https://user-images.githubusercontent.com/342276/197625449-7105f887-4805-400a-846e-f468337a024c.png)
+![PhValheim-steam](https://user-images.githubusercontent.com/342276/197625449-7105f887-4805-400a-846e-f468337a024c.png#gh-dark-mode-only)
 
 
 
