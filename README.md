@@ -58,3 +58,12 @@ All of this is great but useless without a way to ensure the client behaves as e
      - This payload includes all necessary mods, configs and depedencies to match the remote world and your fellow player's world.
    - Instruct PhValheim Client which PhValheim Server to connect to and which world endpoint to connect to.
 #### Note: PhValheim Client installs all related files to %appdata%/PhValheim, in addition to modifying your local install of Valheim's Steam directory to include the necessary bootstrap libraries for BepInEx to properly run (all mod managers do this already).
+
+# Architecture
+## Authentication and Authorization
+Access to each world is controlled by the PhValheim database. We associate the SteamID of each player to every world we want to grant access to.  The PhValheim Server will store SteamIDs to grant access to both the public web UI (library of worlds) and the allowList.txt file associated with each world.  This ensures only allowed "citizens" can see the world in the UI and make a logical connection to the world itself (UDP).
+#### Here is a swimlane depiction of the authentication and authorization workflow:
+![PhValheim-steam](https://user-images.githubusercontent.com/342276/197623189-7a9b359d-5bad-4221-9e95-d87b6be86f2d.png)
+
+
+
