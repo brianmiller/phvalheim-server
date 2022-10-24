@@ -28,7 +28,7 @@ Valheim is a fantastic game and the more we play the more we want. Modding Valhe
 - The Admin web interface provides access to all manager features, which are completely isolated from the public interface.
 
 #### How does it work?
-## Server
+#### Server
 As mentioned above, PhValheim Server runs in a docker container.  Out-of-the-box the container runs a few services:
  - PhValheim Engine
     - The engine is responsible for all communication and execution between the supporting services mentioned below and the game's engine.
@@ -48,14 +48,14 @@ As mentioned above, PhValheim Server runs in a docker container.  Out-of-the-box
  - MariaDB
    - All stateful (minus the Valheim and Steam binaries) are stored in MariaDB.
 
-## Client
+# PhValheim Client
 All of this is great but useless without a way to ensure the client behaves as expected.  This is where PhValheim Client comes in. PhValheim Client is a mandatory companion application that runs on all Windows clients.  It's a small C# application that registers a new "phvalheim://" URL to your Windows Registry.  This allows your computer to recgonize and understand PhValheim Server payload URLs. When a PhValheim URL is clicked, the PhValheim Client pulls the URL into memory and decodes the information, instructing your PC what to do.
 #### Here's the workflow (after the client has been installed)
 1. Click a "phvalheim://" URL
 2. Windows will send the URL to PhValheim Client's binary.
 3. PhValheim Client will decode the URL, extracting the necessary information to:
    - Compare the remote world's MD5SUM (from PHValehim Server's database) with the local copy. If the local copy matches, proceed. Otherwise, download the new payload.
-     - This payload includes all necessary mods, configs and depedencies to match the remote world and your fellow player's
+     - This payload includes all necessary mods, configs and depedencies to match the remote world and your fellow player's world.
    - Instruct PhValheim Client which PhValheim Server to connect to and which world endpoint to connect to.
 #### Note: PhValheim Client installs all related files to %appdata%/PhValheim, in addition to modifying your local install of Valheim's Steam directory to include the necessary bootstrap libraries for BepInEx to properly run (all mod managers do this already).
 
