@@ -28,12 +28,13 @@ Valheim is a fantastic game and the more we play the more we want. Modding Valhe
 - The Admin web interface provides access to all manager features, which are completely isolated from the public interface.
 
 #### How does it work?
+## Server
 As mentioned above, PhValheim Server runs in a docker container.  Out-of-the-box the container runs a few services:
  - PhValheim Engine
     - The engine is responsible for all communication and execution between the supporting services mentioned below and the game's engine.
         - Listens for engine commands (create, start, stop, update, delete)
         - Builds client payloads after world creation and world updates.
- - CRON
+ - CRON (scheduler)
     - tsStoreStync
       - Syncs Thunderstore's entire Valheim Mod database every 12hrs (just the metadata)
     - worldBackup
@@ -45,5 +46,9 @@ As mentioned above, PhValheim Server runs in a docker container.  Out-of-the-box
  - NGINX
    - All Public and Admin interfaces are published via NGINX.
  - MariaDB
-   - All stateful (minus the Valheim and Steam binaries) are stored in MariaDB
+   - All stateful (minus the Valheim and Steam binaries) are stored in MariaDB.
+
+## Client
+All of this is great but useless without a way to ensure the client behaves as expected.  This is where PhValheim Client comes in. PhValheim Client is a mandatory companion application that runs on all Windows clients.  It's a small C# application that registers a new "phvalheim://" URL to your Windows Registry.  This allows your computer to recgonize and understand PhValheim Server payload URLs. When a PhValheim URL is clicked, the PhValheim Client pulls the URL into memory and decodes the information, instructing your PC what to do.
+#### Here's the workflow
 
