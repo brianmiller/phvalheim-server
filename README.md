@@ -50,5 +50,12 @@ As mentioned above, PhValheim Server runs in a docker container.  Out-of-the-box
 
 ## Client
 All of this is great but useless without a way to ensure the client behaves as expected.  This is where PhValheim Client comes in. PhValheim Client is a mandatory companion application that runs on all Windows clients.  It's a small C# application that registers a new "phvalheim://" URL to your Windows Registry.  This allows your computer to recgonize and understand PhValheim Server payload URLs. When a PhValheim URL is clicked, the PhValheim Client pulls the URL into memory and decodes the information, instructing your PC what to do.
-#### Here's the workflow
+#### Here's the workflow (after the client has been installed)
+1. Click a "phvalheim://" URL
+2. Windows will send the URL to PhValheim Client's binary.
+3. PhValheim Client will decode the URL, extracting the necessary information to:
+   - Compare the remote world's MD5SUM (from PHValehim Server's database) with the local copy. If the local copy matches, proceed. Otherwise, download the new payload.
+     - This payload includes all necessary mods, configs and depedencies to match the remote world and your fellow player's
+   - Instruct PhValheim Client which PhValheim Server to connect to and which world endpoint to connect to.
+#### Note: PhValheim Client installs all related files to %appdata%/PhValheim, in addition to modifying your local install of Valheim's Steam directory to include the necessary bootstrap libraries for BepInEx to properly run (all mod managers do this already).
 
