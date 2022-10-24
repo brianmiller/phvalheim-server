@@ -8,7 +8,7 @@
 [![Open Source Love png1](https://badges.frapsoft.com/os/v1/open-source.png?v=103)](https://en.wikipedia.org/wiki/Open-source_software)
 
 #### What is it?
-PhValheim is a two-part world and client manager for Valheim, it keeps server and client files in lock-step, ensuring all players have the same experience.
+PhValheim is a two-part world and client manager for Valheim (with aspirations of becoming game agnostic), it keeps server and client files in lock-step, ensuring all players have the same experience.
 
 #### Why?
 Valheim is a fantastic game and the more we play the more we want. Modding Valheim is simple to do but difficult to manage across all players. Keeping the remote server and clients in-sync are nearly impossible without something like PhValheim.  While mod managers work well (Thunderstore and Nexus Mods), they don't work in a federated manner, eventaully resulting in clients being out of sync with each other and the remote server. PhValheim's primary goal is to solve this problem.
@@ -24,5 +24,5 @@ Valheim is a fantastic game and the more we play the more we want. Modding Valhe
 - Update a world and all linked mods at the click of a button.
 - Stores copies of recently downloaded mods for reuseability.
 - Automatically backs up all world files every 30 minutes (can be pointed to disparate disks to ensure storage diversity).
-- The Public web interface displays current MD5SUM of world client payload, created and last updated timestamps, active memory that the world is consuming and instant "Launch!" link.
+- The Public web interface displays current MD5SUM of world client payload, created and last updated timestamps, active memory that the world is consuming, "PhValheim Client Download Link", and an instant "Launch!" link.
 - The Admin web interface provides access to all manager features, which are completely isolated from the public interface.
