@@ -58,5 +58,3 @@ All of this is great but useless without a way to ensure the client behaves as e
      - This payload includes all necessary mods, configs and depedencies to match the remote world and your fellow player's world.
    - Instruct PhValheim Client which PhValheim Server to connect to and which world endpoint to connect to.
 #### Note: PhValheim Client installs all related files to %appdata%/PhValheim, in addition to modifying your local install of Valheim's Steam directory to include the necessary bootstrap libraries for BepInEx to properly run (all mod managers do this already).
-
-![tux](https://user-images.githubusercontent.com/342276/197610541-bfc09740-6a26-4790-80d2-53ae4b31677f.png)
