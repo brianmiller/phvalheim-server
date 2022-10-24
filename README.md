@@ -26,3 +26,21 @@ Valheim is a fantastic game and the more we play the more we want. Modding Valhe
 - Automatically backs up all world files every 30 minutes (can be pointed to disparate disks to ensure storage diversity).
 - The Public web interface displays current MD5SUM of world client payload, created and last updated timestamps, active memory that the world is consuming, "PhValheim Client Download Link", and an instant "Launch!" link.
 - The Admin web interface provides access to all manager features, which are completely isolated from the public interface.
+
+#### How does it work?
+As mentioned above, PhValheim Server runs in a docker container.  Out-of-the-box the container runs a few services:
+ - PhValheim Engine
+    - The engine is responsible for all communication and execution between the supporting services mentioned below and the game's engine.
+        - Listens for engine commands (create, start, stop, update, delete)
+        - Builds client payloads after world creation and world updates.
+ - NGINX
+ - MariaDB
+ - CRON
+    - tsStoreStync
+      - Syncs Thunderstore's entire Valheim Mod database every 12hrs (just the metadata)
+    - worldBackup
+      - Backs up all worlds every 30 minutes (default is 10 backups to keep, configurable)
+    - utilizationMonitor
+      - Brings real-time utilization of each world and process. Currently only provides real-time memory utilization for each world which is displayed on the public interface.
+ - Supervisor
+
