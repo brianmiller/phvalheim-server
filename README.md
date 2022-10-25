@@ -113,4 +113,25 @@ Access to each world is controlled by the PhValheim database. We associate the S
 
 
 # Deployment
+### Unraid (search for PhValheim in the community app store)
+![unraid_deploy](https://user-images.githubusercontent.com/342276/197680052-109f4145-192e-4e97-a3fb-6aa950c9a128.png)
 
+### Docker Command Line
+```
+podman create \
+       --name='myPhValheim-server1' \
+               -p '8080:8888/tcp' \
+               -p '7777:9001/tcp' \
+               -p '25000-26000:25000-26000/udp' \
+               -e 'basePort'='25000' \
+               -e 'defaultSeed'='szN8qp2lBn' \
+               -e 'backupsToKeep'='10' \
+               -e 'phvalheimHost'='phvalheim-dev.phospher.com' \
+               -e 'gameDNS'='37648-dev1.phospher.com' \
+               -e 'steamAPIKey'="0123456789" \
+               -v '/mnt/docker_persistent/phvalheim':'/opt/stateful':Z \
+               -v '/mnt/phvalheim_backups/':'/opt/stateful/backups':Z \
+               theoriginalbrian/phvalheim-server:latest``
+
+podman start myPhValheim-server1
+```
