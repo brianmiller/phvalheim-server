@@ -13,9 +13,11 @@
 <br>
 [![jump-to-howitworks](https://img.shields.io/badge/Jump%20To-how%20it%20works-98FB98)](https://github.com/brianmiller/phvalheim-server#how-does-it-work)
 <br>
-[![jump-to-client](https://img.shields.io/badge/Jump%20To-PhvValheim%20Client-da70d6)](https://github.com/brianmiller/phvalheim-server#phvalheim-client)
+[![jump-to-client](https://img.shields.io/badge/Jump%20To-PhvValheim%20client-da70d6)](https://github.com/brianmiller/phvalheim-server#phvalheim-client)
 <br>
-[![jump-to-architecture](https://img.shields.io/badge/Jump%20To-Architecture-98FB98)](https://github.com/brianmiller/phvalheim-server#architecture)
+[![jump-to-architecture](https://img.shields.io/badge/Jump%20To-architecture-98FB98)](https://github.com/brianmiller/phvalheim-server#architecture)
+<br>
+[![jump-to-screenshots](https://img.shields.io/badge/Jump%20To-Screenshots-da70d6)](https://github.com/brianmiller/phvalheim-server#screenshots)
 
 #### What is it?
 PhValheim is a two-part world and client manager for Valheim (with aspirations of becoming game agnostic), it keeps server and client files in lock-step, ensuring all players have the same experience.
