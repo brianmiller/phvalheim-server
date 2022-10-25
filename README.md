@@ -84,6 +84,19 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ![PhValheim-steam-w](https://user-images.githubusercontent.com/342276/197627971-06511677-5126-4db7-9e8a-96e5b9665fc4.png#gh-light-mode-only)
  
 
-## Screenshots
+# Screenshots
+## Public Home
+![public_home_screenshot](https://user-images.githubusercontent.com/342276/197672941-2e765e9f-a609-46fa-ab56-40eb5dff0264.png)
 
+## Admin Home
+![admin_home_screenshot](https://user-images.githubusercontent.com/342276/197673053-a2010a69-75e4-4981-a573-a14cc81a188b.png)
+
+## New World
+![admin_newworld_screenshot](https://user-images.githubusercontent.com/342276/197673105-81e41a69-6a8b-48e4-b8c0-3ee8bb946a94.png)
+
+## Mods Editor
+![admin_modeditor_screenshot](https://user-images.githubusercontent.com/342276/197673179-0130fad0-2b17-42c2-88c5-a8d92738ee3b.png)
+
+## Citizens Editor
+![admin_citizenseditor_screenshot](https://user-images.githubusercontent.com/342276/197673205-290730dd-c92a-4769-aedf-916283d3b906.png)
 
