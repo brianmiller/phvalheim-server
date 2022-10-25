@@ -85,26 +85,26 @@ Access to each world is controlled by the PhValheim database. We associate the S
  
 
 # Screenshots
-## Public Home
+### Public Home
 ![public_home_screenshot](https://user-images.githubusercontent.com/342276/197672941-2e765e9f-a609-46fa-ab56-40eb5dff0264.png)
 
-## Admin Home
+### Admin Home
 ![admin_home_screenshot](https://user-images.githubusercontent.com/342276/197673053-a2010a69-75e4-4981-a573-a14cc81a188b.png)
 
-## New World
+### New World
 ![admin_newworld_screenshot](https://user-images.githubusercontent.com/342276/197673105-81e41a69-6a8b-48e4-b8c0-3ee8bb946a94.png)
 
-## Mods Editor
+### Mods Editor
 ![admin_modeditor_screenshot](https://user-images.githubusercontent.com/342276/197673179-0130fad0-2b17-42c2-88c5-a8d92738ee3b.png)
 
-## Citizens Editor
+### Citizens Editor
 ![admin_citizenseditor_screenshot](https://user-images.githubusercontent.com/342276/197673205-290730dd-c92a-4769-aedf-916283d3b906.png)
 
-## Engine Logs
+### Engine Logs
 ![admin_enginelogs_screenshot](https://user-images.githubusercontent.com/342276/197674357-40c91ec3-cb06-4a94-ab15-342f6b9ca37c.png)
 
-## World Log
+### World Log
 ![admin_worldlogs_screenshot](https://user-images.githubusercontent.com/342276/197674387-8e0877c1-d15f-4604-919a-4d970965f1f3.png)
 
-## File Manager
+### File Manager
 ![admin_filemanager_screenshot](https://user-images.githubusercontent.com/342276/197674464-445eaa0b-1f29-40c8-b7f3-e75f990aa8ec.png)
