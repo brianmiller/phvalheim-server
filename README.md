@@ -100,3 +100,11 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ## Citizens Editor
 ![admin_citizenseditor_screenshot](https://user-images.githubusercontent.com/342276/197673205-290730dd-c92a-4769-aedf-916283d3b906.png)
 
+## Engine Logs
+![admin_enginelogs_screenshot](https://user-images.githubusercontent.com/342276/197674357-40c91ec3-cb06-4a94-ab15-342f6b9ca37c.png)
+
+## World Log
+![admin_worldlogs_screenshot](https://user-images.githubusercontent.com/342276/197674387-8e0877c1-d15f-4604-919a-4d970965f1f3.png)
+
+## File Manager
+![admin_filemanager_screenshot](https://user-images.githubusercontent.com/342276/197674464-445eaa0b-1f29-40c8-b7f3-e75f990aa8ec.png)
