@@ -6,7 +6,9 @@
 [![made-with-MariaDB](https://img.shields.io/badge/Made%20with-MariaDB-013545.svg)](https://mariadb.org/)
 [![login-with-Steam](https://img.shields.io/badge/Login%20with-Steam-5d7e0f.svg)](https://store.steampowered.com/)
 [![Open Source Love png1](https://badges.frapsoft.com/os/v1/open-source.png?v=103)](https://en.wikipedia.org/wiki/Open-source_software)
+<hr>
 
+##### Navigation
 [![jump-to-features](https://img.shields.io/badge/Jump%20To-features-da70d6)](https://github.com/brianmiller/phvalheim-server#what-are-the-features-of-phvalheim)
 <br>
 [![jump-to-howitworks](https://img.shields.io/badge/Jump%20To-how%20it%20works-98FB98)](https://github.com/brianmiller/phvalheim-server#how-does-it-work)
