@@ -129,7 +129,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 		    </tbody>
 		    <tfoot>
 			<form>
-				<td colspan=4 align=center>
+				<td colspan=5 align=center>
 					<a href='new_world.php'><button>Add World</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='/supervisor/'><button>Service Management</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=phvalheim.log#bottom'><button>Engine Logs</button></a>
@@ -140,6 +140,10 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 					<a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button>File Browser</button></a>
 				</td>
 			</form>
+					<tr>
+					<td colspan='5' style='text-align:right;'>
+						<div>v<?php echo $phvalheimVersion;?></div>
+					</td>
 		    </tfoot>
 		</table>
 	</body>
