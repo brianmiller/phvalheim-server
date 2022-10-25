@@ -19,7 +19,9 @@
 <br>
 [![jump-to-screenshots](https://img.shields.io/badge/Jump%20To-screenshots-da70d6)](https://github.com/brianmiller/phvalheim-server#screenshots)
 <br>
-[![jump-to-deployment](https://img.shields.io/badge/Jump%20To-deployment-98FB98)](https://github.com/brianmiller/phvalheim-server#deployment)
+[![jump-to-containerdeployment](https://img.shields.io/badge/Jump%20To-container%20deployment-98FB98)](https://github.com/brianmiller/phvalheim-server#deployment)
+<br>
+[![jump-to-variables](https://img.shields.io/badge/Jump%20To-variables-da70d6)](https://github.com/brianmiller/phvalheim-server#variables)
 
 #### What is it?
 PhValheim is a two-part world and client manager for Valheim (with aspirations of becoming game agnostic), it keeps server and client files in lock-step, ensuring all players have the same experience.
@@ -135,3 +137,4 @@ podman create \
 
 podman start myPhValheim-server1
 ```
+### Variables
