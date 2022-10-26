@@ -71,6 +71,7 @@ while [ true ]; do
 
 				echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
 				chown -R phvalheim: $worldsDirectoryRoot/$worldName
+				InstallAndUpdateSteam
 				InstallAndUpdateBepInEx "$worldName"
 				InstallAndUpdateValheim "$worldName"
 				RESULT=$?
@@ -244,6 +245,7 @@ while [ true ]; do
 				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
 				#Update Steam
+				InstallAndUpdateSteam
 
 				#Update Valheim
 				InstallAndUpdateValheim "$worldName"

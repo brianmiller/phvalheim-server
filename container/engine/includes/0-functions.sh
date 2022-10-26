@@ -18,6 +18,23 @@ function getNextPort(){
         echo $port
 }
 
+function InstallAndUpdateSteam(){
+        if [ ! -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
+                curl http://media.steampowered.com/installer/steamcmd_linux.tar.gz --output /opt/stateful/games/steamcmd.tar.gz
+                tar xvzf /opt/stateful/games/steamcmd.tar.gz --directory /opt/stateful/games/steamcmd/.
+                rm /opt/stateful/games/steamcmd.tar.gz
+	else
+		echo "`date` [phvalheim] Steam appears to be installed, checking for updates..."
+        fi
+
+	if [ -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
+		export STEAMROOT=/opt/stateful/games/steamcmd
+		/opt/stateful/games/steamcmd/steamcmd.sh +quit
+	else
+		 echo "`date` [FAIL : phvalheim] Steam didn't install correctly, can't continue..."
+	fi
+}
+
 #$1=world name
 function InstallAndUpdateBepInEx() {
 	worldName="$1"
@@ -70,13 +87,6 @@ function InstallAndUpdateValheim() {
         #        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/steamapps
 	#	ls -ald /opt/stateful/games/valheim/worlds/$worldName/game/steamapps
         #fi
-
-        #If Steam isn't installed, install it
-        if [ ! -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
-                curl http://media.steampowered.com/installer/steamcmd_linux.tar.gz --output /opt/stateful/games/steamcmd.tar.gz
-                tar xvzf /opt/stateful/games/steamcmd.tar.gz --directory /opt/stateful/games/steamcmd/.
-                rm /opt/stateful/games/steamcmd.tar.gz
-        fi
 
         #Install Valheim once Steam is installed
         echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
