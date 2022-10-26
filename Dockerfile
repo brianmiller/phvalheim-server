@@ -1,5 +1,8 @@
-#Environment
+#Running Environment
 FROM ubuntu:focal
+
+#Version of this build
+ENV phvalheimVersion=1.0
 
 #Me
 LABEL maintainer=brian@phospher.com

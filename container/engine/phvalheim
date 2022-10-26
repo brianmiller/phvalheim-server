@@ -1,18 +1,15 @@
 #!/bin/bash
-source /opt/stateless/engine/includes/version.conf
-export phvalheimVersion="$phvalheimVersion"
-
 echo
 echo "`date` [NOTICE : phvalheim] Starting PhValheim engine..."
 echo "`date` [NOTICE : phvalheim] Loading PhValheim variables from environment..."
 echo "`date` [NOTICE : phvalheim] PhValheim Version: $phvalheimVersion"
-echo "`date` [NOTICE : phvalheim] basePort: $basePort";
-echo "`date` [NOTICE : phvalheim] defaultSeed: $defaultSeed";
-echo "`date` [NOTICE : phvalheim] backupsToKeep: $backupsToKeep";
-echo "`date` [NOTICE : phvalheim] Game DNS: $gameDNS";
-echo "`date` [NOTICE : phvalheim] PhValheim Host: $phvalheimHost";
-echo "`date` [NOTICE : phvalheim] PhValheim Client URL: $phvalheimClientURL";
-echo "`date` [NOTICE : phvalheim] Steam API Key: $steamAPIKey";
+echo "`date` [NOTICE : phvalheim] basePort: $basePort"
+echo "`date` [NOTICE : phvalheim] defaultSeed: $defaultSeed"
+echo "`date` [NOTICE : phvalheim] backupsToKeep: $backupsToKeep"
+echo "`date` [NOTICE : phvalheim] Game DNS: $gameDNS"
+echo "`date` [NOTICE : phvalheim] PhValheim Host: $phvalheimHost"
+echo "`date` [NOTICE : phvalheim] PhValheim Client URL: $phvalheimClientURL"
+echo "`date` [NOTICE : phvalheim] Steam API Key: $steamAPIKey"
 
 
 #load configs
