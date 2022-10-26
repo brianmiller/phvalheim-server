@@ -21,7 +21,7 @@
 <br>
 [![jump-to-containerdeployment](https://img.shields.io/badge/Jump%20To-container%20deployment-98FB98)](https://github.com/brianmiller/phvalheim-server#deployment)
 <br>
-[![jump-to-variables](https://img.shields.io/badge/Jump%20To-variables-da70d6)](https://github.com/brianmiller/phvalheim-server#variables)
+[![jump-to-variables](https://img.shields.io/badge/Jump%20To-variables-da70d6)](https://github.com/brianmiller/phvalheim-server/edit/master/README.md#container-variables)
 
 #### What is it?
 PhValheim is a two-part world and client manager for Valheim (with aspirations of becoming game agnostic), it keeps server and client files in lock-step, ensuring all players have the same experience.
@@ -138,4 +138,26 @@ podman create \
 
 podman start myPhValheim-server1
 ```
-### Variables
+### Container Variables
+#### <i>all variables are mandatory</i>
+| Variable | Description |
+| --- | -- |
+| basePort | The port your first world will use. This must be the beginning of the port range passed to the container on start. |
+| defaultSeed | The seed used when a seed isn't provided during world creation. |
+| backupsToKeep | How many backups to keep on disk before deleting the oldest. |
+| phvalheimHost | The FQDN of your PhValheim server your users will connect to. |
+| gameDNS | The FQDN your users will connected their Valheim client to. This can be the same as phvalheimHost, if needed. |
+| steamAPIKey | Your SteamAPI key used for player identification and authorization. |
+| phvalheimClientURL | The hosted URL for PhValheim Client downloads. You can change this if you prefer to host your own client files. |
+
+
+### Container Volumes and Persistent Storage
+#### <i>all paths are mandatory</i>
+| Container Path | Description |
+| --- | -- |
+| /opt/stateful | This volume stores all persistent data for your worlds, mods, PhValheim database, and configuration files. |
+| /opt/stateful/backups | This volume is the destination of world backups. It's a good idea to set this to a different disk for disaster recovery. |
+
+
+
+
