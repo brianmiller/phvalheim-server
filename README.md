@@ -162,5 +162,10 @@ podman start myPhValheim-server1
 | /opt/stateful/backups | This volume is the destination of world backups. It's a good idea to set this to a different disk for disaster recovery. |
 
 
-
+### Container Ports
+#### <i>all ports are mandatory</i>
+| Container Port | Description |
+| --- | -- |
+| 8888/tcp | This is the port the internal web service listens on.  Without this, nothing works. |
+| 25000-26000/udp | This is the port range used by PhValheim worlds. |
 
