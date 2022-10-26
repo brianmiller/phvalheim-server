@@ -128,7 +128,6 @@ Access to each world is controlled by the PhValheim database. We associate the S
 docker create \
        --name='myPhValheim-server1' \
                -p '8080:8888/tcp' \
-               -p '7777:9001/tcp' \
                -p '25000-26000:25000-26000/udp' \
                -e 'basePort'='25000' \
                -e 'defaultSeed'='szN8qp2lBn' \
