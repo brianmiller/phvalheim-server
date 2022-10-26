@@ -125,7 +125,7 @@ Access to each world is controlled by the PhValheim database. We associate the S
 
 ### Docker Command Line
 ```
-podman create \
+docker create \
        --name='myPhValheim-server1' \
                -p '8080:8888/tcp' \
                -p '7777:9001/tcp' \
@@ -136,12 +136,12 @@ podman create \
                -e 'phvalheimHost'='phvalheim-dev.phospher.com' \
                -e 'gameDNS'='37648-dev1.phospher.com' \
                -e 'steamAPIKey'='0123456789' \
-               -e 'phvalheimClientURL'='https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe'\
+               -e 'phvalheimClientURL'='https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe' \
                -v '/mnt/docker_persistent/phvalheim':'/opt/stateful':Z \
                -v '/mnt/phvalheim_backups/':'/opt/stateful/backups':Z \
                theoriginalbrian/phvalheim-server:latest``
 
-podman start myPhValheim-server1
+docker start myPhValheim-server1
 ```
 ### Container Variables
 #### <i>all variables are mandatory</i>
