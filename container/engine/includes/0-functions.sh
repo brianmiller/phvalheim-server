@@ -73,6 +73,11 @@ function worldDirPrep(){
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_plugins
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_patchers
 
+	# we need the world .config directory before the world starts (citizens and such...)
+	mkdir -p /opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/
+	echo "// List permitted players ID ONE per line" > /opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
+
+
 	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
