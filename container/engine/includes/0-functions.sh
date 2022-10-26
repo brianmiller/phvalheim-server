@@ -19,7 +19,11 @@ function getNextPort(){
 }
 
 function InstallAndUpdateSteam(){
-        if [ ! -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
+        if [ ! -d "/opt/stateful/games/steamcmd" ]; then
+                mkdir -p /opt/stateful/games/steamcmd
+        fi
+
+	if [ ! -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
                 curl http://media.steampowered.com/installer/steamcmd_linux.tar.gz --output /opt/stateful/games/steamcmd.tar.gz
                 tar xvzf /opt/stateful/games/steamcmd.tar.gz --directory /opt/stateful/games/steamcmd/.
                 rm /opt/stateful/games/steamcmd.tar.gz
@@ -77,9 +81,6 @@ function InstallAndUpdateValheim() {
 	worldName="$1"
 
 	#Ensure required directories exist
-        if [ ! -d "/opt/stateful/games/steamcmd" ]; then
-                mkdir -p /opt/stateful/games/steamcmd
-        fi
         if [ ! -d "/opt/stateful/games/valheim" ]; then
                 mkdir -p /opt/stateful/games/valheim
         fi
