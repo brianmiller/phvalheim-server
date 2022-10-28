@@ -26,6 +26,8 @@
 [![jump-to-containerdeployment](https://img.shields.io/badge/Jump%20To-volumes-98FB98)](https://github.com/brianmiller/phvalheim-server#container-volumes-and-persistent-storage)
 <br>
 [![jump-to-variables](https://img.shields.io/badge/Jump%20To-ports-da70d6)](https://github.com/brianmiller/phvalheim-server#container-ports)
+<br>
+[![jump-to-steamapikeyt](https://img.shields.io/badge/Jump%20To-Steam%20API%20Key-98FB98)](https://github.com/brianmiller/phvalheim-server/blob/master/README.md#generate-your-steam-api-key)
 
 
 #### What is it?
