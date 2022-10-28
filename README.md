@@ -176,6 +176,8 @@ docker start myPhValheim-server1
 
 
 ### Reverse Proxy Config Example
+#### <i>here's the config I use for my reverse proxy. It's a standard proxy pass config.</i>
+#### <i>Note: /admin and /supervisor is explicity denied from external access. You will need to access the /admin interface from inside your network, targeting your Docker host directly. I'll add /admin RBAC eventaully.</i>
 ```
 server {
         listen 80;
@@ -188,7 +190,6 @@ server {
         listen 443 ssl;
         server_name phvalheim.phospher.com phvalheim;
 
-        #ssl on;
         ssl_certificate /mnt/certs/live/phospher.com/fullchain.pem;
         ssl_certificate_key /mnt/certs/live/phospher.com/privkey.pem;
         ssl_session_cache shared:SSL:10m;
