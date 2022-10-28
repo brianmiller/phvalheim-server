@@ -173,9 +173,61 @@ docker start myPhValheim-server1
 | 25000-26000/udp | This is the port range used by PhValheim worlds. |
 
 
+### Reverse Proxy Config Example
+```
+server {
+        listen 80;
+        server_name phvalheim.phospher.com;
+        rewrite ^ https://$http_host$request_uri? permanent;
+        server_tokens off;
+}
+
+server {
+        listen 443 ssl;
+        server_name phvalheim.phospher.com phvalheim;
+
+        #ssl on;
+        ssl_certificate /mnt/certs/live/phospher.com/fullchain.pem;
+        ssl_certificate_key /mnt/certs/live/phospher.com/privkey.pem;
+        ssl_session_cache shared:SSL:10m;
+
+        ssl_stapling on;
+        ssl_stapling_verify on;
+        #ssl_verify_client off;
+
+        real_ip_header     X-Forwarded-For;
+        real_ip_recursive  on;
+
+        location ~* /admin {
+                deny all;
+        }
+
+        location ~* /supervisor {
+                deny all;
+        }
+
+        location / {
+                proxy_pass http://37648-dev1.phospher.com:8080;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Host $server_name;
+                proxy_set_header X-Forwarded-Proto https;
+                proxy_request_buffering off;
+                access_log /config/nginx/logs/phvalheim.access.log;
+                error_log /config/nginx/logs/phvalheim.error.log;
+                proxy_read_timeout 1200s;
+                client_max_body_size 0;
+                proxy_set_header Upgrade $http_upgrade;
+                proxy_set_header Connection $connection_upgrade;
+        }
+}
+```
+
 ### Reference Material
 #### Generate your Steam API Key
  - Navigate to the [Register Steam Web API Key](https://steamcommunity.com/dev/apikey) portal to generate your key.  Enter your PhValheim's external DNS hostname and copy your key. This is the key you must pass to PhValheim's "SteamAPIKey" variable on start.
 #### <i>Do not share this key. The one below has been revoked ;)</i>
 ![image](https://user-images.githubusercontent.com/342276/198714634-2595eeb6-fb6a-458f-a951-60e81154a087.png)
 ![image](https://user-images.githubusercontent.com/342276/198714723-107f95db-b66f-433f-8d23-dc8df6cb1a67.png)
+
