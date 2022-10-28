@@ -35,6 +35,8 @@
 #### What is it?
 PhValheim is a two-part world and client manager for Valheim (with aspirations of becoming game agnostic), it keeps server and client files in lock-step, ensuring all players have the same experience.
 
+#### <i>PhValheim is constently being improved. Make sure you maintain backups of your stateful data, beyond what PhValheim already backs up.</i>
+
 #### Why?
 Valheim is a fantastic game and the more we play the more we want. Modding Valheim is simple to do but difficult to manage across all players. Keeping the remote server and clients in-sync are nearly impossible without something like PhValheim.  While mod managers work well (Thunderstore and Nexus Mods), they don't work in a federated manner, eventaully resulting in clients being out of sync with each other and the remote server. PhValheim's primary goal is to solve this problem.
 
