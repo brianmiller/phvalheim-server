@@ -170,3 +170,10 @@ docker start myPhValheim-server1
 | 8888/tcp | This is the port the internal web service listens on.  Without this, nothing works. |
 | 25000-26000/udp | This is the port range used by PhValheim worlds. |
 
+
+### Reference Material
+### Navigate to your Steam Community API Portal to generate your key.  Enter your PhValheim's external DNS hostname and copy your key. This is the key you must pass to PhValheim's "SteamAPIKey" variable on start.
+![image](https://user-images.githubusercontent.com/342276/198714634-2595eeb6-fb6a-458f-a951-60e81154a087.png)
+![image](https://user-images.githubusercontent.com/342276/198714723-107f95db-b66f-433f-8d23-dc8df6cb1a67.png)
+
+
