@@ -23,13 +23,13 @@
 <br>
 [![jump-to-reverseproxy](https://img.shields.io/badge/Jump%20To-reverse%20proxy%20example-da70d6)](https://github.com/brianmiller/phvalheim-server#reverse-proxy-config-example)
 <br>
-[![jump-to-variables](https://img.shields.io/badge/Jump%20To-variables-da70d6)](https://github.com/brianmiller/phvalheim-server#container-variables)
+[![jump-to-variables](https://img.shields.io/badge/Jump%20To-variables-98FB98)](https://github.com/brianmiller/phvalheim-server#container-variables)
 <br>
-[![jump-to-volumes](https://img.shields.io/badge/Jump%20To-volumes-98FB98)](https://github.com/brianmiller/phvalheim-server#container-volumes-and-persistent-storage)
+[![jump-to-volumes](https://img.shields.io/badge/Jump%20To-volumes-da70d6)](https://github.com/brianmiller/phvalheim-server#container-volumes-and-persistent-storage)
 <br>
-[![jump-to-variables](https://img.shields.io/badge/Jump%20To-ports-da70d6)](https://github.com/brianmiller/phvalheim-server#container-ports)
+[![jump-to-variables](https://img.shields.io/badge/Jump%20To-ports-98FB98)](https://github.com/brianmiller/phvalheim-server#container-ports)
 <br>
-[![jump-to-steamapikeyt](https://img.shields.io/badge/Jump%20To-Steam%20API%20Key-98FB98)](https://github.com/brianmiller/phvalheim-server/blob/master/README.md#generate-your-steam-api-key)
+[![jump-to-steamapikeyt](https://img.shields.io/badge/Jump%20To-Steam%20API%20Key-da70d6)](https://github.com/brianmiller/phvalheim-server/blob/master/README.md#generate-your-steam-api-key)
 
 
 #### What is it?
