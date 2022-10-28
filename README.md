@@ -157,7 +157,7 @@ docker start myPhValheim-server1
 | backupsToKeep | How many backups to keep on disk before deleting the oldest. |
 | phvalheimHost | The FQDN of your PhValheim server your users will connect to. |
 | gameDNS | The FQDN your users will connected their Valheim client to. This can be the same as phvalheimHost, if needed. |
-| steamAPIKey | Your SteamAPI key used for player identification and authorization. |
+| steamAPIKey | Your SteamAPI key used for player identification and authorization. See [Generate Steam API Key](https://github.com/brianmiller/phvalheim-server/blob/master/README.md#generate-your-steam-api-key) for help. |
 | phvalheimClientURL | The hosted URL for PhValheim Client downloads. You can change this if you prefer to host your own client files. |
 
 
