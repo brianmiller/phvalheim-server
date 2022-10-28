@@ -172,9 +172,8 @@ docker start myPhValheim-server1
 
 
 ### Reference Material
-### Navigate to your Steam Community API Portal to generate your key.  Enter your PhValheim's external DNS hostname and copy your key. This is the key you must pass to PhValheim's "SteamAPIKey" variable on start.
+#### Generate your Steam API Key
+ - Navigate to your [Steam Community API Portal](https://steamcommunity.com/dev/apikey) to generate your key.  Enter your PhValheim's external DNS hostname and copy your key. This is the key you must pass to PhValheim's "SteamAPIKey" variable on start.
 #### <i>Do not share this key. The one below has been revoked ;)</i>
 ![image](https://user-images.githubusercontent.com/342276/198714634-2595eeb6-fb6a-458f-a951-60e81154a087.png)
 ![image](https://user-images.githubusercontent.com/342276/198714723-107f95db-b66f-433f-8d23-dc8df6cb1a67.png)
-
-
