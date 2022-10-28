@@ -21,9 +21,11 @@
 <br>
 [![jump-to-containerdeployment](https://img.shields.io/badge/Jump%20To-container%20deployment-98FB98)](https://github.com/brianmiller/phvalheim-server#deployment)
 <br>
+[![jump-to-reverseproxy](https://img.shields.io/badge/Jump%20To-reverse%20proxy%20example-da70d6)](https://github.com/brianmiller/phvalheim-server#reverse-proxy-config-example)
+<br>
 [![jump-to-variables](https://img.shields.io/badge/Jump%20To-variables-da70d6)](https://github.com/brianmiller/phvalheim-server#container-variables)
 <br>
-[![jump-to-containerdeployment](https://img.shields.io/badge/Jump%20To-volumes-98FB98)](https://github.com/brianmiller/phvalheim-server#container-volumes-and-persistent-storage)
+[![jump-to-volumes](https://img.shields.io/badge/Jump%20To-volumes-98FB98)](https://github.com/brianmiller/phvalheim-server#container-volumes-and-persistent-storage)
 <br>
 [![jump-to-variables](https://img.shields.io/badge/Jump%20To-ports-da70d6)](https://github.com/brianmiller/phvalheim-server#container-ports)
 <br>
