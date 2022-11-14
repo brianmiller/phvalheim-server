@@ -24,7 +24,8 @@ function InstallAndUpdateSteam(){
         fi
 
 	if [ ! -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
-                curl http://media.steampowered.com/installer/steamcmd_linux.tar.gz --output /opt/stateful/games/steamcmd.tar.gz
+		echo "`date` [phvalheim] Steam appears to be missing, installing..."
+		curl http://media.steampowered.com/installer/steamcmd_linux.tar.gz --output /opt/stateful/games/steamcmd.tar.gz
                 tar xvzf /opt/stateful/games/steamcmd.tar.gz --directory /opt/stateful/games/steamcmd/.
                 rm /opt/stateful/games/steamcmd.tar.gz
 	else
@@ -33,7 +34,8 @@ function InstallAndUpdateSteam(){
 
 	if [ -f "/opt/stateful/games/steamcmd/steamcmd.sh" ]; then
 		export STEAMROOT=/opt/stateful/games/steamcmd
-		/opt/stateful/games/steamcmd/steamcmd.sh +quit
+		/opt/stateful/games/steamcmd/steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/steamcmd +login anonymous +quit
+		#/opt/stateful/games/steamcmd/steamcmd.sh +quit
 	else
 		 echo "`date` [FAIL : phvalheim] Steam didn't install correctly, can't continue..."
 	fi
