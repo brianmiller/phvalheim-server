@@ -19,6 +19,16 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-f
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat
 
+#Steam stuff
+RUN apt-get update
+RUN apt-get install software-properties-common
+RUN apt-get install add-apt-repository multiverse
+RUN apt-get install dpkg --add-architecture i386
+RUN apt-get update
+RUN echo steam steam/license note '' | debconf-set-selections
+RUN echo steam steam/question select "I AGREE" |debconf-set-selections
+RUN apt-get install steamcmd
+
 #Small prep stuff
 RUN echo "set mouse-=a" > /root/.vimrc
 RUN useradd phvalheim
