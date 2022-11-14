@@ -2,7 +2,7 @@
 FROM ubuntu:focal
 
 #Version of this build
-ENV phvalheimVersion=1.0
+ENV phvalheimVersion=1.2
 
 #Me
 LABEL maintainer=brian@phospher.com
@@ -21,13 +21,13 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y gawk syssta
 
 #Steam stuff
 RUN apt-get update
-RUN apt-get install software-properties-common
-RUN apt-get install add-apt-repository multiverse
-RUN apt-get install dpkg --add-architecture i386
+RUN apt-get install --no-install-recommends --no-install-suggests -y software-properties-common
+RUN add-apt-repository multiverse
+RUN dpkg --add-architecture i386
 RUN apt-get update
 RUN echo steam steam/license note '' | debconf-set-selections
 RUN echo steam steam/question select "I AGREE" |debconf-set-selections
-RUN apt-get install steamcmd
+RUN apt-get install --no-install-recommends --no-install-suggests -y steamcmd
 
 #Small prep stuff
 RUN echo "set mouse-=a" > /root/.vimrc

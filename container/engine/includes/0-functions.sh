@@ -33,7 +33,7 @@ function updateSteam(){
 #        fi
 
 	if [ -f "/usr/games/steamcmd" ]; then
-		/usr/games/steamcmd +quit
+		/opt/stateless/games/steam/phvalheim_steamcmd.sh +quit
 	else
 		 echo "`date` [FAIL : phvalheim] Steam didn't install correctly, can't continue..."
 	fi
@@ -96,7 +96,7 @@ function InstallAndUpdateValheim() {
 
         #Install Valheim once Steam is installed
         echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
-        su phvalheim -c "/usr/games/steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit"
+	su phvalheim -c "/opt/stateless/games/steam/phvalheim_steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit"
 
 	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
