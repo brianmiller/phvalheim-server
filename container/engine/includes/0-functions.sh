@@ -32,11 +32,44 @@ function updateSteam(){
 #		echo "`date` [phvalheim] Steam appears to be installed, checking for updates..."
 #        fi
 
+
+	if [ ! -d /opt/stateful/games/steam_home ]; then
+		mkdir -p /opt/stateful/games/steam_home
+	fi
+
+        if [ ! -d /opt/stateful/games/steam_home/.steam ]; then
+                mkdir -p /opt/stateful/games/steam_home/.steam
+        fi
+
+	if [ ! -d /opt/stateful/games/steam_home/Steam ]; then
+                mkdir -p /opt/stateful/games/steam_home/Steam
+        fi
+
+	if [ -d /root/.steam ]; then
+		rm -rf /root/.steam > /dev/null 2>&1
+	fi
+
+        if [ -d /root/Steam ]; then
+                rm -rf /root/Steam > /dev/null 2>&1
+        fi
+
+	if [ ! -L "/root/.steam" ]; then
+		ln -s /opt/stateful/games/steam_home/.steam /root/.steam
+	fi
+
+	if [ ! -L "/root/Steam" ]; then
+                ln -s /opt/stateful/games/steam_home/Steam /root/Steam
+        fi
+
 	if [ -f "/usr/games/steamcmd" ]; then
-		/opt/stateless/games/steam/phvalheim_steamcmd.sh +quit
+		/usr/games/steamcmd +quit
 	else
 		 echo "`date` [FAIL : phvalheim] Steam didn't install correctly, can't continue..."
 	fi
+
+
+
+
 }
 
 #$1=world name
@@ -96,7 +129,7 @@ function InstallAndUpdateValheim() {
 
         #Install Valheim once Steam is installed
         echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
-	su phvalheim -c "/opt/stateless/games/steam/phvalheim_steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit"
+	/usr/games/steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit
 
 	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }

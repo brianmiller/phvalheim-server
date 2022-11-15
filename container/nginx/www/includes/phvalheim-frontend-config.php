@@ -25,7 +25,10 @@ $logExclusions = array(
         "CreateObjectMapping",
         "Discovering subsystems at path",
         "Renderer: Null Device",
-        "NULL"
+	"NULL",
+	"Failed to place",
+	"CreateDirectory",
+	"Tried to access Steam interface"
 );
 
 

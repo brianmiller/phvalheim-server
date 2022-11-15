@@ -47,6 +47,18 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 				$logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;'>Valheim World is online and ready for players.</p>";
 			}
 
+			#remove error message
+                        if (preg_match('/[S_API FAIL] Tried to access Steam interface(.*)/i', $logEntry))
+                        {
+                                $logEntry = "";
+                        }
+
+			#remove error message
+                        if (preg_match('/ILocalize(.*)/i', $logEntry))
+                        {
+                                $logEntry = "";
+                        }
+
 			#world completely stopped message
                         if (preg_match('/Net scene destroyed/i', $logEntry))
                         {
