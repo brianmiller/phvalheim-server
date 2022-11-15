@@ -2,7 +2,7 @@
 FROM ubuntu:focal
 
 #Version of this build
-ENV phvalheimVersion=1.4
+ENV phvalheimVersion=1.5
 
 #Me
 LABEL maintainer=brian@phospher.com
