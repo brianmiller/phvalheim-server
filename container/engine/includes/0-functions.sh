@@ -129,7 +129,7 @@ function InstallAndUpdateValheim() {
 
         #Install Valheim once Steam is installed
         echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
-	/usr/games/steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit
+	LD_LIBRARY_PATH="/opt/stateful/games/steam_home/.steam/steamcmd/linux32/:$LD_LIBRARY_PATH" /usr/games/steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit
 
 	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
