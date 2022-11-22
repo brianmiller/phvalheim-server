@@ -107,7 +107,8 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ![public_home_screenshot](https://user-images.githubusercontent.com/342276/197672941-2e765e9f-a609-46fa-ab56-40eb5dff0264.png)
 
 ### Admin Home
-<i>http://[dockerhost]:8080/admin</i>
+<i>http://[dockerhost]:8080/admin/</i>
+<i>Note: The trailing slash is required!</i>
 ![admin_home_screenshot](https://user-images.githubusercontent.com/342276/197673053-a2010a69-75e4-4981-a573-a14cc81a188b.png)
 
 ### New World
@@ -183,7 +184,7 @@ docker start myPhValheim-server1
 
 ### Reverse Proxy Config Example
 #### <i>here's the config I use for my reverse proxy. It's a standard proxy pass config.</i>
-#### <i>Note: /admin and /supervisor is explicity denied from external access. You will need to access the /admin interface from inside your network, targeting your Docker host directly. I'll add /admin RBAC eventaully.</i>
+#### <i>Note: /admin/ and /supervisor/ is explicity denied from external access. You will need to access the /admin interface from inside your network, targeting your Docker host directly. I'll add /admin RBAC eventaully.</i>
 #### <i>Note: Really, nothing sensitive is sent to or from PhValheim, but I haven't tried running without a reverse proxy and/or without a TLS certificate.  If you have decided to go without TLS and you have it working, I'm happy to post your configs for others, although I don't suggest going without TLS.</i>
 
 ```
