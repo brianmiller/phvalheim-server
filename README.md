@@ -108,6 +108,7 @@ Access to each world is controlled by the PhValheim database. We associate the S
 
 ### Admin Home
 <i>http://[dockerhost]:8080/admin/</i>
+<br>
 <i>Note: The trailing slash is required!</i>
 ![admin_home_screenshot](https://user-images.githubusercontent.com/342276/197673053-a2010a69-75e4-4981-a573-a14cc81a188b.png)
 
