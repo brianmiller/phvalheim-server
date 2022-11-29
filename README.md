@@ -1,7 +1,7 @@
 # PhValheim Server
 
 [![made-with-Docker](https://img.shields.io/badge/Made%20with-Docker-2496ed.svg)](https://www.docker.com/)
-[![made-with-Docker](https://img.shields.io/badge/Templatized%20for-Unraid-eb472b.svg)](https://www.unraid.net/)
+[![made-with-Docker](https://img.shields.io/badge/Templatized%20for-Unraid-f4672d.svg)](https://www.unraid.net/)
 [![made-with-BASH](https://img.shields.io/badge/Made%20with-BASH-a32c29.svg)](https://www.gnu.org/software/bash/)
 [![made-with-PHP](https://img.shields.io/badge/Made%20with-PHP-7a86b8.svg)](https://www.php.net/)
 [![made-with-MariaDB](https://img.shields.io/badge/Made%20with-MariaDB-013545.svg)](https://mariadb.org/)
