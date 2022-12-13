@@ -7,6 +7,9 @@
 [![made-with-MariaDB](https://img.shields.io/badge/Made%20with-MariaDB-013545.svg)](https://mariadb.org/)
 [![login-with-Steam](https://img.shields.io/badge/Login%20with-Steam-5d7e0f.svg)](https://store.steampowered.com/)
 [![Open Source Love png1](https://badges.frapsoft.com/os/v1/open-source.png?v=103)](https://en.wikipedia.org/wiki/Open-source_software)
+<br><br>
+Need help?<br>
+[![join-discord](https://img.shields.io/badge/Join%20Our-Discord-5865f2)](https://discord.gg/8RMMrJVQgy)
 <hr>
 
 ##### Navigation
@@ -31,6 +34,7 @@
 [![jump-to-variables](https://img.shields.io/badge/Jump%20To-ports-98FB98)](https://github.com/brianmiller/phvalheim-server#container-ports)
 <br>
 [![jump-to-steamapikeyt](https://img.shields.io/badge/Jump%20To-Steam%20API%20Key-da70d6)](https://github.com/brianmiller/phvalheim-server/blob/master/README.md#generate-your-steam-api-key)
+
 
 
 #### What is it?
