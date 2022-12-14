@@ -28,7 +28,13 @@ if (!empty($_GET['update_world'])) {
         header('Location: /admin/');
 }
 
-function populateTable($pdo,$phvalheimHost,$gameDNS){
+if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
+        $httpScheme = "https";
+} else {
+        $httpScheme = "http";
+}
+
+function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 	$getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed FROM worlds");
 	foreach($getWorlds as $row)
 	{
@@ -40,7 +46,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 		#$password = $row['password'];
 		$external_endpoint = $row['external_endpoint'];
 		$seed = $row['seed'];
-		$launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost");
+		$launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost?$httpScheme");
 		#$logsLink = "<a href='/readLog.php?logfile=valheimworld_$world.log'>Logs</a>";
 
 		$logsLink = "<a href=\"#\" onClick=\"window.open('/admin/readLog.php?logfile=valheimworld_$world.log','logReader','resizable,height=750,width=1600'); return false;\">Logs</a><noscript>You need Javascript to use the previous link or use <a href=\"/admin/readLog.php?logfile=valheimworld_$world.log\" target=\"_blank\" rel=\"noreferrer noopener\">Logs</a></noscript>";
@@ -125,7 +131,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS){
 		        </tr>
 		    </thead>
 		    <tbody>
-			<?php populateTable($pdo,$phvalheimHost,$gameDNS); ?>
+			<?php populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme); ?>
 		    </tbody>
 		    <tfoot>
 			<form>

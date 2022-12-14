@@ -8,7 +8,7 @@ include '../includes/db_sets.php';
 
 # simple security: if this page is accessed from a source other than steam, redirect back to login page
 # NOTE: this security check only works when HTTPS is used!
-if(!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 	if ($_SERVER['HTTP_REFERER'] != "https://steamcommunity.com/")
 	{
 		header('Location: ../index.php');
