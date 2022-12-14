@@ -8,6 +8,20 @@
 	include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 	include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
+	# are we using TLS?
+	if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
+	        $steamRealm = "https://" . $_SERVER['HTTP_HOST'];
+	} else {
+	        $steamRealm = "http://" . $_SERVER['HTTP_HOST'];
+	}
+
+
+
+#foreach($_SERVER as $key_name => $key_value) {
+#       print $key_name . " = " . $key_value . "<br>";
+#}
+
+
 ?>
 
 
@@ -73,8 +87,8 @@
 						<input type="hidden" name="openid.claimed_id" value="http://specs.openid.net/auth/2.0/identifier_select">
 						<input type="hidden" name="openid.ns" value="http://specs.openid.net/auth/2.0">
 						<input type="hidden" name="openid.mode" value="checkid_setup">
-						<input type="hidden" name="openid.realm" value="https://<?php echo $phvalheimHost?>">
-						<input type="hidden" name="openid.return_to" value="https://<?php echo $phvalheimHost?>/authenticated.php">
+						<input type="hidden" name="openid.realm" value="<?php echo $steamRealm?>">
+						<input type="hidden" name="openid.return_to" value="<?php echo $steamRealm?>/authenticated.php">
 						<input type="image" name="submit" src="https://steamcommunity-a.akamaihd.net/public/images/signinthroughsteam/sits_01.png" border="0" alt="Submit">
 					</div>
 					

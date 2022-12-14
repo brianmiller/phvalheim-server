@@ -73,7 +73,7 @@ function modExistCheck($pdo,$world,$modUUID) {
 	return $result;
 }
 
-function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost) {
+function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
         $getWorldData = $pdo->query("SELECT status,name,port FROM worlds WHERE name='$world'");
         foreach($getWorldData as $row)
         {
@@ -82,7 +82,7 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost) {
                 $port = $row['port'];
                 $password = "hammertime";
                 #$password = $row['password'];
-                $launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost");
+                $launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost?$httpScheme");
 
 		return $launchString;
 	}

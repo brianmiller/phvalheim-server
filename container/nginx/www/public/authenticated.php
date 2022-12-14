@@ -7,13 +7,26 @@ include '../includes/db_gets.php';
 include '../includes/db_sets.php';
 
 # simple security: if this page is accessed from a source other than steam, redirect back to login page
-if ($_SERVER['HTTP_REFERER'] != "https://steamcommunity.com/")
-{
-	header('Location: ../index.php');
+# NOTE: this security check only works when HTTPS is used!
+if(!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+	if ($_SERVER['HTTP_REFERER'] != "https://steamcommunity.com/")
+	{
+		header('Location: ../index.php');
+	}	
 }
 
 
-function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort) {
+if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
+	$httpScheme = "https";
+} else {
+	$httpScheme = "http";
+}
+
+#foreach($_SERVER as $key_name => $key_value) {
+#	print $key_name . " = " . $key_value . "<br>";
+#}
+
+function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme) {
 
 		# steam
 	        if( isset( $_GET[ 'openid_claimed_id' ] ) )
@@ -67,7 +80,7 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
 
                 if(!empty($getMyWorlds)) {
                         foreach ($getMyWorlds as $myWorld) { //only query and return authorized worlds
-                                $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost); 
+                                $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost,$httpScheme); 
 				$md5 = getMD5($pdo,$myWorld);
 				$dateDeployed = getDateDeployed($pdo,$myWorld);
 				$dateUpdated = getDateUpdated($pdo,$myWorld);
@@ -191,6 +204,6 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
                 <link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css">
         </head>
         <body>
-                <?php populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort) ?>
+                <?php populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme) ?>
         </body>
 </html>
