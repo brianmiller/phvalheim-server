@@ -7,8 +7,8 @@
 
 podman create \
        --name='37648-phvalheim1' \
-	       -p '8080:8888/tcp' \
-	       -p '7777:9001/tcp' \
+	       -p '8080:8080/tcp' \
+	       -p '8081:8081/tcp' \
 	       -p '25000-26000:25000-26000/udp' \
 	       -e 'basePort'='25000' \
 	       -e 'defaultSeed'='szN8qp2lBn' \
