@@ -185,7 +185,7 @@ docker start myPhValheim-server1
 | Container Port | Description |
 | --- | -- |
 | 8080/tcp | This is the port the internal web service listens on and is the interface you want exposed to the public.  Without this, nothing works. |
-| 8081/tcp | This is the port the admin interface listens on. This should not be accessible from the public internet--do not port forward this port. |
+| 8081/tcp | This is the port the admin interface listens on. This should ``` not ``` be accessible from the public internet. ``` Do not ``` forward this port in your firewall/router unless you know what you're doing. |
 | 25000-26000/udp | This is the port range used by PhValheim worlds. |
 
 
