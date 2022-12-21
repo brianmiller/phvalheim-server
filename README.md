@@ -143,7 +143,8 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ```
 docker create \
        --name='myPhValheim-server1' \
-               -p '8080:8888/tcp' \
+               -p '8080:8080/tcp' \
+               -p '8081:8081/tcp' \
                -p '25000-26000:25000-26000/udp' \
                -e 'basePort'='25000' \
                -e 'defaultSeed'='szN8qp2lBn' \
@@ -183,7 +184,8 @@ docker start myPhValheim-server1
 #### <i>all ports are mandatory</i>
 | Container Port | Description |
 | --- | -- |
-| 8888/tcp | This is the port the internal web service listens on.  Without this, nothing works. |
+| 8080/tcp | This is the port the internal web service listens on and is the interface you want exposed to the public.  Without this, nothing works. |
+| 8081/tcp | This is the port the admin interface listens on. This should not be accessible from the public internet--do not port forward this port. |
 | 25000-26000/udp | This is the port range used by PhValheim worlds. |
 
 
