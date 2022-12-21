@@ -7,25 +7,25 @@ include '../includes/db_sets.php';
 if (!empty($_GET['delete_world'])) {
 	$world = $_GET['delete_world'];
         deleteWorld($pdo,$world);
-        header('Location: /admin/');
+        header('Location: /');
 }
 
 if (!empty($_GET['stop_world'])) {
         $world = $_GET['stop_world'];
         stopWorld($pdo,$world);
-	header('Location: /admin/');
+	header('Location: /');
 }
 
 if (!empty($_GET['start_world'])) {
         $world = $_GET['start_world'];
         startWorld($pdo,$world);
-        header('Location: /admin/');
+        header('Location: /');
 }
 
 if (!empty($_GET['update_world'])) {
         $world = $_GET['update_world'];
         updateWorld($pdo,$world);
-        header('Location: /admin/');
+        header('Location: /');
 }
 
 if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
@@ -49,7 +49,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 		$launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost?$httpScheme");
 		#$logsLink = "<a href='/readLog.php?logfile=valheimworld_$world.log'>Logs</a>";
 
-		$logsLink = "<a href=\"#\" onClick=\"window.open('/admin/readLog.php?logfile=valheimworld_$world.log','logReader','resizable,height=750,width=1600'); return false;\">Logs</a><noscript>You need Javascript to use the previous link or use <a href=\"/admin/readLog.php?logfile=valheimworld_$world.log\" target=\"_blank\" rel=\"noreferrer noopener\">Logs</a></noscript>";
+		$logsLink = "<a href=\"#\" onClick=\"window.open('/readLog.php?logfile=valheimworld_$world.log','logReader','resizable,height=750,width=1600'); return false;\">Logs</a><noscript>You need Javascript to use the previous link or use <a href=\"/readLog.php?logfile=valheimworld_$world.log\" target=\"_blank\" rel=\"noreferrer noopener\">Logs</a></noscript>";
 
 
 		if ($mode == 'stopped') {
