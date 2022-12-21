@@ -190,9 +190,7 @@ docker start myPhValheim-server1
 
 
 ### Reverse Proxy Config Example
-#### <i>here's the config I use for my reverse proxy. It's a standard proxy pass config.</i>
-#### <i>Note: /admin/ and /supervisor/ is explicity denied from external access. You will need to access the /admin interface from inside your network, targeting your Docker host directly. I'll add /admin RBAC eventaully.</i>
-#### <i>Note: Really, nothing sensitive is sent to or from PhValheim, but I haven't tried running without a reverse proxy and/or without a TLS certificate.  If you have decided to go without TLS and you have it working, I'm happy to post your configs for others, although I don't suggest going without TLS.</i>
+#### <i>Optional: Here's the config I use for my reverse proxy. It's a standard proxy pass config that helps with TLS termination.</i>
 
 ```
 server {
@@ -216,14 +214,6 @@ server {
 
         real_ip_header     X-Forwarded-For;
         real_ip_recursive  on;
-
-        location ~* /admin {
-                deny all;
-        }
-
-        location ~* /supervisor {
-                deny all;
-        }
 
         location / {
                 proxy_pass http://37648-dev1.phospher.com:8080;
