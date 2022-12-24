@@ -12,6 +12,9 @@ Need help?<br>
 [![join-discord](https://img.shields.io/badge/Join%20Our-Discord-5865f2)](https://discord.gg/8RMMrJVQgy)
 <hr>
 
+<img src="https://github.com/brianmiller/docker-templates/raw/master/phvalheim-server/phvalheim-server.png" align="right" width="200">
+
+
 ##### Navigation
 [![jump-to-features](https://img.shields.io/badge/Jump%20To-features-da70d6)](https://github.com/brianmiller/phvalheim-server#what-are-the-features-of-phvalheim)
 <br>
