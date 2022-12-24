@@ -5,7 +5,7 @@ FROM ubuntu:focal
 ENV phvalheimVersion=2.1
 
 #Me
-LABEL maintainer=Brian Miller <brian@phospher.com>
+LABEL maintainer="Brian Miller <brian@phospher.com>"
 
 ARG DEBIAN_FRONTEND=noninteractive
 

@@ -1,4 +1,4 @@
 #!/bin/bash
 
 
-podman build -t phvalheim .
+podman build --format=docker -t phvalheim .
