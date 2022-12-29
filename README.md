@@ -112,6 +112,7 @@ Access to each world is controlled by the PhValheim database. We associate the S
 
 # Screenshots
 ### Public Home
+<i>http[s]://[dockerhost]:8080</i>
 ![public_home_screenshot](https://user-images.githubusercontent.com/342276/197672941-2e765e9f-a609-46fa-ab56-40eb5dff0264.png)
 
 ### Admin Home
