@@ -56,7 +56,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 			$editLink = "<a disabled href='edit_world.php?world=$world'>Edit Mods</a>";
 			$startLink = "<a href='?start_world=$world'>Start</a>";
 			$stopLink = "<font color=lightgrey>Stop</font>";
-			$deleteLink = "<a href='?delete_world=$world'>Delete</a>";
+			$deleteLink = "<a href='?delete_world=$world' onclick='return confirm(\"Are you sure?\")'>Delete</a>";
 			$updateLink = "<a href='?update_world=$world'>Update</a>";
 			$launchLink = "<font color=lightgrey>Launch</font>";
 		} else {
@@ -143,6 +143,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=php.log#bottom'><button>PHP Logs</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=nginx.log#bottom'><button>NGINX Logs</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=cron.log#bottom'><button>CRON Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='gridphp/' onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')"><button>Database Browser</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button>File Browser</button></a>
 				</td>
 			</form>

@@ -1,0 +1,43 @@
+By downloading, installing, copying, or otherwise using the SOFTWARE, You agree to be bound by the terms of this LICENSE.
+
+LIMITATIONS
+-----------
+
+(a) SOFTWARE cannot be embedded in any application with businesses of Bank, Loan, Insurance, Mortgage, Interest based & Financial Servies, Entertainment Industry, Casino, Gambling, Dating, Pornographic, Erotic & Adult Content, Mass Media Broadcasting, Film, Music, Showbiz and related services, Arts and Design Services, Performing Arts, Dance, Photography, Music, Musical Instruments & related services, Alcoholic beverages & related products, Religious Services. In case of any confusion you should ask before purchase. We reserves the right to make the final decision on all such cases. No technical support will be provided for such businesses.
+
+(b) You may not Sell, lease, assign, transfer, sub-license, disseminate, translate, duplicate, reproduce or copy the Software (or permit any of the foregoing) or any information pertaining thereto to any other party except as permitted in this Agreement.
+
+(c) If you are planning on distributing your software product (for example a package that can be installed on your customer's servers) then you need an Enterprise license.
+
+(d) You may not disassemble, decompile, decode or otherwise reverse translate or engineer, or attempt in any manner to reconstruct or discover any source code or underlying algorithms of Software, if provided in object code form only.
+
+(e) You may not distribute the source code, or any modification, enhancement, derivative work and/or extension thereto, in source code form.
+
+(f) Number of Developers allowed to use software are with respect to the licensed purchased.
+
+(g) Number of Production deployments or Web applications allowed are with respect to the licensed purchased.
+
+MISCELLANEOUS
+-------------
+
+(a) Neither the name of Grid 4 PHP Framework nor the name of it contributor (Abu Ghufran) may be used to endorse or promote products derived from this software without specific prior written permission.
+
+(b) We may use buyer name & company details (name, logo etc) in the list of buyers section of website, unless requested to remove.
+    
+(c) Subscription duration for free upgrades & technical support will be mentioned in product download link email (if eligible).
+
+(d) Refund cases within 30 days of purchase will only be entertained.
+
+(e) We reserve the right, at our sole discretion, to change or modify portions of these Terms of Service at any time without further notice. You should periodically visit website to review the current Terms of Service so you are aware of any revision to which you are bound.
+
+(f) If you do not agree to abide by these or any future Terms of Service, do not use or access (or continue to use or access) the Service.
+
+TERMINATION
+-----------
+
+This LICENSE will automatically terminate if Customer fails to comply with any of the terms and conditions hereof. In such event, Customer must destroy all copies of the APPLICATION.
+
+THIS SOFTWARE IS PROVIDED BY Abu Ghufran ''AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL Abu Ghufran BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Copyright (c) 2010-2021, Grid 4 PHP Framework
+All rights reserved.
