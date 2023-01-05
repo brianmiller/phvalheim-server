@@ -182,6 +182,15 @@ a:visited {
 
 }
 
+.card_dimmed {
+  cursor: not-allowed;
+  text-decoration: none;
+  pointer-events: none;
+  outline: 2px dashed #A0A0A0 !important; 
+  color: #A0A0A0 !important;
+  opacity: 0.75;
+}
+
 .catbox {
   background-color: #131729;
   border-radius: 6px;
@@ -194,10 +203,12 @@ a:visited {
 .card_worldName {
   color: #32afff;
   font-size: 18px;
+  outline: none !important;
 }
 
 .card_worldLaunch {
   font-size: 15px;
+  outline: none !important;
 }
 
 a.card_worldLaunch:link {
@@ -216,6 +227,7 @@ a.card_worldLaunch:hover{
 .card_worldInfo {
   color: #d3d7cf;
   font-size: 12px;
+  outline: none !important;
 }
 
 

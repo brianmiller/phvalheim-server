@@ -82,39 +82,51 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
                         foreach ($getMyWorlds as $myWorld) { //only query and return authorized worlds
                                 $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost,$httpScheme); 
 				$md5 = getMD5($pdo,$myWorld);
+				$seed = getSeed($pdo,$myWorld);
 				$dateDeployed = getDateDeployed($pdo,$myWorld);
 				$dateUpdated = getDateUpdated($pdo,$myWorld);
 				$worldMemory = getWorldMemory($pdo,$myWorld);
+				if($worldMemory == "offline") {
+					$worldDimmed = "card_dimmed";
+					$launchLabel = "offline";
+				} else {
+					$worldDimmed = "";
+					$launchLabel = "Launch!";
+				}
+				
 
                                 echo "
-                                        <div class=\"catbox $myWorld\">
+                                        <div class=\"$worldDimmed catbox $myWorld\">
                                                 <table width=100% height=100% border=0>
-                                                        <th class='card_worldName' colspan=2>$myWorld</th>
+                                                        <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
                                                         <tr>
-                                                        <th class='card_worldLaunch' colspan=2><a class='card_worldLaunch' href='phvalheim://?$launchString'>Launch!</a></th>
+                                                        <th class='$worldDimmed card_worldLaunch' colspan=2><a class='$worldDimmed card_worldLaunch' href='phvalheim://?$launchString'>$launchLabel</a></th>
 
                                                         <tr>
 
                                                         <td style='height: 12px;'</td>
 
                                                         <tr>
-                                                        <td class='card_worldInfo'>Citizens&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>WIP</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Citizens&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>WIP</td>
                                                         <tr>
-                                                        <td class='card_worldInfo'>Mods&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>WIP</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Mods&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>WIP</td>
                                                         <tr>
-                                                        <td class='card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>$md5</td>
+                                                        <td class='$worldDimmed card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$md5</td>
                                                         <tr>
-                                                        <td class='card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>$dateDeployed</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$seed</td>
                                                         <tr>
-                                                        <td class='card_worldInfo'>Updated&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>$dateUpdated</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$dateDeployed</td>
                                                         <tr>
-                                                        <td class='card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='card_worldInfo'>$worldMemory</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Updated&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$dateUpdated</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$worldMemory</td>
                                                         <tr>
                                                 </table>
                                         </div>
