@@ -111,8 +111,8 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 				          },
 
 					lengthMenu: [
-				            [10, 25, 50, -1],
-					    [10, 25, 50, 'All'],
+				            [50, 75, 100, -1],
+					    [50, 75, 100, 'All'],
 				        ],
 				});
 			});
