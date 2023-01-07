@@ -12,4 +12,7 @@ if [ ! -f "../running_container/tsmods_seed.sql" ]; then
 	exit 1
 fi
 
+echo
+echo "Moving ../running_container/tsmods_seed.sql to ../container/mysql/tsmods_seed.sql"
 sudo mv ../running_container/tsmods_seed.sql ../container/mysql/tsmods_seed.sql
+echo
