@@ -68,13 +68,6 @@ function toDatabase(){
 }
 
 
-
-#Skyheim Extended
-#allMods="3a1bca88-15d9-46bd-9362-ae237674b89c"
-
-#EpicValheim
-#allMods="f2135353-1d35-4263-be74-f2355c72893f"
-
 #Get all versions and dependencies for each version under parent
 for ts_uuid4 in $allMods; do
 	getParent "$ts_uuid4"
