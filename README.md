@@ -20,7 +20,7 @@ Need help?<br>
 <br>
 [![jump-to-howitworks](https://img.shields.io/badge/Jump%20To-how%20it%20works-98FB98)](https://github.com/brianmiller/phvalheim-server#how-does-it-work)
 <br>
-[![jump-to-client](https://img.shields.io/badge/Jump%20To-PhvValheim%20client-da70d6)](https://github.com/brianmiller/phvalheim-server#phvalheim-client)
+[![jump-to-client](https://img.shields.io/badge/Jump%20To-PhValheim%20client-da70d6)](https://github.com/brianmiller/phvalheim-server#phvalheim-client)
 <br>
 [![jump-to-architecture](https://img.shields.io/badge/Jump%20To-architecture-98FB98)](https://github.com/brianmiller/phvalheim-server#architecture)
 <br>
