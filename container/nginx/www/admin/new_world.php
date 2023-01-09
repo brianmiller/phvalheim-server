@@ -88,7 +88,7 @@ if (!empty($_POST)) {
 
 			    <tbody>
 				<td><input type="text" name="world"></td>
-				<td><input type="text" name="seed"></td>
+				<td><input type="text" class="seed" value="<?php echo $defaultSeed ?>"/></td>
 				<td>
 					<div id="modlist" class="dropdown-check-list" tabindex="100">
         	                        	<span class="anchor">Mods</span>
@@ -124,6 +124,15 @@ if (!empty($_POST)) {
                                 else
                                         checkList.classList.add('visible');
                                 }
+
+                        $('.seed').focus(function() {
+                            if (this.value == this.value) {
+                                $(this).val("");
+                                $(this).unbind();
+                            }
+                        });
+
+
                 </script>
 	</body>
 </html>
