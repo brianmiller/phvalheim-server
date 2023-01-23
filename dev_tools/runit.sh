@@ -1,12 +1,7 @@
-#podman run --rm -d \
-#	--name='37648-phvalheim1' \
-#	-p '8080:8888/tcp' \
-#	-p '4000-5000:4000-5000/udp' \
-#	-v '/home/brian/Development/docker/docker-phvalheim/running_container/':'/opt/stateful':Z \
-#        localhost/phvalheim
+containerName="37648-phvalheim1"
 
 podman create \
-       --name='37648-phvalheim1' \
+       --name="$containerName" \
 	       -p '8080:8080/tcp' \
 	       -p '8081:8081/tcp' \
 	       -p '25000-26000:25000-26000/udp' \
@@ -15,8 +10,8 @@ podman create \
 	       -e 'backupsToKeep'='10' \
 	       -e 'phvalheimHost'='phvalheim-dev.phospher.com' \
 	       -e 'gameDNS'='37648-dev1.phospher.com' \
-	       -e 'steamAPIKey'="`cat dev_tools/steamAPIKey.txt`" \
+	       -e 'steamAPIKey'="`cat ../not_git/steamAPIKey.txt`" \
 	       -e 'phvalheimClientURL'='https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe' \
-	       -v '/home/brian/Development/docker/phvalheim-server/running_container/':'/opt/stateful':Z \
-	       -v '/tmp/test_backups/':'/opt/stateful/backups':Z \
+	       -v "/home/brian/docker_persistent/$containerName/":'/opt/stateful':Z \
+	       -v "/home/brian/docker_persistent/$containerName/backups/":'/opt/stateful/backups':Z \
 	        localhost/phvalheim
