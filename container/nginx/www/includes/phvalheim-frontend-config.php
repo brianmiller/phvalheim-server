@@ -4,6 +4,13 @@
 #Phvalheim database
 $pdo = new PDO('mysql:host=localhost;dbname=phvalheim', 'phvalheim_user', 'phvalheim_secretpassword');
 
+#How many versions to display in client download window. Leave this at 1 for now.
+#The download tooltip doesn't handle more than 1 very well.  I'll make this better
+#if folks want it. Feel free to play with it. 
+$clientVersionsToRender = 1;
+
+#Git repos to use for client version checking and downloads
+$phValheimClientGitRepo = "https://github.com/brianmiller/phvalheim-client";
 
 #Log configs
 #Log exclusions are insensitive

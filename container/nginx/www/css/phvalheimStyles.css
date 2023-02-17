@@ -25,16 +25,61 @@
 }
 
 
+/** {
+	box-sizing: border-box;
+	margin: 5px;
+}*/
+
 body {
         color: var(--main-font-color) !important;
-        background: var(--main-background-color);
-        font-family:  var(--main-font);
+        background: var(--main-background-color) !important;
+        font-family:  var(--main-font) !important;
+        line-height: normal !important;
+        font-size: 16px !important;
 }
 
+table {
+	border-collapse: separate !important;
+	text-indent: initial !important;
+	border-spacing: 2px !important;
+}
+
+html {
+	font-size: 16px !important;
+	font-family:  var(--main-font) !important;
+}
+
+/*ul { 
+	list-style: none; 
+	padding: 0; 
+	margin: 0;
+}
+
+li { 
+	padding-left: 0.75em; 
+	position:relative; 
+}*/
+
+/*li:before { 
+	content: "\2022";
+	color: var(--main-highlighted-color); 
+	position: absolute; 
+	left: 0em; 
+}*/
+
+a {
+  color: var(--button-font-color-idle);
+  text-decoration: none; 
+}
+
+a:hover {
+  color: var(--button-font-color-hover);
+  text-decoration: none; 
+}
 
 a:visited {
-  color: green;
-
+  color: var(--button-font-color-idle);
+  text-decoration: none; 
 }
 
 .disabled {
@@ -63,6 +108,10 @@ a:visited {
   border-bottom: 2px dashed var(--outline-light); 
 }
 
+.top_line {
+  border-top: 2px dashed var(--outline-light);
+}
+
 .sm-bttn {
   padding: 5px 9px;
   cursor: pointer;
@@ -71,7 +120,7 @@ a:visited {
   border: none;
   outline: 2px solid var(--outline-light);
   border-radius: 6px;
-  font-size: 100%;
+  font-size: 100% !important;
 
  -webkit-appearance: none;
   -moz-appearance: none;
@@ -91,34 +140,102 @@ a:visited {
 
 .client_download_button {
   text-align: right;
-  padding-top: 20px;
-  padding-right: 20px;
-  display: block; 
+  padding-top: 20px !important;
+  padding-right: 20px !important;
+  display: block !important; 
   font-family: var(--main-font) !important;
+  font-size: 100% !important;
 }
 
-.client_download_button img {
-  padding-top: 1px;
-  padding-left: 2px;
-  padding-right: 2px;
-  padding-bottom: 1px;
-  width: 12px;
-  height: 12px;
-  /* display: block; */
-  filter: invert(60%) sepia(23%) saturate(1327%) hue-rotate(259deg) brightness(93%) contrast(84%);
+.center {
+  /*display: block;*/
+  margin-left: auto;
+  margin-right: auto;
+  width: 50%;
+  text-align: center;
+  vertical-align: middle;
 }
 
-.client_download_button:hover img {
-  filter: invert(97%) sepia(43%) saturate(961%) hue-rotate(49deg) brightness(98%) contrast(101%);
+.client_download_os_icon img {
+  margin-top: 10px;
+  /*padding-left: 2px;
+  padding-right: 2px;*/
+  width: 32px;
+  height: 32px;
+  filter: brightness(75%);
 }
 
-.client_download_button:active img {
-  filter: invert(60%) sepia(23%) saturate(1327%) hue-rotate(259deg) brightness(93%) contrast(84%);
+.client_download_os_icon:hover img {
+  filter: brightness(110%);
+  -webkit-transition : -webkit-filter 500ms linear
+}
+
+.client_download_os_icon:active img {
+  filter: brightness(120%);
+  -webkit-transition : -webkit-filter 500ms linear
+}
+
+img.client_download_link_colorizer:hover ~ p.versionLabel { 
+  color: var(--button-font-color-hover);
+}
+
+p {
+  font-weight: 300;
+  transition: color 0.5s ease;
 }
 
 .client_download_button_font {
-  font-family: "Lucida Console", "Courier New", monospace !important;
-  font-weight: normal; 
+  font-family: var(--main-font) !important;
+  font-weight: normal !important;
+  font-size: 100% !important;
+}
+
+.client_download_tooltip {
+  font-family: var(--main-font) !important;
+  font-weight: normal !important;
+  font-size: 100% !important;
+  background-color: var(--main-background-color);
+  color: var(--button-font-color-hover);
+  border-color: #34e2e2;
+  text-align: right;
+}
+
+p.client_download_tooltip_otherbuilds {
+  font-family: var(--main-font) !important;
+  font-weight: normal !important;
+  font-size: 65% !important;
+  padding-top: 5px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: auto;
+}
+
+p.client_download_tooltip_otherbuilds a {
+  color: var(--button-font-color-idle) !important;
+  text-decoration: none;
+  font-weight: 300;
+  transition: color 0.5s ease;
+}
+
+p.client_download_tooltip_otherbuilds:hover a {
+  color: var(--button-font-color-hover) !important;
+  text-decoration: none;
+}
+
+p.client_download_tooltip_otherbuilds:visited a {
+  color: var(--button-font-color-idle) !important;
+  text-decoration: none;
+}
+
+.versionLabel {
+  display: block;
+  font-size: 0.83em;
+  margin-top: 2px;
+}
+
+.versionLabel:hover {
+  color: var(--button-font-color-hover) !important;
 }
 
 .name_header {
@@ -162,7 +279,8 @@ a:visited {
   overflow:hidden; 
   margin: auto;
   display: flex;
-  justify-content: center;
+  justify-content: center !important;
+  align-content: center !important;
  
 }
 
@@ -178,8 +296,8 @@ a:visited {
   width: 100%;
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-
+  justify-content: center !important;
+  align-content: center !important; 
 }
 
 .card_dimmed {
@@ -189,26 +307,29 @@ a:visited {
   outline: 2px dashed #A0A0A0 !important; 
   color: #A0A0A0 !important;
   opacity: 0.75;
+
 }
 
 .catbox {
   background-color: #131729;
   border-radius: 6px;
-  padding: 20px;
-  font-size: 125%;
+  padding: 15px !important;
+  padding-bottom: 30px !important;
+  font-size: 125% !important;
   outline: 2px solid #34e2e2;
-
 }
 
 .card_worldName {
   color: #32afff;
   font-size: 18px;
   outline: none !important;
+  text-align: center;
 }
 
 .card_worldLaunch {
   font-size: 15px;
   outline: none !important;
+  text-align: center;
 }
 
 a.card_worldLaunch:link {
@@ -343,6 +464,24 @@ table.dataTable tbody tr.myodd{
   line-height: 1.0;
   border-radius: 0.2rem;
   background-color: #131729;
+  display: inline-block;
+  margin: 0em;
+  text-indent: 0px;
+  text-shadow: none;
+  text-align: center;
+  border-width: 2px;
+  border-style: outset;
+  border-image: initial
 }
 
+.popover {
+    min-width: 100px;
+    max-width: 100%;
+    background: var(--main-background-color);
+    border-color: #34e2e2;
+}
 
+.popover-title {
+    background: var(--main-background-color);
+    border-color: #34e2e2;
+}

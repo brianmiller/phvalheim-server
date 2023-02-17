@@ -1,10 +1,13 @@
 <?php
 
 require_once '../vendor/autoload.php';
-include '/opt/stateless/nginx/www/includes/config_env_puller.php';
-include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
+include '../includes/config_env_puller.php';
+include '../includes/phvalheim-frontend-config.php';
 include '../includes/db_gets.php';
 include '../includes/db_sets.php';
+include '../includes/userAgent.php';
+include '../includes/clientDownloadButton.php';
+
 
 # simple security: if this page is accessed from a source other than steam, redirect back to login page
 # NOTE: this security check only works when HTTPS is used!
@@ -22,11 +25,8 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 	$httpScheme = "http";
 }
 
-#foreach($_SERVER as $key_name => $key_value) {
-#	print $key_name . " = " . $key_value . "<br>";
-#}
 
-function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme) {
+function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
 		# steam
 	        if( isset( $_GET[ 'openid_claimed_id' ] ) )
@@ -58,8 +58,9 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
                 echo "
                         <table width=100% height=100% border=0>
                                 <th class='google_header'><img src='$steamAvatarURL'></img></th>
-                                <th class='client_download_button'>
-                                        <a href='$phvalheimClientURL'><button type='button' class='btn btn-sm btn-outline-download client_download_button_font'><img src='../images/download.svg'></img>&nbsp;Download PhValheim Client</button></a>
+                                <th class='client_download_button'>";
+				populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
+		echo "
                                 </th>
                                 <tr>
                                 <th colspan=2 class='name_header'>Welcome, $playerName!</th>
@@ -72,7 +73,6 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
                                         <div class='outer'>
                                                 <div class='inner'>
                                                         <div class='wrapper'>
-
                 ";
 
 
@@ -116,7 +116,7 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
                                                         <td class='$worldDimmed card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>$md5</td>
                                                         <tr>
-                                                        <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>$seed</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
@@ -213,9 +213,25 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
 <!DOCTYPE html>
 <html>
         <head>
-                <link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css">
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+		<link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css">
+		<script src="../js/jquery-3.6.0.js"></script>
+		<script src="../js/bootstrap.min.js"></script>
+
         </head>
         <body>
-                <?php populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme) ?>
+
+        <script>
+                $(document).ready(function(){
+                  $('[data-toggle="popover"]').popover({
+		   sanitize:false,
+		  });
+                });
+        </script>
+
+                <?php populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) ?>
         </body>
 </html>

@@ -2,7 +2,7 @@
 FROM ubuntu:focal
 
 #Version of this build
-ENV phvalheimVersion=2.5
+ENV phvalheimVersion=2.6
 
 #Me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -18,6 +18,13 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip un
 RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql cron inetutils-ping time
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client
+
+#GitHub CLI
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+RUN chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+RUN apt update
+RUN apt install --no-install-recommends --no-install-suggests -y gh
 
 #Steam stuff
 RUN apt-get update
