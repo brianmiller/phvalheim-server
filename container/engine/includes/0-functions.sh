@@ -81,7 +81,7 @@ function InstallAndUpdateBepInEx() {
         installed_version=$(cat /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt 2> /dev/null)
 
         if [ "$latest_version" == "$installed_version" ]; then
-                echo "`date` [phvalheim] BepInEx is up-to-date."
+                echo "`date` [NOTICE : phvalheim] BepInEx is up-to-date."
         else
                 echo "`date` [NOTICE : phvalheim] BepInEx is out-of-date and will be updated..."
                 curl -sfSL $download_url --output /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip
@@ -186,7 +186,7 @@ function mergeRequiredTsMods(){
 	updatedModList=$(echo $updatedModList|xargs -d $'\n')
 
 	#update database
-	echo "`date` [phvalheim] Updating database..."
+	echo "`date` [NOTICE : phvalheim] Updating database..."
 	updateWorldTSMods=$(SQL "UPDATE worlds SET thunderstore_mods='$updatedModList' WHERE name='$worldName';")
 }
 
@@ -214,25 +214,25 @@ function downloadAndInstallTsModsForWorld(){
 		modVersionLatest=$(SQL "SELECT version FROM tsmods WHERE moduuid='$worldMod' ORDER BY version_date_created DESC LIMIT 1;"|sed 's/"//g')
 
 		#echo
-		echo "`date` [phvalheim] World '$worldName' wants the following mods: "
-		echo "`date` [phvalheim]  Name: $modName"
-		echo "`date` [phvalheim]  Author: $modAuthor"
-		echo "`date` [phvalheim]  UUID: $worldMod"
-		echo "`date` [phvalheim]  Latest Version: $modVersionLatest"
+		echo "`date` [NOTICE : phvalheim] World '$worldName' wants the following mods: "
+		echo "`date` [NOTICE : phvalheim]  Name: $modName"
+		echo "`date` [NOTICE : phvalheim]  Author: $modAuthor"
+		echo "`date` [NOTICE : phvalheim]  UUID: $worldMod"
+		echo "`date` [NOTICE :phvalheim]  Latest Version: $modVersionLatest"
 
 		modDownloadUrl="https://valheim.thunderstore.io/package/download/$modAuthor/$modName/$modVersionLatest"
-		echo "`date` [phvalheim]  Download URL: $modDownloadUrl"
+		echo "`date` [NOTICE :phvalheim]  Download URL: $modDownloadUrl"
 
 		modFileConstructed="$modAuthor-$modName-$modVersionLatest.zip"
 		if [ ! -f $tsModsDir/$modFileConstructed ]; then
-			echo "`date` [phvalheim]   #### Downloading $modFileConstructed from Thunderstore... ####"
+			echo "`date` [NOTICE : phvalheim]   #### Downloading $modFileConstructed from Thunderstore... ####"
 			wget -q --show-progress -O $tsModsDir/$modFileConstructed $modDownloadUrl
 			
 		else
-			echo "`date` [phvalheim]   #### $modFileConstructed already exists in local repository, using it... ####"
+			echo "`date` [NOTICE : phvalheim]   #### $modFileConstructed already exists in local repository, using it... ####"
 		fi
 
-		echo "`date` [phvalheim]    #### Installing... ####"
+		echo "`date` [NOTICE : phvalheim]    #### Installing... ####"
 
                 #BepInEx is special
                 rm -rf /tmp/BepInEx_tmp
@@ -314,17 +314,17 @@ function installCustomModsConfigsPatchers() {
 	worldPatchersDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/patchers"
 
 	if [ ! -d $customModsSourceDir ]; then
-		echo "`date` [phvalheim] Custom mods source directory for this world is missing, creating..."
+		echo "`date` [NOTICE : phvalheim] Custom mods source directory for this world is missing, creating..."
 		mkdir -p $customModsSourceDir
 	fi
 
         if [ ! -d $customConfigsSourceDir ]; then
-                echo "`date` [phvalheim] Custom configs source directory for this world is missing, creating..."
+                echo "`date` [NOTICE : phvalheim] Custom configs source directory for this world is missing, creating..."
                 mkdir -p $customConfigsSourceDir
         fi
 
         if [ ! -d $customPatchersSourceDir ]; then
-                echo "`date` [phvalheim] Custom patchers source directory for this world is missing, creating..."
+                echo "`date` [NOTICE : phvalheim] Custom patchers source directory for this world is missing, creating..."
                 mkdir -p $customPatchersSourceDir
         fi
 

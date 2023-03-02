@@ -7,7 +7,7 @@ dbCheck_output=$(/usr/bin/mysql -e "DROP DATABASE IF EXISTS testdb;CREATE DATABA
 dbCheck_exitstatus=$?
 
 while [ ! $dbCheck_exitstatus = 0 ]; do
-        echo "`date` [phvalheim] Waiting for MySQL to come up..."
+        echo "`date` [NOTICE : phvalheim] Waiting for MySQL to come up..."
         sleep 2
         dbCheck_output=$(/usr/bin/mysql -e "DROP DATABASE IF EXISTS testdb;CREATE DATABASE testdb;DROP DATABASE IF EXISTS testdb;" 2>&1)
         dbCheck_exitstatus=$?

@@ -32,7 +32,7 @@ function getSeed($pdo,$world) {
 }
 
 function getMyWorlds($pdo,$citizen) {
-        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%'");
+        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' ORDER BY currentMemory");
         $result = $sth->fetchAll(PDO::FETCH_COLUMN);
         return $result;
 }
@@ -92,6 +92,13 @@ function getCitizens($pdo,$world) {
         $sth = $pdo->query("SELECT citizens FROM worlds WHERE name='$world';");
 	$sth->execute();
 	$result = $sth->fetchColumn();
+        return $result;
+}
+
+function getBossTrophyStatus($pdo,$world,$trophy) {
+	$sth = $pdo->query("SELECT $trophy FROM worlds WHERE name='$world';");
+        $sth->execute();
+        $result = $sth->fetchColumn();
         return $result;
 }
 ?>

@@ -4,8 +4,8 @@ podman create \
        --name="$containerName" \
 	       -p '8082:8080/tcp' \
 	       -p '8083:8081/tcp' \
-	       -p '23000-24000:25000-26000/udp' \
-	       -e 'basePort'='23000' \
+	       -p '25000-26000:25000-26000/udp' \
+	       -e 'basePort'='25000' \
 	       -e 'defaultSeed'='szN8qp2lBn' \
 	       -e 'backupsToKeep'='10' \
 	       -e 'phvalheimHost'='phvalheim-dev.phospher.com' \

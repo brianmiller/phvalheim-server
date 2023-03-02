@@ -148,12 +148,31 @@ a:visited {
 }
 
 .center {
-  /*display: block;*/
   margin-left: auto;
   margin-right: auto;
   width: 50%;
   text-align: center;
   vertical-align: middle;
+}
+
+.trophy_icon {
+  width: 55px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  vertical-align: middle;
+  -webkit-filter: brightness(120%); /* Safari 6.0 - 9.0 */
+  filter: brightness(120%);
+}
+
+.trophy_icon img {
+  width: 36px;
+  height: 36px;
+}
+
+.trophy_dimmed {
+  -webkit-filter: grayscale(100%); /* Safari 6.0 - 9.0 */
+  filter: grayscale(100%) brightness(100%) opacity(25%);
 }
 
 .client_download_os_icon img {
@@ -268,7 +287,8 @@ p.client_download_tooltip_otherbuilds:visited a {
 }
 
 .inner {
-  width: 1225px;
+  /* width: 1225px; */
+  width: 1300px;
   padding-top: 50px;
   padding-left: 50px;
   padding-right: 50px; 
@@ -314,9 +334,9 @@ p.client_download_tooltip_otherbuilds:visited a {
   background-color: #131729;
   border-radius: 6px;
   padding: 15px !important;
-  padding-bottom: 30px !important;
+  padding-bottom: 50px !important;
   font-size: 125% !important;
-  outline: 2px solid #34e2e2;
+  outline: 2px solid #34e2e2; 
 }
 
 .card_worldName {

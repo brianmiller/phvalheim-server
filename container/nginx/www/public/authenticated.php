@@ -86,6 +86,14 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
 				$dateDeployed = getDateDeployed($pdo,$myWorld);
 				$dateUpdated = getDateUpdated($pdo,$myWorld);
 				$worldMemory = getWorldMemory($pdo,$myWorld);
+
+				$trophyEikthyr = getBossTrophyStatus($pdo,$myWorld,"trophyeikthyr");
+                                $trophyTheElder = getBossTrophyStatus($pdo,$myWorld,"trophytheelder");
+                                $trophyBonemass = getBossTrophyStatus($pdo,$myWorld,"trophybonemass");
+                                $trophyDragonQueen = getBossTrophyStatus($pdo,$myWorld,"trophydragonqueen");
+                                $trophyGoblinKing = getBossTrophyStatus($pdo,$myWorld,"trophygoblinking");
+                                $trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyseekerqueen");
+
 				if($worldMemory == "offline") {
 					$worldDimmed = "card_dimmed";
 					$launchLabel = "offline";
@@ -93,7 +101,51 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
 					$worldDimmed = "";
 					$launchLabel = "Launch!";
 				}
-				
+			
+				if($trophyEikthyr && $worldDimmed == "") {
+						$trophyEikthyrDimmed = "";
+						$trophyEikthyrStatus = "Eikthyr has been defeated";
+				} else {
+						$trophyEikthyrDimmed = "trophy_dimmed";
+						$trophyEikthyrStatus = "Eikthyr is undefeated";
+				}
+                                if($trophyTheElder && $worldDimmed == "") {
+                                                $trophyTheElderDimmed = "";
+						$trophyTheElderStatus = "The Elder has been defeated";
+                                } else {
+                                                $trophyTheElderDimmed = "trophy_dimmed";
+						$trophyTheElderStatus = "The Elder is undefeated";
+                                }
+                                if($trophyBonemass && $worldDimmed == "") {
+                                                $trophyBonemassDimmed = "";
+						$trophyBonemassStatus = "Bonemass has been defeated";
+                                } else {
+                                                $trophyBonemassDimmed = "trophy_dimmed";
+						$trophyBonemassStatus = "Bonemass is undefeated";
+                                }
+                                if($trophyDragonQueen && $worldDimmed == "") {
+                                                $trophyDragonQueenDimmed = "";
+                                                $trophyDragonQueenStatus = "Moder has been defeated";
+                                } else {
+                                                $trophyDragonQueenDimmed = "trophy_dimmed";
+						$trophyDragonQueenStatus = "Moder is undefeated";
+                                }
+                                if($trophyGoblinKing && $worldDimmed == "") {
+                                                $trophyGoblinKingDimmed = "";
+						$trophyGoblinKingStatus = "Yagluth has been defeated";
+                                } else {
+                                                $trophyGoblinKingDimmed = "trophy_dimmed";
+						$trophyGoblinKingStatus = "Yagluth is undefeated";
+                                }
+                                if($trophySeekerQueen && $worldDimmed == "") {
+                                                $trophySeekerQueenDimmed = "";
+						$trophySeekerQueenStatus = "The Queen has been defeated";
+                                } else {
+                                                $trophySeekerQueenDimmed = "trophy_dimmed";
+						$trophySeekerQueenStatus = "The Queen is undefeated";
+						
+                                }	
+
 
                                 echo "
                                         <div class=\"$worldDimmed catbox $myWorld\">
@@ -129,6 +181,14 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
                                                         <td class='$worldDimmed card_worldInfo'>$worldMemory</td>
                                                         <tr>
                                                 </table>
+						<table border=0>
+							<td class='$trophyEikthyrDimmed trophy_icon'><img title='$trophyEikthyrStatus' src='../images/TrophyEikthyr.png'></img></td>
+                                                        <td class='$trophyTheElderDimmed trophy_icon'><img title='$trophyTheElderStatus' src='../images/TrophyTheElder.png'></img></td>
+                                                        <td class='$trophyBonemassDimmed trophy_icon'><img title='$trophyBonemassStatus' src='../images/TrophyBonemass.png'></img></td>
+                                                        <td class='$trophyDragonQueenDimmed trophy_icon'><img title='$trophyDragonQueenStatus' src='../images/TrophyDragonQueen.png'></img></td>
+                                                        <td class='$trophyGoblinKingDimmed trophy_icon'><img title='$trophyGoblinKingStatus' src='../images/TrophyGoblinKing.png'></img></td>
+                                                        <td class='$trophySeekerQueenDimmed trophy_icon'><img title='$trophySeekerQueenStatus' src='../images/TrophySeekerQueen.png'></img></td>
+						</table>
                                         </div>
                                 ";
                         }//end foreach loop through worlds

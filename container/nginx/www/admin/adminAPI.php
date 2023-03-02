@@ -6,6 +6,6 @@
 
 #file_put_contents($file, PHP_EOL . $data);
 
-echo "ack";
+echo "true";
 
 ?>

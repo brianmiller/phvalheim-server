@@ -126,4 +126,28 @@ function setCitizens($pdo,$world,$citizen){
                 $msg = "ERROR: Could not update citizens for $world...";
         }
 }
+
+function setHungHeads($pdo,$world,$hungHead) {
+	$hungHead = strtolower($hungHead);
+	$sql = "SELECT $hungHead FROM worlds WHERE name='$world'";
+        $result = $pdo->query($sql);
+        $row = $result->fetch();
+        $result = $row[$hungHead];
+	
+	# hung head is already seen by the database
+	if($result == "1") {
+		return true;
+	} else {
+		# tell that database a new head has been hung
+                $sql = "UPDATE worlds SET $hungHead=1 WHERE name='$world'";
+                if ($pdo->query($sql)) {
+			# successfully wrote to the database
+			return true;
+                } else {
+			# failed to write to the database
+			return false;
+                }
+	}
+}
+
 ?>

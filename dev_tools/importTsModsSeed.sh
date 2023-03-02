@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# source tsmods_seed.sql
+tsmods_source="/home/brian/docker_persistent/37648-phvalheim2/tsmods_seed.sql"
 
 ls -ald ../container > /dev/null 2>&1
 if [ ! $? = 0 ]; then
@@ -7,12 +9,12 @@ if [ ! $? = 0 ]; then
 	exit 1
 fi
 
-if [ ! -f "../running_container/tsmods_seed.sql" ]; then
-	echo "ERROR: ../running_container/tsmods_seed.sql is missing.  Did you run /opt/stateless/engine/tools/exportTsModsSeed.sh from within a running container?"
+if [ ! -f $tsmods_source ]; then
+	echo "ERROR: ~/docker_persistent/37648-phvalheim2/tsmods_seed.sql is missing.  Did you run /opt/stateless/engine/tools/exportTsModsSeed.sh from within a running container?"
 	exit 1
 fi
 
 echo
-echo "Moving ../running_container/tsmods_seed.sql to ../container/mysql/tsmods_seed.sql"
-sudo mv ../running_container/tsmods_seed.sql ../container/mysql/tsmods_seed.sql
+echo "Moving $tsmods_source to ../container/mysql/tsmods_seed.sql"
+cp $tsmods_source ../container/mysql/tsmods_seed.sql
 echo

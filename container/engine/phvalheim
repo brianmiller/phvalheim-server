@@ -1,6 +1,6 @@
 #!/bin/bash
 echo
-echo "`date` [NOTICE : phvalheim] Starting PhValheim engine..."
+echo "`date` [NOTICE : phvalheim] Starting PhValheim pre-flight..."
 echo "`date` [NOTICE : phvalheim] Loading PhValheim variables from environment..."
 echo "`date` [NOTICE : phvalheim] PhValheim Version: $phvalheimVersion"
 echo "`date` [NOTICE : phvalheim] basePort: $basePort"
@@ -12,19 +12,24 @@ echo "`date` [NOTICE : phvalheim] PhValheim Client URL: $phvalheimClientURL"
 echo "`date` [NOTICE : phvalheim] Steam API Key: $steamAPIKey"
 
 
-#load configs
+# load configs
 source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateless/engine/includes/0-functions.sh
 
-#make the container aware of the passed env vars (this solved the backups not being cleaned up problem)
+# make the container aware of the passed env vars (this solved the backups not being cleaned up problem)
 /usr/bin/printenv > /etc/environment
 
-#wait for database
+# wait for database
 /opt/stateless/engine/includes/1-waitfordatabase.sh
 
-#prep directories and filesystem
+# prep directories and filesystem
 /opt/stateless/engine/tools/phvalheimprep.sh
 
+# run database schema update processor
+/opt/stateless/engine/tools/dbUpdater.sh
+
+# start the engine
+echo "`date` [NOTICE : phvalheim] Starting PhValheim engine..."
 
 ####### BEGIN: Main loop #######
 while [ true ]; do
