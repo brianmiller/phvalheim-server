@@ -214,25 +214,25 @@ function downloadAndInstallTsModsForWorld(){
 		modVersionLatest=$(SQL "SELECT version FROM tsmods WHERE moduuid='$worldMod' ORDER BY version_date_created DESC LIMIT 1;"|sed 's/"//g')
 
 		#echo
-		echo "`date` [NOTICE : phvalheim] World '$worldName' wants the following mods: "
-		echo "`date` [NOTICE : phvalheim]  Name: $modName"
-		echo "`date` [NOTICE : phvalheim]  Author: $modAuthor"
-		echo "`date` [NOTICE : phvalheim]  UUID: $worldMod"
-		echo "`date` [NOTICE :phvalheim]  Latest Version: $modVersionLatest"
+		echo "`date` [phvalheim] World '$worldName' wants this mod: "
+		echo "`date` [phvalheim]  Name: $modName"
+		echo "`date` [phvalheim]  Author: $modAuthor"
+		echo "`date` [phvalheim]  UUID: $worldMod"
+		echo "`date` [phvalheim]  Latest Version: $modVersionLatest"
 
 		modDownloadUrl="https://valheim.thunderstore.io/package/download/$modAuthor/$modName/$modVersionLatest"
-		echo "`date` [NOTICE :phvalheim]  Download URL: $modDownloadUrl"
+		echo "`date` [phvalheim]  Download URL: $modDownloadUrl"
 
 		modFileConstructed="$modAuthor-$modName-$modVersionLatest.zip"
 		if [ ! -f $tsModsDir/$modFileConstructed ]; then
-			echo "`date` [NOTICE : phvalheim]   #### Downloading $modFileConstructed from Thunderstore... ####"
+			echo "`date` [phvalheim]   #### Downloading $modFileConstructed from Thunderstore... ####"
 			wget -q --show-progress -O $tsModsDir/$modFileConstructed $modDownloadUrl
 			
 		else
-			echo "`date` [NOTICE : phvalheim]   #### $modFileConstructed already exists in local repository, using it... ####"
+			echo "`date` [phvalheim]   #### $modFileConstructed already exists in local repository, using it... ####"
 		fi
 
-		echo "`date` [NOTICE : phvalheim]    #### Installing... ####"
+		echo "`date` [phvalheim]    #### Installing... ####"
 
                 #BepInEx is special
                 rm -rf /tmp/BepInEx_tmp
