@@ -88,7 +88,7 @@ if (!empty($_POST)) {
 
 			    <tbody>
 				<td><input type="text" name="world"></td>
-				<td><input type="text" class="seed" value="<?php echo $defaultSeed ?>"/></td>
+				<td><input type="text" name="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>"/></td>
 				<td>
 					<div id="modlist" class="dropdown-check-list" tabindex="100">
         	                        	<span class="anchor">Mods</span>
@@ -119,18 +119,12 @@ if (!empty($_POST)) {
                 <script type="text/javascript">
                         var checkList = document.getElementById('modlist');
                         checkList.getElementsByClassName('anchor')[0].onclick = function(evt) {
-                                if (checkList.classList.contains('visible'))
+                                if (checkList.classList.contains('visible')) {
                                         checkList.classList.remove('visible');
-                                else
+				} else {
                                         checkList.classList.add('visible');
                                 }
-
-                        $('.seed').focus(function() {
-                            if (this.value == this.value) {
-                                $(this).val("");
-                                $(this).unbind();
-                            }
-                        });
+			};
 
 
                 </script>
