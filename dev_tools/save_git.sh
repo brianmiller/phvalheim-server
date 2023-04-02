@@ -5,8 +5,8 @@ if [ ! "$1" ]; then
 	exit 1
 fi
 
-git add *
-git commit -a -m "$1"
-git push --set-upstream origin master
+git add --verbose *
+git commit --verbose -a -m "$1"
+git push --verbose --set-upstream origin master
 #git push
 
