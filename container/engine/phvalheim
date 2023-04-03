@@ -108,7 +108,10 @@ while [ true ]; do
 
 					#package the local world context into something usable for PhValheim clients
 	                                packageClient "$worldName"
-	
+
+					#Copy custom_config_secure files to. These files will not end up on the client side
+					InstallCustomConfigSecureFiles "$worldName"
+
         	                        #update the database to reflect new client pacakge version via MD5
                 	                worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
                         	        setMD5 "$worldName" "$worldMD5"
@@ -275,6 +278,9 @@ while [ true ]; do
 
 				#Packge client
                                 packageClient "$worldName"
+
+				#Copy custom_config_secure files to. These files will not end up on the client side
+                                InstallCustomConfigSecureFiles "$worldName"
 
 				#Update the database to reflect new client pacakge version via MD5
                                 worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")

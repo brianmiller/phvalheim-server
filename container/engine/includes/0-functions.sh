@@ -103,6 +103,7 @@ function worldDirPrep(){
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_configs
+	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_configs_secure
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_plugins
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_patchers
 
@@ -336,6 +337,25 @@ function installCustomModsConfigsPatchers() {
 	chown -R phvalheim:phvalheim $customConfigsSourceDir
 	chown -R phvalheim:phvalheim $customPatchersSourceDir
 
+}
+
+
+# this is seperate from installCustomModsConfigsPatchers() because this must only run after the client payload has been packaged.
+function InstallCustomConfigSecureFiles() {
+	echo "`date` [NOTICE : phvalheim] Installing custom_configs_secure files..."
+	worldName="$1"
+
+	customConfigsSecureSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_configs_secure"
+        worldConfigsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/config"
+
+        if [ ! -d $customConfigsSecureSourceDir ]; then
+                echo "`date` [NOTICE : phvalheim] Custom configs secure source directory for this world is missing, creating..."
+                mkdir -p $customConfigsSecureSourceDir
+        fi
+
+	cp -prf $customConfigsSecureSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
+
+	chown -R phvalheim:phvalheim $customConfigsSecureSourceDir
 }
 
 
