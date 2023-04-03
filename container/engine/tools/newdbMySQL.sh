@@ -73,6 +73,7 @@ SQL "
 
 
 function tsSeeder () {
+	echo "`date` [NOTICE : mysqld] Downloading latest Thunderstore database seed from GitHub..."
 	/usr/bin/wget -q https://github.com/brianmiller/phvalheim-server/raw/master/container/mysql/tsmods_seed.sql -O /opt/stateful/.tsmods_update.sql
 	downloadedSize=$(/usr/bin/stat -c %s /opt/stateful/.tsmods_update.sql)
 	if [ $downloadedSize -lt 30000 ]; then
@@ -87,5 +88,5 @@ function tsSeeder () {
 echo "`date` [NOTICE : mysqld] Creating PhValheim database..."
 newDB
 
-echo "`date` [NOTICE : phalheim] Seeding database with Thunderstore stuff..."
+echo "`date` [NOTICE : phvalheim] Seeding database with Thunderstore stuff..."
 tsSeeder
