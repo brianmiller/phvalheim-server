@@ -34,7 +34,7 @@ if [ $remoteLastChanged -gt $localLastChanged ]; then
 	fi
 
 	echo "`date` [NOTICE : phvalheim] Downloading a newer copy of the Thunderstore database from GitHub..."
-	/usr/binwget -q https://github.com/brianmiller/phvalheim-server/raw/master/container/mysql/tsmods_seed.sql -O /opt/stateful/.tsmods_update.sql 
+	/usr/bin/wget -q https://github.com/brianmiller/phvalheim-server/raw/master/container/mysql/tsmods_seed.sql -O /opt/stateful/.tsmods_update.sql 
 
 	echo "`date` [NOTICE : phvalheim] Updating local Thunderstore database..."
 	/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql		

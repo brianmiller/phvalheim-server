@@ -72,12 +72,20 @@ SQL "
 }
 
 
-function tsStoreSeed () {
-	/usr/bin/mysql phvalheim < /etc/mysql/tsmods_seed.sql 
+function tsSeeder () {
+	/usr/bin/wget -q https://github.com/brianmiller/phvalheim-server/raw/master/container/mysql/tsmods_seed.sql -O /opt/stateful/.tsmods_update.sql
+	downloadedSize=$(/usr/bin/stat -c %s /opt/stateful/.tsmods_update.sql)
+	if [ $downloadedSize -lt 30000 ]; then
+		echo "`date` [ERROR : mysqld] Could not downloaded remote database seed, using packaged seed..."
+		/usr/bin/mysql phvalheim < /etc/mysql/tsmods_seed.sql
+	else
+		/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql
+	fi
 }
+
 
 echo "`date` [NOTICE : mysqld] Creating PhValheim database..."
 newDB
 
 echo "`date` [NOTICE : phalheim] Seeding database with Thunderstore stuff..."
-tsStoreSeed
+tsSeeder
