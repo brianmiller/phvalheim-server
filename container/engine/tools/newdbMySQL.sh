@@ -41,7 +41,8 @@ SQL "
 	cpuFreeMhz TEXT,\
 	memTotal TEXT,\
 	memFree TEXT,\
-	timestamp DATETIME\
+	timestamp DATETIME,\
+	tsUpdated DATETIME\
 	);
 "
 
@@ -83,7 +84,7 @@ function tsSeeder () {
 		/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql
 	fi
 
-	/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
+	/opt/stateless/engine/tools/sql "INSERT INTO systemstats SET tsUpdated=NOW();"
 }
 
 

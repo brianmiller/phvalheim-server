@@ -3,13 +3,18 @@
 # all dbUpdater scripts must be executable!
 
 # is this update already applied?
-sql "DESCRIBE systemstats"|grep tsUpdated > /dev/null 2>&1
+sql "DESCRIBE systemstats"|grep tsSyncRemoteLastRun > /dev/null 2>&1
 if [ ! $? = 0 ]; then
 	echo "`date` [NOTICE : phvalheim] Applying database schema update for phvalheim-server >=v2.9"
 
 	## BEGIN UPDATE ##
 	
-	sql "ALTER TABLE systemstats ADD COLUMN tsUpdated datetime;"
+	# special case. this column is added during new database deployments. this is for existing deployments without the column
+	sql "DESCRIBE systemstats"|grep tsUpdated > /dev/null 2>&1
+	if [ ! $? = 0 ]; then
+		sql "ALTER TABLE systemstats ADD COLUMN tsUpdated datetime;"
+	fi
+
 	sql "ALTER TABLE systemstats ADD COLUMN tsSyncLocalLastRun datetime;"
 	sql "ALTER TABLE systemstats ADD COLUMN tsSyncRemoteLastRun datetime;"
 	sql "ALTER TABLE systemstats ADD COLUMN worldBackupLastRun datetime;"

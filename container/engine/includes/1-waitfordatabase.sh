@@ -34,6 +34,12 @@ dbCheck_systemstats=$(sql "SELECT COUNT(*) FROM systemstats")
 if [ $dbCheck_systemstats -ne 1 ]; then
         # we need something, might as well use the cpu name.
         cpuModel=$(cat /proc/cpuinfo |grep "model name"|head -1|cut -d ":" -f2-|cut -d " " -f2-)
-        sql "DELETE FROM systemstats"
-        sql "INSERT INTO systemstats (cpuModel) VALUES ('$cpuModel')"
+        /opt/stateless/engine/tools/sql "DELETE FROM systemstats"
+        /opt/stateless/engine/tools/sql "INSERT INTO systemstats (cpuModel) VALUES ('$cpuModel')"
+fi
+
+if [ $dbCheck_systemstats -eq 1 ]; then
+	# we need something, might as well use the cpu name.
+        cpuModel=$(cat /proc/cpuinfo |grep "model name"|head -1|cut -d ":" -f2-|cut -d " " -f2-)
+	/opt/stateless/engine/tools/sql "UPDATE systemstats SET cpuModel='$cpuModel'"
 fi
