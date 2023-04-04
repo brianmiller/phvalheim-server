@@ -27,3 +27,13 @@ if [ $dbCheck_exitstatus = 0 ]; then
 else
         echo "`date` [NOTICE : phvalheim] Existing PhValheim database found, using it..."
 fi
+
+
+#make sure 1 row exists in systemstats 
+dbCheck_systemstats=$(sql "SELECT COUNT(*) FROM systemstats")
+if [ $dbCheck_systemstats -ne 1 ]; then
+        # we need something, might as well use the cpu name.
+        cpuModel=$(cat /proc/cpuinfo |grep "model name"|head -1|cut -d ":" -f2-|cut -d " " -f2-)
+        sql "DELETE FROM systemstats"
+        sql "INSERT INTO systemstats (cpuModel) VALUES ('$cpuModel')"
+fi

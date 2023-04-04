@@ -96,3 +96,6 @@ for ts_uuid4 in $allMods; do
 		#echo
 	done
 done
+
+#update the database with new timestamp
+sql "UPDATE systemstats SET tsUpdated=NOW();"

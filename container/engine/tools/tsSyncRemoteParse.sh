@@ -6,7 +6,8 @@ remoteLastChanged=$(date --date="$remoteLastChanged" +"%s" 2>/dev/null)
 
 
 # pull and convert local timestamp to epoch from local MySQL database
-localLastChanged=$(sql "SELECT UPDATE_TIME FROM information_schema.tables WHERE TABLE_SCHEMA = 'phvalheim' AND TABLE_NAME = 'tsmods';")
+#localLastChanged=$(sql "SELECT UPDATE_TIME FROM information_schema.tables WHERE TABLE_SCHEMA = 'phvalheim' AND TABLE_NAME = 'tsmods';")
+localLastChanged=$(sql "SELECT tsUpdated FROM systemstats")
 localLastChanged=$(date --date="$localLastChanged" +"%s" 2>/dev/null)
 
 
@@ -32,7 +33,8 @@ if [ $remoteLastChanged -gt $localLastChanged ]; then
 	echo "`date` [NOTICE : phvalheim] Remote Thunderstore database is newer than the local database."
 
 	# if a sync is currently running, kill it.
-	previousPID=$(cat /tmp/tsSync.pid)
+	touch /tmp/tsSync.pid
+	previousPID=$(cat /tmp/tsSync.pid 2>/dev/null)
 	ps -p $previousPID > /dev/null 2>&1
 	RESULT=$?
 	if [ "$RESULT" = 0 ]; then
@@ -45,5 +47,6 @@ if [ $remoteLastChanged -gt $localLastChanged ]; then
 
 	echo "`date` [NOTICE : phvalheim] Updating local Thunderstore database..."
 	/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql		
-	
+	sql "UPDATE systemstats SET tsUpdated=NOW();" 
+
 fi

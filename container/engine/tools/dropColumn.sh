@@ -16,7 +16,7 @@ echo
 echo
 
 echo "###: BEFORE table($table) ###"
-sql "describe worlds;"
+sql "describe $table;"
 
 echo
 echo
@@ -24,4 +24,4 @@ echo
 
 echo "### AFTER: table($table) ###"
 sql "ALTER TABLE $table DROP COLUMN $column;"
-sql "describe worlds;"
+sql "describe $table;"
