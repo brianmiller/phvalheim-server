@@ -2,19 +2,26 @@
 
 # pull and convert remote timestamp to epoch of tsmods_seed.sql from GitHub
 remoteLastChanged=$(curl -s "https://api.github.com/repos/brianmiller/phvalheim-server/commits?path=container%2Fmysql/%2Ftsmods_seed.sql&page=1&per_page=1"|jq -r '.[0].commit.committer.date')
-remoteLastChanged=$(date --date="$remoteLastChanged" +"%s")
+remoteLastChanged=$(date --date="$remoteLastChanged" +"%s" 2>/dev/null)
 
 
 # pull and convert local timestamp to epoch from local MySQL database
 localLastChanged=$(sql "SELECT UPDATE_TIME FROM information_schema.tables WHERE TABLE_SCHEMA = 'phvalheim' AND TABLE_NAME = 'tsmods';")
-localLastChanged=$(date --date="$localLastChanged" +"%s")
+localLastChanged=$(date --date="$localLastChanged" +"%s" 2>/dev/null)
+
+
+# if local database returns NULL, exit
+if [ "$localLastChanged" = "NULL" ] || [ "$localLastChanged"  = "" ]; then
+        localLastChanged=0
+fi
 
 
 # if either timestamps cannot be determined, log it and exit
-if [ -z $remoteLastChanged ] && [ -z $localLastChanged ]; then
-	echo "Error: Could not determine one or more timestamp(s)."
+if [ -z $remoteLastChanged ] || [ "$remoteLastChanged" = "" ]; then
+	echo "Error: Could not determine timestamp of remote GitHub seed, exiting...."
 	exit 1
 fi
+
 
 # test, make the remote version appear to be newer
 #remoteLastChanged="6666666666666"
