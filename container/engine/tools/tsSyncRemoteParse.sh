@@ -1,5 +1,10 @@
 #!/bin/bash
 
+
+# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncRemoteLastRun=NOW();"
+
+
 # pull and convert remote timestamp to epoch of tsmods_seed.sql from GitHub
 remoteLastChanged=$(curl -s "https://api.github.com/repos/brianmiller/phvalheim-server/commits?path=container%2Fmysql/%2Ftsmods_seed.sql&page=1&per_page=1"|jq -r '.[0].commit.committer.date')
 remoteLastChanged=$(date --date="$remoteLastChanged" +"%s" 2>/dev/null)
@@ -47,6 +52,9 @@ if [ $remoteLastChanged -gt $localLastChanged ]; then
 
 	echo "`date` [NOTICE : phvalheim] Updating local Thunderstore database..."
 	/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql		
-	/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();" 
+	/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
 
 fi
+
+# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncRemoteLastRun=NOW();"

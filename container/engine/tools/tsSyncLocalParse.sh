@@ -1,6 +1,9 @@
 #!/bin/bash
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
+# update database with last run time for this script. we update the timestamp before and after the script in the event the script exits.
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastRun=NOW();"
+
 #PID stuff
 touch /tmp/tsSync.pid
 previousPID=$(cat /tmp/tsSync.pid)
@@ -97,5 +100,6 @@ for ts_uuid4 in $allMods; do
 	done
 done
 
-#update the database with new timestamp
+#update the database with new timestamps
 /opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastRun=NOW();"

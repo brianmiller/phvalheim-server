@@ -10,7 +10,11 @@ if [ ! $? = 0 ]; then
 	## BEGIN UPDATE ##
 	
 	sql "ALTER TABLE systemstats ADD COLUMN tsUpdated datetime;"
-	
+	sql "ALTER TABLE systemstats ADD COLUMN tsSyncLocalLastRun datetime;"
+	sql "ALTER TABLE systemstats ADD COLUMN tsSyncRemoteLastRun datetime;"
+	sql "ALTER TABLE systemstats ADD COLUMN worldBackupLastRun datetime;"
+	sql "ALTER TABLE systemstats ADD COLUMN utilizationMonitorLastRun datetime;"
+
 	if [ ! $? = 0 ]; then
 		# update failed to apply
 		exit 1

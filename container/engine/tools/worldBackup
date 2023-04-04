@@ -2,6 +2,8 @@
 source /opt/stateless/engine/includes/phvalheim-static.conf
 #source /opt/stateful/config/phvalheim-backend.conf
 
+# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastRun=NOW();"
 
 #$1=worldName, $2=backupsToKeep
 function purgeOldBackups() {
@@ -77,3 +79,6 @@ for worldName in $worldNames; do
         fi
 
 done
+
+# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastRun=NOW();"

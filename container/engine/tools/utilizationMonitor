@@ -1,6 +1,8 @@
 #!/bin/bash
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
+# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastRun=NOW();"
 
 #echo "`date` [NOTICE : phvalheim] Polling System Stats..."
 
@@ -66,3 +68,7 @@ done
 #if [ "$2" = "mem" ]; then
 #       ps -o size -p $1 --sort -size|tail -1|tr -s " "
 #fi
+
+
+# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastRun=NOW();"
