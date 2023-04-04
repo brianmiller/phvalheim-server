@@ -82,6 +82,8 @@ function tsSeeder () {
 	else
 		/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql
 	fi
+
+	/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
 }
 
 
