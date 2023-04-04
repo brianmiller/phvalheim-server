@@ -8,10 +8,12 @@ if [ ! $1 ]; then
 fi
 
 podman login --username=theoriginalbrian docker.io
-podman build --format=docker -t theoriginalbrian/phvalheim-server .
+#podman build --format=docker -t theoriginalbrian/phvalheim-server .
 
 if [ "$1" = "latest" ]; then
+	podman build --format=docker -t theoriginalbrian/phvalheim-server:latest .
 	podman push theoriginalbrian/phvalheim-server:latest
 elif [ "$1" = "rc" ]; then
+	podman build --format=docker -t theoriginalbrian/phvalheim-server:rc .
 	podman push theoriginalbrian/phvalheim-server:rc
 fi
