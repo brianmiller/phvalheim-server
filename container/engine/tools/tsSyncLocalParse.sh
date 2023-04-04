@@ -98,4 +98,4 @@ for ts_uuid4 in $allMods; do
 done
 
 #update the database with new timestamp
-sql "UPDATE systemstats SET tsUpdated=NOW();"
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
