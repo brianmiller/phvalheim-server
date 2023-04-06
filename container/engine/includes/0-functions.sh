@@ -397,7 +397,8 @@ function createSupervisorWorldConfig() {
 	autostart=false
 	autorestart=true
 	stdout_logfile=/opt/stateful/logs/valheimworld_$worldName.log
-	stdout_logfile_maxbytes=5242880
+	stdout_logfile_maxbytes=1MB
+	stdout_logfile_backups=1
 	redirect_stderr=true
 	" > $worldSupervisorConfigs/valheimworld_$worldName.conf
 
