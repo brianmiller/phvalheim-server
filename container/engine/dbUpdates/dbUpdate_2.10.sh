@@ -23,7 +23,7 @@ if [ ! $? = 0 ]; then
 	sql "ALTER TABLE systemstats ADD COLUMN tsSyncLocalLastExecStatus TEXT;"
 	sql "ALTER TABLE systemstats ADD COLUMN tsSyncRemoteLastExecStatus TEXT;"
 	sql "ALTER TABLE systemstats ADD COLUMN worldBackupLastExecStatus TEXT;"
-	sql "ALTER TABLE systemstats ADD COLUMN lastRotateLastExecStatus TEXT;"
+	sql "ALTER TABLE systemstats ADD COLUMN logRotateLastExecStatus TEXT;"
 	sql "ALTER TABLE systemstats ADD COLUMN utilizationMonitorLastExecStatus TEXT;"
 
 	sql "ALTER TABLE systemstats DROP COLUMN memFree;"
