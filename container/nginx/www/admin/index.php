@@ -185,27 +185,27 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 				 <tr>
 
 				 <td class="alt-color">Last Local Thunderstore Diff<label class="pri-color">:</label></td>
-				 <td><?php echo getLastTsLocalDiffExec($pdo); ?> UTC</td>
+				 <td><?php echo getLastTsLocalDiffExecTime($pdo); ?> UTC <?php echo getLastTsSyncLocalExecStatus($pdo); ?></td>
 
 				 <tr>
 		
 				 <td class="alt-color">Last Remote Thunderstore Diff<label class="pri-color">:</label></td>
-				 <td><?php echo getLastTsRemoteDiffExec($pdo); ?> UTC</td>
+				 <td><?php echo getLastTsRemoteDiffExecTime($pdo); ?> UTC <?php echo getLastTsSyncRemoteExecStatus($pdo); ?></td>
 
 				 <tr>
 				
 				 <td class="alt-color">Last World Backup Exec<label class="pri-color">:</label></td>
-				 <td><?php echo getLastWorldBackupExec($pdo); ?> UTC</td>
+				 <td><?php echo getLastWorldBackupExecTime($pdo); ?> UTC <?php echo getLastWorldBackupExecStatus($pdo); ?></td>
 		
 				 <tr>
 		
 				 <td class="alt-color">Last Log Rotate Exec<label class="pri-color">:</label></td>
-				 <td><?php echo getLastLogRotateExec($pdo); ?> UTC</td>
+				 <td><?php echo getLastLogRotateExecTime($pdo); ?> UTC <?php echo getLastLogRotateExecStatus($pdo); ?></td>
 
 				 <tr>
 
 				 <td class="alt-color">Last Utilization Monitor Exec<label class="pri-color">:</label></td>
-				 <td><?php echo getLastUtilizationMonitorExec($pdo); ?> UTC</td>
+				 <td><?php echo getLastUtilizationMonitorExecTime($pdo); ?> UTC <?php echo getLastUtilizationMonitorExecStatus($pdo); ?></td>
 			</tbody>
 			<tfoot>
 			</tfoot>

@@ -2,8 +2,20 @@
 source /opt/stateless/engine/includes/phvalheim-static.conf
 #source /opt/stateful/config/phvalheim-backend.conf
 
-# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastRun=NOW();"
+# update database
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastExecStatus='running';"
+
+
+# error setter
+function errorSetter() {
+        RESULT=$1
+
+        if [ $RESULT -ne 0 ]; then
+                /opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastExecStatus='error';"
+                exit 1
+        fi
+}
+
 
 #$1=worldName, $2=backupsToKeep
 function purgeOldBackups() {
@@ -21,6 +33,7 @@ function purgeOldBackups() {
                 for deleteBackup in $deleteBackups; do
                         echo "`date` [phvalheim] Deleting old backup $deleteBackup..."
                         rm -f "$deleteBackup"
+			errorSetter $?
                 done
         fi
 }
@@ -41,9 +54,15 @@ function backupWorld(){
 		echo "`date` [WARN : phvalheim] .config directory missing for '$worldName', skipping backup..."
 	else
 	        backupTimeStamp=$(date +%Y-%m-%dT%H:%M:%S%z)
+		errorSetter $?
+
 	        backupDestinationFile="$backupDir/valheimworld_$worldName-$backupTimeStamp.tar"
+
 	        backupTimeTaken=$(/usr/bin/time --format='%e' /usr/bin/tar cf $backupDestinationFile . 2>&1)
+		errorSetter $?
+
 	        backupSize=$(stat --format=%s "$backupDestinationFile")
+		errorSetter $?
 
 		#echo
 		echo "`date` [phvalheim]  Backup time (seconds): $backupTimeTaken"
@@ -68,17 +87,21 @@ for worldName in $worldNames; do
 
         #run backup
         backupWorld "$worldName"
+	errorSetter $?
 
         if [ -f "$backupDestinationFile" ]; then
                 echo "`date` [NOTICE : phvalheim]  Backup written to: $backupDestinationFile"
                 purgeOldBackups $worldName $backupsToKeep
+		errorSetter $?
                 continue
         else
                 echo "`date` [FAIL : phvalheim]  Backup failed for '$worldName'!"
+		errorSetter $?
                 continue
         fi
 
 done
 
-# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+# update database
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
 /opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastRun=NOW();"

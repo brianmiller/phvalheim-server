@@ -1,15 +1,27 @@
 #!/bin/bash
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
-# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastRun=NOW();"
+# update database
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastExecStatus='running';"
 
-echo "`date` [NOTICE : phvalheim] Polling System Stats..."
+
+# error setter
+function errorSetter() {
+        RESULT=$1
+
+        if [ $RESULT -ne 0 ]; then
+                /opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastExecStatus='error';"
+                exit 1
+        fi
+}
 
 
 #### BEGIN: global ####
 currentCpuUtilization=$(echo "$[100-$(vmstat 1 2|tail -1|awk '{print $15}')]")
+errorSetter $?
+
 SQL "UPDATE systemstats SET currentCpuUtilization='$currentCpuUtilization'"
+errorSetter $?
 #### END: global ####
 
 
@@ -19,11 +31,17 @@ allWorlds=$(SQL "SELECT name FROM worlds")
 
 for world in $allWorlds; do
 	thisWorldState=$(/usr/bin/supervisorctl status|grep -w valheimworld_$world|tr -s " "|cut -d " " -f2)
+	errorSetter $?
 
 		if [ "$thisWorldState" = "RUNNING" ]; then
 			thisWorldPID=$(supervisorctl status|grep -w valheimworld_$world|tr -s " "|cut -d " " -f4|cut -d "," -f1)
+			errorSetter $?
+
 			thisWorldState="online"
+
 			thisWorldMemory=$(ps -p $thisWorldPID -o rss=)
+			errorSetter $?
+
 			thisWorldMemoryFriendly="${thisWorldMemory}bytes"
 
 			#convert to MB
@@ -52,10 +70,12 @@ for world in $allWorlds; do
 	
 	#Update database with latest data
 	SQL "UPDATE worlds SET currentMemory='$thisWorldMemoryFriendly' WHERE name='$world'"
+	errorSetter $?
 done
 
 #### END: worlds ####
 
 
-# update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
+# update database
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastExecStatus='idle';"
 /opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastRun=NOW();"

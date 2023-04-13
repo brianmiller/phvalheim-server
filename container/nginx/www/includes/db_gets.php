@@ -117,36 +117,71 @@ function getLastTsUpdated($pdo) {
 }
 
 
-function getLastTsLocalDiffExec($pdo) {
+function getLastTsLocalDiffExecTime($pdo) {
         $sth = $pdo->prepare("SELECT tsSyncLocalLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
         return $result;
 }
 
-function getLastTsRemoteDiffExec($pdo) {
+function getLastTsRemoteDiffExecTime($pdo) {
         $sth = $pdo->prepare("SELECT tsSyncRemoteLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
         return $result;
 }
 
-function getLastWorldBackupExec($pdo) {
+function getLastWorldBackupExecTime($pdo) {
         $sth = $pdo->prepare("SELECT worldBackupLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
         return $result;
 }
 
-function getLastLogRotateExec($pdo) {
+function getLastLogRotateExecTime($pdo) {
         $sth = $pdo->prepare("SELECT logRotaterLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
         return $result;
 }
 
-function getLastUtilizationMonitorExec($pdo) {
+function getLastUtilizationMonitorExecTime($pdo) {
         $sth = $pdo->prepare("SELECT utilizationMonitorLastRun FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastTsSyncLocalExecStatus($pdo) {
+        $sth = $pdo->prepare("SELECT tsSyncLocalLastExecStatus FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastTsSyncRemoteExecStatus($pdo) {
+        $sth = $pdo->prepare("SELECT tsSyncRemoteLastExecStatus FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastWorldBackupExecStatus($pdo) {
+        $sth = $pdo->prepare("SELECT worldBackupLastExecStatus FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastLogRotateExecStatus($pdo) {
+        $sth = $pdo->prepare("SELECT logRotateLastExecStatus FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastUtilizationMonitorExecStatus($pdo) {
+        $sth = $pdo->prepare("SELECT utilizationMonitorLastExecStatus FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
         return $result;

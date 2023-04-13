@@ -17,17 +17,28 @@ if [ ! $? = 0 ]; then
 	steamApiKey TEXT\
 	);"
 
-	# insert our first row
-	sql "INSERT into settings SET maxLogSize=1000000"
-	sql "UPDATE settings SET backupsToKeep=24"
-
 	# add column to systemstats
 	sql "ALTER TABLE systemstats ADD COLUMN logRotaterLastRun datetime;"
 	sql "ALTER TABLE systemstats ADD COLUMN currentCpuUtilization INT;"
+	sql "ALTER TABLE systemstats ADD COLUMN tsSyncLocalLastExecStatus TEXT;"
+	sql "ALTER TABLE systemstats ADD COLUMN tsSyncRemoteLastExecStatus TEXT;"
+	sql "ALTER TABLE systemstats ADD COLUMN worldBackupLastExecStatus TEXT;"
+	sql "ALTER TABLE systemstats ADD COLUMN utilizationMonitorLastExecStatus TEXT;"
+
 	sql "ALTER TABLE systemstats DROP COLUMN memFree;"
 	sql "ALTER TABLE systemstats DROP COLUMN memTotal;"
 	sql "ALTER TABLE systemstats DROP COLUMN cpuTotalMhz;"
 	sql "ALTER TABLE systemstats DROP COLUMN cpuFreeMhz;"
+	sql "ALTER TABLE systemstats DROP COLUMN timestamp;"
+
+        # insert
+        sql "INSERT into settings SET maxLogSize=1000000"
+        sql "UPDATE settings SET backupsToKeep=24"
+	sql "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle'"
+	sql "UPDATE systemstats SET tsSyncRemoteLastExecStatus='idle'"
+	sql "UPDATE systemstats SET worldBackupLastExecStatus='idle'"
+	sql "UPDATE systemstats SET utilizationMonitorLastExecStatus='idle'"
+
 
 	if [ ! $? = 0 ]; then
 		# update failed to apply
