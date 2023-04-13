@@ -2,6 +2,7 @@
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
+include '../includes/db_gets.php';
 
 
 if (!empty($_GET['delete_world'])) {
@@ -120,14 +121,14 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 	</head>
 
 	<body>
-		<table id="worlds" class="display" border=0>
+		<table id="worlds" class="display outline" border=0>
 		    <thead>
       		        <tr>
-			    <th>Engine Mode</th>
-			    <th>World</th>
-			    <th>External Endpoint</th>
-			    <th>Seed</th>
-			    <th>Controls</th>
+			    <th class="alt-color">Engine Mode</th>
+			    <th class="alt-color">World</th>
+			    <th class="alt-color">External Endpoint</th>
+			    <th class="alt-color">Seed</th>
+			    <th class="alt-color">Controls</th>
 		        </tr>
 		    </thead>
 		    <tbody>
@@ -136,25 +137,106 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 		    <tfoot>
 			<form>
 				<td colspan=5 align=center>
-					<a href='new_world.php'><button>Add World</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='/supervisor/'><button>Service Management</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=phvalheim.log#bottom'><button>Engine Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=mysqld.log#bottom'><button>MySQL Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=php.log#bottom'><button>PHP Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=nginx.log#bottom'><button>NGINX Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=cron.log#bottom'><button>CRON Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=tsSync.log#bottom'><button>Thunderstore Sync Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=worldBackups.log#bottom'><button>World Backup Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=logRotater.log#bottom'><button>Log Rotater Logs</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='gridphp/' onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')"><button>Database Browser</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button>File Browser</button></a>
+					<a href='new_world.php'><button class="sm-bttn">Add World</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='/supervisor/'><button class="sm-bttn">Service Management</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='gridphp/' onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')"><button class="sm-bttn">Database Browser</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button class="sm-bttn">File Browser</button></a>
 				</td>
 			</form>
 					<tr>
 					<td colspan='5' style='text-align:right;'>
-						<div>v<?php echo $phvalheimVersion;?></div>
+						<label class="alt-color">v</label><label class="pri-color"><?php echo $phvalheimVersion;?></label>
 					</td>
 		    </tfoot>
 		</table>
+	   <table id="lowerTable" class="display center" style="width:100%;" border=0>
+	      <td>
+		<table id="systemStats" class="display outline center" style="text-align:left;width:800px;" border=0>
+			<thead>
+			    <tr>
+				 <th class="bottom_line alt-color center" colspan=2>Status</th>
+			    </tr>
+			</thead>
+			<tbody>
+			    <tr>
+                                 <td class="alt-color">Memory<label class="pri-color">:</label></td>
+                                 <td><?php echo 'Total: '; echo getTotalMemory(); echo ' / Free: '; echo getFreeMemory(); echo ' / Used: '; echo getUsedMemory();?></td>
+
+                                 <tr>
+
+                                 <td class="alt-color">Storage<label class="pri-color">:</label></td>
+                                 <td><?php echo 'Total: '; echo getTotalDisk('/opt/stateful'); echo ' / Free: '; echo getFreeDisk('/opt/stateful'); echo ' / Used: '; echo getUsedDisk('/opt/stateful'); echo '('; echo getUsedDiskPerc('/opt/stateful'); echo ')';?></td>
+
+                                 <tr>
+
+				 <td class="alt-color">CPU Model<label class="pri-color">:</label></td>
+				 <td><?php echo getCpuModel($pdo); ?></td>
+				
+				 <tr>
+		
+				 <td class="alt-color">CPU Utilization<label class="pri-color">:</label></td>
+				 <td><?php echo getCpuUtilization($pdo); ?>%</td>				
+		
+				 <tr>
+				
+				 <td class="alt-color">Last Thunderstore Sync<label class="pri-color">:</label></td>
+				 <td><?php echo getLastTsUpdated($pdo); ?> UTC</td>
+
+				 <tr>
+
+				 <td class="alt-color">Last Local Thunderstore Diff<label class="pri-color">:</label></td>
+				 <td><?php echo getLastTsLocalDiffExec($pdo); ?> UTC</td>
+
+				 <tr>
+		
+				 <td class="alt-color">Last Remote Thunderstore Diff<label class="pri-color">:</label></td>
+				 <td><?php echo getLastTsRemoteDiffExec($pdo); ?> UTC</td>
+
+				 <tr>
+				
+				 <td class="alt-color">Last World Backup Exec<label class="pri-color">:</label></td>
+				 <td><?php echo getLastWorldBackupExec($pdo); ?> UTC</td>
+		
+				 <tr>
+		
+				 <td class="alt-color">Last Log Rotate Exec<label class="pri-color">:</label></td>
+				 <td><?php echo getLastLogRotateExec($pdo); ?> UTC</td>
+
+				 <tr>
+
+				 <td class="alt-color">Last Utilization Monitor Exec<label class="pri-color">:</label></td>
+				 <td><?php echo getLastUtilizationMonitorExec($pdo); ?> UTC</td>
+			</tbody>
+			<tfoot>
+			</tfoot>
+		</table>
+	      </td>
+
+	      <tr>
+
+              <td>
+                <table id="systemLogs" class="display outline center" style="width:auto;margin-top:2px;" border=0>
+                        <thead>
+                            <tr>
+                                 <th colspan=8 class="bottom_line alt-color">Logs</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=phvalheim.log#bottom'><button class="sm-bttn">Engine</button></a></td>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=mysqld.log#bottom'><button class="sm-bttn">MySQL</button></a></td>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=php.log#bottom'><button class="sm-bttn">PHP</button></a></td>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=nginx.log#bottom'><button class="sm-bttn">NGINX</button></a></td>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=cron.log#bottom'><button class="sm-bttn">CRON</button></a></td>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=tsSync.log#bottom'><button class="sm-bttn">Thunderstore Sync</button></a></td>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=worldBackups.log#bottom'><button class="sm-bttn">World Backup</button></a></td>
+                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=logRotater.log#bottom'><button class="sm-bttn">Log Rotater</button></a></td>
+                        </tbody>
+                        <tfoot>
+                        </tfoot>
+                </table>
+              </td>
+
+
+	   </table>
 	</body>
 </html>

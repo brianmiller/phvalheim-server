@@ -4,7 +4,16 @@ source /opt/stateless/engine/includes/phvalheim-static.conf
 # update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.
 /opt/stateless/engine/tools/sql "UPDATE systemstats SET utilizationMonitorLastRun=NOW();"
 
-#echo "`date` [NOTICE : phvalheim] Polling System Stats..."
+echo "`date` [NOTICE : phvalheim] Polling System Stats..."
+
+
+#### BEGIN: global ####
+currentCpuUtilization=$(echo "$[100-$(vmstat 1 2|tail -1|awk '{print $15}')]")
+SQL "UPDATE systemstats SET currentCpuUtilization='$currentCpuUtilization'"
+#### END: global ####
+
+
+#### BEGIN: worlds ####
 
 allWorlds=$(SQL "SELECT name FROM worlds")
 
@@ -45,29 +54,7 @@ for world in $allWorlds; do
 	SQL "UPDATE worlds SET currentMemory='$thisWorldMemoryFriendly' WHERE name='$world'"
 done
 
-
-
-
-
-# save, global stats
-
-
-#cpuModel=$(cat /proc/cpuinfo |grep "model name"|head -1|tr -s " "|cut -d " " -f3-)
-#cpuCores=$(cat /proc/cpuinfo |grep "model name"|wc -l)
-#cpuTotalMHz=$(cat /proc/cpuinfo |grep "cpu MHz"|cut -d " " -f3|paste -sd+ - | bc)
-#memTotal=$(cat /proc/meminfo |grep MemTotal|tr -s " "|cut -d " " -f2)
-#memTotal=$(echo $memTotal/1024|bc)
-
-
-#echo "CPU Model: $cpuModel"
-#echo "CPU Cores: $cpuCores"
-#echo "Total MHz in system: $cpuTotalMHz MHz"
-#echo "Total Memory in system: $memTotal MB"
-
-
-#if [ "$2" = "mem" ]; then
-#       ps -o size -p $1 --sort -size|tail -1|tr -s " "
-#fi
+#### END: worlds ####
 
 
 # update database with last run time for this script. We update the timestamp before and after the script in the event the script exits.

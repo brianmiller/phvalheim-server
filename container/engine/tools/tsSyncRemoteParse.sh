@@ -53,6 +53,8 @@ if [ $remoteLastChanged -gt $localLastChanged ]; then
 	echo "`date` [NOTICE : phvalheim] Updating local Thunderstore database..."
 	/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql		
 	/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
+else
+	echo "`date` [NOTICE : phvalheim] Local Thunderstore database is newer than the remote GitHub seed, staying with the local copy..."
 
 fi
 

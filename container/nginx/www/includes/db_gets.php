@@ -101,4 +101,97 @@ function getBossTrophyStatus($pdo,$world,$trophy) {
         $result = $sth->fetchColumn();
         return $result;
 }
+
+function getCpuModel($pdo) {
+        $sth = $pdo->prepare("SELECT cpuModel FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastTsUpdated($pdo) {
+        $sth = $pdo->prepare("SELECT tsUpdated FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+
+function getLastTsLocalDiffExec($pdo) {
+        $sth = $pdo->prepare("SELECT tsSyncLocalLastRun FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastTsRemoteDiffExec($pdo) {
+        $sth = $pdo->prepare("SELECT tsSyncRemoteLastRun FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastWorldBackupExec($pdo) {
+        $sth = $pdo->prepare("SELECT worldBackupLastRun FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastLogRotateExec($pdo) {
+        $sth = $pdo->prepare("SELECT logRotaterLastRun FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getLastUtilizationMonitorExec($pdo) {
+        $sth = $pdo->prepare("SELECT utilizationMonitorLastRun FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getTotalDisk($path) {
+	$result = exec("df -h $path|tail -1|tr -s ' '|cut -d ' ' -f2");
+        return $result;
+}
+
+function getUsedDisk($path) {
+        $result = exec("df -h $path|tail -1|tr -s ' '|cut -d ' ' -f3");
+        return $result;
+}
+
+function getFreeDisk($path) {
+        $result = exec("df -h $path|tail -1|tr -s ' '|cut -d ' ' -f4");
+        return $result;
+}
+
+function getUsedDiskPerc($path) {
+        $result = exec("df -h $path|tail -1|tr -s ' '|cut -d ' ' -f5");
+        return $result;
+}
+
+function getTotalMemory() {
+        $result = exec("free -h --giga|grep Mem:|tr -s ' '|cut -d ' ' -f2");
+        return $result;
+}
+
+function getUsedMemory() {
+        $result = exec("free -h --giga|grep Mem:|tr -s ' '|cut -d ' ' -f3");
+        return $result;
+}
+
+function getFreeMemory() {
+        $result = exec("free -h --giga|grep Mem:|tr -s ' '|cut -d ' ' -f4");
+        return $result;
+}
+
+function getCpuUtilization($pdo) {
+        $sth = $pdo->prepare("SELECT currentCpuUtilization FROM systemstats LIMIT 1;");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
 ?>

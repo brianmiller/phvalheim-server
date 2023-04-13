@@ -23,6 +23,11 @@ if [ ! $? = 0 ]; then
 
 	# add column to systemstats
 	sql "ALTER TABLE systemstats ADD COLUMN logRotaterLastRun datetime;"
+	sql "ALTER TABLE systemstats ADD COLUMN currentCpuUtilization INT;"
+	sql "ALTER TABLE systemstats DROP COLUMN memFree;"
+	sql "ALTER TABLE systemstats DROP COLUMN memTotal;"
+	sql "ALTER TABLE systemstats DROP COLUMN cpuTotalMhz;"
+	sql "ALTER TABLE systemstats DROP COLUMN cpuFreeMhz;"
 
 	if [ ! $? = 0 ]; then
 		# update failed to apply
