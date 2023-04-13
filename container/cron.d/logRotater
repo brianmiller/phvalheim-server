@@ -1,0 +1,1 @@
+*/15 * * * * phvalheim /opt/stateless/engine/tools/logRotater.sh >> /opt/stateful/logs/logRotater.log

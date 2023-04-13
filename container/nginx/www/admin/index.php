@@ -143,6 +143,9 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=php.log#bottom'><button>PHP Logs</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=nginx.log#bottom'><button>NGINX Logs</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=cron.log#bottom'><button>CRON Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=tsSync.log#bottom'><button>Thunderstore Sync Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=worldBackups.log#bottom'><button>World Backup Logs</button></a>
+					<a target='_blank' rel="noopener noreferrer" href='readLog.php?logfile=logRotater.log#bottom'><button>Log Rotater Logs</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='gridphp/' onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')"><button>Database Browser</button></a>
 					<a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button>File Browser</button></a>
 				</td>

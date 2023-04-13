@@ -1,1 +1,1 @@
-*/15 * * * * phvalheim /opt/stateless/engine/tools/tsSyncRemoteParse.sh >> /opt/stateful/logs/phvalheim.log
+*/15 * * * * phvalheim /opt/stateless/engine/tools/tsSyncRemoteParse.sh >> /opt/stateful/logs/tsSync.log
