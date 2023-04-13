@@ -397,10 +397,15 @@ function createSupervisorWorldConfig() {
 	autostart=false
 	autorestart=true
 	stdout_logfile=/opt/stateful/logs/valheimworld_$worldName.log
-	stdout_logfile_maxbytes=1MB
-	stdout_logfile_backups=1
+	;stdout_logfile_maxbytes=1MB
+	;stdout_logfile_backups=1
 	redirect_stderr=true
 	" > $worldSupervisorConfigs/valheimworld_$worldName.conf
+
+	# dumb supervisor
+	touch /opt/stateful/logs/valheimworld_$worldName.log
+	touch /opt/stateful/logs/valheimworld_$worldName.log.1
+	chown phvalheim:phvalheim /opt/stateful/logs/valheimworld_*
 
 	/usr/bin/supervisorctl reread
 	/usr/bin/supervisorctl update
