@@ -107,8 +107,8 @@ if (!empty($_POST)) {
 			
 			    <tfoot>
 				<td colspan=5 align=center>
-					<a href='index.php'><button type="button">Back</button></a>
-					<button type="submit">Save</button>
+					<a href='index.php'><button type="button" class="sm-bttn">Back</button></a>
+					<button type="submit" class="sm-bttn">Save</button>
 					<div class='visiblemsg' id='notification'><?php print "$msg"; ?></div>
 				</td>
 			    </tfoot>

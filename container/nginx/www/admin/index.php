@@ -35,6 +35,12 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
         $httpScheme = "http";
 }
 
+# Time now
+$timeNow = time();
+$checkNow = $timeNow+date("Z",$timeNow);
+$timeNow = strftime("%Y-%m-%d %H:%M:%S UTC", $checkNow);
+
+
 function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 	$getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed FROM worlds");
 	foreach($getWorlds as $row)
@@ -135,14 +141,6 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 			<?php populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme); ?>
 		    </tbody>
 		    <tfoot>
-			<form>
-				<td colspan=5 align=center>
-					<a href='new_world.php'><button class="sm-bttn">Add World</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='/supervisor/'><button class="sm-bttn">Service Management</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='gridphp/' onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')"><button class="sm-bttn">Database Browser</button></a>
-					<a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button class="sm-bttn">File Browser</button></a>
-				</td>
-			</form>
 					<tr>
 					<td colspan='5' style='text-align:right;'>
 						<label class="alt-color">v</label><label class="pri-color"><?php echo $phvalheimVersion;?></label>
@@ -151,6 +149,31 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 		</table>
 	   <table id="lowerTable" class="display center" style="width:100%;" border=0>
 	      <td>
+
+	        <table id="commands" class="display outline center" style="text-align:center;width:650px;" border=0>
+	           <td>
+			<thead>
+			   <tr>
+				<th class="bottom_line alt-color center" colspan=4>Commands</th>
+			  </tr>
+			</thead>
+			<tbody>
+			   <tr>
+				<td style="padding:5px;"><a href='new_world.php'><button class="sm-bttn">Add World</button></a></td>
+				<td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='/supervisor/'><button class="sm-bttn">Service Management</button></a></td>
+				<td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='gridphp/' onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')"><button class="sm-bttn">Database Browser</button></a></td>
+				<td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button class="sm-bttn">File Browser</button></a></td>
+			</tbody>
+		</table>
+
+                <table id="commands" class="display center" style="text-align:center;width:650px;" border=0>
+                  <td>
+                        <tbody>
+                           <tr>
+                                <td style="padding:10px;"><label class="alt-color">Current Time</label><label class="pri-color">:</label> <label><?php print $timeNow; ?></label></td>
+                        </tbody>
+		</table>
+
 		<table id="systemStats" class="display outline center" style="text-align:left;width:800px;" border=0>
 			<thead>
 			    <tr>
@@ -159,13 +182,19 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 			</thead>
 			<tbody>
 			    <tr>
+
+                                 <td class="alt-color">PhValheim Server Version<label class="pri-color">:</label></td>
+                                 <td><?php echo $phvalheimVersion;?></td>
+
+				 <tr>				
+
                                  <td class="alt-color">Memory<label class="pri-color">:</label></td>
                                  <td><?php echo 'Total: '; echo getTotalMemory(); echo ' / Free: '; echo getFreeMemory(); echo ' / Used: '; echo getUsedMemory();?></td>
 
                                  <tr>
 
                                  <td class="alt-color">Storage<label class="pri-color">:</label></td>
-                                 <td><?php echo 'Total: '; echo getTotalDisk('/opt/stateful'); echo ' / Free: '; echo getFreeDisk('/opt/stateful'); echo ' / Used: '; echo getUsedDisk('/opt/stateful'); echo '('; echo getUsedDiskPerc('/opt/stateful'); echo ')';?></td>
+                                 <td><?php echo 'Total: '; echo getTotalDisk('/opt/stateful'); echo ' / Free: '; echo getFreeDisk('/opt/stateful'); echo ' / Used: '; echo getUsedDisk('/opt/stateful');?></td>
 
                                  <tr>
 
@@ -180,32 +209,32 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 				 <tr>
 				
 				 <td class="alt-color">Last Thunderstore Sync<label class="pri-color">:</label></td>
-				 <td><?php echo getLastTsUpdated($pdo); ?> UTC</td>
+				 <td><?php echo getLastTsUpdated($pdo); ?></td>
 
 				 <tr>
 
 				 <td class="alt-color">Last Local Thunderstore Diff<label class="pri-color">:</label></td>
-				 <td><?php echo getLastTsLocalDiffExecTime($pdo); ?> UTC <?php echo getLastTsSyncLocalExecStatus($pdo); ?></td>
+				 <td><?php echo getLastTsLocalDiffExecTime($pdo); ?> <label class="pri-color sm-font-italic"><?php echo getLastTsSyncLocalExecStatus($pdo); ?></label></td>
 
 				 <tr>
 		
 				 <td class="alt-color">Last Remote Thunderstore Diff<label class="pri-color">:</label></td>
-				 <td><?php echo getLastTsRemoteDiffExecTime($pdo); ?> UTC <?php echo getLastTsSyncRemoteExecStatus($pdo); ?></td>
+				 <td><?php echo getLastTsRemoteDiffExecTime($pdo); ?> <label class="pri-color sm-font-italic"><?php echo getLastTsSyncRemoteExecStatus($pdo); ?></label></td>
 
 				 <tr>
 				
 				 <td class="alt-color">Last World Backup Exec<label class="pri-color">:</label></td>
-				 <td><?php echo getLastWorldBackupExecTime($pdo); ?> UTC <?php echo getLastWorldBackupExecStatus($pdo); ?></td>
+				 <td><?php echo getLastWorldBackupExecTime($pdo); ?> <label class="pri-color sm-font-italic"><?php echo getLastWorldBackupExecStatus($pdo); ?></label></td>
 		
 				 <tr>
 		
 				 <td class="alt-color">Last Log Rotate Exec<label class="pri-color">:</label></td>
-				 <td><?php echo getLastLogRotateExecTime($pdo); ?> UTC <?php echo getLastLogRotateExecStatus($pdo); ?></td>
+				 <td><?php echo getLastLogRotateExecTime($pdo); ?> <label class="pri-color sm-font-italic"><?php echo getLastLogRotateExecStatus($pdo); ?></label></td>
 
 				 <tr>
 
 				 <td class="alt-color">Last Utilization Monitor Exec<label class="pri-color">:</label></td>
-				 <td><?php echo getLastUtilizationMonitorExecTime($pdo); ?> UTC <?php echo getLastUtilizationMonitorExecStatus($pdo); ?></td>
+				 <td><?php echo getLastUtilizationMonitorExecTime($pdo); ?> <label class="pri-color sm-font-italic"><?php echo getLastUtilizationMonitorExecStatus($pdo); ?></label></td>
 			</tbody>
 			<tfoot>
 			</tfoot>
@@ -215,6 +244,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 	      <tr>
 
               <td>
+
                 <table id="systemLogs" class="display outline center" style="width:auto;margin-top:2px;" border=0>
                         <thead>
                             <tr>

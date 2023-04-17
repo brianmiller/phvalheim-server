@@ -113,7 +113,10 @@ function getLastTsUpdated($pdo) {
         $sth = $pdo->prepare("SELECT tsUpdated FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if(!empty($result)) {
+                $result = "$result UTC";
+                return $result;
+        }
 }
 
 
@@ -121,35 +124,50 @@ function getLastTsLocalDiffExecTime($pdo) {
         $sth = $pdo->prepare("SELECT tsSyncLocalLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+	if(!empty($result)) {
+		$result = "$result UTC";
+		return $result;
+	}
 }
 
 function getLastTsRemoteDiffExecTime($pdo) {
         $sth = $pdo->prepare("SELECT tsSyncRemoteLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if(!empty($result)) {
+                $result = "$result UTC";
+                return $result;
+        }
 }
 
 function getLastWorldBackupExecTime($pdo) {
         $sth = $pdo->prepare("SELECT worldBackupLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if(!empty($result)) {
+		$result = "$result UTC";
+                return $result;
+        }
 }
 
 function getLastLogRotateExecTime($pdo) {
         $sth = $pdo->prepare("SELECT logRotaterLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if(!empty($result)) {
+                $result = "$result UTC";
+                return $result;
+        }
 }
 
 function getLastUtilizationMonitorExecTime($pdo) {
         $sth = $pdo->prepare("SELECT utilizationMonitorLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if(!empty($result)) {
+                $result = "$result UTC";
+                return $result;
+        }
 }
 
 function getLastTsSyncLocalExecStatus($pdo) {

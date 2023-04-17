@@ -82,6 +82,11 @@ a:visited {
   text-decoration: none; 
 }
 
+.sm-font-italic {
+ font-size: 13px;
+ font-style: italic;
+}
+
 .disabled {
  color: var(--disabled) !important;
 }
