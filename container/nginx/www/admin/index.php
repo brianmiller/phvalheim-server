@@ -147,11 +147,11 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 					</td>
 		    </tfoot>
 		</table>
-	   <table id="lowerTable" class="display center" style="width:100%;" border=0>
-	      <td>
 
+	   <table id="lowerTable" class="display center" style="width:100%;" border=0>
+	      <tr>
+	      <td>
 	        <table id="commands" class="display outline center" style="text-align:center;width:650px;" border=0>
-	           <td>
 			<thead>
 			   <tr>
 				<th class="bottom_line alt-color center" colspan=4>Commands</th>
@@ -166,14 +166,8 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 			</tbody>
 		</table>
 
-                <table id="commands" class="display center" style="text-align:center;width:650px;" border=0>
-                  <td>
-                        <tbody>
-                           <tr>
-                                <td style="padding:10px;"><label class="alt-color">Current Time</label><label class="pri-color">:</label> <label><?php print $timeNow; ?></label></td>
-                        </tbody>
-		</table>
-
+	     <tr>
+	     <td>
 		<table id="systemStats" class="display outline center" style="text-align:left;width:800px;" border=0>
 			<thead>
 			    <tr>
@@ -266,6 +260,8 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 </table>
               </td>
 
+               <tr>
+                  <td style="padding:10px;padding-bottom:2em;"><label class="alt-color">Current Time</label><label class="pri-color">:</label> <label style="font-size: 20px;"><?php print $timeNow; ?></label></td>
 
 	   </table>
 	</body>
