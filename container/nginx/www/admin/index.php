@@ -35,10 +35,10 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
         $httpScheme = "http";
 }
 
+
 # Time now
-$timeNow = time();
-$checkNow = $timeNow+date("Z",$timeNow);
-$timeNow = strftime("%Y-%m-%d %H:%M:%S UTC", $checkNow);
+date_default_timezone_set('UTC');
+$timeNow = date("Y-m-d H:i:s T");
 
 
 function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){

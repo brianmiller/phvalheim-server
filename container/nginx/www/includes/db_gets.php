@@ -236,7 +236,7 @@ function getUsedMemory() {
 }
 
 function getFreeMemory() {
-        $result = exec("free -h --giga|grep Mem:|tr -s ' '|cut -d ' ' -f4");
+        $result = exec("free -h --giga|grep Mem:|tr -s ' '|cut -d ' ' -f7");
         return $result;
 }
 
