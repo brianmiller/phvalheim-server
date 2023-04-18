@@ -76,6 +76,7 @@ SQL "
 function tsSeeder () {
 	echo "`date` [NOTICE : phvalheim] Downloading latest Thunderstore database seed from GitHub..."
 	/usr/bin/wget -q https://github.com/brianmiller/phvalheim-server/raw/master/container/mysql/tsmods_seed.sql -O /opt/stateful/.tsmods_update.sql
+	/usr/bin/chown phvalheim:phvalheim /opt/stateful/.tsmods_update.sql
 	downloadedSize=$(/usr/bin/stat -c %s /opt/stateful/.tsmods_update.sql)
 	if [ $downloadedSize -lt 30000 ]; then
 		echo "`date` [ERROR : phvalheim] Could not download remote database seed, using packaged seed..."

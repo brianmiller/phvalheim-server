@@ -4,6 +4,9 @@ FROM ubuntu:focal
 #Version of this build
 ENV phvalheimVersion=2.10
 
+#Timezone will be UTC, conversion is done per deployment preference
+ENV TZ="Etc/UTC" 
+
 #Me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
 

@@ -2,6 +2,7 @@
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 /opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastExecStatus='running';"
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastRun=NOW();"
 
 
 # error setter

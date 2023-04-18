@@ -37,7 +37,7 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 
 
 # Time now
-date_default_timezone_set('UTC');
+#date_default_timezone_set('UTC');
 $timeNow = date("Y-m-d H:i:s T");
 
 
@@ -140,12 +140,9 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 		    <tbody>
 			<?php populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme); ?>
 		    </tbody>
-		    <tfoot>
-					<tr>
-					<td colspan='5' style='text-align:right;'>
-						<label class="alt-color">v</label><label class="pri-color"><?php echo $phvalheimVersion;?></label>
-					</td>
-		    </tfoot>
+                    <tfoot>
+                        <tr>
+                    </tfoot>
 		</table>
 
 	   <table id="lowerTable" class="display center" style="width:100%;" border=0>
@@ -207,12 +204,12 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 
 				 <tr>
 
-				 <td class="alt-color">Last Local Thunderstore Diff<label class="pri-color">:</label></td>
+				 <td class="alt-color">Last Local Thunderstore Diff Exec<label class="pri-color">:</label></td>
 				 <td><?php echo getLastTsLocalDiffExecTime($pdo); ?> <label class="pri-color sm-font-italic"><?php echo getLastTsSyncLocalExecStatus($pdo); ?></label></td>
 
 				 <tr>
 		
-				 <td class="alt-color">Last Remote Thunderstore Diff<label class="pri-color">:</label></td>
+				 <td class="alt-color">Last Remote Thunderstore Diff Exec<label class="pri-color">:</label></td>
 				 <td><?php echo getLastTsRemoteDiffExecTime($pdo); ?> <label class="pri-color sm-font-italic"><?php echo getLastTsSyncRemoteExecStatus($pdo); ?></label></td>
 
 				 <tr>

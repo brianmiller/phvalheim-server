@@ -3,6 +3,7 @@
 
 # update database
 /opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncRemoteLastExecStatus='running';"
+/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncRemoteLastRun=NOW();"
 
 
 # error setter
@@ -71,8 +72,8 @@ if [ $remoteLastChanged -gt $localLastChanged ]; then
 	errorSetter $?
 
 	/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
-else
-	echo "`date` [NOTICE : phvalheim] Local Thunderstore database is newer than the remote GitHub seed, staying with the local copy..."
+#else
+#	echo "`date` [NOTICE : phvalheim] Local Thunderstore database is newer than the remote GitHub seed, staying with the local copy..."
 
 fi
 
