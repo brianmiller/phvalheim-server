@@ -14,7 +14,8 @@ if [ ! $? = 0 ]; then
 	id INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,\
 	maxLogSize INT DEFAULT 1000000,\
 	backupsToKeep INT DEFAULT 24,\
-	steamApiKey TEXT\
+	steamApiKey TEXT,\
+	timezone TEXT\
 	);"
 
 	# add column to systemstats
@@ -35,6 +36,7 @@ if [ ! $? = 0 ]; then
         # insert
         sql "INSERT into settings SET maxLogSize=1000000"
         sql "UPDATE settings SET backupsToKeep=24"
+	sql "UPDATE settings SET timezone='Etc/UTC'"
 	sql "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle'"
 	sql "UPDATE systemstats SET tsSyncRemoteLastExecStatus='idle'"
 	sql "UPDATE systemstats SET worldBackupLastExecStatus='idle'"

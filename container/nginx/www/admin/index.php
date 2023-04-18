@@ -195,7 +195,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 				 <tr>
 		
 				 <td class="alt-color">CPU Utilization<label class="pri-color">:</label></td>
-				 <td><?php echo getCpuUtilization($pdo); ?>%</td>				
+				 <td><?php echo getCpuUtilization($pdo); ?></td>				
 		
 				 <tr>
 				

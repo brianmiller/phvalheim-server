@@ -106,16 +106,25 @@ function getCpuModel($pdo) {
         $sth = $pdo->prepare("SELECT cpuModel FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if(!empty($result)) {
+                return $result;
+        } else {
+                return "pending first execution...";
+        }
 }
 
 function getLastTsUpdated($pdo) {
         $sth = $pdo->prepare("SELECT tsUpdated FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
+
+	$timezone = exec('date +%Z');
+
         if(!empty($result)) {
-                $result = "$result UTC";
+                $result = "$result $timezone";
                 return $result;
+	} else {
+		return "pending first execution...";
         }
 }
 
@@ -124,49 +133,74 @@ function getLastTsLocalDiffExecTime($pdo) {
         $sth = $pdo->prepare("SELECT tsSyncLocalLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
+
+        $timezone = exec('date +%Z');
+
 	if(!empty($result)) {
-		$result = "$result UTC";
-		return $result;
+		$result = "$result $timezone";
+                return $result;		
+        } else {
+                return "pending first execution...";
 	}
 }
 
 function getLastTsRemoteDiffExecTime($pdo) {
         $sth = $pdo->prepare("SELECT tsSyncRemoteLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
-        $result = $sth->fetchColumn();
+	$result = $sth->fetchColumn();
+
+        $timezone = exec('date +%Z');
+
         if(!empty($result)) {
-                $result = "$result UTC";
-                return $result;
+		$result = "$result $timezone";
+                return $result;		
+        } else {
+                return "pending first execution...";
         }
 }
 
 function getLastWorldBackupExecTime($pdo) {
         $sth = $pdo->prepare("SELECT worldBackupLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
-        $result = $sth->fetchColumn();
+	$result = $sth->fetchColumn();
+
+        $timezone = exec('date +%Z');
+
         if(!empty($result)) {
-		$result = "$result UTC";
-                return $result;
+		$result = "$result $timezone";
+                return $result;		
+        } else {
+                return "pending first execution...";
         }
 }
 
 function getLastLogRotateExecTime($pdo) {
         $sth = $pdo->prepare("SELECT logRotaterLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
-        $result = $sth->fetchColumn();
+	$result = $sth->fetchColumn();
+
+        $timezone = exec('date +%Z');
+
         if(!empty($result)) {
-                $result = "$result UTC";
-                return $result;
+		$result = "$result $timezone";
+                return $result;		
+        } else {
+                return "pending first execution...";
         }
 }
 
 function getLastUtilizationMonitorExecTime($pdo) {
         $sth = $pdo->prepare("SELECT utilizationMonitorLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
-        $result = $sth->fetchColumn();
+	$result = $sth->fetchColumn();
+
+        $timezone = exec('date +%Z');
+
         if(!empty($result)) {
-                $result = "$result UTC";
-                return $result;
+		$result = "$result $timezone";
+		return $result;
+        } else {
+                return "pending first execution...";
         }
 }
 
@@ -244,7 +278,12 @@ function getCpuUtilization($pdo) {
         $sth = $pdo->prepare("SELECT currentCpuUtilization FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if(!empty($result)) {
+                $result = "$result";
+                return $result . "%";
+        } else {
+                return "pending first execution...";
+        }
 }
 
 ?>

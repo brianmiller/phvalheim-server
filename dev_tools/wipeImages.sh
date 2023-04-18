@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Stopping phvalheim..."
-podman stop 37648-phvalheim1
+podman stop 37648-phvalheim2
 
 
 echo "Reading in all images..."

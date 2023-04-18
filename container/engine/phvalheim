@@ -14,8 +14,15 @@ echo "`date` [NOTICE : phvalheim] PhValheim Client URL: $phvalheimClientURL"
 source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateless/engine/includes/0-functions.sh
 
+# set initial timezone
+ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
+export TZ="Etc/UTC"
+
 # wait for database
 /opt/stateless/engine/includes/1-waitfordatabase.sh
+
+# set timezone using database value
+/opt/stateless/engine/tools/tzSetter.sh 
 
 # prep directories and filesystem
 /opt/stateless/engine/tools/phvalheimprep.sh
