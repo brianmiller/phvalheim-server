@@ -12,6 +12,7 @@ podman create \
 	       -e 'gameDNS'='37648-dev1.phospher.com' \
 	       -e 'steamAPIKey'="`cat ../not_git/steamAPIKey.txt`" \
 	       -e 'phvalheimClientURL'='https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe' \
+	       -e 'TZ'='America/Los_Angeles' \
 	       -v "/home/brian/docker_persistent/$containerName/":'/opt/stateful':Z \
 	       -v "/home/brian/docker_persistent/$containerName/backups/":'/opt/stateful/backups':Z \
 	        localhost/phvalheim2

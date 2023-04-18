@@ -15,8 +15,8 @@ source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateless/engine/includes/0-functions.sh
 
 # set initial timezone
-ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
-export TZ="Etc/UTC"
+#ln -sf /usr/share/zoneinfo/Etc/UTC /etc/localtime
+#export TZ="Etc/UTC"
 
 # wait for database
 /opt/stateless/engine/includes/1-waitfordatabase.sh

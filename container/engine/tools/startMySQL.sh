@@ -33,8 +33,19 @@ _term() {
 
 trap _term SIGTERM
 
+
+# if timezone is not set via docker env, set it to UTC
+if [ "$TZ" = "" ]; then
+	echo "`date` [WARN : mysqld] Timezone var 'TZ' is empty, settigng to UTC..."
+	export TZ="Etc/UTC"
+fi
+
+# convert timezone to offset
+tzOffset=$(/usr/bin/date +%:z)
+
+
 echo "`date` [NOTICE: mysqld] Starting mysql...";
-/usr/bin/pidproxy /opt/stateful/mysql/mysqld.pid /usr/bin/mysqld_safe --log-error=/opt/stateful/logs/mysqld.log --init-file=/etc/mysql/init-file --user=mysql > /opt/stateful/logs/mysqld.log 2>&1 &
+/usr/bin/pidproxy /opt/stateful/mysql/mysqld.pid /usr/bin/mysqld_safe --log-error=/opt/stateful/logs/mysqld.log --init-file=/etc/mysql/init-file --user=mysql --default-time-zone=$tzOffset > /opt/stateful/logs/mysqld.log 2>&1 &
 
 child=$!
 wait "$child"
