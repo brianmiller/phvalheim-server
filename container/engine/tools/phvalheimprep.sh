@@ -48,6 +48,7 @@ for worldId in $worldIds; do
 done
 
 # set all background process status indicators to 'idle' on new PhValheim start
+echo "`date` [phvalheim] Setting initial background process indicators to 'idle'..."
 SQL "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle';"
 SQL "UPDATE systemstats SET tsSyncRemoteLastExecStatus='idle';"
 SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
