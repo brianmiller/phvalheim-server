@@ -47,8 +47,8 @@ for WORLD in $WORLDS; do
 done
 
 # set all background process status indicators to 'idle' on new PhValheim start
-SQL "UPDATE settings SET tsSyncLocalLastExecStatus='idle';"
-SQL "UPDATE settings SET tsSyncRemoteLastExecStatus='idle';"
-SQL "UPDATE settings SET worldBackupLastExecStatus='idle';"
-SQL "UPDATE settings SET logRotateLastExecStatus='idle';"
-SQL "UPDATE settings SET utilizationMonitorLastExecStatus='idle';"
+SQL "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle';"
+SQL "UPDATE systemstats SET tsSyncRemoteLastExecStatus='idle';"
+SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
+SQL "UPDATE systemstats SET logRotateLastExecStatus='idle';"
+SQL "UPDATE systemstats SET utilizationMonitorLastExecStatus='idle';"
