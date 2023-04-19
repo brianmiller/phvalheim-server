@@ -29,7 +29,7 @@ fi
 
 
 
-#prep perms
+# prep perms
 useradd phvalheim > /dev/null 2>&1
 chown phvalheim: /opt/stateful
 chown -R phvalheim: /opt/stateful/games
@@ -39,9 +39,16 @@ chown -R phvalheim: /tmp/dumps
 chown -R phvalheim: $tsWIP
 chown -R phvalheim: $backupDir
 
-#world prep: ensure all worlds are in a stopped state (fresh PhValheim start)
+# world prep: ensure all worlds are in a stopped state (fresh PhValheim start)
 WORLDS=$(SQL "SELECT id FROM worlds;")
 for WORLD in $WORLDS; do
         echo "`date` [phvalheim] Setting '$WORLD' to stopped..."
         SQL "UPDATE worlds SET mode='stopped' WHERE id='$WORLD';"
 done
+
+# set all background process status indicators to 'idle' on new PhValheim start
+SQL "UPDATE settings SET tsSyncLocalLastExecStatus='idle';"
+SQL "UPDATE settings SET tsSyncRemoteLastExecStatus='idle';"
+SQL "UPDATE settings SET worldBackupLastExecStatus='idle';"
+SQL "UPDATE settings SET logRotateLastExecStatus='idle';"
+SQL "UPDATE settings SET utilizationMonitorLastExecStatus='idle';"
