@@ -40,10 +40,11 @@ chown -R phvalheim: $tsWIP
 chown -R phvalheim: $backupDir
 
 # world prep: ensure all worlds are in a stopped state (fresh PhValheim start)
-WORLDS=$(SQL "SELECT id FROM worlds;")
-for WORLD in $WORLDS; do
-        echo "`date` [phvalheim] Setting '$WORLD' to stopped..."
-        SQL "UPDATE worlds SET mode='stopped' WHERE id='$WORLD';"
+worldIds=$(SQL "SELECT id FROM worlds;")
+for worldId in $worldIds; do
+	worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldId';")
+	echo "`date` [phvalheim] Setting world '$worldName' to stopped..."
+        SQL "UPDATE worlds SET mode='stopped' WHERE id='$worldId';"
 done
 
 # set all background process status indicators to 'idle' on new PhValheim start
