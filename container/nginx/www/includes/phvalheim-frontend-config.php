@@ -35,7 +35,9 @@ $logExclusions = array(
 	"NULL",
 	"Failed to place",
 	"CreateDirectory",
-	"Tried to access Steam interface"
+	"Tried to access Steam interface",
+	"Failed to load steamconsole.so",
+	"lc-messages-dir"
 );
 
 
