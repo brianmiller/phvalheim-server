@@ -99,8 +99,8 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 <!DOCTYPE html>
 <html>
 	<head>
-		<link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css">
 		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
+                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
 		<script>

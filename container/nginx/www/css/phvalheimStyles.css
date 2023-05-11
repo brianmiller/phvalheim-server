@@ -104,9 +104,13 @@ a:visited {
   color: var(--main-alt-color);
 }
 
+.highlight-color {
+  color: var(--outline-light);
+}
+
 .outline {
-  border: 2px solid var(--outline-light);
-  border-radius: 6px;
+  border: 2px solid var(--outline-light) !important;
+  border-radius: 6px !important;
 }
 
 .bottom_line {
@@ -115,6 +119,10 @@ a:visited {
 
 .top_line {
   border-top: 2px dashed var(--outline-light);
+}
+
+.right_line_solid {
+  border-right: 2px solid var(--outline-light);
 }
 
 .sm-bttn {
@@ -158,6 +166,22 @@ a:visited {
   width: 50%;
   text-align: center;
   vertical-align: middle;
+}
+
+.align-left {
+  text-align: left;
+}
+
+.float-left {
+  float: left;
+}
+
+.align-right { 
+  text-align: right;
+}
+
+.float-right {
+  float: right;
 }
 
 .trophy_icon {
@@ -377,46 +401,84 @@ a.card_worldLaunch:hover{
 }
 
 
-div.dataTables_info {
+.dataTables_info {
   color: white !important;
 }
 
-div.dataTables_length {
+.dataTables_length {
   color: white !important;
 }
 
-div.dataTables_length select {
+.dataTables_length select {
   color: white !important;
   background-color: #262626 !important; 
 }
 
-div.dataTables_filter input {
+.dataTables_filter input {
   color: white !important;
 }
 
-div.dataTables_filter {
+.dataTables_filter {
   color: white !important;
 }
 
-a#worlds_previous.paginate_button.previous.disabled {
+.dataTables_wrapper .dataTables_paginate .paginate_button {
   color: white !important;
 }
 
-a#worlds_previous.paginate_button.previous {
+/*
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled, .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  color: var(--button-font-color-idle) !important;
+}
+*/
+
+.dataTables_paginate:hover {
+  color: var(--button-font-color-idle) !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: none !important;
+  color: var(--button-font-color-hover) !important;
+  border: 2px solid var(--outline-light) !important;
+  border-radius: 6px !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background: none !important;
+  color: var(--button-font-color-hover) !important;
+  border: 2px solid var(--outline-light) !important;
+  border-radius: 6px !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  background: none !important;
+  color: var(--button-font-color-idle) !important;
+  border: none !important;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: none !important;
+  color: var(--button-font-color-hover) !important;
+  border: none !important;
+}
+
+.paginate_button.previous {
   color: white !important;
 }
 
-a#worlds_next.paginate_button.next.disabled {
+.paginate_button.next.disabled {
   color: white !important;
 }
 
-a#worlds_next.paginate_button.next {
-  color: white !important;
+.paginate_button.next {
+  color: red !important;
 }
 
-.dataTables_paginate .paginate_button:hover {
-  background: #626262 !important;
+.dataTables_wrapper .dataTables_paginate {
+/* ... */
+  color: var(--alt-color) !important;
 }
+
 .dataTables_paginate .paginate_button.current {
   background: #999999 !important;
 }
@@ -441,11 +503,27 @@ table#worlds.dataTable thead:hover {
   background-color: #999999;
 }
 
-table.dataTable tbody tr.myeven{
+.dataTable tbody tr.myeven{
     background-color:#404040;
 }
-table.dataTable tbody tr.myodd{
+.dataTable tbody tr.myodd{
     background-color:#303030;
+}
+
+.dataTables_paginate {
+    margin-top: 5px !important;
+}
+
+.dataTables_info {
+    margin-top: 5px !important;
+}
+
+.dataTables_length {
+    margin-bottom: 10px !important;
+}
+
+.dataTables_filter {
+    margin-bottom: 10px !important;
 }
 
 :not(td) > table > thead > tr:first-child th {

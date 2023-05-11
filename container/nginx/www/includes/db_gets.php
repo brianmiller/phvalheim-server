@@ -19,9 +19,73 @@ function getAllModVersionUUIDs($pdo) {
 }
 
 function getAllMods($pdo) {
-        $sth = $pdo->query("SELECT DISTINCT moduuid,name,owner FROM tsmods ORDER BY name;");
+        $sth = $pdo->query("SELECT DISTINCT(name),moduuid,owner,url FROM tsmods ORDER BY name");
         $result = $sth->fetchAll(PDO::FETCH_ASSOC);
         return $result;
+}
+
+function getAllModsLatestVersion($pdo) {
+        $sth = $pdo->query("
+		SELECT t1.name,t1.version,t1.moduuid,t1.owner,t1.url,t1.version_date_created
+			FROM tsmods AS t1
+			LEFT OUTER JOIN tsmods AS t2
+			  ON t1.name = t2.name 
+			        AND (t1.version_date_created < t2.version_date_created 
+			         OR (t1.version_date_created = t2.version_date_created 
+			        AND t1.Id < t2.Id))
+			WHERE t2.name IS NULL ORDER BY name
+		");
+
+
+        $result = $sth->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+}
+
+function modSelectedCheck($pdo,$world,$modUUID) {
+        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world' AND thunderstore_mods LIKE '%$modUUID%'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function modIsDep($pdo,$world,$modUUID) {
+        $sth = $pdo->query("SELECT thunderstore_mods_all FROM worlds WHERE name='$world' AND thunderstore_mods_all LIKE '%$modUUID%'");
+        $sth->execute();
+        $all = $sth->fetchColumn();
+
+        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world' AND thunderstore_mods LIKE '%$modUUID%'");
+        $sth->execute();
+        $selected = $sth->fetchColumn();
+
+	if ($all && (!($selected))) {
+		return true;
+	}
+
+}
+
+function getAllWorldMods($pdo,$world) {
+        $sth = $pdo->query("SELECT thunderstore_mods_all FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getSelectedModCountOfWorld($pdo,$world) {
+        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
+	$sth->execute();
+	$result = $sth->fetchColumn();
+	$modCount = substr_count($result, '-');
+	$modCount = $modCount / 4;
+	return $modCount;
+}
+
+function getTotalModCountOfWorld($pdo,$world) {
+        $sth = $pdo->query("SELECT thunderstore_mods_all FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        $modCount = substr_count($result, '-');
+        $modCount = $modCount / 4;
+        return $modCount;
 }
 
 function getSeed($pdo,$world) {
@@ -67,7 +131,7 @@ function getDateUpdated($pdo,$world) {
 }
 
 function modExistCheck($pdo,$world,$modUUID) {
-	$sth = $pdo->prepare("SELECT thunderstore_mods FROM worlds WHERE thunderstore_mods LIKE '%$modUUID%' AND name='$world';");
+	$sth = $pdo->prepare("SELECT thunderstore_mods FROM worlds WHERE thunderstore_mods_all LIKE '%$modUUID%' AND name='$world';");
 	$sth->execute();
 	$result = $sth->fetchColumn();
 	return $result;

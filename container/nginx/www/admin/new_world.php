@@ -6,49 +6,60 @@ include '../includes/db_sets.php';
 include '../includes/db_gets.php';
 
 
-function populateModList($pdo,$world) {
-
-        $getAllMods = getAllMods($pdo,$world);
-        foreach ($getAllMods as $row) {
+function populateModList($pdo,$getAllModsLatestVersion) {
+        foreach ($getAllModsLatestVersion as $row) {
                 $modUUID = $row['moduuid'];
                 $modName = $row['name'];
-                $modOwner = $row['owner'];
-                $modExistCheck = modExistCheck($pdo,$world,$modUUID);
-                if ($modExistCheck) {
-                        print "<tr>";
-                        print "<td><li><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked/></input></li></td>\n";
-			print "<td>$modName";
-			print "<td>$modOwner";
-                } else {
-                        print "<tr>";
-                        print "<td><li><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' /></input></li></td>\n";
-			print "<td>$modName";
-			print "<td>$modOwner";
+		$modName = substr($modName,0,64);
+                $modNameLen = strlen($modName);
+
+                if ($modNameLen == 64) {
+                        $modName = $modName . "...";
                 }
-        }
+
+                $modOwner = $row['owner'];
+		$modURL = $row['url'];
+
+		$modLastUpdated = $row['version_date_created'];
+
+                $modVersion = $row['version'];
+                $modVersion = str_replace("\"","",$modVersion);
+
+                print "<tr>";
+                print "<td><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' /></input></li></td>\n";
+                print "<td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a>";
+                print "<td>$modOwner";
+		print "<td>$modLastUpdated";
+                print "<td>$modVersion";
+	}
 }
 
 
 if (!empty($_POST)) {
   $world = $_POST['world'];
-  $thunderstore_mods = $_POST['thunderstore_mods'];
 
   if (!empty($_POST['seed'])) {
-	$seed = $_POST['seed'];
+        $seed = $_POST['seed'];
   } else {
-	$seed = $defaultSeed;
+        $seed = $defaultSeed;
   }
 
-  #Add new world to database
+  # add new world to database
   $addWorld = addWorld($pdo,$world,$gameDNS,$seed);
   if ($addWorld == 0) {
-	$msg = "World '$world' created...";
-	foreach ($thunderstore_mods as $mod) {
-                addModToWorld($pdo,$world,$mod);
-        }	
-	
-	#Go back to home after creation	
-	header("Location: index.php");
+        $msg = "World '$world' created...";
+  
+
+	# add mods, if any are selected
+	if (!empty($_POST['thunderstore_mods'])) {
+  	  $thunderstore_mods = $_POST['thunderstore_mods'];
+          foreach ($thunderstore_mods as $mod) {
+                  addModToWorld($pdo,$world,$mod);
+          }
+	}
+
+        # go back to admin home after creation 
+        header("Location: index.php");
   }
 
   if ($addWorld == 2) {
@@ -57,76 +68,86 @@ if (!empty($_POST)) {
 
 }
 
+$getAllModsLatestVersion = getAllModsLatestVersion($pdo);
+
 ?>
 
 <!DOCTYPE HTML>
 <html>
 	<head>
-		<link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css">
-		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
+                <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
+                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
 		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css">
+                <script>
+                        $(document).ready( function () {
+                                $('#modtable').DataTable({
 
-		<script>
-			$(document).ready( function () {
-	    			$('#new_world.disabled').DataTable();
-	    		} );
-		</script>
+                                        "rowCallback": function( row, data, index ) {
+                                            if(index%2 == 0){
+                                                $(row).removeClass('myodd myeven');
+                                                $(row).addClass('myodd');
+                                            }else{
+                                                $(row).removeClass('myodd myeven');
+                                                $(row).addClass('myeven');
+                                            }
+                                          },
+
+                                        lengthMenu: [
+                                            [20, 50, 75, -1],
+                                            [20, 50, 75, 'All'],
+                                        ],
+
+                                        columnDefs: [
+                                         { orderable: false, targets: [ 0, 1, 2, 3 ] },
+                                        ],
+                                });
+                        });
+                </script>
+
 	</head>
 
 	<body>
 		<form name="new_world" method="post" action="new_world.php">
 
-			<table style="margin-top: 45px;" align=center border=0 id="new_world" class="display">
+		      <div style="padding-top:10px;" class="">
+                        <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
+                                <th class="bottom_line alt-color cente" colspan="6">World Mod Editor</th>
+				<tr>
+				<td style="padding-top:5px;" colspan="6"></td>
+				<tr>
+                                <td style="width:2px;"></td> <!-- left spacer -->
+				<td class="align-left" style="">World Name:</td>
+				<td class="align-left" style="width:auto;"><input type="text" name="world" required></td>
+                                <td class="center highlight-color" style="width:50px;">|</td> <!-- middle spacer -->
+				<td class="align-left" style="margin-left:50px;">World Seed:</td>
+                                <td class="align-left"><input type="text" name="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>"></td>
+                                <td style="width:2px;"></td> <!-- right spacer -->
+                        </table>
+		      </div>
 
-			    <thead>
-				<th>World Name</th>
-				<th>Seed</td>
-				<th>Thunderstore Mods</th>
-			    </thead>
-
-			    <tbody>
-				<td><input type="text" name="world"></td>
-				<td><input type="text" name="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>"/></td>
-				<td>
-					<div id="modlist" class="dropdown-check-list" tabindex="100">
-        	                        	<span class="anchor">Mods</span>
-		                                <ul class="items">
-
-		                                   <table border=1>
-	         	                            <th colspan=2>Mod Name</th>
-	                	                    <th>Mod Author</th>
-	                        	           	<?php populateModList($pdo,$world); ?>
-	                                	   </table>
-	
-		                                </ul>
-					</div>
-				</td>
-			    </tbody>
-			
-			    <tfoot>
+		      <div style="max-width:1600px;margin:auto;padding:10px;" class="">
+			<table id="modtable" style="margin-top:45px !important;width:100%;" align=center border=0 id="edit_world" class="display outline">
+				<thead>
+					<th class="alt-color">Toggle</th>
+					<th class="alt-color">Name</th>
+					<th class="alt-color">Author</th>
+					<th class="alt-color">Last Updated</th>
+					<th class="alt-color">Version</th>
+				</thead>
+				<tbody>
+        	                        <?php populateModList($pdo,$getAllModsLatestVersion); ?>
+				</tbody>
+			</table>
+		      </div>
+			<table class="center">
 				<td colspan=5 align=center>
-					<a href='index.php'><button type="button" class="sm-bttn">Back</button></a>
-					<button type="submit" class="sm-bttn">Save</button>
-					<div class='visiblemsg' id='notification'><?php print "$msg"; ?></div>
+					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
+					<button name='submit' class="sm-bttn" type="submit">Create</button>
 				</td>
-			    </tfoot>
-
 			</table>
 
 		</form>
-                <script type="text/javascript">
-                        var checkList = document.getElementById('modlist');
-                        checkList.getElementsByClassName('anchor')[0].onclick = function(evt) {
-                                if (checkList.classList.contains('visible')) {
-                                        checkList.classList.remove('visible');
-				} else {
-                                        checkList.classList.add('visible');
-                                }
-			};
-
-
-                </script>
 	</body>
 </html>
