@@ -118,7 +118,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
-                                <th class="bottom_line alt-color" colspan="8">World Mod Editor</th>
+                                <th class="bottom_line alt-color" colspan="8">New World</th>
 				<tr>
 				<td style="padding-top:5px;" colspan="8"></td>
 				<tr>
