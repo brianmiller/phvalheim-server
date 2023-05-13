@@ -21,7 +21,7 @@
 	--disabled: dimgrey;
 
 	/* fonts */
-	--main-font: "Lucida Console", "Courier New", monospace;
+	--main-font: "Lucida Console";
 }
 
 
@@ -33,9 +33,10 @@
 body {
         color: var(--main-font-color) !important;
         background: var(--main-background-color) !important;
-        font-family:  var(--main-font) !important;
+        font-family: var(--main-font) !important;
         line-height: normal !important;
         font-size: 16px !important;
+	margin: 10px !important;
 }
 
 table {
@@ -47,6 +48,11 @@ table {
 html {
 	font-size: 16px !important;
 	font-family:  var(--main-font) !important;
+}
+
+button, input, optgroup, select, textarea {
+    font-style: unset !important;
+    font-family: var(--main-font) !important;
 }
 
 /*ul { 
@@ -75,6 +81,11 @@ a {
 a:hover {
   color: var(--button-font-color-hover);
   text-decoration: none; 
+}
+
+a:visited:hover {
+  color: var(--button-font-color-hover);
+  text-decoration: none;
 }
 
 a:visited {
@@ -426,12 +437,6 @@ a.card_worldLaunch:hover{
   color: white !important;
 }
 
-/*
-.dataTables_wrapper .dataTables_paginate .paginate_button.disabled, .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-  color: var(--button-font-color-idle) !important;
-}
-*/
-
 .dataTables_paginate:hover {
   color: var(--button-font-color-idle) !important;
 }
@@ -445,7 +450,7 @@ a.card_worldLaunch:hover{
 
 .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
   background: none !important;
-  color: var(--button-font-color-hover) !important;
+  color: var(--button-font-color-hover) !important; 
   border: 2px solid var(--outline-light) !important;
   border-radius: 6px !important;
 }
@@ -480,7 +485,8 @@ a.card_worldLaunch:hover{
 }
 
 .dataTables_paginate .paginate_button.current {
-  background: #999999 !important;
+  /*background: #999999 !important; */
+  background: red;
 }
 
 .dataTables_paginate .page-item.active .page-link {
@@ -491,13 +497,13 @@ a.card_worldLaunch:hover{
     color: green !important;
 }
 
-table#worlds.dataTable tbody tr:hover {
-  background-color: #999999;
+table.dataTable tbody tr:hover {
+  background-color: #181d34;
 }
 
-table#worlds.dataTable tbody tr:hover > .sorting_1 {
+/* table#worlds.dataTable tbody tr:hover > .sorting_1 {
   background-color: #999999;
-}
+} */
 
 table#worlds.dataTable thead:hover {
   background-color: #999999;

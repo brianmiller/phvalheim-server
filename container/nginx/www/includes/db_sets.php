@@ -28,6 +28,14 @@ function deleteAllWorldMods($pdo,$world) {
         } else {
                 $msg = "ERROR: Could not purge mods for '$world'...";
         }
+
+        $sql = "UPDATE worlds SET thunderstore_mods_deps='' WHERE name='$world';";
+        if ($pdo->query($sql)) {
+                $msg = "Purging dependency mods for world '$world'...";
+        } else {
+                $msg = "ERROR: Could not purge dependency mods for '$world'...";
+        }
+
 }
 
 

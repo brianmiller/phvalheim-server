@@ -100,35 +100,42 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                                         ],
 
                                         columnDefs: [
-                                         { orderable: false, targets: [ 0, 1, 2, 3 ] },
+                                         { orderable: false, targets: [ 0 ] },
                                         ],
                                 });
                         });
+
+                        function fixer() {
+                                $('#modtable').DataTable().search( '' ).draw();
+                                $('#modtable').DataTable().page.len('-1').draw();
+                        }
                 </script>
 
 	</head>
 
 	<body>
-		<form name="new_world" method="post" action="new_world.php">
+		<form name="new_world" method="post" action="new_world.php" onSubmit="fixer()">
 
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
-                                <th class="bottom_line alt-color cente" colspan="6">World Mod Editor</th>
+                                <th class="bottom_line alt-color" colspan="8">World Mod Editor</th>
 				<tr>
-				<td style="padding-top:5px;" colspan="6"></td>
+				<td style="padding-top:5px;" colspan="8"></td>
 				<tr>
                                 <td style="width:2px;"></td> <!-- left spacer -->
 				<td class="align-left" style="">World Name:</td>
-				<td class="align-left" style="width:auto;"><input type="text" name="world" required></td>
+				<td class="align-left" style="width:auto;"><input type="text" maxlength="30" name="world" id="world" required></td>
                                 <td class="center highlight-color" style="width:50px;">|</td> <!-- middle spacer -->
 				<td class="align-left" style="margin-left:50px;">World Seed:</td>
-                                <td class="align-left"><input type="text" name="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>"></td>
+                                <td class="align-left"><input type="text" name="seed" id="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>"></td>
                                 <td style="width:2px;"></td> <!-- right spacer -->
+				<tr>
+				<td style="padding-top:5px;" colspan="8"></td>
                         </table>
 		      </div>
 
 		      <div style="max-width:1600px;margin:auto;padding:10px;" class="">
-			<table id="modtable" style="margin-top:45px !important;width:100%;" align=center border=0 id="edit_world" class="display outline">
+			<table id="modtable" style="margin-top:45px !important;width:100%;" align=center border=0 class="display outline">
 				<thead>
 					<th class="alt-color">Toggle</th>
 					<th class="alt-color">Name</th>
@@ -149,5 +156,30 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 			</table>
 
 		</form>
+		<script>
+                        /* restrict special chars in input field */
+                        $('#world').bind('input', function() {
+                          var c = this.selectionStart,
+                              r = /[^a-zA-Z0-9\\s]/gi,
+                              v = $(this).val();
+                          if(r.test(v)) {
+                            $(this).val(v.replace(r, ''));
+                            c--;
+                          }
+                          this.setSelectionRange(c, c);
+                        });
+
+                        $('#seed').bind('input', function() {
+                          var c = this.selectionStart,
+                              r = /[^a-zA-Z0-9\\s]/gi,
+                              v = $(this).val();
+                          if(r.test(v)) {
+                            $(this).val(v.replace(r, ''));
+                            c--;
+                          }
+                          this.setSelectionRange(c, c);
+                        });
+
+		</script>
 	</body>
 </html>

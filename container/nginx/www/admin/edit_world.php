@@ -58,7 +58,7 @@ function populateDepModList($pdo,$world,$getAllModsLatestVersion) {
                 $modVersion = $row['version'];
                 $modVersion = str_replace("\"","",$modVersion);
 
-                $modExistCheck = modExistCheck($pdo,$world,$modUUID);
+                #$modExistCheck = modExistCheck($pdo,$world,$modUUID);
                 $modIsDep = modIsDep($pdo,$world,$modUUID);
 
                 if ($modIsDep) {
@@ -111,7 +111,10 @@ if (!empty($_GET['world'])) {
 if(isset($_POST['submit'])) {
 	$world = $_POST['world'];
 
+	# remove all mods from this world, clean slate
 	deleteAllWorldMods($pdo,$world);
+
+	# update database with new selected mod list
 	$thunderstore_mods = $_POST['thunderstore_mods'];
         foreach ($thunderstore_mods as $mod) {
                 addModToWorld($pdo,$world,$mod);
@@ -158,16 +161,22 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                                         ],
 
                                         columnDefs: [
-                                         { orderable: false, targets: [ 0, 1, 2, 3 ] },
+                                         { orderable: false, targets: [ 0, 1, 2, 3, 4 ] },
                                         ],
                                 });
                         });
+
+                        function fixer() {
+				$('#modtable').DataTable().search( '' ).draw();
+				$('#modtable').DataTable().page.len('-1').draw();
+                        }
+
                 </script>
 
 	</head>
 
 	<body>
-		<form name="edit_world" method="post" action="edit_world.php">
+		<form name="edit_world" method="post" action="edit_world.php" onSubmit="fixer()">
 
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
@@ -187,7 +196,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 				<td class="align-left">Date Deployed:</td>
 				<td class="align-left" style="width:auto;"><?php print getDateDeployed($pdo,$world);?></td>
                                 <td class="center highlight-color" style="width:50px;">|</td> <!-- middle spacer -->
-				<td class="align-left">Mods Enabled:</td>
+				<td class="align-left">Mods Selected:</td>
                                 <td class="align-left"><?php print getSelectedModCountOfWorld($pdo,$world);?></td>
                                 <td style="width:2px;"></td> <!-- right spacer -->
                                 <tr>
@@ -217,14 +226,13 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 				</tbody>
 			</table>
 		      </div>
-			<table class="center">
-				<td colspan=5 align=center>
+			<table class="center" border=0>
+				<td colspan=0 align=center>
 					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
 					<button name='submit' class="sm-bttn" type="submit">Save</button>
 					<input type="text" value="<?php echo $world?>" name="world" hidden readonly></input>
 				</td>
 			</table>
-
 		</form>
 	</body>
 </html>

@@ -32,6 +32,7 @@ function updateSteam(){
 #		echo "`date` [phvalheim] Steam appears to be installed, checking for updates..."
 #        fi
 
+	echo "`date` [NOTICE : phvalheim] Checking for Steam updates..."
 
 	if [ ! -d /opt/stateful/games/steam_home ]; then
 		mkdir -p /opt/stateful/games/steam_home
@@ -99,7 +100,7 @@ function InstallAndUpdateBepInEx() {
 function worldDirPrep(){
 	worldName="$1"
 
-	echo "`date` [NOTICE: phvalheim] Preparing directory structure for world..."
+	echo "`date` [NOTICE : phvalheim] Preparing directory structure for world..."
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_configs

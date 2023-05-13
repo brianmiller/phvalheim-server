@@ -36,8 +36,21 @@ function getAllModsLatestVersion($pdo) {
 			WHERE t2.name IS NULL ORDER BY name
 		");
 
-
         $result = $sth->fetchAll(PDO::FETCH_ASSOC);
+        return $result;
+}
+
+function getModNameByUuid($pdo,$modUUID) {
+        $sth = $pdo->query("SELECT name FROM tsmods WHERE moduuid='$modUUID'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
+function getModUrlByUuid($pdo,$modUUID) {
+        $sth = $pdo->query("SELECT url FROM tsmods WHERE moduuid='$modUUID'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
         return $result;
 }
 
@@ -49,25 +62,28 @@ function modSelectedCheck($pdo,$world,$modUUID) {
 }
 
 function modIsDep($pdo,$world,$modUUID) {
-        $sth = $pdo->query("SELECT thunderstore_mods_all FROM worlds WHERE name='$world' AND thunderstore_mods_all LIKE '%$modUUID%'");
+        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world' AND thunderstore_mods_deps LIKE '%$modUUID%'");
         $sth->execute();
-        $all = $sth->fetchColumn();
-
-        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world' AND thunderstore_mods LIKE '%$modUUID%'");
-        $sth->execute();
-        $selected = $sth->fetchColumn();
-
-	if ($all && (!($selected))) {
+        $result = $sth->fetchColumn();
+	if ($result) {
 		return true;
 	}
 
 }
 
 function getAllWorldMods($pdo,$world) {
-        $sth = $pdo->query("SELECT thunderstore_mods_all FROM worlds WHERE name='$world'");
+        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
         $sth->execute();
-        $result = $sth->fetchColumn();
-        return $result;
+        $selected = $sth->fetchColumn();
+
+        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $deps = $sth->fetchColumn();
+
+        $all = $selected . ' ' . $deps;
+	$all = explode(' ', $all);
+
+        return $all;
 }
 
 function getSelectedModCountOfWorld($pdo,$world) {
@@ -80,10 +96,17 @@ function getSelectedModCountOfWorld($pdo,$world) {
 }
 
 function getTotalModCountOfWorld($pdo,$world) {
-        $sth = $pdo->query("SELECT thunderstore_mods_all FROM worlds WHERE name='$world'");
+        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
         $sth->execute();
-        $result = $sth->fetchColumn();
-        $modCount = substr_count($result, '-');
+	$selected = $sth->fetchColumn();
+
+        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $deps = $sth->fetchColumn();
+
+	$all = $selected . ' ' . $deps;
+	
+        $modCount = substr_count($all, '-');
         $modCount = $modCount / 4;
         return $modCount;
 }

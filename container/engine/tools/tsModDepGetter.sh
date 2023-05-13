@@ -133,10 +133,9 @@ fi
 
 
 #sort and uniq
-uniqTotalMods=$(echo $worldMods $uniqTotalMods|xargs -n 1|sort|uniq)
-uniqTotalMods=$(echo $uniqTotalMods|xargs -d $'\n')
+uniqTotalMods=$(echo $uniqTotalMods|xargs -n 1|sort|uniq|xargs -d $'\n')
 
 
 #Send determined mods to database
 echo "`date` [phvalheim] Updating database..."
-updateWorldTSMods=$(SQL "UPDATE worlds SET thunderstore_mods_all='$uniqTotalMods' WHERE name='$world';")
+updateWorldTSMods=$(SQL "UPDATE worlds SET thunderstore_mods_deps='$uniqTotalMods' WHERE name='$world';")

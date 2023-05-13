@@ -43,6 +43,20 @@ $timeNow = date("Y-m-d H:i:s T");
 
 function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 	$getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed FROM worlds");
+
+	#### BEGIN: runningMod toolTip generator
+        function generateToolTip($pdo,$getAllWorldMods) {
+	        foreach ($getAllWorldMods as $runningModUuid) {
+			$runningModName = getModNameByUuid($pdo,$runningModUuid);
+                        $runningModUrl = getModUrlByUuid($pdo,$runningModUuid);
+
+                        if (!empty($runningModName)) {
+                      	  $toolTipContent = " <tr style=\"line-height:5px;\"><td style=\"\"><li><a target=\"_blank\" href=\"$runningModUrl\">$runningModName</a></li></td>\n$toolTipContent";
+                        }
+                }      
+                return $toolTipContent;
+        }
+
 	foreach($getWorlds as $row)
 	{
 		$status = $row['status'];
@@ -84,12 +98,20 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 
 		$editCitizensLink = "<a href='citizensEditor.php?world=$world'>Edit Citizens</a>";
 
+		$getAllWorldMods = getAllWorldMods($pdo,$world);	
+		$runningMods_head = "\n<table border=\"0\" style=\"\">\n";
+		$runningMods_foot = "</table>\n";
+		$runningMods = $runningMods_head . generateToolTip($pdo,$getAllWorldMods) . $runningMods_foot;
+		$modListToolTip = "<a href='#' class='' style='box-shadow:none;border:none;outline:none;' data-trigger='focus' data-toggle='popover' data-placement='bottom' title='Running Mods' data-html='true' data-content='$runningMods'</a>(<label class='alt-color'>view</label>)</a>";
+		#### END: runningMod toolTip generator
+
+
 		echo "<tr>";
 		echo "    <td>$mode</td>";
 		echo "    <td>$world</td>";
 		echo "    <td>$external_endpoint:$port</td>";
 		echo "	  <td>$seed</td>";
-		echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink | $editCitizensLink | $updateLink | $deleteLink</td>";
+		echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink $modListToolTip | $editCitizensLink | $updateLink | $deleteLink</td>";
 		echo "</tr>";
 	}
 }
@@ -99,10 +121,12 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 <!DOCTYPE html>
 <html>
 	<head>
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
 		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
                 <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
+		<script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
 		<script>
 			$(document).ready( function () {
 	    			$('#worlds').DataTable({
@@ -120,14 +144,20 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 					lengthMenu: [
 				            [50, 75, 100, -1],
 					    [50, 75, 100, 'All'],
-				        ],
+					],
+
+                                        "language": {
+                                          "emptyTable": "<label style=\"color:red;\">Add your first world by clicking 'Add World' below.</label>"
+                                        }
 				});
 			});
 		</script>
 	</head>
 
 	<body>
-		<table id="worlds" class="display outline" border=0>
+
+	     <div class="center" style="width:1800px;">
+		<table id="worlds" class="display outline" style="text-align:left;" border=0>
 		    <thead>
       		        <tr>
 			    <th class="alt-color">Engine Mode</th>
@@ -144,11 +174,12 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                         <tr>
                     </tfoot>
 		</table>
+	     </div> 
 
 	   <table id="lowerTable" class="display center" style="width:100%;" border=0>
 	      <tr>
 	      <td>
-	        <table id="commands" class="display outline center" style="text-align:center;width:650px;" border=0>
+	        <table id="commands" class="display outline center" style="text-align:center;width:853px;" border=0>
 			<thead>
 			   <tr>
 				<th class="bottom_line alt-color center" colspan=4>Commands</th>
@@ -165,7 +196,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 
 	     <tr>
 	     <td>
-		<table id="systemStats" class="display outline center" style="text-align:left;width:800px;" border=0>
+		<table id="systemStats" class="display outline center" style="text-align:left;width:853px;" border=0>
 			<thead>
 			    <tr>
 				 <th class="bottom_line alt-color center" colspan=2>Status</th>
@@ -239,7 +270,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 <table id="systemLogs" class="display outline center" style="width:auto;margin-top:2px;" border=0>
                         <thead>
                             <tr>
-                                 <th colspan=8 class="bottom_line alt-color">Logs</th>
+                                 <th colspan=8 class="bottom_line alt-color" style="text-align:center;">Logs</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -261,5 +292,20 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                   <td style="padding:10px;padding-bottom:2em;"><label class="alt-color">Current Time</label><label class="pri-color">:</label> <label style="font-size: 20px;"><?php print $timeNow; ?></label></td>
 
 	   </table>
+
+		<style>
+		  .popover-title {
+		     color: var(--main-alt-color); 
+		  }
+		</style>
+
+                <script>
+                        $(document).ready(function(){
+                          $('[data-toggle="popover"]').popover({
+                            sanitize:false,
+                          });
+                        });
+                </script>
+
 	</body>
 </html>
