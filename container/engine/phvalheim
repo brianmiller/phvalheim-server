@@ -31,9 +31,12 @@ source /opt/stateless/engine/includes/0-functions.sh
 export maxLogSize=$(SQL "SELECT maxLogSize FROM settings")
 export backupsToKeep=$(SQL "SELECT backupsToKeep FROM settings")
 
-# send settings from database to env
-/usr/bin/printenv > /etc/environment
-echo "source /etc/environment" >> /etc/bash.bashrc
+# set environment
+/usr/bin/printenv |grep -v "HOME="|grep -v "PWD=" > /etc/environment
+cat /etc/bash.bashrc|grep "source /etc/environment" > /dev/null 2>&1
+if [ ! $? = 0 ]; then
+        echo "source /etc/environment" >> /etc/bash.bashrc
+fi
 
 # post pre-flight echos
 #echo "`date` [NOTICE : phvalheim] Steam API Key: $steamApiKey"

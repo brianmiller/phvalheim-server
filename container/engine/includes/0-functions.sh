@@ -34,6 +34,10 @@ function updateSteam(){
 
 	echo "`date` [NOTICE : phvalheim] Checking for Steam updates..."
 
+	# this is important: creation of a world after the last world has been deleted caused numerous "No such file or directory" errors.
+        # This was due to PWD missing after deletion of the last world.
+        cd
+
 	if [ ! -d /opt/stateful/games/steam_home ]; then
 		mkdir -p /opt/stateful/games/steam_home
 	fi
@@ -46,11 +50,11 @@ function updateSteam(){
                 mkdir -p /opt/stateful/games/steam_home/Steam
         fi
 
-	if [ -d /root/.steam ]; then
-		rm -rf /root/.steam > /dev/null 2>&1
-	fi
+        if [ -d /root/.steam ] && [ ! -L /root/.steam ] ; then
+                rm -rf /root/.steam > /dev/null 2>&1
+        fi
 
-        if [ -d /root/Steam ]; then
+        if [ -d /root/Steam ] && [ ! -L /root/Steam ]; then
                 rm -rf /root/Steam > /dev/null 2>&1
         fi
 
@@ -88,6 +92,12 @@ function InstallAndUpdateBepInEx() {
                 curl -sfSL $download_url --output /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip
                 unzip /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip "BepInExPack_Valheim/*" -d "/opt/stateful/games/valheim/worlds/$worldName/game"
                 rm /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip
+		chown -R phvalheim: $worldsDirectoryRoot/$worldName
+
+		# this is important: creation of a world after the last world has been deleted caused numerous "No such file or directory" errors.
+		# This was due to PWD missing after deletion of the last world. 
+		cd
+
                 rsync -purval /opt/stateful/games/valheim/worlds/$worldName/game/BepInExPack_Valheim/ /opt/stateful/games/valheim/worlds/$worldName/game/
                 rm -r /opt/stateful/games/valheim/worlds/$worldName/game/BepInExPack_Valheim
                 echo $latest_version > /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt
@@ -196,10 +206,13 @@ function mergeRequiredTsMods(){
 function downloadAndInstallTsModsForWorld(){
 	worldName="$1"
 
-	#Ensure we know about all dependencies for everymod selected
+	#Ensure we know about all dependencies for every mod selected
 	/opt/stateless/engine/tools/tsModDepGetter.sh "$worldName"
 
-	worldMods=$(SQL "SELECT thunderstore_mods_all FROM worlds WHERE name='$worldName'")
+	selectedMods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
+	depMods=$(SQL "SELECT thunderstore_mods_deps FROM worlds WHERE name='$worldName'")
+
+	worldMods="$selectedMods $depMods"
 
 	for worldMod in $worldMods; do
 	

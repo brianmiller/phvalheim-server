@@ -37,7 +37,10 @@ $logExclusions = array(
 	"CreateDirectory",
 	"Tried to access Steam interface",
 	"Failed to load steamconsole.so",
-	"lc-messages-dir"
+	"lc-messages-dir",
+	"dlmopen steamservice.so failed: steamservice.so:",
+	"failed to load",
+	"shader"
 );
 
 
@@ -73,7 +76,13 @@ $logHighlight = array(
         "World saved" => "notice",
         "Setting -savedir to:" => "notice",
         "isModded:" => "notice",
-        "notice" => "notice"
+        "notice" => "notice",
+	"Get create world" => "notice",
+	"PhValheim Companion:" => "notice",
+	"Seed:" => "notice",
+	"Valheim version:" => "notice",
+	"BepInExPack Valheim version" => "notice",
+	"Detected Unity version:" => "notice"
 );
 
 ?>

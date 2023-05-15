@@ -1,32 +1,32 @@
-#Running Environment
+# running environment
 FROM ubuntu:focal
 
-#Version of this build
+# version of this build
 ENV phvalheimVersion=2.11
 
-#Me
+# me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
-#Update the container
+# update the container
 RUN apt-get -y update
 RUN apt-get -y upgrade
 
-#Basic tools
+# basic tools
 RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip unzip supervisor curl vim jq wget language-pack-en rsync ca-certificates bc
 RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql cron inetutils-ping time
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client
 
-#GitHub CLI
+# github li
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
 RUN chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
 RUN apt update
 RUN apt install --no-install-recommends --no-install-suggests -y gh
 
-#Steam stuff
+# steam stuff
 RUN apt-get update
 RUN apt-get install --no-install-recommends --no-install-suggests -y software-properties-common
 RUN add-apt-repository multiverse
@@ -36,14 +36,17 @@ RUN echo steam steam/license note '' | debconf-set-selections
 RUN echo steam steam/question select "I AGREE" |debconf-set-selections
 RUN apt-get install --no-install-recommends --no-install-suggests -y steamcmd
 
-#Small prep stuff
+# crossplay deps
+RUN apt-get install --no-install-recommends --no-install-suggests -y libpulse-dev libatomic1 libc6
+
+# small prep stuff
 RUN echo "set mouse-=a" > /root/.vimrc
-RUN useradd phvalheim
+RUN useradd phvalheim -d /opt/stateful/games/steam_home -s /bin/bash
 
-#PATH
-ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/stateful/games/steamcmd:/opt/stateless/engine:/opt/stateless/engine/tools:/opt/stateless/games/valheim/scripts
+# system path
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/stateful/games/steam_home/.steam/steamcmd:/opt/stateless/engine:/opt/stateless/engine/tools:/opt/stateless/games/valheim/scripts
 
-#RUN and COPY
+# run and copy some stuff
 RUN mkdir -p /opt/stateless/supervisor.d
 RUN mkdir -p /opt/stateless/nginx/www
 RUN mkdir -p /opt/stateless/engine
@@ -66,9 +69,8 @@ COPY container/cron.d/* /etc/cron.d/
 RUN chown -R phvalheim: /opt/stateless
 RUN chown -R phvalheim: /run/php
 
-#Enable PhValheim within NGINX
+# enable PhValheim within NGINX
 RUN ln -s /etc/nginx/sites-available/phvalheim.conf /etc/nginx/sites-enabled/phvalheim
 
-#Dooyet
+# dooyet
 CMD ["/opt/stateless/engine/tools/startSupervisord.sh"]
-#CMD ["/usr/bin/supervisord", "-n", "-c", "/opt/stateless/supervisor.d/supervisord.conf"]

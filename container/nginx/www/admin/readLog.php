@@ -42,7 +42,7 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 			}
 
 			#ready for connections message
-			if (preg_match('/Loaded(.*)locations/i', $logEntry))
+			if (preg_match('/Game server connected/i', $logEntry))
 			{
 				$logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;'>Valheim World is online and ready for players.</p>";
 			}
@@ -53,7 +53,7 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
                                 $logEntry = "";
                         }
 
-			#remove error message
+                        #remove error message
                         if (preg_match('/ILocalize(.*)/i', $logEntry))
                         {
                                 $logEntry = "";

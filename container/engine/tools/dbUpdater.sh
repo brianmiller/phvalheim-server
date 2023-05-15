@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dbUpdateScripts=$(ls /opt/stateless/engine/dbUpdates/*.sh)
+dbUpdateScripts=$(ls -v /opt/stateless/engine/dbUpdates/*.sh)
 
 for dbUpdateScript in $dbUpdateScripts; do
 	$dbUpdateScript
