@@ -51,37 +51,15 @@
 		<div class="user-modal-container">
 			<ul class="switcher">
 				<li><a href="#0">Sign in</a></li>
-				<li><a href="#0">New account</a></li>
+				<li><a href="#0">About</a></li>
 			</ul>
 
 			<div id="login">
+			
+				<p class="center pri-color" style="width:auto !important;">Welcome to PhValheim's World Dashboard</p>
+				
 				<form class="form" id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login">
-					<p class="fieldset">
-						<label class="image-replace email" for="signin-email">E-mail</label>
-						<input class="full-width has-padding has-border" id="signin-email" type="email" placeholder="E-mail">
-						<span class="error-message">An account with this email address does not exist!</span>
-					</p>
-
-					<p class="fieldset">
-						<label class="image-replace password" for="signin-password">Password</label>
-						<input class="full-width has-padding has-border" id="signin-password" type="password" placeholder="Password">
-						<a href="#0" class="hide-password">Show</a>
-						<span class="error-message">Wrong password! Try again.</span>
-					</p>
-
-					<p class="fieldset">
-						<!-- <input type="checkbox" id="remember-me" checked>
-						     <label for="remember-me">Remember me</label> -->
-					</p>
-
-					<p class="fieldset">
-						<input class="full-width" type="submit" value="Login (disabled)" disabled>
-					</p>
-
-					<p class="centered">
-						or	
-					</p>
-
+					<p class="center alt-color" style="width:auto !important;">Click below to sign in with Steam</p>
 					<div class="centered" id="steamSignInButton">
 						<input type="hidden" name="openid.identity" value="http://specs.openid.net/auth/2.0/identifier_select">
 						<input type="hidden" name="openid.claimed_id" value="http://specs.openid.net/auth/2.0/identifier_select">
@@ -89,9 +67,10 @@
 						<input type="hidden" name="openid.mode" value="checkid_setup">
 						<input type="hidden" name="openid.realm" value="<?php echo $steamRealm?>">
 						<input type="hidden" name="openid.return_to" value="<?php echo $steamRealm?>/authenticated.php">
-						<input type="image" name="submit" src="https://steamcommunity-a.akamaihd.net/public/images/signinthroughsteam/sits_01.png" border="0" alt="Submit">
+						<!-- <input type="image" name="submit" src="https://steamcommunity-a.akamaihd.net/public/images/signinthroughsteam/sits_01.png" border="0" alt="Submit"> -->
+						<input type="image" name="submit" src="https://steamcdn-a.akamaihd.net/steamcommunity/public/images/steamworks_docs/english/sits_large_border.png" border="0" alt="Submit">
+
 					</div>
-					
 				</form>
 				
 				<!--<p class="form-bottom-message"><a href="#0">Forgot your password?</a></p>-->
@@ -100,27 +79,18 @@
 			<div id="signup">
 				<form class="form">
 
-					<p class="fieldset">
-						<label class="image-replace email" for="signup-email">E-mail</label>
-						<input class="full-width has-padding has-border" id="signup-email" type="email" placeholder="E-mail">
-						<span class="error-message">Enter a valid email address!</span>
+					<p>
+						<label class="full-width alt-color">What is PhValheim?</label>
 					</p>
+			
+                                        <p>
+                                                <label class="full-width">PhValheim is a server+client combination that keeps remote Valheim worlds in-sync with remote clients, ensuring all players have a controlled and identical experience with any combination of mods.</label>
+                                        </p>
 
-					<p class="fieldset">
-						<label class="image-replace password" for="signup-password">Password</label>
-						<input class="full-width has-padding has-border" id="signup-password" type="password"  placeholder="Password">
-						<a href="#0" class="hide-password">Show</a>
-						<span class="error-message">Your password has to be at least 6 characters long!</span>
-					</p>
+                                        <p>
+                                                <label class="full-width">For more information, visit PhValheim's <a target="_blank" href="https://github.com/brianmiller/phvalheim-server">GitHub page</a> and <a target="_blank" href="https://discord.gg/8RMMrJVQgy">Discord community</a>.</label>
+                                        </p>
 
-					<p class="fieldset">
-						<!--<input type="checkbox" id="accept-terms">
-						<label for="accept-terms">I agree to the <a class="accept-terms" href="#0">Terms</a></label>-->
-					</p>
-
-					<p class="fieldset">
-						<input class="full-width has-padding" type="submit" value="Create account (disabled)" disabled>
-					</p>
 				</form>
 
 			</div>
