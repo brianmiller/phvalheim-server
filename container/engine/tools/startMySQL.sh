@@ -36,7 +36,7 @@ trap _term SIGTERM
 
 # if timezone is not set via docker env, set it to UTC
 if [ "$TZ" = "" ]; then
-	echo "`date` [WARN : mysqld] Timezone var 'TZ' is empty, settigng to UTC..."
+	echo "`date` [WARN : mysqld] Timezone var 'TZ' is empty, setting to UTC..."
 	export TZ="Etc/UTC"
 fi
 

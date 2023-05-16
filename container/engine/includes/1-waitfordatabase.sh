@@ -43,3 +43,21 @@ if [ $dbCheck_systemstats -eq 1 ]; then
         cpuModel=$(cat /proc/cpuinfo |grep "model name"|head -1|cut -d ":" -f2-|cut -d " " -f2-)
 	/opt/stateless/engine/tools/sql "UPDATE systemstats SET cpuModel='$cpuModel'"
 fi
+
+
+# world prep: ensure all worlds are in a stopped state (fresh PhValheim start)
+worldIds=$(SQL "SELECT id FROM worlds;")
+for worldId in $worldIds; do
+        worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldId';")
+        echo "`date` [phvalheim] Setting world '$worldName' to stopped..."
+        SQL "UPDATE worlds SET mode='stopped' WHERE id='$worldId';"
+done
+
+
+# set all background process status indicators to 'idle' on new PhValheim start
+echo "`date` [phvalheim] Setting initial background process indicators to 'idle'..."
+SQL "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle';"
+SQL "UPDATE systemstats SET tsSyncRemoteLastExecStatus='idle';"
+SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
+SQL "UPDATE systemstats SET logRotateLastExecStatus='idle';"
+SQL "UPDATE systemstats SET utilizationMonitorLastExecStatus='idle';"

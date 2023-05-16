@@ -2,7 +2,7 @@
 
 # if the provided timezone is invalid, set it to UTC
 if [ ! -f "/usr/share/zoneinfo/$TZ" ]; then
-                echo "`date` [WARN : phvalheim] The environment timezone is missing or invalid, setting to UTC..."
+	echo "`date` [WARN : phvalheim] The environment variable for timezone (TZ) is missing or invalid, setting to UTC..."
                 export TZ="Etc/UTC"
 fi
 

@@ -138,11 +138,11 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 <!DOCTYPE HTML>
 <html>
 	<head>
-                <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
-                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css">
+                <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php rand(100, 1000)?>">
+                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php rand(100, 1000)?>">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
-		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css">
+		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css?refreshcss=<?php rand(100, 1000)?>">
                 <script>
                         $(document).ready( function () {
                                 $('#modtable').DataTable({

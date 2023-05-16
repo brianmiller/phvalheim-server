@@ -31,15 +31,15 @@
   <meta charset="UTF-8">
   <title>PhValheim Login</title>
   <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.min.css">-->
-  <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css'>
-  <link rel="stylesheet" href="/css/login.css">
-  <link rel="stylesheet" href="/css/phvalheimStyles.css">
+  <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css?refreshcss=<?php rand(100, 1000)?>'>
+  <link rel="stylesheet" href="/css/login.css?refreshcss=<?php rand(100, 1000)?>">
+  <link rel="stylesheet" href="/css/phvalheimStyles.css?refreshcss=<?php rand(100, 1000)?>">
 
                 <!-- Google Fonts -->
                 <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
 
                 <!-- CSS Reset -->
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css?refreshcss=<?php rand(100, 1000)?>">
 
 </head>
 <body>

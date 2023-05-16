@@ -121,9 +121,9 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 <!DOCTYPE html>
 <html>
 	<head>
-		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
-		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
-                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css">
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css?refreshcss=<?php rand(100, 1000)?>">
+		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php rand(100, 1000)?>">
+                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php rand(100, 1000)?>">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
