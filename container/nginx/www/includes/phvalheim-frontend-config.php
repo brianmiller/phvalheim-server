@@ -62,7 +62,8 @@ $logHighlightNotice = "#000000";
 $logHighlightNoticeDarker = "#00F7FF";
 $logHighlightGreen = "#000000";
 $logHighlightGreenDarker = "#13FF00";
-
+$logHighlightMagenta = "#000000";
+$logHighlightMagentaDarker = "#FF00FF";
 
 #highlighter keyword array
 $logHighlight = array(
@@ -82,7 +83,8 @@ $logHighlight = array(
 	"Seed:" => "notice",
 	"Valheim version:" => "notice",
 	"BepInExPack Valheim version" => "notice",
-	"Detected Unity version:" => "notice"
+	"Detected Unity version:" => "notice",
+	" BepInEx] Loading [" => "magenta"
 );
 
 ?>

@@ -91,8 +91,10 @@ function populateDisabledModList($pdo,$world,$getAllModsLatestVersion) {
 
                 $modVersion = $row['version'];
                 $modVersion = str_replace("\"","",$modVersion);
-                $modExistCheck = modExistCheck($pdo,$world,$modUUID);
-                if (!$modExistCheck) {
+                #$modExistCheck = modExistCheck($pdo,$world,$modUUID);
+		$modSelectedCheck = modSelectedCheck($pdo,$world,$modUUID);
+
+                if (!$modSelectedCheck) {
                         print "<tr>";
                         print "<td><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' /></input></li></td>\n";
                         print "<td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a>";
@@ -167,17 +169,35 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                         });
 
                         function fixer() {
+
+                                //blanker
+                                var pageWrapperElement = document.getElementById("#wrapper");
+                                pageWrapperElement.style.display = "none";
+
 				$('#modtable').DataTable().search( '' ).draw();
 				$('#modtable').DataTable().page.len('-1').draw();
                         }
+
+			// only allow the form to be submitted once per page load
+			var form_enabled = true;
+			$().ready(function(){
+			       $('#edit_world').on('submit', function(){
+			               if (form_enabled) {
+			                       form_enabled = false;
+			                       return true;
+			               }
+	
+			               return false;
+			        });
+			});
 
                 </script>
 
 	</head>
 
 	<body>
-		<form name="edit_world" method="post" action="edit_world.php" onSubmit="fixer()">
-
+	      <div id="wrapper">
+		<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="fixer()">
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
                                 <th class="bottom_line alt-color cente" colspan="7">World Mod Editor</th>
@@ -229,10 +249,11 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 			<table class="center" border=0>
 				<td colspan=0 align=center>
 					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
-					<button name='submit' class="sm-bttn" type="submit">Save</button>
+					<button name='submit' id='submit_button' class="sm-bttn" type="submit">Save</button>
 					<input type="text" value="<?php echo $world?>" name="world" hidden readonly></input>
 				</td>
 			</table>
 		</form>
+	      </div>
 	</body>
 </html>

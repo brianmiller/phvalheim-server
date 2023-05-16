@@ -47,7 +47,7 @@ if (!empty($_POST)) {
   # add new world to database
   $addWorld = addWorld($pdo,$world,$gameDNS,$seed);
   if ($addWorld == 0) {
-        $msg = "World '$world' created...";
+        $msg = "<label style='font-size: 16px;font-style:italic;'>World '$world' created...</label>";
   
 
 	# add mods, if any are selected
@@ -63,7 +63,7 @@ if (!empty($_POST)) {
   }
 
   if ($addWorld == 2) {
-        $msg = "World '$world' already exists...";
+        $msg = "<label style='font-size: 16px;font-style:italic;'>World '$world' already exists...</label>";
   }
 
 }
@@ -106,15 +106,35 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                         });
 
                         function fixer() {
+	
+                                //blanker
+                                var pageWrapperElement = document.getElementById("#wrapper");
+                                pageWrapperElement.style.display = "none";
+
                                 $('#modtable').DataTable().search( '' ).draw();
                                 $('#modtable').DataTable().page.len('-1').draw();
                         }
+
+                        // only allow the form to be submitted once per page load
+                        var form_enabled = true;  
+                        $().ready(function(){     
+                               $('#new_world').on('submit', function(){
+                                       if (form_enabled) {
+                                               form_enabled = false;
+                                               return true;
+                                       }
+        
+                                       return false;
+                                });
+                        });
+
                 </script>
 
 	</head>
 
 	<body>
-		<form name="new_world" method="post" action="new_world.php" onSubmit="fixer()">
+	      <div id="wrapper">
+		<form id="new_world" name="new_world" method="post" action="new_world.php" onSubmit="fixer()">
 
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
@@ -131,6 +151,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                                 <td style="width:2px;"></td> <!-- right spacer -->
 				<tr>
 				<td style="padding-top:5px;" colspan="8"></td>
+				<tr>
+				<th class="pri-color" colspan="8"><?php echo $msg ?></th>
                         </table>
 		      </div>
 
@@ -151,11 +173,13 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 			<table class="center">
 				<td colspan=5 align=center>
 					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
-					<button name='submit' class="sm-bttn" type="submit">Create</button>
+					<button id='submit_button' name='submit' class="sm-bttn" type="submit">Create</button>
 				</td>
 			</table>
 
 		</form>
+	      </div>
+
 		<script>
                         /* restrict special chars in input field */
                         $('#world').bind('input', function() {

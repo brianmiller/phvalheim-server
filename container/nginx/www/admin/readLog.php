@@ -7,7 +7,7 @@ if (!empty($_GET['logfile'])) {
 }
 
 
-function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightError,$logHighlightWarn,$logHighlightNotice,$logHighlightGreen,$logHighlightErrorDarker,$logHighlightWarnDarker,$logHighlightNoticeDarker,$logHighlightGreenDarker){
+function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightError,$logHighlightWarn,$logHighlightNotice,$logHighlightGreen,$logHighlightErrorDarker,$logHighlightWarnDarker,$logHighlightNoticeDarker,$logHighlightGreenDarker,$logHighlightMagenta,$logHighlightMagentaDarker){
 	$logOutput = nl2br(file_get_contents( "/opt/stateful/logs/$logFile" ));
 	
 
@@ -39,6 +39,11 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
                                 if($alertType == "notice") {
                                         $logEntry = "<p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;'>$logEntry</p>";
                                 }
+
+                                if($alertType == "magenta") {
+                                        $logEntry = "<p style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;'>$logEntry</p>";
+                                }
+
 			}
 
 			#ready for connections message
@@ -89,7 +94,7 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 
 	<body onload="window.location='#bottom';">
 		<div>
-			<p><?php populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightError,$logHighlightWarn,$logHighlightNotice,$logHighlightGreen,$logHighlightErrorDarker,$logHighlightWarnDarker,$logHighlightNoticeDarker,$logHighlightGreenDarker);?></p>
+			<p><?php populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightError,$logHighlightWarn,$logHighlightNotice,$logHighlightGreen,$logHighlightErrorDarker,$logHighlightWarnDarker,$logHighlightNoticeDarker,$logHighlightGreenDarker,$logHighlightMagenta,$logHighlightMagentaDarker);?></p>
 		</div>
 		<p>&nbsp;</p>
 		<hr>
