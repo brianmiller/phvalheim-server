@@ -20,11 +20,11 @@ source /opt/stateless/engine/includes/0-functions.sh
 # set timezone using database value
 /opt/stateless/engine/tools/tzSetter.sh 
 
-# run database schema update processor
-/opt/stateless/engine/tools/dbUpdater.sh
-
 # prep directories and filesystem
 /opt/stateless/engine/tools/phvalheimprep.sh
+
+# run database schema update processor
+/opt/stateless/engine/tools/dbUpdater.sh
 
 # pull settings from database
 #steamApiKey=$(SQL "SELECT steamApiKey FROM settings")
