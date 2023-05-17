@@ -452,4 +452,40 @@ function setMD5 (){
 }
 
 
+#$1=world. Used to generate the mod viewer dropdown in the admin ui
+function generateModViewerJson () {
+	echo "`date` [NOTICE : phvalheim] Generating mod viewer json payload..."
+	selected=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
+	deps=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT thunderstore_mods_deps FROM worlds WHERE name='$worldName'")
+	all="$selected $deps"
+   
+	function generateJson(){
+
+	        firstRun="{"
+	        echo -n "["
+
+	        for mod in $all; do
+
+	                name=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT name FROM tsmods WHERE moduuid='$mod' LIMIT 1")
+	                url=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT url FROM tsmods WHERE moduuid='$mod' LIMIT 1")
+
+	                echo "$firstRun"
+	                echo "          \"name\": \"$name\","      
+	                echo "          \"uuid\": \"$mod\","
+	                echo "          \"url\": \"$url\""
+	                echo "  },"
+
+
+	                firstRun="      {"
+	        done
+
+	        echo "]"
+	}
+
+	jsonOutput=$(generateJson|sed -zr 's/,([^,]*$)/\1/')
+
+	SQL "UPDATE worlds SET modsViewer='$jsonOutput' WHERE name='$worldName'"
+
+}
+
 ####### END: Functions #######

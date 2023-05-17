@@ -24,6 +24,13 @@ function getAllMods($pdo) {
         return $result;
 }
 
+function getModViewerJsonForWorld($pdo,$world) {
+        $sth = $pdo->prepare("SELECT modsViewer FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
+
 function getAllModsLatestVersion($pdo) {
         $sth = $pdo->query("
 		SELECT t1.name,t1.version,t1.moduuid,t1.owner,t1.url,t1.version_date_created

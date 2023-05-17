@@ -10,6 +10,7 @@ if [ ! $? = 0 ]; then
 	## BEGIN UPDATE ##
 	# add column
 	sql "ALTER TABLE worlds ADD COLUMN thunderstore_mods_deps TEXT;"
+	sql "ALTER TABLE worlds ADD COLUMN modsViewer JSON;"
 
 	# set all worlds to "update" after database change
 	sql "UPDATE worlds SET mode='update';"
