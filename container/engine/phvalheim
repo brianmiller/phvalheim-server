@@ -282,11 +282,11 @@ while [ true ]; do
                                 #add required mods to final list
                                 mergeRequiredTsMods "$worldName"
 
-				#generate mod viwer list
-				generateModViewerJson "$worldName"
-
 				#Install mods
 				downloadAndInstallTsModsForWorld "$worldName"
+
+                                #generate mod viwer list
+                                generateModViewerJson "$worldName"
 
 				#Generate quick connect config
 				createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
