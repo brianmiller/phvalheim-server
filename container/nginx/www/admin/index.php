@@ -29,17 +29,20 @@ if (!empty($_GET['update_world'])) {
         header('Location: /');
 }
 
-if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
-        $httpScheme = "https";
-} else {
-        $httpScheme = "http";
+
+# http(s) detector
+$httpScheme = '';
+if(isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+	if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
+	        $httpScheme = "https";
+	} else {
+	        $httpScheme = "http";
+	}
 }
 
 
 # Time now
-#date_default_timezone_set('UTC');
 $timeNow = date("Y-m-d H:i:s T");
-
 
 function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 	$getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed FROM worlds");
@@ -49,13 +52,14 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 
 		$modsJson = getModViewerJsonForWorld($pdo,$world);
 		$jsonIncoming = json_decode($modsJson,true);
+		$toolTipContent = '';
 
 		foreach ($jsonIncoming as $arr) {
 		        $runningModName = $arr['name'];
 		        $runningModUrl = $arr['url'];
 
                         if (!empty($runningModName)) {
-                      	  $toolTipContent = " <tr style=\"line-height:5px;\"><td style=\"\"><li><a target=\"_blank\" href=\"$runningModUrl\">$runningModName</a></li></td>\n$toolTipContent";
+                      	  $toolTipContent = "<tr style=\"line-height:5px;\"><td style=\"\"><li><a target=\"_blank\" href=\"$runningModUrl\">$runningModName</a></li></td>\n$toolTipContent";
                         }
                 }      
                 return $toolTipContent;
@@ -127,9 +131,9 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 <!DOCTYPE html>
 <html>
 	<head>
-		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css?refreshcss=<?php rand(100, 1000)?>">
-		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php rand(100, 1000)?>">
-                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php rand(100, 1000)?>">
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css?refreshcss=<?php echo rand(100, 1000)?>">
+		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php echo rand(100, 1000)?>">
+                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>

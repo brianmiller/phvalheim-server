@@ -51,14 +51,14 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 
 		<meta charset="UTF-8">
 	 	<title>PhValheim Citzens Editor</title>
-		<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css?refreshcss=<?php rand(100, 1000)?>'>
-		<link rel="stylesheet" href="/css/phvalheimStyles.css?refreshcss=<?php rand(100, 1000)?>">
+		<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css?refreshcss=<?php echo rand(100, 1000)?>'>
+		<link rel="stylesheet" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
 
                 <!-- Google Fonts -->
-                <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic?refreshcss=<?php rand(100, 1000)?>">
+                <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic?refreshcss=<?php echo rand(100, 1000)?>">
 
                 <!-- CSS Reset -->
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css?refreshcss=<?php rand(100, 1000)?>">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css?refreshcss=<?php echo rand(100, 1000)?>">
 
 	</head>
 

@@ -114,7 +114,7 @@ function updateWorld($pdo,$world){
         if (!empty($world)){
                 $sql = "UPDATE worlds SET mode='update' WHERE name='$world'";
                 if ($pdo->query($sql)) {
-                        $msg = "Updating world $world...";
+                        $msg = "Updating world '$world'...";
                 } else {
                         $msg = "ERROR: Could not update $world...";
                 }

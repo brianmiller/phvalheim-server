@@ -91,55 +91,20 @@ while [ true ]; do
 
 				echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
 				chown -R phvalheim: $worldsDirectoryRoot/$worldName
-				updateSteam
-				InstallAndUpdateBepInEx "$worldName"
-				InstallAndUpdateValheim "$worldName"
 				RESULT=$?
 				if [ $RESULT = 0 ]; then
 					echo "`date` [NOTICE : phvalheim] World '$worldName' successfully created..."
-					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 			
 					echo "`date` [NOTICE : phvalheim] Checking for required mods..."
-					SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
-
-					#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
-					purgeWorldModsConfigsPatchers "$worldName"
-
-					#add required mods to final list
-					mergeRequiredTsMods "$worldName"
-		
-					#resolve mod deps and install to local world context
-					downloadAndInstallTsModsForWorld "$worldName"
-
-					#generate custom seed config
-					createCustomSeedConfig "$worldName" "$worldSeed"
-
-					#generate quick connect config
-	                                createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
-
-                                        #Install custom mods and config
-                                        installCustomModsConfigsPatchers "$worldName"
-
-					#package the local world context into something usable for PhValheim clients
-	                                packageClient "$worldName"
-
-					#Copy custom_config_secure files to. These files will not end up on the client side
-					InstallCustomConfigSecureFiles "$worldName"
-
-        	                        #update the database to reflect new client pacakge version via MD5
-                	                worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
-                        	        setMD5 "$worldName" "$worldMD5"
-					
 					#create supervisor config file for this world
 					createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
 
 	                                #set create and updated timestamp for new deployment
 	                                SQL "UPDATE worlds SET date_deployed='`date +'%F %T'`' WHERE name='$worldName'"
-					SQL "UPDATE worlds SET date_updated='`date +'%F %T'`' WHERE name='$worldName'"
 	
-					#set new world to stopped state
-					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"	
+					#set new world to update state
+					SQL "UPDATE worlds SET mode='update' WHERE name='$worldName'"
 			
 				else
 					echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
@@ -264,7 +229,7 @@ while [ true ]; do
                         if [ $? = 0 ]; then
                                 echo "`date` [WARN : phvalheim] World '$worldName' is running. Stop the world before updating..."
 			else
-				echo "`date` [NOTICE : phvalheim] Updating world..."
+				echo "`date` [NOTICE : phvalheim] Updating world '$worldName'..."
 				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
 				#Update Steam

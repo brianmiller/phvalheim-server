@@ -81,7 +81,7 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 
 	<head>
 
-		<link rel="stylesheet" type="text/css" href="/css/readLog.css?refreshcss=<?php rand(100, 1000)?>">
+		<link rel="stylesheet" type="text/css" href="/css/readLog.css?refreshcss=<?php echo rand(100, 1000)?>">
 		
 		<script>
 			//scroll to bottom of page (latest log entry)

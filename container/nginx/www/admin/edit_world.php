@@ -28,12 +28,13 @@ function populateEnabledModList($pdo,$world,$getAllModsLatestVersion) {
 		$modSelectedCheck = modSelectedCheck($pdo,$world,$modUUID);
 
 		if ($modSelectedCheck) {
-			print "<tr>";
-			print "<td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked/></input></li></td>\n";
-			print "<td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a>";
-			print "<td>$modOwner";
-			print "<td>$modLastUpdated";
-			print "<td>$modVersion";
+			print "<tr>\n";
+			print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked></input></td>\n";
+			print "  <td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a></td>\n";
+			print "  <td>$modOwner</td>\n";
+			print "  <td>$modLastUpdated</td>\n";
+			print "  <td>$modVersion</td>\n";
+			print "\n";
 		}
         }
 }
@@ -62,12 +63,13 @@ function populateDepModList($pdo,$world,$getAllModsLatestVersion) {
                 $modIsDep = modIsDep($pdo,$world,$modUUID);
 
                 if ($modIsDep) {
-                        print "<tr>";
-                        print "<td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked disabled/></input></li></td>\n";
-                        print "<td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName <label class='alt-color' style='font-size:11px;font-style:italic;'>added as dependency</label></a>";
-                        print "<td>$modOwner";
-                        print "<td>$modLastUpdated";
-                        print "<td>$modVersion";
+                        print "<tr>\n";
+                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked disabled></input></td>\n";
+                        print "  <td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName<label class='alt-color' style='font-size:11px;font-style:italic;'> added as dependency</label></a></td>\n";
+                        print "  <td>$modOwner</td>\n";
+                        print "  <td>$modLastUpdated</td>\n";
+                        print "  <td>$modVersion</td>\n";
+			print "\n";
                 }
         }
 }
@@ -95,12 +97,13 @@ function populateDisabledModList($pdo,$world,$getAllModsLatestVersion) {
 		$modSelectedCheck = modSelectedCheck($pdo,$world,$modUUID);
 
                 if (!$modSelectedCheck) {
-                        print "<tr>";
-                        print "<td><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' /></input></li></td>\n";
-                        print "<td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a>";
-                        print "<td>$modOwner";
-			print "<td>$modLastUpdated";
-                        print "<td>$modVersion";
+                        print "<tr>\n";
+                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox'></input></td>\n";
+                        print "  <td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a></td>\n";
+                        print "  <td>$modOwner</td>\n";
+			print "  <td>$modLastUpdated</td>\n";
+                        print "  <td>$modVersion</td>\n";
+			print "\n";
                 }
 	}
 }
@@ -118,6 +121,7 @@ if(isset($_POST['submit'])) {
 
 	# update database with new selected mod list
 	$thunderstore_mods = $_POST['thunderstore_mods'];
+
         foreach ($thunderstore_mods as $mod) {
                 addModToWorld($pdo,$world,$mod);
         }
@@ -138,11 +142,11 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 <!DOCTYPE HTML>
 <html>
 	<head>
-                <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php rand(100, 1000)?>">
-                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php rand(100, 1000)?>">
+                <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php echo rand(100, 1000)?>">
+                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
-		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css?refreshcss=<?php rand(100, 1000)?>">
+		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css?refreshcss=<?php echo rand(100, 1000)?>">
                 <script>
                         $(document).ready( function () {
                                 $('#modtable').DataTable({
@@ -171,11 +175,14 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                         function fixer() {
 
                                 //blanker
-                                var pageWrapperElement = document.getElementById("#wrapper");
-                                pageWrapperElement.style.display = "none";
+				//document.getElementById("#modtable").style.display = "none";
 
-				$('#modtable').DataTable().search( '' ).draw();
 				$('#modtable').DataTable().page.len('-1').draw();
+				$('#modtable').DataTable().search( '' ).draw();				
+
+				// hide mod table after submission
+                                //document.getElementById("#wrapper").style.display = "hidden";
+
                         }
 
 			// only allow the form to be submitted once per page load
@@ -196,7 +203,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 	</head>
 
 	<body>
-	      <div id="wrapper">
+	      <div>
 		<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="fixer()">
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
@@ -242,7 +249,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 				<tbody>
 					<?php populateEnabledModList($pdo,$world,$getAllModsLatestVersion); ?>
 					<?php populateDepModList($pdo,$world,$getAllModsLatestVersion); ?>
-        	                        <?php populateDisabledModList($pdo,$world,$getAllModsLatestVersion); ?>
+					<?php populateDisabledModList($pdo,$world,$getAllModsLatestVersion); ?>
 				</tbody>
 			</table>
 		      </div>

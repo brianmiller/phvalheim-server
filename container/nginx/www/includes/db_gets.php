@@ -65,7 +65,9 @@ function modSelectedCheck($pdo,$world,$modUUID) {
         $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world' AND thunderstore_mods LIKE '%$modUUID%'");
         $sth->execute();
         $result = $sth->fetchColumn();
-        return $result;
+        if ($result) {
+                return true;
+        }
 }
 
 function modIsDep($pdo,$world,$modUUID) {
