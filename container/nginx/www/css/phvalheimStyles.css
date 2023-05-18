@@ -21,7 +21,7 @@
 	--disabled: dimgrey;
 
 	/* fonts */
-	--main-font: "Lucida Console";
+	--main-font: "Lucida Console", "Courier New", monospace;
 }
 
 
