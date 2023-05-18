@@ -111,6 +111,9 @@ Access to each world is controlled by the PhValheim database. We associate the S
  
 
 # Screenshots
+### Public Login Page
+![image](https://github.com/brianmiller/phvalheim-server/assets/342276/ec2e9506-4ebf-4283-9bcc-5596bd5bb8fe)
+
 ### Public Home
 <i>http://[dockerhost]:8080</i>
 ![public_home_screenshot](https://user-images.githubusercontent.com/342276/197672941-2e765e9f-a609-46fa-ab56-40eb5dff0264.png)
@@ -118,13 +121,16 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ### Admin Home
 <i>http://[dockerhost]:8081</i>
 <br>
-![admin_home_screenshot](https://user-images.githubusercontent.com/342276/197673053-a2010a69-75e4-4981-a573-a14cc81a188b.png)
+![image](https://github.com/brianmiller/phvalheim-server/assets/342276/e7f89691-0992-4ab2-b16f-168172d52b94)
 
 ### New World
-![admin_newworld_screenshot](https://user-images.githubusercontent.com/342276/197673105-81e41a69-6a8b-48e4-b8c0-3ee8bb946a94.png)
+![image](https://github.com/brianmiller/phvalheim-server/assets/342276/aa37b92e-e822-4d97-963f-d558dceffb9d)
 
 ### Mods Editor
-![admin_modeditor_screenshot](https://user-images.githubusercontent.com/342276/197673179-0130fad0-2b17-42c2-88c5-a8d92738ee3b.png)
+![image](https://github.com/brianmiller/phvalheim-server/assets/342276/ff391b7b-2836-40a9-a196-e2f611cc6c35)
+
+### Mods Viewer
+![image](https://github.com/brianmiller/phvalheim-server/assets/342276/270f31dc-62ce-4e90-9b0c-ffc41831c344)
 
 ### Citizens Editor
 ![admin_citizenseditor_screenshot](https://user-images.githubusercontent.com/342276/197673205-290730dd-c92a-4769-aedf-916283d3b906.png)
