@@ -123,10 +123,10 @@ Access to each world is controlled by the PhValheim database. We associate the S
 <br>
 ![image](https://github.com/brianmiller/phvalheim-server/assets/342276/e7f89691-0992-4ab2-b16f-168172d52b94)
 
-### New World
+### New World Creation
 ![image](https://github.com/brianmiller/phvalheim-server/assets/342276/aa37b92e-e822-4d97-963f-d558dceffb9d)
 
-### Mods Editor
+### World Editor
 ![image](https://github.com/brianmiller/phvalheim-server/assets/342276/ff391b7b-2836-40a9-a196-e2f611cc6c35)
 
 ### Mods Viewer
