@@ -36,11 +36,11 @@ function getAllModsLatestVersion($pdo) {
 		SELECT t1.name,t1.version,t1.moduuid,t1.owner,t1.url,t1.version_date_created
 			FROM tsmods AS t1
 			LEFT OUTER JOIN tsmods AS t2
-			  ON t1.name = t2.name 
+			  ON t1.moduuid = t2.moduuid
 			        AND (t1.version_date_created < t2.version_date_created 
 			         OR (t1.version_date_created = t2.version_date_created 
 			        AND t1.Id < t2.Id))
-			WHERE t2.name IS NULL ORDER BY name
+			WHERE t2.moduuid IS NULL ORDER BY name
 		");
 
         $result = $sth->fetchAll(PDO::FETCH_ASSOC);
@@ -62,12 +62,21 @@ function getModUrlByUuid($pdo,$modUUID) {
 }
 
 function modSelectedCheck($pdo,$world,$modUUID) {
-        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world' AND thunderstore_mods LIKE '%$modUUID%'");
+        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world' AND thunderstore_mods_deps LIKE '%$modUUID%'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        if ($result) {
+                return false;
+        }
+
+	$sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world' AND thunderstore_mods LIKE '%$modUUID%'");
         $sth->execute();
         $result = $sth->fetchColumn();
         if ($result) {
                 return true;
-        }
+	} else {
+		return false;
+	}
 }
 
 function modIsDep($pdo,$world,$modUUID) {
@@ -76,6 +85,8 @@ function modIsDep($pdo,$world,$modUUID) {
         $result = $sth->fetchColumn();
 	if ($result) {
 		return true;
+	} else {
+		return false;
 	}
 
 }

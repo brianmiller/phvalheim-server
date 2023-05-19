@@ -52,6 +52,11 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 
 		$modsJson = getModViewerJsonForWorld($pdo,$world);
 		$jsonIncoming = json_decode($modsJson,true);
+		
+		# sort the array by 'name' key in descending order		
+		usort(($jsonIncoming), fn($a, $b) => strtolower($b['name']) <=> strtolower($a['name']));
+
+                #print "<pre>" . print_r($jsonIncoming) . "</pre>";
 		$toolTipContent = '';
 
 		foreach ($jsonIncoming as $arr) {
