@@ -457,7 +457,7 @@ function generateModViewerJson () {
 	echo "`date` [NOTICE : phvalheim] Generating mod viewer json payload..."
 	selected=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
 	deps=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT thunderstore_mods_deps FROM worlds WHERE name='$worldName'")
-	all="$selected $deps"
+	all=$(echo $selected $deps|tr -s " " "\n"|sort|uniq)
    
 	function generateJson(){
 
