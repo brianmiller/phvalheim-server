@@ -127,10 +127,10 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ![image](https://github.com/brianmiller/phvalheim-server/assets/342276/aa37b92e-e822-4d97-963f-d558dceffb9d)
 
 ### World Editor
-![image](https://github.com/brianmiller/phvalheim-server/assets/342276/ff391b7b-2836-40a9-a196-e2f611cc6c35)
+![image](https://github.com/brianmiller/phvalheim-server/assets/342276/b2f36cd0-1098-4997-90d8-a273c9fc6003)
 
 ### Mods Viewer
-![image](https://github.com/brianmiller/phvalheim-server/assets/342276/270f31dc-62ce-4e90-9b0c-ffc41831c344)
+![image](https://github.com/brianmiller/phvalheim-server/assets/342276/41510b55-891f-4e23-b16e-03adb8f9bbab)
 
 ### Citizens Editor
 ![admin_citizenseditor_screenshot](https://user-images.githubusercontent.com/342276/197673205-290730dd-c92a-4769-aedf-916283d3b906.png)
