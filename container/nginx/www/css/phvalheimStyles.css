@@ -601,10 +601,11 @@ table#worlds.dataTable thead:hover {
     bottom:0;
     left:0;
     right:0;
-    background-color:#fff;
-    opacity:0.8;
+    background-color: var(--main-background-color);;
+    opacity:0.50;
     z-index:1001;
 }
+
 .overlay-message{
     position: fixed;
     top:30px;
@@ -614,4 +615,20 @@ table#worlds.dataTable thead:hover {
     background-color:#fff;
     opacity:1;
     z-index:1002;
+}
+
+.blur{
+    -webkit-filter: blur(5px); /* Chrome, Safari, Opera */
+    filter: blur(5px);
+}
+
+.unblur{
+    -webkit-filter: none; /* Chrome, Safari, Opera */
+    filter: none;
+}
+
+.noscroll{
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
 }

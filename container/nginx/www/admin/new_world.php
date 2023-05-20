@@ -75,13 +75,15 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 <!DOCTYPE HTML>
 <html>
 	<head>
+                <script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
+                <script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
                 <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php echo rand(100, 1000)?>">
                 <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
-		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
-		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
 		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css?refreshcss=<?php echo rand(100, 1000)?>">
                 <script>
+                        // begin document load
                         $(document).ready( function () {
+                                // begin datatables
                                 $('#modtable').DataTable({
 
                                         "rowCallback": function( row, data, index ) {
@@ -100,20 +102,36 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                                         ],
 
                                         columnDefs: [
-                                         { orderable: false, targets: [ 0 ] },
+                                         { orderable: false, targets: [ 0, 1, 2, 3, 4 ] },
                                         ],
-                                });
-                        });
+                                }); // end data tables
+				
+				// unblur after php populates table
+				document.body.classList.remove("blur");
+				document.body.classList.remove("overlay");
+	
+                        }); // end document load
 
-                        function fixer() {
+
+                        // execute this when form is submitted
+                        function onFormSubmit() {
+				// clears search filter and changes list range to all items. This is needed for POST
                                 $('#modtable').DataTable().page.len('-1').draw();
-				$('#modtable').DataTable().search( '' ).draw();
+                                $('#modtable').DataTable().search( '' ).draw();                         
+                        }
+
+
+                        // execute this when the submit button is clicked
+                        function onSubmitClick() {
+                                document.body.classList.add("blur");
+                                document.body.classList.add("noscroll");
+                                document.getElementById("overlay").style.display = "block";
                         }
 
                         // only allow the form to be submitted once per page load
-                        var form_enabled = true;  
-                        $().ready(function(){     
-                               $('#new_world').on('submit', function(){
+                        var form_enabled = true;
+                        $().ready(function(){
+                               $('#edit_world').on('submit', function(){
                                        if (form_enabled) {
                                                form_enabled = false;
                                                return true;
@@ -129,7 +147,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 
 	<body>
 	      <div>
-		<form id="new_world" name="new_world" method="post" action="new_world.php" onSubmit="fixer()">
+		<div class="overlay" id="overlay" name="overlay" style="display:none;"></div>
+		<form id="new_world" name="new_world" method="post" action="new_world.php" onSubmit="onFormSubmit();">
 
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
@@ -161,6 +180,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 					<th class="alt-color">Version</th>
 				</thead>
 				<tbody>
+					<?php echo '<script type="text/javascript">document.body.classList.add("blur");</script>'; ?>
+					<?php echo '<script type="text/javascript">document.body.classList.add("overlay");</script>'; ?>
         	                        <?php populateModList($pdo,$getAllModsLatestVersion); ?>
 				</tbody>
 			</table>
@@ -168,7 +189,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 			<table class="center">
 				<td colspan=5 align=center>
 					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
-					<button id='submit_button' name='submit' class="sm-bttn" type="submit">Create</button>
+					<button id='submit_button' name='submit' class="sm-bttn" type="submit" onClick='onSubmitClick();'>Create</button>
 				</td>
 			</table>
 

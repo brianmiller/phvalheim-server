@@ -150,7 +150,6 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                 <script>
 			// begin document load
                         $(document).ready( function () {
-
 				// begin datatables
                                 $('#modtable').DataTable({
 
@@ -173,24 +172,28 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                                          { orderable: false, targets: [ 0, 1, 2, 3, 4 ] },
                                         ],
                                 }); // end data tables
+
+				// unblur after php populates table
+				document.body.classList.remove("blur");
+				document.body.classList.remove("overlay");
+
                         }); // end document load
 
 
-
-
-
-			// clears search filter and changes list range to all items. This is needed for POST
-                        function fixer() {
+			// execute this when the form is submitted
+                        function onFormSubmit() {
+				// clears search filter and changes list range to all items. This is needed for POST
 				$('#modtable').DataTable().page.len('-1').draw();
 				$('#modtable').DataTable().search( '' ).draw();				
                         }
 
-			// execute this when the button is clicked
+
+			// execute this when the submit button is clicked
 			function onSubmitClick() {
+				document.body.classList.add("blur");
+				document.body.classList.add("noscroll");
 				document.getElementById("overlay").style.display = "block";
 			}
-
-
 
 			// only allow the form to be submitted once per page load
 			var form_enabled = true;
@@ -212,7 +215,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 	<body>
 	       <div>
 	        <div class="overlay" id="overlay" name="overlay" style="display:none;"></div>
-		<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="fixer()">
+		<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="onFormSubmit()">
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
                                 <th class="bottom_line alt-color cente" colspan="7">World Mod Editor</th>
@@ -255,6 +258,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 					<th class="alt-color">Version</th>
 				</thead>
 				<tbody>
+					<?php echo '<script type="text/javascript">document.body.classList.add("blur");</script>'; ?>
+					<?php echo '<script type="text/javascript">document.body.classList.add("overlay");</script>'; ?>
 					<?php populateEnabledModList($pdo,$world,$getAllModsLatestVersion); ?>
 					<?php populateDepModList($pdo,$world,$getAllModsLatestVersion); ?>
 					<?php populateDisabledModList($pdo,$world,$getAllModsLatestVersion); ?>
