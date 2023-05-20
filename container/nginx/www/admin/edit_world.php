@@ -148,7 +148,10 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
 		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css?refreshcss=<?php echo rand(100, 1000)?>">
                 <script>
+			// begin document load
                         $(document).ready( function () {
+
+				// begin datatables
                                 $('#modtable').DataTable({
 
                                         "rowCallback": function( row, data, index ) {
@@ -169,21 +172,25 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                                         columnDefs: [
                                          { orderable: false, targets: [ 0, 1, 2, 3, 4 ] },
                                         ],
-                                });
-                        });
+                                }); // end data tables
+                        }); // end document load
 
+
+
+
+
+			// clears search filter and changes list range to all items. This is needed for POST
                         function fixer() {
-
-                                //blanker
-				//document.getElementById("#modtable").style.display = "none";
-
 				$('#modtable').DataTable().page.len('-1').draw();
 				$('#modtable').DataTable().search( '' ).draw();				
-
-				// hide mod table after submission
-                                //document.getElementById("#wrapper").style.display = "hidden";
-
                         }
+
+			// execute this when the button is clicked
+			function onSubmitClick() {
+				document.getElementById("overlay").style.display = "block";
+			}
+
+
 
 			// only allow the form to be submitted once per page load
 			var form_enabled = true;
@@ -203,7 +210,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 	</head>
 
 	<body>
-	      <div>
+	       <div>
+	        <div class="overlay" id="overlay" name="overlay" style="display:none;"></div>
 		<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="fixer()">
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
@@ -256,7 +264,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 			<table class="center" border=0>
 				<td colspan=0 align=center>
 					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
-					<button name='submit' id='submit_button' class="sm-bttn" type="submit">Save</button>
+					<button name='submit' id='submit_button' class="sm-bttn" type="submit" onClick='onSubmitClick();'>Save</button>
 					<input type="text" value="<?php echo $world?>" name="world" hidden readonly></input>
 				</td>
 			</table>

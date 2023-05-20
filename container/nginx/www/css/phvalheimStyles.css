@@ -594,3 +594,24 @@ table#worlds.dataTable thead:hover {
     background: var(--main-background-color);
     border-color: #34e2e2;
 }
+
+.overlay {
+    position:fixed;
+    top:0;
+    bottom:0;
+    left:0;
+    right:0;
+    background-color:#fff;
+    opacity:0.8;
+    z-index:1001;
+}
+.overlay-message{
+    position: fixed;
+    top:30px;
+    left:30px;
+    width:400px;
+    height:250px;
+    background-color:#fff;
+    opacity:1;
+    z-index:1002;
+}
