@@ -106,9 +106,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                                         ],
                                 }); // end data tables
 				
-				// unblur after php populates table
-				document.body.classList.remove("blur");
-				document.body.classList.remove("overlay");
+                                // remove loading spinner after php populates table
+                                document.getElementById("spinner").style.display = "none";
 	
                         }); // end document load
 
@@ -123,9 +122,10 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 
                         // execute this when the submit button is clicked
                         function onSubmitClick() {
-                                document.body.classList.add("blur");
+				// disable scroll bar
                                 document.body.classList.add("noscroll");
-                                document.getElementById("overlay").style.display = "block";
+				// display loading spinner
+                                document.getElementById("spinner").style.display = "block";
                         }
 
                         // only allow the form to be submitted once per page load
@@ -145,9 +145,9 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 
 	</head>
 
+	<div id="spinner" class="loading style-2 overlay" style="display:none;"><div class="loading-wheel"></div></div>
 	<body>
 	      <div>
-		<div class="overlay" id="overlay" name="overlay" style="display:none;"></div>
 		<form id="new_world" name="new_world" method="post" action="new_world.php" onSubmit="onFormSubmit();">
 
 		      <div style="padding-top:10px;" class="">
@@ -180,8 +180,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 					<th class="alt-color">Version</th>
 				</thead>
 				<tbody>
-					<?php echo '<script type="text/javascript">document.body.classList.add("blur");</script>'; ?>
-					<?php echo '<script type="text/javascript">document.body.classList.add("overlay");</script>'; ?>
+                                        <?php echo '<script type="text/javascript">document.getElementById("spinner").style.display = "block";</script>'; ?>
+                                        <?php echo '<script type="text/javascript">document.body.classList.add("noscroll");</script>'; ?>
         	                        <?php populateModList($pdo,$getAllModsLatestVersion); ?>
 				</tbody>
 			</table>

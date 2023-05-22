@@ -93,10 +93,10 @@ function populateDisabledModList($pdo,$world,$getAllModsLatestVersion) {
 
                 $modVersion = $row['version'];
                 $modVersion = str_replace("\"","",$modVersion);
-                #$modExistCheck = modExistCheck($pdo,$world,$modUUID);
 		$modSelectedCheck = modSelectedCheck($pdo,$world,$modUUID);
+		$modIsDep = modIsDep($pdo,$world,$modUUID);
 
-                if (!$modSelectedCheck) {
+                if (!$modSelectedCheck && !$modIsDep) {
                         print "<tr>\n";
                         print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox'></input></td>\n";
                         print "  <td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a></td>\n";
@@ -173,9 +173,8 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                                         ],
                                 }); // end data tables
 
-				// unblur after php populates table
-				document.body.classList.remove("blur");
-				document.body.classList.remove("overlay");
+				// remove loading spinner after php populates table
+                                document.getElementById("spinner").style.display = "none";
 
                         }); // end document load
 
@@ -184,15 +183,16 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
                         function onFormSubmit() {
 				// clears search filter and changes list range to all items. This is needed for POST
 				$('#modtable').DataTable().page.len('-1').draw();
-				$('#modtable').DataTable().search( '' ).draw();				
+				$('#modtable').DataTable().search( '' ).draw();
                         }
 
 
 			// execute this when the submit button is clicked
 			function onSubmitClick() {
-				document.body.classList.add("blur");
+				// disable scroll bar
 				document.body.classList.add("noscroll");
-				document.getElementById("overlay").style.display = "block";
+				// display loading spinner
+				document.getElementById("spinner").style.display = "block";
 			}
 
 			// only allow the form to be submitted once per page load
@@ -212,9 +212,9 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 
 	</head>
 
+        <div id="spinner" class="loading style-2 overlay" style="display:none;"><div class="loading-wheel"></div></div>
 	<body>
-	       <div>
-	        <div class="overlay" id="overlay" name="overlay" style="display:none;"></div>
+	        <!--<div class="overlay" id="overlay" name="overlay" style="display:none;"></div>-->
 		<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="onFormSubmit()">
 		      <div style="padding-top:10px;" class="">
                         <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
@@ -258,8 +258,10 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 					<th class="alt-color">Version</th>
 				</thead>
 				<tbody>
-					<?php echo '<script type="text/javascript">document.body.classList.add("blur");</script>'; ?>
-					<?php echo '<script type="text/javascript">document.body.classList.add("overlay");</script>'; ?>
+					<?php echo '<script type="text/javascript">document.getElementById("spinner").style.display = "block";</script>'; ?>
+					<?php echo '<script type="text/javascript">document.body.classList.add("noscroll");</script>'; ?>
+					<?php #echo '<script type="text/javascript">document.body.classList.add("blur");</script>'; ?>
+					<?php #echo '<script type="text/javascript">document.body.classList.add("overlay");</script>'; ?>
 					<?php populateEnabledModList($pdo,$world,$getAllModsLatestVersion); ?>
 					<?php populateDepModList($pdo,$world,$getAllModsLatestVersion); ?>
 					<?php populateDisabledModList($pdo,$world,$getAllModsLatestVersion); ?>
