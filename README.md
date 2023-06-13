@@ -242,6 +242,9 @@ server {
         }
 }
 ```
+### Custom Config Folders
+#### <i>Optional: "custom_configs" folder - configs can be put into custom_config in order for them to get pushed/synced to clients when you perform updates / change mods on a server</i>
+#### <i>Optional: "custom_configs_secure" folder - configs can be put into custom_config_secure in order for them to not be sent or synced to clients, but persist between updates/mod changes</i>
 
 ### Reference Material
 #### Generate your Steam API Key
