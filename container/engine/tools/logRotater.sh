@@ -12,7 +12,7 @@ for logFile in $logFiles; do
 
 	if [ $logSize -gt $maxLogSize ]; then
 		echo "`date` [NOTICE : logrotater] Rotating logs for $logFile... "
-		cp -prfv $logFile $logFile.1  > /dev/null 2>&1
+		cp -arfv $logFile $logFile.1  > /dev/null 2>&1
 		echo "" > $logFile 
 	fi
 done
