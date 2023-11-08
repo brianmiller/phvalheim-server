@@ -42,7 +42,8 @@ $logExclusions = array(
 	"failed to load",
 	"shader",
 	"no mesh data",
-	"No override"
+	"No override",
+	"no texture"
 );
 
 

@@ -44,6 +44,7 @@ exec /opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64 \
 -name $worldName \
 -port $worldPort \
 -world $worldName \
+-oldconsole \
 -public 0 \
 -savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim 
 
