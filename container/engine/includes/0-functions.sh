@@ -264,7 +264,7 @@ function downloadAndInstallTsModsForWorld(){
                 unzip -o $tsModsDir/$modFileConstructed BepInExPack_Valheim/* -d /tmp/BepInEx_tmp/ > /dev/null 2>&1
                 RESULT=$?
                 if [ $RESULT = 0 ]; then
-                        cp -prfv /tmp/BepInEx_tmp/BepInExPack_Valheim/* $worldsDirectoryRoot/$worldName/game/. > /dev/null 2>&1
+                        cp -arfv /tmp/BepInEx_tmp/BepInExPack_Valheim/* $worldsDirectoryRoot/$worldName/game/. > /dev/null 2>&1
                         rm -rf /tmp/BepInEx_tmp
                 fi
 
@@ -278,7 +278,7 @@ function downloadAndInstallTsModsForWorld(){
                 rm -rf /tmp/BepInEx_tmp
                 mkdir /tmp/BepInEx_tmp
 		unzip -o $tsModsDir/$modFileConstructed config/* -d /tmp/BepInEx_tmp/ > /dev/null 2>&1
-		cp -prfv /tmp/BepInEx_tmp/config/* $worldsDirectoryRoot/$worldName/game/BepInEx/config/. > /dev/null 2>&1
+		cp -arfv /tmp/BepInEx_tmp/config/* $worldsDirectoryRoot/$worldName/game/BepInEx/config/. > /dev/null 2>&1
 
 		#Patchers
 		unzip -j -o $tsModsDir/$modFileConstructed patchers/* -d $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/$modName/ > /dev/null 2>&1
@@ -352,9 +352,9 @@ function installCustomModsConfigsPatchers() {
                 mkdir -p $customPatchersSourceDir
         fi
 
-	cp -prf $customModsSourceDir/* $worldModsDestDir/. > /dev/null 2>&1
-	cp -prf $customConfigsSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
-	cp -prf $customPatchersSourceDir/* $worldPatchersDestDir/. > /dev/null 2>&1
+	cp -arf $customModsSourceDir/* $worldModsDestDir/. > /dev/null 2>&1
+	cp -arf $customConfigsSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
+	cp -arf $customPatchersSourceDir/* $worldPatchersDestDir/. > /dev/null 2>&1
 
 	chown -R phvalheim:phvalheim $customModsSourceDir
 	chown -R phvalheim:phvalheim $customConfigsSourceDir
@@ -376,7 +376,7 @@ function InstallCustomConfigSecureFiles() {
                 mkdir -p $customConfigsSecureSourceDir
         fi
 
-	cp -prf $customConfigsSecureSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
+	cp -arf $customConfigsSecureSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
 
 	chown -R phvalheim:phvalheim $customConfigsSecureSourceDir
 }
