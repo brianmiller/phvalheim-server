@@ -43,7 +43,12 @@ $logExclusions = array(
 	"shader",
 	"no mesh data",
 	"No override",
-	"no texture"
+	"no texture",
+	"CamZoom",
+	"Missing audio clip",
+	"memorysetup",
+	"Failed Allocations",
+	"Failed count:"
 );
 
 
