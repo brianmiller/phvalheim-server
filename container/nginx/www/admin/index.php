@@ -31,13 +31,10 @@ if (!empty($_GET['update_world'])) {
 
 
 # http(s) detector
-$httpScheme = '';
-if(isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
-	if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
-	        $httpScheme = "https";
-	} else {
-	        $httpScheme = "http";
-	}
+if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
+        $httpScheme = "https";
+} else {
+        $httpScheme = "http";
 }
 
 

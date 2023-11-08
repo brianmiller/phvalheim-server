@@ -26,7 +26,7 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 }
 
 
-function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
+function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
 		# steam
 	        if( isset( $_GET[ 'openid_claimed_id' ] ) )
@@ -292,6 +292,6 @@ function populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL
                 });
         </script>
 
-                <?php populateTable($pdo,$steamID,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) ?>
+                <?php populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) ?>
         </body>
 </html>

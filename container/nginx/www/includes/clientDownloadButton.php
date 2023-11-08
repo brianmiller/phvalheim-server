@@ -3,7 +3,7 @@ include '../includes/git.php';
 include '../includes/phvalheim-frontend-config.php';
 
 
-function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
+function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo) {
 	if($operatingSystem == "Windows"){
 		$downloadHeaderTitle = "<b class='client_download_tooltip'>PhValheim Client for Windows</b>";
 	}
@@ -13,12 +13,10 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
         }
 
 
-	function populateDownloadLinks($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
-		$phValheimClientGitReleases = getGitReleases($phValheimClientGitRepo,$clientVersionsToRender);
+	function populateDownloadLinks($operatingSystem,$phValheimClientGitRepo) {
+		$release = getGitRelease($phValheimClientGitRepo);
 
-		foreach ($phValheimClientGitReleases as $release) {
 			if(!empty($release)) {
-
 
 				if($operatingSystem == "Windows"){
 					echo "
@@ -59,9 +57,6 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                         ";
                                 }
 			}
-
-
-		}
 	}
 
 	echo "
@@ -70,13 +65,13 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 			<table class='center' border=0 style='width:100%;'>
 	";
 	
-						populateDownloadLinks($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
+						populateDownloadLinks($operatingSystem,$phValheimClientGitRepo);
 	
 	echo "
 			</table>
 
 			<table class='center top_line' border=0 style='width:100%;'>
-						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking other builds?</a></p></td>
+						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking for other builds?</a></p></td>
 
 			</table>
 	
@@ -84,20 +79,3 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 }
 
 ?>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

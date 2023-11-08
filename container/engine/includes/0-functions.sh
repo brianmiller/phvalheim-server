@@ -103,6 +103,15 @@ function InstallAndUpdateBepInEx() {
                 echo $latest_version > /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt
         fi
 
+
+	# added after Valheim was updated to 0.217.28
+	if [ ! -z "$worldName" ]; then
+		if [ -d "/opt/stateful/games/valheim/worlds/$worldName/game/unstripped_corlib" ]; then
+			rm -rf /opt/stateful/games/valheim/worlds/$worldName/game/unstripped_corlib
+		fi
+	fi
+
+
 	chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
@@ -388,7 +397,6 @@ function packageClient(){
 
         zip ../$worldName.zip -r \
         ./BepInEx \
-        ./unstripped_corlib \
         ./doorstop_libs \
         ./doorstop_config.ini \
         ./start_game_bepinex.sh \

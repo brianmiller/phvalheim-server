@@ -40,7 +40,9 @@ $logExclusions = array(
 	"lc-messages-dir",
 	"dlmopen steamservice.so failed: steamservice.so:",
 	"failed to load",
-	"shader"
+	"shader",
+	"no mesh data",
+	"No override"
 );
 
 

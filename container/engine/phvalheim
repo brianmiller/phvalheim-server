@@ -97,6 +97,9 @@ while [ true ]; do
 			
 					echo "`date` [NOTICE : phvalheim] Checking for required mods..."
 
+					#generate custom seed config
+					createCustomSeedConfig "$worldName" "$worldSeed"
+
 					#create supervisor config file for this world
 					createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
 
