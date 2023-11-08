@@ -48,7 +48,8 @@ $logExclusions = array(
 	"Missing audio clip",
 	"memorysetup",
 	"Failed Allocations",
-	"Failed count:"
+	"Failed count:",
+	"steamconsole.so"
 );
 
 
