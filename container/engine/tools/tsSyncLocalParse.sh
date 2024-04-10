@@ -31,7 +31,7 @@ fi
 
 #echo
 echo "`date` [NOTICE : phvalheim] Downloading Thunderstore's Valheim database..."
-curl -s -X GET "https://valheim.thunderstore.io/api/v1/package/" -H  "accept: application/json" |jq '.[]' > $tsWIP/json
+curl -s -X GET "https://thunderstore.io/c/valheim/api/v1/package/" -H  "accept: application/json" |jq '.[]' > $tsWIP/json
 errorSetter $?
 
 
