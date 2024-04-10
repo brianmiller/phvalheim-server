@@ -80,7 +80,7 @@ function updateSteam(){
 #$1=world name
 function InstallAndUpdateBepInEx() {
 	worldName="$1"
-	response=$(curl -sfSL -H "accept: application/json" "https://valheim.thunderstore.io/api/experimental/package/denikson/BepInExPack_Valheim/")
+	response=$(curl -sfSL -H "accept: application/json" "$tsJsonBepInExUrl")
         download_url=$(jq -r  ".latest.download_url" <<< "$response")
         latest_version=$(jq -r  ".latest.version_number" <<< "$response")
         installed_version=$(cat /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt 2> /dev/null)
@@ -244,7 +244,7 @@ function downloadAndInstallTsModsForWorld(){
 		echo "`date` [phvalheim]  UUID: $worldMod"
 		echo "`date` [phvalheim]  Latest Version: $modVersionLatest"
 
-		modDownloadUrl="https://valheim.thunderstore.io/package/download/$modAuthor/$modName/$modVersionLatest"
+		modDownloadUrl="$tsModDownloadUrl/$modAuthor/$modName/$modVersionLatest"
 		echo "`date` [phvalheim]  Download URL: $modDownloadUrl"
 
 		modFileConstructed="$modAuthor-$modName-$modVersionLatest.zip"
