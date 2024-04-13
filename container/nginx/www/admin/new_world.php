@@ -32,6 +32,7 @@ function populateModList($pdo,$getAllModsLatestVersion) {
 		print "<td>$modLastUpdated</td>\n";
                 print "<td>$modVersion</td>\n";
 	}
+	print '<script type="text/javascript">document.body.classList.add("scroll");</script>';
 }
 
 

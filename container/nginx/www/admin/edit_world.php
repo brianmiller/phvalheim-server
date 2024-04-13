@@ -36,7 +36,8 @@ function populateEnabledModList($pdo,$world,$getAllModsLatestVersion) {
 			print "  <td>$modVersion</td>\n";
 			print "\n";
 		}
-        }
+	}
+	print '<script type="text/javascript">document.body.classList.add("scroll");</script>';
 }
 
 
