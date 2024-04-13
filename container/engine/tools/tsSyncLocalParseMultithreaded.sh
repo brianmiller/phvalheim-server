@@ -38,13 +38,13 @@ for pidFile in /tmp/ts_*.pid; do
 done
 
 
-echo "`date` [NOTICE : thunderstore] Downloading Thunderstore's Valheim database..."
+echo "`date` [NOTICE : thunderstore] downloading thunderstore's Valheim database..."
 curl -s -X GET "$tsApiUrl" -H  "accept: application/json" |jq '.[]' > $tsWIP/json
 errorSetter $?
 
 
 # split json into smaller workable chunks
-echo "`date` [thunderstore] Chunking Thunderstore's Valheim database ($chunkSize mods per chunk to process)..."
+echo "`date` [thunderstore] chunking thunderstore's Valheim database ($chunkSize mods per chunk to process)..."
 rm -f $tsWIP/chunk_*.json
 jq -c . < $tsWIP/json | split -l $chunkSize --additional-suffix=.json - $tsWIP/chunk_
 
@@ -82,10 +82,10 @@ function toDatabase(){
         existCheck=$(SQL "SELECT id FROM tsmods WHERE versionuuid='$ts_versionUUID';")
 
         if [ -z $existCheck ]; then
-                echo "`date` [thunderstore] Thunderstore: $ts_name ($ts_versionUUID : $ts_version) does not exist in the database, adding..."
+                echo "`date` [thunderstore] $ts_name ($ts_versionUUID : $ts_version) does not exist in the database, adding..."
                 SQL "INSERT INTO tsmods (owner,name,url,created,updated,moduuid,versionuuid,version,deps,version_date_created) VALUES ('$ts_owner','$ts_name','$ts_package_url','$ts_date_created','$ts_date_updated','$ts_uuid4','$ts_versionUUID','$ts_version','$ts_deps','$ts_version_date_created');"
         else
-                echo "`date` [thunderstore] Thunderstore: $ts_name ($ts_versionUUID : $ts_version) already exists in database, updating..."
+                echo "`date` [thunderstore] $ts_name ($ts_versionUUID : $ts_version) already exists in database, updating..."
                 SQL "UPDATE tsmods SET owner='$ts_owner',name='$ts_name',url='$ts_package_url',created='$ts_date_created',updated='$ts_date_updated',moduuid='$ts_uuid4',versionuuid='$ts_versionUUID',version='$ts_version',deps='$ts_deps',version_date_created='$ts_version_date_created' WHERE versionUUID='$ts_versionUUID';"
 
         fi
@@ -94,7 +94,7 @@ function toDatabase(){
 
 # worker
 function worker() {
-        echo "`date` [thunderstore] Thunderstore: storing thread PID: /tmp/ts_$BASHPID.pid"
+        echo "`date` [thunderstore] storing thread PID: /tmp/ts_$BASHPID.pid"
         touch /tmp/ts_$BASHPID.pid
 
         jsonChunk=$(cat $1)
@@ -134,8 +134,22 @@ function worker() {
 
         done
 
-        echo "`date` [NOTICE : thunderstore] Thunderstore's sync is complete for chunk '$1'..."
+        echo "`date` [NOTICE : thunderstore] sync is complete for chunk '$1'..."
         rm /tmp/ts_$BASHPID.pid
+
+        # are any threads still running? If not, update database timestamps and status
+        ls -al /tmp/ts_*pid > /dev/null 2>&1
+        if [ ! $? = 0 ]; then
+                # run prune when all threads are complete
+                /opt/stateless/engine/tools/tsPrune.sh
+
+                # update the database
+                /opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle';"
+                /opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
+                /opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastRun=NOW();"
+
+                echo "`date` [NOTICE : thunderstore] multithreaded sync complete..."
+        fi
 }
 
 
@@ -143,9 +157,3 @@ function worker() {
 for chunk in $tsWIP/chunk_*.json; do
         worker $chunk & 
 done
-
-
-# update the database
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle';"
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsUpdated=NOW();"
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET tsSyncLocalLastRun=NOW();"
