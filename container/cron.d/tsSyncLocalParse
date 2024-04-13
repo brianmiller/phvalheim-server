@@ -1,1 +1,1 @@
-0 */12 * * * phvalheim /opt/stateless/engine/tools/tsSyncLocalParse.sh >> /opt/stateful/logs/tsSync.log
+0 */12 * * * phvalheim /opt/stateless/engine/tools/tsSyncLocalParseMultithreaded.sh >> /opt/stateful/logs/tsSync.log
