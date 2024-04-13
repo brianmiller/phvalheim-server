@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "`date` [NOTICE : thunderstore] Pruning Thunderstore's Valheim database, keeping latest mods only..."
+echo "`date` [NOTICE : thunderstore] pruning thunderstore's Valheim database, keeping latest mods only..."
 
 
 # latest mods query

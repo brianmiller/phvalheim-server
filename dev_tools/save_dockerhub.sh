@@ -11,9 +11,9 @@ docker login --username=theoriginalbrian docker.io
 #podman build --format=docker -t theoriginalbrian/phvalheim-server .
 
 if [ "$1" = "latest" ]; then
-	docker build -t theoriginalbrian/phvalheim-server:latest .
+	docker buildx build -t theoriginalbrian/phvalheim-server:latest .
 	docker push theoriginalbrian/phvalheim-server:latest
 elif [ "$1" = "rc" ]; then
-	docker build -t theoriginalbrian/phvalheim-server:rc .
+	docker buildx build -t theoriginalbrian/phvalheim-server:rc .
 	docker push theoriginalbrian/phvalheim-server:rc
 fi
