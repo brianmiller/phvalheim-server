@@ -9,9 +9,11 @@ if [ ! $? = 0 ]; then
 
         ## BEGIN UPDATE ##
         # add column
+	sql "ALTER TABLE settings ADD COLUMN thunderstore_local_sync TINYINT;"
         sql "ALTER TABLE settings ADD COLUMN thunderstore_chunk_size INT;"
 
         # insert default setting
+	sql "UPDATE settings SET thunderstore_local_sync='1';"
         sql "UPDATE settings SET thunderstore_chunk_size='1000';"
 
         # exit
