@@ -81,7 +81,7 @@ function toDatabase(){
 
         existCheck=$(SQL "SELECT id FROM tsmods WHERE versionuuid='$ts_versionUUID';")
 
-        if [ -z $existCheck ]; then
+        if [ -z "$existCheck" ]; then
                 echo "`date` [thunderstore] $ts_name ($ts_versionUUID : $ts_version) does not exist in the database, adding..."
                 SQL "INSERT INTO tsmods (owner,name,url,created,updated,moduuid,versionuuid,version,deps,version_date_created) VALUES ('$ts_owner','$ts_name','$ts_package_url','$ts_date_created','$ts_date_updated','$ts_uuid4','$ts_versionUUID','$ts_version','$ts_deps','$ts_version_date_created');"
         else
