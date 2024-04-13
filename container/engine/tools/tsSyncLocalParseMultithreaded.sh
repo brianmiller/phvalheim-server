@@ -1,7 +1,7 @@
 #!/bin/bash
 source /opt/stateless/engine/includes/phvalheim-static.conf
-syncEnabled=$(sql "SELECT thunderstore_local_sync FROM settings;")
-chunkSize=$(sql "SELECT thunderstore_chunk_size FROM settings;")
+syncEnabled=$(/opt/stateless/engine/tools/sql "SELECT thunderstore_local_sync FROM settings;")
+chunkSize=$(/opt/stateless/engine/tools/sql "SELECT thunderstore_chunk_size FROM settings;")
 
 if [ ! $syncEnabled = 1 ]; then
         exit
