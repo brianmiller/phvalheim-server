@@ -49,7 +49,7 @@ PhValheim is a two-part world and client manager for Valheim (with aspirations o
 Valheim is a fantastic game and the more we play the more we want. Modding Valheim is simple to do but difficult to manage across all players. Keeping the remote server and clients in-sync are nearly impossible without something like PhValheim.  While mod managers work well (Thunderstore and Nexus Mods), they don't work in a federated manner, eventaully resulting in clients being out of sync with each other and the remote server. PhValheim's primary goal is to solve this problem.
 
 #### PSA
-Mods are great and PhValheim makes it stupid simple to install them but keep in mind that the primary reason your game may not be working is due to the combination of mods you're using. Not all mods are made equal and most mods become "broken" after a major game update. If you have issues with your game running, please be sure to deploy a vanilla world (no mods selected) before submitted an issue.
+Mods are great and PhValheim makes it stupid simple to install them but keep in mind that the primary reason your game may not be working is due to the combination of mods you're using. Not all mods are made equal and most mods become "broken" after a major game update. If you have issues with your game running, please be sure to deploy a vanilla world (no mods selected) before submitting an issue.
 
 #### What are the features of PhValheim?
 - Runs in a single Docker container
