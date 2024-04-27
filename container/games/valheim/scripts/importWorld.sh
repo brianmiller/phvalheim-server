@@ -126,10 +126,10 @@ cp $worldDir/$worldName.db /opt/stateful/games/valheim/worlds/$worldName/game/.c
 cp $worldDir/$worldName.fwl /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/worlds_local/.
 
 # add imported mods: you shouldn't do this. you should use PhValheim's mod manager which will keep plugins up-to-date. using the custom_plugins directory is acceptable if the mod(s) are not in thunderstore.
-#cp -prfv import_wip/BepInEx/plugins/* /opt/stateful/games/valheim/worlds/$worldName/custom_plugins/.
+#cp -arfv import_wip/BepInEx/plugins/* /opt/stateful/games/valheim/worlds/$worldName/custom_plugins/.
 
 # add imported configs
-cp -prfv import_wip/BepInEx/config/* /opt/stateful/games/valheim/worlds/$worldName/custom_configs/.
+cp -arfv import_wip/BepInEx/config/* /opt/stateful/games/valheim/worlds/$worldName/custom_configs/.
 if [ -f "/opt/stateful/games/valheim/worlds/$worldName/custom_configs/BepInEx.cfg" ]; then
 	rm /opt/stateful/games/valheim/worlds/$worldName/custom_configs/BepInEx.cfg
 fi
@@ -138,7 +138,7 @@ if [ -f "/opt/stateful/games/valheim/worlds/$worldName/custom_configs/quick_conn
 fi
 
 # add imported patchers: you shouldn't do this. you should use PhValheim's mod manager which will keep plugins up-to-date. using the custom_plugins directory is acceptable if the mod(s) are not in thunderstore.
-#cp -prfv import_wip/BepInEx/plugins/* /opt/stateful/games/valheim/worlds/$worldName/custom_patchers/.
+#cp -arfv import_wip/BepInEx/plugins/* /opt/stateful/games/valheim/worlds/$worldName/custom_patchers/.
 
 # set admins
 echo "// List admin players ID  ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/adminlist.txt
