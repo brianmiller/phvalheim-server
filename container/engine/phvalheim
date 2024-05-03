@@ -235,9 +235,6 @@ while [ true ]; do
 				echo "`date` [NOTICE : phvalheim] Updating world '$worldName'..."
 				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
-				#Update Steam
-				updateSteam
-
 				#Update Valheim
 				InstallAndUpdateValheim "$worldName"
 
