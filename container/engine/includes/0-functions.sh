@@ -137,22 +137,25 @@ function worldDirPrep(){
 
 #$1=world name
 function InstallAndUpdateValheim() {
-	worldName="$1"
+        worldName="$1"
 
-	#Ensure required directories exist
+        # public_test check
+        isBeta=$(/opt/stateless/engine/tools/sql "SELECT beta FROM worlds WHERE name='$worldName'")
+        if [[ "$isBeta" -eq 1 ]]; then
+                echo "`date` [NOTICE : phvalheim] Beta world detected!"
+                beta="-beta public-test -betapassword yesimadebackups"
+        fi
+
+        #Ensure required directories exist
         if [ ! -d "/opt/stateful/games/valheim" ]; then
                 mkdir -p /opt/stateful/games/valheim
         fi
-	#if [ ! -d "/opt/stateful/games/valheim/worlds/$worldName/game/steamapps" ]; then
-        #        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/steamapps
-	#	ls -ald /opt/stateful/games/valheim/worlds/$worldName/game/steamapps
-        #fi
 
         #Install Valheim once Steam is installed
         echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
-	LD_LIBRARY_PATH="/opt/stateful/games/steam_home/.steam/steamcmd/linux32/:$LD_LIBRARY_PATH" /usr/games/steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 validate +quit
+        LD_LIBRARY_PATH="/opt/stateful/games/steam_home/.steam/steamcmd/linux32/:$LD_LIBRARY_PATH" /usr/games/steamcmd +@sSteamCmdForcePlatformType linux +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game +login anonymous +app_update 896660 $beta validate +quit
 
-	chown -R phvalheim: $worldsDirectoryRoot/$worldName
+        chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
 #$1=world name, $2=world seed
