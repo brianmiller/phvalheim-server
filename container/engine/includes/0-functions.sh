@@ -140,7 +140,9 @@ function InstallAndUpdateValheim() {
         worldName="$1"
 
         # public_test check
-        isBeta=$(/opt/stateless/engine/tools/sql "SELECT beta FROM worlds WHERE name='$worldName'")
+	unset isBeta
+	unset beta
+	isBeta=$(/opt/stateless/engine/tools/sql "SELECT beta FROM worlds WHERE name='$worldName'")
         if [[ "$isBeta" -eq 1 ]]; then
                 echo "`date` [NOTICE : phvalheim] Beta world detected!"
                 beta="-beta public-test -betapassword yesimadebackups"
