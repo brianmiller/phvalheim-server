@@ -6,5 +6,5 @@ if [ ! $1 ]; then
         exit 1
 fi
 
-echo "- **Commits related to this release**"
+echo "**Commits related to this release:**"
 git log $1..HEAD --oneline|sed -s 's/^/  - ``/'|sed -s 's/$/``/'

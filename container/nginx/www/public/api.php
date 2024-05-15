@@ -49,7 +49,8 @@ if($action == "TrophyEikthyr"    ||
    $action == "TrophyBonemass"   ||
    $action == "TrophyDragonQueen"||
    $action == "TrophyGoblinKing" ||
-   $action == "TrophySeekerQueen") {
+   $action == "TrophySeekerQueen" ||
+   $action == "TrophyFader") {
 	if(setHungHeads($pdo,$world,$action)) {
 		print "true";
 	} else {
@@ -57,4 +58,3 @@ if($action == "TrophyEikthyr"    ||
 	}
 }
 
-?>

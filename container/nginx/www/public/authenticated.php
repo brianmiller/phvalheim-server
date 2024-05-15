@@ -92,7 +92,8 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                 $trophyBonemass = getBossTrophyStatus($pdo,$myWorld,"trophybonemass");
                                 $trophyDragonQueen = getBossTrophyStatus($pdo,$myWorld,"trophydragonqueen");
                                 $trophyGoblinKing = getBossTrophyStatus($pdo,$myWorld,"trophygoblinking");
-                                $trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyseekerqueen");
+				$trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyseekerqueen");
+				$trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyfader");
 
 				if($worldMemory == "offline") {
 					$worldDimmed = "card_dimmed";
@@ -145,7 +146,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 						$trophySeekerQueenStatus = "The Queen is undefeated";
 						
                                 }	
+                                if($trophyFader && $worldDimmed == "") {
+                                                $trophyFaderDimmed = "";
+                                                $trophyFaderStatus = "Fader has been defeated";
+                                } else {
+                                                $trophyFaderDimmed = "trophy_dimmed";
+                                                $trophyFaderStatus = "Fader is undefeated";
 
+                                }
 
                                 echo "
                                         <div class=\"$worldDimmed catbox $myWorld\">
