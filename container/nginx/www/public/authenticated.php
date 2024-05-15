@@ -93,7 +93,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                 $trophyDragonQueen = getBossTrophyStatus($pdo,$myWorld,"trophydragonqueen");
                                 $trophyGoblinKing = getBossTrophyStatus($pdo,$myWorld,"trophygoblinking");
 				$trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyseekerqueen");
-				$trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyfader");
+				$trophyFader = getBossTrophyStatus($pdo,$myWorld,"trophyfader");
 
 				if($worldMemory == "offline") {
 					$worldDimmed = "card_dimmed";
@@ -195,7 +195,8 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$trophyBonemassDimmed trophy_icon'><img title='$trophyBonemassStatus' src='../images/TrophyBonemass.png'></img></td>
                                                         <td class='$trophyDragonQueenDimmed trophy_icon'><img title='$trophyDragonQueenStatus' src='../images/TrophyDragonQueen.png'></img></td>
                                                         <td class='$trophyGoblinKingDimmed trophy_icon'><img title='$trophyGoblinKingStatus' src='../images/TrophyGoblinKing.png'></img></td>
-                                                        <td class='$trophySeekerQueenDimmed trophy_icon'><img title='$trophySeekerQueenStatus' src='../images/TrophySeekerQueen.png'></img></td>
+							<td class='$trophySeekerQueenDimmed trophy_icon'><img title='$trophySeekerQueenStatus' src='../images/TrophySeekerQueen.png'></img></td>
+							<td class='$trophyFaderDimmed trophy_icon'><img title='$trophyFaderStatus' src='../images/TrophyFader.png'></img></td>
 						</table>
                                         </div>
                                 ";
