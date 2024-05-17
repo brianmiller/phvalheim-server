@@ -139,11 +139,10 @@ function getSeed($pdo,$world) {
 }
 
 function getMyWorlds($pdo,$citizen) {
-        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' ORDER BY currentMemory, name ASC");
+        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' OR citizens LIKE  '' ORDER BY currentMemory, name ASC");
         $result = $sth->fetchAll(PDO::FETCH_COLUMN);
         return $result;
 }
-
 
 function getMD5($pdo,$world) {
         $sth = $pdo->prepare("SELECT world_md5 FROM worlds WHERE name='$world'");
