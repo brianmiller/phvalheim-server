@@ -32,8 +32,8 @@ unset public
 isPublic=$(/opt/stateless/engine/tools/sql "SELECT public FROM worlds WHERE name='$worldName'")
 if [[ "$isPublic" -eq 1 ]]; then
 	echo "`date` [NOTICE : phvalheim] World is set to public!"
-	# reset permittedlist.txt
-	echo "// List permitted players ID ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
+	## reset permittedlist.txt
+	#echo "// List permitted players ID ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
 fi
 
 
