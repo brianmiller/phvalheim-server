@@ -135,6 +135,15 @@ function setCitizens($pdo,$world,$citizen){
         }
 }
 
+function setPublic($pdo,$world,$public){
+        $sql = "UPDATE worlds SET public=$public WHERE name='$world'";
+        if ($pdo->query($sql)) {
+                $msg = "Setting world $world to public...";
+        } else {
+                $msg = "ERROR: Could not set $world to public...";
+        }
+}
+
 function setHungHeads($pdo,$world,$hungHead) {
 	$hungHead = strtolower($hungHead);
 	$sql = "SELECT $hungHead FROM worlds WHERE name='$world'";

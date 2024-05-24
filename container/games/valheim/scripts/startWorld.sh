@@ -26,14 +26,25 @@ echo "`date` [phvalheim]  World: $worldName"
 echo "`date` [phvalheim]  Port: $worldPort/udp"
 echo ""
 
+# public check
+unset isPublic
+unset public
+isPublic=$(/opt/stateless/engine/tools/sql "SELECT public FROM worlds WHERE name='$worldName'")
+if [[ "$isPublic" -eq 1 ]]; then
+	echo "`date` [NOTICE : phvalheim] World is set to public!"
+	# reset permittedlist.txt
+	echo "// List permitted players ID ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
+fi
+
+
 cd /opt/stateful/games/valheim/worlds/$worldName/game
+
 
 export DOORSTOP_ENABLE=TRUE
 export DOORSTOP_INVOKE_DLL_PATH=./BepInEx/core/BepInEx.Preloader.dll
 #export DOORSTOP_CORLIB_OVERRIDE_PATH=./unstripped_corlib
 export LD_LIBRARY_PATH="./doorstop_libs:$LD_LIBRARY_PATH"
 export LD_PRELOAD="libdoorstop_x64.so:$LD_PRELOAD"
-
 export LD_LIBRARY_PATH="./linux64:$LD_LIBRARY_PATH"
 export SteamAppId=892970
 

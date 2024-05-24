@@ -180,10 +180,7 @@ while [ true ]; do
 
 		if [ "$worldMode" = "start" ]; then
 			echo "`date` [NOTICE : phvalheim] Start command recieved for world '$worldName':"
-			#echo
 
-			#worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")
-			#ps -p $worldPID > /dev/null 2>&1
 			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 			worldPID_status=$?
 			if [ $worldPID_status = 0 ]; then
@@ -191,7 +188,6 @@ while [ true ]; do
 				SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
 			else
 				SQL "UPDATE worlds SET mode='starting' WHERE name='$worldName'"
-				#su phvalheim -c "/opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort" &
 				/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
 				if [ $? != 0 ]; then
 					echo "`date` [ERROR : phvalheim] ERROR: Could not start world '$worldName', exiting..."
@@ -199,24 +195,20 @@ while [ true ]; do
 				fi
 
 				
-				#worldPID=$(ps -ef |grep "sh -c /opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort"|grep -v grep|tr -s " "|cut -d " " -f2|tail -1)
 				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 				worldPID_status=$?		
 				while [ $worldPID_status != 0 ]; do
 					echo "`date` [NOTICE : phvalheim] Waiting for world '$worldName' to start..."
 					sleep 2
 					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
-					#worldPID=$(ps -ef |grep "sh -c /opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort"|grep -v grep|tr -s " "|cut -d " " -f2|tail -1)
 	                                worldPID_status=$?
 				done
 	
 				
-				#worldPID=$(ps -ef |grep "sh -c /opt/stateless/games/valheim/scripts/startWorld.sh $worldName hammertime $worldPort"|grep -v grep|tr -s " "|cut -d " " -f2|tail -1)
 				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
                                 worldPID_status=$?	
 				if [ $worldPID_status = 0 ]; then
 					echo "`date` [NOTICE : phvalheim] World '$worldName' has started!"
-					#SQL "UPDATE worlds SET pid='$worldPID' WHERE name='$worldName'"
 					SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
 				else
 					echo "`date` World '$worldName' wasn't able to start, exiting..."

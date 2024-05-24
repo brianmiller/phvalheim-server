@@ -139,7 +139,7 @@ function getSeed($pdo,$world) {
 }
 
 function getMyWorlds($pdo,$citizen) {
-        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' ORDER BY currentMemory, name ASC");
+        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' OR public = '1' ORDER BY currentMemory, name ASC");
         $result = $sth->fetchAll(PDO::FETCH_COLUMN);
         return $result;
 }
@@ -199,6 +199,13 @@ function getCitizens($pdo,$world) {
         $sth = $pdo->query("SELECT citizens FROM worlds WHERE name='$world';");
 	$sth->execute();
 	$result = $sth->fetchColumn();
+        return $result;
+}
+
+function getPublic($pdo,$world) {
+        $sth = $pdo->query("SELECT public FROM worlds WHERE name='$world';");
+        $sth->execute();
+        $result = $sth->fetchColumn();
         return $result;
 }
 

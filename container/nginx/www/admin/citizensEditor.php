@@ -19,10 +19,51 @@ if (isset($_GET['world']))
 }
 
 
+# get current public state from database
+$getPublic = getPublic($pdo,$world);
+if ($getPublic)
+{
+	$publicFlag = "checked";
+}
+
+
+if (isset($_GET['public']))
+{
+	$public = true;
+} else {
+	$public = false;
+}
+
+
+if (isset($_GET['msg']))
+{
+	if ($_GET['msg'] == 'saved')
+	{
+		$saved = true;
+	}
+}
+
+
+# public check
+if ($saved == true && $public == true)
+{
+	setPublic($pdo,$world,1);
+	$publicFlag = "checked";
+}
+# public check
+if ($saved == true && $public == false)
+{       
+	setPublic($pdo,$world,0);
+	$publicFlag = NULL;
+}
+
+
 if (isset($_GET['citizens'],$_GET['world']))
 {
 	$citizens = $_GET['citizens'];
 	$world = $_GET['world'];
+
+	$getPublic = getPublic($pdo,$world);
 
 	# trim and clean up new input, we don't store carriage returns in the database
 	$citizens = str_replace("\r\n", " ", $citizens);
@@ -36,10 +77,13 @@ if (isset($_GET['citizens'],$_GET['world']))
 
 	# write changes to disk
 	file_put_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt","// List permitted players ID ONE per line\n".$currentCitizens);
+
 }
+
 
 # read current allow list, used only to display on page for review
 $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt");
+
 
 ?>
 
@@ -64,10 +108,11 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 
 	<body>
 
-		<p class='pri-color' style='margin-top: 1%;' align='center'><label class='alt-color'>Note:</label> <i><b>Only</b> listed SteamIDs will be able to join this world.</i></p>
-		<p class='pri-color' style='margin-top: -0.7%;font-size: 14px;' align='center'><label class='alt-color'>Note:</label> <i>If left empty, anyone can join.</i></p>
+		<p class='pri-color' style='margin-top: 1%;' align='center'>Add player's SteamID to grant access or set the world to public.</p>
+		<p class='pri-color' style='margin-top: 1%;' align='center'><label class='alt-color'>Note:</label> <i>SteamIDs listed below will be ignored when world is set to public.</i></p>
+
 		<form action='citizensEditor.php'>
-			<table style="margin-top: 45px;" align='center' border='0' class='outline'>
+			<table style="margin-top: 25px;" align='center' border='0' class='outline'>
 
 
 				<th colspan='2' class='bottom_line'>
@@ -87,7 +132,7 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 
 				<tr>
 					<th>
-						<textarea class='outline textarea' style='resize: none;' cols='15' rows='20' name='citizens'><?php print $currentCitizens;?></textarea>
+						<textarea class='outline textarea' style='resize: none;' cols='17' rows='20' name='citizens'><?php print $currentCitizens;?></textarea>
 					</th>
 					<td>
 						<textarea class='disabled outline textarea' style='resize: none;' cols='40' rows='20' name='citizens' disabled><?php print $currentAllowListFile;?></textarea>
@@ -102,6 +147,9 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 								<a href='index.php'><button class='sm-bttn' type="button">Back</button></a>
 							<td align='center' style='text-align: center;'>
 								<input class='sm-bttn' type="submit" value="Save">
+							<tr>
+							<td align='center' class='alt-color' colspan='2' style='padding-top: 6px; text-align: center;'>
+								<input name='public' type="checkbox" <?php print $publicFlag?>> Set to public</input>
 						</table>
 					</td>
 				</tr>
