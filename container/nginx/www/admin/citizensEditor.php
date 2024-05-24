@@ -64,19 +64,24 @@ if (isset($_GET['citizens'],$_GET['world']))
 	$world = $_GET['world'];
 
 	$getPublic = getPublic($pdo,$world);
+	if ($getPublic)
+	{
+                # write changes to disk
+                file_put_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt","// List permitted players ID ONE per line");
+	} else {
+		# trim and clean up new input, we don't store carriage returns in the database
+		$citizens = str_replace("\r\n", " ", $citizens);
+		$citizens = preg_replace('!\s+!', ' ', $citizens);
 
-	# trim and clean up new input, we don't store carriage returns in the database
-	$citizens = str_replace("\r\n", " ", $citizens);
-	$citizens = preg_replace('!\s+!', ' ', $citizens);
-
-	setCitizens($pdo,$world,$citizens);
-	$currentCitizens = getCitizens($pdo,$world);
+		setCitizens($pdo,$world,$citizens);
+		$currentCitizens = getCitizens($pdo,$world);
 	
-	# make the html look prettier replace spaces with new lines... this is just for ease of reading, we don't store carriage returns in the database, see above
-	$currentCitizens = str_replace(' ', PHP_EOL, $currentCitizens);
+		# make the html look prettier replace spaces with new lines... this is just for ease of reading, we don't store carriage returns in the database, see above
+		$currentCitizens = str_replace(' ', PHP_EOL, $currentCitizens);
 
-	# write changes to disk
-	file_put_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt","// List permitted players ID ONE per line\n".$currentCitizens);
+		# write changes to disk
+		file_put_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt","// List permitted players ID ONE per line\n".$currentCitizens);
+	}
 
 }
 
