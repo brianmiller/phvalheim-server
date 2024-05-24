@@ -12,7 +12,7 @@ function addWorld($pdo,$new_world,$external_endpoint,$seed){
 		$result = $row['name'] ?? 'placeholder';
 	
 		if (strcmp($new_world, $result) !== 0){
-		 	$update = $pdo->exec( "INSERT INTO worlds (mode,status,name,external_endpoint,seed) VALUES ('create','Down','$new_world','$external_endpoint','$seed') ");
+		 	$update = $pdo->exec( "INSERT INTO worlds (mode,status,name,external_endpoint,seed,citizens) VALUES ('create','Down','$new_world','$external_endpoint','$seed','') ");
 			return 0;			
 		} else {
 			return 2;
