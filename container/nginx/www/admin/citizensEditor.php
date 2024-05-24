@@ -23,6 +23,12 @@ if (isset($_GET['citizens'],$_GET['world']))
 {
 	$citizens = $_GET['citizens'];
 	$world = $_GET['world'];
+	$public = $_GET['public'];
+
+	if($public)
+	{
+		$citizens = "";
+	}
 
 	# trim and clean up new input, we don't store carriage returns in the database
 	$citizens = str_replace("\r\n", " ", $citizens);
@@ -65,7 +71,6 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 	<body>
 
 		<p class='pri-color' style='margin-top: 1%;' align='center'><label class='alt-color'>Note:</label> <i><b>Only</b> listed SteamIDs will be able to join this world.</i></p>
-		<p class='pri-color' style='margin-top: -0.7%;font-size: 14px;' align='center'><label class='alt-color'>Note:</label> <i>If left empty, anyone can join.</i></p>
 		<form action='citizensEditor.php'>
 			<table style="margin-top: 45px;" align='center' border='0' class='outline'>
 
@@ -91,6 +96,16 @@ $currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$w
 					</th>
 					<td>
 						<textarea class='disabled outline textarea' style='resize: none;' cols='40' rows='20' name='citizens' disabled><?php print $currentAllowListFile;?></textarea>
+					</td>
+				</tr>
+
+				<tr>
+					<td align='center' style='text-align: center;' colspan='2'>
+						<table align='center' style='text-align: center;' border=0>
+							<td align='center' style='text-align: center;'>
+								<input type="checkbox" name="public" value="public" <?php echo (empty($currentCitizens) ? 'checked' : '');?>>
+								<label for="public"> Make world public</lable>
+						</table>
 					</td>
 				</tr>
 
