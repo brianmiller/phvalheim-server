@@ -3,7 +3,7 @@ include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
-
+include '../includes/modViewerGenerator.php';
 
 if (!empty($_GET['delete_world'])) {
         $world = $_GET['delete_world'];
@@ -43,32 +43,6 @@ $timeNow = date("Y-m-d H:i:s T");
 
 function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
         $getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed,autostart,beta FROM worlds");
-
-        #### BEGIN: runningMod toolTip generator
-        function generateToolTip($pdo,$world) {
-
-                $modsJson = getModViewerJsonForWorld($pdo,$world);
-                $jsonIncoming = json_decode($modsJson,true);
-
-                # sort the array by 'name' key in descending order
-                usort(($jsonIncoming), fn($a, $b) => strtolower($b['name']) <=> strtolower($a['name']));
-
-                #print "<pre>" . print_r($jsonIncoming) . "</pre>";
-                $toolTipContent = '';
-
-                foreach ($jsonIncoming as $arr) {
-                        $runningModName = $arr['name'];
-                        $runningModUrl = $arr['url'];
-
-                        if (!empty($runningModName)) {
-                          $toolTipContent = "<tr style=\"line-height:5px;\"><td style=\"\"><li><a target=\"_blank\" href=\"$runningModUrl\">$runningModName</a></li></td>\n$toolTipContent";
-                        }
-                }      
-                return $toolTipContent;
-        }
-        #### END: runningMod toolTip generator
-
-
 
         foreach($getWorlds as $row)
         {
@@ -144,7 +118,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 $editCitizensLink = "<a href='citizensEditor.php?world=$world'>Edit Citizens</a>";
 
                 #$getAllWorldMods = getAllWorldMods($pdo,$world);
-                $runningMods_head = "\n<table border=\"0\" style=\"\">\n";
+                $runningMods_head = "\n<table border=\"0\" style=\"line-height:5px;\">\n";
                 $runningMods_foot = "</table>\n";
                 $runningMods = $runningMods_head . generateToolTip($pdo,$world) . $runningMods_foot;
                 $modListToolTip = "<a href='#' class='' style='box-shadow:none;border:none;outline:none;' data-trigger='focus' data-toggle='popover' data-placement='bottom' title='Running Mods' data-html='true' data-content='$runningMods'</a>(<label class='alt-color'>view</label>)</a>";

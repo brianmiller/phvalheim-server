@@ -7,7 +7,7 @@ include '../includes/db_gets.php';
 include '../includes/db_sets.php';
 include '../includes/userAgent.php';
 include '../includes/clientDownloadButton.php';
-
+include '../includes/modViewerGenerator.php';
 
 # simple security: if this page is accessed from a source other than steam, redirect back to login page
 # NOTE: this security check only works when HTTPS is used!
@@ -98,7 +98,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				if($worldMemory == "offline") {
 					$worldDimmed = "card_dimmed";
 					$launchLabel = "offline";
+					$modListToolTip = "offline";
 				} else {
+	                                # running mods public viewer
+        	                        $runningMods_head = "\n<table border=\"0\" style=\"line-height:auto;\">\n";
+	                                $runningMods_foot = "</table>\n";
+	                                $runningMods = $runningMods_head . generateToolTip($pdo,$myWorld) . $runningMods_foot;
+	                                $modListToolTip = "<a href='#' class='' style='box-shadow:none;border:none;outline:none;border-spacing: 0 2em;' data-trigger='focus' data-toggle='popover' data-placement='bottom' title='Running Mods' data-html='true' data-content='$runningMods'</a>(<label class='alt-color'>view</label>)</a>";
+
 					$worldDimmed = "";
 					$launchLabel = "Launch!";
 				}
@@ -155,7 +162,8 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
                                 }
 
-                                echo "
+
+				echo "
                                         <div class=\"$worldDimmed catbox $myWorld\">
                                                 <table width=100% height=100% border=0>
                                                         <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
@@ -171,7 +179,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>WIP</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Mods&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>WIP</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$modListToolTip</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>$md5</td>
