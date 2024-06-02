@@ -144,6 +144,15 @@ function setPublic($pdo,$world,$public){
         }
 }
 
+function setAutoStart($pdo,$world,$mode){
+        $sql = "UPDATE worlds SET autostart=$mode WHERE name='$world'";
+        if ($pdo->query($sql)) {
+                $msg = "Setting world $world to autostart...";
+        } else {
+                $msg = "ERROR: Could not set $world to autostart...";
+        }
+}
+
 function setHungHeads($pdo,$world,$hungHead) {
 	$hungHead = strtolower($hungHead);
 	$sql = "SELECT $hungHead FROM worlds WHERE name='$world'";

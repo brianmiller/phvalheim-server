@@ -42,7 +42,7 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 $timeNow = date("Y-m-d H:i:s T");
 
 function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
-        $getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed,beta FROM worlds");
+        $getWorlds = $pdo->query("SELECT status,mode,name,port,external_endpoint,seed,autostart,beta FROM worlds");
 
         #### BEGIN: runningMod toolTip generator
         function generateToolTip($pdo,$world) {
@@ -81,7 +81,8 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 $external_endpoint = $row['external_endpoint'];
                 $seed = $row['seed'];
                 $launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost?$httpScheme");
-                $isBeta = $row['beta'];
+		$isBeta = $row['beta'];
+		$isAutoStart = $row['autostart'];
                 #$logsLink = "<a href='/readLog.php?logfile=valheimworld_$world.log'>Logs</a>";
 
                 $logsLink = "<a href=\"#\" onClick=\"window.open('/readLog.php?logfile=valheimworld_$world.log','logReader','resizable,height=750,width=1600'); return false;\">Logs</a><noscript>You need Javascript to use the previous link or use <a href=\"/readLog.php?logfile=valheimworld_$world.log\" target=\"_blank\" rel=\"noreferrer noopener\">Logs</a></noscript>";
@@ -91,6 +92,31 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 } else {
                         $beta = '';
                 }
+
+
+		# dynamic autoStart javascript
+                echo "
+	                <script>
+          	              function autoStart_$world(cb)
+                              {
+              	                if($(cb).is(':checked'))
+                                {
+					$.getScript(\"setters.php?type=autostart&value=1&worldName=$world\");
+				}
+                                if(!$(cb).is(':checked'))
+                                {
+                                        $.getScript(\"setters.php?type=autostart&value=0&worldName=$world\");
+                                }
+                              }
+                        </script>
+                ";
+
+		# autoStart check
+		if ($isAutoStart == '1' ) {
+			$autoStartSwitch = "Auto Start <label class='switch'><input class='switch' checked type='checkbox' onclick='autoStart_$world(this)';><span class='slider round'></span></label>";	
+		} else {
+			$autoStartSwitch = "Auto Start <label class='switch'><input class='switch' type='checkbox' onclick='autoStart_$world(this)'><span class='slider round'></span></label>";
+		}
 
                 if ($mode == 'stopped') {
                         $editLink = "<a disabled href='edit_world.php?world=$world'>Edit Mods</a>";
@@ -129,7 +155,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 echo "    <td>$world</td>";
                 echo "    <td>$external_endpoint:$port</td>";
                 echo "    <td>$seed</td>";
-                echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink $modListToolTip | $editCitizensLink | $updateLink | $deleteLink$beta</td>";
+                echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink $modListToolTip | $editCitizensLink | $updateLink | $deleteLink | $autoStartSwitch$beta</td>";
                 echo "</tr>";
         }
 }
@@ -169,7 +195,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                                         }
                                 });
                         });
-                </script>
+		</script>
         </head>
 
         <body>

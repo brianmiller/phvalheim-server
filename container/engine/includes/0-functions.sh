@@ -456,4 +456,19 @@ function generateModViewerJson () {
 
 }
 
+# no input required, sets world engine modes to 'start' on engine start if autostart flag is set
+function autoStart () {
+        WORLDS=$(SQL "SELECT id FROM worlds;")
+
+        for WORLD in $WORLDS; do
+                worldID=$WORLD
+		worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldID';")
+		autoStart=$(SQL "SELECT autostart FROM worlds WHERE id='$worldID';")
+		if [ "$autoStart" -eq 1 ]; then
+			echo "`date` [NOTICE : phvalheim] World '$worldName' is set to autostart, starting world..."
+			SQL "UPDATE worlds SET mode='start' WHERE id='$worldID'"
+		fi
+	done
+}
+
 ####### END: Functions #######

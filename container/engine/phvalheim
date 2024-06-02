@@ -44,7 +44,10 @@ echo "`date` [NOTICE : phvalheim] backupsToKeep: $backupsToKeep"
 echo "`date` [NOTICE : phvalheim] maxLogSize: $maxLogSize"
 
 # start the engine
-echo "`date` [NOTICE : phvalheim] Starting PhValheim engine..."
+echo "`date` [NOTICE : phvalheim] PhValheim engine started..."
+
+# autostart routine
+autoStart
 
 ####### BEGIN: Main loop #######
 while [ true ]; do
@@ -138,24 +141,12 @@ while [ true ]; do
 
                 if [ "$worldMode" = "stop" ]; then
 			echo "`date` [NOTICE : phvalheim] Stop command received for world '$worldName':"
-			#worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")	
-			#ps -p $worldPID > /dev/null 2>&1
 			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
                         worldPID_status=$?
 			if [ $? = 0 ]; then
 				SQL "UPDATE worlds SET mode='stopping' WHERE name='$worldName'"
 				echo "`date` [NOTICE : phvalheim] Stopping world '$worldName'..."
 				/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
-				
-                                #list_descendants (){
-                                #        local children=$(ps -o pid= --ppid "$1")
-                                #        for pid in $children; do
-                                #                list_descendants "$pid"
-                                #        done
-                                #        echo "$children"
-                                #}
-
-                                #kill -INT $(list_descendants $worldPID)
 			else
 				echo "`date` [WARN : phvalheim] World '$worldName' doesn't appear to be running..."
 				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
