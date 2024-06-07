@@ -184,7 +184,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 
         <body>
 
-             <div class="center" style="width:1900px;">
+             <div class="center" style="width:2050px;">
                 <table id="worlds" class="display outline" style="text-align:left;" border=0>
                     <thead>
                         <tr>
