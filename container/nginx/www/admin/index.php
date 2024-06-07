@@ -116,6 +116,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 }
 
                 $editCitizensLink = "<a href='citizensEditor.php?world=$world'>Edit Citizens</a>";
+		$otherSettingsLink = "<a href='otherWorldSettings.php?worldName=$world'>Other Settings</a>";
 
                 #$getAllWorldMods = getAllWorldMods($pdo,$world);
                 $runningMods_head = "\n<table border=\"0\" style=\"line-height:5px;\">\n";
@@ -129,7 +130,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                 echo "    <td>$world</td>";
                 echo "    <td>$external_endpoint:$port</td>";
                 echo "    <td>$seed</td>";
-                echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink $modListToolTip | $editCitizensLink | $updateLink | $deleteLink | $autoStartSwitch$beta</td>";
+                echo "    <td>$launchLink | $startLink | $stopLink | $logsLink | $editLink $modListToolTip | $editCitizensLink | $otherSettingsLink | $updateLink | $deleteLink | $autoStartSwitch$beta</td>";
                 echo "</tr>";
         }
 }

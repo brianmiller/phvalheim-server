@@ -10,6 +10,12 @@ if (!empty($_GET['type'])) {
 		setAutoStart($pdo,$world,$value);
 	}
 
+        if ($type == "hideseed") {
+                setHideSeed($pdo,$world,$value);
+        }
+
+
+
 }
 
 ?>

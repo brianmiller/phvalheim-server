@@ -144,6 +144,12 @@ function getMyWorlds($pdo,$citizen) {
         return $result;
 }
 
+function getHideSeed($pdo,$world) {
+        $sth = $pdo->prepare("SELECT hideseed FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        return $result;
+}
 
 function getMD5($pdo,$world) {
         $sth = $pdo->prepare("SELECT world_md5 FROM worlds WHERE name='$world'");

@@ -153,6 +153,15 @@ function setAutoStart($pdo,$world,$mode){
         }
 }
 
+function setHideSeed($pdo,$world,$mode){
+        $sql = "UPDATE worlds SET hideseed=$mode WHERE name='$world'";
+        if ($pdo->query($sql)) {
+                $msg = "Hiding seed for $world...";
+        } else {
+                $msg = "ERROR: Could not hide seed for $world...";
+        }
+}
+
 function setHungHeads($pdo,$world,$hungHead) {
 	$hungHead = strtolower($hungHead);
 	$sql = "SELECT $hungHead FROM worlds WHERE name='$world'";

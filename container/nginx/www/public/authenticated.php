@@ -83,6 +83,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                 $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost,$httpScheme); 
 				$md5 = getMD5($pdo,$myWorld);
 				$seed = getSeed($pdo,$myWorld);
+				$hideSeed = getHideSeed($pdo,$myWorld);
 				$dateDeployed = getDateDeployed($pdo,$myWorld);
 				$dateUpdated = getDateUpdated($pdo,$myWorld);
 				$worldMemory = getWorldMemory($pdo,$myWorld);
@@ -163,6 +164,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                 }
 
 
+				if ($hideSeed == 1) {
+					$seed = '<i>hidden</i>';
+				}
+
 				echo "
                                         <div class=\"$worldDimmed catbox $myWorld\">
                                                 <table width=100% height=100% border=0>
@@ -182,10 +187,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>$modListToolTip</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>$md5</td>
-                                                        <tr>
+							<td class='$worldDimmed card_worldInfo'>$md5</td>
+							<tr>
                                                         <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>$seed</td>
+							<td class='$worldDimmed card_worldInfo'>$seed</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>$dateDeployed</td>
