@@ -41,7 +41,7 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y libpulse-de
 
 # small prep stuff
 RUN echo "set mouse-=a" > /root/.vimrc
-RUN useradd phvalheim -d /opt/stateful/games/steam_home -s /bin/bash
+RUN useradd phvalheim -d /opt -s /bin/bash
 
 # system path
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/stateful/games/steam_home/.steam/steamcmd:/opt/stateless/engine:/opt/stateless/engine/tools:/opt/stateless/games/valheim/scripts
