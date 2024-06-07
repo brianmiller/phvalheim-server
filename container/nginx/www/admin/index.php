@@ -29,6 +29,15 @@ if (!empty($_GET['update_world'])) {
         header('Location: /');
 }
 
+if (!empty($_GET['manual_ts_sync_start'])) {
+        $manual_ts_sync_start = $_GET['manual_ts_sync_start'];
+	if($manual_ts_sync_start == "go")
+	{
+		exec("/opt/stateless/engine/tools/tsSyncLocalParseMultithreaded.sh >> /opt/stateful/logs/tsSync.log &");
+		header('Location: /');
+	}
+}
+
 
 # http(s) detector
 if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
@@ -198,10 +207,10 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
            <table id="lowerTable" class="display center" style="width:100%;" border=0>
               <tr>
               <td>
-                <table id="commands" class="display outline center" style="text-align:center;width:853px;" border=0>
+                <table id="commands" class="display outline center" style="text-align:center;width:1000px;" border=0>
                         <thead>
                            <tr>
-                                <th class="bottom_line alt-color center" colspan=4>Commands</th>
+                                <th class="bottom_line alt-color center" colspan=5>Commands</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -209,13 +218,14 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
                                 <td style="padding:5px;"><a href='new_world.php'><button class="sm-bttn">Add World</button></a></td>
                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='/supervisor/'><button class="sm-bttn">Service Management</button></a></td>
                                 <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='gridphp/' onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')"><button class="sm-bttn">Database Browser</button></a></td>
-                                <td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button class="sm-bttn">File Browser</button></a></td>
+				<td style="padding:5px;"><a target='_blank' rel="noopener noreferrer" href='fileBrowser.php'><button class="sm-bttn">File Browser</button></a></td>
+				<td style="padding:5px;"><button onclick="location.href='?manual_ts_sync_start=go'" class="sm-bttn">Start Thunderstore Sync</button></td>
                         </tbody>
                 </table>
 
              <tr>
              <td>
-                <table id="systemStats" class="display outline center" style="text-align:left;width:853px;" border=0>
+                <table id="systemStats" class="display outline center" style="text-align:left;width:1000px;" border=0>
                         <thead>
                             <tr>
                                  <th class="bottom_line alt-color center" colspan=2>Status</th>
@@ -286,7 +296,7 @@ function populateTable($pdo,$phvalheimHost,$gameDNS,$httpScheme){
 
               <td>
 
-                <table id="systemLogs" class="display outline center" style="width:auto;margin-top:2px;" border=0>
+                <table id="systemLogs" class="display outline center" style="width:auto;margin-top:2px;width:1000px;" border=0>
                         <thead>
                             <tr>
                                  <th colspan=8 class="bottom_line alt-color" style="text-align:center;">Logs</th>
