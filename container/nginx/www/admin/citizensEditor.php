@@ -176,7 +176,7 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
 
                 <input type='hidden' name='world' value='<?php echo $world;?>'></input>
                 <input type='hidden' name='msg' value='saved'></input>
-            </table>:
+            </table>
         </form>
 
         <!-- Modal Structure -->
@@ -186,7 +186,8 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
                 <h2 style="color: var(--button-font-color-hover);">Enter Steam Vanity URL</h2>
                 <input type="text" id="vanityURLInput" class="sm-bttn textarea" placeholder="Enter Steam Username" />
                 <button id="submitVanityURL" onclick="fetchSteamID()" class="sm-bttn">Get SteamID</button>
-                <div id="steamIDOutput"></div>
+                    <div id="steamIDOutput" style="color: var(--button-font-color-idle); padding-top:10px;"></div>
+                    <button onclick"copy()" id="copy-btn" class="sm-bttn">Copy</button>
             </div>
         </div>
 
@@ -195,13 +196,14 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
         .modal {
             display: none;
             position: fixed;
-            z-index: 1;I
+            z-index: 1;
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
             overflow: auto;
             background-color: transparent;
+            backdrop-filter: blur(5px); /* Apply a slight blur to the backdrop */
         }
 
         .modal-content {
@@ -209,17 +211,12 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
             margin: 15% auto;
             padding: 20px;
             border: 1px solid var(--outline-light);
-            width: 30%;
+            width: 600px;
             text-align: center;
         }
-        ::placeholder {
-            color: var(--buton-font-color-idle);
-            opacity: 1; /* Firefox */
-        }
-
 
         .close {
-            color: #aaa;
+            color: var(--outline-light);
             float: right;
             font-size: 28px;
             font-weight: bold;
@@ -236,8 +233,47 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
         <!-- JavaScript for Modal and AJAX -->
         <script>
         document.addEventListener("DOMContentLoaded", function() {
+
+
+
+
             var modal = document.getElementById("vanityModal");
             var span = document.getElementById("modalClose");
+
+document.getElementById("copy-btn").onclick = function() {
+    var copyText = document.getElementById("steamIDOutput");
+
+    if (copyText) {
+        // Create a range object and select the text
+        let range = document.createRange();
+        range.selectNodeContents(copyText);
+
+        // Remove any existing selections and add the new range
+        let selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            // Attempt to copy the selected text to the clipboard
+            navigator.clipboard.writeText(copyText.innerText)
+                .then(() => {
+                    alert("Copied the text: " + copyText.innerText);
+                })
+                .catch(err => {
+                    console.error('Could not copy text: ', err);
+                });
+        } catch (err) {
+            console.error('Error copying text: ', err);
+        }
+
+        // Clean up the selection
+        selection.removeAllRanges();
+    } else {
+        console.error("Element with ID 'steamIDOutput' not found.");
+    }
+}
+
+
 
             document.getElementById("openModalButton").onclick = function() {
                 modal.style.display = "block";
@@ -269,6 +305,7 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
                 xhr.send("action=fetchSteamID&vanityURL=" + encodeURIComponent(vanityURL));
             }
         });
+
         </script>
     </body>
 </html>
