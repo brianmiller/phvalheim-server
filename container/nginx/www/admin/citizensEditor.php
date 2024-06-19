@@ -5,11 +5,25 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
 // Handle AJAX request for fetching SteamID
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'fetchSteamID') {
+
     $vanityURL = $_POST['vanityURL'];
-    $apiKey = '8F4C845549D1B8C0ABCA2AC00925D322';  // Replace with your actual API key
+
+    $apiKey = getenv('steamAPIKey');
+    $apiKey = '8F4C845549D1B8C0ABCA2AC00925D322';
+    if (!isset($apiKey) || $apiKey == '') {
+        echo "APIKEY NOT SET";
+        return;
+    }
+
     $steamID = Get_SteamID_From_VanityURL($vanityURL, $apiKey);
+
+    if ($steamID == 2) {
+     echo "BAD RESPONSE";
+    }
+
+
     echo $steamID ?: 'Invalid Vanity URL or SteamID not found';
-    //echo $steamID;
+
     exit();
 }
 
@@ -98,7 +112,7 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
     $data = json_decode($response, true);
 
     if (!isset($data['response']) || $data['response']['success'] != 1) {
-        return null;
+        return 2;
     }
 
     return isset($data['response']['steamid']) ? $data['response']['steamid'] : null;
@@ -147,8 +161,11 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
                         <textarea class='disabled outline textarea' style='resize: none;' cols='40' rows='20' name='citizens' disabled><?php print $currentAllowListFile;?></textarea>
                     </td>
                 </tr>
-
                 <tr>
+                    <td colspan='2' style='text-align: center;'>
+                        <button type="button" class="sm-bttn" id="openModalButton">Get SteamID</button>
+                    </td>
+                    <tr>
                     <td align='center' style='text-align: center;' colspan='2'>
                         <table align='center' style='text-align: center;' border=0>
                             <td style='padding: 0 5px 0;' align='center' style='text-align: center;'>
@@ -161,13 +178,6 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
                         </table>
                     </td>
                 </tr>
-
-                <tr>
-                    <td colspan='2' style='text-align: center;'>
-                        <button type="button" class="sm-bttn" id="openModalButton">Convert Vanity URL to SteamID</button>
-                    </td>
-                </tr>
-
                 <tr>
                     <td colspan='2'>
                         <div style='text-align: center;'><?php print $msg;?></div>
@@ -183,11 +193,11 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
         <div id="vanityModal" class="modal">
             <div class="modal-content outline">
                 <span class="close" id="modalClose">&times;</span>
-                <h2 style="color: var(--button-font-color-hover);">Enter Steam Vanity URL</h2>
+                <h2 style="color: var(--button-font-color-hover);">Lookup SteamID helper</h2>
                 <input type="text" id="vanityURLInput" class="sm-bttn textarea" placeholder="Enter Steam Username" />
                 <button id="submitVanityURL" onclick="fetchSteamID()" class="sm-bttn">Get SteamID</button>
                     <div id="steamIDOutput" style="color: var(--button-font-color-idle); padding-top:10px;"></div>
-                    <button onclick"copy()" id="copy-btn" class="sm-bttn">Copy</button>
+                    <button onclick"copy()" style="padding-top:5px;"id="copy-btn" class="sm-bttn">Copy</button>
             </div>
         </div>
 
@@ -298,7 +308,7 @@ document.getElementById("copy-btn").onclick = function() {
                 xhr.onreadystatechange = function() {
                     if (xhr.readyState == 4 && xhr.status == 200) {
                         var response = xhr.responseText;
-                        document.getElementById("steamIDOutput").innerText = "SteamID: " + response;
+                        document.getElementById("steamIDOutput").innerText = response;
                     }
                 };
 
