@@ -9,7 +9,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $vanityURL = $_POST['vanityURL'];
 
     $apiKey = getenv('steamAPIKey');
-    $apiKey = '8F4C845549D1B8C0ABCA2AC00925D322';
     if (!isset($apiKey) || $apiKey == '') {
         echo "APIKEY NOT SET";
         return;
@@ -18,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $steamID = Get_SteamID_From_VanityURL($vanityURL, $apiKey);
 
     if ($steamID == 2) {
-     echo "BAD RESPONSE";
+     echo "invalid steam id(user may have a private account)";
     }
 
 
@@ -91,7 +90,7 @@ $steamIDResult = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['vanityURL'])) {
     $vanityURL = $_POST['vanityURL'];
-    $apiKey = '8F4C845549D1B8C0ABCA2AC00925D322';
+    $apiKey = getenv('steamAPIKey');
     $steamIDResult = Get_SteamID_From_VanityURL($vanityURL, $apiKey);
 }
 
