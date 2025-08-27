@@ -9,6 +9,9 @@ function generateToolTip($pdo,$world) {
         $jsonIncoming = json_decode($modsJson,true);
 
         # sort the array by 'name' key in descending order
+        # ensure array exists 
+        $jsonIncoming = $jsonIncoming ?? [];
+
         usort(($jsonIncoming), fn($a, $b) => strtolower($b['name']) <=> strtolower($a['name']));
 
         $toolTipContent = '';
