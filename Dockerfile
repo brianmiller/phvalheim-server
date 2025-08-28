@@ -1,8 +1,8 @@
 # running environment
-FROM ubuntu:focal
+FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.23
+ENV phvalheimVersion=2.24
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -60,9 +60,9 @@ COPY container/nginx/www/ /opt/stateless/nginx/www/
 COPY container/engine/ /opt/stateless/engine/
 COPY container/games/ /opt/stateless/games/
 COPY container/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed /opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed
-COPY container/php-fpm/php.ini /etc/php/7.4/fpm/php.ini
-COPY container/php-fpm/www.conf /etc/php/7.4/fpm/pool.d/www.conf
-COPY container/php-fpm/php-fpm.conf /etc/php/7.4/fpm/php-fpm.conf
+COPY container/php-fpm/php.ini /etc/php/8.1/fpm/php.ini
+COPY container/php-fpm/www.conf /etc/php/8.1/fpm/pool.d/www.conf
+COPY container/php-fpm/php-fpm.conf /etc/php/8.1/fpm/php-fpm.conf
 COPY container/mysql/* /etc/mysql/
 COPY container/cron.d/* /etc/cron.d/
 

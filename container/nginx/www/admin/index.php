@@ -40,12 +40,11 @@ if (!empty($_GET['manual_ts_sync_start'])) {
 
 
 # http(s) detector
-if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
-        $httpScheme = "https";
+if(isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
+    $httpScheme = "https";
 } else {
-        $httpScheme = "http";
+    $httpScheme = "http";
 }
-
 
 # Time now
 $timeNow = date("Y-m-d H:i:s T");
