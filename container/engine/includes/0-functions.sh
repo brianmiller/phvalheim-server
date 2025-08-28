@@ -103,6 +103,9 @@ function InstallAndUpdateValheim() {
                 rm -rf /opt/stateful/games/valheim/worlds/$worldName/game/.steam
         fi
 
+	# pre-create .steam dir fix the stupid 'ln' error we see in the world log files
+	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/.steam
+
         # do it
         HOME=/opt/stateful/games/valheim/worlds/$worldName/game \
         /usr/games/steamcmd +@sSteamCmdForcePlatformType linux \
