@@ -38,3 +38,4 @@ chown -R mysql:mysql /opt/stateful/mysql
 chown -R phvalheim: /tmp/dumps
 chown -R phvalheim: $tsWIP
 chown -R phvalheim: $backupDir
+chmod 600 /etc/cron.d/*
