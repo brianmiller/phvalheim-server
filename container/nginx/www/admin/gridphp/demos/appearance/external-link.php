@@ -72,21 +72,15 @@ $col["title"] = "Client";
 $col["name"] = "name";
 $col["width"] = "100";
 $col["search"] = true;
-$col["editable"] = true;
+$col["editable"] = false;
 $col["export"] = false; // this column will not be exported
-// link e.g. http://domain.com?id={id} given that, there is a column with $col["name"] = "id" exist
-$col["link"] = "http://google.com/?id={client_id}"; 
-$col["linkoptions"] = "target='_blank'"; // extra params with <a> tag
 
 // to call JS code on link click, care for quotes. outside ', inside ".
-// $col["link"] = 'javascript:window.open("http://www.google.com/?q={name}","newwind","height=500,width=800"); void(0);'; 
+$col["template"] = '<a href=\'javascript:window.open("http://www.google.com/?q={name}","newwind","height=500,width=800"); void(0);\'>{name}</a>'; 
 
 // raw link formatter
 // $col["formatter"] = "function(cellval,options,rowdata){ return '<a target=\"_blank\" href=\"http://'+cellval+'\">'+cellval+'</a>'; }";
 // $col["unformat"] = "function(cellval,options,cell){ return $('a', cell).attr('href').replace('http://',''); }";
-
-// another alternate method
-// $col["default"] = "<a href='http://google.com/?id={name}'>{name}</a>";
 
 $cols[] = $col;
 		
@@ -97,8 +91,13 @@ $col["width"] = "100";
 $col["search"] = true;
 $col["editable"] = true;
 $col["export"] = false; // this column will not be exported
-$col["link"] = "http://localhost/?id={name}"; // e.g. http://domain.com?id={id} given that, there is a column with $col["name"] = "id" exist
-$col["linkoptions"] = "target='_blank'"; // extra params with <a> tag
+
+// e.g. http://domain.com?id={gender} given that, there is a column with $col["name"] = "gender" exist
+// $col["template"] = "<a href='http://google.com/?q={gender}'>{gender}</a>";
+
+$col["formatter"] = "function(cellval,options,rowdata){ return '<a target=\"_blank\" href=\"'+cellval+'\">'+cellval+'</a>'; }";
+$col["unformat"] = "function(cellval,options,cell){ return $('a', cell).attr('href') }";
+
 $cols[] = $col;
 		
 $col = array();

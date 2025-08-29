@@ -22,8 +22,9 @@ $db_conf = array(
 
 $g = new jqgrid($db_conf);
 
-$grid["caption"] = "Sample Grid";
-$g->set_options($grid);
+$opt["caption"] = "Sample Grid";
+$g->set_options($opt);
+
 $g->table = "clients";
 
 $out = $g->render("list1");

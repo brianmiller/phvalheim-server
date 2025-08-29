@@ -10,8 +10,8 @@
 $.jgrid = $.jgrid || {};
 $.extend($.jgrid,{
 	defaults : {
-		recordtext: "View {0} - {1} of {2}",
-		emptyrecords: "No records to view",
+		recordtext: "Showing {0} - {1} of {2}",
+		emptyrecords: "No records to show",
 		loadtext: "Loading...",
 		pgtext : "Page {0} of {1}"
 	},
@@ -19,7 +19,7 @@ $.extend($.jgrid,{
 		caption: "Search...",
 		Find: "Find",
 		Reset: "Reset",
-		odata: [{ oper:'eq', text:'equal'},{ oper:'ne', text:'not equal'},{ oper:'lt', text:'less'},{ oper:'le', text:'less or equal'},{ oper:'gt', text:'greater'},{ oper:'ge', text:'greater or equal'},{ oper:'bw', text:'begins with'},{ oper:'bn', text:'does not begin with'},{ oper:'in', text:'is in'},{ oper:'ni', text:'is not in'},{ oper:'ew', text:'ends with'},{ oper:'en', text:'does not end with'},{ oper:'cn', text:'contains'},{ oper:'nc', text:'does not contain'},{ oper:'nu', text:'is null'},{ oper:'nn', text:'is not null'}],
+		odata: [{ oper:'eq', text:'equal'},{ oper:'ne', text:'not equal'},{ oper:'lt', text:'less'},{ oper:'le', text:'less or equal'},{ oper:'gt', text:'greater'},{ oper:'ge', text:'greater or equal'},{ oper:'bw', text:'begins with'},{ oper:'bn', text:'does not begin with'},{ oper:'in', text:'is in'},{ oper:'ni', text:'is not in'},{ oper:'ew', text:'ends with'},{ oper:'en', text:'does not end with'},{ oper:'cn', text:'contains'},{ oper:'nc', text:'does not contain'},{ oper:'nu', text:'is null'},{ oper:'nn', text:'is not null'},{ oper:'fs', text:'find in set'}],
 		groupOps: [{ op: "AND", text: "all" },{ op: "OR",  text: "any" }],
 		operandTitle : "Click to select search operation.",
 		resetTitle : "Reset Search Value",
@@ -73,13 +73,13 @@ $.extend($.jgrid,{
 		searchtitle: "Find records",
 		refreshtext: "",
 		refreshtitle: "Reload Grid",
-		alertcap: "Warning",
-		alerttext: "Please select row",
+		alertcap: "Attention Needed",
+		alerttext: "Please select at least one row to proceed",
 		viewtext: "",
 		viewtitle: "View selected row",
 		// new custom constants
 		columns : "Columns",
-		showhidecol : "Select Columns to Display",
+		showhidecol : "Select columns to display",
 		bulkedit: "Bulk Edit",
 		bulkeditskip : "Note: Blank fields will be skipped",
 		clone : "Clone",
@@ -87,12 +87,12 @@ $.extend($.jgrid,{
 		'saveRow' : "Save Record"
 	},
 	col : {
-		caption: "Select Columns to display",
+		caption: "Select columns to display",
 		bSubmit: "Ok",
 		bCancel: "Cancel"
 	},
 	errors : {
-		errcap : "Error",
+		errcap : "Attention Required",
 		nourl : "No url is set",
 		norecords: "No records to process",
 		model : "Length of colNames <> colModel!"

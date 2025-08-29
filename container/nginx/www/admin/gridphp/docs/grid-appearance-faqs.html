@@ -1,0 +1,2971 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Grid 4 PHP Framework Documentation - Datagrid Made Easy">
+      
+      
+        <meta name="author" content="Abu Ghufran">
+      
+      
+        <link rel="canonical" href="https://www.gridphp.com/docs/grid-appearance-faqs.html">
+      
+      
+        <link rel="prev" href="general-faqs.html">
+      
+      
+        <link rel="next" href="column-appearance-faqs.html">
+      
+      
+      <link rel="icon" href="css/favicon.gif">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.2.7">
+    
+    
+      
+        <title>Grid Appearance FAQs - Grid 4 PHP Framework Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.046329b4.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.85d0ee34.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="https://unpkg.com/iframe-worker/shim"></script>
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="extra/extra.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function n(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],n("js",new Date),n("config","G-106Z7MGCDM"),document.addEventListener("DOMContentLoaded",function(){document.forms.search&&document.forms.search.query.addEventListener("blur",function(){this.value&&n("event","search",{search_term:this.value})}),document$.subscribe(function(){var a=document.forms.feedback;if(void 0!==a)for(var e of a.querySelectorAll("[type=submit]"))e.addEventListener("click",function(e){e.preventDefault();var t=document.location.pathname,e=this.getAttribute("data-md-value");n("event","feedback",{page:t,data:e}),a.firstElementChild.disabled=!0;e=a.querySelector(".md-feedback__note [data-md-value='"+e+"']");e&&(e.hidden=!1)}),a.hidden=!1}),location$.subscribe(function(e){n("config","G-106Z7MGCDM",{page_path:e.pathname})})});var e=document.createElement("script");e.async=!0,e.src="https://www.googletagmanager.com/gtag/js?id=G-106Z7MGCDM",document.getElementById("__analytics").insertAdjacentElement("afterEnd",e)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+    
+   <link href="assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+    html.glightbox-open { overflow: initial; height: 100%; }
+    .gslide-title { margin-top: 0px; user-select: text; }
+    .gslide-desc { color: #666; user-select: text; }
+    .gslide-image img { background: white; }
+    .gscrollbar-fixer { padding-right: 15px; }
+    .gdesc-inner { font-size: 0.75rem; }
+    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="assets/javascripts/glightbox.min.js"></script></head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#grid-appearance-faqs" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Grid 4 PHP Framework Docs" class="md-header__button md-logo" aria-label="Grid 4 PHP Framework Docs" data-md-component="logo">
+      
+  <img src="https://www.gridphp.com/wp-content/uploads/logo-gridphp-small.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            <span class="logo-text">Documentation</span>
+            <!-- Grid 4 PHP Framework Docs -->
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Grid Appearance FAQs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+
+    <a href="https://www.gridphp.com/support/" class="top-link">Support Forum</a>
+    <a href="https://www.gridphp.com" class="top-link">Visit Main Site</a>
+
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="index.html" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="selecting-columns.html" class="md-tabs__link">
+          
+  
+  Customization
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="ai-assistant.html" class="md-tabs__link">
+          
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="responsive-design.html" class="md-tabs__link">
+          
+  
+  Layout & UI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="connecting-with-sql-server.html" class="md-tabs__link">
+          
+  
+  Databases
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="basic-todo-list-application.html" class="md-tabs__link">
+          
+  
+  Demo Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="laravel-integration.html" class="md-tabs__link">
+          
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="general-faqs.html" class="md-tabs__link">
+          
+  
+  FAQs
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Grid 4 PHP Framework Docs" class="md-nav__button md-logo" aria-label="Grid 4 PHP Framework Docs" data-md-component="logo">
+      
+  <img src="https://www.gridphp.com/wp-content/uploads/logo-gridphp-small.png" alt="logo">
+
+    </a>
+    Grid 4 PHP Framework Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="setup.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="creating-first-grid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating First Grid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customization
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Customization
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="selecting-columns.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Selecting Columns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-options.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Settings
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-input-types.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Input Types
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-options.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Settings
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Features
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Features
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ai-assistant.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    AI Assistant
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="master-detail-grid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Master Detail Grid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="subgrid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subgrid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="exporting-data.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Exporting Data
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="importing-data.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Importing Data
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="conditional-formatting.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Conditional Formatting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grouping.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grouping Columns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grouping-headers.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grouping Headers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="search.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Search
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-events.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validation.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Validation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="upload-files.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upload Files
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="footer-summary.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Footer Summary
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="autocomplete.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Autocomplete
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="multiselect-filter.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Multiselect Filter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="state-persistence.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    State Persistence
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="html-editor.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTML Editor
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Layout & UI
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Layout & UI
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="responsive-design.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Responsive Design
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="localization.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Localization
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="themes.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Themes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Databases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Databases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-sql-server.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with SQL Server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-postgres.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with Postgres
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-oracle.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with Oracle
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="debug-mode.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debug Mode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Demo Apps
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Demo Apps
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="basic-todo-list-application.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Simple Todo List
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="application-templates.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Application Templates
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Integrations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Integrations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="laravel-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Laravel Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="wordpress-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    WordPress Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="codeigniter-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CodeIgniter Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    FAQs
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            FAQs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="general-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    General FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Grid Appearance FAQs
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="grid-appearance-faqs.html" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Grid Appearance FAQs
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#grid-appearance-faqs" class="md-nav__link">
+    Grid Appearance FAQs
+  </a>
+  
+    <nav class="md-nav" aria-label="Grid Appearance FAQs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-i-upgraded-to-licensed-version-why-i-am-having-free-version-tag-line-with-grid" class="md-nav__link">
+    Q) I upgraded to licensed version. Why i am having 'Free Version' tag line with grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-horizontal-scroll-bar-in-grid-when-there-are-many-columns" class="md-nav__link">
+    Q) How to show horizontal scroll bar in grid (when there are many columns) ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-change-font-size-height-of-cell" class="md-nav__link">
+    Q) Change font size &amp; height of cell
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-vertical-lines-for-each-column" class="md-nav__link">
+    Q) How to show vertical lines for each column?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-do-word-wrap-fit-content-in-grid-cells" class="md-nav__link">
+    Q) How to do word-wrap (fit) content in grid cells?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-add-caption-along-with-icons-of-addeditdelete" class="md-nav__link">
+    Q) How can i add caption along with icons of add,edit,delete.
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-enable-footer-summary-row" class="md-nav__link">
+    Q) How to enable footer summary row?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-buttons-and-text-from-toolbar" class="md-nav__link">
+    Q) How to remove buttons and text from toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-caption-toolbars-column-label-rows-from-grid" class="md-nav__link">
+    Q) How to remove caption, toolbars, column label rows from grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-global-search-and-enable-paging-buttons-on-top-toolbar" class="md-nav__link">
+    Q) How to remove global search and enable paging buttons on top toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-caption-header-and-both-toolbars-altogether" class="md-nav__link">
+    Q) How to caption header and both toolbars altogether?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-left-button-group-from-bottom-toolbar" class="md-nav__link">
+    Q) How to left button group from bottom toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-do-grouping-on-more-than-1-field" class="md-nav__link">
+    Q) How to do grouping on more than 1 field?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-do-grouping-collapse-except-first" class="md-nav__link">
+    Q) How to do grouping collapse except first?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-maintain-vertical-scroll-position-after-grid-reload" class="md-nav__link">
+    Q) How to maintain vertical scroll position after grid reload?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-scroll-to-a-particular-row-value-after-grid-reload" class="md-nav__link">
+    Q) How to scroll to a particular row value after grid reload?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-highlight-some-cell-based-on-row-data" class="md-nav__link">
+    Q) How to highlight some cell based on row data ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-apply-formatting-of-rows-based-on-2-or-more-fields" class="md-nav__link">
+    Q) How to apply formatting of rows, based on 2 or more fields.
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-dropdownselect-in-buttons-toolbar" class="md-nav__link">
+    Q) How to show dropdown/select in buttons toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-retain-page-number-on-page-refresh" class="md-nav__link">
+    Q) How to retain page number on page refresh?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-persist-selection-data-ordering-column-order-page-number-selection-in-grid-expand-same-subgrid-on-page-refresh" class="md-nav__link">
+    Q) How to persist selection, data ordering, column order, page number, selection in grid, expand same subgrid on page refresh?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-keep-page-number-persistence-when-back-button-is-clicked-from-new-page" class="md-nav__link">
+    Q) How to keep page number persistence when back button is clicked from new page?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-apply-more-advanced-conditional-formatting" class="md-nav__link">
+    Q) How to apply more advanced conditional formatting?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-single-row-selection-keeping-multiselect-option" class="md-nav__link">
+    Q) How to make single row selection, keeping multiselect option?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-turn-multiselect-on-off-dynamically" class="md-nav__link">
+    Q) How to turn multiselect on / off dynamically?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-select-row-only-by-checkbox" class="md-nav__link">
+    Q) How to make select row only by checkbox?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-increase-font-size-of-grid" class="md-nav__link">
+    Q) How to increase font size of grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-stop-reload-grid-after-edit-submit-button" class="md-nav__link">
+    Q) How to stop reload grid after edit submit button?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-attach-keyboard-shortcuts-with-operations-like-add-search-etc" class="md-nav__link">
+    Q) How to attach Keyboard Shortcuts with operations like Add, Search etc?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-increase-overall-grid-toolbar-font-size" class="md-nav__link">
+    Q) How to increase overall Grid &amp; Toolbar font size?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-animated-progress-bar-instead-of-text-loading" class="md-nav__link">
+    Q) How to show animated progress bar instead of text 'Loading...'?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-animated-progress-bar-when-submit-data-form" class="md-nav__link">
+    Q) How to show animated progress bar when submit data / form?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-button-for-next-record-selection-in-grid" class="md-nav__link">
+    Q) How to make button for next record selection in grid ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-focus-on-next-tabindex-of-html-element-onenter-keypress" class="md-nav__link">
+    Q) How to focus on next tabindex of HTML element onEnter keypress?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-appearance-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Appearance FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-settings-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Settings FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="dialog-customization-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dialog Customization FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="javascript-api-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Javascript API FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="databases-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Databases FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="master-detail-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Master Detail FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="export-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Export FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="misc-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#grid-appearance-faqs" class="md-nav__link">
+    Grid Appearance FAQs
+  </a>
+  
+    <nav class="md-nav" aria-label="Grid Appearance FAQs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-i-upgraded-to-licensed-version-why-i-am-having-free-version-tag-line-with-grid" class="md-nav__link">
+    Q) I upgraded to licensed version. Why i am having 'Free Version' tag line with grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-horizontal-scroll-bar-in-grid-when-there-are-many-columns" class="md-nav__link">
+    Q) How to show horizontal scroll bar in grid (when there are many columns) ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-change-font-size-height-of-cell" class="md-nav__link">
+    Q) Change font size &amp; height of cell
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-vertical-lines-for-each-column" class="md-nav__link">
+    Q) How to show vertical lines for each column?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-do-word-wrap-fit-content-in-grid-cells" class="md-nav__link">
+    Q) How to do word-wrap (fit) content in grid cells?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-add-caption-along-with-icons-of-addeditdelete" class="md-nav__link">
+    Q) How can i add caption along with icons of add,edit,delete.
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-enable-footer-summary-row" class="md-nav__link">
+    Q) How to enable footer summary row?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-buttons-and-text-from-toolbar" class="md-nav__link">
+    Q) How to remove buttons and text from toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-caption-toolbars-column-label-rows-from-grid" class="md-nav__link">
+    Q) How to remove caption, toolbars, column label rows from grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-global-search-and-enable-paging-buttons-on-top-toolbar" class="md-nav__link">
+    Q) How to remove global search and enable paging buttons on top toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-caption-header-and-both-toolbars-altogether" class="md-nav__link">
+    Q) How to caption header and both toolbars altogether?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-left-button-group-from-bottom-toolbar" class="md-nav__link">
+    Q) How to left button group from bottom toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-do-grouping-on-more-than-1-field" class="md-nav__link">
+    Q) How to do grouping on more than 1 field?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-do-grouping-collapse-except-first" class="md-nav__link">
+    Q) How to do grouping collapse except first?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-maintain-vertical-scroll-position-after-grid-reload" class="md-nav__link">
+    Q) How to maintain vertical scroll position after grid reload?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-scroll-to-a-particular-row-value-after-grid-reload" class="md-nav__link">
+    Q) How to scroll to a particular row value after grid reload?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-highlight-some-cell-based-on-row-data" class="md-nav__link">
+    Q) How to highlight some cell based on row data ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-apply-formatting-of-rows-based-on-2-or-more-fields" class="md-nav__link">
+    Q) How to apply formatting of rows, based on 2 or more fields.
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-dropdownselect-in-buttons-toolbar" class="md-nav__link">
+    Q) How to show dropdown/select in buttons toolbar?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-retain-page-number-on-page-refresh" class="md-nav__link">
+    Q) How to retain page number on page refresh?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-persist-selection-data-ordering-column-order-page-number-selection-in-grid-expand-same-subgrid-on-page-refresh" class="md-nav__link">
+    Q) How to persist selection, data ordering, column order, page number, selection in grid, expand same subgrid on page refresh?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-keep-page-number-persistence-when-back-button-is-clicked-from-new-page" class="md-nav__link">
+    Q) How to keep page number persistence when back button is clicked from new page?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-apply-more-advanced-conditional-formatting" class="md-nav__link">
+    Q) How to apply more advanced conditional formatting?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-single-row-selection-keeping-multiselect-option" class="md-nav__link">
+    Q) How to make single row selection, keeping multiselect option?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-turn-multiselect-on-off-dynamically" class="md-nav__link">
+    Q) How to turn multiselect on / off dynamically?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-select-row-only-by-checkbox" class="md-nav__link">
+    Q) How to make select row only by checkbox?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-increase-font-size-of-grid" class="md-nav__link">
+    Q) How to increase font size of grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-stop-reload-grid-after-edit-submit-button" class="md-nav__link">
+    Q) How to stop reload grid after edit submit button?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-attach-keyboard-shortcuts-with-operations-like-add-search-etc" class="md-nav__link">
+    Q) How to attach Keyboard Shortcuts with operations like Add, Search etc?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-increase-overall-grid-toolbar-font-size" class="md-nav__link">
+    Q) How to increase overall Grid &amp; Toolbar font size?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-animated-progress-bar-instead-of-text-loading" class="md-nav__link">
+    Q) How to show animated progress bar instead of text 'Loading...'?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-show-animated-progress-bar-when-submit-data-form" class="md-nav__link">
+    Q) How to show animated progress bar when submit data / form?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-button-for-next-record-selection-in-grid" class="md-nav__link">
+    Q) How to make button for next record selection in grid ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-focus-on-next-tabindex-of-html-element-onenter-keypress" class="md-nav__link">
+    Q) How to focus on next tabindex of HTML element onEnter keypress?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  <h1>Grid Appearance FAQs</h1>
+
+<h2 id="grid-appearance-faqs">Grid Appearance FAQs</h2>
+<h3 id="q-i-upgraded-to-licensed-version-why-i-am-having-free-version-tag-line-with-grid">Q) I upgraded to licensed version. Why i am having 'Free Version' tag line with grid?</h3>
+<p>Try following steps.</p>
+<p>1) Please make sure you have replaced lib/js folder with the one in licensed packgage.</p>
+<p>2) Your browser is using cached JS files. Try after clearing browser cached files. You can also try opening it in different browser OR browser's incognito mode. </p>
+<h3 id="q-how-to-show-horizontal-scroll-bar-in-grid-when-there-are-many-columns">Q) How to show horizontal scroll bar in grid (when there are many columns) ?</h3>
+<p>You need to set following params:</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;autowidth&quot;] = false;
+$grid[&quot;responsive&quot;] = false;
+$grid[&quot;shrinkToFit&quot;] = false; // dont shrink (or extend) to fit in grid width
+$grid[&quot;width&quot;] = &quot;600&quot;;
+...
+$g-&gt;set_options($grid);
+</code></pre></div>
+<p>For 2.6.2+,</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;cmTemplate&quot;][&quot;visible&quot;] = &quot;xs+&quot;; // show all column on small screens
+$grid[&quot;shrinkToFit&quot;] = false; // enable horizontal scrollbar
+...
+$g-&gt;set_options($grid);
+</code></pre></div>
+<p>If you dont specify the width property, it will be the sum of all columns width.
+To make scroll bar visible, the sum of column width must increase window width.</p>
+<h3 id="q-change-font-size-height-of-cell">Q) Change font size &amp; height of cell</h3>
+<p>Update following css classes to change presentation.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.ui-jqgrid {font-size:14px; font-family:&quot;tahoma&quot;;}
+.ui-jqgrid tr.jqgrow td {height: 25px; padding:0 5px !important;}
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-show-vertical-lines-for-each-column">Q) How to show vertical lines for each column?</h3>
+<p>You can add following CSS code to show vertial lines in datagrid.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.ui-jqgrid tr.ui-row-ltr td { border-right-style:inherit !important; }
+.ui-jqgrid tr.ui-row-rtl td { border-left-style:inherit !important; }
+/* To disable minimum grid height limit */
+.ui-jqgrid .ui-jqgrid-bdiv { min-height:10px; }
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-do-word-wrap-fit-content-in-grid-cells">Q) How to do word-wrap (fit) content in grid cells?</h3>
+<p>Update following css in page to change cell wrapping.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.ui-jqgrid tr.jqgrow td
+{
+    vertical-align: top;
+    white-space: normal !important;
+    padding:2px 5px;
+}
+&lt;/style&gt;
+</code></pre></div>
+<p>To make word wrapping in view record dialog, add following css:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.ui-jqdialog-content .CaptionTD
+{
+    vertical-align: top;
+}
+
+.ui-jqdialog-content .form-view-data
+{
+    white-space: normal;
+}
+&lt;/style&gt;
+</code></pre></div>
+<p>Also check this link for frozen columns with cell wrap.
+http://stackoverflow.com/questions/8686616/how-can-i-get-jqgrid-frozen-columns-to-work-with-word-wrap-on</p>
+<h3 id="q-how-can-i-add-caption-along-with-icons-of-addeditdelete">Q) How can i add caption along with icons of add,edit,delete.</h3>
+<p>You can set it using following config on jqgrid() object. For example:</p>
+<div class="language-text highlight"><pre><span></span><code>$grid-&gt;navgrid[&quot;param&quot;][&quot;addtext&quot;] = &quot;Add Invoice&quot;;
+$grid-&gt;navgrid[&quot;param&quot;][&quot;edittext&quot;] = &quot;Edit Invoice&quot;;
+$grid-&gt;navgrid[&quot;param&quot;][&quot;deltext&quot;] = &quot;Delete Invoice&quot;;
+$grid-&gt;navgrid[&quot;param&quot;][&quot;searchtext&quot;] = &quot;Search&quot;;
+$grid-&gt;navgrid[&quot;param&quot;][&quot;refreshtext&quot;] = &quot;Refresh&quot;;
+$grid-&gt;navgrid[&quot;param&quot;][&quot;viewtext&quot;] = &quot;View Invoice&quot;;
+</code></pre></div>
+<p>Altenrate, You need to put following additional JS and CSS code. You can change 'Add User' with your desired caption.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script type=&quot;text/javascript&quot;&gt;
+$.jgrid.nav.addtext = &quot;Add User&quot;;
+$.jgrid.nav.edittext = &quot;Edit User&quot;;
+$.jgrid.nav.deltext = &quot;Delete User&quot;;
+&lt;/script&gt;
+</code></pre></div>
+<p>After adding captions, the alignment got it out, so put this css.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style type=&quot;text/css&quot;&gt;
+.ui-jqgrid .ui-jqgrid-pager .ui-pg-div
+{
+    float: left;
+    line-height: 18px;
+    padding: 2px 2px 2px 0;
+    position: relative;
+}
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-enable-footer-summary-row">Q) How to enable footer summary row?</h3>
+<p>Please do these changes to enable footer summary row.</p>
+<p>Step1: Enable footer row in options</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;footerrow&quot;] = true;
+$g-&gt;set_options($grid);
+
+// set onload js event
+$e[&quot;js_on_load_complete&quot;] = &quot;grid_onload&quot;;
+$grid-&gt;set_events($e);
+</code></pre></div>
+<p>Step2: Add custom JS code as mentioned. 'list1' is the identifier for grid. In function 'getCol', 2nd param 'field1' is the name of column, which will show the summary data. Valid options for mathoperation (4th param) are - 'sum, 'avg', 'count'.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function grid_onload()
+{
+    var grid = $(&quot;#list1&quot;),
+    sum = grid.jqGrid(&#39;getCol&#39;, &#39;field1&#39;, false, &#39;sum&#39;);
+    grid.jqGrid(&#39;footerData&#39;,&#39;set&#39;, {field1: &#39;Total: &#39;+sum});
+}
+&lt;/script&gt;
+</code></pre></div>
+<p>If one need to show complete table's total in footer, refer following example.</p>
+<div class="language-text highlight"><pre><span></span><code>$g-&gt;select_command = &quot;SELECT id,invdate,total,(SELECT sum(total) from invheader) AS table_total FROM invheader&quot;;
+</code></pre></div>
+<p>Define a column with name table_total, and in footer data, use that table_total field.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function grid_onload()
+{
+    var grid = $(&quot;#list1&quot;);
+    sum = grid.jqGrid(&#39;getCol&#39;, &#39;table_total&#39;);
+    grid.jqGrid(&#39;footerData&#39;,&#39;set&#39;, {total: &#39;Total: &#39;+sum[0]});
+}
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-remove-buttons-and-text-from-toolbar">Q) How to remove buttons and text from toolbar?</h3>
+<p>Do following config to show/remove items in toolbar</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;rowList&quot;] = array();
+$opt[&quot;pgbuttons&quot;] = false;
+$opt[&quot;pgtext&quot;] = null;
+$opt[&quot;viewrecords&quot;] = false;
+$g-&gt;set_options($opt);
+
+$g-&gt;set_actions(array(
+                        &quot;add&quot;=&gt;false, // allow/disallow add
+                        &quot;edit&quot;=&gt;false, // allow/disallow edit
+                        &quot;delete&quot;=&gt;false, // allow/disallow delete
+                        &quot;view&quot;=&gt;false, // allow/disallow view
+                        &quot;refresh&quot; =&gt; false, // show/hide refresh button
+                        &quot;search&quot; =&gt; false, // show single/multi field search condition (e.g. simple or advance)
+                    )
+                );
+</code></pre></div>
+<h3 id="q-how-to-remove-caption-toolbars-column-label-rows-from-grid">Q) How to remove caption, toolbars, column label rows from grid?</h3>
+<p>To remove the caption row, set grid caption property to blank.</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;caption&quot;] = &quot;&quot;;
+</code></pre></div>
+<p>To remove the toolbars in subgrid, add following css in style tag after include the css files - where list1 is grid id of parent.</p>
+<div class="language-text highlight"><pre><span></span><code>.ui-jqgrid[id^=gbox_list1_] .ui-pager-control { display: none; }
+</code></pre></div>
+<p>To remove the column labels,</p>
+<div class="language-text highlight"><pre><span></span><code>.ui-jqgrid[id^=gbox_list1_] .ui-jqgrid-labels { display: none; }
+</code></pre></div>
+<p>To remove the search filters, set autofilter to false. e.g.</p>
+<div class="language-text highlight"><pre><span></span><code>$g-&gt;set_actions(array(
+                        &quot;add&quot;=&gt;false, // allow/disallow add
+                        &quot;edit&quot;=&gt;true, // allow/disallow edit
+                        &quot;delete&quot;=&gt;false, // allow/disallow delete
+                        &quot;rowactions&quot;=&gt;true, // show/hide row wise edit/del/save option
+                        &quot;autofilter&quot; =&gt; false, // show/hide autofilter for search
+                    )
+                );
+</code></pre></div>
+<h3 id="q-how-to-remove-global-search-and-enable-paging-buttons-on-top-toolbar">Q) How to remove global search and enable paging buttons on top toolbar?</h3>
+<p>Following option will hide global search from top toolbar:</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;globalsearch&quot;] = false;
+$g-&gt;set_options($opt);
+</code></pre></div>
+<p>In html code:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+/* removed paging and record count from top pager */
+.ui-jqgrid .ui-jqgrid-toppager &gt; div &gt; table:nth-child(1) &gt; tbody &gt; tr &gt;  td:nth-child(2) { display:table-cell !important; }
+.ui-jqgrid .ui-jqgrid-toppager &gt; div &gt; table:nth-child(1) &gt; tbody &gt; tr &gt;  td:nth-child(3) { display:table-cell !important; }
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-caption-header-and-both-toolbars-altogether">Q) How to caption header and both toolbars altogether?</h3>
+<p>Use this config:</p>
+<p>In grid settings:</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;caption&quot;] = &quot;&quot;;
+$opt[&quot;height&quot;] = &quot;100%&quot;;
+$g-&gt;set_options($opt);
+</code></pre></div>
+<p>In html code:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.ui-jqgrid-pager,.ui-jqgrid-toppager
+{ display: none; }
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-left-button-group-from-bottom-toolbar">Q) How to left button group from bottom toolbar?</h3>
+<p>In html code, add following css:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.ui-jqgrid-pager td[id$=&#39;pager_left&#39;] {
+    display: none;
+}
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-do-grouping-on-more-than-1-field">Q) How to do grouping on more than 1 field?</h3>
+<p>It's not fully stable, but you can try following config.</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;grouping&quot;] = true;
+$grid[&quot;groupingView&quot;] = array();
+
+$grid[&quot;groupingView&quot;][&quot;groupField&quot;] = array(&quot;field1&quot;,&quot;field2&quot;); // specify column name to group listing
+$grid[&quot;groupingView&quot;][&quot;groupDataSorted&quot;] = array(true,true); // show sorted data within group
+$grid[&quot;groupingView&quot;][&quot;groupSummary&quot;] = array(true,true); // work with summaryType, summaryTpl, see column: $col[&quot;name&quot;] = &quot;total&quot;;
+
+$grid[&quot;groupingView&quot;][&quot;groupColumnShow&quot;] = array(false,false); // either show grouped column in list or not (default: true)
+$grid[&quot;groupingView&quot;][&quot;groupText&quot;] = array(&quot;&lt;b&gt;{0} - {1} Item(s)&lt;/b&gt;&quot;); // {0} is grouped value, {1} is count in group
+$grid[&quot;groupingView&quot;][&quot;groupOrder&quot;] = array(&quot;asc&quot;); // show group in asc or desc order
+$grid[&quot;groupingView&quot;][&quot;groupCollapse&quot;] = true; // Turn true to show group collapse (default: false)
+$grid[&quot;groupingView&quot;][&quot;showSummaryOnHide&quot;] = true; // show summary row even if group collapsed (hide)
+</code></pre></div>
+<p>Refer demos/appearence/grouping.php for more help.</p>
+<h3 id="q-how-to-do-grouping-collapse-except-first">Q) How to do grouping collapse except first?</h3>
+<p>You can call click() of first group on load event of datagrid.</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;loadComplete&quot;] = &quot;function(){ $(&#39;.jqgroup:first span&#39;).click(); }&quot;;
+// ...
+$g-&gt;set_options($opt);
+</code></pre></div>
+<h3 id="q-how-to-maintain-vertical-scroll-position-after-grid-reload">Q) How to maintain vertical scroll position after grid reload?</h3>
+<p>First you need to get the handler for load complete.</p>
+<div class="language-text highlight"><pre><span></span><code>$e[&quot;js_on_load_complete&quot;] = &quot;do_onload&quot;;
+$g-&gt;set_events($e);
+</code></pre></div>
+<p>Then in callback, you can have following code.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function do_onload()
+{
+    if (jQuery(window).data(&#39;phpgrid_scroll&#39;))
+        jQuery(&#39;div.ui-jqgrid-bdiv&#39;).scrollTop(jQuery(window).data(&#39;phpgrid_scroll&#39;));
+
+    jQuery(&#39;div.ui-jqgrid-bdiv&#39;).scroll(function(){
+        jQuery(window).data(&#39;phpgrid_scroll&#39;,jQuery(&#39;div.ui-jqgrid-bdiv&#39;).scrollTop());
+    });
+}
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-scroll-to-a-particular-row-value-after-grid-reload">Q) How to scroll to a particular row value after grid reload?</h3>
+<p>First you need to get the handler for load complete.</p>
+<div class="language-text highlight"><pre><span></span><code>$e[&quot;js_on_load_complete&quot;] = &quot;do_onload&quot;;
+$g-&gt;set_events($e);
+</code></pre></div>
+<p>Then in JS callback, you can have following code. This will iterate all rows and find row with name 'Victoria Ashworth'.
+It then uses row's first column 'client_id' to get <TR> id and focus it with scrollTop().</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function do_onload()
+{
+    var rows =  $(&#39;#list1&#39;).getRowData();
+    for (var i=0;i&lt;rows.length;i++)
+        if (rows[i].name == &#39;Victoria Ashworth&#39;)
+        {
+            var t = jQuery(&#39;tr.jqgrow[id=&#39;+rows[i].client_id+&#39;]&#39;).position().top;
+            jQuery(&#39;div.ui-jqgrid-bdiv&#39;).scrollTop(t);
+        }
+}
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-highlight-some-cell-based-on-row-data">Q) How to highlight some cell based on row data ?</h3>
+<p>You can do it onload event of grid. First you need to connect event, and then write your desired logic in JS code.</p>
+<p>In Grid config, set event callback.</p>
+<div class="language-text highlight"><pre><span></span><code>$e[&quot;js_on_load_complete&quot;] = &quot;do_onload&quot;;
+...
+$grid-&gt;set_events($e);
+</code></pre></div>
+<p>In callback function, write your code.</p>
+<div class="language-text highlight"><pre><span></span><code>function do_onload()
+{
+    var grid = $(&quot;#list1&quot;);
+    var ids = grid.jqGrid(&#39;getDataIDs&#39;);
+    for (var i=0;i&lt;ids.length;i++)
+    {
+        var id=ids[i];
+        if (grid.jqGrid(&#39;getCell&#39;,id,&#39;qty&#39;) == &#39;0&#39;)
+        {
+            grid.jqGrid(&#39;setCell&#39;,id,&#39;price&#39;,&#39;&#39;,&#39;not-editable-cell&#39;); // make cell uneditable
+            grid.jqGrid(&#39;setCell&#39;,id,&#39;price&#39;,&#39;&#39;,{&#39;background-color&#39;:&#39;lightgray&#39;}); // make bgcolor to gray
+        }
+    }
+}
+</code></pre></div>
+<h3 id="q-how-to-apply-formatting-of-rows-based-on-2-or-more-fields">Q) How to apply formatting of rows, based on 2 or more fields.</h3>
+<p>You can use a load complete callback handler, and put conditional formatting JS code in it.
+For instance, refer following example, where list1 is grid id.</p>
+<div class="language-text highlight"><pre><span></span><code>// PHP part
+$e[&quot;js_on_load_complete&quot;] = &quot;do_onload&quot;;
+...
+$grid-&gt;set_events($e);
+
+// HTML part
+&lt;script&gt;
+function do_onload(ids)
+{
+    if(ids.rows) jQuery.each(ids.rows,function(i){
+
+        // format row when gender is &#39;male&#39; and company name starts with &#39;Bl&#39;
+        if (this.gender.toLowerCase() == &#39;male&#39; &amp;&amp; this.company.indexOf(&#39;Bl&#39;) != -1)
+        {
+            jQuery(&#39;#list1 tr.jqgrow:eq(&#39;+i+&#39;)&#39;).css(&#39;background&#39;,&#39;inherit&#39;).css({&#39;background-color&#39;:&#39;#FBEC88&#39;, &#39;color&#39;:&#39;green&#39;});
+        }
+    });
+}
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-show-dropdownselect-in-buttons-toolbar">Q) How to show dropdown/select in buttons toolbar?</h3>
+<p>Following JS code, will display dropdown with toolbar buttons. It's upto your logic to show desired options and onchange function.
+Here 'list1' is assumed to be grid id.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+    jQuery(window).load(function(){
+        jQuery(&#39;#list1_pager_left&#39;).append (&#39;&lt;div style=&quot;padding-left: 5px; padding-top:2px; float:left&quot;&gt;&lt;select&gt;&lt;option&gt;None&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&#39;);
+    });
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-retain-page-number-on-page-refresh">Q) How to retain page number on page refresh?</h3>
+<p>You can have something like following, to preserve page number.</p>
+<div class="language-text highlight"><pre><span></span><code>$grid = new jqgrid();
+
+if (isset($_GET[&quot;jqgrid_page&quot;]))
+    $_SESSION[&quot;jqgrid_page&quot;] = $_GET[&quot;jqgrid_page&quot;];
+
+$opt[&quot;caption&quot;] = &quot;Clients Data&quot;;
+$opt[&quot;page&quot;] = intval($_SESSION[&quot;jqgrid_page&quot;]);
+$grid-&gt;set_options($opt);
+</code></pre></div>
+<h3 id="q-how-to-persist-selection-data-ordering-column-order-page-number-selection-in-grid-expand-same-subgrid-on-page-refresh">Q) How to persist selection, data ordering, column order, page number, selection in grid, expand same subgrid on page refresh?</h3>
+<p>Include following JS plugins files in your page, and add 'opts' setting before 'echo $out' as mentioned below:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;!-- library for persistance storage --&gt;
+&lt;script src=&quot;//cdn.jsdelivr.net/jstorage/0.1/jstorage.min.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;//cdn.jsdelivr.net/json2/0.1/json2.min.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;//cdn.rawgit.com/gridphp/jqGridState/63904a57244ef89fa58ca0fa146da8e2e6e4d395/jqGrid.state.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+
+&lt;script&gt;
+var opts = {
+    &quot;stateOptions&quot;: {
+                storageKey: &quot;gridStateCookie&quot;,
+                columns: true,
+                filters: false,
+                selection: true,
+                expansion: true,
+                pager: true,
+                order: true
+                }
+    };
+&lt;/script&gt;
+
+&lt;div&gt;
+&lt;?php echo $out?&gt;
+&lt;/div&gt;
+</code></pre></div>
+<h3 id="q-how-to-keep-page-number-persistence-when-back-button-is-clicked-from-new-page">Q) How to keep page number persistence when back button is clicked from new page?</h3>
+<p>Here we need some JS trick to pick if back button is clicked.
+When defining URL in column, here we've placed #moved in url and used JS onclick to send to new page.</p>
+<div class="language-text highlight"><pre><span></span><code>$col = array();
+$col[&quot;title&quot;] = &quot;Note&quot;;
+$col[&quot;name&quot;] = &quot;note&quot;;
+$col[&quot;width&quot;] = &quot;50&quot;;
+$col[&quot;editable&quot;] = true; // this column is editable
+$col[&quot;default&quot;] = &quot;&lt;a href=&#39;#moved&#39; onclick=\&quot;location.href=&#39;details.php&#39;\&quot;&gt;Details&lt;/a&gt;&quot;; // render as select
+$cols[] = $col;
+</code></pre></div>
+<p>Enable state persistence of paging, all rest disabled.</p>
+<div class="language-text highlight"><pre><span></span><code>var opts_list1 = {
+        &quot;stateOptions&quot;: {
+                    storageKey: &quot;gridState-list1&quot;,
+                    columns: false, // remember column chooser settings
+                    selection: false, // row selection
+                    expansion: false, // subgrid expansion
+                    filters: false, // filters
+                    pager: true, // page number
+                    order: false // field ordering
+        }
+    };
+</code></pre></div>
+<p>And to open first page if not back is clicked, i will clear state persistance if not hash is found in url.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;body&gt;
+    &lt;script&gt;
+    jQuery(document).ready(function(){
+        if(window.location.hash==&quot;&quot;)
+        {
+            jQuery.jStorage.deleteKey(&#39;gridState-list1&#39;);
+        }
+    });
+    &lt;/script&gt;
+
+    ....
+
+&lt;/body&gt;
+</code></pre></div>
+<h3 id="q-how-to-apply-more-advanced-conditional-formatting">Q) How to apply more advanced conditional formatting?</h3>
+<p>You can set onload event in PHP code, and enable 'reloadedit' option</p>
+<div class="language-text highlight"><pre><span></span><code>// set js onload event
+$e[&quot;js_on_load_complete&quot;] = &quot;grid_onload&quot;;
+$g-&gt;set_events($e);
+
+// required to format rows after editing
+$opt[&quot;reloadedit&quot;] = true;
+...
+$g-&gt;set_options($opt);
+</code></pre></div>
+<p>Then in HTML code, you can have custom conditional logic in javascript handler.
+In this code, list1 is grid id. You can also use php's equivalent '$g-&gt;id' to reference it.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function grid_onload(ids)
+{
+    if(ids.rows)
+        jQuery.each(ids.rows,function(i)
+        {
+            // if col1 = yes and col2 = n/a, format row
+            if (this.col1.toLowerCase() == &#39;yes&#39; &amp;&amp; this.col2.toLowerCase() == &#39;n/a&#39;)
+            {
+                // highlight row
+                jQuery(&#39;#list1 tr.jqgrow:eq(&#39;+i+&#39;)&#39;).css(&#39;background-image&#39;,&#39;inherit&#39;).css({&#39;background-color&#39;:&#39;#FBEC88&#39;, &#39;color&#39;:&#39;red&#39;});
+            }
+
+            // if col3 = 1, format cell. &#39;aria-describedby=list1_col3&#39; is &#39;gridid_colname&#39; convention to identify cell.
+            if (parseInt(this.col3) == 1)
+            {
+                // highlight cell
+                jQuery(&#39;#list1 tr.jqgrow:eq(&#39;+i+&#39;)&#39;).css(&#39;background-image&#39;,&#39;inherit&#39;);
+                jQuery(&#39;#list1 tr.jqgrow:eq(&#39;+i+&#39;) td[aria-describedby=list1_col3]&#39;).css(&#39;background&#39;,&#39;inherit&#39;).css({&#39;background-color&#39;:&#39;#FBEC88&#39;, &#39;color&#39;:&#39;red&#39;});
+            }
+        });
+}
+&lt;/script&gt;
+</code></pre></div>
+<p>To make non-editable column as gray, e.g. If 'list1' is grid id and 'name' is non-editable column:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function grid_onload(ids)
+{
+    if(ids.rows)
+        jQuery.each(ids.rows,function(i)
+        {
+            // if col3 = 1, format cell. &#39;aria-describedby=list1_col3&#39; is &#39;gridid_colname&#39; convention to identify cell.
+            if (jQuery(&quot;#list1&quot;).getColProp(&quot;name&quot;).editable == false)
+            {
+                // highlight cell
+                jQuery(&#39;#list1 tr.jqgrow:eq(&#39;+i+&#39;)&#39;).css(&#39;background-image&#39;,&#39;inherit&#39;);
+                jQuery(&#39;#list1 tr.jqgrow:eq(&#39;+i+&#39;) td[aria-describedby=list1_name]&#39;).css(&#39;background&#39;,&#39;inherit&#39;).css({ &#39;color&#39;:&#39;gray&#39;});
+            }
+        });
+}
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-make-single-row-selection-keeping-multiselect-option">Q) How to make single row selection, keeping multiselect option?</h3>
+<p>Following code will enable single selection, in multiselect mode.</p>
+<p>PHP code config:</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;beforeSelectRow&quot;] = &quot;function(rowid, e) { if ( jQuery(&#39;#list1&#39;).jqGrid(&#39;getGridParam&#39;,&#39;selarrrow&#39;) != rowid) jQuery(&#39;#list1&#39;).jqGrid(&#39;resetSelection&#39;); return true; }&quot;;
+$g-&gt;set_options($opt);
+</code></pre></div>
+<p>To hide select all checkbox as well, add this css style.</p>
+<div class="language-text highlight"><pre><span></span><code>input#cb_list1 {
+    display: none;
+}
+</code></pre></div>
+<p>where <code>list1</code> is grid id.</p>
+<h3 id="q-how-to-turn-multiselect-on-off-dynamically">Q) How to turn multiselect on / off dynamically?</h3>
+<p>Following code will enable toggle multiselect via javascript code.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;input type=&quot;button&quot; value=&quot;Multiselect&quot; onclick=&quot;toggle_multiselect()&quot;&gt;
+
+&lt;script&gt;
+function toggle_multiselect()
+{
+    if ($(&#39;#list1 .cbox:visible&#39;).length &gt; 0)
+    {
+        $(&quot;#list1&quot;).jqGrid(&#39;setGridParam&#39;,{multiboxonly : true});
+        $(&#39;#list1&#39;).jqGrid(&#39;hideCol&#39;, &#39;cb&#39;);
+    }
+    else
+    {
+        $(&quot;#list1&quot;).jqGrid(&#39;setGridParam&#39;,{multiboxonly : false});
+        $(&#39;#list1&#39;).jqGrid(&#39;showCol&#39;, &#39;cb&#39;);
+    }
+}
+&lt;/script&gt;
+</code></pre></div>
+<p>where <code>list1</code> is grid id.</p>
+<h3 id="q-how-to-make-select-row-only-by-checkbox">Q) How to make select row only by checkbox?</h3>
+<p>Following code will enable row selection by checkbox.</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;multiselect&quot;] = true;
+$opt[&quot;beforeSelectRow&quot;] = &quot;function(rowid, e) { return $(e.target).is(&#39;input[type=checkbox]&#39;); }&quot;;
+$g-&gt;set_options($opt);
+</code></pre></div>
+<h3 id="q-how-to-increase-font-size-of-grid">Q) How to increase font size of grid?</h3>
+<p>Following css override will adjust fonts. For any other left area, you can inspect using firebug.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.ui-jqgrid {
+    font-family: &quot;tahoma&quot;,&quot;verdana&quot;,&quot;sans serif&quot;;
+    font-size: 12px;
+}
+
+.ui-jqgrid .ui-pg-table td {
+    font-size: 12px;
+}
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-stop-reload-grid-after-edit-submit-button">Q) How to stop reload grid after edit submit button?</h3>
+<p>Following config will stop whole grid reload, and will only update edited row.</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;edit_options&quot;][&quot;reloadAfterSubmit&quot;]=false;
+...
+$g-&gt;set_options($grid);
+</code></pre></div>
+<h3 id="q-how-to-attach-keyboard-shortcuts-with-operations-like-add-search-etc">Q) How to attach Keyboard Shortcuts with operations like Add, Search etc?</h3>
+<p>You can bind your shortcut keys by adding following lib:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script src=&quot;//cdn.jsdelivr.net/jquery.hotkeys/0.8b/jquery.hotkeys.js&quot;&gt;&lt;/script&gt;
+</code></pre></div>
+<p>More help on keys are available on its site: http://github.com/tzuryby/hotkeys</p>
+<p>Next, you will find the ID of button to attach shortcut. Use firebug inspect to hover that button and it would show ID of the element.</p>
+<p>e.g. To add 'insert' key with '+' button in toolbar</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+// insert key to add new row
+$(document).bind(&#39;keyup&#39;, &#39;insert&#39;, function(){
+      jQuery(&#39;#add_list1&#39;).click();
+    });
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-increase-overall-grid-toolbar-font-size">Q) How to increase overall Grid &amp; Toolbar font size?</h3>
+<p>Following on-page styles will increase font-size to 14px (overriding the base css).
+This inclues grid font, dialogs and toolbar. This will be helpful when using in mobile devices.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+/* increase font &amp; row height */
+.ui-jqgrid *, .ui-widget, .ui-widget input, .ui-widget select, .ui-widget textarea, .ui-widget button { font-size:14px; }
+.ui-jqgrid tr.jqgrow td { height:30px; }
+
+/* big toolbar icons */
+.ui-pager-control .ui-icon, .ui-custom-icon { zoom: 125%; -moz-transform: scale(1.25); -webkit-zoom: 1.25; -ms-zoom: 1.25; }
+.ui-jqgrid .ui-jqgrid-pager .ui-pg-div span.ui-icon { margin: 0px 2px; }
+.ui-jqgrid .ui-jqgrid-pager { height: 28px; }
+.ui-jqgrid .ui-jqgrid-pager .ui-pg-div { line-height: 25px; }
+&lt;/style&gt;
+</code></pre></div>
+<h3 id="q-how-to-show-animated-progress-bar-instead-of-text-loading">Q) How to show animated progress bar instead of text 'Loading...'?</h3>
+<p>You can replace text with some string containing html <img> tag.</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;loadtext&quot;] = &quot;Loading...&quot;;
+$g-&gt;set_options($grid);
+</code></pre></div>
+<h3 id="q-how-to-show-animated-progress-bar-when-submit-data-form">Q) How to show animated progress bar when submit data / form?</h3>
+<p>You can do it using BlockUI plugin: http://stackoverflow.com/a/22927642/385377</p>
+<p>Refer integration demo here: Line 46,55
+https://gist.github.com/gridphp/915d2e0834354913fdfd338d47d50a53</p>
+<h3 id="q-how-to-make-button-for-next-record-selection-in-grid">Q) How to make button for next record selection in grid ?</h3>
+<p>Following code will bind JS code with button. where list1 is grid id.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;input type=&quot;button&quot; value=&quot;Next&quot; id=&quot;btnNext&quot;&gt;
+
+&lt;script&gt;
+$(&#39;#btnNext&#39;).click(function () {
+
+    var grid =  $(&quot;#list1&quot;).jqGrid();
+
+    var selectedRow = grid.getGridParam(&#39;selrow&#39;);
+    if (selectedRow == null) return;
+
+    var ids = grid.getDataIDs();
+    var index = grid.getInd(selectedRow);
+
+    if (ids.length &lt; 2) return;
+
+    index++;
+    if (index &gt; ids.length)
+        index = 1;
+
+    grid.setSelection(ids[index - 1], true);
+});
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-focus-on-next-tabindex-of-html-element-onenter-keypress">Q) How to focus on next tabindex of HTML element onEnter keypress?</h3>
+<p>Following code will enable this 'Enter' key for next tabindex movement. </p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;add_options&quot;][&quot;afterShowForm&quot;] = &quot;function (form) 
+{
+    jQuery(form).on(&#39;keydown&#39;, &#39;input,select,textarea&#39;, function (event) {
+        if (event.key == &#39;Enter&#39;) {
+
+            var fields = &#39;input:visible, select:visible, textarea:visible&#39;;
+
+            // focus next field
+            jQuery(fields,form)[jQuery(fields,form).index(this)+1].focus();
+            if (jQuery(fields,form)[jQuery(fields,form).index(this)+1].select) 
+                jQuery(fields,form)[jQuery(fields,form).index(this)+1].select();
+
+            // submit if next field not present
+            if (jQuery(fields,form)[jQuery(fields,form).index(this)+1])
+                window.event.returnValue = false;
+        }
+    });
+
+}&quot;;
+
+$opt[&quot;edit_options&quot;][&quot;afterShowForm&quot;] = $opt[&quot;add_options&quot;][&quot;afterShowForm&quot;];
+
+$g-&gt;set_options($opt);
+</code></pre></div>
+<p>Another JS based solution is to place following code at end on html.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script type=&quot;text/javascript&quot;&gt;
+// Focus Next on Enter
+// https://stackoverflow.com/a/40686327/8743891
+
+function focusNextElement() {
+  var focussableElements = &#39;a:not([disabled]), button:not([disabled]), input[type=text]:not([disabled]), [tabindex]:not([disabled]):not([tabindex=&quot;-1&quot;])&#39;;
+    var focussable = Array.prototype.filter.call(document.querySelectorAll(focussableElements),
+      function(element) {
+        return element.offsetWidth &gt; 0 || element.offsetHeight &gt; 0 || element === document.activeElement
+      });
+    var index = focussable.indexOf(document.activeElement);
+    focussable[index + 1].focus();
+}
+window.addEventListener(&#39;keydown&#39;, function(e) {
+  if (e.keyIdentifier == &#39;U+000A&#39; || e.keyIdentifier == &#39;Enter&#39; || e.keyCode == 13) {
+    if (e.target.nodeName === &#39;INPUT&#39; &amp;&amp; e.target.type !== &#39;textarea&#39;) {
+        e.preventDefault();
+        focusNextElement();
+        e.stopImmediatePropagation()
+        return false;
+    }
+  }
+}, true);
+&lt;/script&gt;
+</code></pre></div>
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="general-faqs.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: General FAQs" rel="prev">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                General FAQs
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="column-appearance-faqs.html" class="md-footer__link md-footer__link--next" aria-label="Next: Column Appearance FAQs" rel="next">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Column Appearance FAQs
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 - Grid 4 PHP Framework
+    </div>
+  
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://x.com/gridphp" target="_blank" rel="noopener" title="x.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/abu-ghufran-bb22a512a" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://web.facebook.com/PHP-Grid-Framework-268762813193993/" target="_blank" rel="noopener" title="web.facebook.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M504 256C504 119 393 8 256 8S8 119 8 256c0 123.78 90.69 226.38 209.25 245V327.69h-63V256h63v-54.64c0-62.15 37-96.48 93.67-96.48 27.14 0 55.52 4.84 55.52 4.84v61h-31.28c-30.8 0-40.41 19.12-40.41 38.73V256h68.78l-11 71.69h-57.78V501C413.31 482.38 504 379.78 504 256z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/gridphp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": ".", "features": ["content.code.copy", "content.code.select", "navigation.top", "search.highlight", "search.suggest", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.path", "toc.follow", "navigation.tabs"], "search": "assets/javascripts/workers/search.dfff1995.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.dff1b7c8.min.js"></script>
+      
+        <script src="extra/extra.js"></script>
+      
+        <script src="js/open_in_new_tab.js"></script>
+      
+    
+  <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(() => { lightbox.reload() });
+</script></body>
+</html>

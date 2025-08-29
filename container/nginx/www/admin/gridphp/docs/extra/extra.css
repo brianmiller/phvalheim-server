@@ -1,0 +1,51 @@
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+	height: auto;
+}
+
+.md-header__topic:first-child {
+	font-weight: 400;
+}
+
+.md-typeset h1 {
+	font-size: 1.5em;
+	font-weight: 400;
+}
+
+.md-typeset h2 {
+	display: none;
+}
+
+.md-typeset h3 {
+	font-weight: 300;
+}
+
+.md-main__inner {
+	margin-top: 0.5rem;
+}
+
+.top-link {
+	margin-left: 10px;
+	font-size: 16px;
+	text-decoration: none;
+	border: 1px solid #aaa;
+	padding: 6px;
+	border-radius: 5px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.logo-text {
+	padding-left:20px; 
+	border-left:3px solid;
+	font-size: 170%;
+    font-family: tahoma, verdana;
+    vertical-align: bottom;
+    font-weight: normal;
+    text-transform: none;
+    color: #254689;
+}
+
+.md-tabs__link {
+	font-size: 0.8rem;
+}

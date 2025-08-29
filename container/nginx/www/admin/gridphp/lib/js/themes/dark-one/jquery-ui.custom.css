@@ -11,3 +11,5 @@
 	background-color: #484c58;
 	opacity: 1 !important;
 }
+.ui-jqdialog-content input.FormElement, .ui-jqdialog-content select.FormElement, .ui-jqdialog-content textarea.FormElement
+{color: inherit !important;}

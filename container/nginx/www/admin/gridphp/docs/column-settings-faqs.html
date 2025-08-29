@@ -1,0 +1,2492 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Grid 4 PHP Framework Documentation - Datagrid Made Easy">
+      
+      
+        <meta name="author" content="Abu Ghufran">
+      
+      
+        <link rel="canonical" href="https://www.gridphp.com/docs/column-settings-faqs.html">
+      
+      
+        <link rel="prev" href="column-appearance-faqs.html">
+      
+      
+        <link rel="next" href="dialog-customization-faqs.html">
+      
+      
+      <link rel="icon" href="css/favicon.gif">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.2.7">
+    
+    
+      
+        <title>Column Settings FAQs - Grid 4 PHP Framework Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.046329b4.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.85d0ee34.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="https://unpkg.com/iframe-worker/shim"></script>
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="extra/extra.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function n(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],n("js",new Date),n("config","G-106Z7MGCDM"),document.addEventListener("DOMContentLoaded",function(){document.forms.search&&document.forms.search.query.addEventListener("blur",function(){this.value&&n("event","search",{search_term:this.value})}),document$.subscribe(function(){var a=document.forms.feedback;if(void 0!==a)for(var e of a.querySelectorAll("[type=submit]"))e.addEventListener("click",function(e){e.preventDefault();var t=document.location.pathname,e=this.getAttribute("data-md-value");n("event","feedback",{page:t,data:e}),a.firstElementChild.disabled=!0;e=a.querySelector(".md-feedback__note [data-md-value='"+e+"']");e&&(e.hidden=!1)}),a.hidden=!1}),location$.subscribe(function(e){n("config","G-106Z7MGCDM",{page_path:e.pathname})})});var e=document.createElement("script");e.async=!0,e.src="https://www.googletagmanager.com/gtag/js?id=G-106Z7MGCDM",document.getElementById("__analytics").insertAdjacentElement("afterEnd",e)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+    
+   <link href="assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+    html.glightbox-open { overflow: initial; height: 100%; }
+    .gslide-title { margin-top: 0px; user-select: text; }
+    .gslide-desc { color: #666; user-select: text; }
+    .gslide-image img { background: white; }
+    .gscrollbar-fixer { padding-right: 15px; }
+    .gdesc-inner { font-size: 0.75rem; }
+    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="assets/javascripts/glightbox.min.js"></script></head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#column-settings-faqs" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Grid 4 PHP Framework Docs" class="md-header__button md-logo" aria-label="Grid 4 PHP Framework Docs" data-md-component="logo">
+      
+  <img src="https://www.gridphp.com/wp-content/uploads/logo-gridphp-small.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            <span class="logo-text">Documentation</span>
+            <!-- Grid 4 PHP Framework Docs -->
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Column Settings FAQs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+
+    <a href="https://www.gridphp.com/support/" class="top-link">Support Forum</a>
+    <a href="https://www.gridphp.com" class="top-link">Visit Main Site</a>
+
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="index.html" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="selecting-columns.html" class="md-tabs__link">
+          
+  
+  Customization
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="ai-assistant.html" class="md-tabs__link">
+          
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="responsive-design.html" class="md-tabs__link">
+          
+  
+  Layout & UI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="connecting-with-sql-server.html" class="md-tabs__link">
+          
+  
+  Databases
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="basic-todo-list-application.html" class="md-tabs__link">
+          
+  
+  Demo Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="laravel-integration.html" class="md-tabs__link">
+          
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="general-faqs.html" class="md-tabs__link">
+          
+  
+  FAQs
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Grid 4 PHP Framework Docs" class="md-nav__button md-logo" aria-label="Grid 4 PHP Framework Docs" data-md-component="logo">
+      
+  <img src="https://www.gridphp.com/wp-content/uploads/logo-gridphp-small.png" alt="logo">
+
+    </a>
+    Grid 4 PHP Framework Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="setup.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="creating-first-grid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating First Grid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customization
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Customization
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="selecting-columns.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Selecting Columns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-options.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Settings
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-input-types.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Input Types
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-options.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Settings
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Features
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Features
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ai-assistant.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    AI Assistant
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="master-detail-grid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Master Detail Grid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="subgrid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subgrid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="exporting-data.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Exporting Data
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="importing-data.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Importing Data
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="conditional-formatting.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Conditional Formatting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grouping.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grouping Columns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grouping-headers.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grouping Headers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="search.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Search
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-events.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validation.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Validation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="upload-files.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upload Files
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="footer-summary.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Footer Summary
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="autocomplete.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Autocomplete
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="multiselect-filter.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Multiselect Filter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="state-persistence.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    State Persistence
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="html-editor.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTML Editor
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Layout & UI
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Layout & UI
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="responsive-design.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Responsive Design
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="localization.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Localization
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="themes.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Themes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Databases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Databases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-sql-server.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with SQL Server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-postgres.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with Postgres
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-oracle.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with Oracle
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="debug-mode.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debug Mode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Demo Apps
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Demo Apps
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="basic-todo-list-application.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Simple Todo List
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="application-templates.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Application Templates
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Integrations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Integrations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="laravel-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Laravel Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="wordpress-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    WordPress Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="codeigniter-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CodeIgniter Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    FAQs
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            FAQs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="general-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    General FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-appearance-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Appearance FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-appearance-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Appearance FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Column Settings FAQs
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="column-settings-faqs.html" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Column Settings FAQs
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#column-settings-faqs" class="md-nav__link">
+    Column Settings FAQs
+  </a>
+  
+    <nav class="md-nav" aria-label="Column Settings FAQs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-integrate-autocomplete-function" class="md-nav__link">
+    Q) How to integrate autocomplete function?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-get-unqiue-values-in-autocomplete" class="md-nav__link">
+    Q) How can i get unqiue values in autocomplete?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-show-lookup-dropdown-from-other-table-ie-linked-with-fk-data" class="md-nav__link">
+    Q) How can i show lookup dropdown from other table (i.e. linked with FK data)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-set-default-value-to-some-field" class="md-nav__link">
+    Q) How can i set default value to some field?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-populate-other-column-based-on-previous-columns" class="md-nav__link">
+    Q) How to populate other column, based on previous columns?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-enter-intead-of-tab-in-moving-to-next-form-input" class="md-nav__link">
+    Q) How to use ENTER intead of TAB in moving to next form input?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-set-focus-of-some-other-field-while-adding-record" class="md-nav__link">
+    Q) How to set focus of some other field while adding record?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-a-field-only-editable-on-add-dialog-otherwise-un-editable" class="md-nav__link">
+    Q) How to make a field only editable on Add Dialog, otherwise un-editable?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-mask-a-field-for-example-like-this-nn-nnnn-nnnn-n-stands-for-number" class="md-nav__link">
+    Q) How to mask a field, for example like this: (NN) NNNN-NNNN ? N stands for number.
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-change-column-title-at-runtime" class="md-nav__link">
+    Q) How to change column title at runtime ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-geonames-lib-for-city-country-code-autocomplete-lookup" class="md-nav__link">
+    Q) How to GeoNames lib for City, Country, Code autocomplete lookup?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-select2-comboxbox-like-function-with-grid-4-php" class="md-nav__link">
+    Q) How to use 'select2' comboxbox like function with Grid 4 PHP?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-qtip2-with-grid-4-php" class="md-nav__link">
+    Q) How to use 'qtip2' with Grid 4 PHP?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-fill-dropdown-with-different-values-wrt-record" class="md-nav__link">
+    Q) How to fill dropdown with different values w.r.t. record?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-customize-the-toolbar-features-of-html-editor-ckeditor" class="md-nav__link">
+    Q) How to customize the toolbar features of Html editor (CKEditor)?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-frozen-column-does-not-work-what-are-the-limitations" class="md-nav__link">
+    Q) Frozen column does not work. What are the limitations?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-change-language-of-datepicker-control-localization" class="md-nav__link">
+    Q) How to change language of datepicker control (localization)?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-set-minimum-date-of-datepicker-control" class="md-nav__link">
+    Q) How to set minimum date of datepicker control?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="dialog-customization-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dialog Customization FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="javascript-api-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Javascript API FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="databases-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Databases FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="master-detail-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Master Detail FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="export-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Export FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="misc-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#column-settings-faqs" class="md-nav__link">
+    Column Settings FAQs
+  </a>
+  
+    <nav class="md-nav" aria-label="Column Settings FAQs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-integrate-autocomplete-function" class="md-nav__link">
+    Q) How to integrate autocomplete function?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-get-unqiue-values-in-autocomplete" class="md-nav__link">
+    Q) How can i get unqiue values in autocomplete?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-show-lookup-dropdown-from-other-table-ie-linked-with-fk-data" class="md-nav__link">
+    Q) How can i show lookup dropdown from other table (i.e. linked with FK data)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-set-default-value-to-some-field" class="md-nav__link">
+    Q) How can i set default value to some field?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-populate-other-column-based-on-previous-columns" class="md-nav__link">
+    Q) How to populate other column, based on previous columns?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-enter-intead-of-tab-in-moving-to-next-form-input" class="md-nav__link">
+    Q) How to use ENTER intead of TAB in moving to next form input?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-set-focus-of-some-other-field-while-adding-record" class="md-nav__link">
+    Q) How to set focus of some other field while adding record?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-make-a-field-only-editable-on-add-dialog-otherwise-un-editable" class="md-nav__link">
+    Q) How to make a field only editable on Add Dialog, otherwise un-editable?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-mask-a-field-for-example-like-this-nn-nnnn-nnnn-n-stands-for-number" class="md-nav__link">
+    Q) How to mask a field, for example like this: (NN) NNNN-NNNN ? N stands for number.
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-change-column-title-at-runtime" class="md-nav__link">
+    Q) How to change column title at runtime ?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-geonames-lib-for-city-country-code-autocomplete-lookup" class="md-nav__link">
+    Q) How to GeoNames lib for City, Country, Code autocomplete lookup?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-select2-comboxbox-like-function-with-grid-4-php" class="md-nav__link">
+    Q) How to use 'select2' comboxbox like function with Grid 4 PHP?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-qtip2-with-grid-4-php" class="md-nav__link">
+    Q) How to use 'qtip2' with Grid 4 PHP?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-fill-dropdown-with-different-values-wrt-record" class="md-nav__link">
+    Q) How to fill dropdown with different values w.r.t. record?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-customize-the-toolbar-features-of-html-editor-ckeditor" class="md-nav__link">
+    Q) How to customize the toolbar features of Html editor (CKEditor)?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-frozen-column-does-not-work-what-are-the-limitations" class="md-nav__link">
+    Q) Frozen column does not work. What are the limitations?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-change-language-of-datepicker-control-localization" class="md-nav__link">
+    Q) How to change language of datepicker control (localization)?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-set-minimum-date-of-datepicker-control" class="md-nav__link">
+    Q) How to set minimum date of datepicker control?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  <h1>Column Settings FAQs</h1>
+
+<h2 id="column-settings-faqs">Column Settings FAQs</h2>
+<h3 id="q-how-to-integrate-autocomplete-function">Q) How to integrate autocomplete function?</h3>
+<p>Step1: Select ID and Data both in select command. (e.g. client_id, clients.name)</p>
+<div class="language-text highlight"><pre><span></span><code>$g-&gt;select_command = &quot;SELECT id, invdate, invheader.client_id, clients.name as cid, amount, note FROM invheader
+INNER JOIN clients on clients.client_id = invheader.client_id
+&quot;;
+</code></pre></div>
+<p>Step2: Place ID field in grid, (optionally hidden)</p>
+<div class="language-text highlight"><pre><span></span><code>// field that will be updated by autocomplete
+$col = array();
+$col[&quot;title&quot;] = &quot;client_id&quot;;
+$col[&quot;name&quot;] = &quot;client_id&quot;;
+$col[&quot;width&quot;] = &quot;10&quot;;
+$col[&quot;editable&quot;] = true;
+$col[&quot;hidden&quot;] = true;
+$cols[] = $col;
+</code></pre></div>
+<p>Step3: Place DATA field in grid, with autocomplete formatter.</p>
+<div class="language-text highlight"><pre><span></span><code>// normal textbox, with autocomplete enabled
+$col = array();
+$col[&quot;title&quot;] = &quot;Client&quot;;
+$col[&quot;name&quot;] = &quot;cid&quot;;
+$col[&quot;dbname&quot;] = &quot;clients.name&quot;; // this is required as we need to search in name field, not id
+$col[&quot;width&quot;] = &quot;100&quot;;
+$col[&quot;align&quot;] = &quot;left&quot;;
+$col[&quot;search&quot;] = true;
+$col[&quot;editable&quot;] = true;
+$col[&quot;formatter&quot;] = &quot;autocomplete&quot;; // autocomplete
+$col[&quot;formatoptions&quot;] = array(  &quot;sql&quot;=&gt;&quot;SELECT client_id, name FROM clients&quot;,
+                                &quot;search_on&quot;=&gt;&quot;name&quot;,
+                                &quot;update_field&quot; =&gt; &quot;client_id&quot;);
+</code></pre></div>
+<p>It will search in passed SQL for autocomplete, and selection ID will be set in field client_id.</p>
+<h3 id="q-how-can-i-get-unqiue-values-in-autocomplete">Q) How can i get unqiue values in autocomplete?</h3>
+<p>You can change the input SQL to use GROUP BY clause. For example, to get unique 'release', you can use following query.</p>
+<div class="language-text highlight"><pre><span></span><code>$col[&quot;formatoptions&quot;] = array(
+                                &quot;sql&quot;=&gt;&quot;SELECT * FROM (SELECT id as k, release as v FROM tbl_releases GROUP BY release) o&quot;,
+                                &quot;search_on&quot;=&gt;&quot;v&quot;,
+                                &quot;update_field&quot; =&gt; &quot;id&quot;);
+</code></pre></div>
+<h3 id="q-how-can-i-show-lookup-dropdown-from-other-table-ie-linked-with-fk-data">Q) How can i show lookup dropdown from other table (i.e. linked with FK data)</h3>
+<p>First step is to select the table which you want to use in grid, which will include table join.</p>
+<div class="language-text highlight"><pre><span></span><code>$g-&gt;select_command = &quot;SELECT id, invdate, invheader.client_id, amount, note FROM invheader
+                        INNER JOIN clients on clients.client_id = invheader.client_id
+                        &quot;;
+</code></pre></div>
+<p>After that, you need to define column like this.</p>
+<div class="language-text highlight"><pre><span></span><code>$col = array();
+$col[&quot;title&quot;] = &quot;Client&quot;;
+$col[&quot;name&quot;] = &quot;client_id&quot;; // same as aliased name (fk)
+$col[&quot;dbname&quot;] = &quot;clients.name&quot;; // this is required as we need to search in name field, not id
+...
+$col[&quot;edittype&quot;] = &quot;select&quot;; // render as select
+
+# fetch data from database, with alias k for key, v for value
+$str = $g-&gt;get_dropdown_values(&quot;select distinct client_id as k, name as v from clients&quot;);
+$col[&quot;editoptions&quot;] = array(&quot;value&quot;=&gt;$str);
+
+$col[&quot;formatter&quot;] = &quot;select&quot;; // show label in grid, instead of value
+
+$cols[] = $col;
+</code></pre></div>
+<p>Refer dropdown.php for working demo.</p>
+<h3 id="q-how-can-i-set-default-value-to-some-field">Q) How can i set default value to some field?</h3>
+<p>You can set it by following code.</p>
+<div class="language-text highlight"><pre><span></span><code>// This will set textbox with 10 as default value.
+$col[&quot;editoptions&quot;] = array(&quot;size&quot;=&gt;20, &quot;defaultValue&quot;=&gt;&#39;10&#39;);
+
+// This will set current date as default value.
+$col[&quot;editoptions&quot;] = array(&quot;size&quot;=&gt;20, &quot;defaultValue&quot;=&gt; date(&quot;Y-m-d H:i:s&quot;) );
+</code></pre></div>
+<p>Make sure that column has editable =&gt; true, You can make hidden =&gt; true if you dont want to show it (like in case of session id data)</p>
+<h3 id="q-how-to-populate-other-column-based-on-previous-columns">Q) How to populate other column, based on previous columns?</h3>
+<p>Solution 1: In following example, text3 will be calculated based on text1 &amp; text2. You can use onblur event and do your own JS code to set value. You can also inspect the ID of elements of form using firebug.</p>
+<div class="language-text highlight"><pre><span></span><code>$col = array();
+$col[&quot;title&quot;] = &quot;Height&quot;;
+$col[&quot;name&quot;] = &quot;height&quot;;
+$col[&quot;editable&quot;] = true;
+$col[&quot;editoptions&quot;] = array(&quot;onblur&quot; =&gt; &quot;update_field()&quot;);
+$cols[] = $col;
+
+$col = array();
+$col[&quot;title&quot;] = &quot;Width&quot;;
+$col[&quot;name&quot;] = &quot;width&quot;;
+$col[&quot;editable&quot;] = true;
+$col[&quot;editoptions&quot;] = array(&quot;onblur&quot; =&gt; &quot;update_field()&quot;);
+$cols[] = $col;
+
+$col = array();
+$col[&quot;title&quot;] = &quot;Area&quot;;
+$col[&quot;name&quot;] = &quot;area&quot;;
+$col[&quot;editable&quot;] = true;
+$cols[] = $col;
+</code></pre></div>
+<p>and in html, put following js function to calculate field.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function update_field()
+{
+    // for inline (any tag input, textarea or select)
+    jQuery(&#39;[name=&quot;area&quot;].editable&#39;).val(
+                        parseFloat(jQuery(&#39;[name=&quot;width&quot;].editable&#39;).val()) *
+                        parseFloat(jQuery(&#39;[name=&quot;height&quot;].editable&#39;).val())
+                        );
+
+    // for dialog (any tag input, textarea or select)
+    jQuery(&#39;[name=&quot;area&quot;].FormElement&#39;).val(
+                        parseFloat(jQuery(&#39;[name=&quot;width&quot;].FormElement&#39;).val()) *
+                        parseFloat(jQuery(&#39;[name=&quot;height&quot;].FormElement&#39;).val())
+                        );
+}
+&lt;/script&gt;
+</code></pre></div>
+<p>You can inspect the field id.using firebug and use jquery functions to disable / enable desired field.
+To know jquery selector:</p>
+<div class="language-text highlight"><pre><span></span><code>http://easycaptures.com/fs/uploaded/1017/9892108434.png
+http://easycaptures.com/fs/uploaded/1017/9617668813.png
+</code></pre></div>
+<p>Solution 2: This is also doable on server side with callback functions: e.g. We want to have sum of 
+field <code>a</code> and <code>b</code> in field <code>c</code> which may or may not be shown on form.</p>
+<div class="language-text highlight"><pre><span></span><code>$e[&quot;on_update&quot;] = array(&quot;update_field&quot;, null, true);
+$e[&quot;on_insert&quot;] = array(&quot;update_field&quot;, null, true);
+$g-&gt;set_events($e);
+
+function update_field($data)
+{
+    $data[&quot;params&quot;][&quot;c&quot;] = $data[&quot;params&quot;][&quot;a&quot;] + $data[&quot;params&quot;][&quot;b&quot;]
+}
+</code></pre></div>
+<p>Whatever value of <code>a</code> &amp; <code>b</code> are posted back they will be summed and used for column <code>c</code> 
+in sql query internally executed by library.</p>
+<h3 id="q-how-to-use-enter-intead-of-tab-in-moving-to-next-form-input">Q) How to use ENTER intead of TAB in moving to next form input?</h3>
+<p>Following JS code will emulate ENTER as TAB. Put this script code before <code>echo $out</code>;</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+    var opts = {
+        &#39;loadComplete&#39;: function () {
+            $(&#39;body&#39;).on(&#39;keydown&#39;, &#39;input, select, textarea&#39;, function(e) {
+                var self = $(this)
+                  , form = self.parents(&#39;form:eq(0)&#39;)
+                  , focusable
+                  , next
+                  ;
+                if (e.keyCode == 13) {
+                    focusable = form.find(&#39;input,a,select,button,textarea&#39;).filter(&#39;:visible&#39;);
+                    next = focusable.eq(focusable.index(this)+1);
+                    if (next.length) {
+                        next.focus();
+                    } else {
+                        form.submit();
+                    }
+                    return false;
+                }
+            });
+        }
+    };
+&lt;/script&gt;
+...
+&lt;div&gt;
+&lt;?php echo $out?&gt;
+&lt;/div&gt;
+</code></pre></div>
+<h3 id="q-how-to-set-focus-of-some-other-field-while-adding-record">Q) How to set focus of some other field while adding record?</h3>
+<p>This JS event enables you to set customization in add/edit forms just after they are displayed.
+For e.g.</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;add_options&quot;][&quot;afterShowForm&quot;] = &#39;function(formid) { jQuery(&quot;#date&quot;).focus(); }&#39;;
+$g-&gt;set_options($grid);
+</code></pre></div>
+<h3 id="q-how-to-make-a-field-only-editable-on-add-dialog-otherwise-un-editable">Q) How to make a field only editable on Add Dialog, otherwise un-editable?</h3>
+<p>We'll set the "name" column as editable-&gt;false by default. Then we'll enable it on add dialog using following grid settings.</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;add_options&quot;][&quot;beforeInitData&quot;] = &quot;function(formid) { $(&#39;#list1&#39;).jqGrid(&#39;setColProp&#39;,&#39;name&#39;,{editable:true}); }&quot;;
+$grid[&quot;add_options&quot;][&quot;afterShowForm&quot;] = &quot;function(formid) { $(&#39;#list1&#39;).jqGrid(&#39;setColProp&#39;,&#39;name&#39;,{editable:false}); }&quot;;
+...
+$g-&gt;set_options($grid);
+</code></pre></div>
+<p>Where "list1" is ID of grid passed in render() function, and "name" is the column to make editable on Add Dialog.</p>
+<h3 id="q-how-to-mask-a-field-for-example-like-this-nn-nnnn-nnnn-n-stands-for-number">Q) How to mask a field, for example like this: (NN) NNNN-NNNN ? N stands for number.</h3>
+<p>You can pick input jquery id selectors, and link it using any lib.</p>
+<p>Library 1: For e.g. http://igorescobar.github.io/jQuery-Mask-Plugin/</p>
+<p>Step1: Add JS lib</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script src=&quot;//cdnjs.cloudflare.com/ajax/libs/jquery.mask/0.9.0/jquery.mask.min.js&quot;&gt;&lt;/script&gt;
+</code></pre></div>
+<p>Step2: Set field integration, usually $col['name'] is ID of html element</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;add_options&quot;][&quot;afterShowForm&quot;] = &#39;function(formid) { jQuery(&quot;#amount&quot;).mask(&quot;000.00&quot;); }&#39;;
+$opt[&quot;edit_options&quot;][&quot;afterShowForm&quot;] = &#39;function(formid) { jQuery(&quot;#amount&quot;).mask(&quot;000.00&quot;); }&#39;;
+$g-&gt;set_options($opt);
+</code></pre></div>
+<p>For more options, refer: http://igorescobar.github.io/jQuery-Mask-Plugin/</p>
+<p>Library 2: For e.g. http://github.com/RobinHerbots/jquery.inputmask</p>
+<p>Step1: Add JS lib</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;!-- masked fields--&gt;
+&lt;script src=&quot;js/jquery.inputmask.js&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;js/jquery.inputmask.date.extensions.js&quot; &gt;&lt;/script&gt;
+&lt;script src=&quot;js/jquery.inputmask.numeric.extensions.js&quot;&gt;&lt;/script&gt;
+
+&lt;!-- OR use github link --&gt;
+&lt;script src=&quot;//rawgit.com/RobinHerbots/jquery.inputmask/3.x/dist/jquery.inputmask.bundle.js&quot;&gt;&lt;/script&gt;
+</code></pre></div>
+<p>Step2: Set field integration, usually $col['name'] is ID of html element</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;edit_options&quot;][&quot;afterShowForm&quot;] = &#39;function(list1) {
+    jQuery(&quot;#StartDate&quot;).inputmask(&quot;mm/dd/yyyy&quot;, {yearrange: { minyear: 2010, maxyear: 2020 }});
+    jQuery(&quot;#Worth&quot;).inputmask(&quot;currency&quot;, {prefix:&quot;$ &quot;,groupSeparator:&quot;,&quot;,alias:&quot;numeric&quot;,placeholder:&quot;0&quot;,autoGroup:!0,digits:2,digitsOptional:!1,clearMaskOnLostFocus:!1});
+ }&#39;;
+</code></pre></div>
+<p>For more options, refer: http://robinherbots.github.io/jquery.inputmask</p>
+<h3 id="q-how-to-change-column-title-at-runtime">Q) How to change column title at runtime ?</h3>
+<p>Following JS code will change the column title in grid, where <code>list1</code> is grid id and 'name` is column name.</p>
+<div class="language-text highlight"><pre><span></span><code>jQuery(&quot;#list1&quot;).setLabel(&quot;name&quot;,&quot;Client Name&quot;);
+</code></pre></div>
+<p>You can also use HTML in column title. (for e.g. setting image as column title)</p>
+<h3 id="q-how-to-geonames-lib-for-city-country-code-autocomplete-lookup">Q) How to GeoNames lib for City, Country, Code autocomplete lookup?</h3>
+<p>Simple include Geonames JS lib in html</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script src=&quot;http://tompi.github.io/jeoquery/jeoquery.js&quot; type=&quot;text/javascript&quot;&gt;&lt;/script&gt;
+</code></pre></div>
+<p>And use dataInit property for autocomplete lookup:</p>
+<div class="language-text highlight"><pre><span></span><code>$col = array();
+$col[&quot;title&quot;] = &quot;City Name&quot;;
+$col[&quot;name&quot;] = &quot;city&quot;;
+$col[&quot;editable&quot;] = true;
+$col[&quot;width&quot;] = &quot;40&quot;;
+$col[&quot;editoptions&quot;][&quot;dataInit&quot;] = &quot;function(o){  jQuery(o).jeoCityAutoComplete(); }&quot;;
+$cols[] = $col;
+</code></pre></div>
+<h3 id="q-how-to-use-select2-comboxbox-like-function-with-grid-4-php">Q) How to use 'select2' comboxbox like function with Grid 4 PHP?</h3>
+<p>1) Added 'dataInit' line with select column:</p>
+<div class="language-text highlight"><pre><span></span><code>$col = array();
+$col[&quot;title&quot;] = &quot;Client&quot;;
+$col[&quot;name&quot;] = &quot;client_id&quot;;
+$col[&quot;editable&quot;] = true;
+$col[&quot;edittype&quot;] = &quot;select&quot;;
+$col[&quot;editoptions&quot;][&quot;dataInit&quot;] = &quot;function(){ setTimeout(function(){ $(&#39;select[name=client_id]&#39;).select2({width:&#39;80%&#39;, dropdownCssClass: &#39;ui-widget ui-jqdialog&#39;}); },200); }&quot;;
+...
+$cols[] = $col;
+</code></pre></div>
+<p>2) Added select2 JS/CSS files:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;link href=&quot;//cdnjs.cloudflare.com/ajax/libs/select2/3.4.6/select2.css&quot; rel=&quot;stylesheet&quot;/&gt;
+&lt;script src=&quot;//cdnjs.cloudflare.com/ajax/libs/select2/3.4.6/select2.min.js&quot;&gt;&lt;/script&gt;
+</code></pre></div>
+<p>You can further add 'select2' options by referring it's <a href="http://ivaynberg.github.io/select2/">documentation</a>, and placing param with in dataInit code: .select2({ ... });</p>
+<h3 id="q-how-to-use-qtip2-with-grid-4-php">Q) How to use 'qtip2' with Grid 4 PHP?</h3>
+<p>1) Include JS/CSS</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;link rel=&quot;stylesheet&quot; href=&quot;//cdn.jsdelivr.net/qtip2/2.2.1/jquery.qtip.min.css&quot;&gt;
+&lt;script src=&quot;//cdn.jsdelivr.net/qtip2/2.2.1/jquery.qtip.min.js&quot;&gt;&lt;/script&gt;
+</code></pre></div>
+<p>2) Connect onload event</p>
+<div class="language-text highlight"><pre><span></span><code>$grid[&quot;loadComplete&quot;] = &quot;function(){ connect_qtip(); }&quot;;
+$g-&gt;set_options($grid);
+</code></pre></div>
+<p>3) Connect qtip2 e.g. for all title attributes</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;style&gt;
+.qtip-content{
+    font-family: tahoma, helvetica, &#39;sans-serif&#39;;
+}
+&lt;/style&gt;
+
+&lt;script&gt;
+function connect_qtip()
+{
+    jQuery(&#39;[title]&#39;).qtip({
+                                position: {
+                                my: &#39;bottom left&#39;,  // Position my top left...
+                                at: &#39;top left&#39; // at the bottom right of...
+                                }
+                        });
+}
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-fill-dropdown-with-different-values-wrt-record">Q) How to fill dropdown with different values w.r.t. record?</h3>
+<p>You can do it using dataInit event handler.</p>
+<div class="language-text highlight"><pre><span></span><code>$col[&quot;editoptions&quot;][&quot;dataInit&quot;] = &quot;function(){ setTimeout(function(){ load_dd(); },200); }&quot;;
+</code></pre></div>
+<p>Based on some input value (e.g. invdate=2015-02-18) you can change options of dropdown.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+function load_dd()
+{
+    var grid = $(&#39;#list1&#39;);
+    var selectValues;
+
+    if ($(&#39;input[name=invdate]&#39;).val() == &#39;2015-02-18&#39;)
+        selectValues = { &quot;1&quot;: &quot;test 1&quot;, &quot;2&quot;: &quot;test 2&quot; };
+    else
+        selectValues = { &quot;3&quot;: &quot;test 3&quot;, &quot;4&quot;: &quot;test 4&quot; };
+
+    $(&#39;select[name=client_id]&#39;).html(&#39;&#39;);
+
+    $.each(selectValues, function(key, value) {
+         $(&#39;select[name=client_id]&#39;)
+              .append($(&#39;&lt;option&gt;&#39;, { value : key })
+              .text(value));
+    });
+}
+&lt;/script&gt;
+</code></pre></div>
+<p>Sample code: http://hastebin.com/eqedajegov.php</p>
+<h3 id="q-how-to-customize-the-toolbar-features-of-html-editor-ckeditor">Q) How to customize the toolbar features of Html editor (CKEditor)?</h3>
+<p>You can customize buttons in config.js of CK editor. (\lib\js\ckeditor\config.js)
+CK editor docs: http://docs.ckeditor.com/#!/guide/dev_toolbar</p>
+<p>Sample config.js contents:</p>
+<div class="language-text highlight"><pre><span></span><code>CKEDITOR.editorConfig = function( config ) {
+    // Define changes to default configuration here.
+    // For complete reference see:
+    // http://docs.ckeditor.com/#!/api/CKEDITOR.config
+
+    // The toolbar groups arrangement, optimized for two toolbar rows.
+    config.toolbarGroups = [
+        { name: &#39;clipboard&#39;,   groups: [ &#39;clipboard&#39;, &#39;undo&#39; ] },
+        { name: &#39;editing&#39;,     groups: [ &#39;find&#39;, &#39;selection&#39; ] },
+        { name: &#39;links&#39; },
+        { name: &#39;insert&#39; },
+        { name: &#39;forms&#39; },
+        { name: &#39;tools&#39; },
+        { name: &#39;document&#39;,    groups: [ &#39;document&#39;, &#39;doctools&#39; ] },
+        { name: &#39;others&#39; },
+        &#39;/&#39;,
+        { name: &#39;basicstyles&#39;, groups: [ &#39;basicstyles&#39;, &#39;cleanup&#39; ] },
+        { name: &#39;paragraph&#39;,   groups: [ &#39;list&#39;, &#39;indent&#39;, &#39;blocks&#39;, &#39;align&#39;, &#39;bidi&#39; ] },
+        { name: &#39;styles&#39; },
+        { name: &#39;colors&#39; },
+    ];
+
+    // Remove some buttons provided by the standard plugins, which are
+    // not needed in the Standard(s) toolbar.
+    config.removeButtons = &#39;Underline,Subscript,Superscript&#39;;
+
+    // Set the most common block elements.
+    config.format_tags = &#39;p;h1;h2;h3;pre&#39;;
+
+    // Simplify the dialog windows.
+    config.removeDialogTabs = &#39;image:advanced;link:advanced&#39;;
+
+    config.extraPlugins=&#39;onchange&#39;;
+    config.skin = &#39;bootstrapck&#39;;
+    // config.width = &#39;300px&#39;;
+    config.minimumChangeMilliseconds = 100; // 100 milliseconds (default value)
+};
+</code></pre></div>
+<h3 id="q-frozen-column-does-not-work-what-are-the-limitations">Q) Frozen column does not work. What are the limitations?</h3>
+<p>The following limitations tell you when frozen columns can not be set-up</p>
+<ul>
+<li>When SubGrid is enabled</li>
+<li>When cellEdit is enabled</li>
+<li>When inline edit is used - the frozen columns can not be edit.</li>
+<li>When sortable columns are enabled - grid parameter sortable is set to true or is function</li>
+<li>When scroll is set to true or 1</li>
+<li>When Data grouping is enabled</li>
+<li>When footer row (footerrow paremeter) is enabled</li>
+</ul>
+<h3 id="q-how-to-change-language-of-datepicker-control-localization">Q) How to change language of datepicker control (localization)?</h3>
+<p>Add following code in html head, after downloading and setting lang file path. e.g.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script src=&quot;//cdn.jsdelivr.net/gh/jquery/jquery-ui@master/ui/i18n/datepicker-ar.js&quot;&gt;&lt;/script&gt;
+&lt;script&gt;
+$.datepicker.setDefaults( $.datepicker.regional[ &quot;ar&quot; ] );
+&lt;/script&gt;
+</code></pre></div>
+<p>All language files can be downloaded from: https://github.com/jquery/jquery-ui/tree/master/ui/i18n</p>
+<h3 id="q-how-to-set-minimum-date-of-datepicker-control">Q) How to set minimum date of datepicker control?</h3>
+<p>You can set opts array (in formatoptions) which can have these options: http://api.jqueryui.com/datepicker/</p>
+<div class="language-text highlight"><pre><span></span><code>$col[&quot;formatoptions&quot;] = array(&quot;srcformat&quot;=&gt;&#39;Y-m-d&#39;,&quot;newformat&quot;=&gt;&#39;d.m.Y&#39;,
+                                &quot;opts&quot; =&gt; array(&quot;changeYear&quot; =&gt; true, &quot;dateFormat&quot;=&gt;&#39;yy-mm-dd&#39;, &quot;minDate&quot;=&gt;&quot;15-07-08&quot;));
+</code></pre></div>
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="column-appearance-faqs.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Column Appearance FAQs" rel="prev">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Column Appearance FAQs
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="dialog-customization-faqs.html" class="md-footer__link md-footer__link--next" aria-label="Next: Dialog Customization FAQs" rel="next">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Dialog Customization FAQs
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 - Grid 4 PHP Framework
+    </div>
+  
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://x.com/gridphp" target="_blank" rel="noopener" title="x.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/abu-ghufran-bb22a512a" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://web.facebook.com/PHP-Grid-Framework-268762813193993/" target="_blank" rel="noopener" title="web.facebook.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M504 256C504 119 393 8 256 8S8 119 8 256c0 123.78 90.69 226.38 209.25 245V327.69h-63V256h63v-54.64c0-62.15 37-96.48 93.67-96.48 27.14 0 55.52 4.84 55.52 4.84v61h-31.28c-30.8 0-40.41 19.12-40.41 38.73V256h68.78l-11 71.69h-57.78V501C413.31 482.38 504 379.78 504 256z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/gridphp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": ".", "features": ["content.code.copy", "content.code.select", "navigation.top", "search.highlight", "search.suggest", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.path", "toc.follow", "navigation.tabs"], "search": "assets/javascripts/workers/search.dfff1995.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.dff1b7c8.min.js"></script>
+      
+        <script src="extra/extra.js"></script>
+      
+        <script src="js/open_in_new_tab.js"></script>
+      
+    
+  <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(() => { lightbox.reload() });
+</script></body>
+</html>

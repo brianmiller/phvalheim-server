@@ -1,19 +1,24 @@
 <?php
-/*
-V5.20dev  ??-???-2014  (c) 2000-2014 John Lim. All rights reserved.
-  Released under both BSD license and Lesser GPL library license.
-  Whenever there is any discrepancy between the two licenses,
-  the BSD license will take precedence.
-  Set tabs to 4 for best viewing.
-
-  Latest version is available at http://adodb.sourceforge.net
-
-  Sybase driver contributed by Toni (toni.tunkkari@finebyte.com)
-
-  - MSSQL date patch applied.
-
-  Date patch by Toni 15 Feb 2002
-*/
+/**
+ * Sybase driver
+ *
+ * This file is part of ADOdb, a Database Abstraction Layer library for PHP.
+ *
+ * @package ADOdb
+ * @link https://adodb.org Project's web site and documentation
+ * @link https://github.com/ADOdb/ADOdb Source code and issue tracker
+ *
+ * The ADOdb Library is dual-licensed, released under both the BSD 3-Clause
+ * and the GNU Lesser General Public Licence (LGPL) v2.1 or, at your option,
+ * any later version. This means you can use it in proprietary products.
+ * See the LICENSE.md file distributed with this source code for details.
+ * @license BSD-3-Clause
+ * @license LGPL-2.1-or-later
+ *
+ * @copyright 2000-2013 John Lim
+ * @copyright 2014 Damien Regad, Mark Newnham and the ADOdb community
+ * @author Toni Tunkkari <toni.tunkkari@finebyte.com>
+ */
 
  // security - hide paths
 if (!defined('ADODB_DIR')) die();
@@ -42,15 +47,15 @@ class ADODB_sybase extends ADOConnection {
 
 	var $port;
 
-	function __construct()
-	{
-	}
-
-	// might require begintrans -- committrans
-	function _insertid()
+	/**
+	 * might require begintrans -- committrans
+	 * @inheritDoc
+	 */
+	protected function _insertID($table = '', $column = '')
 	{
 		return $this->GetOne('select @@identity');
 	}
+
 	  // might require begintrans -- committrans
 	function _affectedrows()
 	{
@@ -90,7 +95,9 @@ class ADODB_sybase extends ADOConnection {
 	// http://www.isug.com/Sybase_FAQ/ASE/section6.1.html#6.1.4
 	function RowLock($tables,$where,$col='top 1 null as ignore')
 	{
-		if (!$this->_hastrans) $this->BeginTrans();
+		if (!$this->hasTransactions) {
+			$this->BeginTrans();
+		}
 		$tables = str_replace(',',' HOLDLOCK,',$tables);
 		return $this->GetOne("select $col from $tables HOLDLOCK where $where");
 
@@ -99,7 +106,6 @@ class ADODB_sybase extends ADOConnection {
 	function SelectDB($dbName)
 	{
 		$this->database = $dbName;
-		$this->databaseName = $dbName; # obsolete, retained for compat with older adodb versions
 		if ($this->_connectionID) {
 			return @sybase_select_db($dbName);
 		}
@@ -115,8 +121,10 @@ class ADODB_sybase extends ADOConnection {
 		if ($this->_logsql) return $this->_errorMsg;
 		if (function_exists('sybase_get_last_message'))
 			$this->_errorMsg = sybase_get_last_message();
-		else
-			$this->_errorMsg = isset($php_errormsg) ? $php_errormsg : 'SYBASE error messages not supported on this platform';
+		else {
+			$this->_errorMsg = 'SYBASE error messages not supported on this platform';
+		}
+
 		return $this->_errorMsg;
 	}
 
@@ -131,9 +139,9 @@ class ADODB_sybase extends ADOConnection {
 		}
 
 		if ($this->charSet) {
-			$this->_connectionID = sybase_connect($argHostname,$argUsername,$argPassword, $this->charSet);
+			$this->_connectionID = @sybase_connect($argHostname,$argUsername,$argPassword, $this->charSet);
 		} else {
-			$this->_connectionID = sybase_connect($argHostname,$argUsername,$argPassword);
+			$this->_connectionID = @sybase_connect($argHostname,$argUsername,$argPassword);
 		}
 
 		if ($this->_connectionID === false) return false;
@@ -152,9 +160,9 @@ class ADODB_sybase extends ADOConnection {
 		}
 
 		if ($this->charSet) {
-			$this->_connectionID = sybase_pconnect($argHostname,$argUsername,$argPassword, $this->charSet);
+			$this->_connectionID = @sybase_pconnect($argHostname,$argUsername,$argPassword, $this->charSet);
 		} else {
-			$this->_connectionID = sybase_pconnect($argHostname,$argUsername,$argPassword);
+			$this->_connectionID = @sybase_pconnect($argHostname,$argUsername,$argPassword);
 		}
 
 		if ($this->_connectionID === false) return false;
@@ -162,12 +170,11 @@ class ADODB_sybase extends ADOConnection {
 		return true;
 	}
 
-	// returns query ID if successful, otherwise false
 	function _query($sql,$inputarr=false)
 	{
 	global $ADODB_COUNTRECS;
 
-		if ($ADODB_COUNTRECS == false && ADODB_PHPVER >= 0x4300)
+		if ($ADODB_COUNTRECS == false)
 			return sybase_unbuffered_query($sql,$this->_connectionID);
 		else
 			return sybase_query($sql,$this->_connectionID);
@@ -316,7 +323,7 @@ class ADORecordset_sybase extends ADORecordSet {
 		}
 		if (!$mode) $this->fetchMode = ADODB_FETCH_ASSOC;
 		else $this->fetchMode = $mode;
-		parent::__construct($id,$mode);
+		parent::__construct($id);
 	}
 
 	/*	Returns: an object containing field information.
@@ -389,12 +396,8 @@ class ADORecordset_sybase extends ADORecordSet {
 }
 
 class ADORecordSet_array_sybase extends ADORecordSet_array {
-	function __construct($id=-1)
-	{
-		parent::__construct($id);
-	}
 
-		// sybase/mssql uses a default date like Dec 30 2000 12:00AM
+	// sybase/mssql uses a default date like Dec 30 2000 12:00AM
 	static function UnixDate($v)
 	{
 	global $ADODB_sybase_mths;

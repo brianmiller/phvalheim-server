@@ -1,0 +1,5660 @@
+<!-- title: PHP Grid Framework Documentation -->
+<!-- subtitle: Superchange your development speed -->
+
+# Grid 4 PHP Framework Documentation
+
+## Introduction
+
+### Overview
+
+![Getting Started Overview](//www.gridphp.com/wp-content/gallery/documentation/getting-started.png)
+
+Grid 4 PHP Framework is a RAD tool that enables development of PHP based project far more faster.
+Grid component itself contain a CRUD (create,read,update,delete) function which reduce the repeated work load.
+It support connection to all major database engines including SQL Server, Oracle, IBM DB2, MySQL, Postgres and others.
+It has master-detail, subgrid, data grouping, file uploading, excel mode and many other features.
+
+## Setup
+
+### Requirements
+
+On server side, we need:
+
+1) A Webserver running PHP v5.6+ (v5.6 and onwards)
+
+2) Database server (MySql, SQL Server, Oracle, SQLite or any other you use)
+
+On client side, we have tested it on famous browsers of Windows, MacOS and Linux.
+
+### Installing Demos using Web Installer
+
+1) Extract the downloaded product archive in web root. e.g. www/gridphp
+
+2) Open it in browser to run installer. e.g. http://localhost/gridphp and following the intallation steps.
+
+### Installing Demos Manually
+
+1) Execute "demos/sample-db/database-mysql.sql" on a Mysql Database. It will create 'griddemo' database. For SQL Server installation same process can be followed using database-mssql.sql file.
+
+2) Place all files in a directory on the web server. e.g. ".../www/gridphp/"
+
+3) Rename config.sample.php to config.php, and update database config. e.g.
+
+	define("PHPGRID_DBTYPE","mysqli");
+	define("PHPGRID_DBHOST","localhost");
+	define("PHPGRID_DBUSER","root");
+	define("PHPGRID_DBPASS","");
+	define("PHPGRID_DBNAME","griddemo");
+
+	// It will work in normal cases, unless you change lib folder location
+	define("PHPGRID_LIBPATH",dirname(__FILE__).DIRECTORY_SEPARATOR."lib".DIRECTORY_SEPARATOR);
+
+4) Run the product demos in browser. e.g. http://localhost/gridphp/index.php
+
+### Integration in your Project
+
+To integration in your app, copy 'lib' folder to your project. You need to consider 3 things.
+
+1) Set DB config
+
+	$db_conf = array();
+	$db_conf["type"] = "mysqli";
+	$db_conf["server"] = PHPGRID_DBHOST; // or you mysql ip
+	$db_conf["user"] = PHPGRID_DBUSER; // username
+	$db_conf["password"] = PHPGRID_DBPASS; // password
+	$db_conf["database"] = PHPGRID_DBNAME; // database
+
+	// pass connection array to jqgrid()
+	$g = new jqgrid($db_conf);
+
+2) The folder `../../lib` will be replaced by path where you place `lib` folder (if changed)
+
+	<link rel="stylesheet" type="text/css" media="screen" href="../../lib/js/themes/start/jquery-ui.custom.css"></link>
+	<link rel="stylesheet" type="text/css" media="screen" href="../../lib/js/jqgrid/css/ui.jqgrid.css"></link>
+	<script src="../../lib/js/jquery.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/jqgrid/js/i18n/grid.locale-en.js" type="text/javascript"></script>
+	<script src="../../lib/js/jqgrid/js/jquery.jqGrid.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/themes/jquery-ui.custom.min.js" type="text/javascript"></script>
+
+3) Update include path where you place `lib/inc/` folder (if changed)
+
+	include("../../lib/inc/jqgrid_dist.php");
+	$g = new jqgrid($db_conf);
+
+### Upgrading from older version
+
+To upgrade you just need to update files of two folder `lib/inc` & `lib/js`.
+
+- Take a backup of current `lib/inc` & `lib/js` folders.
+- Replace `lib/inc` & `lib/js` from the new version archive to your existing datagrid implementation.  
+- You may need to clear browser cache to remove the effect of previous JS and CSS files.
+
+Same process applies when upgrading from free version to full version.
+
+### Upgrading to v2.8 from previous versions
+
+If you are using custom toolbar buttons, there a slight change required after upgrade.
+
+Previous implementation is to have JS code in following way:
+	
+	jQuery("#list1").jqGrid('navButtonAdd',"#list1_pager",{...});
+	jQuery("#list1").jqGrid('navButtonAdd',"#list1_pager",{...});
+			
+In v2.8 and onwards, move this code inside a setTimeout() delay of 10ms:
+
+	setTimeout(()=>{
+
+		jQuery("#list1").jqGrid('navButtonAdd',"#list1_pager",{...});
+		jQuery("#list1").jqGrid('navButtonAdd',"#list1_pager",{...});
+
+	},10);
+	
+## Creating First Grid
+
+Step1: Add PHP Grid configuration code
+
+	<?php
+	include_once("../../config.php");
+
+	// include and create object
+	include(PHPGRID_LIBPATH."inc/jqgrid_dist.php");
+
+	$db_conf = array(
+						"type" 		=> PHPGRID_DBTYPE,
+						"server" 	=> PHPGRID_DBHOST,
+						"user" 		=> PHPGRID_DBUSER,
+						"password" 	=> PHPGRID_DBPASS,
+						"database" 	=> PHPGRID_DBNAME
+					);
+
+	$g = new jqgrid($db_conf);
+
+	// set few params
+	$opt["caption"] = "Sample Grid";
+	$g->set_options($opt);
+
+	// set database table for CRUD operations
+	$g->table = "clients";
+
+	// render grid and get html/js output
+	$out = $g->render("list1");
+	?>
+
+Step2: Include JS and CSS files in your html page
+
+	<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+	<html>
+	<head>
+
+		<!-- these css and js files are required by php grid -->
+		<link rel="stylesheet" href="../../lib/js/themes/redmond/jquery-ui.custom.css"></link>
+		<link rel="stylesheet" href="../../lib/js/jqgrid/css/ui.jqgrid.css"></link>
+		<script src="../../lib/js/jquery.min.js" type="text/javascript"></script>
+		<script src="../../lib/js/jqgrid/js/i18n/grid.locale-en.js" type="text/javascript"></script>
+		<script src="../../lib/js/jqgrid/js/jquery.jqGrid.min.js" type="text/javascript"></script>
+		<script src="../../lib/js/themes/jquery-ui.custom.min.js" type="text/javascript"></script>
+		<!-- these css and js files are required by php grid -->
+
+	</head>
+
+Step3: Print the `$out` variable where you wish to display grid.
+
+	<body>
+		<div>
+
+		<!-- display grid here -->
+		<?php echo $out?>
+		<!-- display grid here -->
+
+		</div>
+	</body>
+	</html>
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/editing/index.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/editing/index.php)
+- You can check this demo in archive `demos/editing/index.php`
+
+### Explanation
+
+- The PHP Part configured the grid and rendered the output to $out variable.
+- In HTML Part, we displayed the generated grid code `$out` along with few external css/js files. It's upto you to place external css and js files at appropriate locations.
+- `->set_options()` function is most of the customization, we'll be covering later.
+- `->table` is required, to enable automatic select,add,update,delete operations on that table. By default all columns of the table are selected on grid. We'll review how to select particular columns.
+- `->render()` will generate the final output, to be displayed in view. It takes **Grid ID** as input, which should be unique on a page.
+
+## Selecting Columns
+
+By default, when we define the `->table` property, it displays all the columns of table. 
+
+### Customizing All Columns
+
+We can pick certain columns to be displayed on grid by using `->set_columns($cols)` function.
+
+	$col = array();
+	$col["title"] = "Id"; // caption of column, can use HTML tags too
+	$col["name"] = "client_id"; // grid column name, same as db field or alias from sql
+	$col["width"] = "20"; // width on grid
+	$col["editable"] = true;
+	$cols[] = $col;
+
+	$col = array();
+	$col["title"] = "Name"; // caption of column, can use HTML tags too
+	$col["name"] = "name"; // grid column name, same as db field or alias from sql
+	$col["width"] = "40"; // width on grid
+	$col["editable"] = true;
+	$cols[] = $col;
+
+	$col = array();
+	$col["title"] = "Gender"; // caption of column, can use HTML tags too
+	$col["name"] = "gender"; // grid column name, same as db field or alias from sql
+	$col["width"] = "60"; // width on grid
+	$col["editable"] = true;
+	$cols[] = $col;
+
+	// pass the cooked columns to grid
+	$g->set_columns($cols);
+
+### Customizing Desired Columns
+
+If you want to customize any specific column properties, and let other columns be displayed from table definition, you can pass 2nd argument of `set_columns($cols,true)` to `true`.
+
+	$col = array();
+	$col["name"] = "company";
+	$col["edittype"] = "textarea";
+	$cols[] = $col;
+
+	$g->set_columns($cols,true);
+
+Only column with name 'company' will be changed to textarea and rest table column will be displayed as they were before.
+
+**NOTE**: The first column must have unique data (usually PK) in order to work properly. It is required to identify and perform row wise operations. You can make it hidden in grid if you wish. See `hidden` property in later section for more.
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/appearance/image.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/appearance/image.php)
+- You can check this demo in archive `demos/appearance/image.php`
+
+## Column Options
+
+We can also customize each column properties. Following are the parameters, that can be passed to customize column definition on grid.
+
+### Caption shown on grid
+
+	$col["title"] = "Details";
+
+### DB Field name (or alias) in sql query / table
+
+	$col["name"] = "view_more";
+
+### DB Field Name (table.field)
+
+In case of field name ambiguity b/w tables, set as table.fieldname
+
+	$col["dbname"] = "c.id";
+
+### Width of the Column
+
+	$col["width"] = "20";
+
+	// to set exact pixel width
+	$col["fixed"] = true;
+	$col["width"] = "20";
+
+### Editable (true,false)
+
+	$col["editable"] = false;
+
+### Viewable (true,false)
+
+When the option is set to false the column does not appear in view Form
+
+	$col["viewable"] = false;
+
+### Frozen (true,false)
+
+When the option is set to true the column will be freezed while scrolling.
+Column must be first column of grid OR after another freezed column.
+
+	$col["frozen"] = true;
+
+The following limitations tell you when frozen columns can not be set-up:
+
+	- When TreeGrid is enabled
+	- When SubGrid is enabled
+	- When cellEdit is enabled
+	- When inline edit is used - the frozen columns can not be editable.
+	- When sortable columns are enabled - grid parameter sortable is set to true or is function
+	- When scroll is set to true or 1
+	- When Data grouping is enabled
+	- When footer row (footerrow paremeter) is enabled
+
+### Allow null (true,false)
+
+If db fields allows null and we want to save (NULL) instead of "". Defaults to false
+
+	$col["isnull"] = true;
+
+If you wisht to display blank on the grid instead of null
+ 	
+	$col["formatter"] = "function(cellval,options,rowdata){ return cellval === null ? '' : cellval; }";
+
+### Has Auto-increment Column (true,false)
+
+First field in columns is by-default skipped from INSERT query (assuming to be primary key and auto increment).
+If you wish to include it in INSERT sql (non auto increment) you can set:
+
+	$col["autoid"] = false;
+
+### Resizable (true,false)
+
+	$col["resizable"] = true;
+
+### Position (numeric)
+
+With position property you can set column order sequence (in numbers) with your desired column. e.g. Following will create a new 
+virtual column on second position of grid. It starts from 0 however setting it 0 (first column) should only be done if the content uniquely 
+identify each row (e.g PK of table). Otherwise edit,delete options may behave unexpected.
+
+	$col = array();
+	$col["title"] = "Report";
+	$col["name"] = "reportcol";
+	$col["editable"] = false;
+	$col["position"] = 2;
+	$col["template"] = "<a href='#'>Report</a>";
+	$cols[] = $col;
+
+	$g->set_columns($cols,true);
+
+Output: https://i.imgur.com/gaZlysb.png
+
+### Readonly Column
+
+You can also set certain column as readonly on edit dialog, and editable on add dialog.
+
+	$col["editrules"]["readonly"] = true;
+
+To make column readonly in both add and edit dialog, use following:
+
+	// shows defaultValue only on add dialog and readonly
+	$col["editoptions"] = array("defaultValue"=>"Test Value","readonly"=>"readonly", "style"=>"border:0px; margin: 3px 0px;");
+
+If you need to make a column non-editable when it contain some specific data, you can also put that condition using `readonly-when`. Refer column-access.php.
+
+	$col = array();
+	$col["title"] = "Gender";
+	$col["name"] = "gender";
+	$col["editable"] = true;
+	$col["editrules"] = array("required"=>true, "readonly"=>true, "readonly-when"=>array("==","male"));
+	$cols[] = $col;
+
+To make checkbox readonly when it's checked or unchecked, set readonly-when to "checked" OR "unchecked".
+
+	$col = array();
+	$col["title"] = "Closed";
+	$col["name"] = "closed";
+	$col["width"] = "50";
+	$col["editable"] = true;
+	$col["formatter"] = "checkbox";
+	$col["edittype"] = "checkbox";
+	$col["editoptions"] = array("value"=>"1:0");
+	$col["editrules"] = array("readonly"=>true, "readonly-when"=>"unchecked");
+	$cols[] = $col; 
+
+For advance readonly logic, use callback function
+
+	$col["editrules"] = array("required"=>true, "readonly"=>true, "readonly-when"=>"check_client");
+
+	// html side .. JS callback function
+
+	<script>
+	// readonly gender conditional function - when return true, field will be readonly
+	function check_client(formid)
+	{
+		client_id = jQuery("input[name=client_id]:last, select[name=client_id]:last",formid).val();
+		client_id = parseInt(client_id);
+
+		if (jQuery.inArray(client_id,[3,6,7,8,9]) != -1)
+			return true;
+	}
+	</script>
+
+### Column Form Option
+
+This option is valid only in form editing. The purpose of these options is to reorder the elements in the form and to add some information before and after the editing element.
+
+`elmprefix` if set, a text or html content appears before the input element
+`elmsuffix`	string	if set, a text or html content appears after the input element
+`label`	string	if set, this replace the name from colNames array that appears as label in the form.
+`rowpos` determines the row position of the element (again with the text-label) in the form; the count begins from 1
+`colpos` determines the column position of the element (again with thelabel) in the form beginning from 1
+
+If you plan to use this object in colModel with rowpos and colpos properties it is recommended that all editing fields use these properties.
+
+	$col["formoptions"] = array("elmprefix"=>'(*)', "rowpos"=>"1", "colpos"=>"2");
+
+To mark a field as required, you can use
+
+	$col["formoptions"] = array("elmsuffix"=>'<font color=red> *</font>');
+
+### Column Formatters
+
+To display select box (dropdown) label instead of value,
+
+	$col["formatter"] = "select";
+
+You can also set format options for numeric and currency data.
+
+	$col["formatter"] = "number";
+	$col["formatoptions"] = array("thousandsSeparator" => ",",
+		                            "decimalSeparator" => ".",
+		                            "decimalPlaces" => 2);
+
+	$col["formatter"] = "currency";
+	$col["formatoptions"] = array("prefix" => "$",
+		                            "suffix" => '',
+		                            "thousandsSeparator" => ",",
+		                            "decimalSeparator" => ".",
+		                            "decimalPlaces" => 2);
+
+Render as image,
+
+	$col["formatter"] = "image";
+	$col["formatoptions"] = array("src"=>'http://test.com/image.jpg');
+
+For custom formatter, e.g. image display
+
+	$col["formatter"] = "function(cellval,options,rowdata){ return '<img src=\"'+cellval+'\" />'; }";
+	$col["unformat"] = "function(cellval,options,cell){ return $('img', cell).attr('src'); }";
+
+For custom formatter of percentage display
+
+	$col["formatter"] = "function(cellval,options,rowdata){ return Number(parseFloat(cellval)*100).toFixed(2)+'%'; }";
+	$col["unformat"] = "function(cellval,options,cell){ return cellval.replace('%','')/100; }";
+
+For custom formatter of fix height row (having html <br> content)
+
+	$col["formatter"] = "function(cellval,options,rowdata){ return '<div style=\"height:25px; overflow:hidden;\">'+cellval+'</div>'; }";
+	$col["unformat"] = "function(cellval,options,cell){ return jQuery(cell).children('div').html(); }";
+
+For raw link formatter
+
+	$col["formatter"] = "function(cellval,options,rowdata){ return '<a target=\"_blank\" href=\"http://'+cellval+'\">'+cellval+'</a>'; }";
+	$col["unformat"] = "function(cellval,options,cell){ return $('a', cell).attr('href').replace('http://',''); }";
+
+In unformatter, if you want to use row data you can use getRowData, e.g:
+
+	// here list1 is your grid id & total_weight is row column to use
+	$col["unformat"] = "function(cellval, options, cell) {
+							var rowdata = $('#list1').getRowData(options.rowId);
+							return cellval.replace('%','')*rowdata['total_weight']/100;
+						}";
+
+### Text alignment	
+
+Possible values are left, right or center
+
+	$col["align"] = "center";
+
+### Searchable (true,false)
+
+Is searching allowed on this field. Possible values are true or false.
+
+	$col["search"] = false;
+
+### Dropdown in Filter Row
+
+We need to set `stype` and `searchoptions` to enable dropdown search in autofilter.
+
+	// Fetch data from database, with alias k for key, v for value
+	$str = $g->get_dropdown_values("select distinct client_id as k, name as v from clients");
+
+	$col["stype"] = "select";
+	$col["searchoptions"] = array("value" => $str, "separator" => ":", "delimiter" => ";");
+
+### Column Search Operators
+
+Optionally set limited search operators (e.g. bw = begins with, 'eq','ne','lt','le','gt','ge','bw','bn','in','ni','ew','en','cn','nc')
+
+This will limit search operators for this columns to begins-with, equal, cotains
+
+	$col["searchoptions"]["sopt"] = array("bw","eq","cn");
+
+If you pass single operator, only that will be used in autofilter and override default contains search
+
+	$col["searchoptions"]["sopt"] = array("eq");
+
+### Sortable (true,false)
+
+Sorting column can be enabled or disabled by setting true or false.
+
+	$col["sortable"] = false;
+
+### Sort type
+
+Defines the type of sort for column. Only used when grid loads with array.
+Possible values:
+
+- int/integer - for sorting integer
+- float/number/currency - for sorting decimal numbers
+- date - for sorting date
+- text - for text sorting
+
+	$col["sorttype"] = int;
+
+### Column Content as Hyperlink
+
+We can use exiting db-field value of that row in URL pattern. For e.g. if we have a grid column named 'id', we can insert it's value in URL using {id}. Here we set, http://domain.com?param={id} given that, there is a column with $col["name"] = "id" exist.
+
+	$col["template"] = "<a target='_blank' href='http://google.com/?q={id}'>{id}</a>";
+
+There is a limitation that you cannot make first column as hyperlink, as it is usually PK and used in INSERT/UPDATE.
+Alternate solution could be to select same field 2 times in SQL, and make first as hidden and second as hyperlink.
+
+### Static Content
+
+If the column is static data (non database driven), we can set it with default param. We can set custom HTML too, for e.g. `<img>` or `<div>` etc.
+
+	$col["template"] = "Custom Text";
+
+### Dynamic Content
+We can also use `{field}` replacement in `default` parameter. Here is an example for custom column to show bar graph. Where `bar` is a column alias from SQL statement.
+
+	$col = array();
+	$col["title"] = "Performance";
+	$col["name"] = "bar";
+	$col["width"] = "40";
+	$col["align"] = "left";
+	$col["search"] = false;
+	$col["sortable"] = false;
+	$col["template"] = "<div style='width:{bar}px; background-color:navy; height:14px'></div>";
+	$cols[] = $col;
+
+In same way, we can embed dynamic images and other media (flv or swf) in grid.
+
+### Conditional Content
+
+We can also provide certain condition, based on which either row data will be displayed.
+NOTE: Use single quote for condition, and $row will have all columns data, to use in condition.
+
+	$col["condition"] = array('$row["total"] < 100', $data1, $data2);
+
+Now if the condition is met, `$data1` will be displayed otherwise `$data2`. You can also `{field}` replacement in `$data1` & `$data2`. Refer example below.
+
+	# no new line in this html, only space. otherwise it may break ui of grid
+	$buttons_buy = "<a target='_blank' href='http://www.amazon.com?id={id}'>Buy</a>";
+	$buttons_try = "<a target='_blank' href='http://www.google.com?id={id}'>Try</a>";
+	$col["condition"] = array('$row["total"] > 10', $buttons_buy, $buttons_try);
+
+For extended conditional data, you can also have callback function, that will allow you to display based on row data. For e.g.
+
+	$col["on_data_display"] = array("display_keyword","");
+
+	function display_keyword($data)
+	{
+		$kw = $data["keyword_name"];
+		$numKeywords = count(explode("\n",$pass));
+		if ($numKeywords > 3)
+			   return $numKeywords." Keywords";
+		else
+		{
+			   $pass = str_replace("+"," ",$pass);
+			   return $pass;
+		}
+	}
+
+### Hiding Column
+
+At instance, we don't want to show column in grid (like primary key), and it is equally needed for background operations like update or delete. `hidden` property can work here.
+
+	// don't show this column in list, but in edit/add mode
+	$col["hidden"] = true;
+
+If `hidedlg` set to true this column will not appear in the modal dialog (colchooser / showhidecolumn) where users can choose which columns to show or hide.
+
+	$col["hidedlg"] = true;
+
+Another scenario is we want to hide it on grid list, and display it on Add or Edit forms.
+
+	$col["editrules"] = array("edithidden"=>true);
+
+If you want to enable searching on this hidden column, set
+
+	$col["searchoptions"] = array("searchhidden" => true);
+
+You can also customize in one line, on which dialog/section this column will be displayed. Possible options are true or false. This may override the hidden and edithidden settings. See column-access.php
+
+	$col["show"] = array("list"=>true, "add"=>true, "edit"=>true, "view"=>true, "bulkedit"=>true);
+
+### Row Action Column
+
+When we enable inline edit/delete option, An additional column `Action` is appended as last column of grid.
+We can also specify, by defining a column with name `$col["name"] = "act";`. After that all changes will be applied on that column.
+
+Customization of Action column width and other properties:
+
+	$col = array();
+	$col["title"] = "Action";
+	$col["name"] = "act";
+	$col["width"] = "50";
+	$cols[] = $col;
+
+## Column Input Types
+
+This option let us select the control we want to render when editing this field. All possible options are in following snippet. Defaults to `text`. In `editoptions` we can set all the possible attributes for this field's control.
+
+### Render as textarea on edit
+
+	$col["edittype"] = "textarea";
+	$col["editoptions"] = array("rows"=>2, "cols"=>20);
+
+### Render as checkbox, 
+
+With these values "checked_value:unchecked_value"
+
+	$col["edittype"] = "checkbox";
+	$col["editoptions"] = array("value"=>"Yes:No");
+
+To make checkbox already in checked state while adding record
+
+	$col["editoptions"] = array("value"=>"Yes:No", defaultValue=> 'Yes');
+
+To show column as checkbox on listing,
+
+	$col["formatter"] = "checkbox";
+
+### Render as textbox 
+
+With size 20, and initial value in textbox to 10
+
+	$col["editoptions"] = array("size"=>20, "defaultValue"=>'10');
+
+### Render as password textbox
+
+It will render textbox as password box.
+
+	$col["edittype"] = "password";
+
+To display hidden text (****) on listing instead of plain text, set:
+
+	$col["formatter"] = "password";
+
+### Render as select (dropdown)
+
+With these values "key:value;key:value;key:value"
+
+	$col["edittype"] = "select";
+	$col["editoptions"] = array("value"=>'10:$10;20:$20;30:$30;40:$40;50:$50');
+
+	// For multiselect, you probably need to write custom on_update handler
+	$col["editoptions"] = array("value"=>'10:$10;20:$20;30:$30;40:$40;50:$50', "multiple" => true);
+
+	// In case you want to use different delimiter (:) and separator (;), you can override
+	$col["editoptions"]["delimiter"] = ":";
+	$col["editoptions"]["separator"] = ";";
+
+### Render as database lookup (dropdown)
+
+Property `editoptions` indexes are: foreign key table, foreign key id, label to show in dropdown
+
+	$col["edittype"] = "lookup";
+	$col["editoptions"] = array("table"=>"employees", "id"=>"employee_id", "label"=>"concat(first_name,' ',last_name)");
+
+Above will create a query like: select employee_id as k, concat(firstname,' ',last_name) as v from employees.
+You can also provide your own query for dropdown by:
+
+	$col["editoptions"]["sql"] = "select employee_id as k, concat(firstname,' ',last_name) as v from employees"; 
+
+### Render dropdown as a colored badge
+
+	$col["formatter"] = "badge";
+
+![](https://www.gridphp.com/wp-content/uploads/screenshots/formatter-badge.png)
+
+To have a clickable badge, which will open another grid row in edit mode:
+
+	$col["formatter"] = "badge";
+	$col["badgeoptions"]["editurl"] = '/dev/demos/editing/index.php?grid_id=list1&col=client_id';
+
+where index.php in url is the grid with client_id as primary key.
+
+![](https://www.gridphp.com/wp-content/uploads/screenshots/formatter-badge-link.png)
+
+### Rendering a colored row bar
+
+This will show a rowbar before the text value of the column.
+
+	$col["formatter"] = "rowbar";
+
+![](https://www.gridphp.com/wp-content/uploads/screenshots/formatter-rowbar.png)
+
+### Render as Date & Datetime Picker
+
+Date formatter will make this column as date input (and will show date picker control) on add or edit operations.
+
+	$col["formatter"] = "date";
+	$col["formatoptions"] = array("srcformat"=>'Y-m-d',"newformat"=>'d/m/Y');
+
+Datetime formatter will make this column as date time input (and will show date time picker control) on add or edit operations.
+
+	$col["formatter"] = "datetime";
+	$col["formatoptions"] = array("srcformat"=>'Y-m-d',"newformat"=>'d/m/Y');
+
+Complete date formatting shortcode can be found on this link: http://www.php.net/manual/en/function.date.php
+
+By default, datepicker does not perform 'contains' search. If you wish to enable, you need to set following with date column.
+This will disable datepicker.
+
+	// contains search
+	$col["searchoptions"]["sopt"] = array("cn");
+
+Format of contains search is yyyy-mm-dd, which can be changed using 'dbname' property and mysql format_date function.
+
+	// search date in format Jan 23, 2008
+	$col["dbname"] = "date_format(invdate,'%b %d, %Y')";
+
+### Render as button
+
+	$col["edittype"] = "button";
+	$col["editoptions"] = array("value"=>'Click Me');
+
+### Render Radio buttons as edittype
+
+Radio buttons can be shown by custom method.
+
+	$col = array();
+	$col["title"] = "Closing Rate";
+	$col["name"] = "closed";
+	$col["width"] = "30";
+	$col["editable"] = true;
+	$col["align"] = "center";
+	$col["editoptions"]["dataInit"] = "function(o){edit_as_radio(o);}";
+	$cols[] = $col;
+
+... and in html section, we can define custom edit-type display
+
+	<script>
+    function edit_as_radio(o)
+    {
+		setTimeout(function(){
+			jQuery(o).hide();
+			jQuery(o).parent().append('<input title="0" type="radio" name="rd_closed" value="0" onclick="jQuery(\'#total\').val(0);"/> 0 <input title="5" type="radio" name="rd_closed" value="5" onclick="jQuery(\'#total\').val(5);"/> 5 <input title="10" type="radio" name="rd_closed" value="10" onclick="jQuery(\'#total\').val(10);"/> 10');
+		},100);
+    }
+    </script>
+
+### Multiple checkboxes as edittype
+
+	$col = array();
+	$col["title"] = "Closed";
+	$col["name"] = "closed";
+	$col["width"] = "50";
+	$col["editable"] = true;
+	$col["editoptions"]["dataInit"] = "function(o){edit_as_custom(o);}";
+	$cols[] = $col;
+
+and in html, add display function that will update the selection in main field (hidden)
+
+	<script>
+		function edit_as_custom(o)
+		{
+			setTimeout(function(){
+				jQuery(o).parent().append('<input type="checkbox" name="rd_closed" value="1" onclick="set_checkbox_value();"/> Option 1 <input type="checkbox" name="rd_closed" value="2" onclick="set_checkbox_value();"/> Option 2 <input type="checkbox" name="rd_closed" value="3" onclick="set_checkbox_value();"/> Option 3');
+				jQuery(o).css('display','none');
+
+				// here you can also read #closed value (if set) and set in checkboxes using jquery for edit mode
+
+			},100);
+		}
+
+		function set_checkbox_value()
+		{
+			jQuery('#closed').val( jQuery('input[name=rd_closed]:checked').map(function(){return this.value;}).get() );
+		}
+	</script>
+
+## Grid Options
+
+### Custom SQL Query
+
+By default, when we define the `->table` property, it fetches all the possible columns of table.
+We can provide custom SQL query in `->select_command` property to pick columns available for grid.
+We can use complex multi-join sub-queries in it.
+
+	$g->select_command = "SELECT i.id, invdate , c.name,
+							i.note, i.total, i.closed FROM invheader i
+							INNER JOIN clients c ON c.client_id = i.client_id";
+
+### Grid Settings
+
+You can use following options for `->set_options($opt)` function.
+
+### Records per Page
+
+Number of records to show on page
+
+	$opt["rowNum"] = 10;
+
+### Options to show in paging records
+
+	$opt["rowList"] = array(10,20,30);
+
+	// you can also set 'All' for all records
+	$opt["rowList"] = array(10,20,30,'All');
+
+	// empty array will hide dropdown
+	$opt["rowList"] = array();
+
+### Show Row numbers
+
+To show row numbers before each records, and set that column's width
+
+	$opt["rownumbers"] = true;
+	$opt["rownumWidth"] = 30;
+
+### Show Paging Buttons
+
+To show/remove Paging navigation buttons
+
+	$opt["pgbuttons"] = false;
+
+### Set Initial Page
+
+To set initial page (e.g. as page 2) of grid
+
+	$opt["page"] = 2;
+
+	// to set last page, set some big number
+	$opt["page"] = 9999;
+
+In order to use direct url of certain page, you can use $_GET. e.g. grid.php?p=2
+	
+	$opt["page"] = $_GET["p"];
+
+### Show Paging text
+
+To show/remove Paging text e.g. Page 1 of 10
+
+	$opt["pgtext"] = null;
+
+Enable or Disable total records text on grid
+
+	$opt["viewrecords"] = true;
+
+### Fit Columns
+
+If set to true, and resizing the width of a column, the adjacent column (to the right) will resize so that the overall grid width is maintained (e.g., reducing the width of column 2 by 30px will increase the size of column 3 by 30px). In this case there is no horizontal scrolbar. Note: this option is not compatible with shrinkToFit option - i.e if shrinkToFit is set to false, forceFit is ignored.
+
+	$opt["forceFit"] = true;
+
+### Extend Columns to Grid Width
+
+This option describes the type of calculation of the initial width of each column against with the width of the grid. If the value is true and the value in width option is set then: Every column width is scaled according to the defined option width.
+
+	$opt["shrinkToFit"] = true;
+
+### Column Layout
+
+The autocolumn property split dialog fields in desired column layout. For e.g. for 2 column layout, set:
+
+	$opt["autocolumn"] = 2;
+
+### Autowidth
+
+Expand grid to screen width
+
+	$opt["autowidth"] = true;
+
+### Resizable Grid
+
+Show corner (lower-right) resizable option on grid
+
+	$opt["resizable"] = true; // defaults to false
+
+### Responsive Switch
+
+Auto resize grid with browser resize
+
+	$opt["autoresize"] = true; // defaults to false
+
+### Initially Hidden Grid
+
+If set to true the grid initially is hidden. The data is not loaded (no request is sent) and only the caption layer is shown. When the show/hide button is clicked the first time to show grid, the request is sent to the server, the data is loaded, and grid is shown. From this point we have a regular grid. This option has effect only if the caption property is not empty and the hidegrid property (see below) is set to true.
+
+	$opt["hiddengrid"] = true;
+
+### Show Hide Grid button
+
+Enables or disables the show/hide grid button, which appears on the right side of the Caption layer. Takes effect only if the caption property is not an empty string.
+
+	$opt["hidegrid"] = true;
+
+### Grid Height
+
+The height of the grid. Can be set as percentage or any valid measured value
+
+	// set in pixels
+	$opt["height"] = "400";
+
+	// to remove vertical scroll bar
+	$opt["height"] = "100%";
+
+In order to make grid height based on parent container, use following. The `list1` should be replaced with your grid id.
+
+	// in grid options
+	$opt["loadComplete"] = "function(){
+		var gid = 'list1';
+		var h_offset = jQuery('.ui-jqgrid-titlebar').outerHeight()
+								+jQuery('.ui-jqgrid-hdiv').outerHeight()
+								+jQuery('.ui-jqgrid-toppager').outerHeight()
+								+jQuery('.ui-jqgrid-pager').outerHeight();
+
+		jQuery('#'+gid).jqGrid('setGridHeight', jQuery('#gbox_'+gid).parent().innerHeight()-h_offset);
+	}";
+
+The parent container div must have fixed height (static or set dynamically)
+
+	<div style="height:750px">
+		<?php echo $out ?>
+	</div>
+
+### Grid Width
+
+If this option is not set, the width of the grid is a sum of the widths of the columns defined
+
+	$opt["width"] = "600";
+
+### Loading Text
+
+The text which appear when requesting and sorting data. Defaults to `Loading...`
+
+	$opt["loadtext"] = "Loading...";
+
+### Toolbar Position
+
+This option defines the toolbar of the grid. This is array with two values in which the first value enables the toolbar and the second defines the position relative to body Layer. Possible values "top" or "bottom" or "both"
+
+	$opt["toolbar"] = "top";
+
+### Multiselect Records
+
+Allow you to multi-select through checkboxes
+
+	$opt["multiselect"] = true;
+
+Allow you to multi-select through checkboxes and not whole row
+
+	$opt["multiboxonly"] = true;
+
+This parameter have sense only multiselect option is set to true. The possible values are: shiftKey, altKey, ctrlKey
+
+	$opt["multikey"] = true;
+
+### Alternate Row Color
+
+Set a zebra-striped grid, boolean
+
+	$opt["altRows"] = true;
+
+### Initial Grid Sorting
+
+Default sort grid by this field, Sort ASC or DESC
+
+	$opt["sortname"] = 'id';
+	$opt["sortorder"] = "desc";
+
+To sort on multiple fields (at time of loading)
+
+	// Date will be sorted desc, and ID asc.
+	$opt["sortname"] = "date DESC,id";
+	$opt["sortorder"] = "ASC";
+
+To sort first click in DESC sequence, set:
+
+	$opt["firstsortorder"] = "desc";
+
+This will make SQL: ORDER BY date DESC,id ASC
+
+### Grid Multi-Column Sorting
+
+In case of multi sort when first time clicked the sort is asc (or descending) the next click sort to
+opposite direction the third click of the column remove the sorting from that column. Your first column must have
+similar records to see the change of second level sorting and onwards.
+
+	$opt["multiSort"] = true;
+
+### Grid Caption
+
+This will set grid caption.
+
+	$opt["caption"] = "Invoice Data";
+
+In order to remove caption bar, set it to blank.
+
+	$opt["caption"] = "";
+
+### Lazy Loading of Pages
+
+Creates dynamic scrolling grids. When enabled, the pager elements are disabled and we can use the vertical scrollbar to load data. useful for big datasets
+
+	$opt["scroll"] = true;
+
+### RTL or LTR
+
+Makes grid right to left, for rtl languages e.g. arabic. Default is ltr
+
+	$opt["direction"] = "rtl";
+
+### Tooltips
+
+Enable tooltips for icons and long text: true/false
+
+	$opt["tooltip"] = true;
+
+### Hotkeys
+
+Enable or disable hotkeys for add, edit or delete operations: true/false
+It only work for first grid on page.
+
+	$opt["hotkeys"] = true;
+
+### Excel Mode Switch
+
+Inline cell editing, like spreadsheet
+
+	$opt["cellEdit"] = true;
+
+### Reload after Edit
+
+To reload whole grid after editing
+
+	$opt["reloadedit"] = true;
+
+### Display Pager on Top
+
+Display Top Pager bar
+
+	$opt["toppager"] = true;
+
+### URL for Ajax calls
+
+URL for grid page (for ajax calls), defaults to REQUEST_URI. It works with http & https. Used when passing extra querystring data, e.g.
+
+	$opt["url"] = "http://domain/page.php?test=1";
+
+### Grid Dialog Customizations
+
+Set Add and Edit form & View dialog width. This can be used with combination of css customization of dialog forms.
+
+	$opt["add_options"] = array('width'=>'420');
+	$opt["edit_options"] = array('width'=>'420');
+	$opt["view_options"] = array('width'=>'420');
+
+Just like width in dialog options, you can also set other for e.g.
+
+	$opt["add_options"] = array('width'=>'420',
+								"closeAfterAdd"=>true, // close dialog after add/edit
+								"clearAfterAdd"=>true, // clear fields after add/edit - default true
+								"top"=>"200", // absolute top position of dialog
+								"left"=>"200" // absolute left position of dialog
+								);
+
+	$opt["edit_options"] = array('width'=>'420',
+								"closeAfterEdit"=>true, // close dialog after add/edit
+								"top"=>"200", // absolute top position of dialog
+								"left"=>"200" // absolute left position of dialog
+								);
+
+To specify exact top/left position (as above), you need to set:
+
+	$opt["form"]["position"] = "";
+	$opt["add_options"]["jqModal"] = true;
+
+On small screen devices when any column is hidden due to responsive behavior, by default a column with "..." text is added which opens view dialog
+showing all columns. To disable it you can set:
+
+	$opt["view_options"]["rowButton"] = false;
+
+### Dialog Title Customization
+
+To change the title of Add Dialog	
+	
+	$opt["add_options"]["addCaption"] = "Add Customer";
+
+To change the title of Edit Dialog	
+
+	$opt["edit_options"]["editCaption"] = "Edit Customer";
+
+To change the title of View Dialog	
+
+	$opt["view_options"]["caption"] = "View Customer"; 
+
+### Dialog Success Message
+
+You can also customize the success messages that appear after add/edit/del operations.
+
+	$opt["add_options"]["success_msg"] = "Post added";
+	$opt["edit_options"]["success_msg"] = "Post updated";
+	$opt["delete_options"]["success_msg"] = "Post deleted";
+
+	// for bulk editing
+	$opt["edit_options"]["success_msg_bulk"] = "Post(s) updated";
+	...
+	$g->set_options($opt);
+
+To remove these success messages, you can set:
+
+	$opt["add_options"]["afterSubmit"] = 'function(response) { return [true,""]; }';
+	$opt["edit_options"]["afterSubmit"] = 'function(response) { return [true,""]; }';
+	$opt["delete_options"]["afterSubmit"] = 'function(response) { return [true,""]; }';
+
+### Dialog Submit Confirmation
+
+This option work only in editing mode. If Set to true this option will work only when a submit button is clicked and
+if any data is changed in the form. If the data is changed a dilog message appear where the user is asked
+to confirm the changes or cancel it.
+
+	$opt["edit_options"]["checkOnSubmit"] = true;
+
+### Dialog Display Position
+
+To Set Form to position on center of screen
+
+	$opt["form"]["position"] = "center";
+
+### Show Dialog Navigation buttons
+
+Enable form Prev | Next record navigation
+
+	$opt["form"]["nav"] = true;
+
+Refer demos/appearance/dialog-layout.php for demo.
+
+### Row Action Icons or Text
+
+You can enable / disable the row action icons, by setting it true or false. It is enabled by default in latest version.
+
+	$opt["actionicon"] = false;
+	...
+	$g->set_options($opt);
+
+### Global Column Setting
+
+If we want to set some column property across all columns of grid, without individually setting them with column definition,
+We can use `cmTemplate` property.
+
+	$opt["shrinkToFit"] = false;
+	$opt["autowidth"] = true;
+	$opt["cmTemplate"] = array("width"=>"400");
+	...
+	$g->set_options($opt);
+
+Above will set each column width to 400.
+
+### Grid Actions
+
+We can also switch actions to enable or disable them on grid. It is controlled by `->set_actions()` function.
+
+Possible values are `true` or `false`.
+
+|Operations			|Description																			|
+|-------------------|---------------------------------------------------------------------------------------|
+|`add` 				|Enable / Disable add operation on grid. Defaults to `true`. 							|
+|`edit` 			|Enable / Disable edit operation on grid. Defaults to `true`.							|
+|`bulkedit` 		|Enable / Disable bulk edit operation on grid. Defaults to `false`.						|
+|`delete` 			|Enable / Disable delete operation on grid. Defaults to `true`.  						|
+|`view` 			|Enable / Disable view operation on grid. Defaults to `true`.  							|
+|`clone` 			|Enable / Disable clone operation on grid. Defaults to `false`.  						|
+|`rowactions` 		|Enable / Disable inline edit/del/save option. Defaults to `true`.  					|
+|`export` 			|Enable / Disable export to excel option. Defaults to `false`.  						|
+|`import` 			|Enable / Disable import data option. Defaults to `false`.  						|
+|`autofilter` 		|Enable / Disable autofilter toolbar for search on top. Defaults to `true`.  			|
+|`showhidecolumns` 	|Enable / Disable button to hide certain columns from client side. Defaults to `true`.	|
+|`inlineadd` 		|Enable / Disable button to perform insertion inline. Defaults to `false`.				|
+|`search` 			|Search property can have 3 values, `simple`, `advance` or `false` to hide.				|
+
+Code:
+
+	$g->set_actions(array(
+							"add"=>true,
+							"edit"=>true,
+							"clone"=>true,
+							"bulkedit"=>true,
+							"delete"=>true,
+							"view"=>true,
+							"rowactions"=>true,
+							"export"=>true,
+							"import"=>true,
+							"autofilter" => true,
+							"search" => "simple",
+							"inlineadd" => true,
+							"showhidecolumns" => true
+						)
+					);
+
+## Master Detail Grid
+
+![Master Detail Grid](//www.gridphp.com/wp-content/gallery/documentation/masterdetail.png)
+
+Following params will enable detail grid, and by default 'id' (PK) of parent is passed to detail grid. (see master-detail.php)
+
+	$opt["detail_grid_id"] = "list2";
+
+In order to invoke multiple detail grid, you can pass grid identifier in this way.
+
+	$opt["detail_grid_id"] = "list2,list3,list4";
+
+To extra params passed to detail grid, column name comma separated
+
+	$opt["subgridparams"] = "gender,company";
+	$g->set_options($opt);
+
+	...
+	...
+
+	# To read passed params in detail grid code
+	$company = $_GET["company"];
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/master-detail/master-detail.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/master-detail/master-detail.php)
+- You can check this demo in archive `demos/master-detail/master-detail.php`
+
+## Subgrid
+
+### Single Subgrid
+
+![Using Subgrid](//www.gridphp.com/wp-content/gallery/documentation/subgrid.png)
+
+Setting `subGrid` to `true` will enable subgrid. When clicking `+` icon on parent grid, it will try to load url defined in `subgridurl`. By default 'rowid' (PK) of parent is passed. `subgridparams` holds comma sep. fields that will be POSTed from parent grid to subgrid. They can be read using $_POST in subgrid.
+
+	$opt["subGrid"] = true;
+	$opt["subgridurl"] = "subgrid_detail.php";
+	$opt["subgridparams"] = "name,gender,company"; // no spaces b/w column names
+
+On subgrid, data can be fetched and passed in SQL
+
+	$c_id = $_REQUEST["rowid"];
+	$g->select_command = "SELECT concat(id,'-',num) as `key`, i.*
+							FROM invlines i WHERE id = $c_id";
+
+For extra params passed from parent other than rowid (e.g. company), we need some persistent storage in session for ajax calls
+
+	if (!empty($_POST["company"]))
+	 	$_SESSION["company"] = $_POST['company'];
+	$company = $_SESSION['company'];
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/master-detail/subgrid.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/master-detail/subgrid.php)
+- You can check this demo in archive `demos/master-detail/subgrid.php`
+
+### Multiple Subgrid at same level
+
+![Using Subgrid](//www.gridphp.com/wp-content/gallery/documentation/multi-subgrid.png)
+
+To define multiple subgrid at same level, just render 2 grids in detail grid page. Rest process will be same as above subgrid.
+
+	$g = new jqgrid();
+	// ...
+	$out1 = $g->render('list1');
+
+	$g = new jqgrid();
+	// ...
+	$out2 = $g->render('list2');
+
+	echo "<fieldset><legend>First Grid</legend>$out</fieldset>";
+	echo "<fieldset><legend>Second Grid</legend>$out2</fieldset>";
+
+### Resources
+
+- [Parent Grid Code](//www.gridphp.com/demo/demos/master-detail/multi-subgrid.phps)
+- [Detail Grid Code](//www.gridphp.com/demo/demos/master-detail/multi-subgrid-detail.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/master-detail/multi-subgrid.php)
+- You can check this demo in archive `demos/master-detail/multi-subgrid.php`
+
+## Exporting Data
+
+![Exporting Data](//www.gridphp.com/wp-content/gallery/documentation/export.png)
+
+`format` could be
+	- `pdf`
+	- `excel`
+	- `csv`
+	- `html`
+`heading` is used as Heading of pdf file.
+`orientation` is page orientation. Could be `landscape` or `portrait`.
+`paper` values could be 4a0,2a0,a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,b0,b1,
+						b2,b3,b4,b5,b6,b7,b8,b9,b10,c0,c1,c2,c3,c4,c5,
+						c6,c7,c8,c9,c10,ra0,ra1,ra2,ra3,ra4,sra0,sra1,
+						sra2,sra3,sra4,letter,legal,ledger,tabloid,executive,
+						folio,commercial #10 envelope,catalog #10 1/2 envelope,
+						8.5x11,8.5x14,11x17
+
+	$opt["export"] = array("format"=>"pdf", "filename"=>"my-file", "sheetname"=>"test");
+	$opt["export"] = array("filename"=>"my-file", "heading"=>"Invoice Details", "orientation"=>"landscape", "paper"=>"a4");
+
+Setting `paged` to `1` will only export current page.
+
+	$opt["export"]["paged"] = "1";
+
+Export all data which is fetched by SQL, or export after applying search filters (if any)
+Possible values are `filtered` or `all`.
+
+	$opt["export"]["range"] = "filtered";
+
+When exporting PDF, if you define column width, you need to set width of all columns. Setting width for few and leaving few
+will make export column width distorted. In order to make it independent of $col["width"] and adjust equally in pdf, you can set:
+
+	$grid["export"]["colwidth"] = "equal";
+
+You can also set certain column not to export by setting export option to false. e.g.
+
+	$col["export"] = false;
+
+You can also add export buttons on toolbar by:
+
+	$g = new jqgrid($conf);
+	// ...
+	$g->set_actions(array(
+							"add"=>true,
+							"edit"=>true,
+							// ...
+							"export_pdf"=>true,
+							"export_excel"=>true,
+							"export_csv"=>true,
+							"export_html"=>true
+						)
+					);
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/export/export-all.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/export/export-all.php)
+- You can check this demo in archive `demos/export/export-all.php`
+
+## Importing Data
+
+Import data option can be enabled by setting `import` to `true` in set_actions, as mentioned below:
+
+	$g->set_actions(array(
+							"add"=>true,
+							"edit"=>true,
+							"delete"=>true,
+							"import"=>true,
+							"search" => "advance"
+						)
+					);
+
+Step1: Select File / Copy-Paste data from Excel
+
+![Select File](//www.gridphp.com/wp-content/gallery/documentation/import-1.png)
+
+Step2: Map imported data on Database fields
+
+![Map fields](//www.gridphp.com/wp-content/gallery/documentation/import-2.png)
+
+Step3: Finished
+
+![Import finished](//www.gridphp.com/wp-content/gallery/documentation/import-3.png)
+
+By default new rows are appended. If you want to show append or replace option on Step2, you can set:
+
+	$opt["import"]["allowreplace"] = true;
+	$g->set_options($opt);
+
+If you want to adjust CSV headers and database fields mapping accuracy percentage, default: 80:
+
+	$opt["import"]["match"] = 95;
+	$g->set_options($opt);
+
+If you wish to remove certain database fields in import mapping, e.g.
+
+	$opt["import"]["hidefields"] = array("client_id");
+	$g->set_options($opt);
+
+To show import dialog on startup, set this code in loadComplete event. Here list1 is grid id.
+
+	$opt["loadComplete"] = "function(){ 
+										if(!jQuery.data(document,'runonce')) 
+										{ 
+											jQuery.data(document,'runonce',true); 
+											$('td#import_list1').click(); 
+										} 
+									}";
+									
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/export/import.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/export/import.php)
+- You can check this demo in archive `demos/export/import.php`
+
+## Conditional Formatting
+
+![Conditional Formatting](//www.gridphp.com/wp-content/gallery/documentation/conditional.png)
+
+With conditional formatting, you can specify the CSS of rows or columns based on data in it. When specifying class name you must declare the css class in your document before usage. (refer example: conditional-format.php)
+
+	// conditional css formatting of rows
+
+	$f = array();
+	$f["column"] = "name"; // exact column name, as defined above in set_columns or sql field name
+	$f["op"] = "cn"; // cn - contains, eq - equals
+	$f["value"] = "Ana";
+	$f["class"] = "focus-row"; // css class name
+	$f_conditions[] = $f;
+
+	$f = array();
+	$f["column"] = "invdate";
+	$f["op"] = "eq";
+	$f["value"] = "2007-10-04";
+	$f["class"] = "focus-row-red";
+	$f_conditions[] = $f;
+
+	// apply style on target column, if defined cellclass OR cellcss
+	$f = array();
+	$f["column"] = "id";
+	$f["op"] = "=";
+	$f["value"] = "7";
+	$f["cellclass"] = "focus-cell";
+	$f["target"] = "name";
+	$f_conditions[] = $f;
+
+If nothing set in 'op' and 'value', it will set column formatting for all cell
+
+	$f = array();
+	$f["column"] = "invdate";
+	$f["css"] = "'background-color':'#FBEC88', 'color':'black'";
+	$f_conditions[] = $f;
+
+Finally, you need to call `set_conditional_css` of grid object to enable formatting.
+
+	$g->set_conditional_css($f_conditions);
+
+Refer demos/appearance/conditional-format.php for reference.
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/appearance/conditional-format.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/appearance/conditional-format.php)
+- You can check this demo in archive `demos/appearance/conditional-format.php`
+
+
+## Grouping
+
+![Grouping](//www.gridphp.com/wp-content/gallery/documentation/grouping.png)
+
+Following setting will enable grouping footer in grid. (see grouping.php)
+
+	$opt["grouping"] = true;
+	$opt["groupingView"] = array();
+
+	// specify column name to group listing
+	$opt["groupingView"]["groupField"] = array("gender");
+
+	// either show grouped column in list or not (default: true)
+	$opt["groupingView"]["groupColumnShow"] = array(false);
+
+	// {0} is grouped value, {1} is count in group
+	$opt["groupingView"]["groupText"] = array("<b>{0} - {1} Item(s)</b>");
+
+	// show group in asc or desc order
+	$opt["groupingView"]["groupOrder"] = array("asc");
+
+	// show sorted data within group
+	$opt["groupingView"]["groupDataSorted"] = array(true);
+
+	// work with summaryType, summaryTpl, see column: $col["name"] = "total";
+	$opt["groupingView"]["groupSummary"] = array(true);
+
+	// Turn true to show group collapse (default: false)
+	$opt["groupingView"]["groupCollapse"] = false;
+
+	// show summary row even if group collapsed (hide)
+	$opt["groupingView"]["showSummaryOnHide"] = true;
+
+	// by default grouping titles are case sensitive. To combine multiple records in same group, set:
+	$opt["groupingView"]["isInTheSameGroup"] = array(
+			"function (x, y) { return String(x).toLowerCase() === String(y).toLowerCase(); }"
+		);
+	$opt["groupingView"]["formatDisplayField"] = array(
+			"function (displayValue, cm, index, grp) { return displayValue[0].toUpperCase() + displayValue.substring(1).toLowerCase(); }"
+		);
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/appearance/grouping.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/appearance/grouping.php)
+- You can check this demo in archive `demos/appearance/grouping.php`
+
+## Grouping Headers
+
+![Grouping Headers](//www.gridphp.com/wp-content/gallery/documentation/grouping.png)
+
+Now you can have a grouped headers in gridphp control.
+It would help in categorizing your related columns. (demos/appearance/group-header.php)
+
+	// group columns header
+	$g->set_group_header( array(
+							    "useColSpanStyle"=>true,
+							    "groupHeaders"=>array(
+							        array(
+							            "startColumnName"=>'name', // group starts from this column
+							            "numberOfColumns"=>2, // group span to next 2 columns
+							            "titleText"=>'Personal Information' // caption of group header
+							        ),
+							        array(
+							            "startColumnName"=>'company', // group starts from this column
+							            "numberOfColumns"=>2, // group span to next 2 columns
+							            "titleText"=>'Company Details' // caption of group header
+							        )
+							    )
+							)
+						);
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/appearance/group-headers.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/appearance/group-headers.php)
+- You can check this demo in archive `demos/appearance/group-headers.php`
+
+## Search
+
+Grid allows variety of different options to make search feature more usable.
+
+### Autofilter toolbar
+
+You can enable it by setting:
+
+	$g->set_actions(array(
+							// ...
+							"autofilter" => true
+							// ...
+						)
+					);
+
+By default it will be hidden and once you set `xs+` autofilter will come back on extra small and onwards.
+
+	$opt["search_options"]["autofilter"] = "xs+"; // xs+, sm+, md+
+	$g->set_options($opt);
+
+![Autofilter toolbar search](//www.gridphp.com/wp-content/gallery/images-v2/autofilter-plus.png)
+
+### Search Dialog
+
+Basic search dialog can be enabled by `search` key in set_actions function.
+Possible values are `simple`, `advance`
+
+|Values			|Description										|
+|---------------|---------------------------------------------------|
+|`simple` 		|Single column search dialog 						|
+|`advance`		|Multi column search with AND / OR option			|
+|`group` 		|Multi column search with multiple AND / OR groups	|
+
+	$g->set_actions(array(
+							// ...
+							"search" => "advance"
+							// ...
+						)
+					);
+
+![Group Search Dialog](//www.gridphp.com/wp-content/gallery/images-v2/search-group.png)
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/search/search-group.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/search/search-group.php)
+- You can check this demo in archive `demos/search/search-group.php`
+
+### Search Templates
+
+You can also set predefined search templates using grid options.
+
+	// Define predefined search templates
+	$opt["search_options"]["tmplNames"] = array("Template1", "Template2");
+	$opt["search_options"]["tmplFilters"] = array(
+		array(
+			"groupOp" => "AND",
+			"rules" => array (
+							array("field"=>"name", "op"=>"cn", "data"=>"Maria"),
+							array("field"=>"closed", "op"=>"cn", "data"=>"No"),
+							)
+		),
+		array(
+			"groupOp" => "AND",
+			"rules" => array (
+							array("field"=>"total", "op"=>"gt", "data"=>"50")
+							)
+		)
+	);
+
+	$g->set_options($opt);
+
+![Search Templates](//www.gridphp.com/wp-content/gallery/images-v2/search-template.png)
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/search/search-template.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/search/search-template.php)
+- You can check this demo in archive `demos/search/search-template.php`
+
+### Search External Form
+
+For further customizations, you can create an custom HTML form and
+connect it to datagrid search javascript api.
+
+![External Search Form](//www.gridphp.com/wp-content/gallery/images-v2/search-custom.png)
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/search/search-form.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/search/search-form.php)
+- You can check this demo in archive `demos/search/search-form.php`
+
+### Search on Load
+
+Following config will enable search on load. Initialize search with `name` field equal to `eq` 'Client 1'
+
+	$sarr = <<< SEARCH_JSON
+	{
+		"groupOp":"AND",
+		"rules":[
+		  {"field":"name","op":"eq","data":"Client 1"}
+		 ]
+	}
+	SEARCH_JSON;
+
+	$opt["search"] = true;
+	$opt["postData"] = array("filters" => $sarr );
+
+If you wish to persist search settings on page reload:
+
+	$opt["persistsearch"] = true;
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/search/search-onload.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/search/search-onload.php)
+- You can check this demo in archive `demos/search/search-onload.php`
+
+### Search based on URL parameters
+
+You can filter datagrid based on URL parameter as well. Url format is {gridid}_{colname}={value}
+e.g. page.php?grid_id=list1&filter_closed=1 will filter grid with id `list1` on page.php with column name `closed` to `1`
+You can add multiple filtering (AND) conditions as shown in image.
+
+![URL Based Filtering](https://www.gridphp.com/wp-content/uploads/v26-search_url.png)
+
+To have a numeric range filter, (total > 10) you can set e.g. ?grid_id=list1&filter_total=>10
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/search/search-onload-url.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/search/search-onload-url.php)
+- You can check this demo in archive `demos/search/search-onload-url.php`
+
+### Show / Hide columns based on URL parameters
+
+You can show or hide certain column based on URL parameter as well.
+Url format is {gridid}_showcols={col1},{col2} or {gridid}_hidecols={col1},{col2}
+
+e.g. `page.php?list1_showcols=id,invdate,note&list1_hidecols=total`
+
+This will show columns with name `id`,`invdate`,`note` (if defined and hidden) and hide column name `total`
+where `list1` is grid id on page.php.
+
+### Useful JS Search Events
+
+You can also use following events to perform custom operation after search.
+
+	// invoked after toolbar search
+	$opt["autofilter_options"]["afterSearch"] = "function(){alert('after search toolbar');}";
+	
+	// invoked after dialog search
+	$opt["search_options"]["onSearch"] = "function(){alert('after search dialog');}";
+
+## Grid Events
+
+For advance solutions, We are not limited to single table operations. We often need to update several tables and execute extra business cases like sending an email or soft delete a record.
+
+We can have our own code-behind implementation for ADD, UPDATE or DELETE operations.
+
+The `on_insert` takes 3 params (function-name, class-object or null-if-global-func, continue-default-grid-operation)
+
+If you pass last argument as true, functions will act as a filter and insert/update in `->table` will be performed by grid after your function.
+If last argument is set to false, only your function handler will be executed and grid's internal implementation will be ignored.
+
+	$e["on_insert"] = array("add_client", null, false);
+	$e["on_update"] = array("update_client", null, false);
+	$e["on_delete"] = array("delete_client", null, true);
+
+	// return last inserted id for further working
+	$e["on_after_insert"] = array("after_insert", null, true);
+	$e["on_after_update"] = array("after_update", null, true);
+
+	// invoked to filter data before displaying on grid
+	$e["on_data_display"] = array("filter_display", null, true);
+
+	// ...
+
+	$g->set_events($e);
+
+In each callbacks, `$data` is passed to function which contains all posted data. We can `print_r()` it for further help.
+
+	function add_client($data)
+	{
+		global $grid;
+		$grid->execute_query("INSERT INTO clients
+						VALUES (null,'{$data["params"]["name"]}'
+									,'{$data["params"]["gender"]}'
+									,'{$data["params"]["company"]}')");
+	}
+
+If the 3rd argument is true, the function will behave as a data filter and the final update will be done by grid code. For e.g.
+
+	$e["on_update"] = array("update_client", null, true);
+	...
+	function update_client(&$data)
+	{
+		// set current date time internally
+		$data["params"]["reg_date"] = date("Y-m-d H:i:s");
+	}
+
+If the 3rd argument is false, the function will be executed and grid's implementation will be skipped.
+In that case, the callback for on_insert and on_update should echo JSON, e.g.
+
+	// if you make it 3rd param to false, then it should return json data
+	// e.g. $e["on_insert"] = array("add_client", null, false);
+
+	function add_client($data)
+	{
+		// ... custom code to make $sql
+
+		global $grid; // where $grid = new jqgrid(...);
+
+		$insert_id = $grid->execute_query($sql,false,"insert_id");
+
+		if (intval($insert_id)>0)
+			$res = array("id" => $insert_id, "success" => true);
+		else
+			$res = array("id" => 0, "success" => false);
+
+		echo json_encode($res);
+		die;
+	}
+
+Inside callback functions, you can check whether $data variables have all such keys.
+Following will print $data in error msg. You can debug all data to see the issue.
+
+You can also put phpgrid_error(mysql_error()); before die statement.
+
+	function update_client($data)
+	{
+		ob_start();
+		print_r($data);
+		phpgrid_error(ob_get_clean());
+
+		// ...
+	}
+
+You can also write you custom function for data export (see export-custom.php)
+$e["on_export"] = array("do_export", null);
+
+	// custom on_export callback function
+	function custom_export($param)
+	{
+		$sql = $param["sql"]; // the SQL statement for export
+		$grid = $param["grid"]; // the complete grid object reference
+
+		if ($grid->options["export"]["format"] == "xls")
+		{
+			// excel generate code goes here
+		}
+		else if ($grid->options["export"]["format"] == "pdf")
+		{
+			// pdf generate code goes here
+		}
+	}
+
+To use custom SQL for search operations on particular field, you can use on_select event.
+
+	$e["on_select"] = array("custom_select","");
+	$g->set_events($e);
+
+	function custom_select($d)
+	{
+		// search params
+		$search_str = $this->strip($d["param"]['filters']);
+		$search_arr = json_decode($search_str,true);
+		$gopr = $search_arr['groupOp'];
+		$rule = $search_arr['rules'][0];
+
+		// sort by params
+		$sidx = $d["param"]['sidx']; // get index row - i.e. user click to sort
+		$sord = $d["param"]['sord']; // get the direction
+
+		if ($rule["field"] == "name")
+		{
+			$d["sql"] = "select * from clients WHERE name like '%{$rule["data"]}%' ORDER BY $sidx $sord";
+			$d["sql_count"] = "select count(*) as c from clients";
+		}
+	}
+
+You can also set Client side event handlers (e.g. on row select)
+
+Step1: Set JS event handler
+
+	// just set the JS function name (should exist)
+	$e["js_on_select_row"] = "do_onselect";
+	...
+	$grid->set_events($e);
+
+Step2: Define JS event handler (where 'list1' is grid id and 'company' is field name to load)
+
+	<script>
+	function do_onselect(id)
+	{
+		var rd = jQuery('#list1').jqGrid('getCell', id, 'company'); // where invdate is column name
+		jQuery("#span_extra").html(rd);
+	}
+	</script>
+	<br>
+	Company: <span id="span_extra">Not Selected</span>
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/editing/custom-events.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/editing/custom-events.php)
+- You can check this demo in archive `demos/editing/custom-events.php`
+
+## Validation
+
+### JS Validation
+
+You can specify the validation rules required on each column. Possible options are mentioned below
+
+	$col["editrules"] = array("required"=>true);
+	$col["editrules"] = array("number"=>true);
+	$col["editrules"] = array("email"=>true);
+	$col["editrules"] = array("date"=>true);
+	$col["editrules"] = array("minValue"=>5, "maxValue"=>10);
+	$col["editrules"] = array("url"=>true);
+
+The `date` validation will check input against format specified in datefmt option.
+It uses a PHP-like date formatting. Currently "/", "-", and "." are supported as date separators. Valid formats are:
+y,Y,yyyy for four digits year
+YY, yy for two digits year
+m,mm for months
+d,dd for days
+
+	$col["datefmt"] = "Y-m-d";
+
+### Custom JS Validation
+
+For custom validation function (be it ajax remote checking or complex regex), Follow following steps.
+For e.g. to check certain column value must be greater than 100:
+
+Step1: Define `custom_func` property for JS function
+
+	$col = array();
+	$col["title"] = "Date";
+	$col["name"] = "invdate";
+	$col["width"] = "50";
+	$col["editable"] = true;
+	$col["editrules"] = array("custom"=>true,"custom_func"=>"function(val,label){return my_validation(val,label);}");
+	$cols[] = $col;
+
+Step2: Define JS callback function
+
+	<script>
+    function my_validation(value,label)
+    {
+        if (value > 100)
+            return [true,""];
+        else
+            return [false,label+": Should be greater than 100"];
+    }
+    </script>
+
+To validate some field 'onblur' JS event, set it in 'editoptions' and define JS callback function like above.
+
+	$col["editoptions"] = array("onblur"=>"validate_onblur(this)");
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/editing/js-validation.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/editing/js-validation.php)
+- You can check this demo in archive `demos/editing/js-validation.php`
+
+### Server Validation
+
+![Server Validation](//www.gridphp.com/wp-content/gallery/documentation/server-validation.png)
+
+If you want to validate that client does not already exist in database. Following code will prompt the ‘already exist’ message as data entry error.
+
+Step1: Define on_insert event handler 'add_client' for server validation.
+
+	$e["on_insert"] = array("add_client", null, true);
+	$grid->set_events($e);
+
+Step2: The helper function ‘phpgrid_error’ will display your server side validation message as error dialog.
+
+	function add_client($data)
+	{
+		global $grid; // where $grid = new jqgrid(...);
+
+		$check_sql = "SELECT count(*) as c from clients where LOWER(`name`) = '".strtolower($data["params"]["name"])."'";
+
+		$rs = $grid->get_one($check_sql);
+
+		if ($rs["c"] > 0)
+			phpgrid_error("Client already exist in database");
+
+		$grid->execute_query("INSERT INTO clients VALUES (null,'{$data["params"]["name"]}','{$data["params"]["gender"]}','{$data["params"]["company"]}')");
+	}
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/editing/server-validation.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/editing/server-validation.php)
+- You can check this demo in archive `demos/editing/server-validation.php`
+
+## Upload Files
+
+![Using File Upload](//www.gridphp.com/wp-content/gallery/documentation/fileupload.png)
+
+Step1: Define column with edittype 'file', and set uploading path in 'upload_dir' property.
+
+	// file upload column
+	$col = array();
+	$col["title"] = "Note";
+	$col["name"] = "note";
+	$col["width"] = "50";
+	$col["editable"] = true;
+
+	$col["edittype"] = "file"; // render as file
+	$col["upload_dir"] = "temp"; // upload here
+
+	$col["show"] = array("list"=>false,"edit"=>true,"add"=>true); // only show in add/edit dialog
+	$cols[] = $col;
+
+Step2: To display uploaded file in grid, make a (non-db) virtual column.
+
+	$col = array();
+	$col["title"] = "Image";
+	$col["name"] = "logo";
+	$col["width"] = "200";
+	$col["editable"] = true;
+	$col["default"] = "<a href='http://jqgrid/dev/demos/dev/{note}' target='_blank'><img height=100 src='http://jqgrid/dev/demos/dev/{note}'></a>";
+	$col["show"] = array("list"=>true,"edit"=>false,"add"=>false); // only show in listing
+	$cols[] = $col;
+
+You can also decide what to do when file already exist:
+
+	// prompt error
+	$col["editrules"] = array("ifexist"=>"error");
+
+	// rename file e.g. file_1,file_2,file_3 etc (default)
+	$col["editrules"] = array("ifexist"=>"rename");
+
+	// override file
+	$col["editrules"] = array("ifexist"=>"override");
+
+To restrict uploaded files based on extension you can set:
+
+	$col["editrules"]["allowedext"] = "jpeg,jpg,png,bmp,gif"; // comma separated list of extensions
+
+To restrict uploaded files size you can set:
+
+	$col["editrules"]["allowedsize"] = 3 * 1024 * 1024; // sets max allowed filesize to 3mb 
+
+To upload multiple files, you can set following. It uploads all selected files in specified folder and set comma separated file names
+in posted array field to be saved in db. One can use on_insert, on_update to separate them and save in separate table if required.
+
+	$col["editoptions"]["multiple"] = "multiple";
+
+Make sure you have configured following settings in php.ini OR using ini_set() function. 
+e.g. setting following in php.ini set 64 MB upload limit.
+	
+	memory_limit = 64M
+	upload_max_filesize = 64M
+	post_max_size = 64M
+
+More details can be checked here: https://stackoverflow.com/a/16102850/385377
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/editing/file-upload.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/editing/file-upload.php)
+- You can check this demo in archive `demos/editing/file-upload.php`
+
+## Footer Summary
+
+![Footer](//www.gridphp.com/wp-content/gallery/documentation/footer.png)
+
+Step1: Enable footer in grid options and connect grid load event.
+
+	$opt["footerrow"] = true;
+	$opt["loadComplete"] = "function(){ grid_onload(); }";
+	$g->set_options($opt);
+
+Step2: Write JS code to fill footer row.
+
+	<script>
+	// e.g. to show footer summary
+	function grid_onload()
+	{
+		// where list1 is grid id
+		var grid = $("#list1");
+
+		// get sum of column `total`
+		// can use other functions like 'sum, 'avg', 'count' (use count-1 as it count footer row).
+		var sum = grid.jqGrid('getCol', 'total', false, 'sum');
+
+		// set in footer under another column 'id'
+		grid.jqGrid('footerData','set', {id: 'Total: ' + sum});
+	};
+	</script>
+
+If using formatter in columns (like currency etc), you need to pass 4th param to false. e.g.
+
+	grid.jqGrid('footerData','set', { id: 'Total: €' + sum.toFixed(2) }, false);
+
+For more advanced example, refer sample code below.
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/appearance/footer-row.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/appearance/footer-row.php)
+- You can check this demo in archive `demos/appearance/footer-row.php`
+
+## Autocomplete
+
+Steps shows how to integrate database driven type ahead and autocomplete by lookup query.
+
+### Basic Typeahead (single field)
+
+Step1: Set formatter to autocomplete on desired column
+
+	$col["formatter"] = "autocomplete"; // autocomplete
+
+Step2: Set format options query. The field in sql aliased 'v' will be shown in list
+
+	// Fill the name field with query values typeahead
+	$col["formatoptions"] = array(	"sql"=>"SELECT name as v FROM clients",
+									"update_field"=>"name");
+
+### Autofill other field.
+
+The field 'company' will be filled w.r.t. selected name.
+
+	$col["formatoptions"] = array(	"sql"=>"SELECT company as k, name as v FROM clients",
+									"update_field"=>"company");
+
+The field aliased 'k' will be set in the 'updated_field' column (e.g. company)
+
+### Callback function
+
+Connect a callback function that will auto-fill multiple fields & search in both name + id,
+
+	$col["formatoptions"] = array(	"sql"=>"SELECT *, name as v FROM clients",
+									"search_on"=>"concat(name,'-',client_id)",
+									"callback"=>"fill_form");
+
+and in html part, define callback function.
+
+	<script>
+	function fill_form(data)
+	{
+		jQuery("input[name=gender].FormElement").val(data.gender);
+		jQuery("textarea[name=company].FormElement").val(data.company);
+
+		jQuery("input[name=gender].editable").val(data.gender);
+		jQuery("textarea[name=company].editable").val(data.company);
+	}
+	</script>
+
+### Minimum Length for Autocomplete
+
+You can set minimum characters length to trigger autocomplete by:
+	
+	$col["formatoptions"]["min_length"] = 1; // defaults to 1
+
+### Force Selection
+
+You can also force to select from one of the options, set force_select => true
+
+	// callback function
+	$col["formatoptions"] = array(	"sql"=>"SELECT *, name as v FROM clients where gender='male' ORDER BY name desc",
+									"search_on"=>"concat(name,'-',client_id)",
+									"force_select"=>true);
+
+By default, autocomplete uses 'contains' search. To switch to 'begins with' set:
+
+	$col["formatoptions"]["op"] = "bw";
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/integrations/autocomplete.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/integrations/autocomplete.php)
+- You can check this demo in archive `demos/integrations/autocomplete.php`
+
+## Multiselect Filter
+
+Step1: Include JS / CSS files required to have this feature. Make sure you include JS files after jQuery JS inclusion.
+
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-multiselect-widget/1.17/jquery.multiselect.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-multiselect-widget/1.17/jquery.multiselect.filter.css">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-multiselect-widget/1.17/jquery.multiselect.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-ui-multiselect-widget/1.17/jquery.multiselect.filter.js"></script>
+
+Step2:
+
+To have multi-select filter in search bar, add following properties with desired column:
+
+	// multi-select in search filter
+	$col["stype"] = "select-multiple";
+	$col["searchoptions"]["value"] = $str; // e.g. $str = "key1:value1;key2:value2;key3:value3"
+
+It will replace search text box to multi-select filter for grid column `name`
+
+	$col = array();
+	$col["title"] = "Name";
+	$col["name"] = "name";
+
+	// this will prepare (key:value) option list for dropdown filters
+	$str = $g->get_dropdown_values("select distinct name as k, name as v from clients");
+
+	// multi-select in search filter
+	$col["stype"] = "select-multiple";
+	$col["searchoptions"]["value"] = $str;
+
+	$cols[] = $col;
+
+If your column contains foreign key data (like client_id) then implementation will look like this:
+
+	$col = array();
+	$col["title"] = "Client";
+	$col["name"] = "client_id";
+	$col["dbname"] = "invheader.client_id";
+	$col["width"] = "100";
+
+	// this will prepare (key:value) option list for dropdown filters
+	$str = $g->get_dropdown_values("select distinct client_id as k, name as v from clients limit 10");
+
+	// in edit mode render as select
+	$col["edittype"] = "select";
+	$col["editoptions"] = array("value"=>":;".$str);
+
+	// multi-select in search filter
+	$col["stype"] = "select-multiple";
+	$col["searchoptions"]["value"] = $str;
+
+	$cols[] = $col;
+
+![Multiselect Filter Search](//www.gridphp.com/wp-content/gallery/images-v2/multiselect-filter.png)
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/integrations/multiselect-filter.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/integrations/multiselect-filter.php)
+- You can check this demo in archive `demos/integrations/multiselect-filter.php`
+
+## Inline Charts
+
+## HTML Editor
+
+Step1: Include JS / CSS files required to have this feature. Make sure you include JS files after jQuery JS inclusion.
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/4.9.11/tinymce.min.js"></script>
+
+Step2:
+
+To have html editor in edit mode, add following properties with desired column:
+
+	$col["edittype"] = "textarea"; 
+	$col["formatter"] = "html";
+	$col["editoptions"]["dataInit"] = "function(el){ setTimeout(function(){ link_tinymce(el); },200); }";
+
+Add following JS callback function that will connect html editor with your textarea:
+
+	<script type="text/javascript">
+	function link_tinymce(el)
+	{
+		// remove nbsp; from start of textarea
+		if(el.previousSibling) el.parentNode.removeChild(el.previousSibling);
+		$(el).parent().css('padding-left','6px');
+				
+		// connect tinymce, for options visit http://www.tinymce.com/wiki.php
+		try {
+		tinymce.remove("textarea#"+jQuery(el).attr('id'));
+		} catch(ex) {}
+		
+		tinymce.init({
+			selector: "textarea#"+jQuery(el).attr('id'),
+			menubar: false,
+			forced_root_block : "", 
+			force_br_newlines : true, 
+			force_p_newlines : false,
+			plugins: [
+				"advlist autolink lists link image charmap print preview anchor",
+				"searchreplace visualblocks code fullscreen",
+				"insertdatetime media table contextmenu paste"
+			],
+			toolbar: "insertfile undo redo | styleselect | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image"
+		});
+		
+		// fix to focus typing
+		jQuery(document).unbind('keypress').unbind('keydown');
+
+		// bind onchange with textarea
+		var ed = tinymce.activeEditor;
+		ed.on('change', function (e) {
+			jQuery(el).val(ed.getBody().innerHTML);
+		});
+	  
+	}
+	</script>
+
+## AI Assistant
+
+![](https://www.gridphp.com/wp-content/uploads/ai-assistant-chat-box.png)
+
+### Step 1: Enter API Key
+
+First step to use AI Assistant is to enter the API Key. Free API Key can be obtained from [Groq Cloud Platform](https://console.groq.com/).
+
+![AI Api Key](https://www.gridphp.com/wp-content/uploads/screenshots/ai-assist-api-key.png)
+
+### Step 2: Enable in Grid Settings 
+
+Next, you can enable AI Assistant in the DataGrid by the following setting:
+
+	$g->set_actions(array(
+							// ...
+							"aiassistant"=>true,
+							// ...
+						)
+					)
+
+This will show the AI Assistant icon in the toolbar.
+
+![](https://www.gridphp.com/wp-content/uploads/ai-assist-icon.png)
+
+### Step 3: Using AI Assistant
+
+When you click the AI Assistant button, It will open a chat mode for the DataGrid where you can ask the questions about your data.
+
+![](https://www.gridphp.com/wp-content/uploads/ai-assistant-chat-box.png)
+
+## State Persistence
+
+Step1: Include JS / CSS files required to have this feature. Make sure you include JS files after jQuery JS inclusion.
+
+	<!-- library for persistance storage -->
+	<script src="//cdn.jsdelivr.net/jstorage/0.1/jstorage.min.js" type="text/javascript"></script>
+	<script src="//cdn.jsdelivr.net/json2/0.1/json2.min.js" type="text/javascript"></script>
+	<script src="//cdn.jsdelivr.net/gh/gridphp/jqGridState@10b365046ebd687914855e807eb5f769277317d5/jqGrid.state.js" type="text/javascript"></script>
+
+Step2: Before displaying grid echo $out, set persistence options in script tag:
+
+	<script>
+	var opts_list1 = {
+		"stateOptions": {
+					storageKey: "gridState-list1",
+					columns: true, // remember column chooser settings
+					selection: true, // row selection
+					expansion: true, // subgrid expansion
+					filters: true, // filters
+					pager: true, // page number
+					order: true // field ordering
+		}
+	};
+	</script>
+
+- Set true/false setting in JS object you want to keep persistence on page reload.
+- If you have single grid on page, `var opts` will also work. However it's better to use `var opts_<gridid>`
+- Option `storageKey` should be unique for each grid, otherwise settings will mix-up.
+- It uses client side browser storage. To persist on server, refer demo code below.
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/misc/persist-settings.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/misc/persist-settings.php)
+- You can check this demo in archive `demos/misc/persist-settings.php`
+
+## Responsive Design
+
+You can define which columns to show or hide based on screen resolution.
+Currently it uses following starting breakpoints.
+
+	xs - Extra Small devices (320px)
+	sm - Small devices (544px)
+	md - Medium devices (768px)
+	lg - Large devices (992px)
+	xl - Extra Large devices (1200px)
+
+By default it will auto hide columns from end based on screen size.
+
+	$opt["responsive"] = true;
+	...
+	$g->set_options($opt);
+
+To override and make a column visible on small devices and above, you can set:
+
+	$col["visible"] = "sm+";
+
+Complete column settings will be like following:
+
+	$col = array();
+	$col["title"] = "Id";
+	$col["name"] = "id";
+	$col["width"] = "20";
+	$col["editable"] = false;
+	$col["visible"] = "sm+";
+	$cols[] = $col;
+
+You can also specify certain screen sizes for a column. Following column will be shown on XS, SM and MD screen sizes.
+
+	$col["visible"] = array("xs","sm","md");
+
+You can always show/hide certain columns by Column Chooser.
+
+![Column selection in Responsive mode](//www.gridphp.com/wp-content/gallery/documentation/responsive-colchoose.png)
+
+Below small devices screen sizes, It changes operation toolbar to 3 line toolbar.
+
+![Toolbar in Responsive mode](//www.gridphp.com/wp-content/gallery/documentation/responsive-toolbar.png)
+
+And display of add/edit/view dialogs are transposed as well.
+
+![Dialogs in responsive mode](//www.gridphp.com/wp-content/gallery/documentation/responsive-edit.png)
+![Dialogs in responsive mode](//www.gridphp.com/wp-content/gallery/documentation/responsive-view.png)
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/appearance/responsive.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/appearance/responsive.php)
+- You can check this demo in archive `demos/appearance/responsive.php`
+
+## Localization
+
+![Localization Japanese](//www.gridphp.com/wp-content/gallery/documentation/localization-japanese.png)
+![Localization Arabic](//www.gridphp.com/wp-content/gallery/documentation/localization-arabic.png)
+
+To enable text labels in your desired language, change source of the local javascript file. Available language packs are stored in this folder `js/jqgrid/js/i18n/`. Over 39 language packs are in the solution. (see localization.php)
+
+	<!-- to enable arabic -->
+	<script src="js/jqgrid/js/i18n/grid.locale-ar.js" type="text/javascript"></script>
+
+	<!-- to enable spanish -->
+	<script src="js/jqgrid/js/i18n/grid.locale-es.js" type="text/javascript"></script>
+
+	<!-- to enable french -->
+	<script src="js/jqgrid/js/i18n/grid.locale-fr.js" type="text/javascript"></script>
+
+	<!-- to enable italian -->
+	<script src="js/jqgrid/js/i18n/grid.locale-it.js" type="text/javascript"></script>
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/misc/localization.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/misc/localization.php)
+- You can check this demo in archive `demos/misc/localization.php`
+
+To change string constants, you can edit related lang file e.g. "lib/js/jqgrid/js/i18n/grid.locale-en.js" OR do JS override on page:
+
+	<script>
+	$.jgrid.edit.bSubmit = "Save";
+	</script>
+
+To change submit button text for add/edit dialog,
+
+	$opt["add_options"]["bSubmit"] = "Add";
+	$opt["edit_options"]["bSubmit"] = "Update";
+	// ...
+	$g->set_options($opt);
+
+## Themes
+
+![Themes](//www.gridphp.com/wp-content/gallery/documentation/themes.png)
+
+Instead of `redmond` in below css code, you can use any of the themes from following list:
+
+	<link rel="stylesheet" type="text/css" media="screen" href="../../lib/js/themes/redmond/jquery-ui.custom.css"></link>
+
+- black-tie
+- blitzer
+- cupertino
+- dark-hive
+- dot-luv
+- eggplant
+- excite-bike
+- flick
+- hot-sneaks
+- humanity
+- le-frog
+- mint-choc
+- overcast
+- pepper-grinder
+- redmond
+- smoothness
+- south-street
+- start
+- sunny
+- swanky-purse
+- trontastic
+- ui-darkness
+- ui-lightness
+- vader
+
+You can also have your customized theme (<a href="http://jqueryui.com/themeroller">jqueryui.com/themeroller</a>).
+
+Steps:
+
+- Goto above link, adjust the theme colors
+- Download the theme archive
+- Create a new folder e.g. 'new-theme' in lib/js/themes 
+- From archive copy image folder to your new-theme 
+- From archive copy jquery-ui.min.css to your new-theme and rename as jquery-ui.custom.css
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/appearance/themes.phps)
+- [See Live Demo](//www.gridphp.com/demo/demos/appearance/themes.php)
+- You can check this demo in archive `demos/appearance/themes.php`
+
+## Connecting with SQL Server
+
+Following code snippet connect PHP Grid Framework to SQL Server.
+
+	$db_conf = array();
+	$db_conf["type"] = "mssqlnative";
+	$db_conf["server"] = "(local)\sqlexpress";
+	$db_conf["user"] = null;
+	$db_conf["password"] = null;
+	$db_conf["database"] = "master";
+
+	$g = new jqgrid($db_conf);
+
+	...
+
+	$g->table = "[msdb].[dbo].[syscategories]";
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/loading/db-layer-sqlsvr.phps)
+- You can check this demo in archive `demos/loading/db-layer-sqlsvr.php`
+
+Connecting Azure database:
+
+	$db_conf = array();
+	$db_conf["type"] = "mssqlnative";
+	$db_conf["server"] = "phpgrid.database.windows.net"; // ip:port
+	$db_conf["user"] = "admin_phpgrid";
+	$db_conf["password"] = "xxxxx";
+	$db_conf["database"] = "griddemo";
+
+	include("../../lib/inc/jqgrid_dist.php");
+	$g = new jqgrid($db_conf);
+
+Using PDO for SQL Server Azure:
+
+	$db_conf = array();
+	$db_conf["type"] = "pdo";
+	$db_conf["server"] = "sqlsrv:Server=phpgrid.database.windows.net";
+	$db_conf["user"] = "admin_phpgrid"; // username
+	$db_conf["password"] = "xxxxx"; // password
+	$db_conf["database"] = "griddemo"; // database
+
+	include("../../lib/inc/jqgrid_dist.php");
+	$g = new jqgrid($db_conf);
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/loading/db-layer-sqlsvr-azure.phps)
+- You can check this demo in archive `demos/loading/db-layer-sqlsvr-azure.php`
+
+## Connecting with Postgres
+
+Following code snippet connect PHP Grid with Postgres.
+
+	$db_conf = array();
+	$db_conf["type"] = "postgres"; // mysql,oci8(for oracle),mssql,postgres,sybase
+	$db_conf["server"] = "localhost";
+	$db_conf["user"] = "postgres";
+	$db_conf["password"] = "abcd";
+	$db_conf["database"] = "testdb"
+
+	$g = new jqgrid($db_conf);
+
+### Resources
+
+- [Sample Code](//www.gridphp.com/demo/demos/loading/db-layer-pgsql.phps)
+- You can check this demo in archive `demos/loading/db-layer-pgsql.php`
+
+## Connecting with Oracle
+
+Following code snippet connect PHP Grid with Oracle.
+
+	$db_conf = array();
+	$db_conf["type"] = "oci8"; // mysql,oci8(for oracle),mssql,postgres,sybase
+	$db_conf["server"] = "127.0.0.1:1521";
+	$db_conf["user"] = "system";
+	$db_conf["password"] = "asd";
+	$db_conf["database"] = "xe";
+
+	include("../../lib/inc/jqgrid_dist.php");
+	$g = new jqgrid($db_conf);
+
+### Resources
+
+- [Oracle Sample Code](//www.gridphp.com/demo/demos/loading/oracle-master-detail.phps)
+- You can check this demo in archive `demos/loading/oracle-master-detail.php`
+
+## Debug Mode
+
+Debug mode is enabled by default and it will show the server side failure reason.
+When going in production mode, you should disable the debug mode by following config.
+
+	$g = new jqgrid();
+	$g->debug = 0;
+
+If you wish to change the SQL errors, you can turn them off using following setting.
+
+	$g->error_msg = "System was unable to process your request. Please contact technical support.";
+
+For custom message at server side data validation, refer demos/editing/server-validation.php
+
+In order to debug SQL queries, set:
+
+	$g->debug_sql = 1;
+
+In order to debug Search queries, set:
+
+	$g->debug_search = 1;
+
+By enabling `debug_sql` or `debug_search` configuration, you will see SQL queries being sent to database in error message box.
+You can also close error box and continue next debug step.
+
+### Resources
+
+- [See Reference](//www.gridphp.com/updates/running-php-grid-in-debug-mode/)
+
+## Basic Todo List Application
+
+To show some basic features of php grid framework, we created a very simple demo of todo list and following features are used:
+
+- Bootstrap 4 + Mobile sidebar filter menu
+- Conditional Formatting
+- Custom delete event callback for soft delete
+- External Search form (date range, text, priority filters)
+- Checkbox with default edit mode
+- Export to Excel
+
+Desktop screen:
+
+![Desktop View](//www.gridphp.com/wp-content/uploads/todo-desktop-1024x532.png)
+
+Mobile screen:
+
+![Mobile View](//www.gridphp.com/wp-content/uploads/todo-app.gif)
+
+### Resources
+
+- [See Live Demo](//www.gridphp.com/demo/demos/apps/todos.php)
+- [Source Code](//www.gridphp.com/demo/demos/apps/todos.phps)
+
+## Application Templates
+
+We've developed several ready-to-use applications using our PHP DataGrid Framework, which includes built-in features.
+
+![Sales Crm](https://www.gridphp.com/wp-content/uploads/sales-crm-template.png)
+
+### Authentication System
+
+Authentication module can be enable from the Settings page of the application.
+
+![Enable Authentication](https://www.gridphp.com/wp-content/uploads/screenshots/app-template-enable-auth.gif)
+
+### User Management
+
+User Management module allows you to create new users for the application. Only Admin user can use this module. You can also assign desired roles from:
+
+- Admin (All privileges)
+- Editor (Editing privileges without Settings and User Management)
+- Readonly (Readonly Access)
+
+![User Management](https://www.gridphp.com/wp-content/uploads/screenshots/app-template-user-module.gif)
+
+### Understanding the Code
+
+The code structure is kept simple so as to modify and extend as per your needs.
+
+- The config.php file contains settings about database connection & others.
+- The modules folder contains the code for all DataGrids. The code of the DataGrids is similar to the one that comes with demos.
+- The theme/layout.php is the main layout file that makes tabs and placed grid.
+- The index.php is the front controller that includes all files.
+- The auth.php is the middleware to manage authenticated access.
+
+This code structure is constantly evolving, keeping it simple and flexible.
+
+![](https://www.gridphp.com/wp-content/uploads/screenshots/app-template-code-structure.png)
+
+### How to Customize
+
+- In order to add or modify any column settings of the DataGrid, Inside `modules` folder locate the DataGrid code (filename is the same as grid) and change the desired column settings.
+- Sample database structure is used just to make the demos. You can modify it as per your needs using any SQL IDE, like phpMyAdmin. 
+- If you need developement & customization services from our technical team, you can [contact us](https://www.gridphp.com/contact/) back.
+
+### Samples
+
+We have released five application templates so far, with more coming soon.
+
+- [Sales CRM](https://www.gridphp.com/templates/sales-crm/)
+- [Inventory Tracking System](https://www.gridphp.com/templates/inventory-management/)
+- [Employee Directory](https://www.gridphp.com/templates/employee-directory/)
+- [Donation Management](https://www.gridphp.com/templates/donation-management/)
+- [Expense Tracker](https://www.gridphp.com/templates/expense-tracker/)
+
+## Database Table Editor
+
+## RSS News Reader
+
+## Laravel Integration
+
+Following is the guide to integrate PHP Editable DataGrid with Laravel v12.
+
+### Step 1: Folder placements in Laravel.
+
+There are 2 main folders in Grid 4 PHP Framework package archive. You need to:
+
+- Copy the contents of lib/inc folder —> <Laravel>/app/Classes/Gridphp
+- Copy the contents of lib/js folder —> <Laravel>/public/assets/gridphp
+
+![Step1](https://www.gridphp.com/wp-content/uploads/gridphp-laravel-step1-1024x733.png)
+
+The `app/Classes` folder does not exist by default in Laravel. You may create it for 3rd party class libraries.
+Create another folder inside it with name `Gridphp` and move all contents of `lib/inc` in it. Final result will look like this:
+
+![](https://www.gridphp.com/wp-content/uploads/gridphp-laravel-step2-2-1024x733.png)
+
+In similar way, copy the files from lib/js to laravel/public/assets/gridphp. Final result should look like following:
+
+![](https://www.gridphp.com/wp-content/uploads/gridphp-laravel-step2-1-1024x733.png)
+
+### Step 2: Setting Up Factory Class & Controller:
+
+To use datagrid object in controller, we have setup a factory class in `laravel/app/Gridphp.php`. The purpose of this class is to:
+
+- Set the database configuration.
+- Autoload the library files
+- Provide a get() method to be used in controller.
+
+<script src="https://gist.github.com/gridphp/d7a86c21978a53674aa7810a51c56a09.js?file=Gridphp.php"></script>
+
+Now in controller, we used the namespace of our factory class and called the get() function to get the datagrid object. The rest code is same as in our demos. Finally, we passed the output of render() function to view with a variable name 'grid'.
+
+For demo purpose, we've modified `laravel/app/Http/Controllers/WelcomeController.php`
+
+<script src="https://gist.github.com/gridphp/d7a86c21978a53674aa7810a51c56a09.js?file=WelcomeController.php"></script>
+
+Note: The DataGrid does not rely on Eloquent ORM model of Laravel. It uses its own data access libraries.
+
+### Step 3: Setting View code:
+
+- In view code, we included the JS/CSS files from the `js` folder which we copied in Step 1.1
+- And using blade template variable output, we pushed the grid output in our desired place in html.
+- We have html meta tag for `csrf-token`, which is required by laravel for POST operations. Also added JavaScript code to pass CSRF-TOKEN in ajax request calls, as mentioned in Laravel docs.
+
+For demo purpose, we slightly modified `laravel/resources/views/welcome.blade.php`
+
+<script src="https://gist.github.com/gridphp/d7a86c21978a53674aa7810a51c56a09.js?file=welcome.blade.php"></script>
+
+### Step 4: Setting Routes
+
+The Last step in this tutorial is to set the routes to our controller. We will use both GET and POST routes as our grid uses both methods.
+
+<script src="https://gist.github.com/gridphp/d7a86c21978a53674aa7810a51c56a09.js?file=web.php"></script>
+
+### Result 
+
+The Editable DataGrid for Laravel!
+
+![](https://www.gridphp.com/wp-content/uploads/gridphp-laravel-12.png)
+
+## WordPress Integration
+
+We've published a new simplified tutorial on how to integrate Grid 4 PHP Framework with WordPress Sites. 
+WordPress misses a comprehensive Editable Table, DataGrid and a CRUD solution, so we've integrated it to solve the problem.
+
+![](https://www.gridphp.com/wp-content/uploads/gridphp-wp6-1024x760.png)
+
+It enables using most features of our Data Grid inside WordPress and much simpler than previous implementations. 
+Steps required to integrate are following:
+
+### Step 1: Downloading Package
+
+Download [Free version](https://www.gridphp.com/download/) or [Buy package](https://www.gridphp.com/compare/) from our website (if not already done) 
+
+- Move `lib` folder from package in your WordPress root directory 
+- Rename `lib` folder as `phpgrid`
+
+![](https://i.imgur.com/dzUwJl3.png)
+
+and inside this folder the contents should be:
+
+![](https://i.imgur.com/oST2OQi.png)
+
+### Step 2: Code Snippet Plugin
+
+Install WordPress plugin `Code Snippets` from [wordpress.org/plugins/code-snippets/](https://wordpress.org/plugins/code-snippets/) OR download from [Github Repository](https://github.com/sheabunge/code-snippets) and install manually.
+
+![](https://www.gridphp.com/wp-content/uploads/code-snippets-plugin.png)
+
+### Step 3: Adding Snippet
+
+Goto admin panel and click Add Snippet as in image. Add any title you like and in code section, Copy paste the Sample Code Snippet:
+
+<script src="https://gist.github.com/gridphp/70638eab834a7ec64b4bf757d2329c30.js"></script>
+
+In code section of your WordPress Plugin shown below:
+
+![](https://ci4.googleusercontent.com/proxy/pNOyT877C78H2UmhKB5cAXifxWZ-joRH6WJmNdpDPJJ8z29GKHtE11USTYYyrmThIqA=s0-d-e1-ft#//i.imgur.com/9zYLANu.png)
+
+To customize the DataGrid widget:
+
+1. Change database configuration in the contructor and DataGrid code in the render() function.
+2. If want to show grid in admin area, uncomment admin_init, admin_enqueue_scripts hooks in constructor.
+3. In case of CSS conflict with Wordpress theme, adjust CSS at the end of render() function.
+4. In case of multiple datagrids, use unique class name for each grid.
+5. DataGrid Shortcode will be the same as Classname that can be used in post/pages. For e.g. in our demo [phpgrid_users] 
+
+### Step 4: Adding Shortcode
+
+In this code, we have created a [shortcode here](https://gist.github.com/gridphp/70638eab834a7ec64b4bf757d2329c30#file-wp-demo-snippet-latest-php-L28) same as class name: [phpgrid_users] and we will now place it on page where we want to show our Datagrid.
+
+![](https://www.gridphp.com/wp-content/uploads/gridphp-wp6-shortcode-1024x519.jpg)
+
+### Result
+
+Now Save the page and open / preview it, you will get the Datagrid.
+
+![](https://www.gridphp.com/wp-content/uploads/gridphp-wp6-1024x760.png)
+
+WordPress featuring Sub-Grids:
+
+![](https://www.gridphp.com/wp-content/uploads/wordpress-gridphp-subgrid-1024x598.png)
+
+### DataGrid in WordPress Backend
+
+Following steps will be required to make shortcode available in admin area – plugin development.
+
+Step1: Add admin_init & admin_footer hook along with others.
+
+![](https://www.gridphp.com/wp-content/uploads/wordpress-admin-snippet-1.png)
+
+Step2: Select ‘Run Snippet everywhere’ after snippet code block.
+
+![](https://www.gridphp.com/wp-content/uploads/wp-admin-s2-1024x333.png)
+
+Step3: Call do_shortcode() function where you want to show datagrid.
+
+![](https://www.gridphp.com/wp-content/uploads/gridphp-admin-snippet-step3.jpg)
+
+Result:
+
+![](https://www.gridphp.com/wp-content/uploads/wp-admin-result-1024x283.png)
+
+You can create more snippets by copying code from package demos and assign new unique class name for each grid which can be placed on your page/post of WordPress.
+
+## Codeigniter Integration
+
+We've made a quick walk-through how to integrate the smart PHP DataGrid with CodeIgniter framework. For this, we have used:
+
+- Grid 4 PHP Framework 2.9
+- Latest version of CodeIgniter (v4+)
+- PHP 8 (can work on lower supported versions as well)
+
+In this code we used MySQL, however you can use PHP DataGrid combination with almost all famous Database engines including Oracle, Microsoft SQL Server, DB2, Postgres, SQLite, Firebird, etc.
+
+![](https://www.gridphp.com/wp-content/uploads/ci4-grid4php.png)
+
+Steps to integrate are very simple.
+
+### Step 1:  Download CodeIgniter
+
+Download CodeIgniter archive from  [Github repository](https://github.com/CodeIgniter4/framework/releases/tag/v4.1.3)  and extract it in your public_html / htdocs / similar web public folder of your web server. Make sure it is showing the CI startup page.
+
+### Step 2: Download Grid4PHP
+
+Download the Grid4PHP archive from  [our website](https://www.gridphp.com/download/). You can either use free OR paid version, Comparison is  [available here](https://www.gridphp.com/compare/). Free version provides basic essential functions for evaluation purpose.
+
+### Step 3: Extract in CodeIgniter Folder
+
+Extract the Grid4PHP archive and move the `lib` folder from archive to the `public` folder of CodeIgniter.
+
+### Step 4: Setup Controller 
+
+Replace the code of CI’s Controller `app\Controller\Home.php` with this sample controller code.
+
+<script src="https://gist.github.com/gridphp/857e8254d58d5f91fe43ca69bbd059d6.js?file=Home.php"></script>
+
+In Controller, make sure you set the  **database configuration**  (Line 9-14) and a  **table**  to fetch data (Line 25), according to your requirement.
+
+### Step 5: Setup View
+
+In View, include the `JS` and `CSS` files and echo variable passed from controller. CI’s View welcome_message can be replaced with this sample view code.
+
+<script src="https://gist.github.com/gridphp/857e8254d58d5f91fe43ca69bbd059d6.js?file=welcome_message.php"></script>
+
+### Step 6: Set Routes
+
+In Routes.php, Set both POST and GET routes for the controller function.
+
+<script src="https://gist.github.com/gridphp/857e8254d58d5f91fe43ca69bbd059d6.js?file=Routes.php"></script>
+
+### Result
+
+![](https://www.gridphp.com/wp-content/uploads/ci4-grid4php.png)
+
+### Troubleshooting
+
+- Getting “Whoops! We seem to have hit a snag. Please try again later”. If you see this message after setting up, please check the log file of CodeIgniter in “writable/logs” folder. It will tell the exact reason behind it.
+- Make sure you have “intl” and “curl” php extensions installed. They are required by CodeIgniter 4.
+
+## General FAQs
+
+### Q) How to debug no records (blank grid)?
+
+Few considerations before use
+
+1)  include the jqgrid_dist.php file before any thing rendered to output.
+2)  Check the ajax response of grid,
+
+Also make sure you call '$g->render();' function before any HTML is rendered
+(echo'd) to output, as it expect exact JSON format for ajax calls. You can echo the output of render() function to desired location in html.
+
+Use firefox->firebug->net->ajax-call of grid->response. You will see the output there, in case of any error. It should be proper JSON format data in order to render grid
+
+Review this tutorial for '[debugging with firebug](https://www.gridphp.com/support/questions/how-to-debug-using-firebug-browser-debugger-f12)'.
+
+To enable debugging errors,
+
+1) Turn errors on. Goto jqgrid_dist.php make it 'on'
+
+	ini_set("display_errors","on"); // changed from off to on
+
+2) If you are using non-mysql database,
+
+	$g = new jqgrid($db);
+	...
+	$g->con->debug = 1;
+
+### Q) How can i integrate Grid 4 PHP in MVC based frameworks like Laravel, Yii, Codeignitor, Zend Framework, CakePHP and others.
+
+To integrate in MVC, You can divide code in 2 sections. And put first in controller and pass the $out variable to view, where you can render it with rest of JS/CSS files.
+
+CONTROLLER PART
+
+	include("inc/jqgrid_dist.php");
+	$g = new jqgrid();
+	...
+	$out = $g->render("list1");
+
+VIEW PART
+
+	<html>
+
+	<link rel="stylesheet" type="text/css" media="screen" href="js/themes/redmond/jquery-ui.custom.css"></link>
+	<link rel="stylesheet" type="text/css" media="screen" href="js/jqgrid/css/ui.jqgrid.css"></link>
+
+	<script src="js/jquery.min.js" type="text/javascript"></script>
+	<script src="js/jqgrid/js/i18n/grid.locale-en.js" type="text/javascript"></script>
+	<script src="js/jqgrid/js/jquery.jqGrid.min.js" type="text/javascript"></script>
+	<script src="js/themes/jquery-ui.custom.min.js" type="text/javascript"></script>
+
+	<div>
+	<?php echo $out?>
+	</div>
+
+	...
+
+PHP Grid works independently from the framework lib and don't use data access layers of framework.
+In Codeigniter, the htaccess mod_rewrite param of QSA (query string append) is disabled. You might need to enable it in CI `.htaccess` file.
+
+	RewriteEngine On
+	RewriteCond %{REQUEST_FILENAME} !-f
+	RewriteCond %{REQUEST_FILENAME} !-d
+	RewriteRule ^(.*)$ index.php/$1 [QSA,L]
+
+### Q) Grid only show Edit/Delete option only on first row / certain rows?
+
+The first column of grid must have unique alphanumeric data (usually a PK).
+This is required for proper display as well as update & delete operations of particular row.
+Later, You can also hide that column by setting $col["hidden"] = true;
+
+### Q) I'm getting JS error in browser console: 'jqGrid' is undefined OR Cannot read property 'bridge' of undefined?
+
+It's usually due to order of including jQuery JS file OR possibly duplicate inclusion. Please see below. 
+
+Correct: Including jQuery before jqGrid JS file
+
+	<script src="../../lib/js/jquery.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/jqgrid/js/i18n/grid.locale-en.js" type="text/javascript"></script>
+	<script src="../../lib/js/jqgrid/js/jquery.jqGrid.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/themes/jquery-ui.custom.min.js" type="text/javascript"></script>
+
+Incorrect: Not Including before jqGrid js file
+
+	<script src="../../lib/js/jqgrid/js/i18n/grid.locale-en.js" type="text/javascript"></script>
+	<script src="../../lib/js/jqgrid/js/jquery.jqGrid.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/themes/jquery-ui.custom.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/jquery.min.js" type="text/javascript"></script>
+
+Incorrect: Including jQuery twice, by theme template or other plugin
+
+	<script src="../../lib/js/jquery.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/jqgrid/js/i18n/grid.locale-en.js" type="text/javascript"></script>
+	<script src="../../lib/js/jqgrid/js/jquery.jqGrid.min.js" type="text/javascript"></script>
+	<script src="../../lib/js/themes/jquery-ui.custom.min.js" type="text/javascript"></script>
+	
+	<!-- some other code -->
+	
+	<script src="<some-other-plugin>/js/jquery.min.js" type="text/javascript"></script>
+
+Make sure you include JQuery JS file before other JS files and include only once in your page. 
+
+### Q) How to display grid with no primary key in table?
+
+You can virtual column for unique data as first column of grid, and fill that column using filter_display event.
+It is required for various options e.g. displaying subgrid etc.
+
+	// virtual column to show grid
+
+	$col = array();
+	$col["title"] = "Id";
+	$col["name"] = "vid";
+	$col["width"] = "400";
+	$col["hidden"] = true;
+	$cols[] = $col;
+
+	$e["on_data_display"] = array("filter_display", null, true);
+	$g->set_events($e);
+
+	function filter_display($data)
+	{
+		$i=1;
+		foreach($data["params"] as &$d)
+		{
+			$d["vid"] = $i++;
+		}
+	}
+
+
+## Grid Appearance FAQs
+
+### Q) I upgraded to licensed version. Why i am having 'Free Version' tag line with grid?
+
+Try following steps.
+
+1) Please make sure you have replaced lib/js folder with the one in licensed packgage.
+
+2) Your browser is using cached JS files. Try after clearing browser cached files. You can also try opening it in different browser OR browser's incognito mode. 
+
+### Q) How to show horizontal scroll bar in grid (when there are many columns) ?
+
+You need to set following params:
+
+	$grid["autowidth"] = false;
+	$grid["responsive"] = false;
+	$grid["shrinkToFit"] = false; // dont shrink (or extend) to fit in grid width
+	$grid["width"] = "600";
+	...
+	$g->set_options($grid);
+
+For 2.6.2+,
+
+	$grid["cmTemplate"]["visible"] = "xs+"; // show all column on small screens
+	$grid["shrinkToFit"] = false; // enable horizontal scrollbar
+	...
+	$g->set_options($grid);
+
+
+If you dont specify the width property, it will be the sum of all columns width.
+To make scroll bar visible, the sum of column width must increase window width.
+
+### Q) Change font size & height of cell
+
+Update following css classes to change presentation.
+
+	<style>
+	.ui-jqgrid {font-size:14px; font-family:"tahoma";}
+	.ui-jqgrid tr.jqgrow td {height: 25px; padding:0 5px !important;}
+	</style>
+
+### Q) How to show vertical lines for each column?
+
+You can add following CSS code to show vertial lines in datagrid.
+
+	<style>
+	.ui-jqgrid tr.ui-row-ltr td { border-right-style:inherit !important; }
+	.ui-jqgrid tr.ui-row-rtl td { border-left-style:inherit !important; }
+	/* To disable minimum grid height limit */
+	.ui-jqgrid .ui-jqgrid-bdiv { min-height:10px; }
+	</style>
+
+### Q) How to do word-wrap (fit) content in grid cells?
+
+Update following css in page to change cell wrapping.
+
+	<style>
+	.ui-jqgrid tr.jqgrow td
+	{
+	    vertical-align: top;
+	    white-space: normal !important;
+	    padding:2px 5px;
+	}
+	</style>
+
+To make word wrapping in view record dialog, add following css:
+
+	<style>
+	.ui-jqdialog-content .CaptionTD
+	{
+		vertical-align: top;
+	}
+
+	.ui-jqdialog-content .form-view-data
+	{
+		white-space: normal;
+	}
+	</style>
+
+Also check this link for frozen columns with cell wrap.
+http://stackoverflow.com/questions/8686616/how-can-i-get-jqgrid-frozen-columns-to-work-with-word-wrap-on
+
+### Q) How can i add caption along with icons of add,edit,delete.
+
+You can set it using following config on jqgrid() object. For example:
+
+	$grid->navgrid["param"]["addtext"] = "Add Invoice";
+	$grid->navgrid["param"]["edittext"] = "Edit Invoice";
+	$grid->navgrid["param"]["deltext"] = "Delete Invoice";
+	$grid->navgrid["param"]["searchtext"] = "Search";
+	$grid->navgrid["param"]["refreshtext"] = "Refresh";
+	$grid->navgrid["param"]["viewtext"] = "View Invoice";
+
+Altenrate, You need to put following additional JS and CSS code. You can change 'Add User' with your desired caption.
+
+	<script type="text/javascript">
+	$.jgrid.nav.addtext = "Add User";
+	$.jgrid.nav.edittext = "Edit User";
+	$.jgrid.nav.deltext = "Delete User";
+	</script>
+
+After adding captions, the alignment got it out, so put this css.
+
+	<style type="text/css">
+	.ui-jqgrid .ui-jqgrid-pager .ui-pg-div
+	{
+	    float: left;
+	    line-height: 18px;
+	    padding: 2px 2px 2px 0;
+	    position: relative;
+	}
+	</style>
+
+### Q) How to enable footer summary row?
+
+Please do these changes to enable footer summary row.
+
+Step1: Enable footer row in options
+
+	$grid["footerrow"] = true;
+	$g->set_options($grid);
+
+	// set onload js event
+	$e["js_on_load_complete"] = "grid_onload";
+	$grid->set_events($e);
+
+Step2: Add custom JS code as mentioned. 'list1' is the identifier for grid. In function 'getCol', 2nd param 'field1' is the name of column, which will show the summary data. Valid options for mathoperation (4th param) are - 'sum, 'avg', 'count'.
+
+	<script>
+	function grid_onload()
+	{
+		var grid = $("#list1"),
+		sum = grid.jqGrid('getCol', 'field1', false, 'sum');
+		grid.jqGrid('footerData','set', {field1: 'Total: '+sum});
+	}
+	</script>
+
+If one need to show complete table's total in footer, refer following example.
+
+	$g->select_command = "SELECT id,invdate,total,(SELECT sum(total) from invheader) AS table_total FROM invheader";
+
+Define a column with name table_total, and in footer data, use that table_total field.
+
+	<script>
+	function grid_onload()
+	{
+		var grid = $("#list1");
+		sum = grid.jqGrid('getCol', 'table_total');
+		grid.jqGrid('footerData','set', {total: 'Total: '+sum[0]});
+	}
+	</script>
+
+### Q) How to remove buttons and text from toolbar?
+
+Do following config to show/remove items in toolbar
+
+	$opt["rowList"] = array();
+	$opt["pgbuttons"] = false;
+	$opt["pgtext"] = null;
+	$opt["viewrecords"] = false;
+	$g->set_options($opt);
+
+	$g->set_actions(array(
+							"add"=>false, // allow/disallow add
+							"edit"=>false, // allow/disallow edit
+							"delete"=>false, // allow/disallow delete
+							"view"=>false, // allow/disallow view
+							"refresh" => false, // show/hide refresh button
+							"search" => false, // show single/multi field search condition (e.g. simple or advance)
+						)
+					);
+
+### Q) How to remove caption, toolbars, column label rows from grid?
+
+To remove the caption row, set grid caption property to blank.
+
+	$opt["caption"] = "";
+
+To remove the toolbars in subgrid, add following css in style tag after include the css files - where list1 is grid id of parent.
+
+	.ui-jqgrid[id^=gbox_list1_] .ui-pager-control { display: none; }
+
+To remove the column labels,
+
+    .ui-jqgrid[id^=gbox_list1_] .ui-jqgrid-labels { display: none; }
+
+To remove the search filters, set autofilter to false. e.g.
+
+	$g->set_actions(array(
+							"add"=>false, // allow/disallow add
+							"edit"=>true, // allow/disallow edit
+							"delete"=>false, // allow/disallow delete
+							"rowactions"=>true, // show/hide row wise edit/del/save option
+							"autofilter" => false, // show/hide autofilter for search
+						)
+					);
+
+### Q) How to remove global search and enable paging buttons on top toolbar?
+
+Following option will hide global search from top toolbar:
+
+	$opt["globalsearch"] = false;
+	$g->set_options($opt);
+
+In html code:
+
+	<style>
+	/* removed paging and record count from top pager */
+	.ui-jqgrid .ui-jqgrid-toppager > div > table:nth-child(1) > tbody > tr >  td:nth-child(2) { display:table-cell !important; }
+	.ui-jqgrid .ui-jqgrid-toppager > div > table:nth-child(1) > tbody > tr >  td:nth-child(3) { display:table-cell !important; }
+	</style>
+
+### Q) How to caption header and both toolbars altogether?
+
+Use this config:
+
+In grid settings:
+
+	$opt["caption"] = "";
+	$opt["height"] = "100%";
+	$g->set_options($opt);
+
+In html code:
+
+	<style>
+	.ui-jqgrid-pager,.ui-jqgrid-toppager
+	{ display: none; }
+	</style>
+
+### Q) How to left button group from bottom toolbar?
+
+In html code, add following css:
+
+	<style>
+	.ui-jqgrid-pager td[id$='pager_left'] {
+		display: none;
+	}
+	</style>
+
+### Q) How to do grouping on more than 1 field?
+
+It's not fully stable, but you can try following config.
+
+	$grid["grouping"] = true;
+	$grid["groupingView"] = array();
+
+	$grid["groupingView"]["groupField"] = array("field1","field2"); // specify column name to group listing
+	$grid["groupingView"]["groupDataSorted"] = array(true,true); // show sorted data within group
+	$grid["groupingView"]["groupSummary"] = array(true,true); // work with summaryType, summaryTpl, see column: $col["name"] = "total";
+
+	$grid["groupingView"]["groupColumnShow"] = array(false,false); // either show grouped column in list or not (default: true)
+	$grid["groupingView"]["groupText"] = array("<b>{0} - {1} Item(s)</b>"); // {0} is grouped value, {1} is count in group
+	$grid["groupingView"]["groupOrder"] = array("asc"); // show group in asc or desc order
+	$grid["groupingView"]["groupCollapse"] = true; // Turn true to show group collapse (default: false)
+	$grid["groupingView"]["showSummaryOnHide"] = true; // show summary row even if group collapsed (hide)
+
+Refer demos/appearence/grouping.php for more help.
+
+### Q) How to do grouping collapse except first?
+
+You can call click() of first group on load event of datagrid.
+
+	$opt["loadComplete"] = "function(){ $('.jqgroup:first span').click(); }";
+	// ...
+	$g->set_options($opt);
+
+### Q) How to maintain vertical scroll position after grid reload?
+
+First you need to get the handler for load complete.
+
+	$e["js_on_load_complete"] = "do_onload";
+	$g->set_events($e);
+
+Then in callback, you can have following code.
+
+	<script>
+	function do_onload()
+	{
+		if (jQuery(window).data('phpgrid_scroll'))
+			jQuery('div.ui-jqgrid-bdiv').scrollTop(jQuery(window).data('phpgrid_scroll'));
+
+		jQuery('div.ui-jqgrid-bdiv').scroll(function(){
+			jQuery(window).data('phpgrid_scroll',jQuery('div.ui-jqgrid-bdiv').scrollTop());
+		});
+	}
+	</script>
+
+### Q) How to scroll to a particular row value after grid reload?
+
+First you need to get the handler for load complete.
+
+	$e["js_on_load_complete"] = "do_onload";
+	$g->set_events($e);
+
+Then in JS callback, you can have following code. This will iterate all rows and find row with name 'Victoria Ashworth'.
+It then uses row's first column 'client_id' to get <TR> id and focus it with scrollTop().
+
+	<script>
+	function do_onload()
+	{
+		var rows =  $('#list1').getRowData();
+		for (var i=0;i<rows.length;i++)
+			if (rows[i].name == 'Victoria Ashworth')
+			{
+				var t = jQuery('tr.jqgrow[id='+rows[i].client_id+']').position().top;
+				jQuery('div.ui-jqgrid-bdiv').scrollTop(t);
+			}
+	}
+	</script>
+
+### Q) How to highlight some cell based on row data ?
+
+You can do it onload event of grid. First you need to connect event, and then write your desired logic in JS code.
+
+In Grid config, set event callback.
+
+	$e["js_on_load_complete"] = "do_onload";
+	...
+	$grid->set_events($e);
+
+In callback function, write your code.
+
+	function do_onload()
+	{
+		var grid = $("#list1");
+		var ids = grid.jqGrid('getDataIDs');
+		for (var i=0;i<ids.length;i++)
+		{
+			var id=ids[i];
+			if (grid.jqGrid('getCell',id,'qty') == '0')
+			{
+				grid.jqGrid('setCell',id,'price','','not-editable-cell'); // make cell uneditable
+				grid.jqGrid('setCell',id,'price','',{'background-color':'lightgray'}); // make bgcolor to gray
+			}
+		}
+	}
+
+### Q) How to apply formatting of rows, based on 2 or more fields.
+
+You can use a load complete callback handler, and put conditional formatting JS code in it.
+For instance, refer following example, where list1 is grid id.
+
+	// PHP part
+	$e["js_on_load_complete"] = "do_onload";
+	...
+	$grid->set_events($e);
+
+	// HTML part
+	<script>
+	function do_onload(ids)
+	{
+		if(ids.rows) jQuery.each(ids.rows,function(i){
+
+			// format row when gender is 'male' and company name starts with 'Bl'
+			if (this.gender.toLowerCase() == 'male' && this.company.indexOf('Bl') != -1)
+			{
+				jQuery('#list1 tr.jqgrow:eq('+i+')').css('background','inherit').css({'background-color':'#FBEC88', 'color':'green'});
+			}
+		});
+	}
+	</script>
+
+### Q) How to show dropdown/select in buttons toolbar?
+
+Following JS code, will display dropdown with toolbar buttons. It's upto your logic to show desired options and onchange function.
+Here 'list1' is assumed to be grid id.
+
+	<script>
+		jQuery(window).load(function(){
+			jQuery('#list1_pager_left').append ('<div style="padding-left: 5px; padding-top:2px; float:left"><select><option>None</option></select></div>');
+		});
+	</script>
+
+### Q) How to retain page number on page refresh?
+
+You can have something like following, to preserve page number.
+
+	$grid = new jqgrid();
+
+	if (isset($_GET["jqgrid_page"]))
+		$_SESSION["jqgrid_page"] = $_GET["jqgrid_page"];
+
+	$opt["caption"] = "Clients Data";
+	$opt["page"] = intval($_SESSION["jqgrid_page"]);
+	$grid->set_options($opt);
+
+### Q) How to persist selection, data ordering, column order, page number, selection in grid, expand same subgrid on page refresh?
+
+Include following JS plugins files in your page, and add 'opts' setting before 'echo $out' as mentioned below:
+
+	<!-- library for persistance storage -->
+	<script src="//cdn.jsdelivr.net/jstorage/0.1/jstorage.min.js" type="text/javascript"></script>
+	<script src="//cdn.jsdelivr.net/json2/0.1/json2.min.js" type="text/javascript"></script>
+	<script src="//cdn.rawgit.com/gridphp/jqGridState/63904a57244ef89fa58ca0fa146da8e2e6e4d395/jqGrid.state.js" type="text/javascript"></script>
+
+	<script>
+	var opts = {
+		"stateOptions": {
+					storageKey: "gridStateCookie",
+					columns: true,
+					filters: false,
+					selection: true,
+					expansion: true,
+					pager: true,
+					order: true
+					}
+		};
+	</script>
+
+	<div>
+	<?php echo $out?>
+	</div>
+
+### Q) How to keep page number persistence when back button is clicked from new page?
+
+Here we need some JS trick to pick if back button is clicked.
+When defining URL in column, here we've placed #moved in url and used JS onclick to send to new page.
+
+	$col = array();
+	$col["title"] = "Note";
+	$col["name"] = "note";
+	$col["width"] = "50";
+	$col["editable"] = true; // this column is editable
+	$col["default"] = "<a href='#moved' onclick=\"location.href='details.php'\">Details</a>"; // render as select
+	$cols[] = $col;
+
+Enable state persistence of paging, all rest disabled.
+
+	var opts_list1 = {
+			"stateOptions": {
+						storageKey: "gridState-list1",
+						columns: false, // remember column chooser settings
+						selection: false, // row selection
+						expansion: false, // subgrid expansion
+						filters: false, // filters
+						pager: true, // page number
+						order: false // field ordering
+			}
+		};
+
+And to open first page if not back is clicked, i will clear state persistance if not hash is found in url.
+
+	<body>
+		<script>
+		jQuery(document).ready(function(){
+			if(window.location.hash=="")
+			{
+				jQuery.jStorage.deleteKey('gridState-list1');
+			}
+		});
+		</script>
+
+		....
+
+	</body>
+
+### Q) How to apply more advanced conditional formatting?
+
+You can set onload event in PHP code, and enable 'reloadedit' option
+
+	// set js onload event
+	$e["js_on_load_complete"] = "grid_onload";
+	$g->set_events($e);
+
+	// required to format rows after editing
+	$opt["reloadedit"] = true;
+	...
+	$g->set_options($opt);
+
+Then in HTML code, you can have custom conditional logic in javascript handler.
+In this code, list1 is grid id. You can also use php's equivalent '$g->id' to reference it.
+
+	<script>
+	function grid_onload(ids)
+	{
+		if(ids.rows)
+			jQuery.each(ids.rows,function(i)
+			{
+				// if col1 = yes and col2 = n/a, format row
+				if (this.col1.toLowerCase() == 'yes' && this.col2.toLowerCase() == 'n/a')
+				{
+					// highlight row
+					jQuery('#list1 tr.jqgrow:eq('+i+')').css('background-image','inherit').css({'background-color':'#FBEC88', 'color':'red'});
+				}
+
+				// if col3 = 1, format cell. 'aria-describedby=list1_col3' is 'gridid_colname' convention to identify cell.
+				if (parseInt(this.col3) == 1)
+				{
+					// highlight cell
+					jQuery('#list1 tr.jqgrow:eq('+i+')').css('background-image','inherit');
+					jQuery('#list1 tr.jqgrow:eq('+i+') td[aria-describedby=list1_col3]').css('background','inherit').css({'background-color':'#FBEC88', 'color':'red'});
+				}
+			});
+	}
+	</script>
+
+To make non-editable column as gray, e.g. If 'list1' is grid id and 'name' is non-editable column:
+
+	<script>
+	function grid_onload(ids)
+	{
+		if(ids.rows)
+			jQuery.each(ids.rows,function(i)
+			{
+				// if col3 = 1, format cell. 'aria-describedby=list1_col3' is 'gridid_colname' convention to identify cell.
+				if (jQuery("#list1").getColProp("name").editable == false)
+				{
+					// highlight cell
+					jQuery('#list1 tr.jqgrow:eq('+i+')').css('background-image','inherit');
+					jQuery('#list1 tr.jqgrow:eq('+i+') td[aria-describedby=list1_name]').css('background','inherit').css({ 'color':'gray'});
+				}
+			});
+	}
+	</script>
+
+### Q) How to make single row selection, keeping multiselect option?
+
+Following code will enable single selection, in multiselect mode.
+
+PHP code config:
+
+	$opt["beforeSelectRow"] = "function(rowid, e) { if ( jQuery('#list1').jqGrid('getGridParam','selarrrow') != rowid) jQuery('#list1').jqGrid('resetSelection'); return true; }";
+	$g->set_options($opt);
+
+To hide select all checkbox as well, add this css style.
+
+	input#cb_list1 {
+		display: none;
+	}
+
+where `list1` is grid id.
+
+### Q) How to turn multiselect on / off dynamically?
+
+Following code will enable toggle multiselect via javascript code.
+
+	<input type="button" value="Multiselect" onclick="toggle_multiselect()">
+
+	<script>
+	function toggle_multiselect()
+	{
+		if ($('#list1 .cbox:visible').length > 0)
+		{
+			$("#list1").jqGrid('setGridParam',{multiboxonly : true});
+			$('#list1').jqGrid('hideCol', 'cb');
+		}
+		else
+		{
+			$("#list1").jqGrid('setGridParam',{multiboxonly : false});
+			$('#list1').jqGrid('showCol', 'cb');
+		}
+	}
+	</script>
+
+where `list1` is grid id.
+
+### Q) How to make select row only by checkbox?
+
+Following code will enable row selection by checkbox.
+
+	$opt["multiselect"] = true;
+	$opt["beforeSelectRow"] = "function(rowid, e) { return $(e.target).is('input[type=checkbox]'); }";
+	$g->set_options($opt);
+
+### Q) How to increase font size of grid?
+
+Following css override will adjust fonts. For any other left area, you can inspect using firebug.
+
+	<style>
+	.ui-jqgrid {
+		font-family: "tahoma","verdana","sans serif";
+		font-size: 12px;
+	}
+
+	.ui-jqgrid .ui-pg-table td {
+		font-size: 12px;
+	}
+	</style>
+
+### Q) How to stop reload grid after edit submit button?
+
+Following config will stop whole grid reload, and will only update edited row.
+
+	$grid["edit_options"]["reloadAfterSubmit"]=false;
+	...
+	$g->set_options($grid);
+
+### Q) How to attach Keyboard Shortcuts with operations like Add, Search etc?
+
+You can bind your shortcut keys by adding following lib:
+
+	<script src="//cdn.jsdelivr.net/jquery.hotkeys/0.8b/jquery.hotkeys.js"></script>
+
+More help on keys are available on its site: http://github.com/tzuryby/hotkeys
+
+Next, you will find the ID of button to attach shortcut. Use firebug inspect to hover that button and it would show ID of the element.
+
+e.g. To add 'insert' key with '+' button in toolbar
+
+	<script>
+	// insert key to add new row
+	$(document).bind('keyup', 'insert', function(){
+		  jQuery('#add_list1').click();
+		});
+	</script>
+
+### Q) How to increase overall Grid & Toolbar font size?
+
+Following on-page styles will increase font-size to 14px (overriding the base css).
+This inclues grid font, dialogs and toolbar. This will be helpful when using in mobile devices.
+
+	<style>
+	/* increase font & row height */
+	.ui-jqgrid *, .ui-widget, .ui-widget input, .ui-widget select, .ui-widget textarea, .ui-widget button { font-size:14px; }
+	.ui-jqgrid tr.jqgrow td { height:30px; }
+
+	/* big toolbar icons */
+	.ui-pager-control .ui-icon, .ui-custom-icon { zoom: 125%; -moz-transform: scale(1.25); -webkit-zoom: 1.25; -ms-zoom: 1.25; }
+	.ui-jqgrid .ui-jqgrid-pager .ui-pg-div span.ui-icon { margin: 0px 2px; }
+	.ui-jqgrid .ui-jqgrid-pager { height: 28px; }
+	.ui-jqgrid .ui-jqgrid-pager .ui-pg-div { line-height: 25px; }
+	</style>
+
+### Q) How to show animated progress bar instead of text 'Loading...'?
+
+You can replace text with some string containing html <img> tag.
+
+	$grid["loadtext"] = "Loading...";
+	$g->set_options($grid);
+
+### Q) How to show animated progress bar when submit data / form?
+
+You can do it using BlockUI plugin: http://stackoverflow.com/a/22927642/385377
+
+Refer integration demo here: Line 46,55
+https://gist.github.com/gridphp/915d2e0834354913fdfd338d47d50a53
+
+### Q) How to make button for next record selection in grid ?
+
+Following code will bind JS code with button. where list1 is grid id.
+
+	<input type="button" value="Next" id="btnNext">
+
+	<script>
+	$('#btnNext').click(function () {
+
+		var grid =  $("#list1").jqGrid();
+
+		var selectedRow = grid.getGridParam('selrow');
+		if (selectedRow == null) return;
+
+		var ids = grid.getDataIDs();
+		var index = grid.getInd(selectedRow);
+
+		if (ids.length < 2) return;
+
+		index++;
+		if (index > ids.length)
+			index = 1;
+
+		grid.setSelection(ids[index - 1], true);
+	});
+	</script>
+
+### Q) How to focus on next tabindex of HTML element onEnter keypress?
+
+Following code will enable this 'Enter' key for next tabindex movement. 
+
+	$opt["add_options"]["afterShowForm"] = "function (form) 
+	{
+		jQuery(form).on('keydown', 'input,select,textarea', function (event) {
+			if (event.key == 'Enter') {
+
+				var fields = 'input:visible, select:visible, textarea:visible';
+
+				// focus next field
+				jQuery(fields,form)[jQuery(fields,form).index(this)+1].focus();
+				if (jQuery(fields,form)[jQuery(fields,form).index(this)+1].select) 
+					jQuery(fields,form)[jQuery(fields,form).index(this)+1].select();
+				
+				// submit if next field not present
+				if (jQuery(fields,form)[jQuery(fields,form).index(this)+1])
+					window.event.returnValue = false;
+			}
+		});
+
+	}";
+
+	$opt["edit_options"]["afterShowForm"] = $opt["add_options"]["afterShowForm"]; 
+
+	$g->set_options($opt);
+
+Another JS based solution is to place following code at end on html.
+
+	<script type="text/javascript">
+	// Focus Next on Enter
+	// https://stackoverflow.com/a/40686327/8743891
+
+	function focusNextElement() {
+	  var focussableElements = 'a:not([disabled]), button:not([disabled]), input[type=text]:not([disabled]), [tabindex]:not([disabled]):not([tabindex="-1"])';
+		var focussable = Array.prototype.filter.call(document.querySelectorAll(focussableElements),
+		  function(element) {
+			return element.offsetWidth > 0 || element.offsetHeight > 0 || element === document.activeElement
+		  });
+		var index = focussable.indexOf(document.activeElement);
+		focussable[index + 1].focus();
+	}
+	window.addEventListener('keydown', function(e) {
+	  if (e.keyIdentifier == 'U+000A' || e.keyIdentifier == 'Enter' || e.keyCode == 13) {
+		if (e.target.nodeName === 'INPUT' && e.target.type !== 'textarea') {
+			e.preventDefault();
+			focusNextElement();
+			e.stopImmediatePropagation()
+			return false;
+		}
+	  }
+	}, true);
+	</script>
+
+
+## Column Appearance FAQs
+
+### Q) How can i set the width of 'Actions' column?
+
+You can also customize the width of that column,
+
+	# Customization of Action column width and other properties
+	$col = array();
+	$col["title"] = "Action";
+	$col["name"] = "act";
+	$col["width"] = "50";
+	$cols[] = $col;
+
+You can also hide actions column leaving double click operation intact, by setting hidden with column config.
+
+	$col["hidden"] = true;
+
+This work when you define grid columns manually and pass to this function.
+Otherwise, it will distribute all columns with equal width.
+
+	// pass the cooked columns to grid
+	$g->set_columns($cols);
+
+### Q) How to show Action column on left side?
+
+Make first column (in $cols array) as PK and make $col["hidden"] = true;
+To make action links on left, define it as 2nd column (in $cols array).
+
+	# Customization of Action column width and other properties
+	$col = array();
+	$col["title"] = "Action";
+	$col["name"] = "act";
+	$col["width"] = "50";
+	$cols[] = $col;
+
+### Q) How can i use custom data formatter with column?
+
+You can use it in following manner, e.g.
+
+in php code ...
+
+	$col = array();
+	$col["title"] = "Closed";
+	$col["name"] = "closed";
+	$col["width"] = "50";
+	$col["editable"] = true;
+	$col["edittype"] = "checkbox"; // render as checkbox
+	$col["editoptions"] = array("value"=>"1:0"); // with these values "checked_value:unchecked_value"
+	$col["formatter"] = "function(cellvalue, options, rowObject){ return cboxFormatter(cellvalue, options, rowObject);}";
+
+and in html ...
+
+	<script>
+	function cboxFormatter(cellvalue, options, rowObject)
+	{
+		return '<input type="checkbox" name="itemid[]" value="'+options.rowId+'" onclick="test('+options.rowId+',this.checked);"/> '+cellvalue;
+	}
+	</script>
+	<div>
+	<?php echo $out?>
+	</div>
+
+In custom formatter, rowObject[0] contains first cell data and so on, we can also use some JS based ajax calling on current row.
+
+Another example is to show negative numbers in ( ) and red in color.
+
+	$col["formatter"] = "function (cellvalue, options) {
+		var value = parseFloat(cellvalue);
+		return (value >= 0 ? value : '(' + value + ')') + ' €';
+	}";
+
+	$col["unformat"] = "function (cellvalue, options) {
+		return cellvalue.replace('(','').replace(')','').replace(' €','');
+	}";
+
+	$col["cellattr"] = "function (rowid, cellvalue) {
+		return parseFloat(cellvalue) >= 0 ? '' : ' style=\"color:red;font-weight:bold;\"'
+	}";
+
+### Q) How to set Multiline Column title for space flexibility?
+
+Sometimes the title is a bit too long. You can set column title/header with multiline text using linebreak, for example:
+
+	$col["title"]="Total<br>Male";
+
+Additionally, you might need to use custom css for better display.
+
+	<style>
+	.ui-jqgrid .ui-jqgrid-htable th div
+	{
+	    height: 25px;
+	    padding: 5px;
+	}
+	</style>
+
+Text Rotation could also be done using css.
+
+### Q) How to use custom button for Add, Edit or Delete grid operations ?
+
+You can invoke small button's on-click event, using jQuery code.
+Refer following code, where `list1` is grid id.
+
+	<input type="button" value="Add" onclick="jQuery('#add_list1').click()">
+	<input type="button" value="Edit" onclick="jQuery('#edit_list1').click()">
+	<input type="button" value="Delete" onclick="jQuery('#del_list1').click()">
+
+### Q) How to show HTML tags in textarea and grid cells?
+
+Following custom formatter will enable you to show html tags in textarea, as well as in grid.
+
+	$col["edittype"] = "textarea"; // render as textarea on edit
+	$col["formatter"] = "function(cellval,options,rowdata){ return jQuery.jgrid.htmlEncode(cellval); }";
+	$col["unformat"] = "function(cellval,options,cell){ return jQuery.jgrid.htmlDecode(cellval); }";
+	$cols[] = $col;
+
+### Q) How to show paragraphs of textarea in view record dialog?
+
+Following option will enable you to show paragraph tags in textarea view mode, if entered in edit dialog. 
+If you already use this grid option, you can append the following function code with your existing callback.
+
+	$opt["view_options"]["beforeShowForm"] = 'function (form) 
+					{
+						// formatter for textarea paragraphs in view dialog
+
+						var gid = form.selector.replace("#ViewGrid_","");
+						var colModel = jQuery("#"+gid).jqGrid("getGridParam", "colModel"); 
+						if (colModel) {
+							jQuery(colModel).each(function(i) {
+								if (colModel[i]["edittype"] == "textarea")
+								{
+									var field = colModel[i]["name"];
+									$("#v_"+field).html($("#v_"+field).html().replaceAll("\n","<p>"));
+								}
+							});
+						}			
+					}';
+
+	$g->set_options($opt);
+
+### Q) How to hide or remove select all checkbox?
+
+Use this css to hide select all checkbox, where your grid id is list1.
+
+	<style>
+	#cb_list1 {display:none;}
+	</style>
+
+### Q) How to show placeholder in search auto filters?
+
+Here are the steps:
+
+1) Set onload event
+
+	$opt["loadComplete"] = "function(ids) { do_onload(ids); }";
+	$grid->set_options($opt);
+
+2) Include any placeholder library, e.g.
+
+	<script src="https://mathiasbynens.github.io/jquery-placeholder/jquery.placeholder.js" type="text/javascript"></script>
+
+3) Connect to search field. If your column name is 'name' then search field will have id gs_name.
+
+	<script>
+	function do_onload(id)
+	{
+		$("#gs_name").attr("placeholder","Search Name ...");
+	}
+	</script>
+
+### Q) Tooltip for cells based on other columns?
+
+You can set custom formatter to set custom tooltip (title attr).
+For e.g. if you want to have cell with tooltip of column 'company', then formatter would be:
+
+	$col["formatter"] = "function(cellvalue, options, rowObject){ return '<div title=\"'+rowObject.company+'\">'+cellvalue+'</div>'; }";
+
+Unformat function will also be required for editing raw text:
+
+	$col["unformat"] = "function(cellvalue, options, rowObject){ return jQuery.jgrid.stripHtml(cellvalue); }";
+
+Column settings:
+
+	$col = array();
+	$col["title"] = "Company";
+	$col["name"] = "company";
+	$col["editable"] = true;
+	$col["edittype"] = "textarea";
+	$col["editoptions"] = array("rows"=>2, "cols"=>20);
+	$cols[] = $col;
+
+	$col = array();
+	$col["title"] = "Client Name";
+	$col["name"] = "name";
+	$col["formatter"] = "function(cellvalue, options, rowObject){ return '<DIV title=\"'+rowObject.company+'\">'+cellvalue+'</DIV>'; }";
+	$col["unformat"] = "function(cellvalue, options, rowObject){ return $.jgrid.stripHtml(cellvalue); }";
+	$col["editable"] = true;
+	$col["width"] = "80";
+	$cols[] = $col;
+
+Full code: http://pastebin.com/ENKjryJ1
+
+## Column Settings FAQs
+
+### Q) How to integrate autocomplete function?
+
+Step1: Select ID and Data both in select command. (e.g. client_id, clients.name)
+
+	$g->select_command = "SELECT id, invdate, invheader.client_id, clients.name as cid, amount, note FROM invheader
+	INNER JOIN clients on clients.client_id = invheader.client_id
+	";
+
+Step2: Place ID field in grid, (optionally hidden)
+
+	// field that will be updated by autocomplete
+	$col = array();
+	$col["title"] = "client_id";
+	$col["name"] = "client_id";
+	$col["width"] = "10";
+	$col["editable"] = true;
+	$col["hidden"] = true;
+	$cols[] = $col;
+
+Step3: Place DATA field in grid, with autocomplete formatter.
+
+	// normal textbox, with autocomplete enabled
+	$col = array();
+	$col["title"] = "Client";
+	$col["name"] = "cid";
+	$col["dbname"] = "clients.name"; // this is required as we need to search in name field, not id
+	$col["width"] = "100";
+	$col["align"] = "left";
+	$col["search"] = true;
+	$col["editable"] = true;
+	$col["formatter"] = "autocomplete"; // autocomplete
+	$col["formatoptions"] = array(	"sql"=>"SELECT client_id, name FROM clients",
+									"search_on"=>"name",
+									"update_field" => "client_id");
+
+It will search in passed SQL for autocomplete, and selection ID will be set in field client_id.
+
+### Q) How can i get unqiue values in autocomplete?
+
+You can change the input SQL to use GROUP BY clause. For example, to get unique 'release', you can use following query.
+
+	$col["formatoptions"] = array(
+									"sql"=>"SELECT * FROM (SELECT id as k, release as v FROM tbl_releases GROUP BY release) o",
+	                                "search_on"=>"v",
+	                                "update_field" => "id");
+
+### Q) How can i show lookup dropdown from other table (i.e. linked with FK data)
+
+First step is to select the table which you want to use in grid, which will include table join.
+
+	$g->select_command = "SELECT id, invdate, invheader.client_id, amount, note FROM invheader
+							INNER JOIN clients on clients.client_id = invheader.client_id
+							";
+
+After that, you need to define column like this.
+
+	$col = array();
+	$col["title"] = "Client";
+	$col["name"] = "client_id"; // same as aliased name (fk)
+	$col["dbname"] = "clients.name"; // this is required as we need to search in name field, not id
+	...
+	$col["edittype"] = "select"; // render as select
+
+	# fetch data from database, with alias k for key, v for value
+	$str = $g->get_dropdown_values("select distinct client_id as k, name as v from clients");
+	$col["editoptions"] = array("value"=>$str);
+
+	$col["formatter"] = "select"; // show label in grid, instead of value
+
+	$cols[] = $col;
+
+Refer dropdown.php for working demo.
+
+### Q) How can i set default value to some field?
+
+You can set it by following code.
+
+	// This will set textbox with 10 as default value.
+	$col["editoptions"] = array("size"=>20, "defaultValue"=>'10');
+
+	// This will set current date as default value.
+	$col["editoptions"] = array("size"=>20, "defaultValue"=> date("Y-m-d H:i:s") );
+
+Make sure that column has editable => true, You can make hidden => true if you dont want to show it (like in case of session id data)
+
+### Q) How to populate other column, based on previous columns?
+
+Solution 1: In following example, text3 will be calculated based on text1 & text2. You can use onblur event and do your own JS code to set value. You can also inspect the ID of elements of form using firebug.
+
+	$col = array();
+	$col["title"] = "Height";
+	$col["name"] = "height";
+	$col["editable"] = true;
+	$col["editoptions"] = array("onblur" => "update_field()");
+	$cols[] = $col;
+
+	$col = array();
+	$col["title"] = "Width";
+	$col["name"] = "width";
+	$col["editable"] = true;
+	$col["editoptions"] = array("onblur" => "update_field()");
+	$cols[] = $col;
+
+	$col = array();
+	$col["title"] = "Area";
+	$col["name"] = "area";
+	$col["editable"] = true;
+	$cols[] = $col;
+
+and in html, put following js function to calculate field.
+
+	<script>
+	function update_field()
+	{
+		// for inline (any tag input, textarea or select)
+	 	jQuery('[name="area"].editable').val(
+				 			parseFloat(jQuery('[name="width"].editable').val()) *
+				 			parseFloat(jQuery('[name="height"].editable').val())
+							);
+
+		// for dialog (any tag input, textarea or select)
+	 	jQuery('[name="area"].FormElement').val(
+				 			parseFloat(jQuery('[name="width"].FormElement').val()) *
+				 			parseFloat(jQuery('[name="height"].FormElement').val())
+							);
+	}
+	</script>
+
+You can inspect the field id.using firebug and use jquery functions to disable / enable desired field.
+To know jquery selector:
+
+	http://easycaptures.com/fs/uploaded/1017/9892108434.png
+	http://easycaptures.com/fs/uploaded/1017/9617668813.png
+
+Solution 2: This is also doable on server side with callback functions: e.g. We want to have sum of 
+field `a` and `b` in field `c` which may or may not be shown on form.
+
+	$e["on_update"] = array("update_field", null, true);
+	$e["on_insert"] = array("update_field", null, true);
+	$g->set_events($e);
+
+	function update_field($data)
+	{
+		$data["params"]["c"] = $data["params"]["a"] + $data["params"]["b"]
+	}
+
+Whatever value of `a` & `b` are posted back they will be summed and used for column `c` 
+in sql query internally executed by library.
+
+### Q) How to use ENTER intead of TAB in moving to next form input?
+
+Following JS code will emulate ENTER as TAB. Put this script code before `echo $out`;
+
+	<script>
+		var opts = {
+			'loadComplete': function () {
+				$('body').on('keydown', 'input, select, textarea', function(e) {
+				    var self = $(this)
+				      , form = self.parents('form:eq(0)')
+				      , focusable
+				      , next
+				      ;
+				    if (e.keyCode == 13) {
+				        focusable = form.find('input,a,select,button,textarea').filter(':visible');
+				        next = focusable.eq(focusable.index(this)+1);
+				        if (next.length) {
+				            next.focus();
+				        } else {
+				            form.submit();
+				        }
+				        return false;
+				    }
+				});
+			}
+		};
+	</script>
+	...
+	<div>
+	<?php echo $out?>
+	</div>
+
+### Q) How to set focus of some other field while adding record?
+
+This JS event enables you to set customization in add/edit forms just after they are displayed.
+For e.g.
+
+	$grid["add_options"]["afterShowForm"] = 'function(formid) { jQuery("#date").focus(); }';
+	$g->set_options($grid);
+
+### Q) How to make a field only editable on Add Dialog, otherwise un-editable?
+
+We'll set the "name" column as editable->false by default. Then we'll enable it on add dialog using following grid settings.
+
+	$grid["add_options"]["beforeInitData"] = "function(formid) { $('#list1').jqGrid('setColProp','name',{editable:true}); }";
+	$grid["add_options"]["afterShowForm"] = "function(formid) { $('#list1').jqGrid('setColProp','name',{editable:false}); }";
+	...
+	$g->set_options($grid);
+
+Where "list1" is ID of grid passed in render() function, and "name" is the column to make editable on Add Dialog.
+
+### Q) How to mask a field, for example like this: (NN) NNNN-NNNN ? N stands for number.
+
+You can pick input jquery id selectors, and link it using any lib.
+
+Library 1: For e.g. http://igorescobar.github.io/jQuery-Mask-Plugin/
+
+Step1: Add JS lib
+
+	<script src="//cdnjs.cloudflare.com/ajax/libs/jquery.mask/0.9.0/jquery.mask.min.js"></script>
+
+Step2: Set field integration, usually $col['name'] is ID of html element
+
+	$opt["add_options"]["afterShowForm"] = 'function(formid) { jQuery("#amount").mask("000.00"); }';
+	$opt["edit_options"]["afterShowForm"] = 'function(formid) { jQuery("#amount").mask("000.00"); }';
+	$g->set_options($opt);
+
+For more options, refer: http://igorescobar.github.io/jQuery-Mask-Plugin/
+
+Library 2: For e.g. http://github.com/RobinHerbots/jquery.inputmask
+
+Step1: Add JS lib
+
+    <!-- masked fields-->
+    <script src="js/jquery.inputmask.js"></script>
+    <script src="js/jquery.inputmask.date.extensions.js" ></script>
+    <script src="js/jquery.inputmask.numeric.extensions.js"></script>
+
+	<!-- OR use github link -->
+	<script src="//rawgit.com/RobinHerbots/jquery.inputmask/3.x/dist/jquery.inputmask.bundle.js"></script>
+
+Step2: Set field integration, usually $col['name'] is ID of html element
+
+	$grid["edit_options"]["afterShowForm"] = 'function(list1) {
+		jQuery("#StartDate").inputmask("mm/dd/yyyy", {yearrange: { minyear: 2010, maxyear: 2020 }});
+		jQuery("#Worth").inputmask("currency", {prefix:"$ ",groupSeparator:",",alias:"numeric",placeholder:"0",autoGroup:!0,digits:2,digitsOptional:!1,clearMaskOnLostFocus:!1});
+	 }';
+
+For more options, refer: http://robinherbots.github.io/jquery.inputmask
+
+### Q) How to change column title at runtime ?
+
+Following JS code will change the column title in grid, where `list1` is grid id and 'name` is column name.
+
+	jQuery("#list1").setLabel("name","Client Name");
+
+You can also use HTML in column title. (for e.g. setting image as column title)
+
+### Q) How to GeoNames lib for City, Country, Code autocomplete lookup?
+
+Simple include Geonames JS lib in html
+
+	<script src="http://tompi.github.io/jeoquery/jeoquery.js" type="text/javascript"></script>
+
+And use dataInit property for autocomplete lookup:
+
+	$col = array();
+	$col["title"] = "City Name";
+	$col["name"] = "city";
+	$col["editable"] = true;
+	$col["width"] = "40";
+	$col["editoptions"]["dataInit"] = "function(o){  jQuery(o).jeoCityAutoComplete(); }";
+	$cols[] = $col;
+
+### Q) How to use 'select2' comboxbox like function with Grid 4 PHP?
+
+1) Added 'dataInit' line with select column:
+
+	$col = array();
+	$col["title"] = "Client";
+	$col["name"] = "client_id";
+	$col["editable"] = true;
+	$col["edittype"] = "select";
+	$col["editoptions"]["dataInit"] = "function(){ setTimeout(function(){ $('select[name=client_id]').select2({width:'80%', dropdownCssClass: 'ui-widget ui-jqdialog'}); },200); }";
+	...
+	$cols[] = $col;
+
+2) Added select2 JS/CSS files:
+
+	<link href="//cdnjs.cloudflare.com/ajax/libs/select2/3.4.6/select2.css" rel="stylesheet"/>
+	<script src="//cdnjs.cloudflare.com/ajax/libs/select2/3.4.6/select2.min.js"></script>
+
+You can further add 'select2' options by referring it's [documentation](http://ivaynberg.github.io/select2/), and placing param with in dataInit code: .select2({ ... });
+
+### Q) How to use 'qtip2' with Grid 4 PHP?
+
+1) Include JS/CSS
+
+	<link rel="stylesheet" href="//cdn.jsdelivr.net/qtip2/2.2.1/jquery.qtip.min.css">
+	<script src="//cdn.jsdelivr.net/qtip2/2.2.1/jquery.qtip.min.js"></script>
+
+2) Connect onload event
+
+	$grid["loadComplete"] = "function(){ connect_qtip(); }";
+	$g->set_options($grid);
+
+3) Connect qtip2 e.g. for all title attributes
+
+    <style>
+    .qtip-content{
+        font-family: tahoma, helvetica, 'sans-serif';
+    }
+    </style>
+
+    <script>
+    function connect_qtip()
+    {
+        jQuery('[title]').qtip({
+                                    position: {
+                                    my: 'bottom left',  // Position my top left...
+                                    at: 'top left' // at the bottom right of...
+                                    }
+                            });
+    }
+    </script>
+
+### Q) How to fill dropdown with different values w.r.t. record?
+
+You can do it using dataInit event handler.
+
+	$col["editoptions"]["dataInit"] = "function(){ setTimeout(function(){ load_dd(); },200); }";
+
+Based on some input value (e.g. invdate=2015-02-18) you can change options of dropdown.
+
+	<script>
+	function load_dd()
+	{
+		var grid = $('#list1');
+		var selectValues;
+
+		if ($('input[name=invdate]').val() == '2015-02-18')
+			selectValues = { "1": "test 1", "2": "test 2" };
+		else
+			selectValues = { "3": "test 3", "4": "test 4" };
+
+		$('select[name=client_id]').html('');
+
+		$.each(selectValues, function(key, value) {
+			 $('select[name=client_id]')
+				  .append($('<option>', { value : key })
+				  .text(value));
+		});
+	}
+	</script>
+
+Sample code: http://hastebin.com/eqedajegov.php
+
+### Q) How to customize the toolbar features of Html editor (CKEditor)?
+
+You can customize buttons in config.js of CK editor. (\lib\js\ckeditor\config.js)
+CK editor docs: http://docs.ckeditor.com/#!/guide/dev_toolbar
+
+Sample config.js contents:
+
+	CKEDITOR.editorConfig = function( config ) {
+		// Define changes to default configuration here.
+		// For complete reference see:
+		// http://docs.ckeditor.com/#!/api/CKEDITOR.config
+
+		// The toolbar groups arrangement, optimized for two toolbar rows.
+		config.toolbarGroups = [
+			{ name: 'clipboard',   groups: [ 'clipboard', 'undo' ] },
+			{ name: 'editing',     groups: [ 'find', 'selection' ] },
+			{ name: 'links' },
+			{ name: 'insert' },
+			{ name: 'forms' },
+			{ name: 'tools' },
+			{ name: 'document',	   groups: [ 'document', 'doctools' ] },
+			{ name: 'others' },
+			'/',
+			{ name: 'basicstyles', groups: [ 'basicstyles', 'cleanup' ] },
+			{ name: 'paragraph',   groups: [ 'list', 'indent', 'blocks', 'align', 'bidi' ] },
+			{ name: 'styles' },
+			{ name: 'colors' },
+		];
+
+		// Remove some buttons provided by the standard plugins, which are
+		// not needed in the Standard(s) toolbar.
+		config.removeButtons = 'Underline,Subscript,Superscript';
+
+		// Set the most common block elements.
+		config.format_tags = 'p;h1;h2;h3;pre';
+
+		// Simplify the dialog windows.
+		config.removeDialogTabs = 'image:advanced;link:advanced';
+
+		config.extraPlugins='onchange';
+		config.skin = 'bootstrapck';
+		// config.width = '300px';
+		config.minimumChangeMilliseconds = 100; // 100 milliseconds (default value)
+	};
+
+### Q) Frozen column does not work. What are the limitations?
+
+The following limitations tell you when frozen columns can not be set-up
+
+- When SubGrid is enabled
+- When cellEdit is enabled
+- When inline edit is used - the frozen columns can not be edit.
+- When sortable columns are enabled - grid parameter sortable is set to true or is function
+- When scroll is set to true or 1
+- When Data grouping is enabled
+- When footer row (footerrow paremeter) is enabled
+
+### Q) How to change language of datepicker control (localization)?
+
+Add following code in html head, after downloading and setting lang file path. e.g.
+
+	<script src="//cdn.jsdelivr.net/gh/jquery/jquery-ui@master/ui/i18n/datepicker-ar.js"></script>
+	<script>
+	$.datepicker.setDefaults( $.datepicker.regional[ "ar" ] );
+	</script>
+
+All language files can be downloaded from: https://github.com/jquery/jquery-ui/tree/master/ui/i18n
+
+### Q) How to set minimum date of datepicker control?
+
+You can set opts array (in formatoptions) which can have these options: http://api.jqueryui.com/datepicker/
+
+	$col["formatoptions"] = array("srcformat"=>'Y-m-d',"newformat"=>'d.m.Y',
+									"opts" => array("changeYear" => true, "dateFormat"=>'yy-mm-dd', "minDate"=>"15-07-08"));
+
+## Dialog Customization FAQs
+
+### Q) How to get direct link to the add new record form OR display add form on grid load?
+
+Following config will show add dialog on load, given that `list1` is grid id.
+
+	if ($_GET["showform"]=="add")
+		$grid["loadComplete"] = "function(){ if (!jQuery(window).data('isFilled')) { jQuery(window).data('isFilled',true); jQuery('#add_list1').click(); } }";
+
+	$g->set_options($grid);
+
+And it would show when you access url with querystring showform=add, e.g. http://<domain>/index.php?showform=add
+
+To open edit dialog for first row on loading grid, you can set:
+
+	$grid["loadComplete"] = "function(){ if (!jQuery(window).data('isFilled')) { jQuery(window).data('isFilled',true); jQuery('#list1').setSelection( $('#list1').jqGrid('getDataIDs')[0] ); jQuery('#edit_list1').click(); } }";
+
+	$g->set_options($grid);
+
+### Q) How to show Confirmation before close add or edit dialog?
+
+Following config will show confirmation onclose event of dialogs.
+
+	$opt["edit_options"]["onClose"] = "function(){ return confirm('Are you sure you wish to close?'); }";
+	$opt["add_options"]["onClose"] = "function(){ return confirm('Are you sure you wish to close?'); }";
+	...
+	$g->set_options($opt);
+
+### Q) How to save record with Previous / Next navidation?
+
+Following config will enable form navigation and save edit dialog on navigation.
+
+	$opt["form"]["nav"] = true;
+	$opt["edit_options"]["onclickPgButtons"] = "function (which, formid, rowid){ $('#sData','#editmodlist1').click(); }";
+	$opt["edit_options"]["closeAfterEdit"] = false;
+	...
+	$g->set_options($opt);
+
+### Q) How to redirect to custom page after add / update?
+
+You can use `onAfterSave` event:
+	
+	$opt["onAfterSave"] = "(function(){window.open('another_grid_page_here.php','_parent');})();";
+
+OR You can bind on_after_insert or on_after_update event handler which will redirect with following code:
+
+	$e["on_after_update"] = array("redirect_page","",true);
+	$g->set_events($e);
+
+	function redirect_page($data)
+	{
+		phpgrid_msg("Redirecting ...<script>location.href='http://google.com'</script>",0);
+	}
+
+### Q) How to add custom buttons in add/edit dialogs?
+
+Following config will enable the addition of custom button in grid dialogs. You can edit button name 'Export' & onclick function as per your needs. Refer working sample dialog-layout.php for live demo.
+
+	$opt["edit_options"]["afterShowForm"] = 'function ()
+		{
+			$(\'<a href="#">Export<span class="ui-icon ui-icon-disk"></span></a>\')
+	    	.addClass("fm-button ui-state-default ui-corner-all fm-button-icon-left")
+	      	.prependTo("#Act_Buttons>td.EditButton")
+	      	.click(function()
+					{
+	            		alert("click!");
+	        		});
+		}';
+
+	$opt["add_options"]["afterShowForm"] = 'function ()
+		{
+			$(\'<a href="#">Load Default<span class="ui-icon ui-icon-disk"></span></a>\')
+			.addClass("fm-button ui-state-default ui-corner-all fm-button-icon-left")
+		  	.prependTo("#Act_Buttons>td.EditButton")
+		  	.click(function()
+					{
+		        		alert("click!");
+		    		});
+		}';
+
+	$opt["search_options"]["afterShowSearch"] = 'function ()
+			{
+	        	$(\'<a href="#">Load Default<span class="ui-icon ui-icon-disk"></span></a>\')
+	           	.addClass("fm-button ui-state-default ui-corner-all fm-button-icon-left")
+	           	.prependTo("td.EditButton:last")
+	           	.click(function()
+						{
+		               		alert("click!");
+		           		});
+			}';
+	...
+	$g->set_options($opt);
+
+### Q) How to remove toolbar buttons for add/edit dialog and enable only inline editing?
+
+Use following config to remove toolbar buttons, while inline options remain intact. $g is jqgrid() object.
+The navgrid settings override set_actions configuration for toolbar.
+
+	$g->navgrid["param"]["edit"] = false;
+	$g->navgrid["param"]["add"] = false;
+	$g->navgrid["param"]["del"] = false;
+
+Additionally, if you wish to remove search & refresh buttons, here is the code.
+
+	$g->navgrid["param"]["search"] = false;
+	$g->navgrid["param"]["refresh"] = false;
+
+### Q) How to make more space for buttons in toolbar?
+
+An option could be to move the pager and total records from top toolbar. It will give full width space for icons.
+Along with that you can remove the operations buttons from bottom toolbar.
+
+	$opt["loadComplete"] = "function(){pagers_fx();}";
+	$g->set_options($opt);
+
+and in html ...
+
+	<script>
+		var pagers_fx = function(){
+		jQuery(".ui-jqgrid-toppager td[id$=pager_right]").remove();
+		jQuery(".ui-jqgrid-toppager td[id$=pager_center]").remove();
+		jQuery(".ui-jqgrid-pager td[id$=pager_left]").html('');
+		};
+	</script>
+
+### Q) How can i remove autofilter and toolbar altogether?
+
+You can apply following css onpage to hide them.
+
+	<style>
+	.ui-jqgrid-hbox, .ui-jqgrid-pager
+	{
+		display:none;
+	}
+	</style>
+
+### Q) How to show "View Record" dialog on row selection?
+
+Following code snippet will enable view dialog on row selection. This will be placed in before we echo $out variable.
+
+	<script>
+	var opts = {
+		'onSelectRow': function (id) {
+			jQuery(this).jqGrid('viewGridRow', id, jQuery(this).jqGrid('getGridParam','view_options'));
+		}
+	};
+	</script>
+
+	...
+	<div>
+	<?php echo $out?>
+	</div>
+
+### Q) How to show "Edit Record" dialog on row double click / Show dialog on row edit button?
+
+Following code snippet will enable edit dialog on row double click. This will be placed in before we echo $out variable. `$g` is the jqgrid() object.
+
+	<script>
+	var opts = {
+		'ondblClickRow': function (id) {
+			jQuery(this).jqGrid('editGridRow', id, jQuery(this).jqGrid('getGridParam','edit_options'));
+		}
+	};
+	</script>
+	...
+	<div>
+	<?php echo $out?>
+	</div>
+
+### Q) How to show "View Record" dialog on row double click / Show dialog on row edit button?
+
+The loadComplete event is used to open edit dialog on row edit icon. (Inline editing is not supported)
+Code snippet with 'opts' will enable view dialog on row double click. This will be placed in before we echo $out variable.
+
+	$grid["loadComplete"] = 'function() { on_load(); }';
+	$g->set_options($grid);
+
+	<script>
+	function on_load()
+	{
+		var gid = '<?php echo $g->id ?>';
+		jQuery('a.ui-custom-icon.ui-icon-pencil').attr('onclick','');
+		jQuery('a.ui-custom-icon.ui-icon-pencil').click(function(){ jQuery('#'+gid+'').jqGrid('setSelection',jQuery(this).closest('tr').attr('id'), true); jQuery('#edit_'+gid).click(); });
+	};
+
+	var opts = {
+		'ondblClickRow': function (id) {
+			jQuery(this).jqGrid('viewGridRow', id, <?php echo json_encode_jsfunc($g->options["view_options"])?>);
+		}
+	};
+	</script>
+
+	<div>
+	<?php echo $out?>
+	</div>
+
+In order to enable inline editing on pencil icon along with view dialog on dblclick, refer [this code](https://gist.github.com/gridphp/7b8c82f6b82eb3bc4a98a2c202cbd6df).
+
+### Q) How to post other form data with Grid add/edit form?
+
+To add extra parameters while add/edit ...you can add following event.
+Here 'my_text_box' is html input field id, and it will be passed to php with name 'mydata'.
+
+	$opt["edit_options"]["onclickSubmit"] = "function(params, postdata) { postdata.mydata= jQuery('#my_text_box').val(); }";
+	$opt["add_options"]["onclickSubmit"] = "function(params, postdata) { postdata.mydata= jQuery('#my_text_box').val(); }";
+	...
+	$g->set_options($opt);
+
+### Q) How to use custom dialog box with button on grid?
+
+Support we have a virtual column that has input of type button as default
+value. We can simply set "onclick" in element attribute and invoke jQuery UI Dialog code.
+
+	$col["default"] = '<input type="button" value="Open Dialog" onclick="$(\"#wrapper\").dialog(\"open\");">';
+
+Given that there is a container 'wrapper' exist in html code.
+
+	<div id="wrapper">
+	<p>Jquery initial content, can be replaced latter </p>
+	</div>
+
+### Q) How to make 2 column form without defining rowpos & colpos, only with css?
+
+You need to increase the dialog width using following settings:
+
+	$grid["add_options"] = array('width'=>'450');
+	$grid["edit_options"] = array('width'=>'450');
+	$g->set_options($grid);
+
+Then define following css in html code:
+
+	<style>
+		/* Alternate way if we dont use formoptions */
+		.FormGrid .EditTable .FormData
+		{
+			float: left;
+			width: 220px;
+		}
+		.FormGrid .EditTable .FormData .CaptionTD
+		{
+			display: block;
+    		float: left;
+    		vertical-align: top;
+    		width: 60px;
+		}
+		.FormGrid .EditTable .FormData .DataTD
+		{
+    		display: block;
+    		float: left;
+    		vertical-align: top;
+    		width: 140px;
+		}
+	</style>
+
+You can adjust the width of caption, data and row as required.
+
+### Q) How to resize the form fields when dialog is resized?
+
+Following css makes fields small/large based on available width on dialog.
+
+	<style>
+	.FormElement { width: 90%; }
+	.CaptionTD {width: 10%}
+	</style>
+
+### Q) How can i POST extra data along with form fields?
+
+You can pass extra parameters in following way, both for dialog and inline modes.
+
+	// extra param 'test' => 'test-add'
+	$grid["add_options"]["editData"]["test"] = "test-add";
+	$grid["edit_options"]["editData"]["test"] = "test-edit";
+	$grid["delete_options"]["delData"]["test"] = "test-del";
+
+	$g->set_options($grid);
+
+As all posted data is made part of insert/update/delete query, you may need to unset them in event handler.
+Refer demos/editing/custom-events.php for event handler usage.
+
+### Q) How to use custom Add form instead of popup dialog?
+
+One solution could be to add a custom toolbar button, and hide the default add function.
+On that custom toolbar button, redirect page to your add-form.php page.
+And on add-form.php page, after submit you can redirect it back to grid page.
+
+To remove add button, You can set:
+
+	$g->set_actions(array(
+		"add"=>false, // allow/disallow add
+		...
+		)
+	);
+
+To add custom toolbar button, refer demos/appearance/toolbar-button.php
+
+	<script type="text/javascript">
+	jQuery(document).ready(function(){
+
+		jQuery('#list1').jqGrid('navButtonAdd', '#list1_pager',
+		{
+			'caption'      : 'Add',
+			'buttonicon'   : 'ui-icon-plus',
+			'onClickButton': function()
+			{
+				location.href="custom-add-form.php";
+			},
+			'position': 'first'
+		});
+	});
+	</script>
+
+Same procedure can use used for custom edit form. You can also pass selected row id as querystring param.
+Following will be the code in onclick handler:
+
+	var selr = jQuery('#list1').jqGrid('getGridParam','selrow');
+	location.href="custom-edit-form.php?id="+selr;
+
+Another method is to change the onclick event of existing add/edit buttons.
+
+Connect a callback on loadComplete event:
+
+	$opt["loadComplete"] = 'function() { on_load(); }';
+	$g->set_options($opt);
+
+And in callback function, unbind and rebind the add / edit toolbar buttons.
+
+	<script>
+	function on_load()
+	{
+		var gid = '<?php echo $g->id ?>';
+		
+		jQuery('#edit_list1').unbind('click');
+		jQuery('#edit_list1').click(function(){ 
+			
+			var rows = '';
+			if (jQuery('#list1').jqGrid('getGridParam','multiselect'))
+				rows = jQuery('#list1').jqGrid('getGridParam','selarrrow');
+			else
+				rows = jQuery('#list1').jqGrid('getGridParam','selrow');
+
+			if (rows == '')
+			{
+				jQuery.jgrid.info_dialog(jQuery.jgrid.nav.alertcap,'<div class="ui-state-default" style="padding:5px;">'+jQuery.jgrid.nav.alerttext+'</div>',
+											jQuery.jgrid.edit.bClose,{buttonalign:'right'});
+				return;
+			}
+
+			window.open("edit.php?rows="+rows);
+
+		});
+		
+		jQuery('#add_list1').unbind('click');
+		jQuery('#add_list1').click(function(){ 
+			window.open("add.php");
+		});
+	};
+	</script>
+
+### Q) How to select text on focus / tab?
+
+You can call select() function of JS on click event.
+
+	$col["editoptions"]["onclick"] = "this.focus(); this.select();";
+
+### Q) How to change the order OR remove the search operands in search dialog?
+
+You can try setting it in your grid code:
+
+	// contains, equal, not equal, less than, greater than, greater and equal, less and equal, begins with, not behins with, IN, not IN, ends with, not ends with, not contains, null, not null
+	$opt["searchoptions"]["sopt"] = array('cn','eq','ne','lt','le','gt','ge','bw','bn','in','ni','ew','en','nc','nu','nn');
+	$g->set_options($opt);
+
+Here $g is grid object. You can also remove which are not required.
+
+## Javascript API FAQs
+
+### Q) How can i get IDs or Data of the selected rows of grid?
+
+On client side, you can have ids in this way, where "list1" is grid identifier.
+
+Returns null if no row is selected  (single row)
+
+	var selr = jQuery('#list1').jqGrid('getGridParam','selrow');
+
+Return array of id's of the selected rows when multiselect options is true. Empty array if not selection
+
+	var selr = jQuery('#list1').jqGrid('getGridParam','selarrrow');
+
+Return data of passed row and col, where invdate is column name
+
+	var rd = jQuery('#list1').jqGrid('getCell', selr, 'invdate');
+
+To get all ids
+
+	var rows = $('#list1').jqGrid('getDataIDs');
+
+Get particular column data, returns array
+
+	var data = $('#list1').jqGrid('getCol', 'total');
+
+Get particular column properties, returns array
+
+	var prop = $('#list1').jqGrid('getColProp', 'total');
+	alert(prop.editrules.required);
+
+Set particular column properties
+
+	$('#list1').jqGrid('setColProp', 'total', {editrules: {required:true} });
+
+To select / unselect grid row, e.g. rowid 5
+
+	jQuery('#list1').jqGrid('setSelection', 5, true);
+
+To reset grid selections
+
+	jQuery('#list1').jqGrid('resetSelection');
+
+To hide/show grid columns (e.g.invdate)
+
+	jQuery('#list1').jqGrid('hideCol','invdate');
+	jQuery('#list1').jqGrid('showCol','invdate');
+
+To select all grid rows
+
+	jQuery('#list1').jqGrid('resetSelection');
+	var ids = jQuery('#list1').jqGrid('getDataIDs');
+	for (i = 0; i < ids.length; i++) {
+		jQuery('#list1').jqGrid('setSelection', ids[i], true);
+	}
+
+You get all row data for rowid '3'
+
+	var row =  $('#list1').getRowData(3);
+
+	// Sample row data output is:
+	{invid:"1", invdate:"2007-10-01", note:"note", amount:"200.00", tax:"10.00", total:"210.00"};
+
+To get all data in 2d array, call getRowData without param.
+
+	var rows =  $('#list1').getRowData();
+
+To get current search filter
+
+	// will give you a string like: "{"groupOp":"AND","rules":[{"field":"Name","op":"bw","data":"a"}]}"
+	var filters = $('#list1').getGridParam("postData").filters;
+
+To get all column titles
+
+	// returns array with col titles ["Client Id", "Name", "Gender", "Company", "Actions"]
+	var colNames = jQuery("#list1").jqGrid("getGridParam", "colNames");
+
+To get all column details
+
+	// returns array with complete column object, use firebug console.log(colModel); for details.
+	var colModel = jQuery("#list1").jqGrid("getGridParam", "colModel");
+
+To get total grid records
+
+	// returns total records without paging
+	var count = jQuery("#list1").getGridParam("records")
+
+### Q) How to bind Javascript events with controls e.g. textbox?
+
+You can set them using editoptions
+
+	$col = array();
+	$col["title"] = "Name"; // caption of column
+	...
+	$col["editoptions"] = array("onkeyup"=>"this.value=this.value.toUpperCase()");
+	$cols[] = $col;
+
+### Q) How to reload/refresh grid using javascript code (e.g. button click)?
+
+You can call this JS code to reload grid. (where 'list1' is grid identifier)
+
+	jQuery('#list1').trigger("reloadGrid",[{page:1}]);
+
+To preserve page number on refresh, you "current" config.
+
+	$("#list1").trigger("reloadGrid", [{current:true}]);
+
+If you wish to auto reload grid at e.g. 2 min interval, you can call this JS code.
+
+	setInterval("jQuery('#list1').trigger('reloadGrid',[{page:1}]);",2000);
+
+### Q) How to use auto-filter in grid along with sorting on some field?
+
+Refer this sample config code.
+This will read the autofilter first field and if it's phone then sort grid descending based on field country,
+where list1 is grid id.
+
+	$opt["autofilter_options"]["beforeSearch"] = "function(){
+		var grid = jQuery('#list1');
+		var postData = grid.jqGrid('getGridParam','postData');
+		var searchData = jQuery.parseJSON(postData.filters);
+		
+		if (typeof(searchData.rules[0]) != 'undefined' && searchData.rules[0].field == 'phone')
+			grid.jqGrid('setGridParam',{sortname: 'country', sortorder: 'desc'});
+	}";
+
+	$g->set_options($opt);
+
+### Q) How to call custom javascript function on Add/Edit/Del button click?
+
+For instance, if you need custom edit button, You can remove default edit button by following config.
+
+	$g->set_actions(array(
+							"add"=>false, // allow/disallow add
+							"edit"=>false, // allow/disallow edit
+							"delete"=>true, // allow/disallow delete
+							"rowactions"=>true, // show/hide row wise edit/del/save option
+							"export"=>true, // show/hide export to excel option
+							"autofilter" => true, // show/hide autofilter for search
+							"search" => "advance" // show single/multi field search condition (e.g. simple or advance)
+						)
+					);
+
+And add your custom button using this JS (where list1 is grid id).
+You can also reference grid id with `$g->id` (where $g = new jqgrid();). This also works with subgrid.
+
+	<script type="text/javascript">
+	/*
+		CUSTOM TOOLBAR BUTTON
+		---------------------
+		caption: (string) the caption of the button, can be a empty string.
+		buttonicon: (string) is the ui icon name from UI theme icon set. If this option is set to 'none' only the text appear.
+		onClickButton: (function) action to be performed when a button is clicked. Default null.
+		position: ('first' or 'last') the position where the button will be added (i.e., before or after the standard buttons).
+		title: (string) a tooltip for the button.
+		cursor : string (default pointer) determines the cursor when we mouseover the element
+		id : string (optional) - if set defines the id of the button (actually the id of TD element) for future manipulation
+	*/
+	jQuery(document).ready(function(){
+		jQuery('#list1').jqGrid('navButtonAdd', '#list1_pager',
+		{
+			'caption'      : '',
+			'buttonicon'   : 'ui-icon-pencil',
+			'onClickButton': function()
+			{
+				// your custom JS code ...
+				redireciona();
+				function redireciona() {window.location="cadastrar.php";}
+			},
+			'position': 'first'
+		});
+	});
+	</script>
+
+### Q) How to post data using JS code?
+
+Assuming, you are posting to grid with id (list1), here is the sample JS code.
+"id" is PK (_empty), "oper" will be "add" for new record. Rest are the table fields in myData.
+
+	<script>
+		auto_add = function ()
+		{
+			myData = {};
+			myData.id = "_empty";
+			myData.oper = 'add';
+			myData.invdate = '2013-06-12';
+			myData.note = 'test2';
+			myData.total = '22';
+			myData.client_id = '10';
+			jQuery.ajax({
+				url: "?grid_id=list1",
+				dataType: "json",
+				data: myData,
+				type: "POST",
+				error: function(res, status) {
+					alert(res.status+" : "+res.statusText+". Status: "+status);
+				},
+				success: function( data ) {
+				}
+			});
+			jQuery("#list1").jqGrid().trigger('reloadGrid',[{page:1}]);
+		}
+	</script>
+
+	<button onclick="auto_add()">Add</button>
+
+### Q) How to we set grid caption using javascript code?
+
+You can use setCaption method to set new caption on the grid:
+
+	var grid = $('#myjqgrid');
+	grid.jqGrid('setCaption', 'newCaption');
+
+### Q) How to remove sorting & filters on reload?
+
+Step1: Remove default refresh button from toolbar.
+
+	$g->set_actions(array(
+							// ...
+							"refresh"=>false, // show/hide export to excel option
+							// ...
+						)
+					)
+Step2: Add custom toolbar button using javascript, with refresh data code.
+
+	jQuery(document).ready(function(){
+
+		jQuery('#list1').jqGrid('navButtonAdd', '#list1_pager',
+		{
+			'caption'      : 'Reload',
+			'buttonicon'   : 'ui-icon-refresh',
+			'onClickButton': function()
+			{
+				var myGrid = jQuery("#list1");
+				jQuery("span.s-ico",myGrid[0].grid.hDiv).hide(); // hide sort icons
+
+				// reset filters and sort field
+				myGrid.setGridParam({
+							postData: { filters: JSON.stringify({groupOp: "AND", rules:[]}) }, sortname: ''
+						}).trigger('reloadGrid');
+
+				// empty toolbar fields
+				jQuery(".ui-search-input input").val("");
+
+			},
+			'position': 'last'
+		});
+	});
+
+	OR, if we want to persist search filter on refresh
+
+	jQuery(document).ready(function(){
+		jQuery('#list1').jqGrid('navButtonAdd', '#list1_pager',
+		{
+			'caption'      : '',
+			'buttonicon'   : 'ui-icon-refresh',
+			'onClickButton': function()
+			{
+				var myGrid = jQuery("#list1");
+				var filters = myGrid.getGridParam("postData").filters;
+				// reset filters and sort field
+				myGrid.setGridParam({
+							postData: { 'filters': filters }, sortname: ''
+						}).trigger('reloadGrid');
+			},
+			'position': 'last'
+		});
+	});
+
+## Databases FAQs
+
+### Q) For SQL Server demos, I get "mssqlnative extension not installed".  Where do I get that extension so I can view that Demo?
+
+Here is link from MS SQL Server website.
+[http://www.microsoft.com/en-us/download/details.aspx?id=20098](http://www.microsoft.com/en-us/download/details.aspx?id=20098)
+
+You need to enable the extension in php after installation.
+
+### Q) How to use mysqli or PDO extension?
+
+Here is the config settings.
+
+	$db_conf = array();
+	$db_conf["type"] = "mysqli";
+	$db_conf["server"] = "localhost"; // or you mysql ip
+	$db_conf["user"] = "root"; // username
+	$db_conf["password"] = "test"; // password
+	$db_conf["database"] = "griddemo"; // database
+
+	// include and create object
+	$base_path = strstr(realpath("."),"demos",true)."lib/";
+	include($base_path."inc/jqgrid_dist.php");
+	$g = new jqgrid($db_conf);
+
+After that, all calls will use mysqli extension.
+
+For PDO extension,
+
+	$db_conf = array();
+	$db_conf["type"] = "pdo";
+	$db_conf["server"] = "mysql:host=localhost";
+	$db_conf["user"] = PHPGRID_DBUSER; // username
+	$db_conf["password"] = PHPGRID_DBPASS; // password
+	$db_conf["database"] = PHPGRID_DBNAME; // database
+
+	include($base_path."inc/jqgrid_dist.php");
+	$g = new jqgrid($db_conf);
+
+## Master Detail FAQs
+
+### Q) How to dynamically change detail grid's dropdown field content, based on selection of master grid row?
+
+Step1: In master-detail.php, we added a dropdown in detail grid, with daraUrl param set to a php page.
+
+	$col = array();
+	$col["title"] = "Client";
+	$col["name"] = "client_id";
+	$col["width"] = "100";
+	$col["align"] = "left";
+	$col["search"] = true;
+	$col["editable"] = true;
+	$col["edittype"] = "select"; // render as select
+	$col["editoptions"] = array("dataUrl"=>"http://jqgrid/dev/build-select.php");
+	$cols[] = $col;
+
+Put build-select.php in some web access path, and set correct http url.
+and, we also set the master grid selection id into session variable.
+
+	$id = intval($_GET["rowid"]);
+	if ($id > 0)
+		$_SESSION["rowid"] = $_GET["rowid"];
+
+Step2: In build-select.php, we read the session variable and show the dropdown select based on that variable data.
+
+	<?
+	if (!isset($_SESSION) || !is_array($_SESSION))
+		session_start();
+
+	if ($_SESSION["rowid"] == "1") {
+	?>
+		<select>
+		<option value='1'>One</option>
+		<option value='2'>Two</option>
+		</select>
+	<?
+	}
+	else {
+	?>
+		<select>
+		<option value='3'>Three</option>
+		<option value='4'>Four</option>
+		</select>
+	<?
+	}
+
+For cascaded dropdown, Following config will be required.
+
+On change this column ($col), it will run sql and search it's data on particular field (`search_on`), then update another dropdown specified in `update_field`.
+
+	$col["editoptions"] = array(
+				"value"=>$str,
+				"onchange" => array(	"sql"=>"select note as k, note as v from invheader",
+										"search_on"=>"client_id",
+										"update_field" => "note" )
+								);
+
+### Q) How to load grid with table that have fields with spaces?
+
+You will need to alias the spaced fields with '-' and set query in select_command. e.g.
+
+	$g->select_command = "SELECT `i d` as `i-d`, `client id` AS `client-id`, `inv date` AS `inv-date` FROM invheader";
+
+Rest functionality (add/update/del/search) will be handled by library.
+
+### Q) How to use table with composite keys index?
+
+For composite keys - there are two possible approaches:
+
+1) Creating a new AUTO_INCREMENT column directly in the database, so that each row has a unique id, then using this column for primary key. You can hide the column using hidden => true.
+
+2) In your SELECT statement (select_command), you may try to select a first column as special concat value that is based on composite keys. This will handle the listings. For insert/update/delete, you will need to use custom events on_update/on_insert/on_delete to parse the new concat field and perform desired operation. Refer demos/editing/custom-events.php for help.
+
+	// example code 1
+
+	$g->select_command = "SELECT concat(pk1,'-',pk2) as pk, col2, col3 FROM table";
+
+	$e["on_insert"] = array("add_client", null, true);
+	$g->set_events($e);
+
+	function add_client($data)
+	{
+		$pk = $data["params"]["pk"];
+		list(pk1, pk2) = explode("-",$pk);
+
+		$data["params"]["pk1"] = $pk1; // setting $data will make sure it will be there in INSERT SQL
+		$data["params"]["pk2"] = $pk2;
+	}
+
+	// example code 2
+
+    // Step1: Select concatenated PK with combined composite key
+    $g->select_command = "SELECT concat(Year_No,'-',Order_No,'-',LocationID,'-',TranscationId) as pk,  Year_No, Order_No, LocationID, TranscationId, Startdate, ExpiredDate FROM mylocations ";
+
+    // Step2: Connect on_update event hander
+    $e["on_update"] = array("update_data", null, false);
+    $g->set_events($e);
+
+    // Step3: In handler, split the PK with your separator, and execute custom UPDATE query
+    function update_data($data)
+    {
+            list($Year_No,$Order_No,$LocationID,$TranscationId) = explode("-",$data["pk"]);
+
+            $s = array();
+            foreach($data["params"] as $k=>$v)
+            {
+                    $s[] = "$k = '$v'";
+            }
+            $s = implode(",",$s);
+
+            $w = "Year_No=$Year_No and Order_No=$Order_No and LocationID=$LocationID and TranscationId=$TranscationId";
+
+            mysql_query("UPDATE mylocations set $s WHERE $w");
+    }
+
+### Q) How to show footer row in subgrid?
+
+In subgrid_detail, do following config.
+
+	$grid["footerrow"] = true;
+	$g->set_options($grid);
+
+	$e["js_on_load_complete"] = "subgrid_onload";
+	$g->set_events($e);
+
+In parent grid, put function to fill subgrid footer
+
+	<script>
+		var subgrid_onload = function () {
+			   	var grid = $("td.subgrid-data > .tablediv > div").attr("id").replace("gbox_","");
+			   	grid = jQuery("#"+grid);
+
+			   	// sum of displayed result
+			    sum = grid.jqGrid('getCol', 'total', false, 'sum');
+
+			    c = grid.jqGrid('getCol', 'id', false, 'sum');
+				grid.jqGrid('footerData','set', {id: 'Sum:' + c, total: 'Total: '+sum});
+			};
+	</script>
+
+### Q) How to reload parent after new record added in subgrid ?
+
+Following config in subgrid_detail will reload parent when new record is inserted in detail grid.
+Reloading parent will make subgrid hidden again.
+
+In subgrid_detail php file, just add this line in grid options.
+
+	$grid["add_options"]["afterSubmit"] = "function(){jQuery('#list1').trigger('reloadGrid',[{page:1}]); return [true, ''];}";
+
+where list1 is parent list id.
+
+### Q) How to keep subgrid expanded after parent grid's refresh ?
+
+Following JS code snippet will keep subgrid opened after parent's refresh.
+You can place this script with parent grid's code.
+
+PHP Part:
+
+	// reload previous expanded subgrids on load event
+	$e["js_on_load_complete"] = "grid_onload";
+	$grid->set_events($e);
+
+JS Part:
+
+	<script>
+	var scrollPosition = 0
+	var ids = new Array();
+
+	function grid_onload()
+	{
+		jQuery.each(ids, function (id,data) {
+			$("#list1").expandSubGridRow(data);
+			jQuery("#list1").closest(".ui-jqgrid-bdiv").scrollTop(scrollPosition);
+		});
+	}
+
+	// custom refresh button
+	jQuery(document).ready(function(){
+
+		jQuery('#list1').jqGrid('navButtonAdd', '#list1_pager',
+		{
+			'caption'      : 'Refresh',
+			'buttonicon'   : 'ui-icon-extlink',
+			'onClickButton': function()
+			{
+				ids = new Array();
+				$('tr:has(.sgexpanded)').each(function(){ids.push($(this).attr('id'))});
+			    scrollPosition = jQuery("#list1").closest(".ui-jqgrid-bdiv").scrollTop()
+			    $("#list1").trigger("reloadGrid");
+			},
+			'position': 'last'
+		});
+	});
+	</script>
+
+### Q) How to disable subgrid expansion on specific row ?
+
+Following snippet will remove subgrid from e.g. rowid 2
+
+	$opt["loadComplete"] = "function(){
+										var rowid=2;
+										jQuery('tr#'+rowid+' td[aria-describedby$=subgrid]').html('');
+										jQuery('tr#'+rowid+' td[aria-describedby$=subgrid]').unbind();
+										}";
+	// ...
+	$g->set_options($opt);
+
+### Q) How to select inserted row in master grid, and refresh the detail grid for linked operations?
+
+Following add_options setting in master grid will SELECT the newly inserted row.
+
+	$opt["add_options"]["afterComplete"] = "function (response, postdata) { r = JSON.parse(response.responseText);
+																			jQuery( document ).ajaxComplete(function() {
+																				jQuery('#list1').setSelection(r.id);
+																				jQuery( document ).unbind('ajaxComplete');
+																				});
+																			}";
+	$grid->set_options($opt);
+
+If you wish to show highlight effect, you can include jquery ui script,
+
+	<script src="//code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+
+And have highlight code in afterComplete:
+
+	$opt["add_options"]["afterComplete"] = "function (response, postdata) { r = JSON.parse(response.responseText); jQuery('#'+r.id,'#list1').effect('highlight', {color:'yellow'}, 2000); }";
+	$grid->set_options($opt);
+
+A condition that new record should come in grid list, You can sort grid to decending id, to show newly added record on top of grid.
+
+### Q) How to refresh parent grid on subgrid insertion?
+
+Following code steps will refresh subgrid's parent on child grid insertion.
+It will also expand the last child subgrid after refresh.
+
+First, disable default refresh button of parent grid.
+
+	$grid->set_actions(array(
+							"refresh"=>false // will add a custom refresh button
+							)
+						);
+
+Set on_load event handler for parent.
+
+	// reload previous expanded subgrids on load event
+	$e["js_on_load_complete"] = "grid_onload";
+	$grid->set_events($e);
+
+Put following script tag in parent grid.
+
+	<script>
+	var scrollPosition = 0
+	var ids = new Array();
+
+	// expand last child grid on load
+	function grid_onload()
+	{
+		jQuery.each(ids, function (id,data) {
+			$("#list1").expandSubGridRow(data);
+			jQuery("#list1").closest(".ui-jqgrid-bdiv").scrollTop(scrollPosition);
+		});
+	}
+
+	function reload_parent()
+	{
+		ids = new Array();
+		$('tr:has(.sgexpanded)').each(function(){ids.push($(this).attr('id'))});
+		scrollPosition = jQuery("#list1").closest(".ui-jqgrid-bdiv").scrollTop()
+		$("#list1").trigger("reloadGrid");
+	}
+
+	// custom refresh button
+	jQuery(document).ready(function(){
+
+		jQuery('#list1').jqGrid('navButtonAdd', '#list1_pager',
+		{
+			'caption'      : 'Refresh',
+			'buttonicon'   : 'ui-icon-extlink',
+			'onClickButton': function()
+			{
+				reload_parent();
+			},
+			'position': 'last'
+		});
+	});
+	</script>
+
+In child subgrid, set afterSubmit to call reload_parent() after insert.
+
+	$grid["add_options"]["afterSubmit"] = "function(){ reload_parent(); return [true, ''];}";
+
+### Q) How to enable cell edit on double click and functional on master-detail grid?
+
+Adding following options will make celledit work on double click and functional on master detail grid.
+
+	// celledit double click (master-detail) - list1 is grid id
+	$opt["cellEdit"] = true;
+	$opt["beforeSelectRow"] = "function(rowid) { if (jQuery('#list1').jqGrid('getGridParam','selrow') != rowid) { jQuery('#list1').jqGrid('resetSelection'); jQuery('#list1').setSelection(rowid); } return false; }";
+	$opt["ondblClickRow"] = "function (rowid, iRow,iCol) { jQuery('#list1').editCell(iRow, iCol, true); }";
+
+	$grid->set_options($opt);
+
+Refer demos/master-detail/excelview-detail.php
+
+### Q) How can I set the selected row (first row) on load page?
+
+Following config will select the first row of grid on load event. You can customize as per your need.
+
+PHP:
+
+	$e["js_on_load_complete"] = "grid_onload";
+	$grid->set_events($e);
+
+JS:
+
+	function grid_onload(ids)
+	{
+		// get row ids from grid (with id: list1)
+		var ids = $("#list1").jqGrid('getDataIDs');
+		setTimeout( function(){ jQuery('#list1').jqGrid('setSelection', ids[0], true); },100);
+	}
+
+Also check: https://www.gridphp.com/support/questions/select-row-on-load-page/
+
+### Q) How can I change the detail title when I select a row from master grid?
+
+On master grid, set onselect event.
+
+	$e["js_on_select_row"] = "do_onselect";
+	$grid->set_events($e);
+
+and in html part add this script.
+
+	<script>
+	function do_onselect(id)
+	{
+		// get selected row company column value
+		var ctype = jQuery('#list1').jqGrid('getCell', id, 'company'); // where invdate is column name
+
+		// set company name in detail grid caption
+		jQuery('#list2').jqGrid('setCaption','Company Details: ' + ctype);
+	}
+	</script>
+
+Also check: https://www.gridphp.com/support/questions/select-row-on-load-page/
+
+### Q) How can hide/show detail grid on selecting a row from master grid?
+
+On master grid, set onselectrow event. If gender is male, it will hide detail grid otherwise show it. (where list1 is master, list2 is detail)
+
+	$opt["onSelectRow"] = "function(id){
+							var gid = jQuery('#list1').jqGrid('getCell', id, 'gender');
+							if (gid == 'male')
+								$('#list2').jqGrid('setGridState', 'hidden');
+							else
+								$('#list2').jqGrid('setGridState', 'visible');
+							}";
+
+## Export FAQs
+
+### Q) How to export japanese multibyte characters (??? shown) ?
+
+You need to change font of export for that.
+
+Goto jqgrid_dist.php, Search for line
+
+	$pdf->SetFont('helvetica', '', 14);
+
+and replace it with
+
+	$pdf->SetFont('cid0jp', '', 14);
+
+For DejavuSans UTF8 font, following these steps:
+
+	1. Download the fonts archive (tcpdf_fonts_6_0_099.zip) from `http://sourceforge.net/projects/tcpdf/files/`
+	2. Extract the fonts in lib/inc/tcpdf/fonts
+	3. Set font in jqgrid_dist.php
+
+	$pdf->SetFont('dejavusans', '', 14, '', true);
+
+For RTL languages text, html renderer must also be used along with rtl font.
+
+	$opt["export"]["render_type"] = "html";
+
+In case of missing font, contact me back for updated lib.
+
+### Q) How to override default PDF settings ?
+
+You can use on_render_pdf event handler to get TCPDF object, and change settings accordingly.
+For e.g. to change font,
+
+	$e["on_render_pdf"] = array("set_pdf_format", null);
+	$g->set_events($e);
+
+	function set_pdf_format($arr)
+	{
+		$pdf = $arr["pdf"];
+		$data = $arr["data"];
+		$pdf->SetFont('dejavusans', '', 10);
+		$pdf->SetLineWidth(0.1);
+	}
+
+### Q) Getting error on PDF export, "TCPDF ERROR: Some data has already been output, can't send PDF file"
+
+There are usually 2 reasons for this.
+
+1) Blank space character at start of grid file (new line etc)
+2) Invisible BOM character at start of file
+
+In case #1 will give header already sent error. #2 will push all data as html text.
+
+White spaces can be removed by checking top and end of all included files.
+To remove invisible BOM character, i would recommend Notepad++ -> Open file -> Encoding menu -> Encode UTF without BOM
+
+### Q) How to use custom export method (external-file) ?
+
+You can use on_export event, to do your custom export working. An example is given below
+
+	// params are array(<function-name>,<class-object> or <null-if-global-func>,<continue-default-operation>)
+	$e["on_export"] = array("custom_export", NULL, false);
+	$g->set_events($e);
+
+	// custom on_export callback function. Set all useful data in session for custom export code file
+	function custom_export($param)
+	{
+		$sql = $param["sql"]; // the SQL statement for export
+		$grid = $param["grid"]; // the complete grid object reference
+
+		if ($grid->options["export"]["format"] == "xls")
+		{
+			$_SESSION["phpgrid_sql"]=$sql;
+			$_SESSION["phpgrid_filename"]=$grid->options["export"]["filename"];
+			$_SESSION["phpgrid_heading"]=$grid->options["export"]["heading"];
+
+			$cols_skip = array();
+			$titles = array();
+
+			foreach ($grid->options["colModel"] as $c)
+			{
+				if ($c["export"] === false)
+					$cols_skip[] = $c["name"];
+
+				$titles[$c["index"]] = $c["title"];
+			}
+
+			$_SESSION["phpgrid_cols_skip"]=serialize($cols_skip);
+			$_SESSION["phpgrid_cols_title"]=serialize($titles);
+
+			header("Location: my-export.php");
+			die();
+		}
+	}
+
+In that redirected file (my-export.php), you can use all session variable to fetch data from DB and export as desired.
+
+### Q) How to customize PDF header and footer?
+
+Goto file 'lib/inc/tcpdf/class.easytable.php', at end of file, there are 2 empty function
+header() and footer(). You can put image and text there using TCPDF lib sample code: http://www.tcpdf.org/examples/example_003.phps
+
+### Q) How to show Logo on exported PDF ?
+
+You can check TCPDF documentation and modify class 'lib/inc/tcpdf/class.easytable.php', go to end of file,
+Have header function empty, You can put image and text. In similar way, one can put footer.
+
+Also check this [forum post](https://www.gridphp.com/support/questions/problem-with-logo-in-pdf/).
+
+### Q) How to show searched string as heading in PDF ?
+
+	$e["on_export"] = array("set_header", null,true);
+	$g->set_events($e);
+
+	function set_header($d)
+	{
+		// search params
+		$search_str = $d["grid"]->strip($_SESSION['jqgrid_filter_request']);
+		$search_arr = json_decode($search_str,true);
+		$gopr = $search_arr['groupOp'];
+		$rule = $search_arr['rules'][0];
+
+		if (!empty($rule["data"]))
+			$d["grid"]->options["export"]["heading"] = $rule["data"];
+	}
+
+### Q) How to can i resolve: Class 'ZipArchive' not found?
+
+On blank export and on checking error_log if you see
+"PHP Fatal error:  Class 'ZipArchive' not found in /home/user/public_html/phpgrid/lib/inc/excel/PHPExcel/Writer/Excel2007.php on line 225"
+
+There are 2 options for fix.
+
+First is it to install zip php extension that is required by phpexcel library.
+Other one is to rename 'PHPExcel' folder in <gridphp>/lib/inc/excel/ with '_PHPExcel'
+
+If this path is not found, our system uses older excel exporting library which might work without zip extension.
+
+## Misc FAQs
+
+### Q) Is it possible to load the grid without any data until the first search filter is triggered?
+
+To start with blank grid, set:
+
+	$opt["datatype"] = "local";
+	$opt["loadComplete"] = "function(){ $('#list1').jqGrid('setGridParam',{datatype : 'json'}); 
+										$('#div_no_record_list1').html('Please use search filters to show results'); }";
+
+	g->set_options($opt);
+
+where `list1` is grid id.
+	
+### Q) Performance of large tables in Grid 4 PHP?
+
+Performance of loading data in grid consist of 2 parts.
+
+1) Client side: This is usually due to browser rendering capability of large html table, and JS engine that fill html.
+This can be improved by enabling virtual scrolling of grid. It loads data only when it is required by scrolling.
+
+As per docs, When enabled, the pager elements are disabled and we can use the vertical scrollbar to load data.
+
+	$opt["rowNum"] = 50;
+	$opt["scroll"] = true;
+	$g->set_options($opt);
+
+2) Server side: This depends on database optimization factors, such as indexes, usage of 'like' queries etc.
+Best approach to optimize is to create indexes of your most searchable fields and avoid '%blah%' contains query
+which never use indexes in mysql. After creating indexes, you can try SELECT queries in phpmyadmin and track loading time.
+If gridphp loading time is still slow, drop me a message with your SQL and i'll check the internals.
+
+### Q) How to use gridphp with concurrent users?
+
+First solution is to use excel-view (cellEdit) mode. In this way, only the changed cell is submitted to server and not the whole row data.
+You can refer demos/appearence/excel-view.php for working demo.
+
+Second, If you want application based row level locking in grid:
+
+1) Introduce a new field 'last_modified', make it hidden on grid and editable. It will store the timestamp of row update.
+2) Implement an on_update event handler and check if:
+    i) Fetch the edited row db table row, using select query
+    i) Check if posted back 'last_modified' value is different from the one in database against same row id
+    ii) If Yes, You can show phpgrid_error('Already edited') otherwise, go with the update.
+
+Working demo code: http://pastebin.com/Ds4WrD4z
+
+### Q) How to show some custom success message after bulk update?
+
+Now you can push custom html messages from bulk edit handler. Instead of 'records updated' message,
+you can have your custom message. This only works with custom bulk-edit.
+
+	function update_data($data)
+	{
+		// If bulk operation is requested, (default otherwise)
+		if ($data["params"]["bulk"] == "set-desc")
+		{
+			$selected_ids = $data["id"]; // e.g. the selected values from grid 5,7,14 (where "id" is field name of first col)
+			$str = $data["params"]["data"];
+
+			// here you can code your logic to do bulk processing
+			mysql_query("UPDATE invheader SET note = '$str' WHERE id IN ($selected_ids)");
+			phpgrid_msg("Download Zip: <a target='_blank' href='http://google.com'>http://google.com</a>",0);
+			die;
+		}
+	}
+
+first param is message, second is autoclose (0/1).
+
+### Q) Purchasing a license is a one time payment or monthly?
+
+It's a one time fee that includes a limited period of subscription for updates and technical support.
+If the subscription period expires, the product will keep working as before.
+However for new updates and technical support you will be required to renew the license.
+
+### Q) How to pay with Paypal? I'm always redirected to 2Checkout, and I don't have a VISA-card.
+
+When you visit 2checkout page, there is paypal option in last step of payment page. See image.
+
+![Paypal Option](https://www.gridphp.com/wp-content/uploads/screenshots/payment-paypal.png)
+
+### Q) How to set local timezone in date operations?
+
+This can be set by php default function. For more refer php docs.
+
+	date_default_timezone_set('Asia/Karachi');
+
+### Q) How to convert (db stored) UTC time to Local time?
+
+This can be done by using mysql convert_tz function in query.
+
+	// you can provide custom SQL query to display data - convert_tz for local time
+	$g->select_command = "SELECT i.id, CONVERT_TZ(invdate,'+00:00','+5:00') as invdate , c.name,
+							i.note, i.total, i.closed FROM invheader i
+							INNER JOIN clients c ON c.client_id = i.client_id";
+
+### Q) How to use multiselect filter?
+
+Step1: Include js/css files
+
+    <link rel="stylesheet" href="http://www.erichynds.com/examples/jquery-ui-multiselect-widget/jquery.multiselect.css">
+    <link rel="stylesheet" href="http://www.erichynds.com/examples/jquery-ui-multiselect-widget/jquery.multiselect.filter.css">
+    <script src="http://www.erichynds.com/examples/jquery-ui-multiselect-widget/src/jquery.multiselect.js"></script>
+    <script src="http://www.erichynds.com/examples/jquery-ui-multiselect-widget/src/jquery.multiselect.filter.js"></script>
+
+
+Step2: Set search type for multiselect filter column
+
+	// multi-select in search filter
+	$col["stype"] = "select-multiple";
+	$col["searchoptions"]["value"] = $str;
+
+Refer: demos/integration/multiselect-filter.php
+
+### Q) How to load grid based on $_POST data from other page?
+
+The grid is loaded with 2 server calls.
+
+1) load the columns of grid.
+2) do an ajax call, to load data of grid.
+
+Now, if you want to pass data from external form, it is available for step1. But not there in 2nd ajax call, as it is not posted.
+Solution is to put the POST variable in session and use it from session for step2.
+
+e.g.
+
+	if (!empty($_POST["personid"]))
+	{
+		$_SESSION["personid"] = $_POST["personid"];
+	}
+	$pid = $_SESSION["personid"];
+
+and use `$pid` in your SQL.
+
+### Q) How to save data in grid using external form?
+
+You can apply following JS function on click event of external form.
+You need to change POST data request['column_name'] = 'col_value'; in javascript code, '#list1' is grid id in this example.
+
+	function updateData()
+	{
+		// call ajax to update date in db
+		var request = {};
+		request['oper'] = 'edit';
+
+		// data to POST
+		request['id'] = '1';
+		request['company'] = 'test company';
+		var grid = jQuery('#list1');
+
+		jQuery.ajax({
+			url: grid.jqGrid('getGridParam','url'),
+			dataType: 'html',
+			data: request,
+			type: 'POST',
+			error: function(res, status) {
+				jQuery.jgrid.info_dialog(jQuery.jgrid.errors.errcap,'<div class=\"ui-state-error\">'+ res.responseText +'</div>',
+						jQuery.jgrid.edit.bClose,{buttonalign:'right'});
+			},
+			success: function( data ) {
+				// reload grid for data changes
+				grid.jqGrid().trigger('reloadGrid',[{jqgrid_page:1}]);
+			}
+		});
+	}
+
+### Q) How to set custom mesage when no records are found?
+
+You can set following JS before echo $out.
+
+	<script>
+	jQuery.jgrid.defaults.emptyrecords = "There are no records for your selection";
+	</script>
+
+	<div>
+	<?php echo $out?>
+	</div>
+
+[^ Top](#top)

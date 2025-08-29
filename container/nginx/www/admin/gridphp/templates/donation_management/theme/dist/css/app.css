@@ -1,0 +1,162 @@
+:root,
+[data-bs-theme=light] {
+	--bs-font-sans-serif: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+	--bs-body-font-size: 0.9rem;
+	--bs-dark-rgb: 22,110,225;
+	--tabcolor: #1463ca;
+	--tabhover: #1259b5;
+}
+
+/* Not required for template or sticky footer method. */
+main>.container-fluid {
+	padding: 53px 0px 0;
+}
+
+header>nav>.container-fluid {
+	height: 37px;
+}
+
+/* initially hidden for frozen */
+.frozen-div,.frozen-bdiv {visibility:hidden;}
+
+.ui-jqdialog,
+.ui-jqgrid,
+.ui-jqgrid body,
+.ui-widget,
+.ui-widget button,
+.ui-widget input,
+.ui-widget select,
+.ui-widget textarea {
+	font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif
+}
+
+/* dont show title bar and bottom toolbar buttons */
+.ui-jqgrid .ui-jqgrid-view .ui-jqgrid-titlebar, .ui-jqgrid-pager td[id$='pager_left'] {
+	display: none;
+}
+
+
+.nav-tabs {
+	padding-left: 10px;
+	background: var(--tabcolor);
+	border-bottom: 1px solid var(--tabcolor);
+}
+
+.nav-link {
+	padding: 5px 10px;
+	color: white;
+	font-weight: 400;
+}
+
+.nav-tabs .nav-link:hover:not(.active), .nav-tabs .nav-link:focus {
+	border: 1px solid transparent;
+	color: white;
+	background: var(--tabhover);
+}
+
+.nav-tabs .nav-link.active {
+	font-weight: 500;
+}
+
+main {
+	overflow: hidden;
+}
+
+.tab-content {
+	margin-top: -17px;
+}
+
+.tab-content .tab-pane {
+	height: calc(100vh - (85px)) !important;
+}
+
+.tab-content .tab-pane.with-footer {
+	height: calc(100vh - (114px)) !important;
+}
+
+.ui-jqgrid {
+	box-shadow: none;
+}
+
+.ui-jqgrid .ui-jqgrid-toppager,
+.ui-jqgrid {
+	border-top: 0px;
+	background: #fff;
+}
+
+.ui-jqdialog, iframe#dialogLookup {
+	box-shadow: 0 0 1px rgba(0, 0, 0, 0.24), 0 0 2px rgba(0, 0, 0, 0.16), 0 3px 4px rgba(0, 0, 0, 0.06), 0 6px 8px rgba(0, 0, 0, 0.06), 0 12px 16px rgba(0, 0, 0, 0.08), 0 18px 32px rgba(0, 0, 0, 0.06);
+	border-radius: 3px;
+	z-index: 1030 !important;
+}
+
+iframe#dialogLookup {
+	border: 0;
+	/* background: red; */
+	height: 90%;
+	width: 50%;
+	display: none;
+	position: absolute;
+	top:0;
+	transition: top 0.1s ease;
+}
+
+.ui-jqdialog .ui-jqdialog-title, .ui-jqdialog .ui-jqdialog-title b {
+	font-size: 15px !important;
+	font-weight: 600 !important;
+}
+
+.ui-jqdialog .ui-jqdialog-titlebar-close:hover {
+	background: grey;
+}
+
+.ui-jqdialog-titlebar {
+	background: none;
+	border: 0;
+}
+
+td.delmsg {
+	text-align: center;
+}
+
+.ui-widget-overlay {
+	opacity: 0 !important;
+}
+
+.select2-container--default .select2-selection--multiple, .select2-container--default .select2-selection--single 
+{
+    border: 1px solid #dddddd !important;
+}
+
+select[readonly].select2-hidden-accessible + .select2-container {
+  
+	.select2-selection {
+	  border: 0 !important;
+	}
+  
+	.select2-selection__rendered
+	{
+	  padding-left: 2px;
+	}
+}
+
+.fancybox-overlay {
+    z-index: 8010 !important;
+}
+
+/* slide for popup dialog */
+div { transition: top 0.1s ease; }
+
+/* autocomplete zindex fix */
+.ui-autocomplete {z-index:1051 !important;}
+
+.profile
+{
+	font-size: 13px;
+}
+
+input[readonly] {
+    padding: 3px 2px !important;
+}
+
+.hide {display: none;}

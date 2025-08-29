@@ -44,13 +44,13 @@ $g->set_actions(array(
 				);
 
 // you can provide custom SQL query to display data
-$g->select_command = "SELECT i.id, invdate , c.name,
-						i.note, i.total, i.closed FROM invheader i
-						INNER JOIN clients c ON c.client_id = i.client_id";
+$g->select_command = "SELECT i.id, invdate , i.client_id,
+						i.note, i.total, i.closed, i.tax FROM invheader i
+						LEFT JOIN clients c ON c.client_id = i.client_id";
 
 // you can provide custom SQL count query to display data
 $g->select_count = "SELECT count(*) as c FROM invheader i
-						INNER JOIN clients c ON c.client_id = i.client_id";
+						LEFT JOIN clients c ON c.client_id = i.client_id";
 
 // this db table will be used for add,edit,delete
 $g->table = "invheader";
@@ -76,11 +76,17 @@ $cols[] = $col;
 		
 $col = array();
 $col["title"] = "Client";
-$col["name"] = "name";
+$col["name"] = "client_id";
 $col["width"] = "100";
-$col["editable"] = false; // this column is not editable
-$col["search"] = false; // this column is not searchable
-
+$col["editable"] = true; 
+$col["isnull"] = true; // allow null
+$col["edittype"] = "lookup"; 
+$col["editoptions"] = array("table"=>"clients", "label"=>"name", "id"=>"client_id"); 
+$col["editoptions"]["onload"] = array (
+	'sql' => 'select distinct client_id as k, name as v from clients',
+);
+$col["formatter"] = "badge"; 
+$col["badgeoptions"]["editurl"] = '/dev/demos/editing/index.php?grid_id=list1&col=client_id';
 $cols[] = $col;
 
 $col = array();
@@ -91,7 +97,15 @@ $col["sortable"] = false; // this column is not sortable
 $col["search"] = false; // this column is not searchable
 $col["editable"] = true;
 $col["edittype"] = "textarea"; // render as textarea on edit
-$col["editoptions"] = array("rows"=>2, "cols"=>20); // with these attributes
+
+$cols[] = $col;
+
+$col = array();
+$col["title"] = "Tax";
+$col["name"] = "tax";
+$col["width"] = "50";
+$col["isnull"] = true;
+$col["editable"] = true;
 $cols[] = $col;
 
 $col = array();
@@ -119,11 +133,13 @@ $col = array();
 $col["title"] = "Closed";
 $col["name"] = "closed";
 $col["width"] = "50";
-$col["editrules"] = array("readonly"=>true, "readonly-when"=>"unchecked");
-
 $col["editable"] = true;
+$col["formatter"] = "checkbox"; // render as checkbox
 $col["edittype"] = "checkbox"; // render as checkbox
-$col["editoptions"] = array("value"=>"Yes:No"); // with these values "checked_value:unchecked_value"
+$col["editoptions"] = array("value"=>"1:0"); // with these values "checked_value:unchecked_value"
+$col["editrules"] = array("readonly"=>true, "readonly-when"=>"unchecked");
+$col["stype"] = "select";
+$col["searchoptions"]["value"] = ":-;-1:Checked;0:Unchecked";
 $cols[] = $col; 
 
 // pass the cooked columns to grid

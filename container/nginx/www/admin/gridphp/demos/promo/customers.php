@@ -26,9 +26,17 @@ $opt["caption"] = "Customers";
 $opt["autowidth"] = true;
 $opt["altRows"] = true; 
 $opt["multiselect"] = true; 
+$opt["shrinkToFit"] = false;
+$opt["cmTemplate"]["width"] = 200;
+$opt["cmTemplate"]["visible"] = "xs+";
+
 $opt["scroll"] = true;
 // first column is not autoincrement 
 $opt["autoid"] = false; 
+
+$opt["autocolumn"] = 3; 
+$opt["add_options"] = array('width'=>'950');
+$opt["edit_options"] = array('width'=>'950');
 
 $g->set_options($opt);
 
@@ -42,7 +50,7 @@ $col["title"] = "Country";
 $col["edittype"] = "select";
 $col["editoptions"]["value"] = get_country_dropdown();
 $col["formatter"] = "function (cellvalue, options, rowObject) {
-	return \"<img width='30' height='20' src='../../assets/img/country-flags/\"+get_countrycode(cellvalue)+\".png' /> \" + cellvalue;
+	return \"<img width='30' height='20' src='../images/country-flags/\"+get_countrycode(cellvalue)+\".png' /> \" + cellvalue;
 }";
 $col["unformat"] = "function (cellvalue, options) {
 	return cellvalue;
@@ -104,6 +112,18 @@ function get_country_dropdown()
 	
 	
 	<style>
+	/* CSS mod for topdown label textbox placement, like mobile */
+	/* 	
+	.ui-jqdialog[dir=ltr] .ui-jqdialog-content .CaptionTD {
+		position: absolute;
+		margin-left: 5px;
+		text-align: left;
+	}
+	
+	.ui-jqdialog[dir=ltr] .ui-jqdialog-content .DataTD {
+		padding-top: 25px;
+	}
+ 	*/
 	.ui-priority-secondary
 	{
 		background-color: #f5f5f5;

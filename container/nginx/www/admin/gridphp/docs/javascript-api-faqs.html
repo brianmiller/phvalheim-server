@@ -1,0 +1,2226 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Grid 4 PHP Framework Documentation - Datagrid Made Easy">
+      
+      
+        <meta name="author" content="Abu Ghufran">
+      
+      
+        <link rel="canonical" href="https://www.gridphp.com/docs/javascript-api-faqs.html">
+      
+      
+        <link rel="prev" href="dialog-customization-faqs.html">
+      
+      
+        <link rel="next" href="databases-faqs.html">
+      
+      
+      <link rel="icon" href="css/favicon.gif">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.2.7">
+    
+    
+      
+        <title>Javascript API FAQs - Grid 4 PHP Framework Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.046329b4.min.css">
+      
+        
+        <link rel="stylesheet" href="assets/stylesheets/palette.85d0ee34.min.css">
+      
+      
+
+
+    
+    
+      
+        <script src="https://unpkg.com/iframe-worker/shim"></script>
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="extra/extra.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function n(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],n("js",new Date),n("config","G-106Z7MGCDM"),document.addEventListener("DOMContentLoaded",function(){document.forms.search&&document.forms.search.query.addEventListener("blur",function(){this.value&&n("event","search",{search_term:this.value})}),document$.subscribe(function(){var a=document.forms.feedback;if(void 0!==a)for(var e of a.querySelectorAll("[type=submit]"))e.addEventListener("click",function(e){e.preventDefault();var t=document.location.pathname,e=this.getAttribute("data-md-value");n("event","feedback",{page:t,data:e}),a.firstElementChild.disabled=!0;e=a.querySelector(".md-feedback__note [data-md-value='"+e+"']");e&&(e.hidden=!1)}),a.hidden=!1}),location$.subscribe(function(e){n("config","G-106Z7MGCDM",{page_path:e.pathname})})});var e=document.createElement("script");e.async=!0,e.src="https://www.googletagmanager.com/gtag/js?id=G-106Z7MGCDM",document.getElementById("__analytics").insertAdjacentElement("afterEnd",e)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+    
+   <link href="assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+    html.glightbox-open { overflow: initial; height: 100%; }
+    .gslide-title { margin-top: 0px; user-select: text; }
+    .gslide-desc { color: #666; user-select: text; }
+    .gslide-image img { background: white; }
+    .gscrollbar-fixer { padding-right: 15px; }
+    .gdesc-inner { font-size: 0.75rem; }
+    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="assets/javascripts/glightbox.min.js"></script></head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="blue">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#javascript-api-faqs" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="Grid 4 PHP Framework Docs" class="md-header__button md-logo" aria-label="Grid 4 PHP Framework Docs" data-md-component="logo">
+      
+  <img src="https://www.gridphp.com/wp-content/uploads/logo-gridphp-small.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            <span class="logo-text">Documentation</span>
+            <!-- Grid 4 PHP Framework Docs -->
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Javascript API FAQs
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+
+    <a href="https://www.gridphp.com/support/" class="top-link">Support Forum</a>
+    <a href="https://www.gridphp.com" class="top-link">Visit Main Site</a>
+
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="index.html" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="selecting-columns.html" class="md-tabs__link">
+          
+  
+  Customization
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="ai-assistant.html" class="md-tabs__link">
+          
+  
+  Features
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="responsive-design.html" class="md-tabs__link">
+          
+  
+  Layout & UI
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="connecting-with-sql-server.html" class="md-tabs__link">
+          
+  
+  Databases
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="basic-todo-list-application.html" class="md-tabs__link">
+          
+  
+  Demo Apps
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="laravel-integration.html" class="md-tabs__link">
+          
+  
+  Integrations
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="general-faqs.html" class="md-tabs__link">
+          
+  
+  FAQs
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="Grid 4 PHP Framework Docs" class="md-nav__button md-logo" aria-label="Grid 4 PHP Framework Docs" data-md-component="logo">
+      
+  <img src="https://www.gridphp.com/wp-content/uploads/logo-gridphp-small.png" alt="logo">
+
+    </a>
+    Grid 4 PHP Framework Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Getting Started
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Getting Started
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="index.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Introduction
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="setup.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="creating-first-grid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Creating First Grid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customization
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Customization
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="selecting-columns.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Selecting Columns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-options.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Settings
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-input-types.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Input Types
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-options.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Settings
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Features
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Features
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ai-assistant.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    AI Assistant
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="master-detail-grid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Master Detail Grid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="subgrid.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subgrid
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="exporting-data.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Exporting Data
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="importing-data.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Importing Data
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="conditional-formatting.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Conditional Formatting
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grouping.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grouping Columns
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grouping-headers.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grouping Headers
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="search.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Search
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-events.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Events
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="validation.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Validation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="upload-files.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Upload Files
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="footer-summary.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Footer Summary
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="autocomplete.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Autocomplete
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="multiselect-filter.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Multiselect Filter
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="state-persistence.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    State Persistence
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="html-editor.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    HTML Editor
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Layout & UI
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Layout & UI
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="responsive-design.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Responsive Design
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="localization.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Localization
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="themes.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Themes
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Databases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Databases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-sql-server.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with SQL Server
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-postgres.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with Postgres
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="connecting-with-oracle.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Connecting with Oracle
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="debug-mode.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Debug Mode
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Demo Apps
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Demo Apps
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="basic-todo-list-application.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Simple Todo List
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="application-templates.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Application Templates
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Integrations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Integrations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="laravel-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Laravel Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="wordpress-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    WordPress Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="codeigniter-integration.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    CodeIgniter Integration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+    
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" checked>
+        
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    FAQs
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            FAQs
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="general-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    General FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="grid-appearance-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Grid Appearance FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-appearance-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Appearance FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="column-settings-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Column Settings FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="dialog-customization-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dialog Customization FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Javascript API FAQs
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="javascript-api-faqs.html" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Javascript API FAQs
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#javascript-api-faqs" class="md-nav__link">
+    Javascript API FAQs
+  </a>
+  
+    <nav class="md-nav" aria-label="Javascript API FAQs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-get-ids-or-data-of-the-selected-rows-of-grid" class="md-nav__link">
+    Q) How can i get IDs or Data of the selected rows of grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-bind-javascript-events-with-controls-eg-textbox" class="md-nav__link">
+    Q) How to bind Javascript events with controls e.g. textbox?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-reloadrefresh-grid-using-javascript-code-eg-button-click" class="md-nav__link">
+    Q) How to reload/refresh grid using javascript code (e.g. button click)?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-auto-filter-in-grid-along-with-sorting-on-some-field" class="md-nav__link">
+    Q) How to use auto-filter in grid along with sorting on some field?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-call-custom-javascript-function-on-addeditdel-button-click" class="md-nav__link">
+    Q) How to call custom javascript function on Add/Edit/Del button click?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-post-data-using-js-code" class="md-nav__link">
+    Q) How to post data using JS code?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-we-set-grid-caption-using-javascript-code" class="md-nav__link">
+    Q) How to we set grid caption using javascript code?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-sorting-filters-on-reload" class="md-nav__link">
+    Q) How to remove sorting &amp; filters on reload?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="databases-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Databases FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="master-detail-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Master Detail FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="export-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Export FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="misc-faqs.html" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Misc FAQs
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#javascript-api-faqs" class="md-nav__link">
+    Javascript API FAQs
+  </a>
+  
+    <nav class="md-nav" aria-label="Javascript API FAQs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#q-how-can-i-get-ids-or-data-of-the-selected-rows-of-grid" class="md-nav__link">
+    Q) How can i get IDs or Data of the selected rows of grid?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-bind-javascript-events-with-controls-eg-textbox" class="md-nav__link">
+    Q) How to bind Javascript events with controls e.g. textbox?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-reloadrefresh-grid-using-javascript-code-eg-button-click" class="md-nav__link">
+    Q) How to reload/refresh grid using javascript code (e.g. button click)?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-use-auto-filter-in-grid-along-with-sorting-on-some-field" class="md-nav__link">
+    Q) How to use auto-filter in grid along with sorting on some field?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-call-custom-javascript-function-on-addeditdel-button-click" class="md-nav__link">
+    Q) How to call custom javascript function on Add/Edit/Del button click?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-post-data-using-js-code" class="md-nav__link">
+    Q) How to post data using JS code?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-we-set-grid-caption-using-javascript-code" class="md-nav__link">
+    Q) How to we set grid caption using javascript code?
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#q-how-to-remove-sorting-filters-on-reload" class="md-nav__link">
+    Q) How to remove sorting &amp; filters on reload?
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  <h1>Javascript API FAQs</h1>
+
+<h2 id="javascript-api-faqs">Javascript API FAQs</h2>
+<h3 id="q-how-can-i-get-ids-or-data-of-the-selected-rows-of-grid">Q) How can i get IDs or Data of the selected rows of grid?</h3>
+<p>On client side, you can have ids in this way, where "list1" is grid identifier.</p>
+<p>Returns null if no row is selected  (single row)</p>
+<div class="language-text highlight"><pre><span></span><code>var selr = jQuery(&#39;#list1&#39;).jqGrid(&#39;getGridParam&#39;,&#39;selrow&#39;);
+</code></pre></div>
+<p>Return array of id's of the selected rows when multiselect options is true. Empty array if not selection</p>
+<div class="language-text highlight"><pre><span></span><code>var selr = jQuery(&#39;#list1&#39;).jqGrid(&#39;getGridParam&#39;,&#39;selarrrow&#39;);
+</code></pre></div>
+<p>Return data of passed row and col, where invdate is column name</p>
+<div class="language-text highlight"><pre><span></span><code>var rd = jQuery(&#39;#list1&#39;).jqGrid(&#39;getCell&#39;, selr, &#39;invdate&#39;);
+</code></pre></div>
+<p>To get all ids</p>
+<div class="language-text highlight"><pre><span></span><code>var rows = $(&#39;#list1&#39;).jqGrid(&#39;getDataIDs&#39;);
+</code></pre></div>
+<p>Get particular column data, returns array</p>
+<div class="language-text highlight"><pre><span></span><code>var data = $(&#39;#list1&#39;).jqGrid(&#39;getCol&#39;, &#39;total&#39;);
+</code></pre></div>
+<p>Get particular column properties, returns array</p>
+<div class="language-text highlight"><pre><span></span><code>var prop = $(&#39;#list1&#39;).jqGrid(&#39;getColProp&#39;, &#39;total&#39;);
+alert(prop.editrules.required);
+</code></pre></div>
+<p>Set particular column properties</p>
+<div class="language-text highlight"><pre><span></span><code>$(&#39;#list1&#39;).jqGrid(&#39;setColProp&#39;, &#39;total&#39;, {editrules: {required:true} });
+</code></pre></div>
+<p>To select / unselect grid row, e.g. rowid 5</p>
+<div class="language-text highlight"><pre><span></span><code>jQuery(&#39;#list1&#39;).jqGrid(&#39;setSelection&#39;, 5, true);
+</code></pre></div>
+<p>To reset grid selections</p>
+<div class="language-text highlight"><pre><span></span><code>jQuery(&#39;#list1&#39;).jqGrid(&#39;resetSelection&#39;);
+</code></pre></div>
+<p>To hide/show grid columns (e.g.invdate)</p>
+<div class="language-text highlight"><pre><span></span><code>jQuery(&#39;#list1&#39;).jqGrid(&#39;hideCol&#39;,&#39;invdate&#39;);
+jQuery(&#39;#list1&#39;).jqGrid(&#39;showCol&#39;,&#39;invdate&#39;);
+</code></pre></div>
+<p>To select all grid rows</p>
+<div class="language-text highlight"><pre><span></span><code>jQuery(&#39;#list1&#39;).jqGrid(&#39;resetSelection&#39;);
+var ids = jQuery(&#39;#list1&#39;).jqGrid(&#39;getDataIDs&#39;);
+for (i = 0; i &lt; ids.length; i++) {
+    jQuery(&#39;#list1&#39;).jqGrid(&#39;setSelection&#39;, ids[i], true);
+}
+</code></pre></div>
+<p>You get all row data for rowid '3'</p>
+<div class="language-text highlight"><pre><span></span><code>var row =  $(&#39;#list1&#39;).getRowData(3);
+
+// Sample row data output is:
+{invid:&quot;1&quot;, invdate:&quot;2007-10-01&quot;, note:&quot;note&quot;, amount:&quot;200.00&quot;, tax:&quot;10.00&quot;, total:&quot;210.00&quot;};
+</code></pre></div>
+<p>To get all data in 2d array, call getRowData without param.</p>
+<div class="language-text highlight"><pre><span></span><code>var rows =  $(&#39;#list1&#39;).getRowData();
+</code></pre></div>
+<p>To get current search filter</p>
+<div class="language-text highlight"><pre><span></span><code>// will give you a string like: &quot;{&quot;groupOp&quot;:&quot;AND&quot;,&quot;rules&quot;:[{&quot;field&quot;:&quot;Name&quot;,&quot;op&quot;:&quot;bw&quot;,&quot;data&quot;:&quot;a&quot;}]}&quot;
+var filters = $(&#39;#list1&#39;).getGridParam(&quot;postData&quot;).filters;
+</code></pre></div>
+<p>To get all column titles</p>
+<div class="language-text highlight"><pre><span></span><code>// returns array with col titles [&quot;Client Id&quot;, &quot;Name&quot;, &quot;Gender&quot;, &quot;Company&quot;, &quot;Actions&quot;]
+var colNames = jQuery(&quot;#list1&quot;).jqGrid(&quot;getGridParam&quot;, &quot;colNames&quot;);
+</code></pre></div>
+<p>To get all column details</p>
+<div class="language-text highlight"><pre><span></span><code>// returns array with complete column object, use firebug console.log(colModel); for details.
+var colModel = jQuery(&quot;#list1&quot;).jqGrid(&quot;getGridParam&quot;, &quot;colModel&quot;);
+</code></pre></div>
+<p>To get total grid records</p>
+<div class="language-text highlight"><pre><span></span><code>// returns total records without paging
+var count = jQuery(&quot;#list1&quot;).getGridParam(&quot;records&quot;)
+</code></pre></div>
+<h3 id="q-how-to-bind-javascript-events-with-controls-eg-textbox">Q) How to bind Javascript events with controls e.g. textbox?</h3>
+<p>You can set them using editoptions</p>
+<div class="language-text highlight"><pre><span></span><code>$col = array();
+$col[&quot;title&quot;] = &quot;Name&quot;; // caption of column
+...
+$col[&quot;editoptions&quot;] = array(&quot;onkeyup&quot;=&gt;&quot;this.value=this.value.toUpperCase()&quot;);
+$cols[] = $col;
+</code></pre></div>
+<h3 id="q-how-to-reloadrefresh-grid-using-javascript-code-eg-button-click">Q) How to reload/refresh grid using javascript code (e.g. button click)?</h3>
+<p>You can call this JS code to reload grid. (where 'list1' is grid identifier)</p>
+<div class="language-text highlight"><pre><span></span><code>jQuery(&#39;#list1&#39;).trigger(&quot;reloadGrid&quot;,[{page:1}]);
+</code></pre></div>
+<p>To preserve page number on refresh, you "current" config.</p>
+<div class="language-text highlight"><pre><span></span><code>$(&quot;#list1&quot;).trigger(&quot;reloadGrid&quot;, [{current:true}]);
+</code></pre></div>
+<p>If you wish to auto reload grid at e.g. 2 min interval, you can call this JS code.</p>
+<div class="language-text highlight"><pre><span></span><code>setInterval(&quot;jQuery(&#39;#list1&#39;).trigger(&#39;reloadGrid&#39;,[{page:1}]);&quot;,2000);
+</code></pre></div>
+<h3 id="q-how-to-use-auto-filter-in-grid-along-with-sorting-on-some-field">Q) How to use auto-filter in grid along with sorting on some field?</h3>
+<p>Refer this sample config code.
+This will read the autofilter first field and if it's phone then sort grid descending based on field country,
+where list1 is grid id.</p>
+<div class="language-text highlight"><pre><span></span><code>$opt[&quot;autofilter_options&quot;][&quot;beforeSearch&quot;] = &quot;function(){
+    var grid = jQuery(&#39;#list1&#39;);
+    var postData = grid.jqGrid(&#39;getGridParam&#39;,&#39;postData&#39;);
+    var searchData = jQuery.parseJSON(postData.filters);
+
+    if (typeof(searchData.rules[0]) != &#39;undefined&#39; &amp;&amp; searchData.rules[0].field == &#39;phone&#39;)
+        grid.jqGrid(&#39;setGridParam&#39;,{sortname: &#39;country&#39;, sortorder: &#39;desc&#39;});
+}&quot;;
+
+$g-&gt;set_options($opt);
+</code></pre></div>
+<h3 id="q-how-to-call-custom-javascript-function-on-addeditdel-button-click">Q) How to call custom javascript function on Add/Edit/Del button click?</h3>
+<p>For instance, if you need custom edit button, You can remove default edit button by following config.</p>
+<div class="language-text highlight"><pre><span></span><code>$g-&gt;set_actions(array(
+                        &quot;add&quot;=&gt;false, // allow/disallow add
+                        &quot;edit&quot;=&gt;false, // allow/disallow edit
+                        &quot;delete&quot;=&gt;true, // allow/disallow delete
+                        &quot;rowactions&quot;=&gt;true, // show/hide row wise edit/del/save option
+                        &quot;export&quot;=&gt;true, // show/hide export to excel option
+                        &quot;autofilter&quot; =&gt; true, // show/hide autofilter for search
+                        &quot;search&quot; =&gt; &quot;advance&quot; // show single/multi field search condition (e.g. simple or advance)
+                    )
+                );
+</code></pre></div>
+<p>And add your custom button using this JS (where list1 is grid id).
+You can also reference grid id with <code>$g-&gt;id</code> (where $g = new jqgrid();). This also works with subgrid.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script type=&quot;text/javascript&quot;&gt;
+/*
+    CUSTOM TOOLBAR BUTTON
+    ---------------------
+    caption: (string) the caption of the button, can be a empty string.
+    buttonicon: (string) is the ui icon name from UI theme icon set. If this option is set to &#39;none&#39; only the text appear.
+    onClickButton: (function) action to be performed when a button is clicked. Default null.
+    position: (&#39;first&#39; or &#39;last&#39;) the position where the button will be added (i.e., before or after the standard buttons).
+    title: (string) a tooltip for the button.
+    cursor : string (default pointer) determines the cursor when we mouseover the element
+    id : string (optional) - if set defines the id of the button (actually the id of TD element) for future manipulation
+*/
+jQuery(document).ready(function(){
+    jQuery(&#39;#list1&#39;).jqGrid(&#39;navButtonAdd&#39;, &#39;#list1_pager&#39;,
+    {
+        &#39;caption&#39;      : &#39;&#39;,
+        &#39;buttonicon&#39;   : &#39;ui-icon-pencil&#39;,
+        &#39;onClickButton&#39;: function()
+        {
+            // your custom JS code ...
+            redireciona();
+            function redireciona() {window.location=&quot;cadastrar.php&quot;;}
+        },
+        &#39;position&#39;: &#39;first&#39;
+    });
+});
+&lt;/script&gt;
+</code></pre></div>
+<h3 id="q-how-to-post-data-using-js-code">Q) How to post data using JS code?</h3>
+<p>Assuming, you are posting to grid with id (list1), here is the sample JS code.
+"id" is PK (_empty), "oper" will be "add" for new record. Rest are the table fields in myData.</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;script&gt;
+    auto_add = function ()
+    {
+        myData = {};
+        myData.id = &quot;_empty&quot;;
+        myData.oper = &#39;add&#39;;
+        myData.invdate = &#39;2013-06-12&#39;;
+        myData.note = &#39;test2&#39;;
+        myData.total = &#39;22&#39;;
+        myData.client_id = &#39;10&#39;;
+        jQuery.ajax({
+            url: &quot;?grid_id=list1&quot;,
+            dataType: &quot;json&quot;,
+            data: myData,
+            type: &quot;POST&quot;,
+            error: function(res, status) {
+                alert(res.status+&quot; : &quot;+res.statusText+&quot;. Status: &quot;+status);
+            },
+            success: function( data ) {
+            }
+        });
+        jQuery(&quot;#list1&quot;).jqGrid().trigger(&#39;reloadGrid&#39;,[{page:1}]);
+    }
+&lt;/script&gt;
+
+&lt;button onclick=&quot;auto_add()&quot;&gt;Add&lt;/button&gt;
+</code></pre></div>
+<h3 id="q-how-to-we-set-grid-caption-using-javascript-code">Q) How to we set grid caption using javascript code?</h3>
+<p>You can use setCaption method to set new caption on the grid:</p>
+<div class="language-text highlight"><pre><span></span><code>var grid = $(&#39;#myjqgrid&#39;);
+grid.jqGrid(&#39;setCaption&#39;, &#39;newCaption&#39;);
+</code></pre></div>
+<h3 id="q-how-to-remove-sorting-filters-on-reload">Q) How to remove sorting &amp; filters on reload?</h3>
+<p>Step1: Remove default refresh button from toolbar.</p>
+<div class="language-text highlight"><pre><span></span><code>$g-&gt;set_actions(array(
+                        // ...
+                        &quot;refresh&quot;=&gt;false, // show/hide export to excel option
+                        // ...
+                    )
+                )
+</code></pre></div>
+<p>Step2: Add custom toolbar button using javascript, with refresh data code.</p>
+<div class="language-text highlight"><pre><span></span><code>jQuery(document).ready(function(){
+
+    jQuery(&#39;#list1&#39;).jqGrid(&#39;navButtonAdd&#39;, &#39;#list1_pager&#39;,
+    {
+        &#39;caption&#39;      : &#39;Reload&#39;,
+        &#39;buttonicon&#39;   : &#39;ui-icon-refresh&#39;,
+        &#39;onClickButton&#39;: function()
+        {
+            var myGrid = jQuery(&quot;#list1&quot;);
+            jQuery(&quot;span.s-ico&quot;,myGrid[0].grid.hDiv).hide(); // hide sort icons
+
+            // reset filters and sort field
+            myGrid.setGridParam({
+                        postData: { filters: JSON.stringify({groupOp: &quot;AND&quot;, rules:[]}) }, sortname: &#39;&#39;
+                    }).trigger(&#39;reloadGrid&#39;);
+
+            // empty toolbar fields
+            jQuery(&quot;.ui-search-input input&quot;).val(&quot;&quot;);
+
+        },
+        &#39;position&#39;: &#39;last&#39;
+    });
+});
+
+OR, if we want to persist search filter on refresh
+
+jQuery(document).ready(function(){
+    jQuery(&#39;#list1&#39;).jqGrid(&#39;navButtonAdd&#39;, &#39;#list1_pager&#39;,
+    {
+        &#39;caption&#39;      : &#39;&#39;,
+        &#39;buttonicon&#39;   : &#39;ui-icon-refresh&#39;,
+        &#39;onClickButton&#39;: function()
+        {
+            var myGrid = jQuery(&quot;#list1&quot;);
+            var filters = myGrid.getGridParam(&quot;postData&quot;).filters;
+            // reset filters and sort field
+            myGrid.setGridParam({
+                        postData: { &#39;filters&#39;: filters }, sortname: &#39;&#39;
+                    }).trigger(&#39;reloadGrid&#39;);
+        },
+        &#39;position&#39;: &#39;last&#39;
+    });
+});
+</code></pre></div>
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="dialog-customization-faqs.html" class="md-footer__link md-footer__link--prev" aria-label="Previous: Dialog Customization FAQs" rel="prev">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Dialog Customization FAQs
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="databases-faqs.html" class="md-footer__link md-footer__link--next" aria-label="Next: Databases FAQs" rel="next">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Databases FAQs
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2025 - Grid 4 PHP Framework
+    </div>
+  
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://x.com/gridphp" target="_blank" rel="noopener" title="x.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M459.37 151.716c.325 4.548.325 9.097.325 13.645 0 138.72-105.583 298.558-298.558 298.558-59.452 0-114.68-17.219-161.137-47.106 8.447.974 16.568 1.299 25.34 1.299 49.055 0 94.213-16.568 130.274-44.832-46.132-.975-84.792-31.188-98.112-72.772 6.498.974 12.995 1.624 19.818 1.624 9.421 0 18.843-1.3 27.614-3.573-48.081-9.747-84.143-51.98-84.143-102.985v-1.299c13.969 7.797 30.214 12.67 47.431 13.319-28.264-18.843-46.781-51.005-46.781-87.391 0-19.492 5.197-37.36 14.294-52.954 51.655 63.675 129.3 105.258 216.365 109.807-1.624-7.797-2.599-15.918-2.599-24.04 0-57.828 46.782-104.934 104.934-104.934 30.213 0 57.502 12.67 76.67 33.137 23.715-4.548 46.456-13.32 66.599-25.34-7.798 24.366-24.366 44.833-46.132 57.827 21.117-2.273 41.584-8.122 60.426-16.243-14.292 20.791-32.161 39.308-52.628 54.253z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://www.linkedin.com/in/abu-ghufran-bb22a512a" target="_blank" rel="noopener" title="www.linkedin.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3zM135.4 416H69V202.2h66.5V416zm-33.2-243c-21.3 0-38.5-17.3-38.5-38.5S80.9 96 102.2 96c21.2 0 38.5 17.3 38.5 38.5 0 21.3-17.2 38.5-38.5 38.5zm282.1 243h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9V416z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://web.facebook.com/PHP-Grid-Framework-268762813193993/" target="_blank" rel="noopener" title="web.facebook.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M504 256C504 119 393 8 256 8S8 119 8 256c0 123.78 90.69 226.38 209.25 245V327.69h-63V256h63v-54.64c0-62.15 37-96.48 93.67-96.48 27.14 0 55.52 4.84 55.52 4.84v61h-31.28c-30.8 0-40.41 19.12-40.41 38.73V256h68.78l-11 71.69h-57.78V501C413.31 482.38 504 379.78 504 256z"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/gridphp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.4.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": ".", "features": ["content.code.copy", "content.code.select", "navigation.top", "search.highlight", "search.suggest", "navigation.instant", "navigation.instant.progress", "navigation.tracking", "navigation.footer", "navigation.path", "toc.follow", "navigation.tabs"], "search": "assets/javascripts/workers/search.dfff1995.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="assets/javascripts/bundle.dff1b7c8.min.js"></script>
+      
+        <script src="extra/extra.js"></script>
+      
+        <script src="js/open_in_new_tab.js"></script>
+      
+    
+  <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(() => { lightbox.reload() });
+</script></body>
+</html>

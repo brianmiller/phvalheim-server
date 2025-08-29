@@ -49,6 +49,7 @@ $out = $g->render("list1");
 	.ui-jqgrid-pager,.ui-jqgrid-toppager, .HeaderButton, .ui-jqgrid-hbox { display: none; }
 	.ui-jqgrid {box-shadow:none;}
 	.ui-jqgrid .ui-jqgrid-titlebar {padding-left:5px;}
+	.ui-row-ltr {background-color:#FFF;}
 	.ui-alt-rows {background-color:#ececec; }
 	.ui-jqgrid tr.jqgrow td {border:0px;}
 	.ui-jqdialog .ui-jqdialog-titlebar-close span { padding-top: 20px }
