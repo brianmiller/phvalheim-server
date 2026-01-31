@@ -29,8 +29,8 @@ function populateEnabledModList($pdo,$world,$getAllModsLatestVersion) {
 
 		if ($modSelectedCheck) {
 			print "<tr>\n";
-			print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked></input></td>\n";
-			print "  <td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a></td>\n";
+			print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' class='form-check-input' checked></td>\n";
+			print "  <td><a target='_blank' href='$modURL'>$modName</a></td>\n";
 			print "  <td>$modOwner</td>\n";
 			print "  <td>$modLastUpdated</td>\n";
 			print "  <td>$modVersion</td>\n";
@@ -65,8 +65,8 @@ function populateDepModList($pdo,$world,$getAllModsLatestVersion) {
 
                 if ($modIsDep) {
                         print "<tr>\n";
-                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' checked disabled></input></td>\n";
-                        print "  <td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName<label class='alt-color' style='font-size:11px;font-style:italic;'> added as dependency</label></a></td>\n";
+                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' class='form-check-input' checked disabled></td>\n";
+                        print "  <td><a target='_blank' href='$modURL'>$modName</a> <span class='badge bg-info'>dependency</span></td>\n";
                         print "  <td>$modOwner</td>\n";
                         print "  <td>$modLastUpdated</td>\n";
                         print "  <td>$modVersion</td>\n";
@@ -99,8 +99,8 @@ function populateDisabledModList($pdo,$world,$getAllModsLatestVersion) {
 
                 if (!$modSelectedCheck && !$modIsDep) {
                         print "<tr>\n";
-                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox'></input></td>\n";
-                        print "  <td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a></td>\n";
+                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' class='form-check-input'></td>\n";
+                        print "  <td><a target='_blank' href='$modURL'>$modName</a></td>\n";
                         print "  <td>$modOwner</td>\n";
 			print "  <td>$modLastUpdated</td>\n";
                         print "  <td>$modVersion</td>\n";
@@ -129,7 +129,7 @@ if(isset($_POST['submit'])) {
 
 	# set database to "update" after editing world
 	updateWorld($pdo,$world);
-	
+
 	# go back to admin home after save
 	header('Location: index.php');
 
@@ -141,13 +141,18 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 ?>
 
 <!DOCTYPE HTML>
-<html>
+<html lang="en">
 	<head>
-                <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php echo rand(100, 1000)?>">
-                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Edit World - PhValheim Admin</title>
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
+		<link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
+		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
-		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css?refreshcss=<?php echo rand(100, 1000)?>">
+		<script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
                 <script>
 			// begin document load
                         $(document).ready( function () {
@@ -193,7 +198,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 				// disable scroll bar
 				document.body.classList.add("noscroll");
 				// display loading spinner
-				document.getElementById("spinner").style.display = "block";
+				document.getElementById("spinner").style.display = "flex";
 			}
 
 			// only allow the form to be submitted once per page load
@@ -204,7 +209,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 			                       form_enabled = false;
 			                       return true;
 			               }
-	
+
 			               return false;
 			        });
 			});
@@ -213,70 +218,83 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 
 	</head>
 
-        <div id="spinner" class="loading style-2 overlay" style="display:none;"><div class="loading-wheel"></div></div>
 	<body>
-	        <!--<div class="overlay" id="overlay" name="overlay" style="display:none;"></div>-->
-		<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="onFormSubmit()">
-		      <div style="padding-top:10px;" class="">
-                        <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
-                                <th class="bottom_line alt-color cente" colspan="7">World Mod Editor</th>
-				<tr>
-				<td style="padding-top:5px;" colspan="7"></td>
-				<tr>
-                                <td style="width:2px;"></td> <!-- left spacer -->
-				<td class="align-left" style="">World Name:</td>
-				<td class="align-left" style="width:auto;"><?php echo $world ?></td>
-                                <td class="center highlight-color" style="width:50px;">|</td> <!-- middle spacer -->
-				<td class="align-left" style="margin-left:50px;">World Seed:</td>
-                                <td class="align-left"><?php print getSeed($pdo,$world);?></td>
-                                <td style="width:2px;"></td> <!-- right spacer -->
-				<tr>
-                                <td style="width:2px;"></td> <!-- left spacer -->
-				<td class="align-left">Date Deployed:</td>
-				<td class="align-left" style="width:auto;"><?php print getDateDeployed($pdo,$world);?></td>
-                                <td class="center highlight-color" style="width:50px;">|</td> <!-- middle spacer -->
-				<td class="align-left">Mods Selected:</td>
-                                <td class="align-left"><?php print getSelectedModCountOfWorld($pdo,$world);?></td>
-                                <td style="width:2px;"></td> <!-- right spacer -->
-                                <tr>
-                                <td style="width:2px;"></td> <!-- left spacer -->
-                                <td class="align-left">Date Updated:</td>
-                                <td class="align-left" style="width:auto;"><?php print getDateUpdated($pdo,$world);?></td>
-                                <td class="center highlight-color" style="width:50px;padding-bottom:5px;">|</td> <!-- middle spacer -->
-                                <td class="align-left">Mods Running:</td>
-				<td class="align-left"><?php print getTotalModCountOfWorld($pdo,$world);?></td>
-                                <td style="width:2px;"></td> <!-- right spacer -->
-                        </table>
-		      </div>
+		<div id="spinner" class="loading style-2" style="display:none;"><div class="loading-wheel"></div></div>
 
-		      <div style="max-width:1600px;margin:auto;padding:10px;" class="">
-			<table id="modtable" style="margin-top:45px !important;width:100%;" align=center border=0 id="edit_world" class="display outline">
-				<thead>
-					<th class="alt-color">Toggle</th>
-					<th class="alt-color">Name</th>
-					<th class="alt-color">Author</th>
-					<th class="alt-color">Last Updated</th>
-					<th class="alt-color">Version</th>
-				</thead>
-				<tbody>
-					<?php echo '<script type="text/javascript">document.getElementById("spinner").style.display = "block";</script>'; ?>
-					<?php echo '<script type="text/javascript">document.body.classList.add("noscroll");</script>'; ?>
-					<?php #echo '<script type="text/javascript">document.body.classList.add("blur");</script>'; ?>
-					<?php #echo '<script type="text/javascript">document.body.classList.add("overlay");</script>'; ?>
-					<?php populateEnabledModList($pdo,$world,$getAllModsLatestVersion); ?>
-					<?php populateDepModList($pdo,$world,$getAllModsLatestVersion); ?>
-					<?php populateDisabledModList($pdo,$world,$getAllModsLatestVersion); ?>
-				</tbody>
-			</table>
-		      </div>
-			<table class="center" border=0>
-				<td colspan=0 align=center>
-					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
-					<button name='submit' id='submit_button' class="sm-bttn" type="submit" onClick='onSubmitClick();'>Save</button>
-					<input type="text" value="<?php echo $world?>" name="world" hidden readonly></input>
-				</td>
-			</table>
-		</form>
-	      </div>
+		<div class="container-fluid px-3 px-lg-4">
+			<!-- Page Header -->
+			<div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
+				<h4 class="mb-0" style="color: var(--accent-primary);">Edit World Mods</h4>
+				<a href='index.php'><button class="sm-bttn" type="button">Back to Dashboard</button></a>
+			</div>
+
+			<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="onFormSubmit()">
+
+				<!-- World Info Card -->
+				<div class="card-panel mb-4">
+					<div class="card-panel-header">World Information</div>
+					<div class="row g-3">
+						<div class="col-6 col-md-3">
+							<label class="form-label text-secondary small">World Name</label>
+							<div class="fw-medium"><?php echo $world ?></div>
+						</div>
+						<div class="col-6 col-md-3">
+							<label class="form-label text-secondary small">Seed</label>
+							<div><code><?php print getSeed($pdo,$world);?></code></div>
+						</div>
+						<div class="col-6 col-md-3">
+							<label class="form-label text-secondary small">Date Deployed</label>
+							<div><?php print getDateDeployed($pdo,$world);?></div>
+						</div>
+						<div class="col-6 col-md-3">
+							<label class="form-label text-secondary small">Date Updated</label>
+							<div><?php print getDateUpdated($pdo,$world);?></div>
+						</div>
+					</div>
+					<hr class="my-3" style="border-color: var(--border-color);">
+					<div class="row">
+						<div class="col-6">
+							<span class="alt-color">Mods Selected:</span> <span class="badge bg-info"><?php print getSelectedModCountOfWorld($pdo,$world);?></span>
+						</div>
+						<div class="col-6">
+							<span class="alt-color">Mods Running:</span> <span class="badge bg-success"><?php print getTotalModCountOfWorld($pdo,$world);?></span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Mod Selection Card -->
+				<div class="card-panel mb-4">
+					<div class="card-panel-header">Mod Selection</div>
+					<div class="table-responsive">
+						<table id="modtable" class="table table-hover mb-0" style="width:100%;">
+							<thead>
+								<tr>
+									<th class="alt-color" style="width: 50px;">Select</th>
+									<th class="alt-color">Name</th>
+									<th class="alt-color">Author</th>
+									<th class="alt-color">Last Updated</th>
+									<th class="alt-color">Version</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php echo '<script type="text/javascript">document.getElementById("spinner").style.display = "flex";</script>'; ?>
+								<?php echo '<script type="text/javascript">document.body.classList.add("noscroll");</script>'; ?>
+								<?php populateEnabledModList($pdo,$world,$getAllModsLatestVersion); ?>
+								<?php populateDepModList($pdo,$world,$getAllModsLatestVersion); ?>
+								<?php populateDisabledModList($pdo,$world,$getAllModsLatestVersion); ?>
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<!-- Action Buttons -->
+				<div class="d-flex justify-content-center gap-3 mb-4">
+					<a href='index.php'><button class="sm-bttn" type="button">Cancel</button></a>
+					<button name='submit' id='submit_button' class="sm-bttn" type="submit" onClick='onSubmitClick();' style="background-color: var(--success-dark); border-color: var(--success);">Save Changes</button>
+					<input type="hidden" value="<?php echo $world?>" name="world">
+				</div>
+
+			</form>
+		</div>
 	</body>
 </html>

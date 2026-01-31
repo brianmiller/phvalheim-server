@@ -119,170 +119,115 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
 ?>
 
 <!DOCTYPE HTML>
-<html>
+<html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>PhValheim Citzens Editor</title>
-        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css?refreshcss=<?php echo rand(100, 1000)?>'>
-        <link rel="stylesheet" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
-
-        <!-- Google Fonts -->
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic?refreshcss=<?php echo rand(100, 1000)?>">
-
-        <!-- CSS Reset -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css?refreshcss=<?php echo rand(100, 1000)?>">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Citizens Editor - PhValheim Admin</title>
+        <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
+        <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
+        <script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
+        <script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
     </head>
 
     <body>
-        <p class='pri-color' style='margin-top: 1%;' align='center'>Add player's SteamID to grant access or set the world to public.</p>
-        <p class='pri-color' style='margin-top: 1%;' align='center'><label class='alt-color'>Note:</label> <i>SteamIDs listed below will be ignored when world is set to public.</i></p>
+        <div class="container-fluid px-3 px-lg-4">
+            <!-- Page Header -->
+            <div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
+                <h4 class="mb-0" style="color: var(--accent-primary);">Citizens Editor</h4>
+                <a href='index.php'><button class="sm-bttn" type="button">Back to Dashboard</button></a>
+            </div>
 
-        <form action='citizensEditor.php'>
-            <table style="margin-top: 25px;" align='center' border='0' class='outline'>
-                <th colspan='2' class='bottom_line'>
-                    <?php print "World: $world";?>
-                </th>
+            <!-- Info Banner -->
+            <div class="card-panel mb-4" style="border-color: var(--info);">
+                <p class="mb-1">Add player's SteamID to grant access or set the world to public.</p>
+                <p class="mb-0 small text-secondary"><strong class="alt-color">Note:</strong> <em>SteamIDs listed below will be ignored when world is set to public.</em></p>
+            </div>
 
-                <tr>
-                    <th>
-                        <p class='outline alt-color'>Editor</p>
-                    </th>
-                    <th>
-                        <p class='outline alt-color'>Current List on Disk</p>
-                    </th>
-                </tr>
+            <form action='citizensEditor.php'>
+                <input type='hidden' name='world' value='<?php echo $world;?>'>
+                <input type='hidden' name='msg' value='saved'>
 
-                <tr>
-                    <th>
-                        <textarea class='outline textarea' style='resize: none;' cols='17' rows='20' name='citizens'><?php print $currentCitizens;?></textarea>
-                    </th>
-                    <td>
-                        <textarea class='disabled outline textarea' style='resize: none;' cols='40' rows='20' name='citizens' disabled><?php print $currentAllowListFile;?></textarea>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan='2' style='text-align: center;'>
+                <!-- World Info -->
+                <div class="card-panel mb-4">
+                    <div class="card-panel-header">World: <span class="pri-color"><?php print $world;?></span></div>
+
+                    <div class="row g-4">
+                        <!-- Editor Column -->
+                        <div class="col-12 col-md-6">
+                            <label class="form-label alt-color">Allowed SteamIDs</label>
+                            <textarea class="form-control textarea" style="resize: vertical; min-height: 300px; font-family: var(--font-mono, monospace);" name='citizens' placeholder="Enter SteamIDs, one per line"><?php print $currentCitizens;?></textarea>
+                        </div>
+
+                        <!-- Current List Column -->
+                        <div class="col-12 col-md-6">
+                            <label class="form-label text-secondary">Current List on Disk (Read-only)</label>
+                            <textarea class="form-control textarea disabled" style="resize: vertical; min-height: 300px; font-family: var(--font-mono, monospace);" disabled><?php print $currentAllowListFile;?></textarea>
+                        </div>
+                    </div>
+
+                    <!-- SteamID Lookup Button -->
+                    <div class="text-center mt-3">
                         <button type="button" class="sm-bttn" id="openModalButton">Get SteamID</button>
-                    </td>
-                    <tr>
-                    <td align='center' style='text-align: center;' colspan='2'>
-                        <table align='center' style='text-align: center;' border=0>
-                            <td style='padding: 0 5px 0;' align='center' style='text-align: center;'>
-                                <a href='index.php'><button class='sm-bttn' type="button">Back</button></a>
-                            <td align='center' style='text-align: center;'>
-                                <input class='sm-bttn' type="submit" value="Save">
-                            <tr>
-                            <td align='center' class='alt-color' colspan='2' style='padding-top: 6px; text-align: center;'>
-                                <input name='public' type="checkbox" <?php print $publicFlag?>> Set to public</input>
-                        </table>
-                    </td>
-                </tr>
-                <tr>
-                    <td colspan='2'>
-                        <div style='text-align: center;'><?php print $msg;?></div>
-                    </td>
-                </tr>
+                    </div>
 
-                <input type='hidden' name='world' value='<?php echo $world;?>'></input>
-                <input type='hidden' name='msg' value='saved'></input>
-            </table>
-        </form>
+                    <!-- Action Buttons -->
+                    <div class="d-flex justify-content-center gap-3 mt-4">
+                        <a href='index.php'><button class='sm-bttn' type="button">Cancel</button></a>
+                        <button class='sm-bttn' type="submit" style="background-color: var(--success-dark); border-color: var(--success);">Save</button>
+                    </div>
+
+                    <!-- Public Checkbox -->
+                    <div class="text-center mt-3">
+                        <div class="form-check d-inline-block">
+                            <input class="form-check-input" type="checkbox" name='public' id="publicCheck" <?php print $publicFlag?>>
+                            <label class="form-check-label alt-color" for="publicCheck">Set world to public</label>
+                        </div>
+                    </div>
+
+                    <!-- Status Message -->
+                    <?php if (!empty($msg) && $msg == 'saved'): ?>
+                    <div class="text-center mt-3">
+                        <span class="text-success">Settings saved successfully.</span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </div>
 
         <!-- Modal Structure -->
         <div id="vanityModal" class="modal">
-            <div class="modal-content outline">
+            <div class="modal-content">
                 <span class="close" id="modalClose">&times;</span>
-                <h2 style="color: var(--button-font-color-hover);">Lookup SteamID helper</h2>
-                <input type="text" id="vanityURLInput" class="sm-bttn textarea" placeholder="Enter Steam Username" />
-                <button id="submitVanityURL" onclick="fetchSteamID()" class="sm-bttn">Get SteamID</button>
-                    <div id="steamIDOutput" style="color: var(--button-font-color-idle); padding-top:10px;"></div>
-                    <button onclick"copy()" style="padding-top:5px;"id="copy-btn" class="sm-bttn">Copy</button>
+                <h5 class="mb-3" style="color: var(--success);">SteamID Lookup Helper</h5>
+                <div class="mb-3">
+                    <input type="text" id="vanityURLInput" class="form-control" placeholder="Enter Steam Username">
+                </div>
+                <button id="submitVanityURL" onclick="fetchSteamID()" class="sm-bttn">Look Up SteamID</button>
+                <div id="steamIDOutput" class="mt-3 p-2" style="color: var(--accent-secondary); background: var(--bg-primary); border-radius: 0.375rem; min-height: 2rem;"></div>
+                <button id="copy-btn" class="sm-bttn mt-2">Copy to Clipboard</button>
             </div>
         </div>
-
-        <!-- Modal Styling -->
-        <style>
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: transparent;
-            backdrop-filter: blur(5px); /* Apply a slight blur to the backdrop */
-        }
-
-        .modal-content {
-            background-color: var(--main-background-color);
-            margin: 15% auto;
-            padding: 20px;
-            border: 1px solid var(--outline-light);
-            width: 600px;
-            text-align: center;
-        }
-
-        .close {
-            color: var(--outline-light);
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        </style>
 
         <!-- JavaScript for Modal and AJAX -->
         <script>
         document.addEventListener("DOMContentLoaded", function() {
-
-
-
-
             var modal = document.getElementById("vanityModal");
             var span = document.getElementById("modalClose");
 
-document.getElementById("copy-btn").onclick = function() {
-    var copyText = document.getElementById("steamIDOutput");
+            document.getElementById("copy-btn").onclick = function() {
+                var copyText = document.getElementById("steamIDOutput");
 
-    if (copyText) {
-        // Create a range object and select the text
-        let range = document.createRange();
-        range.selectNodeContents(copyText);
-
-        // Remove any existing selections and add the new range
-        let selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-
-        try {
-            // Attempt to copy the selected text to the clipboard
-            navigator.clipboard.writeText(copyText.innerText)
-                .then(() => {
-                    alert("Copied the text: " + copyText.innerText);
-                })
-                .catch(err => {
-                    console.error('Could not copy text: ', err);
-                });
-        } catch (err) {
-            console.error('Error copying text: ', err);
-        }
-
-        // Clean up the selection
-        selection.removeAllRanges();
-    } else {
-        console.error("Element with ID 'steamIDOutput' not found.");
-    }
-}
-
-
+                if (copyText && copyText.innerText.trim()) {
+                    navigator.clipboard.writeText(copyText.innerText)
+                        .then(() => {
+                            alert("Copied: " + copyText.innerText);
+                        })
+                        .catch(err => {
+                            console.error('Could not copy text: ', err);
+                        });
+                }
+            }
 
             document.getElementById("openModalButton").onclick = function() {
                 modal.style.display = "block";
@@ -313,8 +258,15 @@ document.getElementById("copy-btn").onclick = function() {
 
                 xhr.send("action=fetchSteamID&vanityURL=" + encodeURIComponent(vanityURL));
             }
-        });
 
+            // Allow Enter key in the input field
+            document.getElementById("vanityURLInput").addEventListener("keypress", function(e) {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    fetchSteamID();
+                }
+            });
+        });
         </script>
     </body>
 </html>

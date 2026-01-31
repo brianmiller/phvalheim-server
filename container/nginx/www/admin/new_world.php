@@ -26,8 +26,8 @@ function populateModList($pdo,$getAllModsLatestVersion) {
                 $modVersion = str_replace("\"","",$modVersion);
 
                 print "<tr>\n";
-                print "<td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' /></input></td>\n";
-                print "<td style='padding-right:15px;'><a target='_blank' href='$modURL'>$modName</a></td>\n";
+                print "<td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' class='form-check-input' /></td>\n";
+                print "<td><a target='_blank' href='$modURL'>$modName</a></td>\n";
                 print "<td>$modOwner</td>\n";
 		print "<td>$modLastUpdated</td>\n";
                 print "<td>$modVersion</td>\n";
@@ -48,8 +48,8 @@ if (!empty($_POST)) {
   # add new world to database
   $addWorld = addWorld($pdo,$world,$gameDNS,$seed);
   if ($addWorld == 0) {
-        $msg = "<label style='font-size: 16px;font-style:italic;'>World '$world' created...</label>";
-  
+        $msg = "<span class='text-success'>World '$world' created...</span>";
+
 
 	# add mods, if any are selected
 	if (!empty($_POST['thunderstore_mods'])) {
@@ -59,12 +59,12 @@ if (!empty($_POST)) {
           }
 	}
 
-        # go back to admin home after creation 
+        # go back to admin home after creation
         header("Location: index.php");
   }
 
   if ($addWorld == 2) {
-        $msg = "<label style='font-size: 16px;font-style:italic;'>World '$world' already exists...</label>";
+        $msg = "<span class='text-warning'>World '$world' already exists...</span>";
   }
 
 }
@@ -74,13 +74,18 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 ?>
 
 <!DOCTYPE HTML>
-<html>
+<html lang="en">
 	<head>
-                <script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
-                <script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
-                <link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css?refreshcss=<?php echo rand(100, 1000)?>">
-                <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
-		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css?refreshcss=<?php echo rand(100, 1000)?>">
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>New World - PhValheim Admin</title>
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
+		<link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
+		<link rel="stylesheet" type="text/css" href="/css/multicheckbox.css">
+		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
+		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
+		<script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
                 <script>
                         // begin document load
                         $(document).ready( function () {
@@ -106,10 +111,10 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                                          { orderable: false, targets: [ 0, 1, 2, 3, 4 ] },
                                         ],
                                 }); // end data tables
-				
+
                                 // remove loading spinner after php populates table
                                 document.getElementById("spinner").style.display = "none";
-	
+
                         }); // end document load
 
 
@@ -117,7 +122,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                         function onFormSubmit() {
 				// clears search filter and changes list range to all items. This is needed for POST
                                 $('#modtable').DataTable().page.len('-1').draw();
-                                $('#modtable').DataTable().search( '' ).draw();                         
+                                $('#modtable').DataTable().search( '' ).draw();
                         }
 
 
@@ -126,7 +131,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 				// disable scroll bar
                                 document.body.classList.add("noscroll");
 				// display loading spinner
-                                document.getElementById("spinner").style.display = "block";
+                                document.getElementById("spinner").style.display = "flex";
                         }
 
                         // only allow the form to be submitted once per page load
@@ -137,7 +142,7 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
                                                form_enabled = false;
                                                return true;
                                        }
-        
+
                                        return false;
                                 });
                         });
@@ -146,80 +151,93 @@ $getAllModsLatestVersion = getAllModsLatestVersion($pdo);
 
 	</head>
 
-	<div id="spinner" class="loading style-2 overlay" style="display:none;"><div class="loading-wheel"></div></div>
 	<body>
-	      <div>
-		<form id="new_world" name="new_world" method="post" action="new_world.php" onSubmit="onFormSubmit();">
+		<div id="spinner" class="loading style-2" style="display:none;"><div class="loading-wheel"></div></div>
 
-		      <div style="padding-top:10px;" class="">
-                        <table class="outline" style="width:auto;margin-left:auto;margin-right:auto;vertical-align:middle;border-collapse:collapse;" border=0>
-                                <th class="bottom_line alt-color" colspan="8">New World</th>
-				<tr>
-				<td style="padding-top:5px;" colspan="8"></td>
-				<tr>
-                                <td style="width:2px;"></td> <!-- left spacer -->
-				<td class="align-left" style="">World Name:</td>
-				<td class="align-left" style="width:auto;"><input type="text" maxlength="30" name="world" id="world" required></td>
-                                <td class="center highlight-color" style="width:50px;">|</td> <!-- middle spacer -->
-				<td class="align-left" style="margin-left:50px;">World Seed:</td>
-                                <td class="align-left"><input type="text" name="seed" id="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>"></td>
-                                <td style="width:2px;"></td> <!-- right spacer -->
-				<tr>
-				<td style="padding-top:5px;" colspan="8"></td>
-				<tr>
-				<th class="pri-color" colspan="8"><?php echo $msg ?></th>
-                        </table>
-		      </div>
+		<div class="container-fluid px-3 px-lg-4">
+			<!-- Page Header -->
+			<div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
+				<h4 class="mb-0" style="color: var(--accent-primary);">Create New World</h4>
+				<a href='index.php'><button class="sm-bttn" type="button">Back to Dashboard</button></a>
+			</div>
 
-		      <div style="max-width:1600px;margin:auto;padding:10px;" class="">
-			<table id="modtable" style="margin-top:45px !important;width:100%;" align=center border=0 class="display outline">
-				<thead>
-					<th class="alt-color">Toggle</th>
-					<th class="alt-color">Name</th>
-					<th class="alt-color">Author</th>
-					<th class="alt-color">Last Updated</th>
-					<th class="alt-color">Version</th>
-				</thead>
-				<tbody>
-                                        <?php echo '<script type="text/javascript">document.getElementById("spinner").style.display = "block";</script>'; ?>
-                                        <?php echo '<script type="text/javascript">document.body.classList.add("noscroll");</script>'; ?>
-        	                        <?php populateModList($pdo,$getAllModsLatestVersion); ?>
-				</tbody>
-			</table>
-		      </div>
-			<table class="center">
-				<td colspan=5 align=center>
-					<a href='index.php'><button class="sm-bttn" type="button">Back</button></a>
-					<button id='submit_button' name='submit' class="sm-bttn" type="submit" onClick='onSubmitClick();'>Create</button>
-				</td>
-			</table>
+			<form id="new_world" name="new_world" method="post" action="new_world.php" onSubmit="onFormSubmit();">
 
-		</form>
-	      </div>
+				<!-- World Settings Card -->
+				<div class="card-panel mb-4">
+					<div class="card-panel-header">World Settings</div>
+					<div class="row g-3">
+						<div class="col-12 col-md-6">
+							<label for="world" class="form-label alt-color">World Name</label>
+							<input type="text" class="form-control" maxlength="30" name="world" id="world" required placeholder="Enter world name">
+							<div class="form-text text-secondary">Alphanumeric characters only, max 30 characters</div>
+						</div>
+						<div class="col-12 col-md-6">
+							<label for="seed" class="form-label alt-color">World Seed</label>
+							<input type="text" class="form-control" name="seed" id="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>">
+							<div class="form-text text-secondary">Leave empty for default seed</div>
+						</div>
+					</div>
+					<?php if (!empty($msg)): ?>
+					<div class="mt-3 text-center"><?php echo $msg ?></div>
+					<?php endif; ?>
+				</div>
+
+				<!-- Mod Selection Card -->
+				<div class="card-panel mb-4">
+					<div class="card-panel-header">Select Mods (Optional)</div>
+					<div class="table-responsive">
+						<table id="modtable" class="table table-hover mb-0" style="width:100%;">
+							<thead>
+								<tr>
+									<th class="alt-color" style="width: 50px;">Select</th>
+									<th class="alt-color">Name</th>
+									<th class="alt-color">Author</th>
+									<th class="alt-color">Last Updated</th>
+									<th class="alt-color">Version</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php echo '<script type="text/javascript">document.getElementById("spinner").style.display = "flex";</script>'; ?>
+								<?php echo '<script type="text/javascript">document.body.classList.add("noscroll");</script>'; ?>
+								<?php populateModList($pdo,$getAllModsLatestVersion); ?>
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<!-- Action Buttons -->
+				<div class="d-flex justify-content-center gap-3 mb-4">
+					<a href='index.php'><button class="sm-bttn" type="button">Cancel</button></a>
+					<button id='submit_button' name='submit' class="sm-bttn" type="submit" onClick='onSubmitClick();' style="background-color: var(--success-dark); border-color: var(--success);">Create World</button>
+				</div>
+
+			</form>
+		</div>
 
 		<script>
-                        /* restrict special chars in input field */
-                        $('#world').bind('input', function() {
-                          var c = this.selectionStart,
-                              r = /[^a-zA-Z0-9\\s]/gi,
-                              v = $(this).val();
-                          if(r.test(v)) {
-                            $(this).val(v.replace(r, ''));
-                            c--;
-                          }
-                          this.setSelectionRange(c, c);
-                        });
+			/* restrict special chars in input field */
+			$('#world').bind('input', function() {
+			  var c = this.selectionStart,
+			      r = /[^a-zA-Z0-9\\s]/gi,
+			      v = $(this).val();
+			  if(r.test(v)) {
+			    $(this).val(v.replace(r, ''));
+			    c--;
+			  }
+			  this.setSelectionRange(c, c);
+			});
 
-                        $('#seed').bind('input', function() {
-                          var c = this.selectionStart,
-                              r = /[^a-zA-Z0-9\\s]/gi,
-                              v = $(this).val();
-                          if(r.test(v)) {
-                            $(this).val(v.replace(r, ''));
-                            c--;
-                          }
-                          this.setSelectionRange(c, c);
-                        });
+			$('#seed').bind('input', function() {
+			  var c = this.selectionStart,
+			      r = /[^a-zA-Z0-9\\s]/gi,
+			      v = $(this).val();
+			  if(r.test(v)) {
+			    $(this).val(v.replace(r, ''));
+			    c--;
+			  }
+			  this.setSelectionRange(c, c);
+			});
 
 		</script>
 	</body>

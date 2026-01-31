@@ -41,14 +41,14 @@ function populateJsHtml($worldName,$hideSeed) {
 			function hideSeedSwitch_$worldName(cb)
 			{
 				if($(cb).is(':checked'))
-	                       	{
-	                        	$.getScript(\"setters.php?type=hideseed&value=1&worldName=$worldName\");
-	                        }
-	                       	if(!$(cb).is(':checked'))
-	                        {
-	                        	$.getScript(\"setters.php?type=hideseed&value=0&worldName=$worldName\");
-	                        }
-	                }
+                       	{
+                        	$.getScript(\"setters.php?type=hideseed&value=1&worldName=$worldName\");
+                        }
+                       	if(!$(cb).is(':checked'))
+                        {
+                        	$.getScript(\"setters.php?type=hideseed&value=0&worldName=$worldName\");
+                        }
+                }
 		</script>
 	";
 
@@ -67,86 +67,75 @@ if ($hideSeed == '1' ) {
 
 
 <!DOCTYPE HTML>
-<html>
-        <head>
-
+<html lang="en">
+	<head>
 		<meta charset="UTF-8">
-	 	<title>World Settings</title>
-		<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css'>
-		<link rel="stylesheet" href="/css/phvalheimStyles.css">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>World Settings - PhValheim Admin</title>
+		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
-
-                <!-- Google Fonts -->
-                <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
-
-                <!-- CSS Reset -->
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
-
+		<script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
 	</head>
 
 	<body>
-			<?php populateJsHtml($worldName,$hideSeed);?>
+		<?php populateJsHtml($worldName,$hideSeed);?>
 
-			<table class='outline settings' align='center' border='0'>
+		<div class="container-fluid px-3 px-lg-4">
+			<!-- Page Header -->
+			<div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
+				<h4 class="mb-0" style="color: var(--accent-primary);">World Settings</h4>
+				<a href='index.php'><button class="sm-bttn" type="button">Back to Dashboard</button></a>
+			</div>
 
-				<th colspan='2' class='bottom_line settings' style='padding: 10px 0 10px;'>
-				Settings for <label class='pri-color'> <?php print $worldName; ?> </label>
-				</th>
+			<!-- Settings Card -->
+			<div class="card-panel" style="max-width: 600px; margin: 0 auto;">
+				<div class="card-panel-header">Settings for <span class="pri-color"><?php print $worldName; ?></span></div>
 
+				<!-- Read-only Information -->
+				<div class="mb-4">
+					<h6 class="text-secondary mb-3">World Information</h6>
+					<table class="table table-sm table-borderless mb-0">
+						<tbody>
+							<tr>
+								<td class="alt-color" style="width: 40%;">MD5 Hash</td>
+								<td><code class="small"><?php print $worldMd5; ?></code></td>
+							</tr>
+							<tr>
+								<td class="alt-color">Seed</td>
+								<td><code><?php print $worldSeed; ?></code></td>
+							</tr>
+							<tr>
+								<td class="alt-color">Date Deployed</td>
+								<td><?php print $dateDeployed; ?></td>
+							</tr>
+							<tr>
+								<td class="alt-color">Date Updated</td>
+								<td><?php print $dateUpdated; ?></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
 
-				<tr>
-				<!-- read only -->
+				<hr style="border-color: var(--border-color);">
 
-				<td>
-					<label class=''>MD5:</label>
-				</td>
-				<td>
-					<label class=''><?php print $worldMd5; ?></label>
-				</td>
-				<tr>
-                                <td>
-                                	<label class=''>Seed:</label>
-                                </td>
-                                <td>
-                                	<label class=''><?php print $worldSeed; ?></label>
-				</td>
-                                <tr>
-                                <td>
-                                	<label class=''>Date Deployed:</label>
-                                </td>
-                                <td>
-                                	<label class=''><?php print $dateDeployed; ?></label>
-				</td>
-                                <tr>
-                                <td>
-                                	<label class=''>Date Updated:</label>
-                               	</td>
-                                <td>
-                                	<label class=''><?php print $dateUpdated; ?></label>
-				</td>
+				<!-- Configurable Settings -->
+				<div class="mt-4">
+					<h6 class="text-secondary mb-3">Privacy Settings</h6>
+					<div class="d-flex justify-content-between align-items-center p-3" style="background: var(--bg-primary); border-radius: 0.375rem;">
+						<div>
+							<span class="d-block">Hide seed from public UI</span>
+							<small class="text-secondary">When enabled, the world seed will not be visible on the public player interface.</small>
+						</div>
+						<label class='switch ms-3'><?php print $hideSeedSwitch; ?></label>
+					</div>
+				</div>
 
-
-				<!-- writable -->
-				<tr>
-
-                                <td>
-                                	<label class=''>Hide seed from public UI:</label>
-                                </td>
-                                <td>
-                                	<label class='switch'><?php print $hideSeedSwitch; ?></label>
-                                </td>			
-
-				</tr>
-
-				<tr>
-
-                                <td align='center' style='text-align: center;' colspan='2'>
-                                        <table align='center' style='text-align: center;' border=0>
-                                                <td style='padding: 10px 5px 5px;' align='center' style='text-align: center;'>
-                                                        <a href='index.php'><button class='sm-bttn' type="button">Done</button></a>
-                                        </table>
-                                </td>
-				<!-- <th colspan='2' class='bottom_line_solid'> -->
-
-	<body>
+				<!-- Done Button -->
+				<div class="text-center mt-4">
+					<a href='index.php'><button class='sm-bttn'>Done</button></a>
+				</div>
+			</div>
+		</div>
+	</body>
 </html>

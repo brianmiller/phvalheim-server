@@ -1,13 +1,115 @@
-body {
-	/* color: #DEDEDE; */
-	/* background: #262626; */
-	color: #FFFFFF;
-	background: #000000;
-	font-family: "Lucida Console", "Courier New", monospace;
+/* Log viewer styles - aligned with phvalheimStyles.css theme */
+:root {
+	--log-bg: #0f172a;
+	--log-text: #e2e8f0;
+	--log-font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
+body {
+	color: var(--log-text);
+	background: var(--log-bg);
+	font-family: var(--log-font);
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	margin: 0;
+	padding: 1rem;
+}
+
+/* Log container */
+div {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+/* Log entry styling */
+p {
+	margin: 0;
+	padding: 0.125rem 0.5rem;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+
+/* Rounded corners for highlighted lines */
 #roundCorners {
-	border-radius: 2px;
-	padding-left: 8px; 
-	padding-right: 8px;
+	border-radius: 0.25rem;
+	padding: 0.25rem 0.75rem;
+	display: inline-block;
+	font-size: 0.75rem;
+	font-weight: 500;
+}
+
+/* Horizontal rule */
+hr {
+	border: none;
+	border-top: 1px solid #334155;
+	margin: 1rem 0;
+}
+
+/* Bottom controls table */
+table {
+	border-collapse: collapse;
+}
+
+thead th {
+	padding: 0.5rem;
+}
+
+td {
+	padding: 0.25rem;
+}
+
+/* Refresh button */
+button {
+	font-family: var(--log-font);
+	font-size: 0.8125rem;
+	padding: 0.5rem 1rem;
+	color: #a78bfa;
+	background-color: #1e293b;
+	border: 1px solid #22d3ee;
+	border-radius: 0.375rem;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+button:hover {
+	color: #4ade80;
+	background-color: #334155;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: #1e293b;
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: #475569;
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #22d3ee;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+	body {
+		padding: 0.5rem;
+		font-size: 0.75rem;
+	}
+
+	button {
+		padding: 0.375rem 0.75rem;
+		font-size: 0.75rem;
+	}
+
+	#roundCorners {
+		padding: 0.125rem 0.5rem;
+		font-size: 0.6875rem;
+	}
 }
