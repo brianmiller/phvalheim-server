@@ -9,8 +9,8 @@ docker system prune -af
 echo
 echo "Building..."
 docker buildx build --no-cache --network=host -t theoriginalbrian/phvalheim-server:rc .
-echo
-echo "Pushing to theoriginalbrian/phvalheim-server:rc..."
-docker push theoriginalbrian/phvalheim-server:rc
-echo
+#echo
+#echo "Pushing to theoriginalbrian/phvalheim-server:rc..."
+#docker push theoriginalbrian/phvalheim-server:rc
+#echo
 

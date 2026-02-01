@@ -19,7 +19,7 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-f
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client
 
-# github li
+# github cli
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
 RUN chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
 RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
@@ -63,7 +63,12 @@ COPY container/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed /opt/statel
 COPY container/php-fpm/php.ini /etc/php/8.1/fpm/php.ini
 COPY container/php-fpm/www.conf /etc/php/8.1/fpm/pool.d/www.conf
 COPY container/php-fpm/php-fpm.conf /etc/php/8.1/fpm/php-fpm.conf
-COPY container/mysql/* /etc/mysql/
+COPY container/mysql/my.cnf /etc/mysql/my.cnf
+COPY container/mysql/init-file /etc/mysql/init-file
+COPY container/mysql/client.cnf /etc/mysql/conf.d/client.cnf
+RUN chmod 644 /etc/mysql/init-file
+RUN chmod 644 /etc/mysql/conf.d/client.cnf
+RUN chmod 644 /etc/mysql/my.cnf
 COPY container/cron.d/* /etc/cron.d/
 
 RUN chown -R phvalheim: /opt/stateless
