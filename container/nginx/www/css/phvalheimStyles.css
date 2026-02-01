@@ -1254,6 +1254,31 @@ input:checked + .slider:before {
 	margin-top: 0.25rem;
 }
 
+/* Stat cards with charts */
+.stat-card-chart {
+	flex-direction: column;
+	padding-bottom: 0.75rem;
+}
+
+.stat-card-chart .stat-card-top {
+	display: flex;
+	align-items: flex-start;
+	gap: 1rem;
+	width: 100%;
+}
+
+.stat-chart-container {
+	width: 100%;
+	height: 60px;
+	margin-top: 0.75rem;
+	padding: 0 0.25rem;
+}
+
+.stat-chart-container canvas {
+	width: 100% !important;
+	height: 100% !important;
+}
+
 /* Dashboard Cards */
 .dashboard-grid {
 	display: grid;
@@ -1328,6 +1353,7 @@ input:checked + .slider:before {
 	color: var(--text-muted);
 }
 
+.status-badge.start, .status-badge.stop,
 .status-badge.starting, .status-badge.stopping,
 .status-badge.create, .status-badge.update, .status-badge.delete {
 	background: rgba(251, 191, 36, 0.15);
@@ -1342,6 +1368,8 @@ input:checked + .slider:before {
 }
 
 .status-badge.running .status-dot,
+.status-badge.start .status-dot,
+.status-badge.stop .status-dot,
 .status-badge.starting .status-dot,
 .status-badge.stopping .status-dot {
 	animation: pulse 2s ease-in-out infinite;
@@ -1356,6 +1384,8 @@ input:checked + .slider:before {
 .status-badge.create,
 .status-badge.update,
 .status-badge.delete,
+.status-badge.start,
+.status-badge.stop,
 .status-badge.starting,
 .status-badge.stopping {
 	animation: badge-pulse 1.5s ease-in-out infinite !important;

@@ -96,12 +96,24 @@ function getWorldsJson($pdo) {
  * Returns system resource statistics
  */
 function getSystemStatsJson($pdo) {
+    // Get memory percentage (used/total * 100)
+    $memUsedRaw = trim(exec("free | grep Mem: | tr -s ' ' | cut -d ' ' -f3"));
+    $memTotalRaw = trim(exec("free | grep Mem: | tr -s ' ' | cut -d ' ' -f2"));
+    $memPercent = ($memTotalRaw > 0) ? round(($memUsedRaw / $memTotalRaw) * 100, 1) : 0;
+
+    // Get CPU utilization as number (from database)
+    $sth = $pdo->prepare("SELECT currentCpuUtilization FROM systemstats LIMIT 1;");
+    $sth->execute();
+    $cpuPercent = $sth->fetchColumn();
+    $cpuPercent = is_numeric($cpuPercent) ? (float)$cpuPercent : 0;
+
     echo json_encode([
         'success' => true,
         'memory' => [
             'total' => getTotalMemory(),
             'used' => getUsedMemory(),
-            'free' => getFreeMemory()
+            'free' => getFreeMemory(),
+            'percent' => $memPercent
         ],
         'disk' => [
             'total' => getTotalDisk('/opt/stateful'),
@@ -111,7 +123,8 @@ function getSystemStatsJson($pdo) {
         ],
         'cpu' => [
             'model' => getCpuModel($pdo),
-            'utilization' => getCpuUtilization($pdo)
+            'utilization' => getCpuUtilization($pdo),
+            'percent' => $cpuPercent
         ],
         'timestamp' => date('Y-m-d H:i:s')
     ]);

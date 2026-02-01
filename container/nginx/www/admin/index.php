@@ -92,6 +92,7 @@ $totalCount = count($worlds);
     <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
     <script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
     <script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="admin-layout">
@@ -214,29 +215,39 @@ $totalCount = count($worlds);
                     </div>
                 </div>
 
-                <div class="stat-card">
-                    <div class="stat-icon memory">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-                        </svg>
+                <div class="stat-card stat-card-chart">
+                    <div class="stat-card-top">
+                        <div class="stat-icon memory">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Memory</div>
+                            <div class="stat-value" id="statMemory"><?php echo getUsedMemory(); ?></div>
+                            <div class="stat-subtext" id="statMemoryDetail">of <?php echo getTotalMemory(); ?> total</div>
+                        </div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-label">Memory</div>
-                        <div class="stat-value" id="statMemory"><?php echo getUsedMemory(); ?></div>
-                        <div class="stat-subtext" id="statMemoryDetail">of <?php echo getTotalMemory(); ?> total</div>
+                    <div class="stat-chart-container">
+                        <canvas id="memoryChart"></canvas>
                     </div>
                 </div>
 
-                <div class="stat-card">
-                    <div class="stat-icon cpu">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-                        </svg>
+                <div class="stat-card stat-card-chart">
+                    <div class="stat-card-top">
+                        <div class="stat-icon cpu">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">CPU</div>
+                            <div class="stat-value" id="statCpu"><?php echo getCpuUtilization($pdo); ?></div>
+                            <div class="stat-subtext" id="statCpuModel"><?php echo getCpuModel($pdo); ?></div>
+                        </div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-label">CPU</div>
-                        <div class="stat-value" id="statCpu"><?php echo getCpuUtilization($pdo); ?></div>
-                        <div class="stat-subtext" id="statCpuModel"><?php echo getCpuModel($pdo); ?></div>
+                    <div class="stat-chart-container">
+                        <canvas id="cpuChart"></canvas>
                     </div>
                 </div>
 
@@ -289,6 +300,8 @@ $totalCount = count($worlds);
                                     'create' => 'Creating',
                                     'update' => 'Updating',
                                     'delete' => 'Deleting',
+                                    'start' => 'Starting',
+                                    'stop' => 'Stopping',
                                     'starting' => 'Starting',
                                     'stopping' => 'Stopping'
                                 ];
@@ -497,14 +510,131 @@ $totalCount = count($worlds);
     <script>
     // Live update interval (5 seconds)
     const POLL_INTERVAL = 5000;
+    const STATS_POLL_INTERVAL = 2000; // 2 seconds for smoother charts
+    const MAX_DATA_POINTS = 30; // Keep 30 data points (1 minute of history at 2s intervals)
     let pollTimer = null;
+    let statsPollTimer = null;
+
+    // Chart data storage
+    let memoryData = [];
+    let cpuData = [];
+    let memoryChart = null;
+    let cpuChart = null;
 
     // Start polling on page load
     document.addEventListener('DOMContentLoaded', function() {
+        initCharts();
         startPolling();
+        startStatsPolling();
         updateTime();
         setInterval(updateTime, 1000);
     });
+
+    // Initialize charts
+    function initCharts() {
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 300,
+                easing: 'easeOutQuart'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            },
+            scales: {
+                x: {
+                    display: false,
+                    grid: { display: false }
+                },
+                y: {
+                    display: false,
+                    min: 0,
+                    max: 100,
+                    grid: { display: false }
+                }
+            },
+            elements: {
+                point: { radius: 0 },
+                line: {
+                    tension: 0.4,
+                    borderWidth: 2
+                }
+            }
+        };
+
+        // Memory chart
+        const memoryCtx = document.getElementById('memoryChart').getContext('2d');
+        memoryChart = new Chart(memoryCtx, {
+            type: 'line',
+            data: {
+                labels: Array(MAX_DATA_POINTS).fill(''),
+                datasets: [{
+                    data: Array(MAX_DATA_POINTS).fill(null),
+                    borderColor: '#4ade80',
+                    backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                    fill: true
+                }]
+            },
+            options: chartOptions
+        });
+
+        // CPU chart
+        const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+        cpuChart = new Chart(cpuCtx, {
+            type: 'line',
+            data: {
+                labels: Array(MAX_DATA_POINTS).fill(''),
+                datasets: [{
+                    data: Array(MAX_DATA_POINTS).fill(null),
+                    borderColor: '#a78bfa',
+                    backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                    fill: true
+                }]
+            },
+            options: chartOptions
+        });
+    }
+
+    // Start stats polling for charts
+    function startStatsPolling() {
+        fetchSystemStats();
+        statsPollTimer = setInterval(fetchSystemStats, STATS_POLL_INTERVAL);
+    }
+
+    // Fetch system stats and update charts
+    async function fetchSystemStats() {
+        try {
+            const response = await fetch('adminAPI.php?action=getSystemStats');
+            const data = await response.json();
+
+            if (data.success) {
+                // Update memory display
+                document.getElementById('statMemory').textContent = data.memory.used;
+                document.getElementById('statMemoryDetail').textContent = `of ${data.memory.total} total`;
+
+                // Update CPU display
+                document.getElementById('statCpu').textContent = data.cpu.utilization;
+
+                // Update charts
+                updateChart(memoryChart, data.memory.percent);
+                updateChart(cpuChart, data.cpu.percent);
+            }
+        } catch (error) {
+            console.error('Failed to fetch system stats:', error);
+        }
+    }
+
+    // Update chart with new data point
+    function updateChart(chart, value) {
+        const data = chart.data.datasets[0].data;
+        data.push(value);
+        if (data.length > MAX_DATA_POINTS) {
+            data.shift();
+        }
+        chart.update('none'); // 'none' for smooth animation
+    }
 
     function startPolling() {
         fetchWorldStatus();
@@ -547,6 +677,8 @@ $totalCount = count($worlds);
             'create': 'Creating',
             'update': 'Updating',
             'delete': 'Deleting',
+            'start': 'Starting',
+            'stop': 'Stopping',
             'starting': 'Starting',
             'stopping': 'Stopping'
         };
