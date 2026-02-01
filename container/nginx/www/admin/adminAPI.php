@@ -275,9 +275,18 @@ function getSyncStatusJson($pdo) {
  * Stop Thunderstore sync process
  */
 function stopTsSyncJson() {
+    global $pdo;
+
     // Kill any running tsSyncLocalParseMultithreaded.sh processes
     exec("pkill -f tsSyncLocalParseMultithreaded.sh 2>/dev/null");
     exec("pkill -f tsSyncRemoteCheckMultithreaded.sh 2>/dev/null");
+
+    // Clean up orphan pid files
+    exec("rm -f /tmp/ts_*.pid 2>/dev/null");
+
+    // Reset database status to idle
+    $stmt = $pdo->prepare("UPDATE systemstats SET tsSyncLocalLastExecStatus='idle'");
+    $stmt->execute();
 
     echo json_encode([
         'success' => true,

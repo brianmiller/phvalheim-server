@@ -12,243 +12,308 @@ include '../includes/modViewerGenerator.php';
 # simple security: if this page is accessed from a source other than steam, redirect back to login page
 # NOTE: this security check only works when HTTPS is used!
 if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
-    if ($_SERVER['HTTP_REFERER'] != "https://steamcommunity.com/") {
-        header('Location: ../index.php');
-    }
+	if ($_SERVER['HTTP_REFERER'] != "https://steamcommunity.com/")
+	{
+		header('Location: ../index.php');
+	}
 }
+
 
 if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
-    $httpScheme = "https";
+	$httpScheme = "https";
 } else {
-    $httpScheme = "http";
+	$httpScheme = "http";
 }
 
-// Get Steam user info
-$steamID = '';
-$playerName = '';
-$steamAvatarURL = '';
 
-if(isset($_GET['openid_claimed_id'])) {
-    $steamIDArr = explode('/', $_GET['openid_claimed_id']);
-    $steamID = end($steamIDArr);
-    $steamJSON = file_get_contents("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=$steamAPIKey&steamids=$steamID");
-    $steamJSONObj = json_decode($steamJSON);
-    $steamJSONObj = $steamJSONObj->response->players;
-    $steamJSONObj = $steamJSONObj[0];
+function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
-    $steamNickName = $steamJSONObj->personaname;
-    $steamFullName = $steamJSONObj->realname ?? '';
-    $steamAvatarURL = $steamJSONObj->avatarmedium;
+		# steam
+	        if( isset( $_GET[ 'openid_claimed_id' ] ) )
+	        {
+	                $steamIDArr = explode('/', $_GET[ 'openid_claimed_id' ]);
+	                $steamID = end($steamIDArr);
+			$steamJSON = file_get_contents("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=$steamAPIKey&steamids=$steamID");
+	                $steamJSONObj = json_decode($steamJSON);
+	                $steamJSONObj = $steamJSONObj->response->players;
+	                $steamJSONObj = $steamJSONObj[0];
 
-    if(!empty($steamFullName)) {
-        $playerName = explode(' ', $steamFullName)[0];
-    } else {
-        $playerName = $steamNickName;
-    }
-} else {
-    header('Location: ../index.php');
-    exit;
+	                $steamNickName = $steamJSONObj->personaname;
+	                $steamFullName = $steamJSONObj->realname;
+	                $steamAvatarURL = $steamJSONObj->avatarmedium;
+
+
+			# if steam profile is set to private, the fullname isn't visible, use the nickname instead
+			if(!empty($steamFullName)) {
+				$playerName = explode(' ',$steamFullName)[0];
+			} else {
+				$playerName = $steamNickName;
+			}
+
+	        } else {
+		        header('Location: ../index.php');
+		}
+
+
+                echo "
+                        <table width=100% height=100% border=0>
+                                <th class='google_header'><img src='$steamAvatarURL'></img></th>
+                                <th class='client_download_button'>";
+				populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
+		echo "
+                                </th>
+                                <tr>
+                                <th colspan=2 class='name_header'>Welcome, $playerName!</th>
+
+
+                                <tr>
+                                <tr>
+
+                                <td colspan=2>
+                                        <div class='outer'>
+                                                <div class='inner'>
+                                                        <div class='wrapper'>
+                ";
+
+
+		$getMyWorlds = getMyWorlds($pdo,$steamID);
+
+                if(!empty($getMyWorlds)) {
+                        foreach ($getMyWorlds as $myWorld) { //only query and return authorized worlds
+                                $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost,$httpScheme);
+				$md5 = getMD5($pdo,$myWorld);
+				$seed = getSeed($pdo,$myWorld);
+				$hideSeed = getHideSeed($pdo,$myWorld);
+				$dateDeployed = getDateDeployed($pdo,$myWorld);
+				$dateUpdated = getDateUpdated($pdo,$myWorld);
+				$worldMemory = getWorldMemory($pdo,$myWorld);
+
+				$trophyEikthyr = getBossTrophyStatus($pdo,$myWorld,"trophyeikthyr");
+                                $trophyTheElder = getBossTrophyStatus($pdo,$myWorld,"trophytheelder");
+                                $trophyBonemass = getBossTrophyStatus($pdo,$myWorld,"trophybonemass");
+                                $trophyDragonQueen = getBossTrophyStatus($pdo,$myWorld,"trophydragonqueen");
+                                $trophyGoblinKing = getBossTrophyStatus($pdo,$myWorld,"trophygoblinking");
+				$trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyseekerqueen");
+				$trophyFader = getBossTrophyStatus($pdo,$myWorld,"trophyfader");
+
+				if($worldMemory == "offline") {
+					$worldDimmed = "card_dimmed";
+					$launchLabel = "offline";
+					$modListToolTip = "offline";
+				} else {
+	                                # running mods public viewer
+        	                        $runningMods_head = "\n<table border=\"0\" style=\"line-height:auto;\">\n";
+	                                $runningMods_foot = "</table>\n";
+	                                $runningMods = $runningMods_head . generateToolTip($pdo,$myWorld) . $runningMods_foot;
+	                                $modListToolTip = "<a href='#' class='' style='box-shadow:none;border:none;outline:none;border-spacing: 0 2em;' data-trigger='focus' data-toggle='popover' data-placement='bottom' title='Running Mods' data-html='true' data-content='$runningMods'</a>(<label class='alt-color'>view</label>)</a>";
+
+					$worldDimmed = "";
+					$launchLabel = "Launch!";
+				}
+
+				if($trophyEikthyr && $worldDimmed == "") {
+						$trophyEikthyrDimmed = "";
+						$trophyEikthyrStatus = "Eikthyr has been defeated";
+				} else {
+						$trophyEikthyrDimmed = "trophy_dimmed";
+						$trophyEikthyrStatus = "Eikthyr is undefeated";
+				}
+                                if($trophyTheElder && $worldDimmed == "") {
+                                                $trophyTheElderDimmed = "";
+						$trophyTheElderStatus = "The Elder has been defeated";
+                                } else {
+                                                $trophyTheElderDimmed = "trophy_dimmed";
+						$trophyTheElderStatus = "The Elder is undefeated";
+                                }
+                                if($trophyBonemass && $worldDimmed == "") {
+                                                $trophyBonemassDimmed = "";
+						$trophyBonemassStatus = "Bonemass has been defeated";
+                                } else {
+                                                $trophyBonemassDimmed = "trophy_dimmed";
+						$trophyBonemassStatus = "Bonemass is undefeated";
+                                }
+                                if($trophyDragonQueen && $worldDimmed == "") {
+                                                $trophyDragonQueenDimmed = "";
+                                                $trophyDragonQueenStatus = "Moder has been defeated";
+                                } else {
+                                                $trophyDragonQueenDimmed = "trophy_dimmed";
+						$trophyDragonQueenStatus = "Moder is undefeated";
+                                }
+                                if($trophyGoblinKing && $worldDimmed == "") {
+                                                $trophyGoblinKingDimmed = "";
+						$trophyGoblinKingStatus = "Yagluth has been defeated";
+                                } else {
+                                                $trophyGoblinKingDimmed = "trophy_dimmed";
+						$trophyGoblinKingStatus = "Yagluth is undefeated";
+                                }
+                                if($trophySeekerQueen && $worldDimmed == "") {
+                                                $trophySeekerQueenDimmed = "";
+						$trophySeekerQueenStatus = "The Queen has been defeated";
+                                } else {
+                                                $trophySeekerQueenDimmed = "trophy_dimmed";
+						$trophySeekerQueenStatus = "The Queen is undefeated";
+
+                                }
+                                if($trophyFader && $worldDimmed == "") {
+                                                $trophyFaderDimmed = "";
+                                                $trophyFaderStatus = "Fader has been defeated";
+                                } else {
+                                                $trophyFaderDimmed = "trophy_dimmed";
+                                                $trophyFaderStatus = "Fader is undefeated";
+
+                                }
+
+
+				if ($hideSeed == 1) {
+					$seed = '<i>hidden</i>';
+				}
+
+				echo "
+                                        <div class=\"$worldDimmed catbox $myWorld\">
+                                                <table width=100% height=100% border=0>
+                                                        <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
+                                                        <tr>
+                                                        <th class='$worldDimmed card_worldLaunch' colspan=2><a class='$worldDimmed card_worldLaunch' href='phvalheim://?$launchString'>$launchLabel</a></th>
+
+                                                        <tr>
+
+                                                        <td style='height: 12px;'</td>
+
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Citizens&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>WIP</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Mods&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$modListToolTip</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
+							<td class='$worldDimmed card_worldInfo'>$md5</td>
+							<tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+							<td class='$worldDimmed card_worldInfo'>$seed</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$dateDeployed</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Updated&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$dateUpdated</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$worldMemory</td>
+                                                        <tr>
+                                                </table>
+						<table border=0>
+							<td class='$trophyEikthyrDimmed trophy_icon'><img title='$trophyEikthyrStatus' src='../images/TrophyEikthyr.png'></img></td>
+                                                        <td class='$trophyTheElderDimmed trophy_icon'><img title='$trophyTheElderStatus' src='../images/TrophyTheElder.png'></img></td>
+                                                        <td class='$trophyBonemassDimmed trophy_icon'><img title='$trophyBonemassStatus' src='../images/TrophyBonemass.png'></img></td>
+                                                        <td class='$trophyDragonQueenDimmed trophy_icon'><img title='$trophyDragonQueenStatus' src='../images/TrophyDragonQueen.png'></img></td>
+                                                        <td class='$trophyGoblinKingDimmed trophy_icon'><img title='$trophyGoblinKingStatus' src='../images/TrophyGoblinKing.png'></img></td>
+							<td class='$trophySeekerQueenDimmed trophy_icon'><img title='$trophySeekerQueenStatus' src='../images/TrophySeekerQueen.png'></img></td>
+							<td class='$trophyFaderDimmed trophy_icon'><img title='$trophyFaderStatus' src='../images/TrophyFader.png'></img></td>
+						</table>
+                                        </div>
+                                ";
+                        }//end foreach loop through worlds
+
+                } else {
+                        echo "<div>You don't have any worlds in your library.</div>";
+
+                }//end if worlds are empty
+
+
+		# mandatory vars missing
+                if(empty($backupsToKeep)) {
+
+                        echo "
+                                <tr>
+                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: Backup retention is not configured properly. Ensure you're passing the \"backupsToKeep\" variable to your Docker run command.</div>
+                        ";
+                }
+
+                if(empty($playerName)) {
+
+                        echo "
+                                <tr>
+                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The SteamAPI could not be contacted. Ensure you're passing a valid Steam API Key to the \"steamAPIKey\" variable within your Docker run command.</div>
+                        ";
+                }
+
+                if(empty($phvalheimClientURL)) {
+
+	                echo "
+				<tr>
+				<td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Client Download URL is missing! Ensure you're passing the \"phvalheimClientURL\" variable to your Docker run command.</div>
+			";
+		}
+
+                if(empty($phvalheimHost)) {
+
+                        echo "
+                                <tr>
+                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Host FQDN variable is missing! Ensure you're passing the \"phvalheimHost\" variable to your Docker run command.</div>
+                        ";
+                }
+
+                if(empty($basePort)) {
+
+                        echo "
+                                <tr>
+                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Base Port is not set! Ensure you're passing the \"basePort\" variable to your Docker run command.</div>
+                        ";
+                }
+
+                if(empty($gameDNS)) {
+
+                        echo "
+                                <tr>
+                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim game DNS endpoint is not set! Ensure you're passing the \"gameDNS\" variable to your Docker run command.</div>
+                        ";
+                }
+
+                if(empty($defaultSeed)) {
+
+                        echo "
+                                <tr>
+                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Default Seed is not set! Ensure you're passing the \"defaultSeed\" variable to your Docker run command.</div>
+                        ";
+                }
+
+
+
+                        echo "
+                                                </div>
+                                        </div>
+                                </div>
+                        </td>
+                </table>
+
+                        ";
 }
 
-// Get worlds for this user
-$myWorlds = getMyWorlds($pdo, $steamID);
-$onlineCount = 0;
-$totalCount = count($myWorlds);
-
-// Count online worlds
-foreach ($myWorlds as $world) {
-    $memory = getWorldMemory($pdo, $world);
-    if ($memory !== "offline") {
-        $onlineCount++;
-    }
-}
 ?>
+
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhValheim - My Worlds</title>
-    <link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css">
-    <link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css?v=<?php echo time(); ?>">
-    <script src="../js/jquery-3.6.0.js"></script>
-    <script src="../js/bootstrap.min.js"></script>
-</head>
-<body class="public-page">
-    <div class="public-container">
-        <!-- Header -->
-        <header class="public-header">
-            <div class="public-header-left">
-                <div class="public-logo">
-                    <div class="public-logo-icon">PV</div>
-                    <div class="public-logo-text">
-                        <span class="public-logo-title">PhValheim</span>
-                        <span class="public-logo-version">v<?php echo $phvalheimVersion; ?></span>
-                    </div>
-                </div>
-            </div>
-            <div class="public-header-right">
-                <div class="public-user-info">
-                    <span class="public-user-name">Welcome, <?php echo htmlspecialchars($playerName); ?>!</span>
-                    <img src="<?php echo $steamAvatarURL; ?>" alt="Avatar" class="public-user-avatar">
-                </div>
-                <div class="public-download-area">
-                    <?php populateDownloadMenu($operatingSystem, $phValheimClientGitRepo, $clientVersionsToRender); ?>
-                </div>
-            </div>
-        </header>
+<html>
+        <head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <!-- Stats Summary -->
-        <div class="public-stats">
-            <div class="public-stat-item">
-                <span class="public-stat-value"><?php echo $onlineCount; ?></span>
-                <span class="public-stat-label">Online</span>
-            </div>
-            <div class="public-stat-divider"></div>
-            <div class="public-stat-item">
-                <span class="public-stat-value"><?php echo $totalCount; ?></span>
-                <span class="public-stat-label">Total Worlds</span>
-            </div>
-        </div>
+		<link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css">
+		<link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css?v=<?php echo time(); ?>">
+		<script src="../js/jquery-3.6.0.js"></script>
+		<script src="../js/bootstrap.min.js"></script>
 
-        <!-- Worlds Grid -->
-        <div class="public-worlds-grid">
-            <?php if(!empty($myWorlds)): ?>
-                <?php foreach ($myWorlds as $myWorld): ?>
-                <?php
-                    $launchString = getLaunchString($pdo, $myWorld, $gameDNS, $phvalheimHost, $httpScheme);
-                    $md5 = getMD5($pdo, $myWorld);
-                    $seed = getSeed($pdo, $myWorld);
-                    $hideSeed = getHideSeed($pdo, $myWorld);
-                    $dateDeployed = getDateDeployed($pdo, $myWorld);
-                    $dateUpdated = getDateUpdated($pdo, $myWorld);
-                    $worldMemory = getWorldMemory($pdo, $myWorld);
-                    $modCount = getTotalModCountOfWorld($pdo, $myWorld);
+        </head>
+        <body>
 
-                    $trophyEikthyr = getBossTrophyStatus($pdo, $myWorld, "trophyeikthyr");
-                    $trophyTheElder = getBossTrophyStatus($pdo, $myWorld, "trophytheelder");
-                    $trophyBonemass = getBossTrophyStatus($pdo, $myWorld, "trophybonemass");
-                    $trophyDragonQueen = getBossTrophyStatus($pdo, $myWorld, "trophydragonqueen");
-                    $trophyGoblinKing = getBossTrophyStatus($pdo, $myWorld, "trophygoblinking");
-                    $trophySeekerQueen = getBossTrophyStatus($pdo, $myWorld, "trophyseekerqueen");
-                    $trophyFader = getBossTrophyStatus($pdo, $myWorld, "trophyfader");
-
-                    $isOffline = ($worldMemory == "offline");
-                    $cardClass = $isOffline ? 'public-world-card offline' : 'public-world-card';
-
-                    if ($hideSeed == 1) {
-                        $seed = 'Hidden';
-                    }
-
-                    // Build mods tooltip
-                    $runningMods_head = "<table border='0' style='line-height:auto;'>";
-                    $runningMods_foot = "</table>";
-                    $runningMods = $runningMods_head . generateToolTip($pdo, $myWorld) . $runningMods_foot;
-                ?>
-                <div class="<?php echo $cardClass; ?>">
-                    <div class="public-world-header">
-                        <h3 class="public-world-name"><?php echo htmlspecialchars($myWorld); ?></h3>
-                        <span class="public-world-status <?php echo $isOffline ? 'offline' : 'online'; ?>">
-                            <span class="status-dot"></span>
-                            <?php echo $isOffline ? 'Offline' : 'Online'; ?>
-                        </span>
-                    </div>
-
-                    <div class="public-world-launch">
-                        <?php if($isOffline): ?>
-                            <span class="public-launch-btn disabled">Offline</span>
-                        <?php else: ?>
-                            <a href="phvalheim://?<?php echo $launchString; ?>" class="public-launch-btn">Launch Game</a>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="public-world-details">
-                        <div class="public-detail-row">
-                            <span class="public-detail-label">Seed</span>
-                            <span class="public-detail-value"><?php echo $seed; ?></span>
-                        </div>
-                        <div class="public-detail-row">
-                            <span class="public-detail-label">Mods</span>
-                            <span class="public-detail-value">
-                                <?php if(!$isOffline && $modCount > 0): ?>
-                                <a href="#" class="public-mods-link" data-bs-toggle="popover" data-bs-trigger="focus" data-bs-placement="bottom" data-bs-title="Running Mods" data-bs-html="true" data-bs-content="<?php echo htmlspecialchars($runningMods); ?>"><?php echo $modCount; ?> mods</a>
-                                <?php elseif(!$isOffline): ?>
-                                <span style="color: var(--text-muted);">None</span>
-                                <?php else: ?>
-                                <span style="color: var(--text-muted);">—</span>
-                                <?php endif; ?>
-                            </span>
-                        </div>
-                        <div class="public-detail-row">
-                            <span class="public-detail-label">Memory</span>
-                            <span class="public-detail-value"><?php echo $isOffline ? '—' : $worldMemory; ?></span>
-                        </div>
-                        <div class="public-detail-row">
-                            <span class="public-detail-label">Updated</span>
-                            <span class="public-detail-value"><?php echo $dateUpdated ?: '—'; ?></span>
-                        </div>
-                    </div>
-
-                    <div class="public-world-trophies">
-                        <img src="../images/TrophyEikthyr.png" title="<?php echo $trophyEikthyr ? 'Eikthyr defeated' : 'Eikthyr undefeated'; ?>" class="<?php echo $trophyEikthyr && !$isOffline ? '' : 'dimmed'; ?>">
-                        <img src="../images/TrophyTheElder.png" title="<?php echo $trophyTheElder ? 'The Elder defeated' : 'The Elder undefeated'; ?>" class="<?php echo $trophyTheElder && !$isOffline ? '' : 'dimmed'; ?>">
-                        <img src="../images/TrophyBonemass.png" title="<?php echo $trophyBonemass ? 'Bonemass defeated' : 'Bonemass undefeated'; ?>" class="<?php echo $trophyBonemass && !$isOffline ? '' : 'dimmed'; ?>">
-                        <img src="../images/TrophyDragonQueen.png" title="<?php echo $trophyDragonQueen ? 'Moder defeated' : 'Moder undefeated'; ?>" class="<?php echo $trophyDragonQueen && !$isOffline ? '' : 'dimmed'; ?>">
-                        <img src="../images/TrophyGoblinKing.png" title="<?php echo $trophyGoblinKing ? 'Yagluth defeated' : 'Yagluth undefeated'; ?>" class="<?php echo $trophyGoblinKing && !$isOffline ? '' : 'dimmed'; ?>">
-                        <img src="../images/TrophySeekerQueen.png" title="<?php echo $trophySeekerQueen ? 'The Queen defeated' : 'The Queen undefeated'; ?>" class="<?php echo $trophySeekerQueen && !$isOffline ? '' : 'dimmed'; ?>">
-                        <img src="../images/TrophyFader.png" title="<?php echo $trophyFader ? 'Fader defeated' : 'Fader undefeated'; ?>" class="<?php echo $trophyFader && !$isOffline ? '' : 'dimmed'; ?>">
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <div class="public-no-worlds">
-                    <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity: 0.5; margin-bottom: 1rem;">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
-                    </svg>
-                    <p>You don't have access to any worlds yet.</p>
-                    <p style="font-size: 0.875rem; color: var(--text-muted);">Contact your server administrator to get access.</p>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Warnings -->
-        <?php if(empty($backupsToKeep) || empty($playerName) || empty($phvalheimClientURL) || empty($phvalheimHost) || empty($basePort) || empty($gameDNS) || empty($defaultSeed)): ?>
-        <div class="public-warnings">
-            <?php if(empty($backupsToKeep)): ?>
-                <div class="public-warning">WARNING: Backup retention is not configured. Ensure you're passing the "backupsToKeep" variable.</div>
-            <?php endif; ?>
-            <?php if(empty($playerName)): ?>
-                <div class="public-warning">WARNING: The SteamAPI could not be contacted. Check your Steam API Key.</div>
-            <?php endif; ?>
-            <?php if(empty($phvalheimClientURL)): ?>
-                <div class="public-warning">WARNING: The PhValheim Client Download URL is missing!</div>
-            <?php endif; ?>
-            <?php if(empty($phvalheimHost)): ?>
-                <div class="public-warning">WARNING: The PhValheim Host FQDN variable is missing!</div>
-            <?php endif; ?>
-            <?php if(empty($basePort)): ?>
-                <div class="public-warning">WARNING: The PhValheim Base Port is not set!</div>
-            <?php endif; ?>
-            <?php if(empty($gameDNS)): ?>
-                <div class="public-warning">WARNING: The PhValheim game DNS endpoint is not set!</div>
-            <?php endif; ?>
-            <?php if(empty($defaultSeed)): ?>
-                <div class="public-warning">WARNING: The PhValheim Default Seed is not set!</div>
-            <?php endif; ?>
-        </div>
-        <?php endif; ?>
-    </div>
-
-    <script>
-        // Initialize Bootstrap 5 popovers
-        document.addEventListener('DOMContentLoaded', function() {
-            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
-            var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
-                return new bootstrap.Popover(popoverTriggerEl, {
-                    sanitize: false
+        <script>
+                $(document).ready(function(){
+                  $('[data-toggle="popover"]').popover({
+		   sanitize:false,
+		  });
                 });
-            });
-        });
-    </script>
-</body>
+        </script>
+
+                <?php populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) ?>
+        </body>
 </html>

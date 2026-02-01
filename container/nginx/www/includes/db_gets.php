@@ -328,6 +328,23 @@ function getLastTsSyncLocalExecStatus($pdo) {
         $sth = $pdo->prepare("SELECT tsSyncLocalLastExecStatus FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
+
+        // If status is 'running', verify the process is actually running
+        if (strtolower($result) === 'running') {
+                // Check if tsSyncLocalParseMultithreaded.sh is actually running
+                $processCheck = trim(exec("pgrep -f tsSyncLocalParseMultithreaded.sh 2>/dev/null"));
+                $pidFileCheck = trim(exec("ls /tmp/ts_*.pid 2>/dev/null | head -1"));
+
+                // If no process running and no pid files, the status is stale
+                if (empty($processCheck) && empty($pidFileCheck)) {
+                        // Clean up orphan pid files and reset status
+                        exec("rm -f /tmp/ts_*.pid 2>/dev/null");
+                        $updateStmt = $pdo->prepare("UPDATE systemstats SET tsSyncLocalLastExecStatus='idle'");
+                        $updateStmt->execute();
+                        return 'idle';
+                }
+        }
+
         return $result;
 }
 
