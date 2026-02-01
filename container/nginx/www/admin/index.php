@@ -49,8 +49,10 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROT
     $httpScheme = "http";
 }
 
-// Time now
+// Time now with server timezone
 $timeNow = date("Y-m-d H:i:s T");
+$serverTimezone = date_default_timezone_get();
+$tsSyncLocalStatus = getLastTsSyncLocalExecStatus($pdo);
 
 // Get initial world data for page load
 function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
@@ -127,25 +129,25 @@ $totalCount = count($worlds);
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
-                        Engine Log
+                        Engine
                     </a>
                     <a href="readLog.php?logfile=mysqld.log#bottom" target="_blank" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
                         </svg>
-                        MySQL Log
+                        Database
                     </a>
                     <a href="readLog.php?logfile=tsSync.log#bottom" target="_blank" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Thunderstore Sync
+                        Thunderstore
                     </a>
                     <a href="readLog.php?logfile=worldBackups.log#bottom" target="_blank" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
                         </svg>
-                        World Backups
+                        Backups
                     </a>
                 </div>
 
@@ -170,11 +172,16 @@ $totalCount = count($worlds);
                         </svg>
                         File Browser
                     </a>
-                    <a href="#" onclick="return confirmThunderstoreSync()" class="nav-item" style="background: rgba(251, 191, 36, 0.1); border-left: 3px solid var(--warning);">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="#" onclick="return confirmThunderstoreSync()" class="nav-item ts-sync-tool" id="tsSyncTool" style="background: rgba(251, 191, 36, 0.1); border-left: 3px solid var(--warning);">
+                        <svg class="nav-icon ts-sync-icon" id="tsSyncIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Thunderstore Sync
+                        <span class="ts-sync-label">Thunderstore Sync</span>
+                        <button class="ts-sync-stop" id="tsSyncStop" onclick="event.preventDefault(); event.stopPropagation(); stopThunderstoreSync();" title="Stop Sync" style="display: none;">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
+                                <rect x="6" y="6" width="12" height="12" rx="1"/>
+                            </svg>
+                        </button>
                     </a>
                 </div>
             </nav>
@@ -190,7 +197,7 @@ $totalCount = count($worlds);
         <!-- Main Content -->
         <main class="admin-main">
             <header class="admin-header">
-                <h1>Dashboard</h1>
+                <h1>PhValheim Administrator Interface</h1>
                 <div class="header-actions">
                     <span class="live-indicator">
                         <span class="live-indicator-dot"></span>
@@ -288,6 +295,7 @@ $totalCount = count($worlds);
                                     <th>Actions</th>
                                     <th>Configure</th>
                                     <th>Auto-Start</th>
+                                    <th>Resources</th>
                                 </tr>
                             </thead>
                             <tbody id="worldsTableBody">
@@ -371,11 +379,25 @@ $totalCount = count($worlds);
                                             <span class="slider round"></span>
                                         </label>
                                     </td>
+                                    <td>
+                                        <div class="world-resources" data-world="<?php echo htmlspecialchars($world['name']); ?>">
+                                            <div class="world-resource-item">
+                                                <span class="resource-label">CPU</span>
+                                                <canvas class="world-cpu-chart" width="60" height="20"></canvas>
+                                                <span class="resource-value world-cpu-value">—</span>
+                                            </div>
+                                            <div class="world-resource-item">
+                                                <span class="resource-label">MEM</span>
+                                                <canvas class="world-mem-chart" width="60" height="20"></canvas>
+                                                <span class="resource-value world-mem-value">—</span>
+                                            </div>
+                                        </div>
+                                    </td>
                                 </tr>
                                 <?php endforeach; ?>
                                 <?php if (empty($worlds)): ?>
                                 <tr>
-                                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                    <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                                         No worlds yet. <a href="new_world.php" style="color: var(--accent-primary);">Create your first world</a>
                                     </td>
                                 </tr>
@@ -512,6 +534,7 @@ $totalCount = count($worlds);
     const POLL_INTERVAL = 5000;
     const STATS_POLL_INTERVAL = 2000; // 2 seconds for smoother charts
     const MAX_DATA_POINTS = 30; // Keep 30 data points (1 minute of history at 2s intervals)
+    const SERVER_TIMEZONE = '<?php echo $serverTimezone; ?>';
     let pollTimer = null;
     let statsPollTimer = null;
 
@@ -521,13 +544,18 @@ $totalCount = count($worlds);
     let memoryChart = null;
     let cpuChart = null;
 
+    // World resource charts storage
+    let worldCharts = {};
+
     // Start polling on page load
     document.addEventListener('DOMContentLoaded', function() {
         initCharts();
+        initWorldCharts();
         startPolling();
         startStatsPolling();
         updateTime();
         setInterval(updateTime, 1000);
+        updateTsSyncStatus('<?php echo $tsSyncLocalStatus; ?>');
     });
 
     // Initialize charts
@@ -644,6 +672,7 @@ $totalCount = count($worlds);
     function updateTime() {
         const now = new Date();
         const timeStr = now.toLocaleString('en-US', {
+            timeZone: SERVER_TIMEZONE,
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
@@ -652,7 +681,9 @@ $totalCount = count($worlds);
             second: '2-digit',
             hour12: false
         }).replace(',', '');
-        document.getElementById('currentTime').textContent = timeStr;
+        // Get timezone abbreviation
+        const tzAbbr = now.toLocaleString('en-US', { timeZone: SERVER_TIMEZONE, timeZoneName: 'short' }).split(' ').pop();
+        document.getElementById('currentTime').textContent = `${timeStr} ${tzAbbr}`;
     }
 
     async function fetchWorldStatus() {
@@ -828,6 +859,37 @@ $totalCount = count($worlds);
         return false;
     }
 
+    // Stop Thunderstore Sync
+    function stopThunderstoreSync() {
+        if (confirm('Are you sure you want to stop the Thunderstore sync process?')) {
+            fetch('adminAPI.php?action=stopTsSync')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateTsSyncStatus('stopped');
+                    }
+                })
+                .catch(error => console.error('Failed to stop TS sync:', error));
+        }
+    }
+
+    // Update TS Sync status indicator
+    function updateTsSyncStatus(status) {
+        const icon = document.getElementById('tsSyncIcon');
+        const stopBtn = document.getElementById('tsSyncStop');
+        const tool = document.getElementById('tsSyncTool');
+
+        if (status && status.toLowerCase() === 'running') {
+            icon.classList.add('spinning');
+            stopBtn.style.display = 'flex';
+            tool.classList.add('syncing');
+        } else {
+            icon.classList.remove('spinning');
+            stopBtn.style.display = 'none';
+            tool.classList.remove('syncing');
+        }
+    }
+
     // Settings Modal
     let currentSettingsWorld = '';
 
@@ -914,6 +976,9 @@ $totalCount = count($worlds);
                 document.getElementById('syncBackupStatus').textContent = data.worldBackup.status;
                 document.getElementById('syncLogRotateTime').textContent = data.logRotate.time;
                 document.getElementById('syncLogRotateStatus').textContent = data.logRotate.status;
+
+                // Update TS sync tool status
+                updateTsSyncStatus(data.thunderstore.localDiff.status);
             }
         } catch (error) {
             console.error('Failed to fetch sync status:', error);
@@ -928,6 +993,101 @@ $totalCount = count($worlds);
         fetchSyncStatus();
     });
     setInterval(fetchSyncStatus, SYNC_POLL_INTERVAL);
+
+    // Initialize world resource mini charts
+    function initWorldCharts() {
+        document.querySelectorAll('.world-resources').forEach(container => {
+            const worldName = container.dataset.world;
+            const cpuCanvas = container.querySelector('.world-cpu-chart');
+            const memCanvas = container.querySelector('.world-mem-chart');
+
+            if (cpuCanvas && memCanvas) {
+                const miniChartOptions = {
+                    responsive: false,
+                    maintainAspectRatio: false,
+                    animation: { duration: 200 },
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, min: 0, max: 100 }
+                    },
+                    elements: {
+                        point: { radius: 0 },
+                        line: { tension: 0.3, borderWidth: 1.5 }
+                    }
+                };
+
+                worldCharts[worldName] = {
+                    cpu: new Chart(cpuCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: Array(15).fill(''),
+                            datasets: [{ data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.1)', fill: true }]
+                        },
+                        options: miniChartOptions
+                    }),
+                    mem: new Chart(memCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: Array(15).fill(''),
+                            datasets: [{ data: [], borderColor: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.1)', fill: true }]
+                        },
+                        options: miniChartOptions
+                    }),
+                    cpuData: [],
+                    memData: []
+                };
+            }
+        });
+    }
+
+    // Update world resource charts
+    function updateWorldCharts(worldStats) {
+        if (!worldStats) return;
+
+        worldStats.forEach(stat => {
+            const worldName = stat.name;
+            const charts = worldCharts[worldName];
+            if (!charts) return;
+
+            const container = document.querySelector(`.world-resources[data-world="${worldName}"]`);
+            if (!container) return;
+
+            // Update CPU
+            if (stat.cpu !== undefined) {
+                charts.cpuData.push(stat.cpu);
+                if (charts.cpuData.length > 15) charts.cpuData.shift();
+                charts.cpu.data.datasets[0].data = [...charts.cpuData];
+                charts.cpu.update('none');
+                container.querySelector('.world-cpu-value').textContent = stat.cpu + '%';
+            }
+
+            // Update Memory
+            if (stat.mem !== undefined) {
+                charts.memData.push(stat.mem);
+                if (charts.memData.length > 15) charts.memData.shift();
+                charts.mem.data.datasets[0].data = [...charts.memData];
+                charts.mem.update('none');
+                container.querySelector('.world-mem-value').textContent = stat.memFormatted || (stat.mem + '%');
+            }
+        });
+    }
+
+    // Fetch world stats and update charts
+    async function fetchWorldStats() {
+        try {
+            const response = await fetch('adminAPI.php?action=getWorldStats');
+            const data = await response.json();
+            if (data.success && data.stats) {
+                updateWorldCharts(data.stats);
+            }
+        } catch (error) {
+            console.error('Failed to fetch world stats:', error);
+        }
+    }
+
+    // Poll world stats every 3 seconds
+    setInterval(fetchWorldStats, 3000);
     </script>
 </body>
 </html>

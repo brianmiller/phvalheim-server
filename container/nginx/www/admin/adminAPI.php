@@ -46,6 +46,14 @@ switch($action) {
         }
         break;
 
+    case 'stopTsSync':
+        stopTsSyncJson();
+        break;
+
+    case 'getWorldStats':
+        getWorldStatsJson($pdo);
+        break;
+
     default:
         // Preserve original behavior for backwards compatibility
         echo "true";
@@ -101,11 +109,33 @@ function getSystemStatsJson($pdo) {
     $memTotalRaw = trim(exec("free | grep Mem: | tr -s ' ' | cut -d ' ' -f2"));
     $memPercent = ($memTotalRaw > 0) ? round(($memUsedRaw / $memTotalRaw) * 100, 1) : 0;
 
-    // Get CPU utilization as number (from database)
-    $sth = $pdo->prepare("SELECT currentCpuUtilization FROM systemstats LIMIT 1;");
-    $sth->execute();
-    $cpuPercent = $sth->fetchColumn();
-    $cpuPercent = is_numeric($cpuPercent) ? (float)$cpuPercent : 0;
+    // Get CPU utilization directly using mpstat for real-time data
+    $cpuIdle = trim(exec("mpstat 1 1 2>/dev/null | tail -1 | awk '{print \$NF}'"));
+    if (is_numeric($cpuIdle)) {
+        $cpuPercent = round(100 - (float)$cpuIdle, 1);
+    } else {
+        // Fallback to /proc/stat calculation
+        $stat1 = file_get_contents('/proc/stat');
+        usleep(100000); // 100ms
+        $stat2 = file_get_contents('/proc/stat');
+
+        preg_match('/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/m', $stat1, $m1);
+        preg_match('/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/m', $stat2, $m2);
+
+        if ($m1 && $m2) {
+            $idle1 = $m1[4];
+            $idle2 = $m2[4];
+            $total1 = $m1[1] + $m1[2] + $m1[3] + $m1[4];
+            $total2 = $m2[1] + $m2[2] + $m2[3] + $m2[4];
+            $idleDiff = $idle2 - $idle1;
+            $totalDiff = $total2 - $total1;
+            $cpuPercent = ($totalDiff > 0) ? round((1 - $idleDiff / $totalDiff) * 100, 1) : 0;
+        } else {
+            $cpuPercent = 0;
+        }
+    }
+
+    $cpuUtilization = $cpuPercent . '%';
 
     echo json_encode([
         'success' => true,
@@ -123,7 +153,7 @@ function getSystemStatsJson($pdo) {
         ],
         'cpu' => [
             'model' => getCpuModel($pdo),
-            'utilization' => getCpuUtilization($pdo),
+            'utilization' => $cpuUtilization,
             'percent' => $cpuPercent
         ],
         'timestamp' => date('Y-m-d H:i:s')
@@ -192,6 +222,70 @@ function getSyncStatusJson($pdo) {
             'time' => getLastUtilizationMonitorExecTime($pdo),
             'status' => getLastUtilizationMonitorExecStatus($pdo)
         ],
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
+}
+
+/**
+ * Stop Thunderstore sync process
+ */
+function stopTsSyncJson() {
+    // Kill any running tsSyncLocalParseMultithreaded.sh processes
+    exec("pkill -f tsSyncLocalParseMultithreaded.sh 2>/dev/null");
+    exec("pkill -f tsSyncRemoteCheckMultithreaded.sh 2>/dev/null");
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Thunderstore sync stopped'
+    ]);
+}
+
+/**
+ * Returns resource stats for each running world
+ */
+function getWorldStatsJson($pdo) {
+    $stmt = $pdo->query("SELECT name, mode FROM worlds WHERE mode = 'running' ORDER BY name");
+    $stats = [];
+
+    foreach ($stmt as $row) {
+        $worldName = $row['name'];
+
+        // Get the PID of the valheim_server process for this world
+        $pid = trim(exec("pgrep -f 'valheim_server.*-world $worldName' 2>/dev/null | head -1"));
+
+        if (!empty($pid) && is_numeric($pid)) {
+            // Get CPU and memory usage for this process
+            $psOutput = trim(exec("ps -p $pid -o %cpu,%mem --no-headers 2>/dev/null"));
+            if (!empty($psOutput)) {
+                $parts = preg_split('/\s+/', trim($psOutput));
+                $cpu = isset($parts[0]) ? round((float)$parts[0], 1) : 0;
+                $mem = isset($parts[1]) ? round((float)$parts[1], 1) : 0;
+
+                // Get RSS memory in MB
+                $rss = trim(exec("ps -p $pid -o rss --no-headers 2>/dev/null"));
+                $memMB = is_numeric($rss) ? round($rss / 1024) : 0;
+
+                $stats[] = [
+                    'name' => $worldName,
+                    'cpu' => $cpu,
+                    'mem' => $mem,
+                    'memFormatted' => $memMB . 'M'
+                ];
+            }
+        } else {
+            // World is marked as running but no process found
+            $stats[] = [
+                'name' => $worldName,
+                'cpu' => 0,
+                'mem' => 0,
+                'memFormatted' => '—'
+            ];
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'stats' => $stats,
         'timestamp' => date('Y-m-d H:i:s')
     ]);
 }

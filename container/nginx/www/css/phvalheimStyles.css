@@ -1408,12 +1408,14 @@ input:checked + .slider:before {
 	0%, 100% {
 		opacity: 1;
 		transform: scale(1);
-		box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.3);
+		box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+		background: rgba(251, 191, 36, 0.15);
 	}
 	50% {
-		opacity: 0.85;
-		transform: scale(1.02);
-		box-shadow: 0 0 8px 2px rgba(251, 191, 36, 0.2);
+		opacity: 1;
+		transform: scale(1.03);
+		box-shadow: 0 0 12px 3px rgba(251, 191, 36, 0.35);
+		background: rgba(251, 191, 36, 0.25);
 	}
 }
 
@@ -1803,4 +1805,95 @@ input:checked + .slider:before {
 		width: 100%;
 		justify-content: center;
 	}
+}
+
+/* ============================================
+   Thunderstore Sync Tool Styling
+   ============================================ */
+
+.ts-sync-tool {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.ts-sync-tool.syncing {
+	background: rgba(251, 191, 36, 0.2) !important;
+}
+
+.ts-sync-icon.spinning {
+	animation: spin-icon 1s linear infinite;
+}
+
+@keyframes spin-icon {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+.ts-sync-label {
+	flex: 1;
+}
+
+.ts-sync-stop {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	padding: 0;
+	background: var(--danger);
+	border: none;
+	border-radius: 3px;
+	color: white;
+	cursor: pointer;
+	margin-left: auto;
+	transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.ts-sync-stop:hover {
+	background: #ef4444;
+	transform: scale(1.1);
+}
+
+.ts-sync-stop:active {
+	transform: scale(0.95);
+}
+
+/* ============================================
+   World Resource Charts
+   ============================================ */
+
+.world-resources {
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+	min-width: 120px;
+}
+
+.world-resource-item {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+	font-size: 0.6875rem;
+}
+
+.world-resource-item .resource-label {
+	color: var(--text-muted);
+	font-weight: 500;
+	width: 28px;
+	flex-shrink: 0;
+}
+
+.world-resource-item .resource-value {
+	color: var(--text-secondary);
+	font-family: var(--font-mono);
+	font-size: 0.625rem;
+	min-width: 32px;
+	text-align: right;
+}
+
+.world-cpu-chart,
+.world-mem-chart {
+	flex-shrink: 0;
 }
