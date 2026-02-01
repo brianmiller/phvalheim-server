@@ -1877,3 +1877,360 @@ input:checked + .slider:before {
 .world-mem-chart {
 	flex-shrink: 0;
 }
+
+/* ============================================
+   PUBLIC PAGE STYLES
+   ============================================ */
+
+.public-page {
+	padding: 0;
+	min-height: 100vh;
+	background: var(--bg-primary);
+}
+
+.public-container {
+	max-width: 1400px;
+	margin: 0 auto;
+	padding: 1.5rem;
+}
+
+/* Public Header */
+.public-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 1rem 1.5rem;
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	border-radius: 0.75rem;
+	margin-bottom: 1.5rem;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+
+.public-header-left {
+	display: flex;
+	align-items: center;
+}
+
+.public-header-right {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	flex-wrap: wrap;
+}
+
+.public-logo {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.public-logo-icon {
+	width: 40px;
+	height: 40px;
+	background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	font-size: 1rem;
+	color: var(--bg-primary);
+}
+
+.public-logo-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.public-logo-title {
+	font-size: 1.25rem;
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.public-logo-version {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+.public-user-info {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.public-user-name {
+	color: var(--accent-primary);
+	font-weight: 500;
+}
+
+.public-user-avatar {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	border: 2px solid var(--accent-primary);
+}
+
+.public-download-area {
+	display: flex;
+	align-items: center;
+}
+
+/* Public Stats */
+.public-stats {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 2rem;
+	padding: 1rem;
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	border-radius: 0.75rem;
+	margin-bottom: 1.5rem;
+}
+
+.public-stat-item {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.25rem;
+}
+
+.public-stat-value {
+	font-size: 1.75rem;
+	font-weight: 700;
+	color: var(--accent-primary);
+}
+
+.public-stat-label {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.public-stat-divider {
+	width: 1px;
+	height: 40px;
+	background: var(--border-color);
+}
+
+/* Public Worlds Grid */
+.public-worlds-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 1.25rem;
+}
+
+.public-world-card {
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	border-radius: 0.75rem;
+	padding: 1.25rem;
+	transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.public-world-card:hover {
+	border-color: var(--accent-primary);
+	transform: translateY(-2px);
+}
+
+.public-world-card.offline {
+	opacity: 0.6;
+}
+
+.public-world-card.offline:hover {
+	border-color: var(--border-color);
+	transform: none;
+}
+
+.public-world-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 1rem;
+}
+
+.public-world-name {
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: var(--text-primary);
+	margin: 0;
+}
+
+.public-world-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	padding: 0.25rem 0.625rem;
+	border-radius: 9999px;
+	font-size: 0.75rem;
+	font-weight: 500;
+}
+
+.public-world-status.online {
+	background: rgba(74, 222, 128, 0.15);
+	color: #4ade80;
+}
+
+.public-world-status.offline {
+	background: rgba(100, 116, 139, 0.15);
+	color: #64748b;
+}
+
+.public-world-status .status-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: currentColor;
+}
+
+.public-world-launch {
+	margin-bottom: 1rem;
+}
+
+.public-launch-btn {
+	display: block;
+	width: 100%;
+	padding: 0.75rem 1rem;
+	text-align: center;
+	font-size: 0.9375rem;
+	font-weight: 600;
+	color: var(--bg-primary);
+	background: linear-gradient(135deg, var(--success), #22c55e);
+	border: none;
+	border-radius: 0.5rem;
+	text-decoration: none;
+	transition: all 0.2s ease;
+	cursor: pointer;
+}
+
+.public-launch-btn:hover {
+	background: linear-gradient(135deg, #22c55e, var(--success));
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+	color: var(--bg-primary);
+}
+
+.public-launch-btn.disabled {
+	background: var(--bg-tertiary);
+	color: var(--text-muted);
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+.public-world-details {
+	margin-bottom: 1rem;
+	padding: 0.75rem;
+	background: var(--bg-primary);
+	border-radius: 0.5rem;
+}
+
+.public-detail-row {
+	display: flex;
+	justify-content: space-between;
+	padding: 0.375rem 0;
+	border-bottom: 1px solid var(--border-light);
+}
+
+.public-detail-row:last-child {
+	border-bottom: none;
+}
+
+.public-detail-label {
+	color: var(--text-muted);
+	font-size: 0.8125rem;
+}
+
+.public-detail-value {
+	color: var(--text-primary);
+	font-size: 0.8125rem;
+	font-family: var(--font-mono);
+}
+
+.public-mods-link {
+	color: var(--accent-secondary);
+	text-decoration: none;
+}
+
+.public-mods-link:hover {
+	color: var(--success);
+}
+
+.public-world-trophies {
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+	padding-top: 0.75rem;
+	border-top: 1px solid var(--border-light);
+}
+
+.public-world-trophies img {
+	width: 28px;
+	height: 28px;
+	transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.public-world-trophies img:hover {
+	transform: scale(1.15);
+}
+
+.public-world-trophies img.dimmed {
+	filter: grayscale(100%) opacity(25%);
+}
+
+.public-no-worlds {
+	grid-column: 1 / -1;
+	text-align: center;
+	padding: 3rem;
+	background: var(--bg-secondary);
+	border: 1px dashed var(--border-color);
+	border-radius: 0.75rem;
+	color: var(--text-secondary);
+}
+
+/* Public Warnings */
+.public-warnings {
+	margin-top: 1.5rem;
+}
+
+.public-warning {
+	padding: 0.75rem 1rem;
+	margin-bottom: 0.5rem;
+	background: rgba(248, 113, 113, 0.1);
+	border: 1px solid var(--danger);
+	border-radius: 0.5rem;
+	color: var(--danger);
+	font-size: 0.875rem;
+}
+
+/* Public page responsive */
+@media (max-width: 768px) {
+	.public-header {
+		flex-direction: column;
+		text-align: center;
+	}
+
+	.public-header-left,
+	.public-header-right {
+		justify-content: center;
+	}
+
+	.public-user-info {
+		flex-direction: column;
+	}
+
+	.public-stats {
+		gap: 1rem;
+	}
+
+	.public-stat-value {
+		font-size: 1.5rem;
+	}
+
+	.public-worlds-grid {
+		grid-template-columns: 1fr;
+	}
+}
