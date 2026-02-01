@@ -226,7 +226,7 @@ $totalCount = count($worlds);
                     <div class="stat-card-top">
                         <div class="stat-icon memory">
                             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 6v12a1 1 0 001 1h14a1 1 0 001-1V6M4 6l1-2h14l1 2M8 10v4m4-4v4m4-4v4"/>
                             </svg>
                         </div>
                         <div class="stat-content">
@@ -294,7 +294,6 @@ $totalCount = count($worlds);
                                     <th>Seed</th>
                                     <th>Actions</th>
                                     <th>Configure</th>
-                                    <th>Auto-Start</th>
                                     <th>Resources</th>
                                 </tr>
                             </thead>
@@ -362,7 +361,7 @@ $totalCount = count($worlds);
                                             <a href="#" class="action-btn" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                 View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                             </a>
-                                            <a href="citizensEditor.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn">Citizens</a>
+                                            <a href="#" class="action-btn" onclick="showCitizensModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">Citizens</a>
                                             <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
                                             <?php if ($world['mode'] === 'stopped'): ?>
                                             <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
@@ -372,12 +371,6 @@ $totalCount = count($worlds);
                                             <span class="action-btn disabled">Delete</span>
                                             <?php endif; ?>
                                         </div>
-                                    </td>
-                                    <td>
-                                        <label class="switch">
-                                            <input type="checkbox" <?php echo $world['autostart'] ? 'checked' : ''; ?> onchange="toggleAutostart('<?php echo htmlspecialchars($world['name']); ?>', this.checked)">
-                                            <span class="slider round"></span>
-                                        </label>
                                     </td>
                                     <td>
                                         <div class="world-resources" data-world="<?php echo htmlspecialchars($world['name']); ?>">
@@ -397,7 +390,7 @@ $totalCount = count($worlds);
                                 <?php endforeach; ?>
                                 <?php if (empty($worlds)): ?>
                                 <tr>
-                                    <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                                         No worlds yet. <a href="new_world.php" style="color: var(--accent-primary);">Create your first world</a>
                                     </td>
                                 </tr>
@@ -524,6 +517,19 @@ $totalCount = count($worlds);
                 <button class="mods-modal-close" onclick="closeSettingsModal()">&times;</button>
             </div>
             <div class="mods-modal-body" id="settingsModalBody">
+                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Citizens Modal -->
+    <div class="mods-modal-overlay" id="citizensModalOverlay" onclick="closeCitizensModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title" id="citizensModalTitle">Citizens</h3>
+                <button class="mods-modal-close" onclick="closeCitizensModal()">&times;</button>
+            </div>
+            <div class="mods-modal-body" id="citizensModalBody">
                 <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
             </div>
         </div>
@@ -847,8 +853,64 @@ $totalCount = count($worlds);
         if (e.key === 'Escape') {
             closeModsModal();
             closeSettingsModal();
+            closeCitizensModal();
         }
     });
+
+    // Citizens Modal
+    let currentCitizensWorld = '';
+
+    async function showCitizensModal(worldName) {
+        currentCitizensWorld = worldName;
+        document.getElementById('citizensModalTitle').textContent = `Citizens - ${worldName}`;
+        document.getElementById('citizensModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>';
+        document.getElementById('citizensModalOverlay').classList.add('show');
+
+        try {
+            const response = await fetch(`adminAPI.php?action=getCitizens&world=${encodeURIComponent(worldName)}`);
+            const data = await response.json();
+
+            if (data.success) {
+                let citizensHtml = '';
+                if (data.citizens && data.citizens.length > 0) {
+                    citizensHtml = `
+                        <div style="margin-bottom: 1rem;">
+                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
+                                Players with access to this world (${data.citizens.length} total):
+                            </p>
+                            <div style="max-height: 300px; overflow-y: auto;">
+                                <ul class="mods-list">
+                                    ${data.citizens.map(c => `<li style="padding: 0.5rem 0;">${c}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    citizensHtml = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">No citizens configured. All players can access this world.</p>';
+                }
+
+                citizensHtml += `
+                    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                        <a href="citizensEditor.php?world=${encodeURIComponent(worldName)}" class="action-btn primary" style="display: inline-flex; width: auto;">
+                            Edit Citizens
+                        </a>
+                    </div>
+                `;
+
+                document.getElementById('citizensModalBody').innerHTML = citizensHtml;
+            } else {
+                document.getElementById('citizensModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading citizens</div>';
+            }
+        } catch (error) {
+            document.getElementById('citizensModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading citizens</div>';
+        }
+    }
+
+    function closeCitizensModal(event) {
+        if (!event || event.target === document.getElementById('citizensModalOverlay')) {
+            document.getElementById('citizensModalOverlay').classList.remove('show');
+        }
+    }
 
     // Confirmation for Thunderstore Sync
     function confirmThunderstoreSync() {
@@ -905,6 +967,7 @@ $totalCount = count($worlds);
 
             if (data.success) {
                 const hideSeedChecked = data.hideSeed == 1 ? 'checked' : '';
+                const autostartChecked = data.autostart == 1 ? 'checked' : '';
                 document.getElementById('settingsModalBody').innerHTML = `
                     <div style="margin-bottom: 1.5rem;">
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">World Information</h6>
@@ -925,6 +988,19 @@ $totalCount = count($worlds);
                                 <span style="color: var(--text-secondary);">Date Updated</span>
                                 <span>${data.dateUpdated || 'N/A'}</span>
                             </div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Startup Settings</h6>
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
+                            <div>
+                                <span style="display: block; margin-bottom: 0.25rem;">Auto-Start</span>
+                                <small style="color: var(--text-muted);">Automatically start this world when PhValheim server starts.</small>
+                            </div>
+                            <label class="switch" style="margin-left: 1rem;">
+                                <input type="checkbox" ${autostartChecked} onchange="toggleAutostart('${worldName}', this.checked)">
+                                <span class="slider round"></span>
+                            </label>
                         </div>
                     </div>
                     <div>

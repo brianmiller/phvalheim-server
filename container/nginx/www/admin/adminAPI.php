@@ -54,6 +54,15 @@ switch($action) {
         getWorldStatsJson($pdo);
         break;
 
+    case 'getCitizens':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getCitizensJson($pdo, $world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
     default:
         // Preserve original behavior for backwards compatibility
         echo "true";
@@ -182,6 +191,11 @@ function getWorldModsJson($pdo, $world) {
  * Returns settings for a specific world
  */
 function getWorldSettingsJson($pdo, $world) {
+    // Get autostart value
+    $stmt = $pdo->prepare("SELECT autostart FROM worlds WHERE name = ?");
+    $stmt->execute([$world]);
+    $autostart = (int)$stmt->fetchColumn();
+
     echo json_encode([
         'success' => true,
         'world' => $world,
@@ -189,7 +203,8 @@ function getWorldSettingsJson($pdo, $world) {
         'md5' => getMd5($pdo, $world),
         'dateDeployed' => getDateDeployed($pdo, $world),
         'dateUpdated' => getDateUpdated($pdo, $world),
-        'hideSeed' => GetHideSeed($pdo, $world)
+        'hideSeed' => GetHideSeed($pdo, $world),
+        'autostart' => $autostart
     ]);
 }
 
@@ -254,24 +269,56 @@ function getWorldStatsJson($pdo) {
         $pid = trim(exec("pgrep -f 'valheim_server.*-world $worldName' 2>/dev/null | head -1"));
 
         if (!empty($pid) && is_numeric($pid)) {
-            // Get CPU and memory usage for this process
-            $psOutput = trim(exec("ps -p $pid -o %cpu,%mem --no-headers 2>/dev/null"));
-            if (!empty($psOutput)) {
-                $parts = preg_split('/\s+/', trim($psOutput));
-                $cpu = isset($parts[0]) ? round((float)$parts[0], 1) : 0;
-                $mem = isset($parts[1]) ? round((float)$parts[1], 1) : 0;
+            // Calculate real-time CPU usage using /proc/[pid]/stat
+            // Read process stat twice with a small interval
+            $stat1 = @file_get_contents("/proc/$pid/stat");
+            $cpuInfo1 = @file_get_contents('/proc/stat');
+            usleep(100000); // 100ms
+            $stat2 = @file_get_contents("/proc/$pid/stat");
+            $cpuInfo2 = @file_get_contents('/proc/stat');
 
-                // Get RSS memory in MB
-                $rss = trim(exec("ps -p $pid -o rss --no-headers 2>/dev/null"));
-                $memMB = is_numeric($rss) ? round($rss / 1024) : 0;
+            $cpu = 0;
+            if ($stat1 && $stat2 && $cpuInfo1 && $cpuInfo2) {
+                // Parse process CPU times (utime + stime)
+                $parts1 = explode(' ', $stat1);
+                $parts2 = explode(' ', $stat2);
+                if (count($parts1) > 14 && count($parts2) > 14) {
+                    $procTime1 = (int)$parts1[13] + (int)$parts1[14]; // utime + stime
+                    $procTime2 = (int)$parts2[13] + (int)$parts2[14];
 
-                $stats[] = [
-                    'name' => $worldName,
-                    'cpu' => $cpu,
-                    'mem' => $mem,
-                    'memFormatted' => $memMB . 'M'
-                ];
+                    // Parse total CPU time
+                    preg_match('/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/m', $cpuInfo1, $m1);
+                    preg_match('/^cpu\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/m', $cpuInfo2, $m2);
+
+                    if ($m1 && $m2) {
+                        $total1 = array_sum(array_slice($m1, 1));
+                        $total2 = array_sum(array_slice($m2, 1));
+                        $totalDiff = $total2 - $total1;
+                        $procDiff = $procTime2 - $procTime1;
+
+                        if ($totalDiff > 0) {
+                            // Get number of CPU cores for accurate percentage
+                            $numCores = (int)trim(exec("nproc 2>/dev/null")) ?: 1;
+                            $cpu = round(($procDiff / $totalDiff) * 100 * $numCores, 1);
+                            // Cap at 100%
+                            $cpu = min($cpu, 100);
+                        }
+                    }
+                }
             }
+
+            // Get memory percentage and RSS
+            $memOutput = trim(exec("ps -p $pid -o %mem,rss --no-headers 2>/dev/null"));
+            $memParts = preg_split('/\s+/', trim($memOutput));
+            $mem = isset($memParts[0]) ? round((float)$memParts[0], 1) : 0;
+            $rss = isset($memParts[1]) && is_numeric($memParts[1]) ? round((int)$memParts[1] / 1024) : 0;
+
+            $stats[] = [
+                'name' => $worldName,
+                'cpu' => $cpu,
+                'mem' => $mem,
+                'memFormatted' => $rss . 'M'
+            ];
         } else {
             // World is marked as running but no process found
             $stats[] = [
@@ -287,6 +334,27 @@ function getWorldStatsJson($pdo) {
         'success' => true,
         'stats' => $stats,
         'timestamp' => date('Y-m-d H:i:s')
+    ]);
+}
+
+/**
+ * Returns citizens list for a specific world
+ */
+function getCitizensJson($pdo, $world) {
+    $citizensStr = getCitizens($pdo, $world);
+    $citizens = [];
+
+    if (!empty($citizensStr)) {
+        // Citizens are stored as space-separated Steam IDs or names
+        $citizensList = array_filter(explode(' ', trim($citizensStr)));
+        $citizens = array_values(array_unique($citizensList));
+    }
+
+    echo json_encode([
+        'success' => true,
+        'world' => $world,
+        'citizens' => $citizens,
+        'count' => count($citizens)
     ]);
 }
 

@@ -1409,13 +1409,15 @@ input:checked + .slider:before {
 		opacity: 1;
 		transform: scale(1);
 		box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
-		background: rgba(251, 191, 36, 0.15);
+		background-color: rgba(251, 191, 36, 0.15);
+		color: #fbbf24;
 	}
 	50% {
 		opacity: 1;
 		transform: scale(1.03);
 		box-shadow: 0 0 12px 3px rgba(251, 191, 36, 0.35);
-		background: rgba(251, 191, 36, 0.25);
+		background-color: rgba(251, 191, 36, 0.25);
+		color: #fbbf24;
 	}
 }
 
