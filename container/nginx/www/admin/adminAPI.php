@@ -63,6 +63,36 @@ switch($action) {
         }
         break;
 
+    case 'saveCitizens':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $citizens = $input['citizens'] ?? '';
+            $isPublic = isset($input['public']) ? (int)$input['public'] : 0;
+            if ($world) {
+                saveCitizensJson($pdo, $world, $citizens, $isPublic);
+            } else {
+                echo json_encode(['error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    case 'fetchSteamID':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $vanityURL = $input['vanityURL'] ?? '';
+            if ($vanityURL) {
+                fetchSteamIDJson($vanityURL);
+            } else {
+                echo json_encode(['error' => 'Vanity URL required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
     default:
         // Preserve original behavior for backwards compatibility
         echo "true";
@@ -342,19 +372,81 @@ function getWorldStatsJson($pdo) {
  */
 function getCitizensJson($pdo, $world) {
     $citizensStr = getCitizens($pdo, $world);
-    $citizens = [];
-
-    if (!empty($citizensStr)) {
-        // Citizens are stored as space-separated Steam IDs or names
-        $citizensList = array_filter(explode(' ', trim($citizensStr)));
-        $citizens = array_values(array_unique($citizensList));
-    }
+    $isPublic = getPublic($pdo, $world);
 
     echo json_encode([
         'success' => true,
         'world' => $world,
-        'citizens' => $citizens,
-        'count' => count($citizens)
+        'citizens' => $citizensStr ?: '',
+        'public' => (int)$isPublic
+    ]);
+}
+
+/**
+ * Save citizens for a specific world
+ */
+function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
+    // Clean up citizens string - convert newlines to spaces, remove extra whitespace
+    $citizens = str_replace(["\r\n", "\r", "\n"], " ", $citizens);
+    $citizens = preg_replace('!\s+!', ' ', trim($citizens));
+
+    // Update database
+    setCitizens($pdo, $world, $citizens);
+    setPublic($pdo, $world, $isPublic);
+
+    // Update the permittedlist.txt file
+    $permittedListPath = "/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt";
+    $dirPath = dirname($permittedListPath);
+
+    if (is_dir($dirPath)) {
+        if ($isPublic) {
+            file_put_contents($permittedListPath, "// List permitted players ID ONE per line");
+        } else {
+            $citizensNewlines = str_replace(' ', "\n", $citizens);
+            file_put_contents($permittedListPath, "// List permitted players ID ONE per line\n" . $citizensNewlines);
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Citizens saved successfully'
+    ]);
+}
+
+/**
+ * Fetch SteamID from vanity URL
+ */
+function fetchSteamIDJson($vanityURL) {
+    $apiKey = getenv('steamAPIKey');
+    if (empty($apiKey)) {
+        echo json_encode(['success' => false, 'error' => 'Steam API key not configured']);
+        return;
+    }
+
+    $url = "https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key=$apiKey&vanityurl=" . urlencode($vanityURL);
+    $curl = curl_init($url);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($curl, CURLOPT_TIMEOUT, 10);
+    $response = curl_exec($curl);
+    $curlError = curl_error($curl);
+    curl_close($curl);
+
+    if ($curlError) {
+        echo json_encode(['success' => false, 'error' => 'Failed to contact Steam API']);
+        return;
+    }
+
+    $data = json_decode($response, true);
+
+    if (!isset($data['response']) || $data['response']['success'] != 1) {
+        echo json_encode(['success' => false, 'error' => 'Invalid username or private profile']);
+        return;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'steamid' => $data['response']['steamid']
     ]);
 }
 

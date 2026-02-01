@@ -1348,31 +1348,36 @@ input:checked + .slider:before {
 	text-transform: capitalize;
 	background: rgba(100, 116, 139, 0.15);
 	color: var(--text-secondary);
-	transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Running state - solid green */
 .status-badge.running {
-	background: rgba(74, 222, 128, 0.15) !important;
-	color: var(--success) !important;
+	background: rgba(74, 222, 128, 0.15);
+	color: #4ade80;
+	animation: none;
 }
 
+/* Stopped state - dark/muted */
 .status-badge.stopped {
-	background: rgba(100, 116, 139, 0.15) !important;
-	color: var(--text-muted) !important;
-	animation: none !important;
+	background: rgba(100, 116, 139, 0.15);
+	color: #64748b;
+	animation: none;
 }
 
-/* Transitional states - consistent yellow/warning styling with pulse */
+/* Transitional states - orange pulse */
 .status-badge.start,
 .status-badge.stop,
 .status-badge.starting,
 .status-badge.stopping,
 .status-badge.create,
 .status-badge.update,
-.status-badge.delete {
-	background: rgba(251, 191, 36, 0.15) !important;
-	color: var(--warning) !important;
-	animation: badge-pulse 1.5s ease-in-out infinite !important;
+.status-badge.delete,
+.status-badge.creating,
+.status-badge.updating,
+.status-badge.deleting {
+	background: rgba(251, 191, 36, 0.2);
+	color: #fbbf24;
+	animation: status-pulse 1.2s ease-in-out infinite;
 }
 
 .status-dot {
@@ -1380,44 +1385,17 @@ input:checked + .slider:before {
 	height: 6px;
 	border-radius: 50%;
 	background: currentColor;
-	transition: opacity 0.3s ease;
 }
 
-/* Pulse animation for running state dot */
-.status-badge.running .status-dot {
-	animation: dot-pulse 2s ease-in-out infinite;
-}
-
-/* Pulse animation for transitional state dots */
-.status-badge.start .status-dot,
-.status-badge.stop .status-dot,
-.status-badge.starting .status-dot,
-.status-badge.stopping .status-dot,
-.status-badge.create .status-dot,
-.status-badge.update .status-dot,
-.status-badge.delete .status-dot {
-	animation: dot-pulse 1s ease-in-out infinite;
-}
-
-@keyframes dot-pulse {
-	0%, 100% { opacity: 1; }
-	50% { opacity: 0.4; }
-}
-
-@keyframes badge-pulse {
+/* Simple pulse animation for transitional states */
+@keyframes status-pulse {
 	0%, 100% {
 		opacity: 1;
-		transform: scale(1);
-		box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
-		background-color: rgba(251, 191, 36, 0.15);
-		color: #fbbf24;
+		box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5);
 	}
 	50% {
-		opacity: 1;
-		transform: scale(1.03);
-		box-shadow: 0 0 12px 3px rgba(251, 191, 36, 0.35);
-		background-color: rgba(251, 191, 36, 0.25);
-		color: #fbbf24;
+		opacity: 0.7;
+		box-shadow: 0 0 8px 2px rgba(251, 191, 36, 0.4);
 	}
 }
 

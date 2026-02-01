@@ -524,13 +524,32 @@ $totalCount = count($worlds);
 
     <!-- Citizens Modal -->
     <div class="mods-modal-overlay" id="citizensModalOverlay" onclick="closeCitizensModal(event)">
-        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 700px;">
             <div class="mods-modal-header">
                 <h3 class="mods-modal-title" id="citizensModalTitle">Citizens</h3>
                 <button class="mods-modal-close" onclick="closeCitizensModal()">&times;</button>
             </div>
             <div class="mods-modal-body" id="citizensModalBody">
                 <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SteamID Lookup Modal -->
+    <div class="mods-modal-overlay" id="steamIdModalOverlay" onclick="closeSteamIdModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 400px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">SteamID Lookup</h3>
+                <button class="mods-modal-close" onclick="closeSteamIdModal()">&times;</button>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">Enter a Steam username to look up their SteamID:</p>
+                <input type="text" id="steamIdLookupInput" class="form-control" placeholder="Steam username" style="margin-bottom: 1rem;" onkeypress="if(event.key==='Enter'){lookupSteamId();}">
+                <button class="action-btn primary" onclick="lookupSteamId()" style="width: 100%; margin-bottom: 1rem;">Look Up</button>
+                <div id="steamIdResult" style="background: var(--bg-primary); padding: 0.75rem; border-radius: 0.375rem; font-family: var(--font-mono); font-size: 0.875rem; color: var(--accent-secondary); min-height: 2.5rem; display: flex; align-items: center; justify-content: space-between;">
+                    <span id="steamIdResultText">—</span>
+                    <button id="steamIdCopyBtn" class="action-btn" onclick="copySteamId()" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.75rem;">Copy</button>
+                </div>
             </div>
         </div>
     </div>
@@ -854,6 +873,7 @@ $totalCount = count($worlds);
             closeModsModal();
             closeSettingsModal();
             closeCitizensModal();
+            closeSteamIdModal();
         }
     });
 
@@ -871,30 +891,43 @@ $totalCount = count($worlds);
             const data = await response.json();
 
             if (data.success) {
-                let citizensHtml = '';
-                if (data.citizens && data.citizens.length > 0) {
-                    citizensHtml = `
-                        <div style="margin-bottom: 1rem;">
-                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1rem;">
-                                Players with access to this world (${data.citizens.length} total):
-                            </p>
-                            <div style="max-height: 300px; overflow-y: auto;">
-                                <ul class="mods-list">
-                                    ${data.citizens.map(c => `<li style="padding: 0.5rem 0;">${c}</li>`).join('')}
-                                </ul>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    citizensHtml = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">No citizens configured. All players can access this world.</p>';
-                }
+                // Convert space-separated to newline-separated for textarea
+                const citizensText = data.citizens ? data.citizens.replace(/ /g, '\n') : '';
+                const isPublic = data.public ? 'checked' : '';
 
-                citizensHtml += `
-                    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-                        <a href="citizensEditor.php?world=${encodeURIComponent(worldName)}" class="action-btn primary" style="display: inline-flex; width: auto;">
-                            Edit Citizens
-                        </a>
+                const citizensHtml = `
+                    <div style="margin-bottom: 1rem;">
+                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                            Add SteamIDs to grant access (one per line):
+                        </p>
+                        <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
+                            <em>Note: SteamIDs are ignored when world is set to public.</em>
+                        </p>
+                        <textarea id="citizensTextarea" class="form-control" style="min-height: 200px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${citizensText}</textarea>
                     </div>
+                    <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
+                        <button type="button" class="action-btn" onclick="openSteamIdLookup()">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            Look Up SteamID
+                        </button>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+                        <div>
+                            <span style="display: block; margin-bottom: 0.25rem;">Public World</span>
+                            <small style="color: var(--text-muted);">Allow all players to access this world.</small>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="citizensPublicToggle" ${isPublic}>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                        <button class="action-btn" onclick="closeCitizensModal()">Cancel</button>
+                        <button class="action-btn success" onclick="saveCitizens()">Save Changes</button>
+                    </div>
+                    <div id="citizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
                 `;
 
                 document.getElementById('citizensModalBody').innerHTML = citizensHtml;
@@ -906,9 +939,95 @@ $totalCount = count($worlds);
         }
     }
 
+    async function saveCitizens() {
+        const citizens = document.getElementById('citizensTextarea').value;
+        const isPublic = document.getElementById('citizensPublicToggle').checked ? 1 : 0;
+        const statusEl = document.getElementById('citizensSaveStatus');
+
+        statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
+
+        try {
+            const response = await fetch('adminAPI.php?action=saveCitizens', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    world: currentCitizensWorld,
+                    citizens: citizens,
+                    public: isPublic
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color: var(--success);">Saved successfully!</span>';
+                setTimeout(() => { closeCitizensModal(); }, 1000);
+            } else {
+                statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
+            }
+        } catch (error) {
+            statusEl.innerHTML = '<span style="color: var(--danger);">Error saving citizens</span>';
+        }
+    }
+
     function closeCitizensModal(event) {
         if (!event || event.target === document.getElementById('citizensModalOverlay')) {
             document.getElementById('citizensModalOverlay').classList.remove('show');
+        }
+    }
+
+    // SteamID Lookup Modal
+    function openSteamIdLookup() {
+        document.getElementById('steamIdLookupInput').value = '';
+        document.getElementById('steamIdResultText').textContent = '—';
+        document.getElementById('steamIdCopyBtn').style.display = 'none';
+        document.getElementById('steamIdModalOverlay').classList.add('show');
+        setTimeout(() => document.getElementById('steamIdLookupInput').focus(), 100);
+    }
+
+    function closeSteamIdModal(event) {
+        if (!event || event.target === document.getElementById('steamIdModalOverlay')) {
+            document.getElementById('steamIdModalOverlay').classList.remove('show');
+        }
+    }
+
+    async function lookupSteamId() {
+        const vanityURL = document.getElementById('steamIdLookupInput').value.trim();
+        if (!vanityURL) return;
+
+        document.getElementById('steamIdResultText').textContent = 'Looking up...';
+        document.getElementById('steamIdCopyBtn').style.display = 'none';
+
+        try {
+            const response = await fetch('adminAPI.php?action=fetchSteamID', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ vanityURL: vanityURL })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                document.getElementById('steamIdResultText').textContent = data.steamid;
+                document.getElementById('steamIdCopyBtn').style.display = 'block';
+            } else {
+                document.getElementById('steamIdResultText').textContent = data.error || 'Not found';
+            }
+        } catch (error) {
+            document.getElementById('steamIdResultText').textContent = 'Error looking up SteamID';
+        }
+    }
+
+    function copySteamId() {
+        const steamId = document.getElementById('steamIdResultText').textContent;
+        if (steamId && steamId !== '—') {
+            navigator.clipboard.writeText(steamId).then(() => {
+                // Add to textarea if citizens modal is open
+                const textarea = document.getElementById('citizensTextarea');
+                if (textarea) {
+                    const currentValue = textarea.value.trim();
+                    textarea.value = currentValue ? currentValue + '\n' + steamId : steamId;
+                }
+                closeSteamIdModal();
+            });
         }
     }
 
