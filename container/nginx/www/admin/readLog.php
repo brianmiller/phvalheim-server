@@ -6,73 +6,69 @@ if (!empty($_GET['logfile'])) {
         $logFile = $_GET['logfile'];
 }
 
+// AJAX endpoint for fetching log content
+if (!empty($_GET['fetch']) && $_GET['fetch'] === 'content') {
+    header('Content-Type: text/html; charset=utf-8');
+    echo getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker);
+    exit;
+}
 
-function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightError,$logHighlightWarn,$logHighlightNotice,$logHighlightGreen,$logHighlightErrorDarker,$logHighlightWarnDarker,$logHighlightNoticeDarker,$logHighlightGreenDarker,$logHighlightMagenta,$logHighlightMagentaDarker){
-	$logOutput = nl2br(file_get_contents( "/opt/stateful/logs/$logFile" ));
+function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker) {
+    $logPath = "/opt/stateful/logs/$logFile";
+    if (!file_exists($logPath)) {
+        return "<span style='color: var(--danger);'>Log file not found: $logFile</span>";
+    }
 
+    $logOutput = nl2br(file_get_contents($logPath));
 
-	#Log filters
+    // Exclusions
+    foreach ($logExclusions as $logExclusion) {
+        $logOutput = preg_replace("/(.*)$logExclusion(.*)/i", '', $logOutput);
+    }
 
-	#Exclusions
-	foreach ($logExclusions as $logExclusion) {
-		$logOutput = preg_replace("/(.*)$logExclusion(.*)/i",'',$logOutput);
-	}
+    // Put log lines into an array for highlighting
+    $logArray = explode("\n", $logOutput);
+    $result = '';
 
-	#Put log lines into an array. This is used for highlighting
-	$logArray = explode("\n", $logOutput);
+    foreach ($logArray as $key => $logEntry) {
+        foreach ($logHighlight as $keyword => $alertType) {
+            if (stripos($logEntry, $keyword) !== false) {
+                if ($alertType == "error") {
+                    $logEntry = "<p style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                }
+                if ($alertType == "warn") {
+                    $logEntry = "<p style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                }
+                if ($alertType == "notice") {
+                    $logEntry = "<p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                }
+                if ($alertType == "magenta") {
+                    $logEntry = "<p style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                }
+            }
 
-	#Highlighter
-	foreach ($logArray as $key => $logEntry) {
+            // Ready for connections message
+            if (preg_match('/Game server connected/i', $logEntry)) {
+                $logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
+            }
 
-		foreach ($logHighlight as $keyword => $alertType) {
+            // Remove error messages
+            if (preg_match('/[S_API FAIL] Tried to access Steam interface(.*)/i', $logEntry)) {
+                $logEntry = "";
+            }
+            if (preg_match('/ILocalize(.*)/i', $logEntry)) {
+                $logEntry = "";
+            }
 
-			if (stripos($logEntry, $keyword) !== false) {
+            // World completely stopped message
+            if (preg_match('/Net scene destroyed/i', $logEntry)) {
+                $logEntry = "<br><p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim world sucessfully stopped.</p>";
+            }
+        }
+        $result .= $logEntry;
+    }
 
-				if($alertType == "error") {
-					$logEntry = "<p style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
-				}
-
-                                if($alertType == "warn") {
-                                        $logEntry = "<p style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
-                                }
-
-                                if($alertType == "notice") {
-                                        $logEntry = "<p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
-                                }
-
-                                if($alertType == "magenta") {
-                                        $logEntry = "<p style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
-                                }
-
-			}
-
-			#ready for connections message
-			if (preg_match('/Game server connected/i', $logEntry))
-			{
-				$logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
-			}
-
-			#remove error message
-                        if (preg_match('/[S_API FAIL] Tried to access Steam interface(.*)/i', $logEntry))
-                        {
-                                $logEntry = "";
-                        }
-
-                        #remove error message
-                        if (preg_match('/ILocalize(.*)/i', $logEntry))
-                        {
-                                $logEntry = "";
-                        }
-
-			#world completely stopped message
-                        if (preg_match('/Net scene destroyed/i', $logEntry))
-                        {
-                                $logEntry = "<br><p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim world sucessfully stopped.</p>";
-                        }
-
-		}
-		print $logEntry;
-	}
+    return $result;
 }
 
 ?>
@@ -96,6 +92,46 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 				line-height: 1.4;
 			}
 
+			.log-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 1rem;
+				padding-bottom: 0.75rem;
+				border-bottom: 1px solid var(--border-color, #475569);
+			}
+
+			.log-title {
+				font-size: 1rem;
+				font-weight: 600;
+				color: var(--accent-primary, #22d3ee);
+			}
+
+			.log-status {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				font-size: 0.75rem;
+			}
+
+			.live-dot {
+				width: 8px;
+				height: 8px;
+				background: var(--success, #4ade80);
+				border-radius: 50%;
+				animation: pulse-dot 2s ease-in-out infinite;
+			}
+
+			.live-dot.paused {
+				background: var(--text-muted, #64748b);
+				animation: none;
+			}
+
+			@keyframes pulse-dot {
+				0%, 100% { opacity: 1; transform: scale(1); }
+				50% { opacity: 0.5; transform: scale(0.9); }
+			}
+
 			.log-container {
 				background: var(--bg-secondary, #1e293b);
 				border: 1px solid var(--border-color, #475569);
@@ -103,6 +139,8 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 				padding: 1rem;
 				overflow-x: auto;
 				max-width: 100%;
+				max-height: calc(100vh - 200px);
+				overflow-y: auto;
 			}
 
 			.log-content {
@@ -129,7 +167,7 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 				font-weight: 500;
 			}
 
-			.refresh-btn {
+			.control-btn {
 				font-family: inherit;
 				font-size: 0.8125rem;
 				padding: 0.5rem 1rem;
@@ -141,9 +179,20 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 				transition: all 0.2s ease;
 			}
 
-			.refresh-btn:hover {
+			.control-btn:hover {
 				color: var(--success, #4ade80);
 				background-color: var(--bg-tertiary, #334155);
+			}
+
+			.control-btn.active {
+				background-color: var(--success-dark, #166534);
+				border-color: var(--success, #4ade80);
+				color: var(--success, #4ade80);
+			}
+
+			.control-group {
+				display: flex;
+				gap: 0.5rem;
 			}
 
 			@media (max-width: 768px) {
@@ -167,23 +216,29 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 				}
 			}
 		</style>
-
-		<script>
-			//scroll to bottom of page (latest log entry)
-			history.scrollRestoration = "manual";
-			window.onbeforeunload = function() {
-				window.scrollTo(0, 0);
-			};
-		</script>
 	</head>
 
-	<body onload="window.location='#bottom';">
-		<div class="log-container">
-			<div class="log-content"><?php populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightError,$logHighlightWarn,$logHighlightNotice,$logHighlightGreen,$logHighlightErrorDarker,$logHighlightWarnDarker,$logHighlightNoticeDarker,$logHighlightGreenDarker,$logHighlightMagenta,$logHighlightMagentaDarker);?></div>
+	<body>
+		<div class="log-header">
+			<span class="log-title"><?php echo htmlspecialchars($logFile); ?></span>
+			<div class="log-status">
+				<span class="live-dot" id="liveDot"></span>
+				<span id="statusText">Live</span>
+			</div>
+		</div>
+
+		<div class="log-container" id="logContainer">
+			<div class="log-content" id="logContent">Loading...</div>
 		</div>
 
 		<div class="log-controls">
-			<button class="refresh-btn" onClick="window.location.reload();">Refresh</button>
+			<div class="control-group">
+				<button class="control-btn active" id="liveBtn" onclick="toggleLive()">
+					<span id="liveBtnText">⏸ Pause</span>
+				</button>
+				<button class="control-btn" onclick="scrollToBottom()">↓ Go to Bottom</button>
+				<button class="control-btn" onclick="scrollToTop()">↑ Go to Top</button>
+			</div>
 
 			<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
 				<span class="legend-item" style="background: <?php echo $logHighlightError;?>;color: <?php echo $logHighlightErrorDarker;?>">Error</span>
@@ -193,7 +248,93 @@ function populateLogOutput($logFile,$logExclusions,$logHighlight,$logHighlightEr
 			</div>
 		</div>
 
-		<p id='bottom'></p>
-	</body>
+		<script>
+		const logFile = '<?php echo addslashes($logFile); ?>';
+		let isLive = true;
+		let pollInterval = null;
+		let autoScroll = true;
+		const POLL_RATE = 2000; // 2 seconds
 
+		// Initialize
+		document.addEventListener('DOMContentLoaded', function() {
+			fetchLog();
+			startPolling();
+		});
+
+		function startPolling() {
+			if (pollInterval) clearInterval(pollInterval);
+			pollInterval = setInterval(fetchLog, POLL_RATE);
+		}
+
+		function stopPolling() {
+			if (pollInterval) {
+				clearInterval(pollInterval);
+				pollInterval = null;
+			}
+		}
+
+		async function fetchLog() {
+			if (!isLive) return;
+
+			try {
+				const response = await fetch(`readLog.php?logfile=${encodeURIComponent(logFile)}&fetch=content&_=${Date.now()}`);
+				const content = await response.text();
+
+				const logContent = document.getElementById('logContent');
+				const container = document.getElementById('logContainer');
+
+				// Check if user is scrolled to bottom before update
+				const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+
+				logContent.innerHTML = content;
+
+				// Auto-scroll to bottom if user was at bottom
+				if (isAtBottom && autoScroll) {
+					scrollToBottom();
+				}
+			} catch (error) {
+				console.error('Failed to fetch log:', error);
+			}
+		}
+
+		function toggleLive() {
+			isLive = !isLive;
+			const btn = document.getElementById('liveBtn');
+			const btnText = document.getElementById('liveBtnText');
+			const dot = document.getElementById('liveDot');
+			const statusText = document.getElementById('statusText');
+
+			if (isLive) {
+				btnText.textContent = '⏸ Pause';
+				btn.classList.add('active');
+				dot.classList.remove('paused');
+				statusText.textContent = 'Live';
+				startPolling();
+				fetchLog();
+			} else {
+				btnText.textContent = '▶ Resume';
+				btn.classList.remove('active');
+				dot.classList.add('paused');
+				statusText.textContent = 'Paused';
+				stopPolling();
+			}
+		}
+
+		function scrollToBottom() {
+			const container = document.getElementById('logContainer');
+			container.scrollTop = container.scrollHeight;
+		}
+
+		function scrollToTop() {
+			const container = document.getElementById('logContainer');
+			container.scrollTop = 0;
+		}
+
+		// Detect manual scrolling to disable auto-scroll temporarily
+		document.getElementById('logContainer').addEventListener('scroll', function() {
+			const container = this;
+			autoScroll = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+		});
+		</script>
+	</body>
 </html>
