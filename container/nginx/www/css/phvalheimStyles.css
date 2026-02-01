@@ -1185,10 +1185,10 @@ input:checked + .slider:before {
 	background: var(--bg-secondary);
 	border: 1px solid var(--border-color);
 	border-radius: 0.75rem;
-	padding: 1.25rem;
+	padding: 1rem;
 	display: flex;
 	align-items: flex-start;
-	gap: 1rem;
+	gap: 0.75rem;
 	transition: border-color 0.2s ease;
 }
 
@@ -1197,14 +1197,19 @@ input:checked + .slider:before {
 }
 
 .stat-icon {
-	width: 48px;
-	height: 48px;
+	width: 40px;
+	height: 40px;
 	border-radius: 0.5rem;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 1.25rem;
+	font-size: 1.125rem;
 	flex-shrink: 0;
+}
+
+.stat-icon svg {
+	width: 20px;
+	height: 20px;
 }
 
 .stat-icon.worlds {
@@ -1242,7 +1247,7 @@ input:checked + .slider:before {
 }
 
 .stat-value {
-	font-size: 1.5rem;
+	font-size: 1.25rem;
 	font-weight: 700;
 	color: var(--text-primary);
 	line-height: 1.2;
@@ -1257,20 +1262,20 @@ input:checked + .slider:before {
 /* Stat cards with charts */
 .stat-card-chart {
 	flex-direction: column;
-	padding-bottom: 0.75rem;
+	padding-bottom: 0.5rem;
 }
 
 .stat-card-chart .stat-card-top {
 	display: flex;
 	align-items: flex-start;
-	gap: 1rem;
+	gap: 0.75rem;
 	width: 100%;
 }
 
 .stat-chart-container {
 	width: 100%;
-	height: 60px;
-	margin-top: 0.75rem;
+	height: 40px;
+	margin-top: 0.5rem;
 	padding: 0 0.25rem;
 }
 
@@ -1341,23 +1346,33 @@ input:checked + .slider:before {
 	font-size: 0.75rem;
 	font-weight: 500;
 	text-transform: capitalize;
+	background: rgba(100, 116, 139, 0.15);
+	color: var(--text-secondary);
+	transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .status-badge.running {
-	background: rgba(74, 222, 128, 0.15);
-	color: var(--success);
+	background: rgba(74, 222, 128, 0.15) !important;
+	color: var(--success) !important;
 }
 
 .status-badge.stopped {
-	background: rgba(100, 116, 139, 0.15);
-	color: var(--text-muted);
+	background: rgba(100, 116, 139, 0.15) !important;
+	color: var(--text-muted) !important;
+	animation: none !important;
 }
 
-.status-badge.start, .status-badge.stop,
-.status-badge.starting, .status-badge.stopping,
-.status-badge.create, .status-badge.update, .status-badge.delete {
-	background: rgba(251, 191, 36, 0.15);
-	color: var(--warning);
+/* Transitional states - consistent yellow/warning styling with pulse */
+.status-badge.start,
+.status-badge.stop,
+.status-badge.starting,
+.status-badge.stopping,
+.status-badge.create,
+.status-badge.update,
+.status-badge.delete {
+	background: rgba(251, 191, 36, 0.15) !important;
+	color: var(--warning) !important;
+	animation: badge-pulse 1.5s ease-in-out infinite !important;
 }
 
 .status-dot {
@@ -1365,49 +1380,41 @@ input:checked + .slider:before {
 	height: 6px;
 	border-radius: 50%;
 	background: currentColor;
+	transition: opacity 0.3s ease;
 }
 
-.status-badge.running .status-dot,
+/* Pulse animation for running state dot */
+.status-badge.running .status-dot {
+	animation: dot-pulse 2s ease-in-out infinite;
+}
+
+/* Pulse animation for transitional state dots */
 .status-badge.start .status-dot,
 .status-badge.stop .status-dot,
 .status-badge.starting .status-dot,
-.status-badge.stopping .status-dot {
-	animation: pulse 2s ease-in-out infinite;
+.status-badge.stopping .status-dot,
+.status-badge.create .status-dot,
+.status-badge.update .status-dot,
+.status-badge.delete .status-dot {
+	animation: dot-pulse 1s ease-in-out infinite;
 }
 
-@keyframes pulse {
+@keyframes dot-pulse {
 	0%, 100% { opacity: 1; }
 	50% { opacity: 0.4; }
-}
-
-/* Pulse animation for transitional states (Creating, Updating, Starting, Stopping, etc.) */
-.status-badge.create,
-.status-badge.update,
-.status-badge.delete,
-.status-badge.start,
-.status-badge.stop,
-.status-badge.starting,
-.status-badge.stopping {
-	animation: badge-pulse 1.5s ease-in-out infinite !important;
 }
 
 @keyframes badge-pulse {
 	0%, 100% {
 		opacity: 1;
 		transform: scale(1);
-		box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.2);
+		box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.3);
 	}
 	50% {
-		opacity: 0.9;
-		transform: scale(1.01);
-		box-shadow: 0 0 4px 1px rgba(251, 191, 36, 0.15);
+		opacity: 0.85;
+		transform: scale(1.02);
+		box-shadow: 0 0 8px 2px rgba(251, 191, 36, 0.2);
 	}
-}
-
-/* Ensure stopped state has proper styling */
-.status-badge.stopped {
-	background: rgba(100, 116, 139, 0.15) !important;
-	color: var(--text-muted) !important;
 }
 
 /* Worlds Table Modern Style */

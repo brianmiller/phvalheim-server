@@ -229,7 +229,7 @@ function getCpuModel($pdo) {
         if(!empty($result)) {
                 return $result;
         } else {
-                return "pending first execution...";
+                return "—";
         }
 }
 
@@ -398,11 +398,10 @@ function getCpuUtilization($pdo) {
         $sth = $pdo->prepare("SELECT currentCpuUtilization FROM systemstats LIMIT 1;");
         $sth->execute();
         $result = $sth->fetchColumn();
-        if(!empty($result)) {
-                $result = "$result";
+        if(!empty($result) || $result === '0' || $result === 0) {
                 return $result . "%";
         } else {
-                return "pending first execution...";
+                return "—";
         }
 }
 
