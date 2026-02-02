@@ -3,7 +3,7 @@ include '../includes/git.php';
 include '../includes/phvalheim-frontend-config.php';
 
 
-function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo) {
+function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 	if($operatingSystem == "Windows"){
 		$downloadHeaderTitle = "<b class='client_download_tooltip'>PhValheim Client for Windows</b>";
 	}
@@ -13,10 +13,12 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo) {
         }
 
 
-	function populateDownloadLinks($operatingSystem,$phValheimClientGitRepo) {
-		$release = getGitRelease($phValheimClientGitRepo);
+	function populateDownloadLinks($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
+		$phValheimClientGitReleases = getGitReleases($phValheimClientGitRepo,$clientVersionsToRender);
 
+		foreach ($phValheimClientGitReleases as $release) {
 			if(!empty($release)) {
+
 
 				if($operatingSystem == "Windows"){
 					echo "
@@ -57,21 +59,24 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo) {
                                         ";
                                 }
 			}
+
+
+		}
 	}
 
 	echo "
-        <button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" data-trigger=\"focus\" data-toggle=\"popover\" data-placement=\"bottom\" title=\"$downloadHeaderTitle\" data-html=\"true\" 
-        data-content=\"
+        <button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" data-bs-trigger=\"click\" data-bs-toggle=\"popover\" data-bs-placement=\"bottom\" data-bs-title=\"$downloadHeaderTitle\" data-bs-html=\"true\"
+        data-bs-content=\"
 			<table class='center' border=0 style='width:100%;'>
 	";
 	
-						populateDownloadLinks($operatingSystem,$phValheimClientGitRepo);
+						populateDownloadLinks($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
 	
 	echo "
 			</table>
 
 			<table class='center top_line' border=0 style='width:100%;'>
-						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking for other builds?</a></p></td>
+						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking other builds?</a></p></td>
 
 			</table>
 	
@@ -79,3 +84,20 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo) {
 }
 
 ?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -380,7 +380,6 @@ th, td {
 	text-align: right;
 	padding-top: 20px;
 	padding-right: 20px;
-	display: block;
 	font-family: var(--font-sans);
 	font-size: 100%;
 }
@@ -541,6 +540,356 @@ a.card_worldLaunch:hover {
 .card_worldInfo {
 	color: var(--text-secondary);
 	font-size: 0.75rem;
+}
+
+/* ============================================
+   PUBLIC AUTHENTICATED PAGE - Original Styles
+   These override the admin styles for the public page
+   ============================================ */
+
+/* Body styles for authenticated page only */
+body:has(.google_header) {
+	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-size: 16px !important;
+	line-height: normal !important;
+	margin: 10px !important;
+	padding: 0 !important;
+}
+
+/* All tables on authenticated page */
+body:has(.google_header) table {
+	border-collapse: separate !important;
+	text-indent: initial !important;
+	border-spacing: 2px !important;
+}
+
+/* Main layout table should be full width */
+body:has(.google_header) > table {
+	width: 100% !important;
+}
+
+/* Inner tables (inside cards) can be auto width */
+body:has(.google_header) .catbox table {
+	width: auto !important;
+}
+
+/* All th/td on authenticated page - remove global padding */
+body:has(.google_header) th,
+body:has(.google_header) td {
+	padding: 0 !important;
+	font-weight: normal !important;
+	font-family: "Lucida Console", "Courier New", monospace !important;
+	border: none !important;
+	outline: none !important;
+}
+
+/* Force centering for world name and launch headers */
+body:has(.google_header) th.card_worldName,
+body:has(.google_header) th[colspan="2"].card_worldName {
+	text-align: center !important;
+}
+
+body:has(.google_header) th.card_worldLaunch,
+body:has(.google_header) th[colspan="2"].card_worldLaunch {
+	text-align: center !important;
+}
+
+body:has(.google_header) a.card_worldLaunch {
+	text-align: center !important;
+	display: block !important;
+	border: none !important;
+	outline: none !important;
+	box-shadow: none !important;
+}
+
+/* Remove border around offline label in dimmed cards */
+body:has(.google_header) .card_dimmed.card_worldLaunch,
+body:has(.google_header) a.card_dimmed.card_worldLaunch,
+body:has(.google_header) th.card_dimmed.card_worldLaunch {
+	border: none !important;
+	outline: none !important;
+	box-shadow: none !important;
+	background: transparent !important;
+}
+
+/* Ensure the inner table in catbox takes full width for centering */
+body:has(.google_header) .catbox > table {
+	width: 100% !important;
+}
+
+/* Header - google avatar */
+.google_header {
+	text-align: left !important;
+	padding-left: 20px !important;
+	padding-top: 15px !important;
+}
+
+.google_header img {
+	width: 75px !important;
+	height: 75px !important;
+	border-radius: 50% !important;
+}
+
+/* Header - download button */
+.client_download_button {
+	text-align: right !important;
+	padding-top: 20px !important;
+	padding-right: 20px !important;
+	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-size: 100% !important;
+}
+
+/* Header - welcome name */
+.name_header {
+	color: #00CED1 !important;
+	text-align: left !important;
+	padding-left: 20px !important;
+	padding-top: 15px !important;
+}
+
+/* Card grid container */
+.outer {
+	height: 100% !important;
+	width: 100% !important;
+	max-height: 100% !important;
+	margin-top: 100px !important;
+	display: flex !important;
+	justify-content: center !important;
+}
+
+.inner {
+	width: auto !important;
+	max-width: 1500px !important;
+	padding: 50px !important;
+	height: auto !important;
+	max-height: 100% !important;
+	overflow: visible !important;
+	margin-left: auto !important;
+	margin-right: auto !important;
+	display: flex !important;
+	justify-content: center !important;
+	align-content: center !important;
+}
+
+.wrapper {
+	display: flex !important;
+	flex-wrap: wrap !important;
+	grid-template-columns: none !important;
+	gap: 30px !important;
+	background-color: #131729 !important;
+	padding: 50px !important;
+	overflow: visible !important;
+	justify-content: center !important;
+	align-content: center !important;
+}
+
+/* Card dimmed state - grey dashed border for offline */
+.card_dimmed {
+	cursor: not-allowed !important;
+	text-decoration: none !important;
+	pointer-events: none !important;
+	color: #A0A0A0 !important;
+	opacity: 0.75 !important;
+}
+
+/* Offline card box - dashed grey border */
+.catbox.card_dimmed,
+div.card_dimmed.catbox {
+	outline: 2px dashed #A0A0A0 !important;
+	border: none !important;
+}
+
+/* Offline card - grey world name and text */
+.card_dimmed.card_worldName,
+th.card_dimmed.card_worldName {
+	color: #A0A0A0 !important;
+}
+
+.card_dimmed.card_worldLaunch,
+th.card_dimmed.card_worldLaunch,
+a.card_dimmed.card_worldLaunch,
+a.card_dimmed.card_worldLaunch:link,
+a.card_dimmed.card_worldLaunch:visited,
+a.card_dimmed.card_worldLaunch:hover {
+	color: #A0A0A0 !important;
+}
+
+/* Offline card - no borders on inner tables */
+.catbox.card_dimmed table,
+div.card_dimmed.catbox table,
+body:has(.google_header) .catbox.card_dimmed table {
+	outline: none !important;
+	border: none !important;
+	border-spacing: 0 !important;
+	border-collapse: collapse !important;
+}
+
+.catbox.card_dimmed th,
+.catbox.card_dimmed td,
+div.card_dimmed.catbox th,
+div.card_dimmed.catbox td,
+body:has(.google_header) .catbox.card_dimmed th,
+body:has(.google_header) .catbox.card_dimmed td {
+	outline: none !important;
+	border: none !important;
+	background: transparent !important;
+}
+
+/* All inner tables in cards - no visible borders */
+.catbox table {
+	outline: none !important;
+	border: none !important;
+}
+
+/* Card box */
+.catbox {
+	background-color: #131729 !important;
+	border-radius: 6px !important;
+	padding: 15px !important;
+	padding-bottom: 50px !important;
+	font-size: 125% !important;
+	outline: 2px solid #34e2e2 !important;
+	border: none !important;
+}
+
+/* Card world name - centered and bold */
+.card_worldName {
+	color: #32afff !important;
+	font-size: 18px !important;
+	outline: none !important;
+	text-align: center !important;
+	font-weight: bold !important;
+}
+
+/* Card launch button - centered and bold */
+.card_worldLaunch {
+	font-size: 15px !important;
+	outline: none !important;
+	text-align: center !important;
+	font-weight: bold !important;
+}
+
+th.card_worldName,
+th.card_worldLaunch {
+	text-align: center !important;
+}
+
+a.card_worldLaunch:link,
+a.card_worldLaunch:visited {
+	color: orchid !important;
+}
+
+a.card_worldLaunch:hover {
+	color: palegreen !important;
+}
+
+/* Card info rows */
+.card_worldInfo {
+	color: #d3d7cf !important;
+	font-size: 12px !important;
+	outline: none !important;
+	font-weight: normal !important;
+	text-align: left !important;
+}
+
+/* Trophy icons */
+.trophy_icon {
+	width: 55px !important;
+	margin-left: auto !important;
+	margin-right: auto !important;
+	text-align: center !important;
+	vertical-align: middle !important;
+	-webkit-filter: brightness(120%) !important;
+	filter: brightness(120%) !important;
+}
+
+.trophy_icon img {
+	width: 36px !important;
+	height: 36px !important;
+}
+
+.trophy_dimmed {
+	-webkit-filter: grayscale(100%) !important;
+	filter: grayscale(100%) brightness(100%) opacity(25%) !important;
+}
+
+/* Popover styling for download button */
+body:has(.google_header) .popover {
+	min-width: 100px !important;
+	max-width: 100% !important;
+	background: #131729 !important;
+	border-color: #34e2e2 !important;
+	font-family: "Lucida Console", "Courier New", monospace !important;
+}
+
+body:has(.google_header) .popover-title,
+body:has(.google_header) .popover-header {
+	background: #131729 !important;
+	border-color: #34e2e2 !important;
+	color: palegreen !important;
+}
+
+body:has(.google_header) .popover-body {
+	background: #131729 !important;
+	color: #DEDEDE !important;
+}
+
+body:has(.google_header) .popover .arrow::after,
+body:has(.google_header) .bs-popover-bottom .arrow::after {
+	border-bottom-color: #131729 !important;
+}
+
+/* Download button icons */
+.client_download_os_icon img {
+	margin-top: 10px !important;
+	width: 32px !important;
+	height: 32px !important;
+	filter: brightness(75%) !important;
+}
+
+.client_download_os_icon:hover img {
+	filter: brightness(110%) !important;
+}
+
+.client_download_tooltip {
+	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-weight: normal !important;
+	font-size: 100% !important;
+	background-color: #131729 !important;
+	color: palegreen !important;
+	border-color: #34e2e2 !important;
+	text-align: right !important;
+}
+
+.versionLabel {
+	display: block !important;
+	font-size: 0.83em !important;
+	margin-top: 2px !important;
+	color: orchid !important;
+}
+
+.versionLabel:hover {
+	color: palegreen !important;
+}
+
+p.client_download_tooltip_otherbuilds {
+	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-weight: normal !important;
+	font-size: 65% !important;
+	padding-top: 5px !important;
+	display: flex !important;
+	justify-content: center !important;
+	align-items: center !important;
+	margin: auto !important;
+}
+
+p.client_download_tooltip_otherbuilds a {
+	color: orchid !important;
+	text-decoration: none !important;
+}
+
+p.client_download_tooltip_otherbuilds:hover a {
+	color: palegreen !important;
 }
 
 /* DataTables dark theme */
