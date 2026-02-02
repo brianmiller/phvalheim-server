@@ -8,6 +8,7 @@ docker run -d \
   --name phvalheim-server \
   -p 8082:8080 \
   -p 8083:8081 \
+  -p 25000-25050:25000-25050 \
   -e 'basePort'='25000' \
   -e 'defaultSeed'='szN8qp2lBn' \
   -e 'phvalheimHost'='phvalheim-dev.phospher.com' \
