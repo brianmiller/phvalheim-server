@@ -256,6 +256,35 @@ th, td {
 	color: var(--success);
 }
 
+/* Mods view link styling */
+.mod-view-link {
+	color: orchid !important;
+	text-decoration: none !important;
+}
+
+.mod-view-link .view-text {
+	color: palegreen !important;
+}
+
+.mod-view-link:hover {
+	color: palegreen !important;
+}
+
+.mod-view-link:hover .view-text {
+	color: orchid !important;
+}
+
+/* Mods list in popover */
+body:has(.google_header) .popover-body a,
+.popover-body a {
+	color: orchid !important;
+}
+
+body:has(.google_header) .popover-body a:hover,
+.popover-body a:hover {
+	color: palegreen !important;
+}
+
 .highlight-color {
 	color: var(--accent-primary);
 }
@@ -420,11 +449,11 @@ p.client_download_tooltip_otherbuilds {
 	font-family: var(--font-sans);
 	font-weight: normal;
 	font-size: 65%;
-	padding-top: 5px;
+	padding-top: 0px;
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	margin: auto;
+	margin: 0 auto;
 }
 
 p.client_download_tooltip_otherbuilds a {
@@ -453,14 +482,14 @@ p.client_download_tooltip_otherbuilds:hover a {
 .name_header {
 	color: var(--accent-primary);
 	text-align: left;
-	padding-left: 20px;
+	padding-left: 50px;
 	padding-top: 15px;
 }
 
 .google_header {
 	text-align: left;
-	padding-left: 20px;
-	padding-top: 15px;
+	padding-left: 50px;
+	padding-top: 30px;
 }
 
 .google_header img {
@@ -553,7 +582,7 @@ body:has(.google_header) {
 	font-size: 16px !important;
 	line-height: normal !important;
 	margin: 10px !important;
-	padding: 0 !important;
+	padding: 5px 30px 0 30px !important;
 }
 
 /* All tables on authenticated page */
@@ -620,8 +649,8 @@ body:has(.google_header) .catbox > table {
 /* Header - google avatar */
 .google_header {
 	text-align: left !important;
-	padding-left: 20px !important;
-	padding-top: 15px !important;
+	padding-left: 50px !important;
+	padding-top: 10px !important;
 }
 
 .google_header img {
@@ -633,8 +662,8 @@ body:has(.google_header) .catbox > table {
 /* Header - download button */
 .client_download_button {
 	text-align: right !important;
-	padding-top: 20px !important;
-	padding-right: 60px !important;
+	padding-top: 5px !important;
+	padding-right: 50px !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
 	font-size: 100% !important;
 }
@@ -643,7 +672,7 @@ body:has(.google_header) .catbox > table {
 .name_header {
 	color: #00CED1 !important;
 	text-align: left !important;
-	padding-left: 20px !important;
+	padding-left: 50px !important;
 	padding-top: 15px !important;
 }
 
@@ -697,6 +726,9 @@ body:has(.google_header) .catbox > table {
 div.card_dimmed.catbox {
 	outline: 2px dashed #A0A0A0 !important;
 	border: none !important;
+	width: 400px !important;
+	min-width: 400px !important;
+	max-width: 400px !important;
 }
 
 /* Offline card - grey world name and text */
@@ -750,6 +782,9 @@ body:has(.google_header) .catbox.card_dimmed td {
 	font-size: 125% !important;
 	outline: 2px solid #34e2e2 !important;
 	border: none !important;
+	width: 400px !important;
+	min-width: 400px !important;
+	max-width: 400px !important;
 }
 
 /* Card world name - centered and bold */
@@ -825,24 +860,47 @@ body:has(.google_header) .popover {
 }
 
 body:has(.google_header) .popover-title,
-body:has(.google_header) .popover-header {
+body:has(.google_header) .popover-header,
+.popover-header,
+.popover-title {
 	background: #131729 !important;
 	border-color: #34e2e2 !important;
 	color: palegreen !important;
 	padding: 8px 10px !important;
 	font-size: 90% !important;
+	text-transform: none !important;
+	text-align: center !important;
+}
+
+body:has(.google_header) .popover-header .client_download_tooltip,
+.popover-header .client_download_tooltip,
+.client_download_tooltip,
+.popover-header b,
+.popover-title b {
+	text-transform: none !important;
 }
 
 body:has(.google_header) .popover-body {
 	background: #131729 !important;
 	color: #DEDEDE !important;
-	padding: 10px !important;
+	padding: 5px 10px !important;
 	border-radius: 0 0 4px 4px !important;
 }
 
 body:has(.google_header) .popover .arrow::after,
-body:has(.google_header) .bs-popover-bottom .arrow::after {
-	border-bottom-color: #131729 !important;
+body:has(.google_header) .bs-popover-bottom .arrow::after,
+body:has(.google_header) .popover-arrow::after,
+body:has(.google_header) .bs-popover-bottom > .popover-arrow::after,
+.popover-arrow::after {
+	border-bottom-color: white !important;
+}
+
+body:has(.google_header) .popover .arrow::before,
+body:has(.google_header) .bs-popover-bottom .arrow::before,
+body:has(.google_header) .popover-arrow::before,
+body:has(.google_header) .bs-popover-bottom > .popover-arrow::before,
+.popover-arrow::before {
+	border-bottom-color: white !important;
 }
 
 /* Download button icons */
@@ -853,10 +911,15 @@ body:has(.google_header) .bs-popover-bottom .arrow::after {
 }
 
 .client_download_os_icon img {
-	margin-top: 10px !important;
+	margin-top: 5px !important;
 	width: 32px !important;
 	height: 32px !important;
 	filter: brightness(75%) !important;
+}
+
+.versionLabel {
+	margin-bottom: 0px !important;
+	padding-bottom: 0px !important;
 }
 
 .client_download_os_icon:hover img {
@@ -888,11 +951,11 @@ p.client_download_tooltip_otherbuilds {
 	font-family: "Lucida Console", "Courier New", monospace !important;
 	font-weight: normal !important;
 	font-size: 65% !important;
-	padding-top: 5px !important;
+	padding-top: 0px !important;
 	display: flex !important;
 	justify-content: center !important;
 	align-items: center !important;
-	margin: auto !important;
+	margin: 0 auto !important;
 }
 
 p.client_download_tooltip_otherbuilds a {
@@ -1044,15 +1107,16 @@ table.table-hover tbody tr:hover {
 
 /* Bootstrap override buttons */
 .btn-outline-download {
-	color: var(--accent-secondary);
-	border-color: var(--accent-primary);
-	background-color: transparent;
+	color: orchid !important;
+	border-color: #34e2e2 !important;
+	background-color: transparent !important;
+	font-family: "Lucida Console", "Courier New", monospace !important;
 }
 
 .btn-outline-download:hover {
-	color: var(--success);
-	background-color: var(--bg-secondary);
-	border-color: var(--accent-primary);
+	color: palegreen !important;
+	background-color: #131729 !important;
+	border-color: #34e2e2 !important;
 }
 
 .btn-outline-download:not(:disabled):not(.disabled):active,

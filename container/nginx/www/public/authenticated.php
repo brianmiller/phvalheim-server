@@ -105,7 +105,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
         	                        $runningMods_head = "\n<table border=\"0\" style=\"line-height:auto;\">\n";
 	                                $runningMods_foot = "</table>\n";
 	                                $runningMods = $runningMods_head . generateToolTip($pdo,$myWorld) . $runningMods_foot;
-	                                $modListToolTip = "<a href='#' class='' style='box-shadow:none;border:none;outline:none;border-spacing: 0 2em;' data-trigger='focus' data-toggle='popover' data-placement='bottom' title='Running Mods' data-html='true' data-content='$runningMods'</a>(<label class='alt-color'>view</label>)</a>";
+	                                $modListToolTip = "<a href='#' class='mod-view-link' style='box-shadow:none;border:none;outline:none;' tabindex='0' data-bs-trigger='focus' data-bs-toggle='popover' data-bs-placement='bottom' data-bs-title='Running Mods' data-bs-html='true' data-bs-content='$runningMods'>(<span class='view-text'>view</span>)</a>";
 
 					$worldDimmed = "";
 					$launchLabel = "Launch!";
@@ -318,7 +318,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                         defaultConfig.modifiers.push({
                           name: 'offset',
                           options: {
-                            offset: [-15, 10]
+                            offset: [0, 10]
                           }
                         });
                         return defaultConfig;

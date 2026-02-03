@@ -65,7 +65,7 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 	}
 
 	echo "
-        <button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" data-bs-trigger=\"click\" data-bs-toggle=\"popover\" data-bs-placement=\"bottom\" data-bs-offset=\"-30,10\" data-bs-title=\"$downloadHeaderTitle\" data-bs-html=\"true\"
+        <button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" tabindex=\"0\" data-bs-trigger=\"focus\" data-bs-toggle=\"popover\" data-bs-placement=\"bottom\" data-bs-offset=\"-30,10\" data-bs-title=\"$downloadHeaderTitle\" data-bs-html=\"true\"
         data-bs-content=\"
 			<table class='center' border=0 style='width:100%;'>
 	";
@@ -75,8 +75,11 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 	echo "
 			</table>
 
-			<table class='center top_line' border=0 style='width:100%;'>
-						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking other builds?</a></p></td>
+			<table class='center' border=0 style='width:100%;'>
+						<td style='text-align:center; color:#34e2e2 !important; padding-top: 0px;'>---------------------------</td>
+			</table>
+			<table class='center' border=0 style='width:100%;'>
+						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking for other builds?</a></p></td>
 
 			</table>
 	
