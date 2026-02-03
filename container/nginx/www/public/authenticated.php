@@ -313,7 +313,16 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                   var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
                     return new bootstrap.Popover(popoverTriggerEl, {
                       sanitize: false,
-                      html: true
+                      html: true,
+                      popperConfig: function(defaultConfig) {
+                        defaultConfig.modifiers.push({
+                          name: 'offset',
+                          options: {
+                            offset: [-15, 10]
+                          }
+                        });
+                        return defaultConfig;
+                      }
                     });
                   });
                 });

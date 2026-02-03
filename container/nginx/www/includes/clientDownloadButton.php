@@ -65,7 +65,7 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 	}
 
 	echo "
-        <button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" data-bs-trigger=\"click\" data-bs-toggle=\"popover\" data-bs-placement=\"bottom\" data-bs-title=\"$downloadHeaderTitle\" data-bs-html=\"true\"
+        <button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" data-bs-trigger=\"click\" data-bs-toggle=\"popover\" data-bs-placement=\"bottom\" data-bs-offset=\"-30,10\" data-bs-title=\"$downloadHeaderTitle\" data-bs-html=\"true\"
         data-bs-content=\"
 			<table class='center' border=0 style='width:100%;'>
 	";

@@ -634,7 +634,7 @@ body:has(.google_header) .catbox > table {
 .client_download_button {
 	text-align: right !important;
 	padding-top: 20px !important;
-	padding-right: 20px !important;
+	padding-right: 60px !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
 	font-size: 100% !important;
 }
@@ -818,8 +818,10 @@ body:has(.google_header) .popover {
 	min-width: 100px !important;
 	max-width: 100% !important;
 	background: #131729 !important;
-	border-color: #34e2e2 !important;
+	border: 2px solid #34e2e2 !important;
+	border-radius: 6px !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
+	overflow: visible !important;
 }
 
 body:has(.google_header) .popover-title,
@@ -827,11 +829,15 @@ body:has(.google_header) .popover-header {
 	background: #131729 !important;
 	border-color: #34e2e2 !important;
 	color: palegreen !important;
+	padding: 8px 10px !important;
+	font-size: 90% !important;
 }
 
 body:has(.google_header) .popover-body {
 	background: #131729 !important;
 	color: #DEDEDE !important;
+	padding: 10px !important;
+	border-radius: 0 0 4px 4px !important;
 }
 
 body:has(.google_header) .popover .arrow::after,
@@ -840,6 +846,12 @@ body:has(.google_header) .bs-popover-bottom .arrow::after {
 }
 
 /* Download button icons */
+.client_download_os_icon {
+	text-align: center !important;
+	display: block !important;
+	width: 100% !important;
+}
+
 .client_download_os_icon img {
 	margin-top: 10px !important;
 	width: 32px !important;
