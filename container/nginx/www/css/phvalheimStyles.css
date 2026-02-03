@@ -887,6 +887,13 @@ body:has(.google_header) .popover-body {
 	border-radius: 0 0 4px 4px !important;
 }
 
+/* Fix bullet points being cut off in mod list popover */
+body:has(.google_header) .popover-body li {
+	list-style-position: inside !important;
+	margin-left: 0 !important;
+	padding-left: 0 !important;
+}
+
 body:has(.google_header) .popover .arrow::after,
 body:has(.google_header) .bs-popover-bottom .arrow::after,
 body:has(.google_header) .popover-arrow::after,
