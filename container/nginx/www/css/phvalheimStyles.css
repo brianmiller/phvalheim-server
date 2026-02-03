@@ -260,10 +260,12 @@ th, td {
 .mod-view-link {
 	color: orchid !important;
 	text-decoration: none !important;
+	font-weight: bold !important;
 }
 
 .mod-view-link .view-text {
 	color: palegreen !important;
+	font-weight: bold !important;
 }
 
 .mod-view-link:hover {
@@ -433,6 +435,13 @@ body:has(.google_header) .popover-body a:hover,
 	font-family: var(--font-sans);
 	font-weight: normal;
 	font-size: 100%;
+}
+
+/* Override button font for authenticated page */
+body:has(.google_header) .client_download_button_font {
+	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-weight: normal !important;
+	font-size: 100% !important;
 }
 
 .client_download_tooltip {
@@ -616,6 +625,7 @@ body:has(.google_header) td {
 body:has(.google_header) th.card_worldName,
 body:has(.google_header) th[colspan="2"].card_worldName {
 	text-align: center !important;
+	font-weight: bold !important;
 }
 
 body:has(.google_header) th.card_worldLaunch,
@@ -647,33 +657,37 @@ body:has(.google_header) .catbox > table {
 }
 
 /* Header - google avatar */
-.google_header {
+body:has(.google_header) .google_header {
 	text-align: left !important;
-	padding-left: 50px !important;
+	padding-left: 20px !important;
 	padding-top: 10px !important;
 }
 
-.google_header img {
+body:has(.google_header) .google_header img {
 	width: 75px !important;
 	height: 75px !important;
 	border-radius: 50% !important;
+	margin-top: 15px !important;
 }
 
 /* Header - download button */
-.client_download_button {
+body:has(.google_header) .client_download_button {
 	text-align: right !important;
-	padding-top: 5px !important;
-	padding-right: 50px !important;
+	padding-top: 10px !important;
+	padding-right: 20px !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
 	font-size: 100% !important;
 }
 
 /* Header - welcome name */
-.name_header {
+body:has(.google_header) .name_header {
 	color: #00CED1 !important;
 	text-align: left !important;
-	padding-left: 50px !important;
-	padding-top: 15px !important;
+	padding-left: 20px !important;
+	padding-top: 10px !important;
+	font-weight: bold !important;
+	font-size: 16px !important;
+	font-family: "Lucida Console", "Courier New", monospace !important;
 }
 
 /* Card grid container */
@@ -681,7 +695,7 @@ body:has(.google_header) .catbox > table {
 	height: 100% !important;
 	width: 100% !important;
 	max-height: 100% !important;
-	margin-top: 100px !important;
+	margin-top: 50px !important;
 	display: flex !important;
 	justify-content: center !important;
 }
@@ -836,6 +850,11 @@ a.card_worldLaunch:hover {
 	vertical-align: middle !important;
 	-webkit-filter: brightness(120%) !important;
 	filter: brightness(120%) !important;
+}
+
+/* Add top spacing to trophy table when world is offline */
+.catbox.card_dimmed > table:last-child {
+	margin-top: 5px !important;
 }
 
 .trophy_icon img {
