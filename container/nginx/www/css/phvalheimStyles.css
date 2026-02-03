@@ -659,8 +659,8 @@ body:has(.google_header) .catbox > table {
 /* Header - google avatar */
 body:has(.google_header) .google_header {
 	text-align: left !important;
-	padding-left: 20px !important;
-	padding-top: 10px !important;
+	padding-left: 8px !important;
+	padding-top: 8px !important;
 }
 
 body:has(.google_header) .google_header img {
@@ -673,8 +673,8 @@ body:has(.google_header) .google_header img {
 /* Header - download button */
 body:has(.google_header) .client_download_button {
 	text-align: right !important;
-	padding-top: 10px !important;
-	padding-right: 20px !important;
+	padding-top: 0 !important;
+	padding-right: 8px !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
 	font-size: 100% !important;
 }
@@ -683,8 +683,8 @@ body:has(.google_header) .client_download_button {
 body:has(.google_header) .name_header {
 	color: #00CED1 !important;
 	text-align: left !important;
-	padding-left: 20px !important;
-	padding-top: 10px !important;
+	padding-left: 8px !important;
+	padding-top: 8px !important;
 	font-weight: bold !important;
 	font-size: 16px !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
