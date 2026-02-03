@@ -10,6 +10,8 @@ ul, li {
 body {
 	background: #0f172a !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-size: 16px !important;
+	line-height: 1.2 !important;
 	color: #d3d7cf !important;
 }
 
@@ -250,7 +252,7 @@ body {
 .form input[type=submit] {
   padding: 16px 0;
   cursor: pointer;
-  color: magenta;
+  color: orchid;
   background: #131729;
   font-weight: bold;
   border: none;
@@ -371,7 +373,7 @@ body {
   font-size: 0.875rem;
 }
 .form-bottom-message a {
-  color: magenta;
+  color: orchid;
   text-decoration: none;
 	border-bottom: 1px solid rgba(218, 112, 214, 0);
 	padding: 0 0 0 2px;
@@ -445,7 +447,7 @@ body {
 }
 
 .accept-terms {
-	color: magenta;
+	color: orchid;
 	text-decoration: none;
 	padding: 0 1px 1px 2px;
 	border-bottom: 1px solid rgba(218, 112, 214, 0);
@@ -489,7 +491,7 @@ body {
 
 /* Override pri-color and alt-color for landing page */
 .pri-color {
-  color: magenta !important;
+  color: orchid !important;
   font-family: "Lucida Console", "Courier New", monospace !important;
 }
 
@@ -500,4 +502,14 @@ p.pri-color {
 .alt-color {
   color: palegreen !important;
   font-family: "Lucida Console", "Courier New", monospace !important;
+}
+
+/* About tab links should also be orchid */
+#signup a {
+  color: orchid !important;
+  font-family: "Lucida Console", "Courier New", monospace !important;
+}
+
+#signup a:hover {
+  color: palegreen !important;
 }
