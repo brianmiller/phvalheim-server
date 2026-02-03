@@ -1782,7 +1782,7 @@ input:checked + .slider:before {
 	color: var(--text-secondary);
 }
 
-/* Running state - solid green */
+/* Running state - solid green background, pulsing dot */
 .status-badge.running {
 	background: rgba(74, 222, 128, 0.15);
 	color: #4ade80;
@@ -1817,6 +1817,14 @@ input:checked + .slider:before {
 	height: 6px;
 	border-radius: 50%;
 	background: currentColor;
+}
+
+/* Running status dot also pulses - offset animation to handle AJAX refresh smoothly */
+.status-badge.running .status-dot {
+	background: #4ade80;
+	animation: pulse 3.5s ease-in-out infinite;
+	animation-delay: -1.75s; /* Start halfway through cycle to avoid all dots syncing on AJAX refresh */
+	will-change: opacity, box-shadow;
 }
 
 /* Simple pulse animation for transitional states */
@@ -2147,7 +2155,22 @@ input:checked + .slider:before {
 	height: 8px;
 	background: var(--success);
 	border-radius: 50%;
-	animation: pulse 2s ease-in-out infinite;
+	animation: pulse 3.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+	0% {
+		opacity: 1;
+		box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+	}
+	50% {
+		opacity: 0.4;
+		box-shadow: 0 0 12px 4px rgba(74, 222, 128, 0.4);
+	}
+	100% {
+		opacity: 1;
+		box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+	}
 }
 
 /* Mobile Sidebar Toggle */

@@ -8,14 +8,16 @@ ul, li {
 }
 
 body {
-	/* background: var(--main-background-color) !important; */
-	background: yellow;
+	background: #0f172a !important;
+	font-family: "Lucida Console", "Courier New", monospace !important;
+	color: #d3d7cf !important;
 }
 
 .login_header {
 	display: flex;
 	margin: 10px;
-	color: var(--main-highlighted-color);
+	color: #00CED1;
+	font-family: "Lucida Console", "Courier New", monospace !important;
 }
 
 .centered {
@@ -60,24 +62,21 @@ body {
 }
 
 .main-nav li:nth-child(1) a {
-	background: #d83d3d;
-	background: yellow; 
-	border: 2px solid #fff;
+	background: #131729;
+	border: 2px solid #34e2e2;
 }
 .main-nav li:nth-child(1) a:hover {
-	background: var(--main-background-color);
-	color: var(--outline-light);
+	background: #1e293b;
+	color: #34e2e2;
 }
 
 .main-nav li:nth-child(2) a {
-	background: #9e2c2c;
-	background: yellow;
-	border: 2px solid #9e2c2c;
+	background: #131729;
+	border: 2px solid #34e2e2;
 }
 .main-nav li:nth-child(2) a:hover {
-	background: #b13131;
-	background: yellow;
-	border: 2px solid #b13131;
+	background: #1e293b;
+	border: 2px solid #34e2e2;
 }
 
 .user-modal {
@@ -110,8 +109,7 @@ body {
   position: relative;
   width: 90%;
   max-width: 600px;
-  /* background: #FFF; */
-  background: var(--main-background-color); 
+  background: #131729;
   margin: 3em auto 4em;
   cursor: auto;
   border-radius: 0.25em;
@@ -123,7 +121,8 @@ body {
   transition-property: transform, -webkit-transform;
   -webkit-transition-duration: 0.3s;
   transition-duration: 0.3s;
-  outline: 2px solid var(--outline-light);
+  outline: 2px solid #34e2e2;
+  font-family: "Lucida Console", "Courier New", monospace !important;
 }
 .user-modal-container .switcher:after {
   content: "";
@@ -147,13 +146,14 @@ body {
   width: 100%;
   height: 50px;
   line-height: 50px;
-  background: var(--tab-background-color-unfocused);
-  color: var(--tab-font-color-unfocused);
+  background: #0f172a;
+  color: #d3d7cf;
   text-decoration: none;
+  font-family: "Lucida Console", "Courier New", monospace !important;
 }
 .user-modal-container .switcher a.selected {
-  background: var(--tab-background-color-focused);
-  color: var(--tab-font-color-focused);
+  background: #1e293b;
+  color: palegreen;
 }
 @media only screen and (min-width: 600px) {
   .user-modal-container {
@@ -182,6 +182,8 @@ body {
 .form label {
   font-size: 14px;
   font-size: 0.875rem;
+  font-family: "Lucida Console", "Courier New", monospace !important;
+  color: #d3d7cf;
 }
 .form label.image-replace {
   /* replace text with an icon */
@@ -215,8 +217,9 @@ body {
   margin: 0;
   padding: 0;
   border-radius: 0.25em;
-  background: var(--input-background-color-focused);
-  color: var(--main-font-color);
+  background: #1e293b;
+  color: #d3d7cf;
+  font-family: "Lucida Console", "Courier New", monospace !important;
 }
 .form input.full-width {
   width: 100%;
@@ -247,11 +250,12 @@ body {
 .form input[type=submit] {
   padding: 16px 0;
   cursor: pointer;
-  color: var(--button-font-color-idle);
-  background: var(--main-background-color);
+  color: magenta;
+  background: #131729;
   font-weight: bold;
   border: none;
-  outline: 2px solid var(--outline-light);
+  outline: 2px solid #34e2e2;
+  font-family: "Lucida Console", "Courier New", monospace !important;
   -webkit-appearance: none;
   -moz-appearance: none;
   -ms-appearance: none;
@@ -263,8 +267,8 @@ body {
   	-o-transition: all 0.30s ease-in-out;
 }
 .form input[type=submit]:hover {
-	background: var(--main-background-color);
-	color: var(--button-font-color-hover);
+	background: #1e293b;
+	color: palegreen;
 }
 .no-touch .form input[type=submit]:hover, .no-touch .form input[type=submit]:focus {
   background: #d83d3d;
@@ -367,19 +371,21 @@ body {
   font-size: 0.875rem;
 }
 .form-bottom-message a {
-  color: #FFF;
+  color: magenta;
   text-decoration: none;
-	border-bottom: 1px solid rgba(255, 255, 255, .0);
+	border-bottom: 1px solid rgba(218, 112, 214, 0);
 	padding: 0 0 0 2px;
+	font-family: "Lucida Console", "Courier New", monospace !important;
 	-webkit-transition: all 0.30s ease-in-out;
   	-moz-transition: all 0.30s ease-in-out;
   	-ms-transition: all 0.30s ease-in-out;
   	-o-transition: all 0.30s ease-in-out;
 }
 .form-bottom-message a:hover {
+	color: palegreen;
 	-webkit-animation: borderslide-3px .5s;
 	        animation: borderslide-3px .5s;
-	border-bottom: 1px solid rgba(255, 255, 255, 1);
+	border-bottom: 1px solid palegreen;
 	padding-bottom: 3px;
 }
 
@@ -439,10 +445,11 @@ body {
 }
 
 .accept-terms {
-	color: #F64747;
+	color: magenta;
 	text-decoration: none;
 	padding: 0 1px 1px 2px;
-	border-bottom: 1px solid rgba(246, 71, 71, .0);
+	border-bottom: 1px solid rgba(218, 112, 214, 0);
+	font-family: "Lucida Console", "Courier New", monospace !important;
 	-webkit-transition: all 0.30s ease-in-out;
   	-moz-transition: all 0.30s ease-in-out;
   	-ms-transition: all 0.30s ease-in-out;
@@ -450,10 +457,11 @@ body {
 }
 
 .accept-terms:hover {
+	color: palegreen;
 	-webkit-animation: borderslide-2px .5s;
 	        animation: borderslide-2px .5s;
 	padding-bottom: 2px;
-	border-bottom: 1px solid rgba(246, 71, 71, 1);
+	border-bottom: 1px solid palegreen;
 }
 
 #login, #signup, #reset-password {
@@ -470,4 +478,26 @@ body {
 
 .g-signin2 > div{
   margin: 0 auto;
+}
+
+/* Remove border from Steam sign-in button */
+#steamSignInButton input[type="image"] {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Override pri-color and alt-color for landing page */
+.pri-color {
+  color: magenta !important;
+  font-family: "Lucida Console", "Courier New", monospace !important;
+}
+
+p.pri-color {
+  padding-top: 40px !important;
+}
+
+.alt-color {
+  color: palegreen !important;
+  font-family: "Lucida Console", "Courier New", monospace !important;
 }
