@@ -771,6 +771,12 @@ $totalCount = count($worlds);
                     endpointCode.textContent = `${world.endpoint}:${world.port}`;
                 }
 
+                // Update mod count badge
+                const modCountBadge = row.querySelector('.mods-count-badge');
+                if (modCountBadge) {
+                    modCountBadge.textContent = world.modCount;
+                }
+
                 // Update action buttons based on mode
                 updateActionButtons(row, world);
             }

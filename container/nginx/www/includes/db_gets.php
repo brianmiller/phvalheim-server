@@ -110,8 +110,14 @@ function getSelectedModCountOfWorld($pdo,$world) {
         $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
 	$sth->execute();
 	$result = $sth->fetchColumn();
-	$modCount = substr_count($result, '-');
-	$modCount = $modCount / 4;
+
+	// Filter out placeholder entries
+	$mods = explode(' ', $result);
+	$mods = array_filter($mods, function($mod) {
+		return !empty($mod) && $mod !== 'placeholder';
+	});
+
+	$modCount = count($mods);
 	return $modCount;
 }
 
@@ -125,9 +131,17 @@ function getTotalModCountOfWorld($pdo,$world) {
         $deps = $sth->fetchColumn();
 
 	$all = $selected . ' ' . $deps;
-	
-        $modCount = substr_count($all, '-');
-        $modCount = $modCount / 4;
+
+	// Filter out placeholder entries and count valid mods
+	$mods = explode(' ', $all);
+	$mods = array_filter($mods, function($mod) {
+		return !empty($mod) && $mod !== 'placeholder';
+	});
+
+	// Remove duplicates (deps may overlap with selected)
+	$mods = array_unique($mods);
+
+	$modCount = count($mods);
         return $modCount;
 }
 

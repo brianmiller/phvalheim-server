@@ -93,6 +93,54 @@ switch($action) {
         }
         break;
 
+    case 'getWorldModUUIDs':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getWorldModUUIDsJson($pdo, $world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
+    case 'getWorldModsWithNames':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getWorldModsWithNamesJson($pdo, $world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
+    case 'getAllWorlds':
+        getAllWorldsJson($pdo);
+        break;
+
+    case 'getWorldFolderContents':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getWorldFolderContentsJson($world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
+    case 'cloneWorldFolders':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $sourceWorld = $input['sourceWorld'] ?? '';
+            $targetWorld = $input['targetWorld'] ?? '';
+            $cloneConfigs = isset($input['cloneConfigs']) ? (bool)$input['cloneConfigs'] : false;
+            $clonePlugins = isset($input['clonePlugins']) ? (bool)$input['clonePlugins'] : false;
+            if ($sourceWorld && $targetWorld) {
+                cloneWorldFoldersJson($sourceWorld, $targetWorld, $cloneConfigs, $clonePlugins);
+            } else {
+                echo json_encode(['error' => 'Source and target world names required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
     default:
         // Preserve original behavior for backwards compatibility
         echo "true";
@@ -206,13 +254,18 @@ function getWorldModsJson($pdo, $world) {
     $modsJson = getModViewerJsonForWorld($pdo, $world);
     $mods = json_decode($modsJson, true) ?? [];
 
+    // Filter out placeholder entries
+    $mods = array_filter($mods, function($mod) {
+        return isset($mod['uuid']) && $mod['uuid'] !== 'placeholder' && !empty($mod['uuid']);
+    });
+
     // Sort by name
     usort($mods, fn($a, $b) => strcasecmp($a['name'], $b['name']));
 
     echo json_encode([
         'success' => true,
         'world' => $world,
-        'mods' => $mods,
+        'mods' => array_values($mods),
         'count' => count($mods)
     ]);
 }
@@ -456,6 +509,163 @@ function fetchSteamIDJson($vanityURL) {
     echo json_encode([
         'success' => true,
         'steamid' => $data['response']['steamid']
+    ]);
+}
+
+/**
+ * Returns mods with names for a specific world
+ */
+function getWorldModsWithNamesJson($pdo, $world) {
+    $mods = getAllWorldMods($pdo, $world);
+    // Filter out empty strings and "placeholder" entries
+    $mods = array_filter($mods, function($mod) {
+        return !empty($mod) && $mod !== 'placeholder';
+    });
+    $mods = array_unique($mods);
+
+    $modList = [];
+    foreach ($mods as $uuid) {
+        $name = getModNameByUuid($pdo, $uuid);
+        if ($name) {
+            $modList[] = ['uuid' => $uuid, 'name' => $name];
+        }
+    }
+
+    // Sort by name
+    usort($modList, function($a, $b) {
+        return strcasecmp($a['name'], $b['name']);
+    });
+
+    echo json_encode([
+        'success' => true,
+        'world' => $world,
+        'mods' => $modList,
+        'count' => count($modList)
+    ]);
+}
+
+/**
+ * Returns mod UUIDs for a specific world
+ */
+function getWorldModUUIDsJson($pdo, $world) {
+    $mods = getAllWorldMods($pdo, $world);
+    // Filter out empty strings and "placeholder" entries
+    $mods = array_filter($mods, function($mod) {
+        return !empty($mod) && $mod !== 'placeholder';
+    });
+
+    // Remove duplicates (selected mods + their dependencies may overlap)
+    $mods = array_unique($mods);
+
+    echo json_encode([
+        'success' => true,
+        'world' => $world,
+        'modUUIDs' => array_values($mods)
+    ]);
+}
+
+/**
+ * Returns all worlds (for dropdown)
+ */
+function getAllWorldsJson($pdo) {
+    $stmt = $pdo->query("SELECT name FROM worlds ORDER BY name");
+    $worlds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    echo json_encode([
+        'success' => true,
+        'worlds' => $worlds
+    ]);
+}
+
+/**
+ * Get contents of custom_configs and custom_plugins folders for a world
+ */
+function getWorldFolderContentsJson($world) {
+    $basePath = '/opt/stateful/games/valheim/worlds/' . $world;
+    $results = [
+        'success' => true,
+        'world' => $world,
+        'configs' => [],
+        'plugins' => []
+    ];
+
+    $configsPath = $basePath . '/custom_configs';
+    $pluginsPath = $basePath . '/custom_plugins';
+
+    if (is_dir($configsPath)) {
+        $files = scandir($configsPath);
+        $results['configs'] = array_values(array_filter($files, function($f) {
+            return $f !== '.' && $f !== '..';
+        }));
+    }
+
+    if (is_dir($pluginsPath)) {
+        $files = scandir($pluginsPath);
+        $results['plugins'] = array_values(array_filter($files, function($f) {
+            return $f !== '.' && $f !== '..';
+        }));
+    }
+
+    echo json_encode($results);
+}
+
+/**
+ * Clone custom_configs and/or custom_plugins folders from one world to another
+ */
+function cloneWorldFoldersJson($sourceWorld, $targetWorld, $cloneConfigs, $clonePlugins) {
+    $basePath = '/opt/stateful/games/valheim/worlds';
+    $sourcePath = $basePath . '/' . $sourceWorld;
+    $targetPath = $basePath . '/' . $targetWorld;
+    $results = [];
+
+    // Create target world folder if it doesn't exist
+    if (!is_dir($targetPath)) {
+        mkdir($targetPath, 0775, true);
+    }
+
+    if ($cloneConfigs) {
+        $sourceConfigs = $sourcePath . '/custom_configs';
+        $targetConfigs = $targetPath . '/custom_configs';
+
+        // Create target directory if it doesn't exist
+        if (!is_dir($targetConfigs)) {
+            mkdir($targetConfigs, 0775, true);
+        }
+
+        if (is_dir($sourceConfigs)) {
+            // Use rsync to copy all contents (including hidden files) and delete anything not in source
+            exec("rsync -av --delete " . escapeshellarg($sourceConfigs . '/') . " " . escapeshellarg($targetConfigs . '/'));
+            $results['configs'] = 'cloned';
+        } else {
+            // Source doesn't exist, just empty the target
+            exec("find " . escapeshellarg($targetConfigs) . " -mindepth 1 -delete");
+            $results['configs'] = 'source not found';
+        }
+    }
+
+    if ($clonePlugins) {
+        $sourcePlugins = $sourcePath . '/custom_plugins';
+        $targetPlugins = $targetPath . '/custom_plugins';
+
+        // Create target directory if it doesn't exist
+        if (!is_dir($targetPlugins)) {
+            mkdir($targetPlugins, 0775, true);
+        }
+
+        if (is_dir($sourcePlugins)) {
+            // Use rsync to copy all contents (including hidden files) and delete anything not in source
+            exec("rsync -av --delete " . escapeshellarg($sourcePlugins . '/') . " " . escapeshellarg($targetPlugins . '/'));
+            $results['plugins'] = 'cloned';
+        } else {
+            // Source doesn't exist, just empty the target
+            exec("find " . escapeshellarg($targetPlugins) . " -mindepth 1 -delete");
+            $results['plugins'] = 'source not found';
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'results' => $results
     ]);
 }
 
