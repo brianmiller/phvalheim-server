@@ -227,6 +227,11 @@ while [ true ]; do
 
 				#Update Valheim
 				InstallAndUpdateValheim "$worldName"
+				if [ $? -ne 0 ]; then
+					echo "`date` [ERROR : phvalheim] Valheim installation failed for '$worldName', aborting update..."
+					SQL "UPDATE worlds SET mode='stopped', status='failed' WHERE name='$worldName'"
+					continue
+				fi
 
 				#Update BepInEx
 				InstallAndUpdateBepInEx "$worldName"

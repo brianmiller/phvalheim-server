@@ -106,14 +106,42 @@ function InstallAndUpdateValheim() {
 	# pre-create .steam dir fix the stupid 'ln' error we see in the world log files
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/.steam
 
-        # do it
-        HOME=/opt/stateful/games/valheim/worlds/$worldName/game \
-        /usr/games/steamcmd +@sSteamCmdForcePlatformType linux \
-        +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game \
-        +login anonymous \
-        +app_update 896660 \
-        $beta validate \
-        +quit
+        # do it with retry logic
+        local maxRetries=3
+        local retryCount=0
+        local steamcmdSuccess=false
+
+        while [ $retryCount -lt $maxRetries ] && [ "$steamcmdSuccess" = "false" ]; do
+                retryCount=$((retryCount + 1))
+
+                if [ $retryCount -gt 1 ]; then
+                        echo "`date` [WARN : phvalheim] Steamcmd failed, retrying (attempt $retryCount of $maxRetries)..."
+                        # Clean up Steam directory before retry to avoid stale state
+                        rm -rf /opt/stateful/games/valheim/worlds/$worldName/game/Steam
+                        rm -rf /opt/stateful/games/valheim/worlds/$worldName/game/.steam
+                        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/.steam
+                        sleep 2
+                fi
+
+                HOME=/opt/stateful/games/valheim/worlds/$worldName/game \
+                /usr/games/steamcmd +@sSteamCmdForcePlatformType linux \
+                +force_install_dir /opt/stateful/games/valheim/worlds/$worldName/game \
+                +login anonymous \
+                +app_update 896660 \
+                $beta validate \
+                +quit
+
+                # Check if valheim_server.x86_64 was installed
+                if [ -f "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64" ]; then
+                        steamcmdSuccess=true
+                        echo "`date` [NOTICE : phvalheim] Valheim server installed successfully for '$worldName'"
+                fi
+        done
+
+        if [ "$steamcmdSuccess" = "false" ]; then
+                echo "`date` [ERROR : phvalheim] Failed to install Valheim after $maxRetries attempts for '$worldName'"
+                return 1
+        fi
 
         chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
