@@ -284,6 +284,26 @@ $totalCount = count($worlds);
                     <a href="new_world.php" class="action-btn primary">+ Add World</a>
                 </div>
                 <div class="card-body no-padding">
+                    <?php
+                    // Separate worlds into online (any status except stopped) and offline (stopped)
+                    $onlineWorlds = array_filter($worlds, fn($w) => $w['mode'] !== 'stopped');
+                    $offlineWorlds = array_filter($worlds, fn($w) => $w['mode'] === 'stopped');
+                    $onlineCount = count($onlineWorlds);
+                    $offlineCount = count($offlineWorlds);
+
+                    // Map mode to display text
+                    $modeDisplayMap = [
+                        'running' => 'Running',
+                        'stopped' => 'Stopped',
+                        'create' => 'Creating',
+                        'update' => 'Updating',
+                        'delete' => 'Deleting',
+                        'start' => 'Starting',
+                        'stop' => 'Stopping',
+                        'starting' => 'Starting',
+                        'stopping' => 'Stopping'
+                    ];
+                    ?>
                     <div class="table-responsive">
                         <table class="worlds-table" id="worldsTable">
                             <thead>
@@ -297,24 +317,24 @@ $totalCount = count($worlds);
                                     <th>Resources</th>
                                 </tr>
                             </thead>
-                            <tbody id="worldsTableBody">
-                                <?php foreach ($worlds as $world): ?>
-                                <?php
-                                // Map mode to display text
-                                $modeDisplayMap = [
-                                    'running' => 'Running',
-                                    'stopped' => 'Stopped',
-                                    'create' => 'Creating',
-                                    'update' => 'Updating',
-                                    'delete' => 'Deleting',
-                                    'start' => 'Starting',
-                                    'stop' => 'Stopping',
-                                    'starting' => 'Starting',
-                                    'stopping' => 'Stopping'
-                                ];
-                                $modeDisplay = $modeDisplayMap[$world['mode']] ?? $world['mode'];
-                                ?>
-                                <tr data-world="<?php echo htmlspecialchars($world['name']); ?>">
+                            <!-- Active Worlds Section -->
+                            <tbody id="onlineWorldsHeader">
+                                <tr class="worlds-section-header" onclick="toggleWorldsSection('online')" id="onlineSectionHeader">
+                                    <td colspan="7">
+                                        <div class="worlds-section-toggle">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                            </svg>
+                                            Active Worlds
+                                            <span class="worlds-section-count online" id="onlineWorldsCount"><?php echo $onlineCount; ?></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tbody id="onlineWorldsBody" class="worlds-section-body">
+                                <?php foreach ($onlineWorlds as $world): ?>
+                                <?php $modeDisplay = $modeDisplayMap[$world['mode']] ?? $world['mode']; ?>
+                                <tr data-world="<?php echo htmlspecialchars($world['name']); ?>" data-section="online">
                                     <td>
                                         <span class="status-badge <?php echo $world['mode']; ?>">
                                             <span class="status-dot"></span>
@@ -339,10 +359,6 @@ $totalCount = count($worlds);
                                             <a href="phvalheim://?<?php echo $world['launchString']; ?>" class="action-btn success">Launch</a>
                                             <span class="action-btn disabled">Start</span>
                                             <a href="?stop_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Stop</a>
-                                            <?php elseif ($world['mode'] === 'stopped'): ?>
-                                            <span class="action-btn disabled">Launch</span>
-                                            <a href="?start_world=<?php echo urlencode($world['name']); ?>" class="action-btn success">Start</a>
-                                            <span class="action-btn disabled">Stop</span>
                                             <?php else: ?>
                                             <span class="action-btn disabled">Launch</span>
                                             <span class="action-btn disabled">Start</span>
@@ -353,23 +369,14 @@ $totalCount = count($worlds);
                                     </td>
                                     <td>
                                         <div class="action-group">
-                                            <?php if ($world['mode'] === 'stopped'): ?>
-                                            <a href="edit_world.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn primary">Edit Mods</a>
-                                            <?php else: ?>
                                             <span class="action-btn disabled">Edit Mods</span>
-                                            <?php endif; ?>
                                             <a href="#" class="action-btn" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                 View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                             </a>
                                             <a href="#" class="action-btn" onclick="showCitizensModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">Citizens</a>
                                             <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
-                                            <?php if ($world['mode'] === 'stopped'): ?>
-                                            <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
-                                            <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
-                                            <?php else: ?>
                                             <span class="action-btn disabled">Update</span>
                                             <span class="action-btn disabled">Delete</span>
-                                            <?php endif; ?>
                                         </div>
                                     </td>
                                     <td>
@@ -388,14 +395,103 @@ $totalCount = count($worlds);
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
-                                <?php if (empty($worlds)): ?>
+                                <?php if (empty($onlineWorlds)): ?>
+                                <tr class="no-worlds-row" data-section="online">
+                                    <td colspan="7" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                                        No online worlds
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
+                            </tbody>
+                            <!-- Offline Worlds Section -->
+                            <tbody id="offlineWorldsHeader">
+                                <tr class="worlds-section-header" onclick="toggleWorldsSection('offline')" id="offlineSectionHeader">
+                                    <td colspan="7">
+                                        <div class="worlds-section-toggle">
+                                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                            </svg>
+                                            Offline Worlds
+                                            <span class="worlds-section-count offline" id="offlineWorldsCount"><?php echo $offlineCount; ?></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tbody id="offlineWorldsBody" class="worlds-section-body">
+                                <?php foreach ($offlineWorlds as $world): ?>
+                                <?php $modeDisplay = $modeDisplayMap[$world['mode']] ?? $world['mode']; ?>
+                                <tr data-world="<?php echo htmlspecialchars($world['name']); ?>" data-section="offline">
+                                    <td>
+                                        <span class="status-badge <?php echo $world['mode']; ?>">
+                                            <span class="status-dot"></span>
+                                            <?php echo $modeDisplay; ?>
+                                        </span>
+                                        <?php if ($world['beta']): ?>
+                                        <span class="status-badge" style="background: rgba(248,113,113,0.15); color: var(--danger); margin-left: 0.25rem;">BETA</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="world-name"><?php echo htmlspecialchars($world['name']); ?></span>
+                                    </td>
+                                    <td>
+                                        <code class="world-endpoint"><?php echo htmlspecialchars($world['endpoint']); ?>:<?php echo $world['port']; ?></code>
+                                    </td>
+                                    <td>
+                                        <code class="world-seed"><?php echo htmlspecialchars($world['seed']); ?></code>
+                                    </td>
+                                    <td>
+                                        <div class="action-group">
+                                            <span class="action-btn disabled">Launch</span>
+                                            <a href="?start_world=<?php echo urlencode($world['name']); ?>" class="action-btn success">Start</a>
+                                            <span class="action-btn disabled">Stop</span>
+                                            <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_<?php echo urlencode($world['name']); ?>.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn">Logs</a>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="action-group">
+                                            <a href="edit_world.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn primary">Edit Mods</a>
+                                            <a href="#" class="action-btn" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
+                                                View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
+                                            </a>
+                                            <a href="#" class="action-btn" onclick="showCitizensModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">Citizens</a>
+                                            <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
+                                            <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
+                                            <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="world-resources" data-world="<?php echo htmlspecialchars($world['name']); ?>">
+                                            <div class="world-resource-item">
+                                                <span class="resource-label">CPU</span>
+                                                <canvas class="world-cpu-chart" width="60" height="20"></canvas>
+                                                <span class="resource-value world-cpu-value">—</span>
+                                            </div>
+                                            <div class="world-resource-item">
+                                                <span class="resource-label">MEM</span>
+                                                <canvas class="world-mem-chart" width="60" height="20"></canvas>
+                                                <span class="resource-value world-mem-value">—</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($offlineWorlds)): ?>
+                                <tr class="no-worlds-row" data-section="offline">
+                                    <td colspan="7" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+                                        No offline worlds
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
+                            </tbody>
+                            <?php if (empty($worlds)): ?>
+                            <tbody>
                                 <tr>
                                     <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                                         No worlds yet. <a href="new_world.php" style="color: var(--accent-primary);">Create your first world</a>
                                     </td>
                                 </tr>
-                                <?php endif; ?>
                             </tbody>
+                            <?php endif; ?>
                         </table>
                     </div>
                 </div>
@@ -572,8 +668,53 @@ $totalCount = count($worlds);
     // World resource charts storage
     let worldCharts = {};
 
+    // Cookie helper functions
+    function setCookie(name, value, days = 365) {
+        const expires = new Date(Date.now() + days * 864e5).toUTCString();
+        document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
+    }
+
+    function getCookie(name) {
+        return document.cookie.split('; ').reduce((r, v) => {
+            const parts = v.split('=');
+            return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+        }, '');
+    }
+
+    // Toggle worlds section collapse/expand
+    function toggleWorldsSection(section) {
+        const header = document.getElementById(section + 'SectionHeader');
+        const body = document.getElementById(section + 'WorldsBody');
+
+        if (header && body) {
+            const isCollapsed = header.classList.toggle('collapsed');
+            body.classList.toggle('collapsed', isCollapsed);
+
+            // Save preference to cookie
+            const prefs = JSON.parse(getCookie('worldsSectionPrefs') || '{}');
+            prefs[section] = !isCollapsed; // true = expanded, false = collapsed
+            setCookie('worldsSectionPrefs', JSON.stringify(prefs));
+        }
+    }
+
+    // Initialize section collapse state from cookies
+    function initSectionCollapse() {
+        const prefs = JSON.parse(getCookie('worldsSectionPrefs') || '{"online": true, "offline": true}');
+
+        ['online', 'offline'].forEach(section => {
+            const header = document.getElementById(section + 'SectionHeader');
+            const body = document.getElementById(section + 'WorldsBody');
+
+            if (header && body && prefs[section] === false) {
+                header.classList.add('collapsed');
+                body.classList.add('collapsed');
+            }
+        });
+    }
+
     // Start polling on page load
     document.addEventListener('DOMContentLoaded', function() {
+        initSectionCollapse();
         initCharts();
         initWorldCharts();
         startPolling();
@@ -742,21 +883,44 @@ $totalCount = count($worlds);
     }
 
     function updateWorldsDisplay(worlds) {
-        const tbody = document.getElementById('worldsTableBody');
+        const onlineBody = document.getElementById('onlineWorldsBody');
+        const offlineBody = document.getElementById('offlineWorldsBody');
         const existingWorldNames = new Set(worlds.map(w => w.name));
 
-        // Remove rows for deleted worlds
-        const allRows = tbody.querySelectorAll('tr[data-world]');
-        allRows.forEach(row => {
-            const worldName = row.getAttribute('data-world');
-            if (!existingWorldNames.has(worldName)) {
-                row.remove();
-            }
+        // Remove rows for deleted worlds from both sections
+        [onlineBody, offlineBody].forEach(tbody => {
+            const rows = tbody.querySelectorAll('tr[data-world]');
+            rows.forEach(row => {
+                const worldName = row.getAttribute('data-world');
+                if (!existingWorldNames.has(worldName)) {
+                    row.remove();
+                }
+            });
         });
 
+        let onlineCount = 0;
+        let offlineCount = 0;
+
         worlds.forEach(world => {
-            const row = tbody.querySelector(`tr[data-world="${world.name}"]`);
+            const isOnline = world.mode !== 'stopped';
+            const targetSection = isOnline ? 'online' : 'offline';
+            const targetBody = isOnline ? onlineBody : offlineBody;
+
+            if (isOnline) onlineCount++;
+            else offlineCount++;
+
+            // Find existing row in either section
+            let row = document.querySelector(`tr[data-world="${world.name}"]`);
+
             if (row) {
+                const currentSection = row.getAttribute('data-section');
+
+                // If world changed sections (e.g., started or stopped), move it
+                if (currentSection !== targetSection) {
+                    row.setAttribute('data-section', targetSection);
+                    targetBody.appendChild(row);
+                }
+
                 // Update status badge with proper display text
                 const statusCell = row.querySelector('td:first-child');
                 const badge = statusCell.querySelector('.status-badge');
@@ -781,6 +945,30 @@ $totalCount = count($worlds);
                 updateActionButtons(row, world);
             }
         });
+
+        // Update section counts
+        document.getElementById('onlineWorldsCount').textContent = onlineCount;
+        document.getElementById('offlineWorldsCount').textContent = offlineCount;
+
+        // Handle "no worlds" rows
+        updateNoWorldsRow(onlineBody, onlineCount, 'online');
+        updateNoWorldsRow(offlineBody, offlineCount, 'offline');
+    }
+
+    function updateNoWorldsRow(tbody, count, section) {
+        let noWorldsRow = tbody.querySelector('.no-worlds-row');
+
+        if (count === 0) {
+            if (!noWorldsRow) {
+                noWorldsRow = document.createElement('tr');
+                noWorldsRow.className = 'no-worlds-row';
+                noWorldsRow.setAttribute('data-section', section);
+                noWorldsRow.innerHTML = `<td colspan="7" style="text-align: center; padding: 1.5rem; color: var(--text-muted);">No ${section} worlds</td>`;
+                tbody.appendChild(noWorldsRow);
+            }
+        } else if (noWorldsRow) {
+            noWorldsRow.remove();
+        }
     }
 
     function updateActionButtons(row, world) {

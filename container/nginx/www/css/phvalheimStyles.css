@@ -2353,6 +2353,84 @@ input:checked + .slider:before {
 }
 
 /* ============================================
+   Collapsible Table Sections
+   ============================================ */
+
+.worlds-section-header {
+	cursor: pointer;
+	user-select: none;
+	transition: background 0.15s ease;
+}
+
+.worlds-section-header:hover {
+	background: var(--bg-tertiary);
+}
+
+.worlds-section-header td {
+	padding: 0.75rem 1rem;
+	background: var(--bg-tertiary);
+	border-bottom: 1px solid var(--border-color);
+	border-top: 2px solid var(--accent-primary);
+	position: relative;
+}
+
+.worlds-section-header td::before {
+	content: '';
+	display: block;
+	position: absolute;
+	top: -8px;
+	left: 0;
+	right: 0;
+	height: 8px;
+	background: transparent;
+}
+
+.worlds-section-toggle {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.worlds-section-toggle svg {
+	width: 16px;
+	height: 16px;
+	transition: transform 0.2s ease;
+	color: var(--text-secondary);
+}
+
+.worlds-section-header.collapsed .worlds-section-toggle svg {
+	transform: rotate(-90deg);
+}
+
+.worlds-section-count {
+	font-size: 0.75rem;
+	font-weight: 500;
+	padding: 0.125rem 0.5rem;
+	border-radius: 9999px;
+	margin-left: 0.5rem;
+}
+
+.worlds-section-count.online {
+	background: rgba(74, 222, 128, 0.15);
+	color: var(--success);
+}
+
+.worlds-section-count.offline {
+	background: rgba(100, 116, 139, 0.15);
+	color: var(--text-muted);
+}
+
+.worlds-section-body tr {
+	transition: opacity 0.2s ease, max-height 0.2s ease;
+}
+
+.worlds-section-body.collapsed tr {
+	display: none;
+}
+
+/* ============================================
    PUBLIC PAGE STYLES
    ============================================ */
 
