@@ -142,11 +142,12 @@ if(isset($_POST['submit_button'])) {
 			}
 
 			if (is_dir($sourceConfigs)) {
-				// Use rsync to copy all contents (including hidden files) and delete anything not in source
-				exec("rsync -av --delete " . escapeshellarg($sourceConfigs . '/') . " " . escapeshellarg($targetConfigs . '/'));
+				// Use rsync to copy all contents, excluding world-specific seed config
+				// --exclude prevents copying from source, --filter protects existing files in dest from deletion
+				exec("rsync -av --delete --exclude='ZeroBandwidth.CustomSeed.cfg' --filter='P ZeroBandwidth.CustomSeed.cfg' " . escapeshellarg($sourceConfigs . '/') . " " . escapeshellarg($targetConfigs . '/'));
 			} else {
-				// Source doesn't exist, just empty the target
-				exec("find " . escapeshellarg($targetConfigs) . " -mindepth 1 -delete");
+				// Source doesn't exist, empty the target but preserve seed config
+				exec("find " . escapeshellarg($targetConfigs) . " -mindepth 1 ! -name 'ZeroBandwidth.CustomSeed.cfg' -delete");
 			}
 		}
 
@@ -160,11 +161,12 @@ if(isset($_POST['submit_button'])) {
 			}
 
 			if (is_dir($sourcePlugins)) {
-				// Use rsync to copy all contents (including hidden files) and delete anything not in source
-				exec("rsync -av --delete " . escapeshellarg($sourcePlugins . '/') . " " . escapeshellarg($targetPlugins . '/'));
+				// Use rsync to copy all contents, excluding world-specific seed plugin
+				// --exclude prevents copying from source, --filter protects existing files in dest from deletion
+				exec("rsync -av --delete --exclude='ZeroBandwidth-CustomSeed' --filter='P ZeroBandwidth-CustomSeed' " . escapeshellarg($sourcePlugins . '/') . " " . escapeshellarg($targetPlugins . '/'));
 			} else {
-				// Source doesn't exist, just empty the target
-				exec("find " . escapeshellarg($targetPlugins) . " -mindepth 1 -delete");
+				// Source doesn't exist, empty the target but preserve seed plugin
+				exec("find " . escapeshellarg($targetPlugins) . " -mindepth 1 ! -name 'ZeroBandwidth-CustomSeed' -delete");
 			}
 		}
 	}
@@ -625,7 +627,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				// Trigger the form submission by clicking the submit button
 				// Use setTimeout to allow modal to fully close first
 				setTimeout(function() {
-					var submitBtn = document.querySelector('#edit_world button[name="submit_button"]');
+					var submitBtn = document.getElementById('submit_button');
 					if (submitBtn) {
 						submitBtn.click();
 					} else {

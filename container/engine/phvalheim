@@ -82,41 +82,48 @@ while [ true ]; do
 		if [ "$worldMode" = "create" ]; then
 			echo "`date` [NOTICE : phvalheim] New world '$worldName' detected, creating..."
 			SQL "UPDATE worlds SET mode='creating' WHERE name='$worldName'"
-			if [ ! -d "$worldsDirectoryRoot/$worldName" ]; then
-				echo "`date` [NOTICE : phvalheim] Worlds directory for '$worldName' is missing, creating..."
 
-				#get next availble port
+			# Assign port if not already assigned (may be NULL if directory was pre-created by clone)
+			worldPort=$(SQL "SELECT port FROM worlds WHERE name='$worldName'")
+			if [ -z "$worldPort" ] || [ "$worldPort" = "NULL" ]; then
+				echo "`date` [NOTICE : phvalheim] Assigning port for '$worldName'..."
 				worldPort=$(getNextPort)
 				SQL "UPDATE worlds SET port='$worldPort' WHERE name='$worldName'"
+			fi
 
-				#prep world directory structure
+			# Create directory structure if it doesn't exist
+			if [ ! -d "$worldsDirectoryRoot/$worldName" ]; then
+				echo "`date` [NOTICE : phvalheim] Worlds directory for '$worldName' is missing, creating..."
 				worldDirPrep "$worldName"
+			else
+				echo "`date` [NOTICE : phvalheim] Worlds directory for '$worldName' already exists (from clone), ensuring structure..."
+				worldDirPrep "$worldName"
+			fi
 
-				echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
-				chown -R phvalheim: $worldsDirectoryRoot/$worldName
-				RESULT=$?
-				if [ $RESULT = 0 ]; then
-					echo "`date` [NOTICE : phvalheim] World '$worldName' successfully created..."
-			
-					echo "`date` [NOTICE : phvalheim] Checking for required mods..."
+			echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
+			chown -R phvalheim: $worldsDirectoryRoot/$worldName
+			RESULT=$?
+			if [ $RESULT = 0 ]; then
+				echo "`date` [NOTICE : phvalheim] World '$worldName' successfully created..."
 
-					#generate custom seed config
-					createCustomSeedConfig "$worldName" "$worldSeed"
+				echo "`date` [NOTICE : phvalheim] Checking for required mods..."
 
-					#create supervisor config file for this world
-					createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
+				#generate custom seed config
+				createCustomSeedConfig "$worldName" "$worldSeed"
 
-	                                #set create and updated timestamp for new deployment
-	                                SQL "UPDATE worlds SET date_deployed='`date +'%F %T'`' WHERE name='$worldName'"
-	
-					#set new world to update state
-					SQL "UPDATE worlds SET mode='update' WHERE name='$worldName'"
-			
-				else
-					echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
-					SQL "DELETE FROM worlds WHERE name='$worldName'"
-					rm -rf /opt/stateful/games/valheim/worlds/$worldName
-				fi
+				#create supervisor config file for this world
+				createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
+
+                                #set create and updated timestamp for new deployment
+                                SQL "UPDATE worlds SET date_deployed='`date +'%F %T'`' WHERE name='$worldName'"
+
+				#set new world to update state
+				SQL "UPDATE worlds SET mode='update' WHERE name='$worldName'"
+
+			else
+				echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
+				SQL "DELETE FROM worlds WHERE name='$worldName'"
+				rm -rf /opt/stateful/games/valheim/worlds/$worldName
 			fi
 		fi
 

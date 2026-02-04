@@ -633,12 +633,13 @@ function cloneWorldFoldersJson($sourceWorld, $targetWorld, $cloneConfigs, $clone
         }
 
         if (is_dir($sourceConfigs)) {
-            // Use rsync to copy all contents (including hidden files) and delete anything not in source
-            exec("rsync -av --delete " . escapeshellarg($sourceConfigs . '/') . " " . escapeshellarg($targetConfigs . '/'));
+            // Use rsync to copy all contents, excluding world-specific seed config
+            // --exclude prevents copying from source, --filter protects existing files in dest from deletion
+            exec("rsync -av --delete --exclude='ZeroBandwidth.CustomSeed.cfg' --filter='P ZeroBandwidth.CustomSeed.cfg' " . escapeshellarg($sourceConfigs . '/') . " " . escapeshellarg($targetConfigs . '/'));
             $results['configs'] = 'cloned';
         } else {
-            // Source doesn't exist, just empty the target
-            exec("find " . escapeshellarg($targetConfigs) . " -mindepth 1 -delete");
+            // Source doesn't exist, empty the target but preserve seed config
+            exec("find " . escapeshellarg($targetConfigs) . " -mindepth 1 ! -name 'ZeroBandwidth.CustomSeed.cfg' -delete");
             $results['configs'] = 'source not found';
         }
     }
@@ -653,12 +654,13 @@ function cloneWorldFoldersJson($sourceWorld, $targetWorld, $cloneConfigs, $clone
         }
 
         if (is_dir($sourcePlugins)) {
-            // Use rsync to copy all contents (including hidden files) and delete anything not in source
-            exec("rsync -av --delete " . escapeshellarg($sourcePlugins . '/') . " " . escapeshellarg($targetPlugins . '/'));
+            // Use rsync to copy all contents, excluding world-specific seed plugin
+            // --exclude prevents copying from source, --filter protects existing files in dest from deletion
+            exec("rsync -av --delete --exclude='ZeroBandwidth-CustomSeed' --filter='P ZeroBandwidth-CustomSeed' " . escapeshellarg($sourcePlugins . '/') . " " . escapeshellarg($targetPlugins . '/'));
             $results['plugins'] = 'cloned';
         } else {
-            // Source doesn't exist, just empty the target
-            exec("find " . escapeshellarg($targetPlugins) . " -mindepth 1 -delete");
+            // Source doesn't exist, empty the target but preserve seed plugin
+            exec("find " . escapeshellarg($targetPlugins) . " -mindepth 1 ! -name 'ZeroBandwidth-CustomSeed' -delete");
             $results['plugins'] = 'source not found';
         }
     }
