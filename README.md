@@ -121,7 +121,7 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ### Admin Home
 <i>http://[dockerhost]:8081</i>
 <br>
-![image]([https://github.com/brianmiller/phvalheim-server/assets/342276/e7f89691-0992-4ab2-b16f-168172d52b94](https://github.com/user-attachments/assets/65207d7a-7ac8-4cdb-91a8-b3eaae8be13c))
+![image](https://github.com/user-attachments/assets/65207d7a-7ac8-4cdb-91a8-b3eaae8be13c)
 
 ### New World Creation
 ![image](https://github.com/brianmiller/phvalheim-server/assets/342276/aa37b92e-e822-4d97-963f-d558dceffb9d)
