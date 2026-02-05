@@ -37,6 +37,15 @@ if (isset($_GET['openid_claimed_id'])) {
 	$steamID = end($steamIDArr);
 }
 
+// Helper function to check if world process is running for real-time detection
+function isWorldRunning($worldName) {
+	// Use pgrep to check if valheim_server process is running for this world
+	// Match on "-name worldname " to avoid substring matches (foo matching foo3)
+	// Use [n] character class to prevent pgrep from matching its own shell process
+	$output = shell_exec("pgrep -f -- " . escapeshellarg("-[n]ame " . $worldName . " ") . " 2>&1");
+	return (!empty(trim($output)));
+}
+
 function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
 		# steam
@@ -97,7 +106,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				$hideSeed = getHideSeed($pdo,$myWorld);
 				$dateDeployed = getDateDeployed($pdo,$myWorld);
 				$dateUpdated = getDateUpdated($pdo,$myWorld);
-				$worldMemory = getWorldMemory($pdo,$myWorld);
+
+				// Check real-time process status instead of cached DB value
+				$isOnline = isWorldRunning($myWorld);
+				$worldMemory = $isOnline ? getWorldMemory($pdo,$myWorld) : "offline";
+				// Show "pending..." if online but memory cron hasn't updated yet
+				if ($isOnline && $worldMemory == "offline") {
+					$worldMemory = "<i>pending...</i>";
+				}
 
 				$trophyEikthyr = getBossTrophyStatus($pdo,$myWorld,"trophyeikthyr");
                                 $trophyTheElder = getBossTrophyStatus($pdo,$myWorld,"trophytheelder");
@@ -107,7 +123,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				$trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyseekerqueen");
 				$trophyFader = getBossTrophyStatus($pdo,$myWorld,"trophyfader");
 
-				if($worldMemory == "offline") {
+				if(!$isOnline) {
 					$worldDimmed = "card_dimmed";
 					$launchLabel = "offline";
 					$modListToolTip = "offline";
