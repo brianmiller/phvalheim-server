@@ -107,7 +107,7 @@ function InstallAndUpdateValheim() {
 	mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/.steam
 
         # do it with retry logic
-        local maxRetries=3
+        local maxRetries=5
         local retryCount=0
         local steamcmdSuccess=false
 

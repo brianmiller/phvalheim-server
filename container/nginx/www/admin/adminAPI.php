@@ -159,7 +159,7 @@ function getWorldsJson($pdo) {
         $httpScheme = "http";
     }
 
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta FROM worlds ORDER BY name");
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
@@ -176,7 +176,8 @@ function getWorldsJson($pdo) {
             'autostart' => (int)$row['autostart'],
             'beta' => (int)$row['beta'],
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
-            'launchString' => $launchString
+            'launchString' => $launchString,
+            'dateUpdated' => $row['date_updated']
         ];
     }
 

@@ -50,6 +50,37 @@
 	--font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
+/* Global scrollbar styling */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--bg-secondary);
+	border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--accent-secondary);
+	border-radius: 5px;
+	border: 2px solid var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--accent-secondary-hover);
+}
+
+::-webkit-scrollbar-corner {
+	background: var(--bg-secondary);
+}
+
+/* Firefox scrollbar */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--accent-secondary) var(--bg-secondary);
+}
+
 /* Base styles */
 *, *::before, *::after {
 	box-sizing: border-box;
@@ -1619,6 +1650,48 @@ input:checked + .slider:before {
 	align-items: center;
 }
 
+/* Admin footer with social links */
+.admin-footer {
+	position: fixed;
+	bottom: 1rem;
+	left: 1rem;
+	display: flex;
+	gap: 0.75rem;
+	z-index: 100;
+}
+
+.social-link {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 40px;
+	height: 40px;
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	border-radius: 0.5rem;
+	color: var(--text-secondary);
+	transition: all 0.2s ease;
+	text-decoration: none;
+}
+
+.social-link:hover {
+	background: var(--bg-tertiary);
+	border-color: var(--accent-secondary);
+	color: var(--accent-secondary);
+	transform: translateY(-2px);
+}
+
+.footer-version {
+	display: flex;
+	align-items: center;
+	margin-left: 4.5rem;
+	padding-right: 0.5rem;
+	color: var(--text-muted);
+	font-size: 0.75rem;
+	font-weight: 500;
+	letter-spacing: 0.025em;
+}
+
 .header-time {
 	font-size: 0.875rem;
 	color: var(--text-secondary);
@@ -1862,7 +1935,24 @@ input:checked + .slider:before {
 .worlds-table {
 	width: 100%;
 	border-collapse: collapse;
+	table-layout: fixed;
 }
+
+/* Fixed column widths for consistent alignment */
+.worlds-table th:nth-child(1),
+.worlds-table td:nth-child(1) { width: 7%; }  /* Status */
+.worlds-table th:nth-child(2),
+.worlds-table td:nth-child(2) { width: 8%; }  /* World */
+.worlds-table th:nth-child(3),
+.worlds-table td:nth-child(3) { width: 18%; } /* Endpoint */
+.worlds-table th:nth-child(4),
+.worlds-table td:nth-child(4) { width: 8%; }  /* Seed */
+.worlds-table th:nth-child(5),
+.worlds-table td:nth-child(5) { width: 17%; } /* Actions */
+.worlds-table th:nth-child(6),
+.worlds-table td:nth-child(6) { width: 30%; } /* Configure */
+.worlds-table th:nth-child(7),
+.worlds-table td:nth-child(7) { width: 12%; } /* Resources */
 
 .worlds-table thead th {
 	background: var(--bg-tertiary);
@@ -2428,6 +2518,26 @@ input:checked + .slider:before {
 
 .worlds-section-body.collapsed tr {
 	display: none;
+}
+
+/* Scrollable worlds wrapper (used for both Active and Offline) */
+.worlds-scroll-wrapper,
+.offline-worlds-scroll-wrapper {
+	max-height: 375px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.worlds-scroll-wrapper.collapsed,
+.offline-worlds-scroll-wrapper.collapsed {
+	display: none;
+}
+
+.worlds-scroll-wrapper .worlds-table,
+.offline-worlds-scroll-wrapper .offline-worlds-table {
+	margin: 0;
+	border: none;
 }
 
 /* ============================================
