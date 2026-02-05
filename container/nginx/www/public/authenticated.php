@@ -1,4 +1,9 @@
 <?php
+// Prevent browser caching - world status changes dynamically
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
+header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 
 require_once '../vendor/autoload.php';
 include '../includes/config_env_puller.php';
@@ -25,6 +30,12 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 	$httpScheme = "http";
 }
 
+// Extract steamID at global scope for AJAX polling
+$steamID = null;
+if (isset($_GET['openid_claimed_id'])) {
+	$steamIDArr = explode('/', $_GET['openid_claimed_id']);
+	$steamID = end($steamIDArr);
+}
 
 function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
@@ -169,47 +180,44 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				}
 
 				echo "
-                                        <div class=\"$worldDimmed catbox $myWorld\">
+                                        <div class=\"$worldDimmed catbox\" data-world=\"$myWorld\">
                                                 <table width=100% height=100% border=0>
                                                         <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
                                                         <tr>
-                                                        <th class='$worldDimmed card_worldLaunch' colspan=2><a class='$worldDimmed card_worldLaunch' href='phvalheim://?$launchString'>$launchLabel</a></th>
+                                                        <th class='$worldDimmed card_worldLaunch' colspan=2><a class='$worldDimmed card_worldLaunch launch-link' href='phvalheim://?$launchString' data-launch='$launchString'>$launchLabel</a></th>
 
                                                         <tr>
 
                                                         <td style='height: 12px;'</td>
 
                                                         <tr>
-                                                        <td class='$worldDimmed card_worldInfo'>Citizens&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>WIP</td>
-                                                        <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Mods&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>$modListToolTip</td>
+                                                        <td class='$worldDimmed card_worldInfo world-mods'>$modListToolTip</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
-							<td class='$worldDimmed card_worldInfo'>$md5</td>
+							<td class='$worldDimmed card_worldInfo world-md5'>$md5</td>
 							<tr>
                                                         <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-							<td class='$worldDimmed card_worldInfo'>$seed</td>
+							<td class='$worldDimmed card_worldInfo world-seed'>$seed</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>$dateDeployed</td>
+                                                        <td class='$worldDimmed card_worldInfo world-deployed'>$dateDeployed</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Updated&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>$dateUpdated</td>
+                                                        <td class='$worldDimmed card_worldInfo world-updated'>$dateUpdated</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>$worldMemory</td>
+                                                        <td class='$worldDimmed card_worldInfo world-memory'>$worldMemory</td>
                                                         <tr>
                                                 </table>
-						<table border=0>
-							<td class='$trophyEikthyrDimmed trophy_icon'><img title='$trophyEikthyrStatus' src='../images/TrophyEikthyr.png'></img></td>
-                                                        <td class='$trophyTheElderDimmed trophy_icon'><img title='$trophyTheElderStatus' src='../images/TrophyTheElder.png'></img></td>
-                                                        <td class='$trophyBonemassDimmed trophy_icon'><img title='$trophyBonemassStatus' src='../images/TrophyBonemass.png'></img></td>
-                                                        <td class='$trophyDragonQueenDimmed trophy_icon'><img title='$trophyDragonQueenStatus' src='../images/TrophyDragonQueen.png'></img></td>
-                                                        <td class='$trophyGoblinKingDimmed trophy_icon'><img title='$trophyGoblinKingStatus' src='../images/TrophyGoblinKing.png'></img></td>
-							<td class='$trophySeekerQueenDimmed trophy_icon'><img title='$trophySeekerQueenStatus' src='../images/TrophySeekerQueen.png'></img></td>
-							<td class='$trophyFaderDimmed trophy_icon'><img title='$trophyFaderStatus' src='../images/TrophyFader.png'></img></td>
+						<table border=0 class='trophy-table'>
+							<td class='trophy_icon trophy-eikthyr $trophyEikthyrDimmed'><img title='$trophyEikthyrStatus' src='../images/TrophyEikthyr.png'></img></td>
+                                                        <td class='trophy_icon trophy-theElder $trophyTheElderDimmed'><img title='$trophyTheElderStatus' src='../images/TrophyTheElder.png'></img></td>
+                                                        <td class='trophy_icon trophy-bonemass $trophyBonemassDimmed'><img title='$trophyBonemassStatus' src='../images/TrophyBonemass.png'></img></td>
+                                                        <td class='trophy_icon trophy-dragonQueen $trophyDragonQueenDimmed'><img title='$trophyDragonQueenStatus' src='../images/TrophyDragonQueen.png'></img></td>
+                                                        <td class='trophy_icon trophy-goblinKing $trophyGoblinKingDimmed'><img title='$trophyGoblinKingStatus' src='../images/TrophyGoblinKing.png'></img></td>
+							<td class='trophy_icon trophy-seekerQueen $trophySeekerQueenDimmed'><img title='$trophySeekerQueenStatus' src='../images/TrophySeekerQueen.png'></img></td>
+							<td class='trophy_icon trophy-fader $trophyFaderDimmed'><img title='$trophyFaderStatus' src='../images/TrophyFader.png'></img></td>
 						</table>
                                         </div>
                                 ";
@@ -307,6 +315,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
         <body>
 
         <script>
+                // Store steamID for AJAX polling
+                const STEAM_ID = '<?php echo isset($steamID) ? $steamID : ""; ?>';
+                const POLL_INTERVAL = 5000; // 5 seconds
+
                 $(document).ready(function(){
                   // Bootstrap 5 popover initialization
                   var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
@@ -325,7 +337,150 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                       }
                     });
                   });
+
+                  // Start AJAX polling for world status
+                  if (STEAM_ID) {
+                    setInterval(fetchWorldStatus, POLL_INTERVAL);
+                  }
                 });
+
+                async function fetchWorldStatus() {
+                    try {
+                        const response = await fetch(`api.php?mode=getMyWorldsStatus&steamID=${STEAM_ID}`);
+                        const data = await response.json();
+
+                        if (data.success && data.worlds) {
+                            updateWorldCards(data.worlds);
+                        }
+                    } catch (error) {
+                        console.error('Failed to fetch world status:', error);
+                    }
+                }
+
+                function updateWorldCards(worlds) {
+                    worlds.forEach(world => {
+                        const card = document.querySelector(`.catbox[data-world="${world.name}"]`);
+                        if (!card) return;
+
+                        const isOnline = world.online;
+                        const dimmedClass = 'card_dimmed';
+
+                        // Update card dimmed state
+                        if (isOnline) {
+                            card.classList.remove(dimmedClass);
+                        } else {
+                            card.classList.add(dimmedClass);
+                        }
+
+                        // Update launch link
+                        const launchLink = card.querySelector('.launch-link');
+                        const launchTh = launchLink ? launchLink.parentElement : null;
+                        if (launchLink) {
+                            if (isOnline) {
+                                launchLink.textContent = 'Launch!';
+                                launchLink.href = `phvalheim://?${world.launchString}`;
+                                launchLink.classList.remove(dimmedClass);
+                                if (launchTh) launchTh.classList.remove(dimmedClass);
+                            } else {
+                                launchLink.textContent = 'offline';
+                                launchLink.href = '#';
+                                launchLink.classList.add(dimmedClass);
+                                if (launchTh) launchTh.classList.add(dimmedClass);
+                            }
+                        }
+
+                        // Update mods field
+                        const modsEl = card.querySelector('.world-mods');
+                        if (modsEl) {
+                            // Dispose existing popover if any
+                            const existingLink = modsEl.querySelector('.mod-view-link');
+                            if (existingLink) {
+                                const existingPopover = bootstrap.Popover.getInstance(existingLink);
+                                if (existingPopover) existingPopover.dispose();
+                            }
+
+                            if (isOnline && world.mods && world.mods.length > 0) {
+                                // Build mods tooltip content
+                                let modsContent = '<table border="0" style="line-height:auto;">';
+                                world.mods.sort((a, b) => b.name.toLowerCase().localeCompare(a.name.toLowerCase()));
+                                world.mods.forEach(mod => {
+                                    modsContent += `<tr><td><li><a target="_blank" href="${mod.url}">${mod.name}</a></li></td></tr>`;
+                                });
+                                modsContent += '</table>';
+
+                                modsEl.innerHTML = `<a href='#' class='mod-view-link' style='box-shadow:none;border:none;outline:none;' tabindex='0' data-bs-trigger='focus' data-bs-toggle='popover' data-bs-placement='bottom' data-bs-title='Running Mods' data-bs-html='true' data-bs-content="${modsContent.replace(/"/g, '&quot;')}">(<span class='view-text'>view</span>)</a>`;
+
+                                // Initialize new popover
+                                const newLink = modsEl.querySelector('.mod-view-link');
+                                if (newLink) {
+                                    new bootstrap.Popover(newLink, {
+                                        sanitize: false,
+                                        html: true
+                                    });
+                                }
+                            } else {
+                                modsEl.textContent = 'offline';
+                            }
+                        }
+
+                        // Update info fields
+                        const md5El = card.querySelector('.world-md5');
+                        if (md5El) md5El.innerHTML = world.md5;
+
+                        const seedEl = card.querySelector('.world-seed');
+                        if (seedEl) seedEl.innerHTML = world.seed;
+
+                        const deployedEl = card.querySelector('.world-deployed');
+                        if (deployedEl) deployedEl.textContent = world.dateDeployed;
+
+                        const updatedEl = card.querySelector('.world-updated');
+                        if (updatedEl) updatedEl.textContent = world.dateUpdated;
+
+                        const memoryEl = card.querySelector('.world-memory');
+                        if (memoryEl) {
+                            if (isOnline && world.memory === 'offline') {
+                                // World is online but memory hasn't updated yet
+                                memoryEl.innerHTML = '<i>pending...</i>';
+                            } else {
+                                memoryEl.textContent = world.memory;
+                            }
+                        }
+
+                        // Update trophy states
+                        const trophyMap = {
+                            'eikthyr': { el: '.trophy-eikthyr', defeated: 'Eikthyr has been defeated', undefeated: 'Eikthyr is undefeated' },
+                            'theElder': { el: '.trophy-theElder', defeated: 'The Elder has been defeated', undefeated: 'The Elder is undefeated' },
+                            'bonemass': { el: '.trophy-bonemass', defeated: 'Bonemass has been defeated', undefeated: 'Bonemass is undefeated' },
+                            'dragonQueen': { el: '.trophy-dragonQueen', defeated: 'Moder has been defeated', undefeated: 'Moder is undefeated' },
+                            'goblinKing': { el: '.trophy-goblinKing', defeated: 'Yagluth has been defeated', undefeated: 'Yagluth is undefeated' },
+                            'seekerQueen': { el: '.trophy-seekerQueen', defeated: 'The Seeker Queen has been defeated', undefeated: 'The Seeker Queen is undefeated' },
+                            'fader': { el: '.trophy-fader', defeated: 'Fader has been defeated', undefeated: 'Fader is undefeated' }
+                        };
+
+                        Object.keys(trophyMap).forEach(key => {
+                            const trophyEl = card.querySelector(trophyMap[key].el);
+                            if (trophyEl) {
+                                const img = trophyEl.querySelector('img');
+                                if (world.trophies[key] && isOnline) {
+                                    trophyEl.classList.remove('trophy_dimmed');
+                                    if (img) img.title = trophyMap[key].defeated;
+                                } else {
+                                    trophyEl.classList.add('trophy_dimmed');
+                                    if (img) img.title = trophyMap[key].undefeated;
+                                }
+                            }
+                        });
+
+                        // Update all card_worldInfo cells dimmed state
+                        card.querySelectorAll('.card_worldInfo, .card_worldName, .card_worldLaunch').forEach(el => {
+                            if (isOnline) {
+                                el.classList.remove(dimmedClass);
+                            } else {
+                                el.classList.add(dimmedClass);
+                            }
+                        });
+                    });
+                }
         </script>
 
                 <?php populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) ?>
