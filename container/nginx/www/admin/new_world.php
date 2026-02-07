@@ -75,6 +75,35 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			.dep-badge .dep-tooltip a:hover {
 				text-decoration: underline;
 			}
+			#modProcessingOverlay {
+				display: none;
+				position: absolute;
+				top: 0; left: 0; right: 0; bottom: 0;
+				background: rgba(0,0,0,0.45);
+				z-index: 1040;
+				justify-content: center;
+				align-items: center;
+				border-radius: 4px;
+			}
+			#modProcessingOverlay .processing-content {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				color: var(--text-primary);
+				font-size: 0.9rem;
+				font-weight: 500;
+			}
+			#modProcessingOverlay .processing-spinner {
+				width: 18px;
+				height: 18px;
+				border: 2px solid var(--border-color);
+				border-top-color: var(--accent-primary);
+				border-radius: 50%;
+				animation: proc-spin 0.6s linear infinite;
+			}
+			@keyframes proc-spin {
+				to { transform: rotate(360deg); }
+			}
 		</style>
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
@@ -113,7 +142,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			</div>
 
 			<!-- Mod Selection Card -->
-			<div class="card-panel mb-4">
+			<div class="card-panel mb-4" style="position: relative;">
+				<div id="modProcessingOverlay"><div class="processing-content"><div class="processing-spinner"></div>Processing...</div></div>
 				<div class="card-panel-header">Select Mods (Optional)</div>
 				<?php if (!empty($allWorlds)): ?>
 				<div class="mb-4 p-3" style="background-color: var(--bg-tertiary); border-radius: 4px;">
@@ -293,7 +323,12 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					// Just uncheck this mod - no cascading
 					delete checkedSet[uuid];
 				}
-				rebuildTables();
+				// Show processing overlay, defer rebuild so browser paints it first
+				$('#modProcessingOverlay').css('display', 'flex');
+				setTimeout(function() {
+					rebuildTables();
+					$('#modProcessingOverlay').css('display', 'none');
+				}, 0);
 			}
 
 			// Build mod info lookup for tooltips
