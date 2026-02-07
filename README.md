@@ -123,7 +123,7 @@ Access to each world is controlled by the PhValheim database. We associate the S
 <br>
 ![image](https://github.com/user-attachments/assets/65207d7a-7ac8-4cdb-91a8-b3eaae8be13c)
 
-### Mods Viewer
+### World and Mods Editor
 <img width="2641" height="1085" alt="image" src="https://github.com/user-attachments/assets/3bc9dfbc-83a8-4cb9-a766-a3a7f2bb29e8" />
 
 ### Citizens Editor
