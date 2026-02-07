@@ -141,6 +141,56 @@ switch($action) {
         }
         break;
 
+    case 'getAllModsWithDeps':
+        getAllModsWithDepsJson($pdo);
+        break;
+
+    case 'getWorldModSelection':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getWorldModSelectionJson($pdo, $world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
+    case 'saveWorldMods':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $mods = $input['mods'] ?? [];
+            $cloneSource = $input['cloneSourceWorld'] ?? '';
+            $cloneConfigs = isset($input['cloneConfigs']) ? (bool)$input['cloneConfigs'] : false;
+            $clonePlugins = isset($input['clonePlugins']) ? (bool)$input['clonePlugins'] : false;
+            if ($world) {
+                saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $clonePlugins);
+            } else {
+                echo json_encode(['error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    case 'createWorld':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $seed = $input['seed'] ?? '';
+            $mods = $input['mods'] ?? [];
+            $cloneSource = $input['cloneSourceWorld'] ?? '';
+            $cloneConfigs = isset($input['cloneConfigs']) ? (bool)$input['cloneConfigs'] : false;
+            $clonePlugins = isset($input['clonePlugins']) ? (bool)$input['clonePlugins'] : false;
+            if ($world) {
+                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins);
+            } else {
+                echo json_encode(['error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
     default:
         // Preserve original behavior for backwards compatibility
         echo "true";
@@ -608,6 +658,169 @@ function getWorldFolderContentsJson($world) {
     }
 
     echo json_encode($results);
+}
+
+/**
+ * Returns all latest-version mods with resolved dependency UUIDs
+ */
+function getAllModsWithDepsJson($pdo) {
+    $allMods = getAllModsLatestVersion($pdo);
+    $ownerNameLookup = buildOwnerNameLookup($allMods);
+
+    $modList = [];
+    foreach ($allMods as $mod) {
+        $depUuids = resolveModDeps($mod['deps'] ?? '', $ownerNameLookup);
+        $modList[] = [
+            'moduuid' => $mod['moduuid'],
+            'name' => $mod['name'],
+            'owner' => $mod['owner'],
+            'url' => $mod['url'],
+            'version' => str_replace('"', '', $mod['version']),
+            'version_date_created' => $mod['version_date_created'],
+            'deps' => $depUuids
+        ];
+    }
+
+    echo json_encode([
+        'success' => true,
+        'mods' => $modList,
+        'count' => count($modList)
+    ]);
+}
+
+/**
+ * Returns the selected and dependency mod UUIDs for a world
+ */
+function getWorldModSelectionJson($pdo, $world) {
+    $selected = getWorldSelectedMods($pdo, $world);
+    $deps = getWorldDepMods($pdo, $world);
+
+    echo json_encode([
+        'success' => true,
+        'world' => $world,
+        'selected' => $selected,
+        'deps' => $deps
+    ]);
+}
+
+/**
+ * Save mod selection for an existing world (edit)
+ */
+function saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $clonePlugins) {
+    // Handle clone folder operations if requested
+    if (!empty($cloneSource)) {
+        handleCloneFolders($cloneSource, $world, $cloneConfigs, $clonePlugins);
+    }
+
+    // Clear existing mods
+    deleteAllWorldMods($pdo, $world);
+
+    // Add each selected mod
+    if (is_array($mods)) {
+        foreach ($mods as $mod) {
+            $mod = trim($mod);
+            if (!empty($mod)) {
+                addModToWorld($pdo, $world, $mod);
+            }
+        }
+    }
+
+    // Set world to update mode to trigger engine processing
+    updateWorld($pdo, $world);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Mods saved successfully'
+    ]);
+}
+
+/**
+ * Create a new world with optional mod selection
+ */
+function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins) {
+    global $gameDNS, $defaultSeed;
+
+    if (empty($seed)) {
+        $seed = $defaultSeed;
+    }
+
+    $result = addWorld($pdo, $world, $gameDNS, $seed);
+
+    if ($result === 0) {
+        // World created successfully
+        // Handle clone folder operations if requested
+        if (!empty($cloneSource)) {
+            handleCloneFolders($cloneSource, $world, $cloneConfigs, $clonePlugins);
+        }
+
+        // Add mods if any selected
+        if (is_array($mods) && !empty($mods)) {
+            foreach ($mods as $mod) {
+                $mod = trim($mod);
+                if (!empty($mod)) {
+                    addModToWorld($pdo, $world, $mod);
+                }
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => "World '$world' created"
+        ]);
+    } elseif ($result === 2) {
+        echo json_encode([
+            'success' => false,
+            'error' => "World '$world' already exists"
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'error' => "Failed to create world '$world'"
+        ]);
+    }
+}
+
+/**
+ * Handle cloning custom_configs and custom_plugins folders between worlds
+ */
+function handleCloneFolders($sourceWorld, $targetWorld, $cloneConfigs, $clonePlugins) {
+    $basePath = '/opt/stateful/games/valheim/worlds';
+    $sourcePath = $basePath . '/' . $sourceWorld;
+    $targetPath = $basePath . '/' . $targetWorld;
+
+    if (!is_dir($targetPath)) {
+        mkdir($targetPath, 0775, true);
+    }
+
+    if ($cloneConfigs) {
+        $sourceConfigs = $sourcePath . '/custom_configs';
+        $targetConfigs = $targetPath . '/custom_configs';
+
+        if (!is_dir($targetConfigs)) {
+            mkdir($targetConfigs, 0775, true);
+        }
+
+        if (is_dir($sourceConfigs)) {
+            exec("rsync -av --delete --exclude='ZeroBandwidth.CustomSeed.cfg' --filter='P ZeroBandwidth.CustomSeed.cfg' " . escapeshellarg($sourceConfigs . '/') . " " . escapeshellarg($targetConfigs . '/'));
+        } else {
+            exec("find " . escapeshellarg($targetConfigs) . " -mindepth 1 ! -name 'ZeroBandwidth.CustomSeed.cfg' -delete");
+        }
+    }
+
+    if ($clonePlugins) {
+        $sourcePlugins = $sourcePath . '/custom_plugins';
+        $targetPlugins = $targetPath . '/custom_plugins';
+
+        if (!is_dir($targetPlugins)) {
+            mkdir($targetPlugins, 0775, true);
+        }
+
+        if (is_dir($sourcePlugins)) {
+            exec("rsync -av --delete --exclude='ZeroBandwidth-CustomSeed' --filter='P ZeroBandwidth-CustomSeed' " . escapeshellarg($sourcePlugins . '/') . " " . escapeshellarg($targetPlugins . '/'));
+        } else {
+            exec("find " . escapeshellarg($targetPlugins) . " -mindepth 1 ! -name 'ZeroBandwidth-CustomSeed' -delete");
+        }
+    }
 }
 
 /**

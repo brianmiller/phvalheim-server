@@ -33,18 +33,104 @@ function getModViewerJsonForWorld($pdo,$world) {
 
 function getAllModsLatestVersion($pdo) {
         $sth = $pdo->query("
-		SELECT t1.name,t1.version,t1.moduuid,t1.owner,t1.url,t1.version_date_created
+		SELECT t1.name,t1.version,t1.moduuid,t1.owner,t1.url,t1.version_date_created,t1.deps
 			FROM tsmods AS t1
 			LEFT OUTER JOIN tsmods AS t2
 			  ON t1.moduuid = t2.moduuid
-			        AND (t1.version_date_created < t2.version_date_created 
-			         OR (t1.version_date_created = t2.version_date_created 
+			        AND (t1.version_date_created < t2.version_date_created
+			         OR (t1.version_date_created = t2.version_date_created
 			        AND t1.Id < t2.Id))
 			WHERE t2.moduuid IS NULL ORDER BY name
 		");
 
         $result = $sth->fetchAll(PDO::FETCH_ASSOC);
         return $result;
+}
+
+function resolveDepStringToUuid($depString, $ownerNameLookup) {
+        // Parse "Owner-Name-Version" -> owner, name
+        // Format: "Owner/Name-Version" e.g. "BepInEx/BepInExPack_Valheim-5.4.2200"
+        // But some use "Owner-Name-Version" without slash
+        if (strpos($depString, '/') !== false) {
+                // Standard format: Owner/Name-Version
+                $parts = explode('/', $depString, 2);
+                $owner = $parts[0];
+                $rest = $parts[1];
+                // Name is everything before the last dash (version)
+                $lastDash = strrpos($rest, '-');
+                if ($lastDash !== false) {
+                        $name = substr($rest, 0, $lastDash);
+                } else {
+                        $name = $rest;
+                }
+        } else {
+                // Fallback: Owner-Name-Version (older format)
+                $parts = explode('-', $depString);
+                if (count($parts) >= 3) {
+                        $owner = $parts[0];
+                        $name = $parts[1];
+                } else {
+                        return null;
+                }
+        }
+
+        $key = strtolower($owner . '/' . $name);
+        return $ownerNameLookup[$key] ?? null;
+}
+
+function buildOwnerNameLookup($allMods) {
+        $lookup = [];
+        foreach ($allMods as $mod) {
+                $key = strtolower($mod['owner'] . '/' . $mod['name']);
+                $lookup[$key] = $mod['moduuid'];
+        }
+        return $lookup;
+}
+
+function resolveModDeps($depsRaw, $ownerNameLookup) {
+        if (empty($depsRaw)) return [];
+
+        // Clean up the deps JSON string
+        $depsRaw = trim($depsRaw);
+        $deps = json_decode($depsRaw, true);
+        if (!is_array($deps)) {
+                // Try manual parsing for non-standard format
+                $depsRaw = str_replace(['"', '[', ']', "\n"], '', $depsRaw);
+                $deps = array_filter(array_map('trim', explode(',', $depsRaw)));
+        }
+
+        $resolvedUuids = [];
+        foreach ($deps as $depString) {
+                $depString = trim($depString);
+                if (empty($depString)) continue;
+                $uuid = resolveDepStringToUuid($depString, $ownerNameLookup);
+                if ($uuid) {
+                        $resolvedUuids[] = $uuid;
+                }
+        }
+        return $resolvedUuids;
+}
+
+function getWorldSelectedMods($pdo, $world) {
+        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        if (empty($result)) return [];
+        $mods = array_filter(explode(' ', $result), function($m) {
+                return !empty($m) && $m !== 'placeholder';
+        });
+        return array_values($mods);
+}
+
+function getWorldDepMods($pdo, $world) {
+        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world'");
+        $sth->execute();
+        $result = $sth->fetchColumn();
+        if (empty($result)) return [];
+        $mods = array_filter(explode(' ', $result), function($m) {
+                return !empty($m) && $m !== 'placeholder';
+        });
+        return array_values($mods);
 }
 
 function getModNameByUuid($pdo,$modUUID) {

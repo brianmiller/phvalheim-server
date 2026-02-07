@@ -5,192 +5,11 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
 
-
-function populateEnabledModList($pdo,$world,$getAllModsLatestVersion) {
-        foreach ($getAllModsLatestVersion as $row) {
-		$modUUID = $row['moduuid'];
-		$modName = $row['name'];
-		$modName = substr($modName,0,64);
-		$modNameLen = strlen($modName);
-
-		if ($modNameLen == 64) {
-			$modName = $modName . "...";
-		}
-
-		$modOwner = $row['owner'];
-		$modURL = $row['url'];
-
-		$modLastUpdated = $row['version_date_created'];
-
-		$modVersion = $row['version'];
-		$modVersion = str_replace("\"","",$modVersion);
-
-		$modSelectedCheck = modSelectedCheck($pdo,$world,$modUUID);
-
-		if ($modSelectedCheck) {
-			print "<tr>\n";
-			print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' class='form-check-input' checked></td>\n";
-			print "  <td><a target='_blank' href='$modURL'>$modName</a></td>\n";
-			print "  <td>$modOwner</td>\n";
-			print "  <td>$modLastUpdated</td>\n";
-			print "  <td>$modVersion</td>\n";
-			print "\n";
-		}
-	}
-	print '<script type="text/javascript">document.body.classList.add("scroll");</script>';
-}
-
-
-function populateDepModList($pdo,$world,$getAllModsLatestVersion) {
-        foreach ($getAllModsLatestVersion as $row) {
-                $modUUID = $row['moduuid'];
-                $modName = $row['name'];
-                $modName = substr($modName,0,64);
-                $modNameLen = strlen($modName);
-
-                if ($modNameLen == 64) {
-                        $modName = $modName . "...";
-                }
-
-                $modOwner = $row['owner'];
-                $modURL = $row['url'];
-
-                $modLastUpdated = $row['version_date_created'];
-
-                $modVersion = $row['version'];
-                $modVersion = str_replace("\"","",$modVersion);
-
-                #$modExistCheck = modExistCheck($pdo,$world,$modUUID);
-                $modIsDep = modIsDep($pdo,$world,$modUUID);
-
-                if ($modIsDep) {
-                        print "<tr>\n";
-                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' class='form-check-input' checked disabled></td>\n";
-                        print "  <td><a target='_blank' href='$modURL'>$modName</a> <span class='badge bg-info'>dependency</span></td>\n";
-                        print "  <td>$modOwner</td>\n";
-                        print "  <td>$modLastUpdated</td>\n";
-                        print "  <td>$modVersion</td>\n";
-			print "\n";
-                }
-        }
-}
-
-
-function populateDisabledModList($pdo,$world,$getAllModsLatestVersion) {
-        foreach ($getAllModsLatestVersion as $row) {
-                $modUUID = $row['moduuid'];
-                $modName = $row['name'];
-		$modName = substr($modName,0,64);
-                $modNameLen = strlen($modName);
-
-                if ($modNameLen == 64) {
-                        $modName = $modName . "...";
-                }
-
-                $modOwner = $row['owner'];
-		$modURL = $row['url'];
-
-		$modLastUpdated = $row['version_date_created'];
-
-                $modVersion = $row['version'];
-                $modVersion = str_replace("\"","",$modVersion);
-		$modSelectedCheck = modSelectedCheck($pdo,$world,$modUUID);
-		$modIsDep = modIsDep($pdo,$world,$modUUID);
-
-                if (!$modSelectedCheck && !$modIsDep) {
-                        print "<tr>\n";
-                        print "  <td style='width:1px;'><input name='thunderstore_mods[]' value='" . $modUUID . "' type='checkbox' class='form-check-input'></td>\n";
-                        print "  <td><a target='_blank' href='$modURL'>$modName</a></td>\n";
-                        print "  <td>$modOwner</td>\n";
-			print "  <td>$modLastUpdated</td>\n";
-                        print "  <td>$modVersion</td>\n";
-			print "\n";
-                }
-	}
-}
-
-
+$world = '';
 if (!empty($_GET['world'])) {
 	$world = $_GET['world'];
 }
 
-if(isset($_POST['submit_button'])) {
-	$world = $_POST['world'];
-
-	# Handle clone operation if clone source is specified
-	if (!empty($_POST['cloneSourceWorld'])) {
-		$sourceWorld = $_POST['cloneSourceWorld'];
-		$cloneConfigs = isset($_POST['cloneConfigsFlag']) && $_POST['cloneConfigsFlag'] === '1';
-		$clonePlugins = isset($_POST['clonePluginsFlag']) && $_POST['clonePluginsFlag'] === '1';
-
-		$basePath = '/opt/stateful/games/valheim/worlds';
-		$sourcePath = $basePath . '/' . $sourceWorld;
-		$targetPath = $basePath . '/' . $world;
-
-		// Create target world folder if it doesn't exist
-		if (!is_dir($targetPath)) {
-			mkdir($targetPath, 0775, true);
-		}
-
-		if ($cloneConfigs) {
-			$sourceConfigs = $sourcePath . '/custom_configs';
-			$targetConfigs = $targetPath . '/custom_configs';
-
-			// Create target directory if it doesn't exist
-			if (!is_dir($targetConfigs)) {
-				mkdir($targetConfigs, 0775, true);
-			}
-
-			if (is_dir($sourceConfigs)) {
-				// Use rsync to copy all contents, excluding world-specific seed config
-				// --exclude prevents copying from source, --filter protects existing files in dest from deletion
-				exec("rsync -av --delete --exclude='ZeroBandwidth.CustomSeed.cfg' --filter='P ZeroBandwidth.CustomSeed.cfg' " . escapeshellarg($sourceConfigs . '/') . " " . escapeshellarg($targetConfigs . '/'));
-			} else {
-				// Source doesn't exist, empty the target but preserve seed config
-				exec("find " . escapeshellarg($targetConfigs) . " -mindepth 1 ! -name 'ZeroBandwidth.CustomSeed.cfg' -delete");
-			}
-		}
-
-		if ($clonePlugins) {
-			$sourcePlugins = $sourcePath . '/custom_plugins';
-			$targetPlugins = $targetPath . '/custom_plugins';
-
-			// Create target directory if it doesn't exist
-			if (!is_dir($targetPlugins)) {
-				mkdir($targetPlugins, 0775, true);
-			}
-
-			if (is_dir($sourcePlugins)) {
-				// Use rsync to copy all contents, excluding world-specific seed plugin
-				// --exclude prevents copying from source, --filter protects existing files in dest from deletion
-				exec("rsync -av --delete --exclude='ZeroBandwidth-CustomSeed' --filter='P ZeroBandwidth-CustomSeed' " . escapeshellarg($sourcePlugins . '/') . " " . escapeshellarg($targetPlugins . '/'));
-			} else {
-				// Source doesn't exist, empty the target but preserve seed plugin
-				exec("find " . escapeshellarg($targetPlugins) . " -mindepth 1 ! -name 'ZeroBandwidth-CustomSeed' -delete");
-			}
-		}
-	}
-
-	# remove all mods from this world, clean slate
-	deleteAllWorldMods($pdo,$world);
-
-	# update database with new selected mod list
-	$thunderstore_mods = $_POST['thunderstore_mods'];
-
-        foreach ($thunderstore_mods as $mod) {
-                addModToWorld($pdo,$world,$mod);
-        }
-
-	# set database to "update" after editing world
-	updateWorld($pdo,$world);
-
-	# go back to admin home after save
-	header('Location: index.php');
-
-}
-
-
-$getAllModsLatestVersion = getAllModsLatestVersion($pdo,$world);
 $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 
 ?>
@@ -219,199 +38,151 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			.btn-unsaved-changes {
 				animation: pulse-glow 2s infinite;
 			}
+			.dataTables_length, .dataTables_filter {
+				padding-top: 0.5rem;
+			}
+			.dep-badge {
+				position: relative;
+				cursor: help;
+			}
+			.dep-badge .dep-tooltip {
+				display: none;
+				position: absolute;
+				top: calc(100% + 2px);
+				left: 0;
+				background: var(--bg-secondary);
+				border: 1px solid var(--border-color);
+				padding: 0.75rem 1rem;
+				border-radius: 4px;
+				white-space: nowrap;
+				z-index: 1050;
+				font-weight: normal;
+				font-size: 0.85rem;
+				line-height: 1.6;
+				color: var(--text-primary);
+				box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+			}
+			.dep-badge .dep-tooltip::before {
+				content: '';
+				position: absolute;
+				bottom: 100%;
+				left: 0;
+				right: 0;
+				height: 8px;
+			}
+			.dep-badge:hover .dep-tooltip {
+				display: block;
+			}
+			.dep-badge .dep-tooltip a {
+				color: var(--accent-primary);
+				text-decoration: none;
+			}
+			.dep-badge .dep-tooltip a:hover {
+				text-decoration: underline;
+			}
 		</style>
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/jquery.dataTables.js"></script>
 		<script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
-                <script>
-			// begin document load
-                        $(document).ready( function () {
-				// begin datatables
-                                $('#modtable').DataTable({
-
-                                        "rowCallback": function( row, data, index ) {
-                                            if(index%2 == 0){
-                                                $(row).removeClass('myodd myeven');
-                                                $(row).addClass('myodd');
-                                            }else{
-                                                $(row).removeClass('myodd myeven');
-                                                $(row).addClass('myeven');
-                                            }
-                                          },
-
-                                        lengthMenu: [
-                                            [20, 50, 75, -1],
-                                            [20, 50, 75, 'All'],
-                                        ],
-
-                                        columnDefs: [
-                                         { orderable: false, targets: [ 0, 1, 2, 3, 4 ] },
-                                        ],
-                                }); // end data tables
-
-				// remove loading spinner after php populates table
-                                document.getElementById("spinner").style.display = "none";
-
-								// Track form changes for unsaved changes indicator
-								var hasChanges = false;
-								var $saveButton = $('#submit_button');
-
-								// Track changes on all form inputs and checkboxes
-								$('#edit_world').on('change', 'input, select, textarea', function() {
-									hasChanges = true;
-									$saveButton.addClass('btn-unsaved-changes');
-								});
-
-								// Remove pulsing when form is submitted
-								$('#edit_world').on('submit', function() {
-									hasChanges = false;
-									$saveButton.removeClass('btn-unsaved-changes');
-								});
-
-                        }); // end document load
-
-
-			// execute this when the form is submitted
-                        function onFormSubmit() {
-				// clears search filter and changes list range to all items. This is needed for POST
-				$('#modtable').DataTable().page.len('-1').draw();
-				$('#modtable').DataTable().search( '' ).draw();
-                        }
-
-
-			// execute this when the submit button is clicked
-			function onSubmitClick() {
-				// disable scroll bar
-				document.body.classList.add("noscroll");
-				// display loading spinner
-				document.getElementById("spinner").style.display = "flex";
-			}
-
-			// only allow the form to be submitted once per page load
-			var form_enabled = true;
-			$().ready(function(){
-			       $('#edit_world').on('submit', function(){
-			               if (form_enabled) {
-			                       form_enabled = false;
-			                       return true;
-			               }
-
-			               return false;
-			        });
-			});
-
-                </script>
-
 	</head>
 
 	<body>
-		<div id="spinner" class="loading style-2" style="display:none;"><div class="loading-wheel"></div></div>
+		<div id="spinner" class="loading style-2"><div class="loading-wheel"></div></div>
 
 		<div class="container-fluid px-3 px-lg-4">
 			<!-- Page Header -->
 			<div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
 				<h4 class="mb-0" style="color: var(--accent-primary);">Edit World Mods</h4>
 				<div class="d-flex gap-2">
-					<button id='submit_button' name='submit_button' form='edit_world' class="sm-bttn" type="submit" onClick='onSubmitClick();' style="background-color: var(--success-dark); border-color: var(--success);">Save Changes</button>
+					<button id="submit_button" class="sm-bttn" type="button" onclick="submitSaveWorld();" style="background-color: var(--success-dark); border-color: var(--success);">Save Changes</button>
 					<a href='index.php'><button class="sm-bttn" type="button">Back to Dashboard</button></a>
 				</div>
 			</div>
 
-			<form id="edit_world" name="edit_world" method="post" action="edit_world.php" onSubmit="onFormSubmit()">
-
-				<!-- World Info Card -->
-				<div class="card-panel mb-4">
-					<div class="card-panel-header">World Information</div>
-					<div class="row g-3">
-						<div class="col-6 col-md-3">
-							<label class="form-label text-secondary small">World Name</label>
-							<div class="fw-medium"><?php echo $world ?></div>
-						</div>
-						<div class="col-6 col-md-3">
-							<label class="form-label text-secondary small">Seed</label>
-							<div><code><?php print getSeed($pdo,$world);?></code></div>
-						</div>
-						<div class="col-6 col-md-3">
-							<label class="form-label text-secondary small">Date Deployed</label>
-							<div><?php print getDateDeployed($pdo,$world);?></div>
-						</div>
-						<div class="col-6 col-md-3">
-							<label class="form-label text-secondary small">Date Updated</label>
-							<div><?php print getDateUpdated($pdo,$world);?></div>
-						</div>
+			<!-- World Info Card -->
+			<div class="card-panel mb-4">
+				<div class="card-panel-header">World Information</div>
+				<div class="row g-3">
+					<div class="col-6 col-md-3">
+						<label class="form-label text-secondary small">World Name</label>
+						<div class="fw-medium"><?php echo htmlspecialchars($world) ?></div>
 					</div>
-					<hr class="my-3" style="border-color: var(--border-color);">
-					<div class="row">
-						<div class="col-6">
-							<span class="alt-color">Mods Selected:</span> <span class="badge bg-info"><?php print getSelectedModCountOfWorld($pdo,$world);?></span>
-						</div>
-						<div class="col-6">
-							<span class="alt-color">Mods Running:</span> <span class="badge bg-success"><?php print getTotalModCountOfWorld($pdo,$world);?></span>
-						</div>
+					<div class="col-6 col-md-3">
+						<label class="form-label text-secondary small">Seed</label>
+						<div><code><?php print getSeed($pdo,$world);?></code></div>
+					</div>
+					<div class="col-6 col-md-3">
+						<label class="form-label text-secondary small">Date Deployed</label>
+						<div><?php print getDateDeployed($pdo,$world);?></div>
+					</div>
+					<div class="col-6 col-md-3">
+						<label class="form-label text-secondary small">Date Updated</label>
+						<div><?php print getDateUpdated($pdo,$world);?></div>
 					</div>
 				</div>
-
-				<!-- Mod Selection Card -->
-				<div class="card-panel mb-4">
-					<div class="card-panel-header">Mod Selection</div>
-					<?php if (!empty($allWorlds)): ?>
-					<div class="mb-4 p-3" style="background-color: var(--bg-tertiary); border-radius: 4px;">
-						<label for="copyFromWorld" class="form-label alt-color" style="margin-bottom: 0.75rem; display: block;">Clone mods from another world (optional)</label>
-						<div class="d-flex align-items-center" style="margin-bottom: 0.75rem; gap: 0.5rem;">
-							<select class="form-select" id="copyFromWorld" style="background-color: var(--bg-input); color: var(--text-primary); border-color: var(--border-color); flex: 1;">
-								<option value="">-- Select a world to clone from --</option>
-								<?php foreach ($allWorlds as $w): ?>
-									<option value="<?php echo htmlspecialchars($w); ?>"><?php echo htmlspecialchars($w); ?></option>
-								<?php endforeach; ?>
-							</select>
-							<button type="button" id="copyButton" style="background-color: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); border: 1px solid; padding: 0.375rem 0.75rem; cursor: pointer; border-radius: 0.25rem; white-space: nowrap;">Clone</button>
-						</div>
-						<div style="margin-bottom: 0.75rem;">
-							<label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer; margin-bottom: 0.5rem;">
-								<input type="checkbox" id="cloneCustomConfigs" style="cursor: pointer;">
-								<span>Also clone custom_configs folder</span>
-							</label>
-							<label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer;">
-								<input type="checkbox" id="cloneCustomPlugins" style="cursor: pointer;">
-								<span>Also clone custom_plugins folder</span>
-							</label>
-						</div>
-						<div style="font-size: 0.875rem; color: var(--warning);">Warning: Cloning will remove all previously enabled mods and replace them with the selected world's mods.</div>
+				<hr class="my-3" style="border-color: var(--border-color);">
+				<div class="row">
+					<div class="col-6">
+						<span class="alt-color">Mods Selected:</span> <span id="selectedModCount" class="badge bg-info"><?php print getSelectedModCountOfWorld($pdo,$world);?></span>
 					</div>
-					<?php endif; ?>
-					<div class="table-responsive">
-						<table id="modtable" class="table table-hover mb-0" style="width:100%;">
-							<thead>
-								<tr>
-									<th class="alt-color" style="width: 50px;">Select</th>
-									<th class="alt-color">Name</th>
-									<th class="alt-color">Author</th>
-									<th class="alt-color">Last Updated</th>
-									<th class="alt-color">Version</th>
-								</tr>
-							</thead>
-							<tbody>
-								<?php echo '<script type="text/javascript">document.getElementById("spinner").style.display = "flex";</script>'; ?>
-								<?php echo '<script type="text/javascript">document.body.classList.add("noscroll");</script>'; ?>
-								<?php populateEnabledModList($pdo,$world,$getAllModsLatestVersion); ?>
-								<?php populateDepModList($pdo,$world,$getAllModsLatestVersion); ?>
-								<?php populateDisabledModList($pdo,$world,$getAllModsLatestVersion); ?>
-							</tbody>
-						</table>
+					<div class="col-6">
+						<span class="alt-color">Mods Running:</span> <span id="totalModCount" class="badge bg-success"><?php print getTotalModCountOfWorld($pdo,$world);?></span>
 					</div>
 				</div>
+			</div>
 
-				<!-- Action Buttons -->
-				<div class="d-flex justify-content-center gap-3 mb-4">
-					<a href='index.php'><button class="sm-bttn" type="button">Cancel</button></a>
-					<button name='submit_button' id='submit_button' class="sm-bttn" type="submit" onClick='onSubmitClick();' style="background-color: var(--success-dark); border-color: var(--success);">Save Changes</button>
-					<input type="hidden" value="<?php echo $world?>" name="world">
-					<input type="hidden" id="cloneSourceWorld" name="cloneSourceWorld" value="">
-					<input type="hidden" id="cloneConfigsFlag" name="cloneConfigsFlag" value="">
-					<input type="hidden" id="clonePluginsFlag" name="clonePluginsFlag" value="">
+			<!-- Mod Selection Card -->
+			<div class="card-panel mb-4">
+				<div class="card-panel-header">Mod Selection</div>
+				<?php if (!empty($allWorlds)): ?>
+				<div class="mb-4 p-3" style="background-color: var(--bg-tertiary); border-radius: 4px;">
+					<label for="copyFromWorld" class="form-label alt-color" style="margin-bottom: 0.75rem; display: block;">Clone mods from another world (optional)</label>
+					<div class="d-flex align-items-center" style="margin-bottom: 0.75rem; gap: 0.5rem;">
+						<select class="form-select" id="copyFromWorld" style="background-color: var(--bg-input); color: var(--text-primary); border-color: var(--border-color); flex: 1;">
+							<option value="">-- Select a world to clone from --</option>
+							<?php foreach ($allWorlds as $w): ?>
+								<option value="<?php echo htmlspecialchars($w); ?>"><?php echo htmlspecialchars($w); ?></option>
+							<?php endforeach; ?>
+						</select>
+						<button type="button" id="copyButton" style="background-color: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); border: 1px solid; padding: 0.375rem 0.75rem; cursor: pointer; border-radius: 0.25rem; white-space: nowrap;">Clone</button>
+					</div>
+					<div style="margin-bottom: 0.75rem;">
+						<label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer; margin-bottom: 0.5rem;">
+							<input type="checkbox" id="cloneCustomConfigs" style="cursor: pointer;">
+							<span>Also clone custom_configs folder</span>
+						</label>
+						<label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary); cursor: pointer;">
+							<input type="checkbox" id="cloneCustomPlugins" style="cursor: pointer;">
+							<span>Also clone custom_plugins folder</span>
+						</label>
+					</div>
+					<div style="font-size: 0.875rem; color: var(--warning);">Warning: Cloning will remove all previously enabled mods and replace them with the selected world's mods.</div>
+				</div>
+				<?php endif; ?>
+				<!-- Selected Mods Table -->
+				<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-bottom: 2px solid var(--accent-primary);">
+					<span style="font-weight: 600; color: var(--text-primary);">Selected Mods</span>
+					<span class="badge bg-info" id="activeModCount">0</span>
+				</div>
+				<div class="table-responsive" style="margin-bottom: 1.5rem;">
+					<table id="modtable-active" class="table table-hover mb-0" style="width:100%;"></table>
 				</div>
 
-			</form>
+				<!-- Available Mods Table -->
+				<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-bottom: 2px solid var(--accent-primary);">
+					<span style="font-weight: 600; color: var(--text-primary);">Available Mods</span>
+					<span class="badge bg-secondary" id="availableModCount">0</span>
+				</div>
+				<div class="table-responsive">
+					<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+				</div>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="d-flex justify-content-center gap-3 mb-4">
+				<a href='index.php'><button class="sm-bttn" type="button">Cancel</button></a>
+				<button id="submit_button_bottom" class="sm-bttn" type="button" onclick="submitSaveWorld();" style="background-color: var(--success-dark); border-color: var(--success);">Save Changes</button>
+			</div>
 
 			<!-- Clone Summary Modal -->
 			<div class="modal fade" id="cloneSummaryModal" tabindex="-1" aria-hidden="true" style="z-index: 2100;">
@@ -467,11 +238,290 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 		</div>
 
 		<script>
-			// Store clone operation data and modal instance
+			// Global state
+			var worldName = '<?php echo addslashes($world); ?>';
+			var allModsData = [];
+			var depMap = {};           // moduuid -> [dep uuids]
+			var reverseDepMap = {};    // moduuid -> [mods that depend on it]
+			var checkedSet = {};       // moduuid -> true for ALL checked mods
+			var activeTable = null;    // DataTable for selected mods (top)
+			var availableTable = null; // DataTable for available mods (bottom)
 			var pendingCloneData = null;
 			var cloneModalInstance = null;
+			var submitting = false;
 
-			// Toggle mod list visibility
+			// Build dependency maps from mod data
+			function buildDepMaps(mods) {
+				depMap = {};
+				reverseDepMap = {};
+				mods.forEach(function(mod) {
+					depMap[mod.moduuid] = mod.deps || [];
+					(mod.deps || []).forEach(function(depUuid) {
+						if (!reverseDepMap[depUuid]) reverseDepMap[depUuid] = [];
+						reverseDepMap[depUuid].push(mod.moduuid);
+					});
+				});
+			}
+
+			// Get all dependencies recursively for a mod (with cycle detection)
+			function getAllDeps(uuid, visited) {
+				if (!visited) visited = {};
+				if (visited[uuid]) return [];
+				visited[uuid] = true;
+				var deps = depMap[uuid] || [];
+				var allDeps = [];
+				deps.forEach(function(depUuid) {
+					allDeps.push(depUuid);
+					allDeps = allDeps.concat(getAllDeps(depUuid, visited));
+				});
+				return allDeps;
+			}
+
+			// Handle mod checkbox change
+			function handleModCheck(uuid, isChecked) {
+				if (isChecked) {
+					checkedSet[uuid] = true;
+					// Auto-check all recursive dependencies
+					var deps = getAllDeps(uuid);
+					deps.forEach(function(depUuid) {
+						checkedSet[depUuid] = true;
+					});
+				} else {
+					// Just uncheck this mod - no cascading
+					delete checkedSet[uuid];
+				}
+				rebuildTables();
+			}
+
+			// Build mod info lookup for tooltips
+			var modInfoMap = {};
+			function buildModInfoMap() {
+				modInfoMap = {};
+				allModsData.forEach(function(mod) {
+					modInfoMap[mod.moduuid] = { name: mod.name, url: mod.url };
+				});
+			}
+
+			// Build tooltip HTML showing which checked mods depend on this one
+			function buildDepTooltip(uuid) {
+				var dependents = (reverseDepMap[uuid] || []).filter(function(rid) { return !!checkedSet[rid]; });
+				if (dependents.length === 0) return '';
+				var lines = dependents.map(function(rid) {
+					var info = modInfoMap[rid];
+					if (!info) return '';
+					var name = info.name.length > 40 ? info.name.substring(0, 40) + '...' : info.name;
+					return '<a href="' + info.url + '" target="_blank">' + $('<span>').text(name).html() + '</a>';
+				}).filter(function(l) { return l !== ''; });
+				return '<span class="dep-tooltip">Required by:<br>' + lines.join('<br>') + '</span>';
+			}
+
+			// Rebuild both tables from checkedSet state
+			function rebuildTables() {
+				// Compute which unchecked mods are needed as deps of checked mods
+				var neededDeps = {};
+				Object.keys(checkedSet).forEach(function(uuid) {
+					getAllDeps(uuid).forEach(function(depUuid) {
+						if (!checkedSet[depUuid]) {
+							neededDeps[depUuid] = true;
+						}
+					});
+				});
+
+				// Compute which checked mods serve as deps of other checked mods
+				var isDepOfChecked = {};
+				Object.keys(checkedSet).forEach(function(uuid) {
+					(depMap[uuid] || []).forEach(function(depUuid) {
+						if (checkedSet[depUuid]) {
+							isDepOfChecked[depUuid] = true;
+						}
+					});
+				});
+
+				// Build rows for each table
+				var activeRows = [];
+				var availableRows = [];
+
+				allModsData.forEach(function(mod) {
+					var uuid = mod.moduuid;
+					var modName = mod.name.length > 64 ? mod.name.substring(0, 64) + '...' : mod.name;
+					var escapedName = $('<span>').text(modName).html();
+					var nameHtml = '<a target="_blank" href="' + mod.url + '">' + escapedName + '</a>';
+
+					// Badge logic with hover tooltip
+					if (!checkedSet[uuid] && neededDeps[uuid]) {
+						nameHtml += ' <span class="badge bg-warning text-dark dep-badge">dependency (deselected)' + buildDepTooltip(uuid) + '</span>';
+					} else if (checkedSet[uuid] && isDepOfChecked[uuid]) {
+						nameHtml += ' <span class="badge bg-info dep-badge">dependency' + buildDepTooltip(uuid) + '</span>';
+					}
+
+					var isChecked = !!checkedSet[uuid];
+					var checkbox = '<input type="checkbox" class="form-check-input mod-checkbox" value="' + uuid + '" data-uuid="' + uuid + '"' + (isChecked ? ' checked' : '') + '>';
+
+					var row = [checkbox, nameHtml, $('<span>').text(mod.owner).html(), mod.version_date_created, mod.version];
+
+					if (isChecked || neededDeps[uuid]) {
+						activeRows.push(row);
+					} else {
+						availableRows.push(row);
+					}
+				});
+
+				// Destroy existing DataTables if they exist
+				if (activeTable) {
+					activeTable.destroy();
+					$('#modtable-active').empty();
+				}
+				if (availableTable) {
+					availableTable.destroy();
+					$('#modtable-available').empty();
+				}
+
+				// Shared DataTable config
+				var tableConfig = {
+					scrollY: '400px',
+					scrollCollapse: true,
+					paging: true,
+					lengthMenu: [[20, 50, 75, -1], [20, 50, 75, 'All']],
+					columnDefs: [{ orderable: false, targets: [0] }],
+					columns: [
+						{ title: 'Select', width: '50px', className: 'alt-color' },
+						{ title: 'Name', className: 'alt-color' },
+						{ title: 'Author', className: 'alt-color' },
+						{ title: 'Last Updated', className: 'alt-color' },
+						{ title: 'Version', className: 'alt-color' }
+					],
+					rowCallback: function(row, data, index) {
+						$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
+					}
+				};
+
+				activeTable = $('#modtable-active').DataTable($.extend(true, {}, tableConfig, { data: activeRows }));
+				availableTable = $('#modtable-available').DataTable($.extend(true, {}, tableConfig, { data: availableRows }));
+
+				// Update count badges
+				$('#activeModCount').text(activeRows.length);
+				$('#availableModCount').text(availableRows.length);
+
+				// Update World Information card counts
+				var checkedCount = Object.keys(checkedSet).length;
+				$('#selectedModCount').text(checkedCount);
+				$('#totalModCount').text(checkedCount);
+			}
+
+			// Track unsaved changes
+			function markChanged() {
+				$('#submit_button, #submit_button_bottom').addClass('btn-unsaved-changes');
+			}
+
+			// Get all checked mod UUIDs (state-driven, no DOM dependency)
+			function getSelectedMods() {
+				return Object.keys(checkedSet);
+			}
+
+			// Load mod table and world selection via AJAX
+			$(document).ready(function() {
+				document.body.classList.add("noscroll");
+
+				var modsPromise = $.ajax({
+					url: 'adminAPI.php?action=getAllModsWithDeps',
+					method: 'GET',
+					dataType: 'json'
+				});
+
+				var selectionPromise = $.ajax({
+					url: 'adminAPI.php?action=getWorldModSelection&world=' + encodeURIComponent(worldName),
+					method: 'GET',
+					dataType: 'json'
+				});
+
+				Promise.all([modsPromise, selectionPromise]).then(function(results) {
+					var modsData = results[0];
+					var selData = results[1];
+
+					if (!modsData.success || !selData.success) {
+						alert('Error loading data');
+						return;
+					}
+
+					allModsData = modsData.mods;
+					buildDepMaps(allModsData);
+					buildModInfoMap();
+
+					// Initialize checkedSet from both selected and dep lists
+					checkedSet = {};
+					(selData.selected || []).forEach(function(uuid) { checkedSet[uuid] = true; });
+					(selData.deps || []).forEach(function(uuid) { checkedSet[uuid] = true; });
+
+					// Build and display both tables
+					rebuildTables();
+
+					// Hide spinner
+					document.getElementById("spinner").style.display = "none";
+					document.body.classList.remove("noscroll");
+					document.body.classList.add("scroll");
+
+				}).catch(function(err) {
+					alert('Failed to load data');
+					console.error(err);
+					document.getElementById("spinner").style.display = "none";
+					document.body.classList.remove("noscroll");
+				});
+
+				// Delegated event handler for both tables
+				$(document).on('change', '#modtable-active .mod-checkbox, #modtable-available .mod-checkbox', function() {
+					var uuid = $(this).data('uuid');
+					var isChecked = $(this).prop('checked');
+					handleModCheck(uuid, isChecked);
+					markChanged();
+				});
+			});
+
+			// Submit world save via AJAX
+			function submitSaveWorld() {
+				if (submitting) return;
+
+				submitting = true;
+				document.body.classList.add("noscroll");
+				document.getElementById("spinner").style.display = "flex";
+
+				var selectedMods = getSelectedMods();
+
+				var payload = {
+					world: worldName,
+					mods: selectedMods
+				};
+
+				// Add clone data if present
+				if (pendingCloneData) {
+					payload.cloneSourceWorld = pendingCloneData.selectedWorld;
+					payload.cloneConfigs = pendingCloneData.cloneConfigs;
+					payload.clonePlugins = pendingCloneData.clonePlugins;
+				}
+
+				$.ajax({
+					url: 'adminAPI.php?action=saveWorldMods',
+					method: 'POST',
+					contentType: 'application/json',
+					data: JSON.stringify(payload),
+					dataType: 'json'
+				}).done(function(data) {
+					if (data.success) {
+						window.location.href = 'index.php';
+					} else {
+						alert(data.error || 'Failed to save mods');
+						document.getElementById("spinner").style.display = "none";
+						document.body.classList.remove("noscroll");
+						submitting = false;
+					}
+				}).fail(function() {
+					alert('Server error while saving mods');
+					document.getElementById("spinner").style.display = "none";
+					document.body.classList.remove("noscroll");
+					submitting = false;
+				});
+			}
+
+			// Toggle mod list visibility in clone modal
 			$(document).on('click', '#toggleModList', function() {
 				var $list = $('#cloneSummaryModList');
 				if ($list.is(':visible')) {
@@ -499,7 +549,6 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			// Clone mods from another world
 			$(document).on('click', '#copyButton', function() {
 				var selectedWorld = $('#copyFromWorld').val();
-				var targetWorld = '<?php echo $world; ?>';
 				var cloneConfigs = $('#cloneCustomConfigs').is(':checked');
 				var clonePlugins = $('#cloneCustomPlugins').is(':checked');
 
@@ -508,10 +557,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					return;
 				}
 
-				// Show loading state
 				$('#copyButton').prop('disabled', true).text('Loading...');
 
-				// Fetch mods with names and folder contents
 				var modsPromise = $.ajax({
 					url: 'adminAPI.php?action=getWorldModsWithNames&world=' + encodeURIComponent(selectedWorld),
 					method: 'GET',
@@ -533,30 +580,25 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 						return;
 					}
 
-					// Store data for Save button
 					pendingCloneData = {
 						selectedWorld: selectedWorld,
-						targetWorld: targetWorld,
+						targetWorld: worldName,
 						cloneConfigs: cloneConfigs,
 						clonePlugins: clonePlugins,
 						modUUIDs: modsData.mods.map(function(m) { return m.uuid; })
 					};
 
-					// Update modal content
 					$('#cloneSummarySource').text(selectedWorld);
 					$('#cloneSummaryModCount').text(modsData.count);
 
-					// Build mod list
 					var modListHtml = modsData.mods.map(function(m) {
 						return '<div style="padding: 0.25rem 0; border-bottom: 1px solid var(--border-color);">' + m.name + '</div>';
 					}).join('');
 					$('#cloneSummaryModList').html(modListHtml || '<em>No mods</em>').hide();
 					$('#toggleModList').text('View List');
 
-					// Handle folder sections
 					if (cloneConfigs || clonePlugins) {
 						$('#cloneSummaryFoldersSection').show();
-
 						if (cloneConfigs && foldersData) {
 							$('#cloneSummaryConfigs').show();
 							var configsHtml = foldersData.configs.length > 0 ?
@@ -567,7 +609,6 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 						} else {
 							$('#cloneSummaryConfigs').hide();
 						}
-
 						if (clonePlugins && foldersData) {
 							$('#cloneSummaryPlugins').show();
 							var pluginsHtml = foldersData.plugins.length > 0 ?
@@ -582,7 +623,6 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 						$('#cloneSummaryFoldersSection').hide();
 					}
 
-					// Show modal
 					cloneModalInstance = new bootstrap.Modal(document.getElementById('cloneSummaryModal'));
 					cloneModalInstance.show();
 
@@ -594,47 +634,31 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				});
 			});
 
-			// Handle Save button in modal
+			// Handle clone Save button
 			$(document).on('click', '#cloneSaveButton', function() {
 				if (!pendingCloneData) return;
 
 				var data = pendingCloneData;
 
-				// Store clone source and folder options in hidden fields
-				$('#cloneSourceWorld').val(data.selectedWorld);
-				$('#cloneConfigsFlag').val(data.cloneConfigs ? '1' : '0');
-				$('#clonePluginsFlag').val(data.clonePlugins ? '1' : '0');
-
-				// Update checkboxes based on stored mod UUIDs
-				var table = $('#modtable').DataTable();
-				var modSet = new Set(data.modUUIDs);
-
-				table.rows().every(function() {
-					var row = this.node();
-					var checkbox = $(row).find('input[type="checkbox"]');
-					if (checkbox.length && !checkbox.prop('disabled')) {
-						var uuid = checkbox.val();
-						checkbox.prop('checked', modSet.has(uuid));
-					}
+				// Replace checkedSet with cloned mods
+				checkedSet = {};
+				data.modUUIDs.forEach(function(uuid) {
+					checkedSet[uuid] = true;
 				});
 
-				// Close modal
+				rebuildTables();
+
 				if (cloneModalInstance) {
 					cloneModalInstance.hide();
 				}
-				pendingCloneData = null;
 
-				// Trigger the form submission by clicking the submit button
-				// Use setTimeout to allow modal to fully close first
+				markChanged();
+
+				// Auto-submit after clone
 				setTimeout(function() {
-					var submitBtn = document.getElementById('submit_button');
-					if (submitBtn) {
-						submitBtn.click();
-					} else {
-						console.error('Submit button not found');
-					}
+					submitSaveWorld();
 				}, 100);
 			});
-	</script>
+		</script>
 	</body>
 </html>
