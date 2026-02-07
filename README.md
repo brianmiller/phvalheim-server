@@ -123,23 +123,17 @@ Access to each world is controlled by the PhValheim database. We associate the S
 <br>
 ![image](https://github.com/user-attachments/assets/65207d7a-7ac8-4cdb-91a8-b3eaae8be13c)
 
-### New World Creation
-![image](https://github.com/brianmiller/phvalheim-server/assets/342276/aa37b92e-e822-4d97-963f-d558dceffb9d)
-
-### World Editor
-![image](https://github.com/brianmiller/phvalheim-server/assets/342276/b2f36cd0-1098-4997-90d8-a273c9fc6003)
-
 ### Mods Viewer
-![image](https://github.com/brianmiller/phvalheim-server/assets/342276/41510b55-891f-4e23-b16e-03adb8f9bbab)
+<img width="2641" height="1085" alt="image" src="https://github.com/user-attachments/assets/3bc9dfbc-83a8-4cb9-a766-a3a7f2bb29e8" />
 
 ### Citizens Editor
-![admin_citizenseditor_screenshot](https://user-images.githubusercontent.com/342276/197673205-290730dd-c92a-4769-aedf-916283d3b906.png)
+<img width="652" height="557" alt="image" src="https://github.com/user-attachments/assets/7a72a465-7049-4482-a2d9-9e1faa1f8067" />
 
 ### Engine Logs
-![admin_enginelogs_screenshot](https://user-images.githubusercontent.com/342276/197674357-40c91ec3-cb06-4a94-ab15-342f6b9ca37c.png)
+<img width="922" height="731" alt="image" src="https://github.com/user-attachments/assets/a91d718b-7163-4a35-b3eb-a6a838fdf7a1" />
 
 ### World Log
-![admin_worldlogs_screenshot](https://user-images.githubusercontent.com/342276/197674387-8e0877c1-d15f-4604-919a-4d970965f1f3.png)
+<img width="1584" height="714" alt="image" src="https://github.com/user-attachments/assets/160b807e-8971-4f79-94d1-9f89170cf697" />
 
 ### File Manager
 ![admin_filemanager_screenshot](https://user-images.githubusercontent.com/342276/197674464-445eaa0b-1f29-40c8-b7f3-e75f990aa8ec.png)
