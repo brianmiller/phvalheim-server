@@ -91,6 +91,7 @@ $totalCount = count($worlds);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PhValheim Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
     <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
     <script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
@@ -102,7 +103,7 @@ $totalCount = count($worlds);
         <!-- Sidebar -->
         <aside class="admin-sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="sidebar-logo">PV</div>
+                <div class="sidebar-logo"><img src="/images/phvalheim_favicon.svg" alt="PhValheim" style="width:100%;height:100%;"></div>
                 <span class="sidebar-title">PhValheim</span>
             </div>
 

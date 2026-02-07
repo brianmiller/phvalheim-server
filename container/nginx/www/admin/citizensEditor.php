@@ -124,6 +124,7 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Citizens Editor - PhValheim Admin</title>
+        <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
         <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
         <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
         <script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>

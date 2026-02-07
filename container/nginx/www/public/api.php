@@ -4,6 +4,7 @@ include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_gets.php';
 include '../includes/db_sets.php';
+include '/opt/stateless/nginx/www/includes/session_auth.php';
 
 
 $mode = NULL;
@@ -63,7 +64,11 @@ if ($mode == "getMyWorldsStatus") {
     header('Content-Type: application/json');
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
-    $steamID = isset($_GET['steamID']) ? $_GET['steamID'] : null;
+    // Prefer session, fall back to GET param for backward compatibility
+    $steamID = getSessionSteamID();
+    if (empty($steamID) && isset($_GET['steamID'])) {
+        $steamID = $_GET['steamID'];
+    }
 
     if (empty($steamID)) {
         echo json_encode(['success' => false, 'error' => 'Missing steamID']);

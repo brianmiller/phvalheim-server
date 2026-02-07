@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#001a40;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#000510;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="hexGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0099ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0066ff;stop-opacity:1" />
+    </linearGradient>
+    
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
+      <stop offset="30%" style="stop-color:#00ffff;stop-opacity:0.6" />
+      <stop offset="70%" style="stop-color:#0080ff;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#000033;stop-opacity:0" />
+    </radialGradient>
+    
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00ffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00aaff;stop-opacity:1" />
+    </linearGradient>
+    
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <filter id="strongGlow">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background with gradient -->
+  <rect width="512" height="512" fill="url(#bgGradient)" rx="64"/>
+  
+  <!-- Subtle circuit pattern background -->
+  <g opacity="0.08" stroke="#00ffff" stroke-width="2" fill="none">
+    <path d="M50,100 L150,100 L150,200 M250,100 L350,100 M350,50 L350,150" />
+    <path d="M400,150 L500,150 L500,250 M50,250 L150,250 M200,250 L300,250" />
+    <path d="M50,350 L150,350 L150,450 M250,350 L350,350 M400,350 L500,350" />
+    <circle cx="150" cy="100" r="5" fill="#00ffff"/>
+    <circle cx="350" cy="100" r="5" fill="#00ffff"/>
+    <circle cx="500" cy="150" r="5" fill="#00ffff"/>
+    <circle cx="150" cy="250" r="5" fill="#00ffff"/>
+    <circle cx="150" cy="350" r="5" fill="#00ffff"/>
+  </g>
+  
+  <!-- Central glow effect -->
+  <circle cx="256" cy="220" r="140" fill="url(#centerGlow)" opacity="0.4"/>
+  
+  <!-- Main hexagonal container -->
+  <g filter="url(#strongGlow)">
+    <!-- Outer hexagon -->
+    <path d="M256,70 L370,135 L370,265 L256,330 L142,265 L142,135 Z" 
+          fill="rgba(0,80,160,0.3)" 
+          stroke="url(#hexGlow)" 
+          stroke-width="6"/>
+    
+    <!-- Middle hexagon layer -->
+    <path d="M256,95 L350,150 L350,250 L256,305 L162,250 L162,150 Z" 
+          fill="rgba(0,100,200,0.2)" 
+          stroke="#00ccff" 
+          stroke-width="4"
+          opacity="0.8"/>
+    
+    <!-- Inner hexagon layer -->
+    <path d="M256,120 L330,165 L330,235 L256,280 L182,235 L182,165 Z" 
+          fill="rgba(0,120,240,0.15)" 
+          stroke="#00ffff" 
+          stroke-width="3"
+          opacity="0.7"/>
+  </g>
+  
+  <!-- Docker container layers inside hexagon -->
+  <g filter="url(#glow)">
+    <rect x="196" y="180" width="120" height="12" rx="3" fill="#00ffff" opacity="0.9"/>
+    <rect x="196" y="200" width="120" height="12" rx="3" fill="#00ccff" opacity="0.9"/>
+    <rect x="196" y="220" width="120" height="12" rx="3" fill="#0099ff" opacity="0.9"/>
+  </g>
+  
+  <!-- Database/Server icon representation -->
+  <g filter="url(#glow)">
+    <rect x="216" y="245" width="80" height="45" rx="4" fill="none" stroke="#00ffff" stroke-width="3"/>
+    <line x1="216" y1="260" x2="296" y2="260" stroke="#00ffff" stroke-width="2"/>
+    <line x1="216" y1="275" x2="296" y2="275" stroke="#00ffff" stroke-width="2"/>
+    
+    <!-- Connection nodes -->
+    <circle cx="226" cy="253" r="3" fill="#00ffff"/>
+    <circle cx="256" cy="253" r="3" fill="#00ffff"/>
+    <circle cx="286" cy="253" r="3" fill="#00ffff"/>
+  </g>
+  
+  <!-- Circuit connection points at hexagon vertices -->
+  <g filter="url(#glow)">
+    <circle cx="256" cy="70" r="8" fill="#00ffff">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="370" cy="135" r="8" fill="#ff00ff">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2.2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="370" cy="265" r="8" fill="#00ff80">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2.4s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="256" cy="330" r="8" fill="#ff8000">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2.6s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="142" cy="265" r="8" fill="#ff0080">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="2.8s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="142" cy="135" r="8" fill="#ffff00">
+      <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <!-- Circuit lines extending from hexagon -->
+  <g stroke="url(#hexGlow)" stroke-width="3" fill="none" opacity="0.6">
+    <path d="M256,70 L256,20">
+      <animate attributeName="stroke-opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M370,135 L430,95">
+      <animate attributeName="stroke-opacity" values="0.3;0.8;0.3" dur="2.2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M370,265 L430,305">
+      <animate attributeName="stroke-opacity" values="0.3;0.8;0.3" dur="2.4s" repeatCount="indefinite"/>
+    </path>
+    <path d="M256,330 L256,380">
+      <animate attributeName="stroke-opacity" values="0.3;0.8;0.3" dur="2.6s" repeatCount="indefinite"/>
+    </path>
+    <path d="M142,265 L82,305">
+      <animate attributeName="stroke-opacity" values="0.3;0.8;0.3" dur="2.8s" repeatCount="indefinite"/>
+    </path>
+    <path d="M142,135 L82,95">
+      <animate attributeName="stroke-opacity" values="0.3;0.8;0.3" dur="3s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  
+  <!-- Corner tech brackets -->
+  <g stroke="#00ffff" stroke-width="4" fill="none" opacity="0.4">
+    <!-- Top left -->
+    <path d="M40,80 L40,40 L80,40"/>
+    <!-- Top right -->
+    <path d="M432,40 L472,40 L472,80"/>
+    <!-- Bottom left -->
+    <path d="M80,472 L40,472 L40,432"/>
+    <!-- Bottom right -->
+    <path d="M472,432 L472,472 L432,472"/>
+  </g>
+  
+  <!-- Text: PhValheim -->
+  <g filter="url(#glow)" font-family="'Arial Black', 'Arial Bold', 'Helvetica Bold', sans-serif" font-weight="900">
+    <text x="256" y="420" font-size="56" fill="url(#textGradient)" text-anchor="middle" letter-spacing="2">
+      PhValheim
+    </text>
+  </g>
+  
+  <!-- Subtitle -->
+  <g font-family="'Arial', 'Helvetica', sans-serif" font-weight="bold">
+    <text x="256" y="455" font-size="14" fill="#00ffff" text-anchor="middle" opacity="0.7" letter-spacing="1">
+      OVER-ENGINEERED WORLD MANAGEMENT
+    </text>
+    <text x="256" y="478" font-size="14" fill="#00ff80" text-anchor="middle" opacity="0.6" letter-spacing="2">
+      POSIXONE
+    </text>
+  </g>
+  
+  <!-- Orbiting data particles -->
+  <g filter="url(#glow)">
+    <circle cx="256" cy="200" r="4" fill="#ff00ff">
+      <animateTransform attributeName="transform" type="rotate" from="0 256 200" to="360 256 200" dur="4s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0,0; 80,0; 0,0" dur="4s" additive="sum" repeatCount="indefinite"/>
+    </circle>
+    
+    <circle cx="256" cy="200" r="4" fill="#00ffff">
+      <animateTransform attributeName="transform" type="rotate" from="120 256 200" to="480 256 200" dur="4s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0,0; 80,0; 0,0" dur="4s" additive="sum" repeatCount="indefinite"/>
+    </circle>
+    
+    <circle cx="256" cy="200" r="4" fill="#ffff00">
+      <animateTransform attributeName="transform" type="rotate" from="240 256 200" to="600 256 200" dur="4s" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0,0; 80,0; 0,0" dur="4s" additive="sum" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <!-- Scanning line effect -->
+  <line x1="0" y1="256" x2="512" y2="256" stroke="#00ffff" stroke-width="2" opacity="0">
+    <animate attributeName="y1" values="0;512;0" dur="8s" repeatCount="indefinite"/>
+    <animate attributeName="y2" values="0;512;0" dur="8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.3;0" dur="8s" repeatCount="indefinite"/>
+  </line>
+</svg>

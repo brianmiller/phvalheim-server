@@ -7,6 +7,13 @@
 
 	include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 	include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
+	include '/opt/stateless/nginx/www/includes/session_auth.php';
+
+	// If user already has a valid session, skip login
+	if (isSessionValid()) {
+		header('Location: authenticated.php');
+		exit;
+	}
 
 	# are we using TLS?
 	if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
@@ -30,6 +37,7 @@
 <head>
   <meta charset="UTF-8">
   <title>PhValheim Login</title>
+  <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
   <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.min.css">-->
   <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css?refreshcss=<?php echo rand(100, 1000)?>'>
   <link rel="stylesheet" href="/css/login.css?refreshcss=<?php echo rand(100, 1000)?>">

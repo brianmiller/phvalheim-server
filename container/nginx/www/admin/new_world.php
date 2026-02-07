@@ -15,6 +15,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>New World - PhValheim Admin</title>
+		<link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
 		<link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
 		<link rel="stylesheet" type="text/css" href="/css/jquery.dataTables.css">
 		<link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">

@@ -79,6 +79,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<title>Log Viewer - <?php echo htmlspecialchars($logFile); ?></title>
+		<link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
 		<link rel="stylesheet" type="text/css" href="/css/readLog.css?v=<?php echo time()?>">
 		<link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
 

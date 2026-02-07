@@ -12,7 +12,7 @@ Need help?<br>
 [![join-discord](https://img.shields.io/badge/Join%20Our-Discord-5865f2)](https://discord.gg/8RMMrJVQgy)
 <hr>
 
-<img src="https://github.com/brianmiller/docker-templates/raw/master/phvalheim-server/phvalheim-server.png" align="right" width="200">
+<img src="container/nginx/www/images/phvalheim_tech_visual.svg" align="right" width="200">
 
 
 ##### Navigation
@@ -141,6 +141,8 @@ Access to each world is controlled by the PhValheim database. We associate the S
 
 # Deployment
 ### Unraid (search for PhValheim in the community app store)
+<img src="container/nginx/www/images/phvalheim_unraid_icon.svg" alt="PhValheim Unraid Icon" width="64" style="vertical-align:middle;"> Available in the Unraid Community Apps store.
+
 ![unraid_deploy](https://user-images.githubusercontent.com/342276/197680052-109f4145-192e-4e97-a3fb-6aa950c9a128.png)
 
 ### Docker Command Line

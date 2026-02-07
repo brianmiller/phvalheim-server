@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.27
+ENV phvalheimVersion=2.28
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -51,6 +51,7 @@ RUN mkdir -p /opt/stateless/supervisor.d
 RUN mkdir -p /opt/stateless/nginx/www
 RUN mkdir -p /opt/stateless/engine
 RUN mkdir -p /tmp/dumps
+RUN mkdir -p /var/lib/php/sessions && chown phvalheim:phvalheim /var/lib/php/sessions && chmod 700 /var/lib/php/sessions
 RUN touch /var/log/cron.log
 COPY container/supervisor.d/ /opt/stateless/supervisor.d/
 COPY container/supervisor/supervisord.conf /etc/supervisor/supervisord.conf

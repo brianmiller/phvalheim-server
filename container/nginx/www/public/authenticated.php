@@ -13,16 +13,7 @@ include '../includes/db_sets.php';
 include '../includes/userAgent.php';
 include '../includes/clientDownloadButton.php';
 include '../includes/modViewerGenerator.php';
-
-# simple security: if this page is accessed from a source other than steam, redirect back to login page
-# NOTE: this security check only works when HTTPS is used!
-if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
-	if ($_SERVER['HTTP_REFERER'] != "https://steamcommunity.com/")
-	{
-		header('Location: ../index.php');
-	}
-}
-
+include '/opt/stateless/nginx/www/includes/session_auth.php';
 
 if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 	$httpScheme = "https";
@@ -30,11 +21,25 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 	$httpScheme = "http";
 }
 
-// Extract steamID at global scope for AJAX polling
+// Session-based authentication
 $steamID = null;
+
 if (isset($_GET['openid_claimed_id'])) {
+	// Fresh Steam login callback - extract steamID and store in session
 	$steamIDArr = explode('/', $_GET['openid_claimed_id']);
 	$steamID = end($steamIDArr);
+	storeSessionSteamID($steamID);
+
+	// Redirect to clean URL (removes openid params from address bar)
+	header('Location: ' . $httpScheme . '://' . $_SERVER['HTTP_HOST'] . '/authenticated.php');
+	exit;
+} elseif (isSessionValid()) {
+	// Existing valid session
+	$steamID = getSessionSteamID();
+} else {
+	// No valid auth - redirect to login
+	header('Location: ../index.php');
+	exit;
 }
 
 // Helper function to check if world process is running for real-time detection
@@ -49,19 +54,16 @@ function isWorldRunning($worldName) {
 function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
 		# steam
-	        if( isset( $_GET[ 'openid_claimed_id' ] ) )
-	        {
-	                $steamIDArr = explode('/', $_GET[ 'openid_claimed_id' ]);
-	                $steamID = end($steamIDArr);
+		$steamID = getSessionSteamID();
+		if ($steamID) {
 			$steamJSON = file_get_contents("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=$steamAPIKey&steamids=$steamID");
-	                $steamJSONObj = json_decode($steamJSON);
-	                $steamJSONObj = $steamJSONObj->response->players;
-	                $steamJSONObj = $steamJSONObj[0];
+			$steamJSONObj = json_decode($steamJSON);
+			$steamJSONObj = $steamJSONObj->response->players;
+			$steamJSONObj = $steamJSONObj[0];
 
-	                $steamNickName = $steamJSONObj->personaname;
-	                $steamFullName = $steamJSONObj->realname;
-	                $steamAvatarURL = $steamJSONObj->avatarmedium;
-
+			$steamNickName = $steamJSONObj->personaname;
+			$steamFullName = $steamJSONObj->realname;
+			$steamAvatarURL = $steamJSONObj->avatarmedium;
 
 			# if steam profile is set to private, the fullname isn't visible, use the nickname instead
 			if(!empty($steamFullName)) {
@@ -70,8 +72,9 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				$playerName = $steamNickName;
 			}
 
-	        } else {
-		        header('Location: ../index.php');
+		} else {
+			header('Location: ../index.php');
+			exit;
 		}
 
 
@@ -82,8 +85,9 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
 		echo "
                                 </th>
+                                <th style='text-align:right;padding-right:10px;'><a href='logout.php' class='btn btn-sm btn-outline-light'>Sign Out</a></th>
                                 <tr>
-                                <th colspan=2 class='name_header'>Welcome, $playerName!</th>
+                                <th colspan=3 class='name_header'>Welcome, $playerName!</th>
 
 
                                 <tr>
@@ -321,6 +325,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
         <head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+		<link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
 
 		<link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css">
 		<link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css?v=<?php echo time(); ?>">
@@ -362,7 +367,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
                 async function fetchWorldStatus() {
                     try {
-                        const response = await fetch(`api.php?mode=getMyWorldsStatus&steamID=${STEAM_ID}`);
+                        const response = await fetch(`api.php?mode=getMyWorldsStatus`);
                         const data = await response.json();
 
                         if (data.success && data.worlds) {
