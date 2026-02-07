@@ -1690,5 +1690,11 @@ $totalCount = count($worlds);
     // Poll world stats every 3 seconds
     setInterval(fetchWorldStats, 3000);
     </script>
+
+<span id="piEgg" style="position:fixed;bottom:4px;right:6px;font-size:9px;color:rgba(255,255,255,0.08);cursor:default;z-index:9999;user-select:none;line-height:1;">&pi;</span>
+<div id="piModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;cursor:pointer;" onclick="this.style.display='none';">
+    <img src="/images/lordnikon.png" style="max-width:90%;max-height:90%;border-radius:6px;box-shadow:0 0 30px rgba(0,0,0,0.8);">
+</div>
+<script>document.getElementById('piEgg').addEventListener('click',function(){document.getElementById('piModal').style.display='flex';});</script>
 </body>
 </html>

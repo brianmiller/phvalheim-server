@@ -94,15 +94,117 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				font-weight: 500;
 			}
 			#modProcessingOverlay .processing-spinner {
-				width: 18px;
+				display: flex;
+				gap: 3px;
+				align-items: center;
 				height: 18px;
-				border: 2px solid var(--border-color);
-				border-top-color: var(--accent-primary);
-				border-radius: 50%;
-				animation: proc-spin 0.6s linear infinite;
 			}
-			@keyframes proc-spin {
-				to { transform: rotate(360deg); }
+			#modProcessingOverlay .processing-spinner span {
+				width: 5px;
+				height: 5px;
+				border-radius: 50%;
+				background: var(--accent-primary);
+				animation: squiggle-wave 1.4s ease-in-out infinite;
+			}
+			#modProcessingOverlay .processing-spinner span:nth-child(2) { animation-delay: 0.12s; }
+			#modProcessingOverlay .processing-spinner span:nth-child(3) { animation-delay: 0.24s; }
+			#modProcessingOverlay .processing-spinner span:nth-child(4) { animation-delay: 0.36s; }
+			#modProcessingOverlay .processing-spinner span:nth-child(5) { animation-delay: 0.48s; }
+			@keyframes squiggle-wave {
+				0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; }
+				50% { transform: translateY(-8px) scale(1.3); opacity: 1; }
+			}
+			/* Dependency removal modal tree */
+			.dep-removal-item {
+				padding: 0.375rem 0;
+				border-bottom: 1px solid var(--border-light);
+			}
+			.dep-removal-item:last-child {
+				border-bottom: none;
+			}
+			.dep-removal-row {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+			}
+			.dep-removal-row label {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				cursor: pointer;
+				color: var(--text-primary);
+				margin: 0;
+			}
+			.dep-removal-row label a {
+				color: var(--accent-secondary);
+				text-decoration: none;
+			}
+			.dep-removal-row label a:hover {
+				color: var(--success);
+				text-decoration: underline;
+			}
+			.dep-removal-children {
+				padding-left: 1.5rem;
+				border-left: 1px dashed var(--border-color);
+				margin-left: 0.5rem;
+				margin-top: 0.25rem;
+			}
+			.dep-removal-children.collapsed {
+				display: none;
+			}
+			.tooltip {
+				z-index: 2200 !important;
+			}
+			.tooltip .tooltip-inner {
+				max-width: 450px;
+				max-height: 150px;
+				overflow-y: auto;
+				background: var(--bg-secondary);
+				border: 1px solid var(--border-color);
+				color: var(--text-primary);
+				text-align: left;
+				padding: 0.75rem 1rem;
+				font-size: 0.85rem;
+				line-height: 1.6;
+				box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+				border-radius: 4px;
+				scrollbar-width: thin;
+				scrollbar-color: var(--border-color) transparent;
+			}
+			.tooltip .tooltip-inner::-webkit-scrollbar {
+				width: 6px;
+			}
+			.tooltip .tooltip-inner::-webkit-scrollbar-track {
+				background: transparent;
+				border-radius: 3px;
+			}
+			.tooltip .tooltip-inner::-webkit-scrollbar-thumb {
+				background-color: var(--border-color);
+				border-radius: 3px;
+			}
+			.tooltip .tooltip-inner::-webkit-scrollbar-thumb:hover {
+				background-color: var(--text-muted);
+			}
+			.tooltip .tooltip-arrow::before {
+				border-right-color: var(--border-color) !important;
+			}
+			#depRemovalTree {
+				scrollbar-width: thin;
+				scrollbar-color: var(--border-color) transparent;
+			}
+			#depRemovalTree::-webkit-scrollbar {
+				width: 6px;
+			}
+			#depRemovalTree::-webkit-scrollbar-track {
+				background: transparent;
+				border-radius: 3px;
+			}
+			#depRemovalTree::-webkit-scrollbar-thumb {
+				background-color: var(--border-color);
+				border-radius: 3px;
+			}
+			#depRemovalTree::-webkit-scrollbar-thumb:hover {
+				background-color: var(--text-muted);
 			}
 		</style>
 		<script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
@@ -111,7 +213,17 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 	</head>
 
 	<body>
-		<div id="spinner" class="loading style-2"><div class="loading-wheel"></div></div>
+		<div id="spinner" class="loading style-2">
+			<div class="loading-dots"><span></span><span></span><span></span><span></span><span></span></div>
+			<div class="loading-eye"></div>
+		</div>
+		<script>
+			var sauronTimer = setTimeout(function() {
+				var dots = document.querySelector('#spinner .loading-dots');
+				var eye = document.querySelector('#spinner .loading-eye');
+				if (dots && eye) { dots.style.display = 'none'; eye.style.display = 'block'; }
+			}, 4000);
+		</script>
 
 		<div class="container-fluid px-3 px-lg-4">
 			<!-- Page Header -->
@@ -143,7 +255,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 
 			<!-- Mod Selection Card -->
 			<div class="card-panel mb-4" style="position: relative;">
-				<div id="modProcessingOverlay"><div class="processing-content"><div class="processing-spinner"></div>Processing...</div></div>
+				<div id="modProcessingOverlay"><div class="processing-content"><div class="processing-spinner"><span></span><span></span><span></span><span></span><span></span></div>Processing...</div></div>
 				<div class="card-panel-header">Select Mods (Optional)</div>
 				<?php if (!empty($allWorlds)): ?>
 				<div class="mb-4 p-3" style="background-color: var(--bg-tertiary); border-radius: 4px;">
@@ -243,6 +355,25 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					</div>
 				</div>
 			</div>
+			<!-- Dependency Removal Modal -->
+			<div class="modal fade" id="depRemovalModal" tabindex="-1" aria-hidden="true" style="z-index: 2100;">
+				<div class="modal-dialog modal-xl">
+					<div class="modal-content" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+						<div class="modal-header" style="border-bottom-color: var(--border-color);">
+							<h5 class="modal-title" style="color: var(--text-primary);">Remove Mod &amp; Dependencies</h5>
+							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: brightness(1.5);"></button>
+						</div>
+						<div class="modal-body" style="color: var(--text-primary);">
+							<p style="margin-bottom: 1rem;">You are removing <strong><span id="depRemovalModName" style="color: var(--accent-primary);"></span></strong>.</p>
+							<div id="depRemovalTree" style="max-height: 250px; overflow-y: auto; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-radius: 4px;"></div>
+						</div>
+						<div class="modal-footer" style="border-top-color: var(--border-color);">
+							<button type="button" class="btn btn-secondary" id="depRemovalCancel" style="background-color: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color);">Cancel</button>
+							<button type="button" class="btn btn-danger" id="depRemovalConfirm" style="background-color: var(--danger-dark); border-color: var(--danger); color: white;">Remove Selected</button>
+						</div>
+					</div>
+				</div>
+			</div>
 			<style>
 				.modal-backdrop { z-index: 2099 !important; }
 			</style>
@@ -258,7 +389,24 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			var availableTable = null; // DataTable for available mods (bottom)
 			var pendingCloneData = null;
 			var cloneModalInstance = null;
+			var depRemovalModalInstance = null;
+			var depRemovalTargetUuid = null;
 			var submitting = false;
+
+			// Cookie helpers for persisting settings
+			function setCookie(name, value, days) {
+				var expires = '';
+				if (days) {
+					var d = new Date();
+					d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+					expires = '; expires=' + d.toUTCString();
+				}
+				document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
+			}
+			function getCookie(name) {
+				var match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+				return match ? decodeURIComponent(match[2]) : null;
+			}
 
 			// Restrict special chars in input fields
 			$('#world').on('input', function() {
@@ -296,8 +444,16 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				});
 			}
 
-			// Get all dependencies recursively for a mod (with cycle detection)
+			// HTML-escape without jQuery DOM creation
+			function escapeHtml(str) {
+				return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+			}
+
+			// Get all dependencies recursively for a mod (cached, with cycle detection)
+			var allDepsCache = {};
 			function getAllDeps(uuid, visited) {
+				var isTopLevel = !visited;
+				if (isTopLevel && allDepsCache.hasOwnProperty(uuid)) return allDepsCache[uuid];
 				if (!visited) visited = {};
 				if (visited[uuid]) return [];
 				visited[uuid] = true;
@@ -307,7 +463,199 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					allDeps.push(depUuid);
 					allDeps = allDeps.concat(getAllDeps(depUuid, visited));
 				});
+				if (isTopLevel) allDepsCache[uuid] = allDeps;
 				return allDeps;
+			}
+
+			// Get checked mods that directly depend on this uuid
+			function getCheckedReverseDeps(uuid) {
+				return (reverseDepMap[uuid] || []).filter(function(rid) {
+					return !!checkedSet[rid];
+				});
+			}
+
+			// Get checked forward deps that no other checked mod (besides uuid) needs
+			// Never remove BepInEx mod loader in removal operations
+			function isBepInEx(uuid) {
+				var info = modInfoMap[uuid];
+				return info && /^BepInExPack/i.test(info.name);
+			}
+
+			function getOrphanedForwardDeps(uuid) {
+				var deps = getAllDeps(uuid);
+				return deps.filter(function(depUuid) {
+					if (isBepInEx(depUuid)) return false;
+					if (!checkedSet[depUuid]) return false;
+					var otherDependents = (reverseDepMap[depUuid] || []).filter(function(rid) {
+						return rid !== uuid && !!checkedSet[rid];
+					});
+					return otherDependents.length === 0;
+				});
+			}
+
+			// Build HTML tree of checked dependents for the removal modal
+			function buildDepRemovalTree(uuid, visited) {
+				if (!visited) visited = {};
+				var directDeps = getCheckedReverseDeps(uuid);
+				if (directDeps.length === 0) return '';
+
+				var html = '';
+				directDeps.forEach(function(depUuid) {
+					if (visited[depUuid] || isBepInEx(depUuid)) return;
+					visited[depUuid] = true;
+
+					var info = modInfoMap[depUuid] || { name: depUuid, url: '#' };
+					var escapedName = $('<span>').text(info.name).html();
+					// Reverse deps (mods that depend on this one)
+					var reverseChildHtml = buildDepRemovalTree(depUuid, visited);
+					// Forward deps (this mod's own dependencies)
+					var forwardChildUuids = (depMap[depUuid] || []).filter(function(dUuid) {
+						return !!checkedSet[dUuid] && !visited[dUuid] && !isBepInEx(dUuid);
+					});
+					var forwardChildHtml = forwardChildUuids.length > 0 ? buildForwardDepTree(forwardChildUuids, visited) : '';
+					var childHtml = reverseChildHtml + forwardChildHtml;
+
+					// Build dependency count badge with hover tooltip
+					var modDeps = (depMap[depUuid] || []).map(function(dUuid) {
+						var dInfo = modInfoMap[dUuid];
+						return dInfo ? dInfo.name : null;
+					}).filter(Boolean);
+					var depBadgeHtml = '';
+					if (modDeps.length > 0) {
+						var tooltipLines = modDeps.map(function(n) { return $('<span>').text(n).html(); });
+						var tooltipHtml = tooltipLines.join('<br>');
+						depBadgeHtml = ' <span class="badge bg-secondary" style="font-size: 0.7rem; cursor: help; vertical-align: middle;" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" data-bs-title="' + tooltipHtml.replace(/"/g, '&quot;') + '">' + modDeps.length + '</span>';
+					}
+
+					html += '<div class="dep-removal-item">';
+					html += '<div class="dep-removal-row">';
+					html += '<label>';
+					html += '<input type="checkbox" class="form-check-input dep-removal-check" data-uuid="' + depUuid + '" checked>';
+					html += ' <a href="' + info.url + '" target="_blank">' + escapedName + '</a>';
+					html += '</label>';
+					html += depBadgeHtml;
+					html += '</div>';
+					if (childHtml) {
+						html += '<div class="dep-removal-children">' + childHtml + '</div>';
+					}
+					html += '</div>';
+				});
+
+				return html;
+			}
+
+			// Build recursive tree of forward dependencies for the removal modal
+			function buildForwardDepTree(uuids, visited) {
+				if (!visited) visited = {};
+				var html = '';
+				uuids.forEach(function(depUuid) {
+					if (visited[depUuid] || isBepInEx(depUuid)) return;
+					visited[depUuid] = true;
+
+					var depInfo = modInfoMap[depUuid] || { name: depUuid, url: '#' };
+
+					// Recurse into this mod's checked forward deps
+					var childUuids = (depMap[depUuid] || []).filter(function(dUuid) {
+						return !!checkedSet[dUuid] && !visited[dUuid] && !isBepInEx(dUuid);
+					});
+					var childHtml = childUuids.length > 0 ? buildForwardDepTree(childUuids, visited) : '';
+
+					// Dep count badge with tooltip
+					var modDeps = (depMap[depUuid] || []).map(function(dUuid) {
+						var dInfo = modInfoMap[dUuid];
+						return dInfo ? dInfo.name : null;
+					}).filter(Boolean);
+					var depBadgeHtml = '';
+					if (modDeps.length > 0) {
+						var tooltipLines = modDeps.map(function(n) { return $('<span>').text(n).html(); });
+						var tooltipHtml = tooltipLines.join('<br>');
+						depBadgeHtml = ' <span class="badge bg-secondary" style="font-size: 0.7rem; cursor: help; vertical-align: middle;" data-bs-toggle="tooltip" data-bs-placement="right" data-bs-html="true" data-bs-title="' + tooltipHtml.replace(/"/g, '&quot;') + '">' + modDeps.length + '</span>';
+					}
+
+					html += '<div class="dep-removal-item">';
+					html += '<div class="dep-removal-row">';
+					html += '<label>';
+					html += '<input type="checkbox" class="form-check-input dep-removal-check" data-uuid="' + depUuid + '" checked>';
+					html += ' <a href="' + depInfo.url + '" target="_blank">' + escapeHtml(depInfo.name) + '</a>';
+					html += '</label>';
+					html += depBadgeHtml;
+					html += '</div>';
+					if (childHtml) {
+						html += '<div class="dep-removal-children">' + childHtml + '</div>';
+					}
+					html += '</div>';
+				});
+				return html;
+			}
+
+			// Show the dependency removal modal
+			function showDepRemovalModal(uuid) {
+				depRemovalTargetUuid = uuid;
+
+				var info = modInfoMap[uuid] || { name: uuid, url: '#' };
+				$('#depRemovalModName').text(info.name);
+
+				var reverseDeps = getCheckedReverseDeps(uuid);
+				var orphanedDeps = getOrphanedForwardDeps(uuid);
+
+				var html = '';
+
+				// Section 1: mods that depend on this one
+				if (reverseDeps.length > 0) {
+					html += '<p style="margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">These selected mods depend on it:</p>';
+					var visited = {};
+					visited[uuid] = true;
+					html += buildDepRemovalTree(uuid, visited);
+				}
+
+				// Section 2: orphaned forward deps as a tree
+				if (orphanedDeps.length > 0) {
+					if (reverseDeps.length > 0) {
+						html += '<hr style="border-color: var(--border-color); margin: 0.75rem 0;">';
+					}
+					html += '<p style="margin-bottom: 0.5rem; font-weight: 600; color: var(--text-primary);">These dependencies are no longer needed:</p>';
+					var fwdVisited = {};
+					fwdVisited[uuid] = true;
+					html += buildForwardDepTree(orphanedDeps, fwdVisited);
+				}
+
+				$('#depRemovalTree').html(html);
+
+				// Initialize hoverable Bootstrap tooltips on dep count badges
+				$('#depRemovalTree [data-bs-toggle="tooltip"]').each(function() {
+					var el = this;
+					new bootstrap.Tooltip(el, { container: 'body', trigger: 'manual', html: true });
+					$(el).on('mouseenter', function() {
+						clearTimeout(el._tipTimeout);
+						bootstrap.Tooltip.getInstance(el).show();
+					}).on('mouseleave', function() {
+						el._tipTimeout = setTimeout(function() {
+							var tip = bootstrap.Tooltip.getInstance(el);
+							if (tip) tip.hide();
+						}, 250);
+					});
+				});
+				// Keep tooltip open when cursor moves into it
+				$(document).off('mouseenter.depTip mouseleave.depTip', '.tooltip');
+				$(document).on('mouseenter.depTip', '.tooltip', function() {
+					var id = $(this).attr('id');
+					var trigger = document.querySelector('[aria-describedby="' + id + '"]');
+					if (trigger) clearTimeout(trigger._tipTimeout);
+				}).on('mouseleave.depTip', '.tooltip', function() {
+					var id = $(this).attr('id');
+					var trigger = document.querySelector('[aria-describedby="' + id + '"]');
+					if (trigger) {
+						trigger._tipTimeout = setTimeout(function() {
+							var tip = bootstrap.Tooltip.getInstance(trigger);
+							if (tip) tip.hide();
+						}, 250);
+					}
+				});
+
+				if (!depRemovalModalInstance) {
+					depRemovalModalInstance = new bootstrap.Modal(document.getElementById('depRemovalModal'));
+				}
+				depRemovalModalInstance.show();
 			}
 
 			// Handle mod checkbox change
@@ -319,16 +667,28 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					deps.forEach(function(depUuid) {
 						checkedSet[depUuid] = true;
 					});
+					$('#modProcessingOverlay').css('display', 'flex');
+					setTimeout(function() {
+						rebuildTables();
+						$('#modProcessingOverlay').css('display', 'none');
+					}, 0);
 				} else {
-					// Just uncheck this mod - no cascading
-					delete checkedSet[uuid];
+					// Check if any checked mods depend on this one, or if it has orphaned deps
+					var checkedDependents = getCheckedReverseDeps(uuid);
+					var orphanedDeps = getOrphanedForwardDeps(uuid);
+					if (checkedDependents.length > 0 || orphanedDeps.length > 0) {
+						// Show modal — don't modify checkedSet yet
+						showDepRemovalModal(uuid);
+					} else {
+						// No dependents or orphaned deps — just remove
+						delete checkedSet[uuid];
+						$('#modProcessingOverlay').css('display', 'flex');
+						setTimeout(function() {
+							rebuildTables();
+							$('#modProcessingOverlay').css('display', 'none');
+						}, 0);
+					}
 				}
-				// Show processing overlay, defer rebuild so browser paints it first
-				$('#modProcessingOverlay').css('display', 'flex');
-				setTimeout(function() {
-					rebuildTables();
-					$('#modProcessingOverlay').css('display', 'none');
-				}, 0);
 			}
 
 			// Build mod info lookup for tooltips
@@ -348,7 +708,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					var info = modInfoMap[rid];
 					if (!info) return '';
 					var name = info.name.length > 40 ? info.name.substring(0, 40) + '...' : info.name;
-					return '<a href="' + info.url + '" target="_blank">' + $('<span>').text(name).html() + '</a>';
+					return '<a href="' + info.url + '" target="_blank">' + escapeHtml(name) + '</a>';
 				}).filter(function(l) { return l !== ''; });
 				return '<span class="dep-tooltip">Required by:<br>' + lines.join('<br>') + '</span>';
 			}
@@ -382,8 +742,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				allModsData.forEach(function(mod) {
 					var uuid = mod.moduuid;
 					var modName = mod.name.length > 64 ? mod.name.substring(0, 64) + '...' : mod.name;
-					var escapedName = $('<span>').text(modName).html();
-					var nameHtml = '<a target="_blank" href="' + mod.url + '">' + escapedName + '</a>';
+					var nameHtml = '<a target="_blank" href="' + mod.url + '">' + escapeHtml(modName) + '</a>';
 
 					// Badge logic with hover tooltip
 					if (!checkedSet[uuid] && neededDeps[uuid]) {
@@ -395,7 +754,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					var isChecked = !!checkedSet[uuid];
 					var checkbox = '<input type="checkbox" class="form-check-input mod-checkbox" value="' + uuid + '" data-uuid="' + uuid + '"' + (isChecked ? ' checked' : '') + '>';
 
-					var row = [checkbox, nameHtml, $('<span>').text(mod.owner).html(), mod.version_date_created, mod.version];
+					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.version_date_created, mod.version];
 
 					if (isChecked || neededDeps[uuid]) {
 						activeRows.push(row);
@@ -404,40 +763,46 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					}
 				});
 
-				// Destroy existing DataTables if they exist
-				if (activeTable) {
-					activeTable.destroy();
-					$('#modtable-active').empty();
-				}
-				if (availableTable) {
-					availableTable.destroy();
-					$('#modtable-available').empty();
-				}
+				if (activeTable && availableTable) {
+					// Reuse existing DataTables — avoids expensive destroy/recreate
+					activeTable.clear().rows.add(activeRows).draw();
+					availableTable.clear().rows.add(availableRows).draw();
+				} else {
+					// First call: create tables
+					var tableConfig = {
+						scrollY: '400px',
+						scrollCollapse: true,
+						paging: true,
+						lengthMenu: [[20, 50, 75, -1], [20, 50, 75, 'All']],
+						columnDefs: [{ orderable: false, targets: [0] }],
+						columns: [
+							{ title: 'Select', width: '50px', className: 'alt-color' },
+							{ title: 'Name', className: 'alt-color' },
+							{ title: 'Author', className: 'alt-color' },
+							{ title: 'Last Updated', className: 'alt-color' },
+							{ title: 'Version', className: 'alt-color' }
+						],
+						rowCallback: function(row, data, index) {
+							$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
+						}
+					};
 
-				// Shared DataTable config
-				var tableConfig = {
-					scrollY: '400px',
-					scrollCollapse: true,
-					paging: true,
-					lengthMenu: [[20, 50, 75, -1], [20, 50, 75, 'All']],
-					columnDefs: [{ orderable: false, targets: [0] }],
-					columns: [
-						{ title: 'Select', width: '50px', className: 'alt-color' },
-						{ title: 'Name', className: 'alt-color' },
-						{ title: 'Author', className: 'alt-color' },
-						{ title: 'Last Updated', className: 'alt-color' },
-						{ title: 'Version', className: 'alt-color' }
-					],
-					rowCallback: function(row, data, index) {
-						$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
-					}
-				};
+					var savedActiveLen = parseInt(getCookie('phv_active_pageLen'), 10) || 20;
+					var savedAvailLen = parseInt(getCookie('phv_avail_pageLen'), 10) || 20;
+					activeTable = $('#modtable-active').DataTable($.extend(true, {}, tableConfig, { data: activeRows, pageLength: savedActiveLen }));
+					availableTable = $('#modtable-available').DataTable($.extend(true, {}, tableConfig, { data: availableRows, pageLength: savedAvailLen }));
 
-				activeTable = $('#modtable-active').DataTable($.extend(true, {}, tableConfig, { data: activeRows }));
-				availableTable = $('#modtable-available').DataTable($.extend(true, {}, tableConfig, { data: availableRows }));
+					// Persist page length changes to cookies
+					$('#modtable-active').on('length.dt', function(e, settings, len) {
+						setCookie('phv_active_pageLen', len, 365);
+					});
+					$('#modtable-available').on('length.dt', function(e, settings, len) {
+						setCookie('phv_avail_pageLen', len, 365);
+					});
+				}
 
 				// Update count badges
-				$('#activeModCount').text(activeRows.length);
+				$('#activeModCount').text(Object.keys(checkedSet).length);
 				$('#availableModCount').text(availableRows.length);
 			}
 
@@ -476,13 +841,13 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					rebuildTables();
 
 					// Hide spinner
-					document.getElementById("spinner").style.display = "none";
+					clearTimeout(sauronTimer); document.getElementById("spinner").style.display = "none";
 					document.body.classList.remove("noscroll");
 					document.body.classList.add("scroll");
 
 				}).fail(function() {
 					alert('Failed to load mod list');
-					document.getElementById("spinner").style.display = "none";
+					clearTimeout(sauronTimer); document.getElementById("spinner").style.display = "none";
 					document.body.classList.remove("noscroll");
 				});
 
@@ -491,7 +856,66 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					var uuid = $(this).data('uuid');
 					var isChecked = $(this).prop('checked');
 					handleModCheck(uuid, isChecked);
+					if (isChecked) markChanged();
+				});
+
+				// Dependency removal modal: toggle children when parent unchecked
+				$(document).on('change', '.dep-removal-check', function() {
+					var $item = $(this).closest('.dep-removal-item');
+					var $children = $item.children('.dep-removal-children');
+					if ($children.length) {
+						if ($(this).prop('checked')) {
+							$children.removeClass('collapsed');
+							$children.find('.dep-removal-check').prop('checked', true);
+						} else {
+							$children.addClass('collapsed');
+							$children.find('.dep-removal-check').prop('checked', false);
+						}
+					}
+				});
+
+				// Dependency removal modal: Cancel
+				$(document).on('click', '#depRemovalCancel', function() {
+					if (depRemovalModalInstance) depRemovalModalInstance.hide();
+					depRemovalTargetUuid = null;
+					$('#modProcessingOverlay').css('display', 'flex');
+					setTimeout(function() {
+						rebuildTables();
+						$('#modProcessingOverlay').css('display', 'none');
+					}, 0);
+				});
+
+				// Dependency removal modal: dismiss via X/ESC/backdrop
+				$('#depRemovalModal').on('hidden.bs.modal', function() {
+					// Dispose Bootstrap tooltips to prevent orphaned elements
+					$('#depRemovalTree [data-bs-toggle="tooltip"]').each(function() {
+						var tip = bootstrap.Tooltip.getInstance(this);
+						if (tip) tip.dispose();
+					});
+					if (depRemovalTargetUuid !== null) {
+						depRemovalTargetUuid = null;
+						$('#modProcessingOverlay').css('display', 'flex');
+						setTimeout(function() {
+							rebuildTables();
+							$('#modProcessingOverlay').css('display', 'none');
+						}, 0);
+					}
+				});
+
+				// Dependency removal modal: Remove Selected
+				$(document).on('click', '#depRemovalConfirm', function() {
+					delete checkedSet[depRemovalTargetUuid];
+					$('#depRemovalTree .dep-removal-check:checked').each(function() {
+						delete checkedSet[$(this).data('uuid')];
+					});
+					depRemovalTargetUuid = null;
+					if (depRemovalModalInstance) depRemovalModalInstance.hide();
 					markChanged();
+					$('#modProcessingOverlay').css('display', 'flex');
+					setTimeout(function() {
+						rebuildTables();
+						$('#modProcessingOverlay').css('display', 'none');
+					}, 0);
 				});
 			});
 
@@ -535,13 +959,13 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						window.location.href = 'index.php';
 					} else {
 						$('#formMsg').html("<span class='text-warning'>" + (data.error || 'Failed to create world') + "</span>").show();
-						document.getElementById("spinner").style.display = "none";
+						clearTimeout(sauronTimer); document.getElementById("spinner").style.display = "none";
 						document.body.classList.remove("noscroll");
 						submitting = false;
 					}
 				}).fail(function() {
 					$('#formMsg').html("<span class='text-danger'>Server error while creating world</span>").show();
-					document.getElementById("spinner").style.display = "none";
+					clearTimeout(sauronTimer); document.getElementById("spinner").style.display = "none";
 					document.body.classList.remove("noscroll");
 					submitting = false;
 				});

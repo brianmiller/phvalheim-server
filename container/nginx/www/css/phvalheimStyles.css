@@ -1273,27 +1273,108 @@ table.table-hover tbody tr:hover {
 	justify-content: center;
 }
 
-.loading-wheel {
-	width: 20px;
-	height: 20px;
-	border-width: 30px;
+/* Wave dots spinner (default) */
+.loading-dots {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.loading-dots span {
+	width: 12px;
+	height: 12px;
 	border-radius: 50%;
-	animation: spin 1s linear infinite;
+	background: var(--accent-primary);
+	animation: loading-wave 1.4s ease-in-out infinite;
 }
 
-.style-2 .loading-wheel {
-	border-style: double;
-	border-color: var(--accent-primary) transparent;
-	background-color: transparent;
+.loading-dots span:nth-child(2) { animation-delay: 0.12s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.24s; }
+.loading-dots span:nth-child(4) { animation-delay: 0.36s; }
+.loading-dots span:nth-child(5) { animation-delay: 0.48s; }
+
+@keyframes loading-wave {
+	0%, 100% { transform: translateY(0) scale(1); opacity: 0.3; }
+	50% { transform: translateY(-20px) scale(1.4); opacity: 1; }
 }
 
-@keyframes spin {
-	0% {
-		transform: rotate(0deg);
+/* Eye of Sauron spinner (long load) */
+.loading-eye {
+	display: none;
+	width: 100px;
+	height: 44px;
+	border-radius: 50%;
+	background: radial-gradient(ellipse at center, #ff6a00 0%, #cc3300 30%, #661100 60%, #220500 100%);
+	position: relative;
+	overflow: hidden;
+	box-shadow:
+		0 0 40px 10px rgba(255, 80, 0, 0.6),
+		0 0 80px 20px rgba(204, 30, 0, 0.3),
+		inset 0 0 15px rgba(255, 106, 0, 0.8);
+	animation: sauron-pulse 2s ease-in-out infinite;
+}
+
+.loading-eye::before {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 8px;
+	height: 34px;
+	border-radius: 50%;
+	background: #000;
+	transform: translate(-50%, -50%);
+	box-shadow:
+		0 0 6px 2px rgba(255, 80, 0, 0.9),
+		inset 0 0 4px rgba(255, 106, 0, 0.5);
+	animation: sauron-look 1.2s ease-in-out infinite;
+}
+
+.loading-eye::after {
+	content: '';
+	position: absolute;
+	top: -2px;
+	left: -2px;
+	right: -2px;
+	bottom: -2px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	border-top-color: rgba(255, 150, 0, 0.4);
+	border-bottom-color: rgba(255, 150, 0, 0.4);
+	animation: sauron-flicker 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes sauron-look {
+	0% { left: 50%; }
+	8% { left: 68%; }
+	18% { left: 35%; }
+	30% { left: 62%; }
+	42% { left: 40%; }
+	55% { left: 66%; }
+	68% { left: 38%; }
+	80% { left: 58%; }
+	92% { left: 44%; }
+	100% { left: 50%; }
+}
+
+@keyframes sauron-pulse {
+	0%, 100% {
+		box-shadow:
+			0 0 40px 10px rgba(255, 80, 0, 0.6),
+			0 0 80px 20px rgba(204, 30, 0, 0.3),
+			inset 0 0 15px rgba(255, 106, 0, 0.8);
 	}
-	100% {
-		transform: rotate(-360deg);
+	50% {
+		box-shadow:
+			0 0 55px 15px rgba(255, 80, 0, 0.8),
+			0 0 100px 30px rgba(204, 30, 0, 0.5),
+			inset 0 0 20px rgba(255, 140, 0, 1);
 	}
+}
+
+@keyframes sauron-flicker {
+	0% { opacity: 0.3; transform: rotate(0deg); }
+	100% { opacity: 0.7; transform: rotate(6deg); }
 }
 
 /* Toggle switch */
