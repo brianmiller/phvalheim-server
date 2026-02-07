@@ -10,5 +10,5 @@ $basePort = getenv('basePort');
 $phvalheimClientURL = getenv('phvalheimClientURL');
 $steamAPIKey = getenv('steamAPIKey');
 $backupsToKeep = getenv('backupsToKeep');
-$sessionTimeout = getenv('sessionTimeout') ?: 86400;
+$sessionTimeout = getenv('sessionTimeout') ?: 2592000;
 ?>

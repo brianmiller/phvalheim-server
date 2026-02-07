@@ -705,9 +705,48 @@ body:has(.google_header) .google_header img {
 body:has(.google_header) .client_download_button {
 	text-align: right !important;
 	padding-top: 0 !important;
-	padding-right: 8px !important;
+	padding-right: 0 !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
 	font-size: 100% !important;
+}
+
+/* Header right section (download + sign out) */
+body:has(.google_header) .header_right_section {
+	width: 100% !important;
+	text-align: right !important;
+	padding-top: 10px !important;
+	vertical-align: top !important;
+	position: relative !important;
+}
+
+body:has(.google_header) .header_right_inner {
+	display: flex !important;
+	justify-content: flex-end !important;
+	align-items: center !important;
+	gap: 12px !important;
+	position: absolute !important;
+	right: -15px !important;
+	top: 15px !important;
+}
+
+.signout-icon {
+	color: #94a3b8 !important;
+	transition: color 0.2s ease;
+	pointer-events: auto !important;
+	cursor: pointer !important;
+	display: inline-flex !important;
+}
+
+.signout-icon:hover {
+	color: orchid !important;
+}
+
+body:has(.google_header) .signout-icon {
+	color: #94a3b8 !important;
+}
+
+body:has(.google_header) .signout-icon:hover {
+	color: orchid !important;
 }
 
 /* Header - welcome name */
@@ -1165,23 +1204,32 @@ table.table-hover tbody tr:hover {
 /* Bootstrap override buttons */
 .btn-outline-download {
 	color: orchid !important;
-	border-color: #34e2e2 !important;
-	background-color: transparent !important;
+	border: 1px solid #34e2e2 !important;
+	border-bottom: 3px solid #1a8a8a !important;
+	background: linear-gradient(to bottom, #1e2d4a, #162038) !important;
 	font-family: "Lucida Console", "Courier New", monospace !important;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(52, 226, 226, 0.1) !important;
+	transition: all 0.15s ease !important;
 }
 
 .btn-outline-download:hover {
 	color: palegreen !important;
-	background-color: #131729 !important;
+	background: linear-gradient(to bottom, #243556, #1e2d4a) !important;
 	border-color: #34e2e2 !important;
+	border-bottom-color: #1a8a8a !important;
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(52, 226, 226, 0.15) !important;
 }
 
+.btn-outline-download:active,
 .btn-outline-download:not(:disabled):not(.disabled):active,
 .btn-outline-download:not(:disabled):not(.disabled).active,
 .show > .btn-outline-download.dropdown-toggle {
-	color: var(--accent-secondary);
-	background-color: var(--bg-secondary);
-	border-color: var(--danger);
+	color: orchid !important;
+	transform: translateY(2px) !important;
+	border-bottom-width: 1px !important;
+	background: linear-gradient(to bottom, #162038, #1e2d4a) !important;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+	border-color: #34e2e2 !important;
 }
 
 .btn-sm, .btn-group-sm > .btn {
@@ -3087,6 +3135,129 @@ input:checked + .slider:before {
 	border-radius: 0.5rem;
 	color: var(--danger);
 	font-size: 0.875rem;
+}
+
+/* Public footer with social links */
+.public-footer {
+	position: fixed;
+	bottom: 1rem;
+	left: 1rem;
+	display: flex;
+	gap: 0.75rem;
+	z-index: 100;
+}
+
+/* Cookie Consent Dialog */
+.cookie-consent {
+	position: fixed;
+	bottom: 1.5rem;
+	right: 1.5rem;
+	z-index: 9999;
+	max-width: 380px;
+	transform: translateY(calc(100% + 2rem));
+	opacity: 0;
+	transition: transform 0.4s ease, opacity 0.3s ease;
+	pointer-events: none;
+}
+
+.cookie-consent.show {
+	transform: translateY(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.cookie-consent-content {
+	background: #131729;
+	border: 1px solid #34e2e2;
+	border-radius: 0.75rem;
+	padding: 1.25rem;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 15px rgba(52, 226, 226, 0.08);
+	font-family: "Lucida Console", "Courier New", monospace;
+}
+
+.cookie-consent-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+	color: #34e2e2;
+	font-size: 1rem;
+	font-weight: bold;
+}
+
+.cookie-consent-content p {
+	color: #d3d7cf;
+	font-size: 0.8rem;
+	line-height: 1.5;
+	margin: 0 0 0.5rem 0;
+}
+
+.cookie-consent-legal {
+	color: #94a3b8 !important;
+	font-size: 0.7rem !important;
+	font-style: italic;
+}
+
+.cookie-consent-actions {
+	display: flex;
+	gap: 0.75rem;
+	margin-top: 1rem;
+}
+
+.cookie-btn {
+	flex: 1;
+	padding: 0.5rem 1rem;
+	border-radius: 0.375rem;
+	font-family: "Lucida Console", "Courier New", monospace;
+	font-size: 0.85rem;
+	font-weight: bold;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	border: none;
+}
+
+.cookie-btn-accept {
+	background: linear-gradient(to bottom, #1a3a2a, #122a1e);
+	color: palegreen;
+	border: 1px solid #4ade80;
+	border-bottom: 3px solid #166534;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(74, 222, 128, 0.1);
+}
+
+.cookie-btn-accept:hover {
+	background: linear-gradient(to bottom, #224a36, #1a3a2a);
+	box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(74, 222, 128, 0.15);
+}
+
+.cookie-btn-accept:active {
+	transform: translateY(2px);
+	border-bottom-width: 1px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.cookie-btn-deny {
+	background: transparent;
+	color: #94a3b8;
+	border: 1px solid #475569;
+}
+
+.cookie-btn-deny:hover {
+	color: #f1f5f9;
+	border-color: #94a3b8;
+	background: rgba(71, 85, 105, 0.2);
+}
+
+.cookie-btn-deny:active {
+	transform: translateY(1px);
+}
+
+@media (max-width: 480px) {
+	.cookie-consent {
+		bottom: 1rem;
+		right: 1rem;
+		left: 1rem;
+		max-width: none;
+	}
 }
 
 /* Public page responsive */

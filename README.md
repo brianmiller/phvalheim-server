@@ -177,6 +177,11 @@ docker start myPhValheim-server1
 | steamAPIKey | Your SteamAPI key used for player identification and authorization. See [Generate Steam API Key](https://github.com/brianmiller/phvalheim-server/blob/master/README.md#generate-your-steam-api-key) for help. |
 | phvalheimClientURL | The hosted URL for PhValheim Client downloads. You can change this if you prefer to host your own client files. |
 
+#### Optional Override Variables
+| Variable | Description | Default |
+| --- | -- | -- |
+| sessionTimeout | Duration (in seconds) before a Steam login session expires and the user must re-authenticate. | 2592000 (30 days) |
+
 
 ### Container Volumes and Persistent Storage
 #### <i>all paths are mandatory</i>
