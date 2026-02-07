@@ -12,7 +12,7 @@ Need help?<br>
 [![join-discord](https://img.shields.io/badge/Join%20Our-Discord-5865f2)](https://discord.gg/8RMMrJVQgy)
 <hr>
 
-<img src="container/nginx/www/images/phvalheim_tech_visual.svg" align="right" width="200">
+<img src="container/nginx/www/images/phvalheim_tech_visual.svg" align="right" width="350">
 
 
 ##### Navigation
