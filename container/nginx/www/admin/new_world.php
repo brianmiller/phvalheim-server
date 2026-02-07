@@ -237,7 +237,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 							</div>
 						</div>
 						<div class="modal-footer" style="border-top-color: var(--border-color);">
-							<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background-color: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color);">Continue Editing</button>
+							<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background-color: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color);">Exit</button>
 							<button type="button" id="cloneSaveButton" class="btn btn-success" style="background-color: var(--success-dark); border-color: var(--success); color: white;">Create World</button>
 						</div>
 					</div>
@@ -626,20 +626,22 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						$('#cloneSummaryFoldersSection').show();
 						if (cloneConfigs && foldersData) {
 							$('#cloneSummaryConfigs').show();
-							var configsHtml = foldersData.configs.length > 0 ?
-								foldersData.configs.map(function(f) {
+							var filteredConfigs = foldersData.configs.filter(function(f) { return f.indexOf('ZeroBandwidth.CustomSeed.cfg') === -1; });
+							var configsHtml = filteredConfigs.length > 0 ?
+								filteredConfigs.map(function(f) {
 									return '<div style="padding: 0.25rem 0;">' + f + '</div>';
-								}).join('') : '<em>Empty folder</em>';
+								}).join('') : '<em>Empty directory</em>';
 							$('#configsList').html(configsHtml).hide();
 						} else {
 							$('#cloneSummaryConfigs').hide();
 						}
 						if (clonePlugins && foldersData) {
 							$('#cloneSummaryPlugins').show();
-							var pluginsHtml = foldersData.plugins.length > 0 ?
-								foldersData.plugins.map(function(f) {
+							var filteredPlugins = foldersData.plugins.filter(function(f) { return f.indexOf('ZeroBandwidth-CustomSeed') === -1; });
+							var pluginsHtml = filteredPlugins.length > 0 ?
+								filteredPlugins.map(function(f) {
 									return '<div style="padding: 0.25rem 0;">' + f + '</div>';
-								}).join('') : '<em>Empty folder</em>';
+								}).join('') : '<em>Empty directory</em>';
 							$('#pluginsList').html(pluginsHtml).hide();
 						} else {
 							$('#cloneSummaryPlugins').hide();
