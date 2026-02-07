@@ -2298,10 +2298,27 @@ input:checked + .slider:before {
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
+@media (max-width: 1280px) {
 	.dashboard-grid.two-col,
 	.dashboard-grid.three-col {
 		grid-template-columns: 1fr;
+	}
+
+	/* Allow table to scroll horizontally instead of squishing */
+	.worlds-table {
+		table-layout: auto;
+		min-width: 1000px;
+	}
+
+	.worlds-scroll-wrapper,
+	.offline-worlds-scroll-wrapper {
+		overflow-x: auto;
+	}
+
+	/* Larger touch targets for buttons */
+	.action-btn {
+		padding: 0.5rem 0.875rem;
+		font-size: 0.875rem;
 	}
 }
 
@@ -2316,31 +2333,70 @@ input:checked + .slider:before {
 
 	.admin-main {
 		margin-left: 0;
+		padding: 1rem;
 	}
 
 	.sidebar-toggle {
 		display: block;
 	}
 
+	/* Header wraps on narrow screens */
+	.admin-header {
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+
+	/* Readable font sizes */
 	.stats-grid {
 		grid-template-columns: repeat(2, 1fr);
 	}
 
+	.stat-value {
+		font-size: 1.375rem;
+	}
+
+	.card-title {
+		font-size: 1rem;
+	}
+
+	/* Table readability */
 	.worlds-table {
-		font-size: 0.875rem;
+		font-size: 0.9375rem;
 	}
 
 	.worlds-table thead th,
 	.worlds-table tbody td {
 		padding: 0.75rem 0.5rem;
 	}
+
+	/* Hide Seed column to save space */
+	.worlds-table th:nth-child(4),
+	.worlds-table td:nth-child(4) {
+		display: none;
+	}
 }
 
 @media (max-width: 480px) {
+	.admin-main {
+		padding: 0.75rem;
+	}
+
+	/* Stack header vertically */
+	.admin-header {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+	}
+
+	.admin-header h1 {
+		font-size: 1.125rem;
+	}
+
 	.stats-grid {
 		grid-template-columns: 1fr;
 	}
 
+	/* Full-width stacked buttons */
 	.action-group {
 		flex-direction: column;
 	}
@@ -2348,6 +2404,90 @@ input:checked + .slider:before {
 	.action-btn {
 		width: 100%;
 		justify-content: center;
+		padding: 0.625rem 1rem;
+	}
+
+	/* Hide Endpoint and Resources columns */
+	.worlds-table th:nth-child(3),
+	.worlds-table td:nth-child(3),
+	.worlds-table th:nth-child(7),
+	.worlds-table td:nth-child(7) {
+		display: none;
+	}
+}
+
+/* ============================================
+   iPad / Tablet Optimizations (landscape)
+   Targets iPad viewports: Mini through Pro 12.9"
+   ============================================ */
+
+@media (min-width: 1024px) and (max-width: 1366px) {
+	/* Fix header background — force cool dark tone, no warm tint */
+	.card-header {
+		background: var(--bg-secondary) !important;
+		background-color: var(--bg-secondary) !important;
+	}
+
+	/* Table: fixed layout, prevent horizontal scroll */
+	.worlds-table {
+		table-layout: fixed !important;
+		min-width: 0 !important;
+	}
+
+	/* Reallocate column widths: shrink Endpoint/Seed, expand button columns */
+	.worlds-table th:nth-child(1),
+	.worlds-table td:nth-child(1) { width: 8%; }   /* Status */
+	.worlds-table th:nth-child(2),
+	.worlds-table td:nth-child(2) { width: 8%; }   /* World */
+	.worlds-table th:nth-child(3),
+	.worlds-table td:nth-child(3) { width: 9%; }   /* Endpoint (truncated) */
+	.worlds-table th:nth-child(4),
+	.worlds-table td:nth-child(4) { width: 6%; }   /* Seed (truncated) */
+	.worlds-table th:nth-child(5),
+	.worlds-table td:nth-child(5) { width: 20%; }  /* Actions */
+	.worlds-table th:nth-child(6),
+	.worlds-table td:nth-child(6) { width: 35%; }  /* Configure */
+	.worlds-table th:nth-child(7),
+	.worlds-table td:nth-child(7) { width: 14%; }  /* Resources */
+
+	/* Truncate endpoint text — tap to expand */
+	.world-endpoint {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+
+	.world-endpoint.expanded {
+		white-space: normal;
+		word-break: break-all;
+		overflow: visible;
+		text-overflow: clip;
+	}
+
+	/* Truncate seed text — tap to expand */
+	.world-seed {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+
+	.world-seed.expanded {
+		white-space: normal;
+		word-break: break-all;
+		overflow: visible;
+		text-overflow: clip;
+	}
+
+	/* Prevent horizontal scroll on iPad */
+	.worlds-scroll-wrapper,
+	.offline-worlds-scroll-wrapper {
+		overflow-x: hidden !important;
 	}
 }
 

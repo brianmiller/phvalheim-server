@@ -780,6 +780,14 @@ $totalCount = count($worlds);
         updateTime();
         setInterval(updateTime, 1000);
         updateTsSyncStatus('<?php echo $tsSyncLocalStatus; ?>');
+
+        // Tap-to-reveal for truncated endpoint/seed on tablets
+        document.addEventListener('click', function(e) {
+            var el = e.target.closest('.world-endpoint, .world-seed');
+            if (el) {
+                el.classList.toggle('expanded');
+            }
+        });
     });
 
     // Initialize charts
