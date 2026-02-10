@@ -384,12 +384,11 @@ $totalCount = count($worlds);
                                                 <a href="#" class="action-btn" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                                 </a>
-                                                <a href="#" class="action-btn" onclick="showCitizensModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">Citizens</a>
-                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
+                                                <span class="action-btn disabled">Update</span>
                                                 <div class="action-overflow">
                                                     <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
                                                     <div class="action-overflow-menu">
-                                                        <span class="action-btn disabled">Update</span>
+                                                        <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
                                                         <span class="action-btn disabled">Delete</span>
                                                     </div>
                                                 </div>
@@ -487,12 +486,11 @@ $totalCount = count($worlds);
                                                 <a href="#" class="action-btn" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                                 </a>
-                                                <a href="#" class="action-btn" onclick="showCitizensModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">Citizens</a>
-                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
+                                                <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
                                                 <div class="action-overflow">
                                                     <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
                                                     <div class="action-overflow-menu">
-                                                        <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
+                                                        <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
                                                         <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
                                                     </div>
                                                 </div>
@@ -662,27 +660,14 @@ $totalCount = count($worlds);
         </div>
     </div>
 
-    <!-- Settings Modal -->
+    <!-- Settings Modal (includes Citizens) -->
     <div class="mods-modal-overlay" id="settingsModalOverlay" onclick="closeSettingsModal(event)">
-        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 500px;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 700px;">
             <div class="mods-modal-header">
                 <h3 class="mods-modal-title" id="settingsModalTitle">World Settings</h3>
                 <button class="mods-modal-close" onclick="closeSettingsModal()">&times;</button>
             </div>
             <div class="mods-modal-body" id="settingsModalBody">
-                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Citizens Modal -->
-    <div class="mods-modal-overlay" id="citizensModalOverlay" onclick="closeCitizensModal(event)">
-        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 700px;">
-            <div class="mods-modal-header">
-                <h3 class="mods-modal-title" id="citizensModalTitle">Citizens</h3>
-                <button class="mods-modal-close" onclick="closeCitizensModal()">&times;</button>
-            </div>
-            <div class="mods-modal-body" id="citizensModalBody">
                 <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
             </div>
         </div>
@@ -1069,12 +1054,11 @@ $totalCount = count($worlds);
             configHtml = `
                 <span class="action-btn disabled">Edit Mods</span>
                 <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
-                <a href="#" class="action-btn" onclick="showCitizensModal('${world.name}'); return false;">Citizens</a>
-                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
+                <span class="action-btn disabled">Update</span>
                 <div class="action-overflow">
                     <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
                     <div class="action-overflow-menu">
-                        <span class="action-btn disabled">Update</span>
+                        <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
                         <span class="action-btn disabled">Delete</span>
                     </div>
                 </div>`;
@@ -1087,12 +1071,11 @@ $totalCount = count($worlds);
             configHtml = `
                 <a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary">Edit Mods</a>
                 <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
-                <a href="#" class="action-btn" onclick="showCitizensModal('${world.name}'); return false;">Citizens</a>
-                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
+                <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn">Update</a>
                 <div class="action-overflow">
                     <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
                     <div class="action-overflow-menu">
-                        <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn">Update</a>
+                        <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
                         <a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
                     </div>
                 </div>`;
@@ -1105,12 +1088,11 @@ $totalCount = count($worlds);
             configHtml = `
                 <span class="action-btn disabled">Edit Mods</span>
                 <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
-                <a href="#" class="action-btn" onclick="showCitizensModal('${world.name}'); return false;">Citizens</a>
-                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
+                <span class="action-btn disabled">Update</span>
                 <div class="action-overflow">
                     <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
                     <div class="action-overflow-menu">
-                        <span class="action-btn disabled">Update</span>
+                        <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
                         <span class="action-btn disabled">Delete</span>
                     </div>
                 </div>`;
@@ -1240,13 +1222,13 @@ $totalCount = count($worlds);
             stopBtn.outerHTML = `<span class="action-btn disabled">Stop</span>`;
         }
 
-        // Update configure buttons (Edit Mods, Update, Delete via overflow menu)
+        // Update configure buttons (Edit Mods, Update on main row; Delete in overflow)
         if (configGroup) {
             const editModsBtn = configGroup.children[0];
+            const updateBtn = configGroup.children[2];
             const overflowMenu = configGroup.querySelector('.action-overflow-menu');
             if (!overflowMenu) return;
-            const updateBtn = overflowMenu.children[0];
-            const deleteBtn = overflowMenu.children[1];
+            const deleteBtn = overflowMenu.children[1]; // [0]=Settings (always enabled), [1]=Delete
 
             if (world.mode === 'stopped') {
                 editModsBtn.outerHTML = `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary">Edit Mods</a>`;
@@ -1325,108 +1307,11 @@ $totalCount = count($worlds);
         if (e.key === 'Escape') {
             closeModsModal();
             closeSettingsModal();
-            closeCitizensModal();
             closeSteamIdModal();
         }
     });
 
-    // Citizens Modal
-    let currentCitizensWorld = '';
-
-    async function showCitizensModal(worldName) {
-        currentCitizensWorld = worldName;
-        document.getElementById('citizensModalTitle').textContent = `Citizens - ${worldName}`;
-        document.getElementById('citizensModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>';
-        document.getElementById('citizensModalOverlay').classList.add('show');
-
-        try {
-            const response = await fetch(`adminAPI.php?action=getCitizens&world=${encodeURIComponent(worldName)}`);
-            const data = await response.json();
-
-            if (data.success) {
-                // Convert space-separated to newline-separated for textarea
-                const citizensText = data.citizens ? data.citizens.replace(/ /g, '\n') : '';
-                const isPublic = data.public ? 'checked' : '';
-
-                const citizensHtml = `
-                    <div style="margin-bottom: 1rem;">
-                        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                            Add SteamIDs to grant access (one per line):
-                        </p>
-                        <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
-                            <em>Note: SteamIDs are ignored when world is set to public.</em>
-                        </p>
-                        <textarea id="citizensTextarea" class="form-control" style="min-height: 200px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${citizensText}</textarea>
-                    </div>
-                    <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
-                        <button type="button" class="action-btn" onclick="openSteamIdLookup()">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                            Look Up SteamID
-                        </button>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-                        <div>
-                            <span style="display: block; margin-bottom: 0.25rem;">Public World</span>
-                            <small style="color: var(--text-muted);">Allow all players to access this world.</small>
-                        </div>
-                        <label class="switch">
-                            <input type="checkbox" id="citizensPublicToggle" ${isPublic}>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-                        <button class="action-btn" onclick="closeCitizensModal()">Cancel</button>
-                        <button class="action-btn success" onclick="saveCitizens()">Save Changes</button>
-                    </div>
-                    <div id="citizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
-                `;
-
-                document.getElementById('citizensModalBody').innerHTML = citizensHtml;
-            } else {
-                document.getElementById('citizensModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading citizens</div>';
-            }
-        } catch (error) {
-            document.getElementById('citizensModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading citizens</div>';
-        }
-    }
-
-    async function saveCitizens() {
-        const citizens = document.getElementById('citizensTextarea').value;
-        const isPublic = document.getElementById('citizensPublicToggle').checked ? 1 : 0;
-        const statusEl = document.getElementById('citizensSaveStatus');
-
-        statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
-
-        try {
-            const response = await fetch('adminAPI.php?action=saveCitizens', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    world: currentCitizensWorld,
-                    citizens: citizens,
-                    public: isPublic
-                })
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                statusEl.innerHTML = '<span style="color: var(--success);">Saved successfully!</span>';
-                setTimeout(() => { closeCitizensModal(); }, 1000);
-            } else {
-                statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
-            }
-        } catch (error) {
-            statusEl.innerHTML = '<span style="color: var(--danger);">Error saving citizens</span>';
-        }
-    }
-
-    function closeCitizensModal(event) {
-        if (!event || event.target === document.getElementById('citizensModalOverlay')) {
-            document.getElementById('citizensModalOverlay').classList.remove('show');
-        }
-    }
+    // (Citizens functionality merged into Settings modal below)
 
     // SteamID Lookup Modal
     function openSteamIdLookup() {
@@ -1473,8 +1358,8 @@ $totalCount = count($worlds);
         const steamId = document.getElementById('steamIdResultText').textContent;
         if (steamId && steamId !== '—') {
             navigator.clipboard.writeText(steamId).then(() => {
-                // Add to textarea if citizens modal is open
-                const textarea = document.getElementById('citizensTextarea');
+                // Add to textarea if settings modal citizens section is open
+                const textarea = document.getElementById('settingsCitizensTextarea');
                 if (textarea) {
                     const currentValue = textarea.value.trim();
                     textarea.value = currentValue ? currentValue + '\n' + steamId : steamId;
@@ -1524,7 +1409,7 @@ $totalCount = count($worlds);
         }
     }
 
-    // Settings Modal
+    // Settings Modal (includes Citizens)
     let currentSettingsWorld = '';
 
     async function showSettingsModal(worldName) {
@@ -1534,31 +1419,39 @@ $totalCount = count($worlds);
         document.getElementById('settingsModalOverlay').classList.add('show');
 
         try {
-            const response = await fetch(`adminAPI.php?action=getWorldSettings&world=${encodeURIComponent(worldName)}`);
-            const data = await response.json();
+            // Fetch settings and citizens in parallel
+            const [settingsRes, citizensRes] = await Promise.all([
+                fetch(`adminAPI.php?action=getWorldSettings&world=${encodeURIComponent(worldName)}`),
+                fetch(`adminAPI.php?action=getCitizens&world=${encodeURIComponent(worldName)}`)
+            ]);
+            const settings = await settingsRes.json();
+            const citizens = await citizensRes.json();
 
-            if (data.success) {
-                const hideSeedChecked = data.hideSeed == 1 ? 'checked' : '';
-                const autostartChecked = data.autostart == 1 ? 'checked' : '';
+            if (settings.success && citizens.success) {
+                const hideSeedChecked = settings.hideSeed == 1 ? 'checked' : '';
+                const autostartChecked = settings.autostart == 1 ? 'checked' : '';
+                const citizensText = citizens.citizens ? citizens.citizens.replace(/ /g, '\n') : '';
+                const isPublic = citizens.public ? 'checked' : '';
+
                 document.getElementById('settingsModalBody').innerHTML = `
                     <div style="margin-bottom: 1.5rem;">
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">World Information</h6>
                         <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
                             <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
                                 <span style="color: var(--text-secondary);">MD5 Hash</span>
-                                <code style="font-size: 0.75rem; color: var(--accent-secondary);">${data.md5 || 'N/A'}</code>
+                                <code style="font-size: 0.75rem; color: var(--accent-secondary);">${settings.md5 || 'N/A'}</code>
                             </div>
                             <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
                                 <span style="color: var(--text-secondary);">Seed</span>
-                                <code style="color: var(--accent-primary);">${data.seed || 'N/A'}</code>
+                                <code style="color: var(--accent-primary);">${settings.seed || 'N/A'}</code>
                             </div>
                             <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
                                 <span style="color: var(--text-secondary);">Date Deployed</span>
-                                <span>${data.dateDeployed || 'N/A'}</span>
+                                <span>${settings.dateDeployed || 'N/A'}</span>
                             </div>
                             <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
                                 <span style="color: var(--text-secondary);">Date Updated</span>
-                                <span>${data.dateUpdated || 'N/A'}</span>
+                                <span>${settings.dateUpdated || 'N/A'}</span>
                             </div>
                         </div>
                     </div>
@@ -1575,7 +1468,7 @@ $totalCount = count($worlds);
                             </label>
                         </div>
                     </div>
-                    <div>
+                    <div style="margin-bottom: 1.5rem;">
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Privacy Settings</h6>
                         <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
                             <div>
@@ -1588,12 +1481,76 @@ $totalCount = count($worlds);
                             </label>
                         </div>
                     </div>
+                    <div>
+                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
+                        <div style="margin-bottom: 1rem;">
+                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                                Add SteamIDs to grant access (one per line):
+                            </p>
+                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
+                                <em>Note: SteamIDs are ignored when world is set to public.</em>
+                            </p>
+                            <textarea id="settingsCitizensTextarea" class="form-control" style="min-height: 150px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${citizensText}</textarea>
+                        </div>
+                        <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
+                            <button type="button" class="action-btn" onclick="openSteamIdLookup()">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                Look Up SteamID
+                            </button>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+                            <div>
+                                <span style="display: block; margin-bottom: 0.25rem;">Public World</span>
+                                <small style="color: var(--text-muted);">Allow all players to access this world.</small>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="settingsPublicToggle" ${isPublic}>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                            <button class="action-btn success" onclick="saveSettingsCitizens()">Save Citizens</button>
+                        </div>
+                        <div id="settingsCitizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                    </div>
                 `;
             } else {
                 document.getElementById('settingsModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading settings</div>';
             }
         } catch (error) {
             document.getElementById('settingsModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading settings</div>';
+        }
+    }
+
+    async function saveSettingsCitizens() {
+        const citizens = document.getElementById('settingsCitizensTextarea').value;
+        const isPublic = document.getElementById('settingsPublicToggle').checked ? 1 : 0;
+        const statusEl = document.getElementById('settingsCitizensSaveStatus');
+
+        statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
+
+        try {
+            const response = await fetch('adminAPI.php?action=saveCitizens', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    world: currentSettingsWorld,
+                    citizens: citizens,
+                    public: isPublic
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color: var(--success);">Saved successfully!</span>';
+                setTimeout(() => { statusEl.innerHTML = ''; }, 2000);
+            } else {
+                statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
+            }
+        } catch (error) {
+            statusEl.innerHTML = '<span style="color: var(--danger);">Error saving citizens</span>';
         }
     }
 
