@@ -2067,19 +2067,22 @@ input:checked + .slider:before {
 	table-layout: fixed;
 }
 
-/* Fixed column widths for consistent alignment */
+/* Fixed column widths for consistent alignment.
+   Actions and Configure are sized to comfortably hold their button groups
+   without wrapping at typical viewport widths (≥ ~1450px table width).
+   Endpoint and Seed are trimmed to compensate. */
 .worlds-table th:nth-child(1),
-.worlds-table td:nth-child(1) { width: 7%; }  /* Status */
+.worlds-table td:nth-child(1) { width: 6%; }  /* Status */
 .worlds-table th:nth-child(2),
-.worlds-table td:nth-child(2) { width: 8%; }  /* World */
+.worlds-table td:nth-child(2) { width: 7%; }  /* World */
 .worlds-table th:nth-child(3),
-.worlds-table td:nth-child(3) { width: 18%; } /* Endpoint */
+.worlds-table td:nth-child(3) { width: 13%; } /* Endpoint */
 .worlds-table th:nth-child(4),
-.worlds-table td:nth-child(4) { width: 8%; }  /* Seed */
+.worlds-table td:nth-child(4) { width: 9%; }  /* Seed */
 .worlds-table th:nth-child(5),
-.worlds-table td:nth-child(5) { width: 17%; } /* Actions */
+.worlds-table td:nth-child(5) { width: 16%; } /* Actions */
 .worlds-table th:nth-child(6),
-.worlds-table td:nth-child(6) { width: 30%; } /* Configure */
+.worlds-table td:nth-child(6) { width: 32%; } /* Configure */
 .worlds-table th:nth-child(7),
 .worlds-table td:nth-child(7) { width: 12%; } /* Resources */
 
@@ -2126,12 +2129,22 @@ input:checked + .slider:before {
 	background: var(--bg-primary);
 	padding: 0.25rem 0.5rem;
 	border-radius: 0.25rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: inline-block;
+	max-width: 100%;
 }
 
 .world-seed {
 	font-family: var(--font-mono);
 	font-size: 0.8125rem;
 	color: var(--accent-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: block;
+	max-width: 100%;
 }
 
 /* Action Buttons */
@@ -2155,6 +2168,7 @@ input:checked + .slider:before {
 	text-decoration: none;
 	background: transparent;
 	color: var(--text-secondary);
+	white-space: nowrap;
 }
 
 .action-btn:hover {
@@ -2196,6 +2210,72 @@ input:checked + .slider:before {
 	opacity: 0.4;
 	cursor: not-allowed;
 	pointer-events: none;
+}
+
+/* Hide disabled buttons in worlds table — only show actionable buttons */
+.worlds-table .action-btn.disabled {
+	display: none;
+}
+
+/* Action overflow dropdown (⋯ menu for Update/Delete) */
+.action-overflow {
+	position: relative;
+	display: inline-flex;
+}
+
+/* Hide entire overflow when all menu items are disabled (hidden) */
+.action-overflow:not(:has(.action-overflow-menu .action-btn:not(.disabled))) {
+	display: none;
+}
+
+.action-overflow-trigger {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.75rem;
+	height: 1.75rem;
+	padding: 0;
+	font-size: 1.125rem;
+	line-height: 1;
+	border-radius: 0.375rem;
+	border: 1px solid transparent;
+	cursor: pointer;
+	background: transparent;
+	color: var(--text-secondary);
+	transition: all 0.15s ease;
+}
+
+.action-overflow-trigger:hover {
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
+}
+
+.action-overflow-menu {
+	display: none;
+	position: absolute;
+	right: 0;
+	top: calc(100% + 0.25rem);
+	z-index: 1000;
+	min-width: 8rem;
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-light);
+	border-radius: 0.5rem;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+	padding: 0.25rem;
+	flex-direction: column;
+	gap: 0.125rem;
+}
+
+.action-overflow-menu.show {
+	display: flex;
+}
+
+.action-overflow-menu .action-btn {
+	display: flex;
+	justify-content: flex-start;
+	width: 100%;
+	border-radius: 0.25rem;
+	padding: 0.5rem 0.75rem;
 }
 
 /* Mods Modal */
@@ -2807,6 +2887,56 @@ input:checked + .slider:before {
 .offline-worlds-scroll-wrapper .offline-worlds-table {
 	margin: 0;
 	border: none;
+}
+
+/* ============================================
+   Large Display Optimizations
+   Primary target: 3440x1440 | Secondary: 2560x1440
+   HiDPI: 2880x1800 @ 175% scale (~1645px CSS viewport)
+
+   Breakpoints account for OS DPI scaling:
+     2560x1440 @ 100% scale  → CSS viewport 2560px
+     2560x1440 @ 125% scale  → CSS viewport ~2048px  ← caught by 2000px rule
+     3440x1440 @ 100% scale  → CSS viewport 3440px
+     3440x1440 @ 125% scale  → CSS viewport ~2752px  ← caught by 2560px rule
+     2880x1800 @ 175% scale  → CSS viewport ~1645px  ← caught by HiDPI rule
+
+   max-width on .admin-main is the primary fix — it prevents percentage-width
+   table columns from expanding into hundreds of pixels of dead whitespace.
+   html font-size reduction scales all rem-based elements proportionally.
+   ============================================ */
+
+/* HiDPI mid-range: 2880x1800 @ 175% scale
+   CSS viewport ≈ 1645px (2880 ÷ 1.75), devicePixelRatio ≥ 1.5
+   -webkit-min-device-pixel-ratio covers Safari / older WebKit */
+@media (min-width: 1400px) and (max-width: 1999px) and (-webkit-min-device-pixel-ratio: 1.5),
+       (min-width: 1400px) and (max-width: 1999px) and (min-resolution: 1.5dppx) {
+	.stats-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}
+
+/* 2000px+: catches 2560x1440 @ 125% OS scale (~2048px CSS viewport)
+   and any viewport ≥ 2000px. Keep default font-size (16px), just
+   tighten padding slightly to use extra space efficiently. */
+@media (min-width: 2000px) {
+	.stats-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+}
+
+/* 2560px+: catches 2560x1440 @ 100% scale and 3440x1440 @ 125% scale. */
+@media (min-width: 2560px) {
+	html {
+		font-size: 15px;
+	}
+}
+
+/* 3200px+: catches 3440x1440 @ 100% scale. */
+@media (min-width: 3200px) {
+	html {
+		font-size: 14px;
+	}
 }
 
 /* ============================================

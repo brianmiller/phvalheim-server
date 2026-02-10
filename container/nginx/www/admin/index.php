@@ -359,10 +359,10 @@ $totalCount = count($worlds);
                                             <span class="world-name"><?php echo htmlspecialchars($world['name']); ?></span>
                                         </td>
                                         <td>
-                                            <code class="world-endpoint"><?php echo htmlspecialchars($world['endpoint']); ?>:<?php echo $world['port']; ?></code>
+                                            <code class="world-endpoint" title="<?php echo htmlspecialchars($world['endpoint']); ?>:<?php echo $world['port']; ?>"><?php echo htmlspecialchars($world['endpoint']); ?>:<?php echo $world['port']; ?></code>
                                         </td>
                                         <td>
-                                            <code class="world-seed"><?php echo htmlspecialchars($world['seed']); ?></code>
+                                            <code class="world-seed" title="<?php echo htmlspecialchars($world['seed']); ?>"><?php echo htmlspecialchars($world['seed']); ?></code>
                                         </td>
                                         <td>
                                             <div class="action-group">
@@ -386,8 +386,13 @@ $totalCount = count($worlds);
                                                 </a>
                                                 <a href="#" class="action-btn" onclick="showCitizensModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">Citizens</a>
                                                 <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
-                                                <span class="action-btn disabled">Update</span>
-                                                <span class="action-btn disabled">Delete</span>
+                                                <div class="action-overflow">
+                                                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
+                                                    <div class="action-overflow-menu">
+                                                        <span class="action-btn disabled">Update</span>
+                                                        <span class="action-btn disabled">Delete</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td>
@@ -463,10 +468,10 @@ $totalCount = count($worlds);
                                             <span class="world-name"><?php echo htmlspecialchars($world['name']); ?></span>
                                         </td>
                                         <td>
-                                            <code class="world-endpoint"><?php echo htmlspecialchars($world['endpoint']); ?>:<?php echo $world['port']; ?></code>
+                                            <code class="world-endpoint" title="<?php echo htmlspecialchars($world['endpoint']); ?>:<?php echo $world['port']; ?>"><?php echo htmlspecialchars($world['endpoint']); ?>:<?php echo $world['port']; ?></code>
                                         </td>
                                         <td>
-                                            <code class="world-seed"><?php echo htmlspecialchars($world['seed']); ?></code>
+                                            <code class="world-seed" title="<?php echo htmlspecialchars($world['seed']); ?>"><?php echo htmlspecialchars($world['seed']); ?></code>
                                         </td>
                                         <td>
                                             <div class="action-group">
@@ -484,8 +489,13 @@ $totalCount = count($worlds);
                                                 </a>
                                                 <a href="#" class="action-btn" onclick="showCitizensModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">Citizens</a>
                                                 <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
-                                                <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
-                                                <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
+                                                <div class="action-overflow">
+                                                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
+                                                    <div class="action-overflow-menu">
+                                                        <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
+                                                        <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td>
@@ -1061,8 +1071,13 @@ $totalCount = count($worlds);
                 <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <a href="#" class="action-btn" onclick="showCitizensModal('${world.name}'); return false;">Citizens</a>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
-                <span class="action-btn disabled">Update</span>
-                <span class="action-btn disabled">Delete</span>`;
+                <div class="action-overflow">
+                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
+                    <div class="action-overflow-menu">
+                        <span class="action-btn disabled">Update</span>
+                        <span class="action-btn disabled">Delete</span>
+                    </div>
+                </div>`;
         } else if (world.mode === 'stopped') {
             actionsHtml = `
                 <span class="action-btn disabled">Launch</span>
@@ -1074,8 +1089,13 @@ $totalCount = count($worlds);
                 <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <a href="#" class="action-btn" onclick="showCitizensModal('${world.name}'); return false;">Citizens</a>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
-                <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn">Update</a>
-                <a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>`;
+                <div class="action-overflow">
+                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
+                    <div class="action-overflow-menu">
+                        <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn">Update</a>
+                        <a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
+                    </div>
+                </div>`;
         } else {
             actionsHtml = `
                 <span class="action-btn disabled">Launch</span>
@@ -1087,8 +1107,13 @@ $totalCount = count($worlds);
                 <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <a href="#" class="action-btn" onclick="showCitizensModal('${world.name}'); return false;">Citizens</a>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
-                <span class="action-btn disabled">Update</span>
-                <span class="action-btn disabled">Delete</span>`;
+                <div class="action-overflow">
+                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
+                    <div class="action-overflow-menu">
+                        <span class="action-btn disabled">Update</span>
+                        <span class="action-btn disabled">Delete</span>
+                    </div>
+                </div>`;
         }
 
         row.innerHTML = `
@@ -1100,8 +1125,8 @@ $totalCount = count($worlds);
                 ${betaBadge}
             </td>
             <td><span class="world-name">${world.name}</span></td>
-            <td><code class="world-endpoint">${world.endpoint}:${world.port}</code></td>
-            <td><code class="world-seed">${world.seed}</code></td>
+            <td><code class="world-endpoint" title="${world.endpoint}:${world.port}">${world.endpoint}:${world.port}</code></td>
+            <td><code class="world-seed" title="${world.seed}">${world.seed}</code></td>
             <td><div class="action-group">${actionsHtml}</div></td>
             <td><div class="action-group">${configHtml}</div></td>
             <td>
@@ -1215,11 +1240,13 @@ $totalCount = count($worlds);
             stopBtn.outerHTML = `<span class="action-btn disabled">Stop</span>`;
         }
 
-        // Update configure buttons (Edit Mods, Update, Delete)
+        // Update configure buttons (Edit Mods, Update, Delete via overflow menu)
         if (configGroup) {
             const editModsBtn = configGroup.children[0];
-            const updateBtn = configGroup.children[4];
-            const deleteBtn = configGroup.children[5];
+            const overflowMenu = configGroup.querySelector('.action-overflow-menu');
+            if (!overflowMenu) return;
+            const updateBtn = overflowMenu.children[0];
+            const deleteBtn = overflowMenu.children[1];
 
             if (world.mode === 'stopped') {
                 editModsBtn.outerHTML = `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary">Edit Mods</a>`;
@@ -1238,6 +1265,25 @@ $totalCount = count($worlds);
         const total = worlds.length;
         document.getElementById('statWorlds').textContent = `${running} / ${total}`;
     }
+
+    // Overflow dropdown toggle (⋯ menu for Update/Delete)
+    function toggleOverflow(event, trigger) {
+        event.stopPropagation();
+        const menu = trigger.nextElementSibling;
+        const wasOpen = menu.classList.contains('show');
+        // Close all other open menus first
+        document.querySelectorAll('.action-overflow-menu.show').forEach(m => m.classList.remove('show'));
+        if (!wasOpen) {
+            menu.classList.add('show');
+        }
+    }
+
+    // Close overflow menus on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.action-overflow')) {
+            document.querySelectorAll('.action-overflow-menu.show').forEach(m => m.classList.remove('show'));
+        }
+    });
 
     // Autostart toggle
     function toggleAutostart(worldName, checked) {
