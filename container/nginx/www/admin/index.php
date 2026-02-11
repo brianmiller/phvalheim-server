@@ -367,31 +367,26 @@ $totalCount = count($worlds);
                                         <td>
                                             <div class="action-group">
                                                 <?php if ($world['mode'] === 'running'): ?>
-                                                <a href="phvalheim://?<?php echo $world['launchString']; ?>" class="action-btn success">Launch</a>
-                                                <span class="action-btn disabled">Start</span>
-                                                <a href="?stop_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Stop</a>
+                                                <a href="phvalheim://?<?php echo $world['launchString']; ?>" class="action-btn success" data-action="launch">Launch</a>
+                                                <span class="action-btn disabled" data-action="start">Start</span>
+                                                <a href="?stop_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="stop">Stop</a>
                                                 <?php else: ?>
-                                                <span class="action-btn disabled">Launch</span>
-                                                <span class="action-btn disabled">Start</span>
-                                                <span class="action-btn disabled">Stop</span>
+                                                <span class="action-btn disabled" data-action="launch">Launch</span>
+                                                <span class="action-btn disabled" data-action="start">Start</span>
+                                                <span class="action-btn disabled" data-action="stop">Stop</span>
                                                 <?php endif; ?>
-                                                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_<?php echo urlencode($world['name']); ?>.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn">Logs</a>
+                                                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_<?php echo urlencode($world['name']); ?>.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>
                                             </div>
                                         </td>
                                         <td>
                                             <div class="action-group">
-                                                <span class="action-btn disabled">Edit Mods</span>
-                                                <a href="#" class="action-btn" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
+                                                <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
+                                                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                                 </a>
-                                                <span class="action-btn disabled">Update</span>
-                                                <div class="action-overflow">
-                                                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
-                                                    <div class="action-overflow-menu">
-                                                        <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
-                                                        <span class="action-btn disabled">Delete</span>
-                                                    </div>
-                                                </div>
+                                                <span class="action-btn disabled" data-action="update">Update</span>
+                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
+                                                <span class="action-btn disabled" data-action="delete">Delete</span>
                                             </div>
                                         </td>
                                         <td>
@@ -474,26 +469,21 @@ $totalCount = count($worlds);
                                         </td>
                                         <td>
                                             <div class="action-group">
-                                                <span class="action-btn disabled">Launch</span>
-                                                <a href="?start_world=<?php echo urlencode($world['name']); ?>" class="action-btn success">Start</a>
-                                                <span class="action-btn disabled">Stop</span>
-                                                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_<?php echo urlencode($world['name']); ?>.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn">Logs</a>
+                                                <span class="action-btn disabled" data-action="launch">Launch</span>
+                                                <a href="?start_world=<?php echo urlencode($world['name']); ?>" class="action-btn success" data-action="start">Start</a>
+                                                <span class="action-btn disabled" data-action="stop">Stop</span>
+                                                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_<?php echo urlencode($world['name']); ?>.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>
                                             </div>
                                         </td>
                                         <td>
                                             <div class="action-group">
-                                                <a href="edit_world.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn primary">Edit Mods</a>
-                                                <a href="#" class="action-btn" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
+                                                <a href="edit_world.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn primary" data-action="edit-mods">Edit Mods</a>
+                                                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                                 </a>
-                                                <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn">Update</a>
-                                                <div class="action-overflow">
-                                                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
-                                                    <div class="action-overflow-menu">
-                                                        <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn">Settings</a>
-                                                        <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
-                                                    </div>
-                                                </div>
+                                                <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="update">Update</a>
+                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
+                                                <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger" data-action="delete">Delete</a>
                                             </div>
                                         </td>
                                         <td>
@@ -1009,6 +999,9 @@ $totalCount = count($worlds);
         // Handle "no worlds" rows
         updateNoWorldsRow(onlineBody, onlineWorlds.length, 'online');
         updateNoWorldsRow(offlineBody, offlineWorlds.length, 'offline');
+
+        // Reflow overflow menus after DOM updates
+        reflowActionGroups();
     }
 
     function updateWorldRow(row, world) {
@@ -1047,55 +1040,40 @@ $totalCount = count($worlds);
         let actionsHtml, configHtml;
         if (world.mode === 'running') {
             actionsHtml = `
-                <a href="phvalheim://?${world.launchString}" class="action-btn success">Launch</a>
-                <span class="action-btn disabled">Start</span>
-                <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn">Stop</a>
-                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn">Logs</a>`;
+                <a href="phvalheim://?${world.launchString}" class="action-btn success" data-action="launch">Launch</a>
+                <span class="action-btn disabled" data-action="start">Start</span>
+                <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>
+                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
-                <span class="action-btn disabled">Edit Mods</span>
-                <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
-                <span class="action-btn disabled">Update</span>
-                <div class="action-overflow">
-                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
-                    <div class="action-overflow-menu">
-                        <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
-                        <span class="action-btn disabled">Delete</span>
-                    </div>
-                </div>`;
+                <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
+                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
+                <span class="action-btn disabled" data-action="update">Update</span>
+                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
+                <span class="action-btn disabled" data-action="delete">Delete</span>`;
         } else if (world.mode === 'stopped') {
             actionsHtml = `
-                <span class="action-btn disabled">Launch</span>
-                <a href="?start_world=${encodeURIComponent(world.name)}" class="action-btn success">Start</a>
-                <span class="action-btn disabled">Stop</span>
-                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn">Logs</a>`;
+                <span class="action-btn disabled" data-action="launch">Launch</span>
+                <a href="?start_world=${encodeURIComponent(world.name)}" class="action-btn success" data-action="start">Start</a>
+                <span class="action-btn disabled" data-action="stop">Stop</span>
+                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
-                <a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary">Edit Mods</a>
-                <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
-                <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn">Update</a>
-                <div class="action-overflow">
-                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
-                    <div class="action-overflow-menu">
-                        <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
-                        <a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>
-                    </div>
-                </div>`;
+                <a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>
+                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
+                <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
+                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
+                <a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger" data-action="delete">Delete</a>`;
         } else {
             actionsHtml = `
-                <span class="action-btn disabled">Launch</span>
-                <span class="action-btn disabled">Start</span>
-                <span class="action-btn disabled">Stop</span>
-                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn">Logs</a>`;
+                <span class="action-btn disabled" data-action="launch">Launch</span>
+                <span class="action-btn disabled" data-action="start">Start</span>
+                <span class="action-btn disabled" data-action="stop">Stop</span>
+                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
-                <span class="action-btn disabled">Edit Mods</span>
-                <a href="#" class="action-btn" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
-                <span class="action-btn disabled">Update</span>
-                <div class="action-overflow">
-                    <span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span>
-                    <div class="action-overflow-menu">
-                        <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn">Settings</a>
-                        <span class="action-btn disabled">Delete</span>
-                    </div>
-                </div>`;
+                <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
+                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
+                <span class="action-btn disabled" data-action="update">Update</span>
+                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
+                <span class="action-btn disabled" data-action="delete">Delete</span>`;
         }
 
         row.innerHTML = `
@@ -1192,54 +1170,47 @@ $totalCount = count($worlds);
     }
 
     function updateActionButtons(row, world) {
-        const actionGroup = row.querySelectorAll('.action-group')[0];
-        const configGroup = row.querySelectorAll('.action-group')[1];
-        if (!actionGroup) return;
+        // Find buttons by data-action attribute (works regardless of position — inline or in overflow menu)
+        const findBtn = (attr) => row.querySelector(`[data-action="${attr}"]`);
 
-        // Get action buttons (Launch, Start, Stop, Logs)
-        const launchBtn = actionGroup.children[0];
-        const startBtn = actionGroup.children[1];
-        const stopBtn = actionGroup.children[2];
+        const launchBtn = findBtn('launch');
+        const startBtn = findBtn('start');
+        const stopBtn = findBtn('stop');
 
-        if (world.mode === 'running') {
-            // Launch: enabled
-            launchBtn.outerHTML = `<a href="phvalheim://?${world.launchString}" class="action-btn success">Launch</a>`;
-            // Start: disabled
-            startBtn.outerHTML = `<span class="action-btn disabled">Start</span>`;
-            // Stop: enabled
-            stopBtn.outerHTML = `<a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn">Stop</a>`;
-        } else if (world.mode === 'stopped') {
-            // Launch: disabled
-            launchBtn.outerHTML = `<span class="action-btn disabled">Launch</span>`;
-            // Start: enabled
-            startBtn.outerHTML = `<a href="?start_world=${encodeURIComponent(world.name)}" class="action-btn success">Start</a>`;
-            // Stop: disabled
-            stopBtn.outerHTML = `<span class="action-btn disabled">Stop</span>`;
-        } else {
-            // All disabled during transitions
-            launchBtn.outerHTML = `<span class="action-btn disabled">Launch</span>`;
-            startBtn.outerHTML = `<span class="action-btn disabled">Start</span>`;
-            stopBtn.outerHTML = `<span class="action-btn disabled">Stop</span>`;
-        }
-
-        // Update configure buttons (Edit Mods, Update on main row; Delete in overflow)
-        if (configGroup) {
-            const editModsBtn = configGroup.children[0];
-            const updateBtn = configGroup.children[2];
-            const overflowMenu = configGroup.querySelector('.action-overflow-menu');
-            if (!overflowMenu) return;
-            const deleteBtn = overflowMenu.children[1]; // [0]=Settings (always enabled), [1]=Delete
-
-            if (world.mode === 'stopped') {
-                editModsBtn.outerHTML = `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary">Edit Mods</a>`;
-                updateBtn.outerHTML = `<a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn">Update</a>`;
-                deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger">Delete</a>`;
+        if (launchBtn && startBtn && stopBtn) {
+            if (world.mode === 'running') {
+                launchBtn.outerHTML = `<a href="phvalheim://?${world.launchString}" class="action-btn success" data-action="launch">Launch</a>`;
+                startBtn.outerHTML = `<span class="action-btn disabled" data-action="start">Start</span>`;
+                stopBtn.outerHTML = `<a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>`;
+            } else if (world.mode === 'stopped') {
+                launchBtn.outerHTML = `<span class="action-btn disabled" data-action="launch">Launch</span>`;
+                startBtn.outerHTML = `<a href="?start_world=${encodeURIComponent(world.name)}" class="action-btn success" data-action="start">Start</a>`;
+                stopBtn.outerHTML = `<span class="action-btn disabled" data-action="stop">Stop</span>`;
             } else {
-                editModsBtn.outerHTML = `<span class="action-btn disabled">Edit Mods</span>`;
-                updateBtn.outerHTML = `<span class="action-btn disabled">Update</span>`;
-                deleteBtn.outerHTML = `<span class="action-btn disabled">Delete</span>`;
+                launchBtn.outerHTML = `<span class="action-btn disabled" data-action="launch">Launch</span>`;
+                startBtn.outerHTML = `<span class="action-btn disabled" data-action="start">Start</span>`;
+                stopBtn.outerHTML = `<span class="action-btn disabled" data-action="stop">Stop</span>`;
             }
         }
+
+        const editModsBtn = findBtn('edit-mods');
+        const updateBtn = findBtn('update');
+        const deleteBtn = findBtn('delete');
+
+        if (editModsBtn && updateBtn && deleteBtn) {
+            if (world.mode === 'stopped') {
+                editModsBtn.outerHTML = `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`;
+                updateBtn.outerHTML = `<a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>`;
+                deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger" data-action="delete">Delete</a>`;
+            } else {
+                editModsBtn.outerHTML = `<span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>`;
+                updateBtn.outerHTML = `<span class="action-btn disabled" data-action="update">Update</span>`;
+                deleteBtn.outerHTML = `<span class="action-btn disabled" data-action="delete">Delete</span>`;
+            }
+        }
+
+        // Re-run reflow after button state changes
+        reflowActionGroups();
     }
 
     function updateStats(worlds) {
@@ -1248,12 +1219,51 @@ $totalCount = count($worlds);
         document.getElementById('statWorlds').textContent = `${running} / ${total}`;
     }
 
-    // Overflow dropdown toggle (⋯ menu for Update/Delete)
+    // ==========================================
+    // Responsive overflow menu for action buttons
+    // ==========================================
+    function reflowActionGroups() {
+        document.querySelectorAll('.worlds-table .action-group').forEach(group => {
+            // Ensure overflow container exists
+            let overflow = group.querySelector('.action-overflow');
+            if (!overflow) {
+                overflow = document.createElement('div');
+                overflow.className = 'action-overflow';
+                overflow.innerHTML = '<span class="action-overflow-trigger" onclick="toggleOverflow(event, this)">&#x22EF;</span><div class="action-overflow-menu"></div>';
+                group.appendChild(overflow);
+            }
+            const menu = overflow.querySelector('.action-overflow-menu');
+
+            // Move all buttons back from menu to inline (before the overflow div)
+            while (menu.firstChild) {
+                group.insertBefore(menu.firstChild, overflow);
+            }
+
+            // Hide overflow trigger
+            overflow.style.display = 'none';
+
+            // Get visible inline buttons (not disabled/hidden, not inside overflow)
+            const allBtns = Array.from(group.querySelectorAll(':scope > .action-btn'));
+            const visibleBtns = allBtns.filter(btn => !btn.classList.contains('disabled'));
+
+            // Check if content overflows: compare scrollWidth to clientWidth
+            if (group.scrollWidth <= group.clientWidth) return;
+
+            // Show overflow trigger and measure its impact
+            overflow.style.display = '';
+
+            // Move visible buttons right-to-left into menu until it fits (keep at least 1)
+            for (let i = visibleBtns.length - 1; i >= 1; i--) {
+                if (group.scrollWidth <= group.clientWidth) break;
+                menu.insertBefore(visibleBtns[i], menu.firstChild);
+            }
+        });
+    }
+
     function toggleOverflow(event, trigger) {
         event.stopPropagation();
         const menu = trigger.nextElementSibling;
         const wasOpen = menu.classList.contains('show');
-        // Close all other open menus first
         document.querySelectorAll('.action-overflow-menu.show').forEach(m => m.classList.remove('show'));
         if (!wasOpen) {
             menu.classList.add('show');
@@ -1265,6 +1275,14 @@ $totalCount = count($worlds);
         if (!e.target.closest('.action-overflow')) {
             document.querySelectorAll('.action-overflow-menu.show').forEach(m => m.classList.remove('show'));
         }
+    });
+
+    // Run reflow on load and resize
+    reflowActionGroups();
+    let reflowTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(reflowTimer);
+        reflowTimer = setTimeout(reflowActionGroups, 100);
     });
 
     // Autostart toggle

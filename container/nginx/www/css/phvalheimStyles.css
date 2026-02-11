@@ -2129,29 +2129,30 @@ input:checked + .slider:before {
 	background: var(--bg-primary);
 	padding: 0.25rem 0.5rem;
 	border-radius: 0.25rem;
+	display: inline-block;
+	max-width: 100%;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	display: inline-block;
-	max-width: 100%;
 }
 
 .world-seed {
 	font-family: var(--font-mono);
 	font-size: 0.8125rem;
 	color: var(--accent-secondary);
+	display: block;
+	max-width: 100%;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	display: block;
-	max-width: 100%;
 }
 
 /* Action Buttons */
 .action-group {
 	display: flex;
 	gap: 0.5rem;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
+	align-items: center;
 }
 
 .action-btn {
@@ -2169,63 +2170,14 @@ input:checked + .slider:before {
 	background: transparent;
 	color: var(--text-secondary);
 	white-space: nowrap;
+	flex-shrink: 0;
 }
 
-.action-btn:hover {
-	background: var(--bg-tertiary);
-	color: var(--text-primary);
-}
-
-.action-btn.primary {
-	background: rgba(34, 211, 238, 0.1);
-	color: var(--accent-primary);
-	border-color: rgba(34, 211, 238, 0.3);
-}
-
-.action-btn.primary:hover {
-	background: rgba(34, 211, 238, 0.2);
-}
-
-.action-btn.success {
-	background: rgba(74, 222, 128, 0.1);
-	color: var(--success);
-	border-color: rgba(74, 222, 128, 0.3);
-}
-
-.action-btn.success:hover {
-	background: rgba(74, 222, 128, 0.2);
-}
-
-.action-btn.danger {
-	background: rgba(248, 113, 113, 0.1);
-	color: var(--danger);
-	border-color: rgba(248, 113, 113, 0.3);
-}
-
-.action-btn.danger:hover {
-	background: rgba(248, 113, 113, 0.2);
-}
-
-.action-btn.disabled, .action-btn:disabled {
-	opacity: 0.4;
-	cursor: not-allowed;
-	pointer-events: none;
-}
-
-/* Hide disabled buttons in worlds table — only show actionable buttons */
-.worlds-table .action-btn.disabled {
-	display: none;
-}
-
-/* Action overflow dropdown (⋯ menu for Update/Delete) */
+/* Responsive overflow dropdown (⋯ menu) — shown by JS when buttons don't fit */
 .action-overflow {
 	position: relative;
 	display: inline-flex;
-}
-
-/* Hide entire overflow when all menu items are disabled (hidden) */
-.action-overflow:not(:has(.action-overflow-menu .action-btn:not(.disabled))) {
-	display: none;
+	flex-shrink: 0;
 }
 
 .action-overflow-trigger {
@@ -2276,6 +2228,56 @@ input:checked + .slider:before {
 	width: 100%;
 	border-radius: 0.25rem;
 	padding: 0.5rem 0.75rem;
+}
+
+.action-overflow-menu .action-btn.disabled {
+	display: none;
+}
+
+.action-btn:hover {
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
+}
+
+.action-btn.primary {
+	background: rgba(34, 211, 238, 0.1);
+	color: var(--accent-primary);
+	border-color: rgba(34, 211, 238, 0.3);
+}
+
+.action-btn.primary:hover {
+	background: rgba(34, 211, 238, 0.2);
+}
+
+.action-btn.success {
+	background: rgba(74, 222, 128, 0.1);
+	color: var(--success);
+	border-color: rgba(74, 222, 128, 0.3);
+}
+
+.action-btn.success:hover {
+	background: rgba(74, 222, 128, 0.2);
+}
+
+.action-btn.danger {
+	background: rgba(248, 113, 113, 0.1);
+	color: var(--danger);
+	border-color: rgba(248, 113, 113, 0.3);
+}
+
+.action-btn.danger:hover {
+	background: rgba(248, 113, 113, 0.2);
+}
+
+.action-btn.disabled, .action-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+/* Hide disabled buttons in worlds table — only show actionable buttons */
+.worlds-table .action-btn.disabled {
+	display: none;
 }
 
 /* Mods Modal */
@@ -2376,9 +2378,19 @@ input:checked + .slider:before {
 	background: var(--bg-tertiary);
 	color: var(--text-secondary);
 	font-size: 0.75rem;
-	padding: 0.125rem 0.5rem;
+	padding: 0.125rem 0.375rem;
 	border-radius: 9999px;
-	margin-left: 0.5rem;
+	margin-left: 0.25rem;
+	display: inline-block;
+	min-width: 1.5rem;
+	text-align: center;
+	box-sizing: border-box;
+}
+
+/* Fixed width for View button so mod count doesn't shift alignment */
+.action-btn[data-action="view-mods"] {
+	min-width: 5.75rem;
+	justify-content: center;
 }
 
 /* Quick Actions Panel */
