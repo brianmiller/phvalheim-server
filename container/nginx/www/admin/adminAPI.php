@@ -345,16 +345,21 @@ function getWorldModsJson($pdo, $world) {
  * Returns settings for a specific world
  */
 function getWorldSettingsJson($pdo, $world) {
-    // Get autostart value
-    $stmt = $pdo->prepare("SELECT autostart FROM worlds WHERE name = ?");
+    // Get autostart, endpoint, and port
+    $stmt = $pdo->prepare("SELECT autostart, external_endpoint, port FROM worlds WHERE name = ?");
     $stmt->execute([$world]);
-    $autostart = (int)$stmt->fetchColumn();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $autostart = (int)($row['autostart'] ?? 0);
+    $endpoint = $row['external_endpoint'] ?? '';
+    $port = $row['port'] ?? '';
 
     echo json_encode([
         'success' => true,
         'world' => $world,
         'seed' => getSeed($pdo, $world),
         'md5' => getMd5($pdo, $world),
+        'endpoint' => $endpoint,
+        'port' => $port,
         'dateDeployed' => getDateDeployed($pdo, $world),
         'dateUpdated' => getDateUpdated($pdo, $world),
         'hideSeed' => GetHideSeed($pdo, $world),

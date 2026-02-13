@@ -1779,22 +1779,67 @@ input:checked + .slider:before {
 	align-items: center;
 }
 
-/* Admin footer with social links */
-.admin-footer {
-	position: fixed;
-	bottom: 1rem;
-	left: 1rem;
+/* Sidebar collapse button in admin header */
+.sidebar-collapse-btn {
 	display: flex;
-	gap: 0.75rem;
-	z-index: 100;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border: none;
+	background: transparent;
+	color: var(--text-secondary);
+	cursor: pointer;
+	border-radius: 6px;
+	transition: all 0.2s ease;
+	flex-shrink: 0;
+	padding: 0;
+	margin-right: 0.75rem;
+}
+
+.sidebar-collapse-btn:hover {
+	background: var(--bg-secondary);
+	color: var(--text-primary);
+}
+
+.sidebar-collapse-btn .collapse-icon {
+	transition: transform 0.3s ease;
+}
+
+.admin-layout.sidebar-collapsed .sidebar-collapse-btn .collapse-icon {
+	transform: rotate(180deg);
+}
+
+/* Sidebar collapsed state (desktop) */
+.admin-layout.sidebar-collapsed .admin-sidebar {
+	transform: translateX(-100%);
+}
+
+.admin-layout.sidebar-collapsed .admin-main {
+	margin-left: 0 !important;
+}
+
+/* Smooth transition for main content */
+.admin-main {
+	transition: margin-left 0.3s ease;
+}
+
+/* Admin footer with social links - sits at bottom of sidebar */
+.admin-footer {
+	display: flex;
+	gap: 0.5rem;
+	padding: 0.75rem 1rem;
+	border-top: 1px solid var(--border-color);
+	align-items: center;
+	flex-shrink: 0;
 }
 
 .social-link {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	width: 40px;
-	height: 40px;
+	width: 32px;
+	height: 32px;
 	background: var(--bg-secondary);
 	border: 1px solid var(--border-color);
 	border-radius: 0.5rem;
@@ -2072,19 +2117,15 @@ input:checked + .slider:before {
    without wrapping at typical viewport widths (≥ ~1450px table width).
    Endpoint and Seed are trimmed to compensate. */
 .worlds-table th:nth-child(1),
-.worlds-table td:nth-child(1) { width: 6%; }  /* Status */
+.worlds-table td:nth-child(1) { width: 7%; }  /* Status */
 .worlds-table th:nth-child(2),
-.worlds-table td:nth-child(2) { width: 7%; }  /* World */
+.worlds-table td:nth-child(2) { width: 15%; } /* World */
 .worlds-table th:nth-child(3),
-.worlds-table td:nth-child(3) { width: 13%; } /* Endpoint */
+.worlds-table td:nth-child(3) { width: 18%; } /* Actions */
 .worlds-table th:nth-child(4),
-.worlds-table td:nth-child(4) { width: 9%; }  /* Seed */
+.worlds-table td:nth-child(4) { width: 40%; } /* Configure */
 .worlds-table th:nth-child(5),
-.worlds-table td:nth-child(5) { width: 16%; } /* Actions */
-.worlds-table th:nth-child(6),
-.worlds-table td:nth-child(6) { width: 32%; } /* Configure */
-.worlds-table th:nth-child(7),
-.worlds-table td:nth-child(7) { width: 12%; } /* Resources */
+.worlds-table td:nth-child(5) { width: 20%; } /* Resources */
 
 .worlds-table thead th {
 	background: var(--bg-tertiary);
@@ -2120,6 +2161,7 @@ input:checked + .slider:before {
 .world-name {
 	font-weight: 600;
 	color: var(--text-primary);
+	word-break: break-word;
 }
 
 .world-endpoint {
@@ -2561,6 +2603,10 @@ input:checked + .slider:before {
 		display: block;
 	}
 
+	.sidebar-collapse-btn {
+		display: none;
+	}
+
 	/* Header wraps on narrow screens */
 	.admin-header {
 		flex-wrap: wrap;
@@ -2659,17 +2705,13 @@ input:checked + .slider:before {
 	.worlds-table th:nth-child(1),
 	.worlds-table td:nth-child(1) { width: 8%; }   /* Status */
 	.worlds-table th:nth-child(2),
-	.worlds-table td:nth-child(2) { width: 8%; }   /* World */
+	.worlds-table td:nth-child(2) { width: 15%; }  /* World */
 	.worlds-table th:nth-child(3),
-	.worlds-table td:nth-child(3) { width: 9%; }   /* Endpoint (truncated) */
+	.worlds-table td:nth-child(3) { width: 18%; }  /* Actions */
 	.worlds-table th:nth-child(4),
-	.worlds-table td:nth-child(4) { width: 6%; }   /* Seed (truncated) */
+	.worlds-table td:nth-child(4) { width: 41%; }  /* Configure */
 	.worlds-table th:nth-child(5),
-	.worlds-table td:nth-child(5) { width: 20%; }  /* Actions */
-	.worlds-table th:nth-child(6),
-	.worlds-table td:nth-child(6) { width: 35%; }  /* Configure */
-	.worlds-table th:nth-child(7),
-	.worlds-table td:nth-child(7) { width: 14%; }  /* Resources */
+	.worlds-table td:nth-child(5) { width: 18%; }  /* Resources */
 
 	/* Truncate endpoint text — tap to expand */
 	.world-endpoint {
@@ -2786,7 +2828,7 @@ input:checked + .slider:before {
 .world-resource-item .resource-label {
 	color: var(--text-muted);
 	font-weight: 500;
-	width: 28px;
+	width: 42px;
 	flex-shrink: 0;
 }
 
