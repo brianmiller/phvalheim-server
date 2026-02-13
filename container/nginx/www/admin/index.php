@@ -220,6 +220,12 @@ $totalCount = count($worlds);
                 </button>
                 <h1>PhValheim Administrator Interface</h1>
                 <div class="header-actions">
+                    <button class="ai-helper-btn" id="aiHelperBtn" onclick="toggleAiPanel()" title="AI Helper">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                        AI Helper
+                    </button>
                     <span class="live-indicator">
                         <span class="live-indicator-dot"></span>
                         Live
@@ -899,9 +905,74 @@ $totalCount = count($worlds);
             if (data.success) {
                 updateWorldsDisplay(data.worlds);
                 updateStats(data.worlds);
+                updateAiContextWorlds(data.worlds);
             }
         } catch (error) {
             console.error('Failed to fetch world status:', error);
+        }
+    }
+
+    // Populate world logs in the AI context dropdown
+    let aiContextWorldsPopulated = false;
+    function updateAiContextWorlds(worlds) {
+        if (aiContextWorldsPopulated) return; // only populate once
+        const group = document.getElementById('aiContextWorldGroup');
+        if (!group) return;
+        group.innerHTML = '';
+        worlds.forEach(w => {
+            const opt = document.createElement('option');
+            opt.value = 'world:' + w.name;
+            opt.textContent = w.name;
+            group.appendChild(opt);
+        });
+        aiContextWorldsPopulated = true;
+        // Restore saved context (might be a world log)
+        const savedContext = getCookie('aiContext');
+        if (savedContext) {
+            const sel = document.getElementById('aiContextSelect');
+            for (let i = 0; i < sel.options.length; i++) {
+                if (sel.options[i].value === savedContext) {
+                    sel.value = savedContext;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Called from log viewer windows via window.opener
+    function openAiHelperWithContext(contextValue, prompt, displayLabel) {
+        // Ensure worlds are in the dropdown
+        const sel = document.getElementById('aiContextSelect');
+        // Set the context value (may need to add it if world logs aren't populated yet)
+        let found = false;
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === contextValue) {
+                sel.value = contextValue;
+                found = true;
+                break;
+            }
+        }
+        if (!found && contextValue.startsWith('world:')) {
+            // Add it dynamically
+            const group = document.getElementById('aiContextWorldGroup');
+            const opt = document.createElement('option');
+            opt.value = contextValue;
+            opt.textContent = contextValue.replace('world:', '');
+            group.appendChild(opt);
+            sel.value = contextValue;
+        }
+        setCookie('aiContext', contextValue, 365);
+        // Open the panel
+        const panel = document.getElementById('aiPanel');
+        if (!panel.classList.contains('open')) {
+            toggleAiPanel();
+        }
+        // Pre-fill and auto-send prompt if provided
+        if (prompt) {
+            document.getElementById('aiInput').value = prompt;
+            sendAiMessage(displayLabel || null);
+        } else {
+            document.getElementById('aiInput').focus();
         }
     }
 
@@ -1777,6 +1848,399 @@ $totalCount = count($worlds);
             .then(() => fetchWorldStatus())
             .catch(err => console.error('World action failed:', err));
     });
+    </script>
+
+    <!-- AI Helper Panel -->
+    <div class="ai-panel" id="aiPanel">
+        <div class="ai-panel-header">
+            <span class="ai-panel-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                AI Helper
+            </span>
+            <button class="ai-panel-close" onclick="toggleAiPanel()" title="Close">&times;</button>
+            <div class="ai-panel-selectors">
+                <div class="ai-selector-group">
+                    <label class="ai-selector-label">Model</label>
+                    <select id="aiModelSelect" class="ai-context-select" onchange="onAiModelChange()"></select>
+                </div>
+                <div class="ai-selector-group">
+                    <label class="ai-selector-label">Context</label>
+                    <select id="aiContextSelect" class="ai-context-select" onchange="onAiContextChange()">
+                        <option value="none">No log context</option>
+                        <option value="engine">Engine log</option>
+                        <option value="ts">Thunderstore log</option>
+                        <option value="backup">Backup log</option>
+                        <optgroup label="World Logs" id="aiContextWorldGroup"></optgroup>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="ai-panel-messages" id="aiMessages">
+            <div class="ai-message assistant">
+                <div class="ai-message-content">Hello! I can help you troubleshoot server issues, understand logs, and manage mods. Select a log context above for log-aware answers.</div>
+            </div>
+            <div class="ai-quick-prompts" id="aiQuickPrompts"></div>
+        </div>
+        <div class="ai-panel-input">
+            <textarea id="aiInput" placeholder="Ask about logs, mods, errors..." rows="2"></textarea>
+            <button onclick="sendAiMessage()" id="aiSendBtn" class="ai-send-btn" title="Send (Ctrl+Enter)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div class="ai-panel-overlay" id="aiOverlay" onclick="toggleAiPanel()"></div>
+
+    <script>
+    // AI Helper Chat — Multi-provider support
+    let aiChatHistory = [];
+    let aiProviders = {};
+    const AI_MAX_HISTORY = 20;
+
+    // Cookie helpers
+    function setCookie(name, value, days) {
+        const d = new Date();
+        d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+        document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+    }
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : '';
+    }
+
+    // Load available providers from backend
+    async function loadAiProviders() {
+        try {
+            const res = await fetch('adminAPI.php?action=getAiProviders');
+            const data = await res.json();
+            if (!data.success) return;
+            aiProviders = data.providers;
+
+            const keys = Object.keys(aiProviders);
+
+            populateModelSelect();
+
+            // Restore context cookie
+            const savedContext = getCookie('aiContext');
+            if (savedContext) {
+                document.getElementById('aiContextSelect').value = savedContext;
+            }
+
+            // Update quick prompts to reflect initial context
+            updateAiQuickPrompts();
+
+            // Hide AI Helper button if no providers
+            document.getElementById('aiHelperBtn').style.display = keys.length === 0 ? 'none' : '';
+        } catch(e) {
+            console.error('Failed to load AI providers:', e);
+        }
+    }
+
+    function populateModelSelect() {
+        const modelSel = document.getElementById('aiModelSelect');
+        modelSel.innerHTML = '';
+
+        // Build flat list of all provider:model combinations
+        const allModels = [];
+        Object.keys(aiProviders).forEach(provider => {
+            aiProviders[provider].models.forEach(m => {
+                allModels.push({
+                    provider: provider,
+                    providerId: provider,
+                    providerLabel: aiProviders[provider].label,
+                    modelId: m.id,
+                    modelLabel: m.label,
+                    value: provider + ':' + m.id,
+                    text: aiProviders[provider].label + ' - ' + m.label
+                });
+            });
+        });
+
+        // Group models by provider using optgroups
+        const groupedByProvider = {};
+        allModels.forEach(m => {
+            if (!groupedByProvider[m.provider]) {
+                groupedByProvider[m.provider] = [];
+            }
+            groupedByProvider[m.provider].push(m);
+        });
+
+        // Add optgroups with provider labels
+        Object.keys(groupedByProvider).forEach(provider => {
+            const group = document.createElement('optgroup');
+            group.label = aiProviders[provider]?.label || provider;
+            group.className = 'ai-model-optgroup';
+            // Style optgroup label with data attribute for provider color
+            group.setAttribute('data-provider', provider);
+            groupedByProvider[provider].forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.value;
+                opt.textContent = m.modelLabel;
+                opt.className = 'ai-model-option';
+                group.appendChild(opt);
+            });
+            modelSel.appendChild(group);
+        });
+
+        // Restore from cookie if it exists
+        const savedModel = getCookie('aiModel');
+        if (savedModel && allModels.some(m => m.value === savedModel)) {
+            modelSel.value = savedModel;
+        } else if (allModels.length > 0) {
+            modelSel.value = allModels[0].value;
+        }
+    }
+
+
+
+    function onAiModelChange() {
+        setCookie('aiModel', document.getElementById('aiModelSelect').value, 365);
+    }
+
+    function onAiContextChange() {
+        setCookie('aiContext', document.getElementById('aiContextSelect').value, 365);
+        updateAiQuickPrompts();
+    }
+
+    function updateAiQuickPrompts() {
+        const contextSelect = document.getElementById('aiContextSelect');
+        const contextValue = contextSelect.value;
+        const quickPromptsContainer = document.getElementById('aiQuickPrompts');
+        quickPromptsContainer.innerHTML = '';
+
+        // Show quick prompts only if a world context is selected
+        if (contextValue && contextValue.startsWith('world:')) {
+            const worldName = contextValue.substring(6);
+
+            // "Analyze world logs" button
+            const analyzeBtn = document.createElement('div');
+            analyzeBtn.className = 'ai-quick-prompt';
+            analyzeBtn.textContent = "Analyze world logs for '" + worldName + "'?";
+            analyzeBtn.onclick = function() { clickQuickPrompt('analyze-world'); };
+            quickPromptsContainer.appendChild(analyzeBtn);
+
+            // "Is world healthy" button
+            const healthBtn = document.createElement('div');
+            healthBtn.className = 'ai-quick-prompt';
+            healthBtn.textContent = "Is '" + worldName + "' healthy?";
+            healthBtn.onclick = function() { clickQuickPrompt('world-health'); };
+            quickPromptsContainer.appendChild(healthBtn);
+        }
+    }
+
+    function clickQuickPrompt(promptType) {
+        if (promptType === 'analyze-world') {
+            const contextSelect = document.getElementById('aiContextSelect');
+            const contextValue = contextSelect.value;
+
+            if (!contextValue.startsWith('world:')) {
+                alert('Please select a world context first.');
+                return;
+            }
+
+            const worldName = contextValue.substring(6);
+
+            // Pre-fill the prompt
+            const displayLabel = "Analyzing world '" + worldName + "'...";
+            const prompt = 'You are a Valheim server log analyzer. Your task is to identify mod-related errors that occur after the most recent server start.\n\nFOCUS ONLY ON:\n- Mod loading failures\n- Missing dependencies\n- NullReferenceException in mod code\n- Assembly loading errors\n- Mod configuration errors\n- Errors that prevent the world from starting\n\nCOMPLETELY IGNORE:\n- Graphics, shaders, rendering, cameras, depth, textures, fonts, UI\n- The createDirectory /root/.config error\n- ZoneSystem, DungeonDB, RPC registration messages\n- Audio warnings\n- Any warning that does not affect mod loading or server startup\n\nINSTRUCTIONS:\n1. Read the entire log\n2. Find the most recent server start marker\n3. Only analyze entries after that point\n4. List mod errors in the order they appear\n5. If a mod fails early in startup, mark it: PRIMARY INVESTIGATION AREA - MAY PREVENT WORLD START\n6. Output as HTML bullet points\n7. End with one sentence stating whether critical mod errors exist\n\nOUTPUT FORMAT:\n<ul>\n<li><strong>ModName</strong> - Brief error description</li>\n</ul>\n<p><strong>Overall Health:</strong> One sentence summary</p>\n\nKeep responses concise and focused only on actionable mod issues.';
+
+            openAiHelperWithContext(contextValue, prompt, displayLabel);
+        } else if (promptType === 'world-health') {
+            const contextSelect = document.getElementById('aiContextSelect');
+            const contextValue = contextSelect.value;
+
+            if (!contextValue.startsWith('world:')) {
+                alert('Please select a world context first.');
+                return;
+            }
+
+            const worldName = contextValue.substring(6);
+
+            // Pre-fill the prompt
+            const displayLabel = "Checking health of '" + worldName + "'...";
+            const prompt = 'Based on the log provided, assess the overall health and stability of this Valheim world. Consider:\n\n- Mod loading status and any critical failures\n- Server performance indicators (TPS, memory, etc.)\n- Player activity and connectivity issues\n- Any errors that could impact gameplay\n\nProvide a brief, actionable health assessment in HTML format.';
+
+            openAiHelperWithContext(contextValue, prompt, displayLabel);
+        }
+    }
+
+    function toggleAiPanel() {
+        const panel = document.getElementById('aiPanel');
+        const overlay = document.getElementById('aiOverlay');
+        const open = panel.classList.toggle('open');
+        overlay.classList.toggle('open', open);
+        if (open) {
+            // Auto-select last world context if available
+            if (window.lastSelectedWorld) {
+                const contextSelect = document.getElementById('aiContextSelect');
+                const worldContextValue = 'world:' + window.lastSelectedWorld;
+                let found = false;
+                for (let i = 0; i < contextSelect.options.length; i++) {
+                    if (contextSelect.options[i].value === worldContextValue) {
+                        contextSelect.value = worldContextValue;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const group = document.getElementById('aiContextWorldGroup');
+                    const opt = document.createElement('option');
+                    opt.value = worldContextValue;
+                    opt.textContent = window.lastSelectedWorld;
+                    group.appendChild(opt);
+                    contextSelect.value = worldContextValue;
+                }
+            }
+            // Always update quick prompts when opening the panel
+            updateAiQuickPrompts();
+            document.getElementById('aiInput').focus();
+        }
+    }
+
+    async function sendAiMessage(displayLabel) {
+        const input = document.getElementById('aiInput');
+        const msg = input.value.trim();
+        if (!msg) return;
+        input.value = '';
+        appendAiMessage('user', displayLabel || msg);
+
+        // Parse provider:model format from consolidated dropdown
+        // Split only on first ':' to handle ollama models with colons (e.g. ollama:llama2:7b)
+        const modelSelect = document.getElementById('aiModelSelect');
+        const modelValue = modelSelect.value;
+        const colonIdx = modelValue.indexOf(':');
+        const provider = modelValue.substring(0, colonIdx);
+        const model = modelValue.substring(colonIdx + 1);
+        const context = document.getElementById('aiContextSelect').value;
+
+        aiChatHistory.push({ role: 'user', content: msg });
+        if (aiChatHistory.length > AI_MAX_HISTORY) aiChatHistory = aiChatHistory.slice(-AI_MAX_HISTORY);
+
+        const typingId = appendAiTyping();
+        document.getElementById('aiSendBtn').disabled = true;
+
+        try {
+            const res = await fetch('adminAPI.php?action=aiHelper', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: msg,
+                    history: aiChatHistory.slice(0, -1),
+                    context: context,
+                    provider: provider,
+                    model: model
+                })
+            });
+            const data = await res.json();
+            removeAiTyping(typingId);
+            if (data.success) {
+                // Strip ```html and ``` code blocks from response
+                let reply = data.reply;
+                reply = reply.replace(/^```html\n/gm, '');
+                reply = reply.replace(/\n```$/gm, '');
+                reply = reply.replace(/```html/g, '');
+                reply = reply.replace(/```/g, '');
+
+                // Build provider info string from selected option text
+                const modelLabel = modelSelect.selectedOptions[0]?.text || (provider + ' - ' + model);
+                appendAiMessage('assistant', reply, modelLabel);
+                aiChatHistory.push({ role: 'assistant', content: data.reply });
+                if (aiChatHistory.length > AI_MAX_HISTORY) aiChatHistory = aiChatHistory.slice(-AI_MAX_HISTORY);
+            } else {
+                appendAiMessage('error', data.error || 'Error reaching AI');
+            }
+        } catch(e) {
+            removeAiTyping(typingId);
+            appendAiMessage('error', 'Network error: ' + e.message);
+        }
+        document.getElementById('aiSendBtn').disabled = false;
+    }
+
+    function appendAiMessage(role, text, providerInfo) {
+        const container = document.getElementById('aiMessages');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ai-message-wrapper';
+        const div = document.createElement('div');
+        div.className = 'ai-message ' + role;
+        const content = document.createElement('div');
+        content.className = 'ai-message-content';
+        // If response contains HTML tags, render directly; otherwise do markdown-like formatting
+        if (role === 'assistant' && /<[a-z][\s\S]*>/i.test(text)) {
+            content.innerHTML = text;
+        } else {
+            let html = text
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+            content.innerHTML = html;
+        }
+        div.appendChild(content);
+        wrapper.appendChild(div);
+
+        // Add provider info footer for assistant messages
+        if (role === 'assistant' && providerInfo) {
+            const footer = document.createElement('div');
+            footer.className = 'ai-message-footer';
+            footer.textContent = 'generated by ' + providerInfo;
+            wrapper.appendChild(footer);
+        }
+
+        container.appendChild(wrapper);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    let aiTypingCounter = 0;
+    function appendAiTyping() {
+        const container = document.getElementById('aiMessages');
+        const id = 'ai-typing-' + (++aiTypingCounter);
+        const div = document.createElement('div');
+        div.className = 'ai-message assistant ai-typing';
+        div.id = id;
+        div.innerHTML = '<div class="ai-message-content"><span class="ai-typing-dots"><span>.</span><span>.</span><span>.</span></span></div>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+        return id;
+    }
+
+    function removeAiTyping(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+
+    document.getElementById('aiInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendAiMessage();
+        }
+    });
+
+    // Initialize providers on load
+    loadAiProviders();
+
+    // Track last selected world when clicking on world rows
+    document.addEventListener('click', function(e) {
+        const row = e.target.closest('tr[data-world]');
+        if (row) {
+            window.lastSelectedWorld = row.getAttribute('data-world');
+        }
+    });
+
+    // Handle ?aiContext= and ?aiPrompt= URL params (from log viewer fallback)
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const aiCtx = params.get('aiContext');
+        const aiPrompt = params.get('aiPrompt');
+        const aiLabel = params.get('aiLabel');
+        if (aiCtx) {
+            setTimeout(function() { openAiHelperWithContext(aiCtx, aiPrompt || '', aiLabel || null); }, 1500);
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    })();
     </script>
 
 <span id="piEgg" style="position:fixed;bottom:4px;right:6px;font-size:9px;color:rgba(255,255,255,0.08);cursor:default;z-index:9999;user-select:none;line-height:1;">&pi;</span>

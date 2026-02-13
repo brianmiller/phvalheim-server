@@ -191,6 +191,17 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 				color: var(--success, #4ade80);
 			}
 
+			.ai-analyze-btn {
+				color: var(--accent-secondary, #a78bfa) !important;
+				border-color: var(--accent-secondary, #a78bfa) !important;
+				margin-left: auto;
+			}
+
+			.ai-analyze-btn:hover {
+				background: linear-gradient(135deg, rgba(167, 139, 250, 0.2), rgba(34, 211, 238, 0.2)) !important;
+				color: var(--accent-secondary-hover, #c4b5fd) !important;
+			}
+
 			.control-group {
 				display: flex;
 				gap: 0.5rem;
@@ -239,6 +250,12 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 				</button>
 				<button class="control-btn" onclick="scrollToBottom()">↓ Go to Bottom</button>
 				<button class="control-btn" onclick="scrollToTop()">↑ Go to Top</button>
+				<button class="control-btn ai-analyze-btn" id="aiAnalyzeBtn" onclick="analyzeWithAi()">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px;">
+						<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+					</svg>
+					Analyze with AI
+				</button>
 			</div>
 
 			<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
@@ -336,6 +353,39 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 			const container = this;
 			autoScroll = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
 		});
+
+		// Analyze with AI — map log filename to AI context value
+		function analyzeWithAi() {
+			let context = 'none';
+			let worldLabel = 'unknown';
+
+			if (logFile === 'phvalheim.log') {
+				context = 'engine';
+				worldLabel = 'PhValheim Engine';
+			} else if (logFile === 'tsSync.log') {
+				context = 'ts';
+				worldLabel = 'ThunderStore Sync';
+			} else if (logFile === 'worldBackups.log') {
+				context = 'backup';
+				worldLabel = 'World Backups';
+			} else if (logFile.startsWith('valheimworld_') && logFile.endsWith('.log')) {
+				const worldName = logFile.replace('valheimworld_', '').replace('.log', '');
+				context = 'world:' + worldName;
+				worldLabel = worldName;
+			}
+
+			const displayLabel = "Analyzing world '" + worldLabel + "'...";
+			const prompt = 'You are a Valheim server log analyzer. Your task is to identify mod-related errors that occur after the most recent server start.\n\nFOCUS ONLY ON:\n- Mod loading failures\n- Missing dependencies\n- NullReferenceException in mod code\n- Assembly loading errors\n- Mod configuration errors\n- Errors that prevent the world from starting\n\nCOMPLETELY IGNORE:\n- Graphics, shaders, rendering, cameras, depth, textures, fonts, UI\n- The createDirectory /root/.config error\n- ZoneSystem, DungeonDB, RPC registration messages\n- Audio warnings\n- Any warning that does not affect mod loading or server startup\n\nINSTRUCTIONS:\n1. Read the entire log\n2. Find the most recent server start marker\n3. Only analyze entries after that point\n4. List mod errors in the order they appear\n5. If a mod fails early in startup, mark it: PRIMARY INVESTIGATION AREA - MAY PREVENT WORLD START\n6. Output as HTML bullet points\n7. End with one sentence stating whether critical mod errors exist\n\nOUTPUT FORMAT:\n<ul>\n<li><strong>ModName</strong> - Brief error description</li>\n</ul>\n<p><strong>Overall Health:</strong> One sentence summary</p>\n\nKeep responses concise and focused only on actionable mod issues.';
+
+			// Try to call the opener (admin dashboard)
+			if (window.opener && !window.opener.closed && typeof window.opener.openAiHelperWithContext === 'function') {
+				window.opener.openAiHelperWithContext(context, prompt, displayLabel);
+				window.opener.focus();
+			} else {
+				// Fallback: open admin dashboard with context and prompt params
+				window.open('/?aiContext=' + encodeURIComponent(context) + '&aiPrompt=' + encodeURIComponent(prompt) + '&aiLabel=' + encodeURIComponent(displayLabel), '_blank');
+			}
+		}
 		</script>
 	</body>
 </html>

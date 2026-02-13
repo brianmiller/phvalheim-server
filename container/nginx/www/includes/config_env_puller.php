@@ -11,4 +11,10 @@ $phvalheimClientURL = getenv('phvalheimClientURL');
 $steamAPIKey = getenv('steamAPIKey');
 $backupsToKeep = getenv('backupsToKeep');
 $sessionTimeout = getenv('sessionTimeout') ?: 2592000;
+$aiKeys = [
+    'openai'  => getenv('openaiApiKey') ?: '',
+    'gemini'  => getenv('geminiApiKey') ?: '',
+    'claude'  => getenv('claudeApiKey') ?: '',
+    'ollama'  => getenv('ollamaUrl') ?: '',
+];
 ?>

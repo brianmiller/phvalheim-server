@@ -195,6 +195,26 @@ switch($action) {
         }
         break;
 
+    case 'getAiProviders':
+        getAiProvidersJson($aiKeys);
+        break;
+
+    case 'aiHelper':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $message  = trim($input['message'] ?? '');
+            $history  = $input['history'] ?? [];
+            $context  = $input['context'] ?? 'none';
+            $world    = $input['world'] ?? '';
+            $provider = $input['provider'] ?? '';
+            $model    = $input['model'] ?? '';
+            if (!$message) { echo json_encode(['success'=>false,'error'=>'No message']); break; }
+            aiHelperDispatch($aiKeys, $provider, $model, $message, $history, $context, $world);
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
     case 'worldAction':
         $world = $_GET['world'] ?? '';
         $cmd = $_GET['cmd'] ?? '';
@@ -208,6 +228,29 @@ switch($action) {
             echo json_encode(['success' => true, 'world' => $world, 'action' => $cmd]);
         } else {
             echo json_encode(['success' => false, 'error' => 'World name and valid cmd (start/stop/update/delete) required']);
+        }
+        break;
+
+    case 'getAiProviders':
+        getAiProvidersJson();
+        break;
+
+    case 'aiHelper':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $provider = $input['provider'] ?? 'gemini';
+            $model = $input['model'] ?? 'gemini-2.0-flash';
+            $context = $input['context'] ?? 'engine';
+            $history = $input['history'] ?? [];
+            $message = $input['message'] ?? '';
+
+            if ($message) {
+                aiHelperDispatch($provider, $model, $context, $history, $message);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Message required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
         }
         break;
 
@@ -935,6 +978,405 @@ function cloneWorldFoldersJson($sourceWorld, $targetWorld, $cloneConfigs, $clone
         'success' => true,
         'results' => $results
     ]);
+}
+
+/**
+ * Returns available AI providers and their models
+ */
+function getAiProvidersJson($aiKeys) {
+    $providerDefs = [
+        'openai' => [
+            'label' => 'OpenAI',
+            'models' => [
+                ['id' => 'gpt-4o-mini', 'label' => 'GPT-4o Mini'],
+                ['id' => 'gpt-4o', 'label' => 'GPT-4o'],
+            ]
+        ],
+        'gemini' => [
+            'label' => 'Google Gemini',
+            'models' => [
+                ['id' => 'gemini-2.0-flash', 'label' => 'Gemini 2.0 Flash'],
+                ['id' => 'gemini-2.0-flash-lite', 'label' => 'Gemini 2.0 Flash Lite'],
+                ['id' => 'gemini-1.5-pro', 'label' => 'Gemini 1.5 Pro'],
+            ]
+        ],
+        'claude' => [
+            'label' => 'Anthropic Claude',
+            'models' => [
+                ['id' => 'claude-haiku-4-5-20251001', 'label' => 'Haiku 4.5'],
+                ['id' => 'claude-sonnet-4-5-20250929', 'label' => 'Sonnet 4.5'],
+            ]
+        ],
+    ];
+
+    $providers = [];
+    foreach ($providerDefs as $key => $def) {
+        if (!empty($aiKeys[$key])) {
+            $providers[$key] = $def;
+        }
+    }
+
+    // Ollama: dynamically fetch models from the server
+    if (!empty($aiKeys['ollama'])) {
+        $ollamaModels = getOllamaModels($aiKeys['ollama']);
+        if (!empty($ollamaModels)) {
+            $providers['ollama'] = [
+                'label' => 'Ollama',
+                'models' => $ollamaModels
+            ];
+        }
+    }
+
+    echo json_encode(['success' => true, 'providers' => $providers]);
+}
+
+/**
+ * Dispatch AI Helper request to the correct provider
+ */
+function aiHelperDispatch($aiKeys, $provider, $model, $message, $history, $context, $world) {
+    $allowedModels = [
+        'openai' => ['gpt-4o-mini', 'gpt-4o'],
+        'gemini' => ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'],
+        'claude' => ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929'],
+    ];
+    $validProviders = ['openai', 'gemini', 'claude', 'ollama'];
+
+    // Validate provider
+    if (!in_array($provider, $validProviders) || empty($aiKeys[$provider])) {
+        echo json_encode(['success' => false, 'error' => "Provider '$provider' not available"]);
+        return;
+    }
+
+    // Validate model (skip for ollama — models are dynamic)
+    if ($provider !== 'ollama' && isset($allowedModels[$provider])) {
+        if (!in_array($model, $allowedModels[$provider])) {
+            $model = $allowedModels[$provider][0];
+        }
+    }
+
+    $apiKey = $aiKeys[$provider];
+    $systemPrompt = buildAiSystemPrompt($context, $world, $GLOBALS['pdo'] ?? null);
+
+    // Trim history
+    $trimmedHistory = [];
+    if (is_array($history)) {
+        $history = array_slice($history, -20);
+        foreach ($history as $h) {
+            if (isset($h['role']) && isset($h['content']) && in_array($h['role'], ['user', 'assistant'])) {
+                $trimmedHistory[] = $h;
+            }
+        }
+    }
+
+    switch ($provider) {
+        case 'openai':  aiHelperOpenAI($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
+        case 'gemini':  aiHelperGemini($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
+        case 'claude':  aiHelperClaude($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
+        case 'ollama':  aiHelperOllama($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
+    }
+}
+
+/**
+ * Build the system prompt with optional log context
+ */
+function buildAiSystemPrompt($context, $world, $pdo = null) {
+    $systemPrompt = "You are PhValheim AI Helper, a concise technical assistant for the PhValheim Valheim server manager. "
+        . "You help admins troubleshoot server issues, understand logs, and manage mods. "
+        . "Keep answers short and actionable. Use bullet points for lists. "
+        . "If you see errors in logs, explain the likely cause and suggest a fix. "
+        . "CRITICAL: This is a HEADLESS dedicated server. Never mention or report on anything related to fonts, UI, shaders, graphics, rendering, DepthOfField, textures, cameras, screen resolution, visual effects, materials, meshes, sprites, or any graphical/visual warnings — they are completely irrelevant on a headless server. "
+        . "Also ignore mod RPC errors — these are normal networked mod communication and not actionable.";
+
+    $logFile = null;
+    $contextLabel = $context;
+    $safeWorld = null;
+    if (strpos($context, 'world:') === 0) {
+        // World-specific log: context = "world:WorldName"
+        $worldName = substr($context, 6);
+        $safeWorld = preg_replace('/[^a-zA-Z0-9_-]/', '', $worldName);
+        $logFile = "/opt/stateful/logs/valheimworld_{$safeWorld}.log";
+        $contextLabel = "world '$safeWorld'";
+    } else {
+        switch ($context) {
+            case 'engine':  $logFile = '/opt/stateful/logs/phvalheim.log'; break;
+            case 'ts':      $logFile = '/opt/stateful/logs/tsSync.log'; break;
+            case 'backup':  $logFile = '/opt/stateful/logs/worldBackups.log'; break;
+        }
+    }
+
+    // If world context and we have a database connection, inject expected mod list
+    if ($safeWorld && $pdo) {
+        try {
+            $modUuids = getAllWorldMods($pdo, $safeWorld);
+            $modNames = [];
+            foreach ($modUuids as $uuid) {
+                $uuid = trim($uuid);
+                if (empty($uuid)) continue;
+                $name = getModNameByUuid($pdo, $uuid);
+                if ($name) {
+                    $modNames[] = $name;
+                }
+            }
+            if (!empty($modNames)) {
+                $systemPrompt .= "\n\nExpected mods configured in the database for this world:\n";
+                foreach ($modNames as $modName) {
+                    $systemPrompt .= "- {$modName}\n";
+                }
+                $systemPrompt .= "\nCompare this list against [BepInEx] Loading lines in the log to identify any mods that are expected but not loaded. Do not report on unexpected mods loaded.";
+            }
+        } catch (Exception $e) {
+            // Silently skip mod list if query fails
+        }
+    }
+
+    if ($logFile && file_exists($logFile)) {
+        $lines = [];
+        $fp = @fopen($logFile, 'r');
+        if ($fp) {
+            while (($line = fgets($fp)) !== false) {
+                $lines[] = $line;
+                if (count($lines) > 200) {
+                    array_shift($lines);
+                }
+            }
+            fclose($fp);
+        }
+        if (!empty($lines)) {
+            $logContent = implode('', $lines);
+            $systemPrompt .= "\n\nHere are the last " . count($lines) . " lines from the {$contextLabel} log:\n```\n{$logContent}\n```";
+        }
+    }
+
+    return $systemPrompt;
+}
+
+/**
+ * OpenAI Chat Completions API
+ */
+function aiHelperOpenAI($apiKey, $model, $systemPrompt, $history, $message) {
+    $messages = [['role' => 'system', 'content' => $systemPrompt]];
+    foreach ($history as $h) {
+        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+    }
+    $messages[] = ['role' => 'user', 'content' => $message];
+
+    $payload = json_encode([
+        'model' => $model,
+        'messages' => $messages,
+        'max_tokens' => 1024,
+        'temperature' => 0.7
+    ]);
+
+    $ch = curl_init('https://api.openai.com/v1/chat/completions');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $apiKey
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        echo json_encode(['success' => false, 'error' => 'OpenAI error: ' . $curlError]);
+        return;
+    }
+
+    $data = json_decode($response, true);
+
+    if ($httpCode !== 200 || !isset($data['choices'][0]['message']['content'])) {
+        $errMsg = $data['error']['message'] ?? "HTTP {$httpCode} from OpenAI";
+        echo json_encode(['success' => false, 'error' => $errMsg]);
+        return;
+    }
+
+    echo json_encode(['success' => true, 'reply' => $data['choices'][0]['message']['content']]);
+}
+
+/**
+ * Google Gemini generateContent API
+ */
+function aiHelperGemini($apiKey, $model, $systemPrompt, $history, $message) {
+    $contents = [];
+    foreach ($history as $h) {
+        $geminiRole = ($h['role'] === 'assistant') ? 'model' : 'user';
+        $contents[] = ['role' => $geminiRole, 'parts' => [['text' => $h['content']]]];
+    }
+    $contents[] = ['role' => 'user', 'parts' => [['text' => $message]]];
+
+    $payload = json_encode([
+        'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
+        'contents' => $contents,
+        'generationConfig' => [
+            'maxOutputTokens' => 1024,
+            'temperature' => 0.7
+        ]
+    ]);
+
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apiKey);
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        echo json_encode(['success' => false, 'error' => 'Gemini error: ' . $curlError]);
+        return;
+    }
+
+    $data = json_decode($response, true);
+
+    if ($httpCode !== 200 || !isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+        $errMsg = $data['error']['message'] ?? "HTTP {$httpCode} from Gemini";
+        echo json_encode(['success' => false, 'error' => $errMsg]);
+        return;
+    }
+
+    echo json_encode(['success' => true, 'reply' => $data['candidates'][0]['content']['parts'][0]['text']]);
+}
+
+/**
+ * Anthropic Claude Messages API
+ */
+function aiHelperClaude($apiKey, $model, $systemPrompt, $history, $message) {
+    $messages = [];
+    foreach ($history as $h) {
+        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+    }
+    $messages[] = ['role' => 'user', 'content' => $message];
+
+    $payload = json_encode([
+        'model' => $model,
+        'system' => $systemPrompt,
+        'messages' => $messages,
+        'max_tokens' => 1024
+    ]);
+
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'x-api-key: ' . $apiKey,
+        'anthropic-version: 2023-06-01'
+    ]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        echo json_encode(['success' => false, 'error' => 'Claude error: ' . $curlError]);
+        return;
+    }
+
+    $data = json_decode($response, true);
+
+    if ($httpCode !== 200 || !isset($data['content'][0]['text'])) {
+        $errMsg = $data['error']['message'] ?? "HTTP {$httpCode} from Claude";
+        echo json_encode(['success' => false, 'error' => $errMsg]);
+        return;
+    }
+
+    echo json_encode(['success' => true, 'reply' => $data['content'][0]['text']]);
+}
+
+/**
+ * Fetch available models from Ollama server
+ */
+function getOllamaModels($ollamaUrl) {
+    $url = rtrim($ollamaUrl, '/') . '/api/tags';
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode !== 200 || !$response) return [];
+
+    $data = json_decode($response, true);
+    if (!isset($data['models']) || !is_array($data['models'])) return [];
+
+    $models = [];
+    foreach ($data['models'] as $m) {
+        $name = $m['name'] ?? '';
+        if (empty($name)) continue;
+        // Use the model name as both id and label, clean up the label
+        $label = explode(':', $name)[0]; // strip :latest tag for display
+        $models[] = ['id' => $name, 'label' => $label];
+    }
+
+    return $models;
+}
+
+/**
+ * Ollama Chat API
+ */
+function aiHelperOllama($ollamaUrl, $model, $systemPrompt, $history, $message) {
+    $messages = [['role' => 'system', 'content' => $systemPrompt]];
+    foreach ($history as $h) {
+        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+    }
+    $messages[] = ['role' => 'user', 'content' => $message];
+
+    $payload = json_encode([
+        'model' => $model,
+        'messages' => $messages,
+        'stream' => false
+    ]);
+
+    $url = rtrim($ollamaUrl, '/') . '/api/chat';
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlError) {
+        echo json_encode(['success' => false, 'error' => 'Ollama error: ' . $curlError]);
+        return;
+    }
+
+    $data = json_decode($response, true);
+
+    if ($httpCode !== 200 || !isset($data['message']['content'])) {
+        $errMsg = $data['error'] ?? "HTTP {$httpCode} from Ollama";
+        echo json_encode(['success' => false, 'error' => $errMsg]);
+        return;
+    }
+
+    echo json_encode(['success' => true, 'reply' => $data['message']['content']]);
 }
 
 ?>
