@@ -251,6 +251,9 @@ while [ true ]; do
 				#Generate quick connect config
 				createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
 
+                                #Install system plugins (health monitor, etc)
+                                installSystemPlugins "$worldName"
+
                                 #Install custom mods and config
                                 installCustomModsConfigsPatchers "$worldName"
 

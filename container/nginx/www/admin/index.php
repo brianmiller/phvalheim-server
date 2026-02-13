@@ -392,14 +392,16 @@ $totalCount = count($worlds);
                                         <td>
                                             <div class="world-resources" data-world="<?php echo htmlspecialchars($world['name']); ?>">
                                                 <div class="world-resource-item">
-                                                    <span class="resource-label">CPU</span>
-                                                    <canvas class="world-cpu-chart" width="60" height="20"></canvas>
-                                                    <span class="resource-value world-cpu-value">—</span>
-                                                </div>
-                                                <div class="world-resource-item">
                                                     <span class="resource-label">MEM</span>
                                                     <canvas class="world-mem-chart" width="60" height="20"></canvas>
                                                     <span class="resource-value world-mem-value">—</span>
+                                                </div>
+                                                <div class="world-resource-item">
+                                                    <span class="resource-label">TICK</span>
+                                                    <div class="world-load-bar" title="Server tick rate (target: 50 TPS). 45-50 = healthy, 35-44 = busy, below 35 = lagging. Low TPS means the server can't keep up with game updates.">
+                                                        <div class="world-load-fill" style="width:0%"></div>
+                                                    </div>
+                                                    <span class="resource-value world-load-value">—</span>
                                                 </div>
                                             </div>
                                         </td>
@@ -483,20 +485,22 @@ $totalCount = count($worlds);
                                                 </a>
                                                 <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="update">Update</a>
                                                 <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
-                                                <a href="?delete_world=<?php echo urlencode($world['name']); ?>" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger" data-action="delete">Delete</a>
+                                                <a href="?delete_world=<?php echo urlencode($world['name']); ?>" class="action-btn danger" data-action="delete">Delete</a>
                                             </div>
                                         </td>
                                         <td>
                                             <div class="world-resources" data-world="<?php echo htmlspecialchars($world['name']); ?>">
                                                 <div class="world-resource-item">
-                                                    <span class="resource-label">CPU</span>
-                                                    <canvas class="world-cpu-chart" width="60" height="20"></canvas>
-                                                    <span class="resource-value world-cpu-value">—</span>
-                                                </div>
-                                                <div class="world-resource-item">
                                                     <span class="resource-label">MEM</span>
                                                     <canvas class="world-mem-chart" width="60" height="20"></canvas>
                                                     <span class="resource-value world-mem-value">—</span>
+                                                </div>
+                                                <div class="world-resource-item">
+                                                    <span class="resource-label">TICK</span>
+                                                    <div class="world-load-bar" title="Server tick rate (target: 50 TPS). 45-50 = healthy, 35-44 = busy, below 35 = lagging. Low TPS means the server can't keep up with game updates.">
+                                                        <div class="world-load-fill" style="width:0%"></div>
+                                                    </div>
+                                                    <span class="resource-value world-load-value">—</span>
                                                 </div>
                                             </div>
                                         </td>
@@ -1061,7 +1065,7 @@ $totalCount = count($worlds);
                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
-                <a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger" data-action="delete">Delete</a>`;
+                <a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
         } else {
             actionsHtml = `
                 <span class="action-btn disabled" data-action="launch">Launch</span>
@@ -1092,14 +1096,16 @@ $totalCount = count($worlds);
             <td>
                 <div class="world-resources" data-world="${world.name}">
                     <div class="world-resource-item">
-                        <span class="resource-label">CPU</span>
-                        <canvas class="world-cpu-chart" width="60" height="20"></canvas>
-                        <span class="resource-value world-cpu-value">—</span>
-                    </div>
-                    <div class="world-resource-item">
                         <span class="resource-label">MEM</span>
                         <canvas class="world-mem-chart" width="60" height="20"></canvas>
                         <span class="resource-value world-mem-value">—</span>
+                    </div>
+                    <div class="world-resource-item">
+                        <span class="resource-label">TICK</span>
+                        <div class="world-load-bar" title="Server tick rate (target: 50 TPS). 45-50 = healthy, 35-44 = busy, below 35 = lagging. Low TPS means the server can't keep up with game updates.">
+                            <div class="world-load-fill" style="width:0%"></div>
+                        </div>
+                        <span class="resource-value world-load-value">—</span>
                     </div>
                 </div>
             </td>`;
@@ -1111,10 +1117,9 @@ $totalCount = count($worlds);
         const container = row.querySelector('.world-resources');
         if (!container) return;
 
-        const cpuCanvas = container.querySelector('.world-cpu-chart');
         const memCanvas = container.querySelector('.world-mem-chart');
 
-        if (cpuCanvas && memCanvas) {
+        if (memCanvas) {
             const miniChartOptions = {
                 responsive: false,
                 maintainAspectRatio: false,
@@ -1131,23 +1136,14 @@ $totalCount = count($worlds);
             };
 
             worldCharts[worldName] = {
-                cpu: new Chart(cpuCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: Array(15).fill(''),
-                        datasets: [{ data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.1)', fill: true }]
-                    },
-                    options: miniChartOptions
-                }),
                 mem: new Chart(memCanvas, {
                     type: 'line',
                     data: {
                         labels: Array(15).fill(''),
-                        datasets: [{ data: [], borderColor: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.1)', fill: true }]
+                        datasets: [{ data: [], borderColor: '#22d3ee', backgroundColor: 'rgba(34, 211, 238, 0.1)', fill: true }]
                     },
                     options: miniChartOptions
                 }),
-                cpuData: [],
                 memData: []
             };
         }
@@ -1201,7 +1197,7 @@ $totalCount = count($worlds);
             if (world.mode === 'stopped') {
                 editModsBtn.outerHTML = `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`;
                 updateBtn.outerHTML = `<a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>`;
-                deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" onclick="return confirm('Are you sure you want to delete this world?')" class="action-btn danger" data-action="delete">Delete</a>`;
+                deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
             } else {
                 editModsBtn.outerHTML = `<span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>`;
                 updateBtn.outerHTML = `<span class="action-btn disabled" data-action="update">Update</span>`;
@@ -1676,15 +1672,6 @@ $totalCount = count($worlds);
             const container = document.querySelector(`.world-resources[data-world="${worldName}"]`);
             if (!container) return;
 
-            // Update CPU
-            if (stat.cpu !== undefined) {
-                charts.cpuData.push(stat.cpu);
-                if (charts.cpuData.length > 15) charts.cpuData.shift();
-                charts.cpu.data.datasets[0].data = [...charts.cpuData];
-                charts.cpu.update('none');
-                container.querySelector('.world-cpu-value').textContent = stat.cpu + '%';
-            }
-
             // Update Memory
             if (stat.mem !== undefined) {
                 charts.memData.push(stat.mem);
@@ -1692,6 +1679,42 @@ $totalCount = count($worlds);
                 charts.mem.data.datasets[0].data = [...charts.memData];
                 charts.mem.update('none');
                 container.querySelector('.world-mem-value').textContent = stat.memFormatted || (stat.mem + '%');
+            }
+
+        });
+    }
+
+    // Update world tick health indicators
+    function updateWorldHealth(healthData) {
+        if (!healthData) return;
+
+        Object.entries(healthData).forEach(([worldName, health]) => {
+            const container = document.querySelector(`.world-resources[data-world="${worldName}"]`);
+            if (!container) return;
+
+            const loadFill = container.querySelector('.world-load-fill');
+            const loadValue = container.querySelector('.world-load-value');
+
+            if (loadFill && health.tick_health_pct !== undefined) {
+                // Set bar width to health percentage
+                const healthPct = Math.min(health.tick_health_pct, 100);
+                loadFill.style.width = healthPct + '%';
+
+                // Color based on health threshold
+                let color;
+                if (healthPct >= 90) {
+                    color = '#4ade80';  // green — healthy
+                } else if (healthPct >= 70) {
+                    color = '#fb923c';  // amber — busy
+                } else {
+                    color = '#f87171';  // red — lagging
+                }
+                loadFill.style.backgroundColor = color;
+            }
+
+            if (loadValue && health.measured_tps !== undefined) {
+                // Show measured TPS
+                loadValue.textContent = Math.round(health.measured_tps) + ' TPS';
             }
         });
     }
@@ -1709,8 +1732,58 @@ $totalCount = count($worlds);
         }
     }
 
+    // Fetch world health data from plugin
+    async function fetchWorldHealth() {
+        try {
+            const response = await fetch('adminAPI.php?action=getWorldHealth');
+            const data = await response.json();
+            if (data.success && data.health) {
+                updateWorldHealth(data.health);
+            }
+        } catch (error) {
+            console.error('Failed to fetch world health:', error);
+        }
+    }
+
     // Poll world stats every 3 seconds
     setInterval(fetchWorldStats, 3000);
+
+    // Poll world health every 5 seconds (matches plugin flush interval)
+    setInterval(fetchWorldHealth, 5000);
+
+    // Intercept world action links (start/stop/update/delete) and use AJAX instead of page reload
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+
+        const href = link.getAttribute('href');
+        const actionMap = {
+            'start_world': 'start',
+            'stop_world': 'stop',
+            'update_world': 'update',
+            'delete_world': 'delete'
+        };
+
+        let matched = null;
+        for (const [param, cmd] of Object.entries(actionMap)) {
+            if (href && href.includes(param + '=')) {
+                const url = new URL(href, window.location.origin);
+                matched = { cmd: cmd, world: url.searchParams.get(param) };
+                break;
+            }
+        }
+
+        if (!matched) return;
+
+        e.preventDefault();
+
+        if (matched.cmd === 'delete' && !confirm('Are you sure you want to delete this world?')) return;
+
+        fetch(`adminAPI.php?action=worldAction&cmd=${matched.cmd}&world=${encodeURIComponent(matched.world)}`)
+            .then(r => r.json())
+            .then(() => fetchWorldStatus())
+            .catch(err => console.error('World action failed:', err));
+    });
     </script>
 
 <span id="piEgg" style="position:fixed;bottom:4px;right:6px;font-size:9px;color:rgba(255,255,255,0.08);cursor:default;z-index:9999;user-select:none;line-height:1;">&pi;</span>

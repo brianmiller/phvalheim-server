@@ -54,6 +54,10 @@ switch($action) {
         getWorldStatsJson($pdo);
         break;
 
+    case 'getWorldHealth':
+        getWorldHealthJson($pdo);
+        break;
+
     case 'getCitizens':
         $world = $_GET['world'] ?? '';
         if ($world) {
@@ -188,6 +192,22 @@ switch($action) {
             }
         } else {
             echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    case 'worldAction':
+        $world = $_GET['world'] ?? '';
+        $cmd = $_GET['cmd'] ?? '';
+        if ($world && in_array($cmd, ['start', 'stop', 'update', 'delete'])) {
+            switch ($cmd) {
+                case 'start':  startWorld($pdo, $world); break;
+                case 'stop':   stopWorld($pdo, $world); break;
+                case 'update': updateWorld($pdo, $world); break;
+                case 'delete': deleteWorld($pdo, $world); break;
+            }
+            echo json_encode(['success' => true, 'world' => $world, 'action' => $cmd]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'World name and valid cmd (start/stop/update/delete) required']);
         }
         break;
 
@@ -476,6 +496,33 @@ function getWorldStatsJson($pdo) {
     echo json_encode([
         'success' => true,
         'stats' => $stats,
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
+}
+
+/**
+ * Returns tick health data from PhValheim.TickMonitor plugin
+ */
+function getWorldHealthJson($pdo) {
+    $stmt = $pdo->query("SELECT name FROM worlds WHERE mode = 'running' ORDER BY name");
+    $results = [];
+
+    foreach ($stmt as $row) {
+        $worldName = $row['name'];
+        $path = "/opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/data/PhValheim.TickMonitor/tick_stats.json";
+
+        // Only return data if file exists and is fresh (< 30 seconds old)
+        if (file_exists($path) && (time() - filemtime($path)) < 30) {
+            $data = json_decode(file_get_contents($path), true);
+            if ($data) {
+                $results[$worldName] = $data;
+            }
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'health' => $results,
         'timestamp' => date('Y-m-d H:i:s')
     ]);
 }

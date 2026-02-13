@@ -2798,6 +2798,22 @@ input:checked + .slider:before {
 	text-align: right;
 }
 
+.world-load-bar {
+	width: 60px;
+	height: 6px;
+	background: rgba(255,255,255,0.08);
+	border-radius: 3px;
+	overflow: hidden;
+	flex-shrink: 0;
+}
+
+.world-load-fill {
+	height: 100%;
+	border-radius: 3px;
+	transition: width 0.4s ease, background-color 0.4s ease;
+	background: #4ade80;
+}
+
 .world-cpu-chart,
 .world-mem-chart {
 	flex-shrink: 0;

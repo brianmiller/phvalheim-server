@@ -354,6 +354,32 @@ function installCustomModsConfigsPatchers() {
 }
 
 
+#$1=worldName
+function installSystemPlugins() {
+	echo "`date` [NOTICE : phvalheim] Installing system plugins..."
+
+	worldName="$1"
+
+	systemPluginsSourceDir="/opt/stateless/games/valheim/custom_plugins"
+	worldPluginsDestDir="$worldsDirectoryRoot/$worldName/custom_plugins"
+
+	if [ ! -d $systemPluginsSourceDir ]; then
+		echo "`date` [NOTICE : phvalheim] System plugins source directory is missing, skipping..."
+		return 0
+	fi
+
+	# Install tick monitor plugin
+	tickMonitorSrc="$systemPluginsSourceDir/PhValheim-TickMonitor"
+	tickMonitorDest="$worldPluginsDestDir/PhValheim-TickMonitor"
+	if [ -d "$tickMonitorSrc" ]; then
+		mkdir -p "$tickMonitorDest"
+		cp -rf "$tickMonitorSrc/"* "$tickMonitorDest/." 2>/dev/null || true
+	fi
+
+	chown -R phvalheim:phvalheim $worldPluginsDestDir
+}
+
+
 # this is seperate from installCustomModsConfigsPatchers() because this must only run after the client payload has been packaged.
 function InstallCustomConfigSecureFiles() {
         echo "`date` [NOTICE : phvalheim] Installing custom_configs_secure files..."
