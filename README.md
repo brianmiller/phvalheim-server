@@ -136,6 +136,9 @@ Access to each world is controlled by the PhValheim database. We associate the S
 ### World Log
 <img width="1584" height="714" alt="image" src="https://github.com/user-attachments/assets/160b807e-8971-4f79-94d1-9f89170cf697" />
 
+### AI Helper
+<img width="811" height="1096" alt="image" src="https://github.com/user-attachments/assets/2a6526c0-0a20-4d73-b6a3-a7e2993b6d37" />
+
 ### File Manager
 ![admin_filemanager_screenshot](https://user-images.githubusercontent.com/342276/197674464-445eaa0b-1f29-40c8-b7f3-e75f990aa8ec.png)
 
