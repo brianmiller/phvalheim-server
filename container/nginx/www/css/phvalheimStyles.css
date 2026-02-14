@@ -3108,19 +3108,30 @@ input:checked + .slider:before {
 	border-color: var(--accent-primary);
 }
 
-/* Orchid color when a non-empty option is selected */
-.ai-context-select option:checked,
-.ai-context-select option:not([value=""]):checked {
+/* Both selects show orchid when a value is selected */
+#aiModelSelect,
+#aiContextSelect {
 	color: orchid;
-	background: var(--bg-input);
 }
 
-/* For the select element itself when value is set */
-.ai-context-select:not([value=""]),
-.ai-context-select[value="engine"],
-.ai-context-select[value="ts"],
-.ai-context-select[value="backup"],
-.ai-context-select[value*="world:"] {
+/* Model dropdown: provider optgroup labels = cyan, model options = orchid */
+#aiModelSelect optgroup {
+	color: var(--accent-primary);
+	font-style: normal;
+}
+#aiModelSelect option {
+	color: orchid;
+}
+
+/* Context dropdown: all options orchid, "World Logs" optgroup label = cyan */
+#aiContextSelect option {
+	color: orchid;
+}
+#aiContextSelect optgroup {
+	color: var(--accent-primary);
+	font-style: normal;
+}
+#aiContextSelect optgroup option {
 	color: orchid;
 }
 

@@ -250,12 +250,14 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 				</button>
 				<button class="control-btn" onclick="scrollToBottom()">↓ Go to Bottom</button>
 				<button class="control-btn" onclick="scrollToTop()">↑ Go to Top</button>
+<?php if (!empty($aiKeys['openai']) || !empty($aiKeys['gemini']) || !empty($aiKeys['claude']) || !empty($aiKeys['ollama'])): ?>
 				<button class="control-btn ai-analyze-btn" id="aiAnalyzeBtn" onclick="analyzeWithAi()">
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px;">
 						<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
 					</svg>
 					Analyze with AI
 				</button>
+<?php endif; ?>
 			</div>
 
 			<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">

@@ -64,6 +64,7 @@ Mods are great and PhValheim makes it stupid simple to install them but keep in 
 - Automatically backs up all world files every 30 minutes (can be pointed to disparate disks to ensure storage diversity).
 - The Public web interface displays current MD5SUM of world client payload, created and last updated timestamps, active memory that the world is consuming, "PhValheim Client Download Link", and an instant "Launch!" link.
 - The Admin web interface provides access to all manager features, which are completely isolated from the public interface.
+- **AI Helper** - Built-in AI-powered log analysis and chat assistant in the Admin UI. Supports multiple AI providers (OpenAI, Google Gemini, Anthropic Claude, and self-hosted Ollama). Analyzes world and engine logs to identify mod errors, missing dependencies, and server health issues. Accessible from the Admin dashboard or directly from any log viewer via the "Analyze with AI" button.
 
 #### How does it work?
 #### Server
@@ -159,12 +160,44 @@ docker create \
                -e 'gameDNS'='37648-dev1.phospher.com' \
                -e 'steamAPIKey'='0123456789' \
                -e 'phvalheimClientURL'='https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe' \
+               -e 'openaiApiKey'='sk-...' \
+               -e 'claudeApiKey'='sk-ant-...' \
+               -e 'ollamaUrl'='http://192.168.1.100:11434' \
                -v '/mnt/docker_persistent/phvalheim':'/opt/stateful':Z \
                -v '/mnt/phvalheim_backups/':'/opt/stateful/backups':Z \
                theoriginalbrian/phvalheim-server:latest``
 
 docker start myPhValheim-server1
 ```
+
+### Docker Compose
+```yaml
+services:
+  phvalheim:
+    image: theoriginalbrian/phvalheim-server:latest
+    container_name: myPhValheim-server1
+    ports:
+      - "8080:8080/tcp"
+      - "8081:8081/tcp"
+      - "25000-26000:25000-26000/udp"
+    environment:
+      basePort: "25000"
+      defaultSeed: "szN8qp2lBn"
+      backupsToKeep: "10"
+      phvalheimHost: "phvalheim-dev.phospher.com"
+      gameDNS: "37648-dev1.phospher.com"
+      steamAPIKey: "0123456789"
+      phvalheimClientURL: "https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe"
+      # AI Helper (optional) - configure one or more providers
+      openaiApiKey: "sk-..."
+      claudeApiKey: "sk-ant-..."
+      ollamaUrl: "http://192.168.1.100:11434"
+    volumes:
+      - /mnt/docker_persistent/phvalheim:/opt/stateful:Z
+      - /mnt/phvalheim_backups:/opt/stateful/backups:Z
+    restart: unless-stopped
+```
+
 ### Container Variables
 #### <i>all variables are mandatory</i>
 | Variable | Description |
@@ -181,6 +214,18 @@ docker start myPhValheim-server1
 | Variable | Description | Default |
 | --- | -- | -- |
 | sessionTimeout | Duration (in seconds) before a Steam login session expires and the user must re-authenticate. | 2592000 (30 days) |
+
+#### AI Helper Variables
+##### <i>All AI Helper variables are optional. Configure one or more providers to enable the AI Helper panel in the Admin UI.</i>
+| Variable | Description |
+| --- | -- |
+| openaiApiKey | Your OpenAI API key. Enables GPT-4o and GPT-4o Mini models. |
+| geminiApiKey | Your Google Gemini API key. Enables Gemini 2.0 Flash, Gemini 2.0 Flash Lite, and Gemini 1.5 Pro models. |
+| claudeApiKey | Your Anthropic Claude API key. Enables Claude Haiku 4.5 and Claude Sonnet 4.5 models. |
+| ollamaUrl | URL of your self-hosted Ollama instance (e.g., `http://192.168.1.100:11434`). Available models are detected automatically from the Ollama server. |
+
+##### AI Helper Usage
+The AI Helper appears as a collapsible chat panel in the Admin dashboard. Select a provider and model from the dropdown, choose a log context (engine, ThunderStore sync, backups, or a specific world), and ask questions about your server. You can also click the "Analyze with AI" button directly from any log viewer to automatically send the log content for analysis. The AI is tuned for Valheim dedicated server troubleshooting — it focuses on mod loading failures, missing dependencies, and assembly errors while ignoring expected headless server warnings (graphics, shaders, fonts, etc.).
 
 
 ### Container Volumes and Persistent Storage
