@@ -11,9 +11,10 @@ docker run -d \
   -p 8082:8080 \
   -p 8083:8081 \
   -p 25000-25050:25000-25050/udp \
-  -e 'geminiApiKey=$geminiApiKey' \
-  -e 'claudeApiKey=$claudeApiKey' \
-  -e 'ollamaUrl=http://2.2.20.11:11434' \
+  -e "geminiApiKey=$geminiApiKey" \
+  -e "claudeApiKey=$claudeApiKey" \
+  -e "ollamaUrl=http://2.2.20.11:11434" \
+  -e "steamAPIKey=$steamAPIKey" \
   -e 'basePort'='25000' \
   -e 'defaultSeed'='szN8qp2lBn' \
   -e 'phvalheimHost'='phvalheim-dev.phospher.com' \
