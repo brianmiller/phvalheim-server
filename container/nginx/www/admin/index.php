@@ -1681,10 +1681,9 @@ $totalCount = count($worlds);
     function initWorldCharts() {
         document.querySelectorAll('.world-resources').forEach(container => {
             const worldName = container.dataset.world;
-            const cpuCanvas = container.querySelector('.world-cpu-chart');
             const memCanvas = container.querySelector('.world-mem-chart');
 
-            if (cpuCanvas && memCanvas) {
+            if (memCanvas) {
                 const miniChartOptions = {
                     responsive: false,
                     maintainAspectRatio: false,
@@ -1701,23 +1700,14 @@ $totalCount = count($worlds);
                 };
 
                 worldCharts[worldName] = {
-                    cpu: new Chart(cpuCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: Array(15).fill(''),
-                            datasets: [{ data: [], borderColor: '#a78bfa', backgroundColor: 'rgba(167, 139, 250, 0.1)', fill: true }]
-                        },
-                        options: miniChartOptions
-                    }),
                     mem: new Chart(memCanvas, {
                         type: 'line',
                         data: {
                             labels: Array(15).fill(''),
-                            datasets: [{ data: [], borderColor: '#4ade80', backgroundColor: 'rgba(74, 222, 128, 0.1)', fill: true }]
+                            datasets: [{ data: [], borderColor: '#22d3ee', backgroundColor: 'rgba(34, 211, 238, 0.1)', fill: true }]
                         },
                         options: miniChartOptions
                     }),
-                    cpuData: [],
                     memData: []
                 };
             }
