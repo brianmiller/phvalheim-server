@@ -285,20 +285,6 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
                 <div class="setup-step-desc">These can be changed later from Server Settings.</div>
 
                 <div class="setup-field">
-                    <label>Default World Seed</label>
-                    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
-                        <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-size:0.9rem;">
-                            <input type="radio" name="setup-seedType" value="random" checked onchange="document.getElementById('setup-defaultSeed').style.display='none'"> Random (unique per world)
-                        </label>
-                        <label style="display:flex;align-items:center;gap:0.35rem;cursor:pointer;font-size:0.9rem;">
-                            <input type="radio" name="setup-seedType" value="fixed" onchange="document.getElementById('setup-defaultSeed').style.display='block'"> Fixed seed
-                        </label>
-                    </div>
-                    <input type="text" id="setup-defaultSeed" value="" maxlength="10" placeholder="Enter seed" style="display:none;">
-                    <div class="field-help">Random generates a unique 4-byte integer seed for each world deployment.</div>
-                </div>
-
-                <div class="setup-field">
                     <label>Backups to Keep</label>
                     <input type="number" id="setup-backupsToKeep" value="24" placeholder="24">
                     <div class="field-help">Number of world backups retained on disk before oldest are deleted.</div>
@@ -460,7 +446,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             steamAPIKey: document.getElementById('setup-steamAPIKey').value.trim(),
             gameDNS: document.getElementById('setup-gameDNS').value.trim(),
             basePort: parseInt(document.getElementById('setup-basePort').value) || 25000,
-            defaultSeed: document.querySelector('input[name="setup-seedType"]:checked').value === 'fixed' ? document.getElementById('setup-defaultSeed').value.trim() : '',
+            defaultSeed: '',
             backupsToKeep: parseInt(document.getElementById('setup-backupsToKeep').value) || 24,
             phvalheimClientURL: document.getElementById('setup-phvalheimClientURL').value.trim(),
             timezone: document.getElementById('setup-timezone').value.trim() || 'Etc/UTC',
@@ -477,7 +463,6 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             ['Steam API Key', s.steamAPIKey ? s.steamAPIKey.substring(0, 8) + '...' : '(not set)'],
             ['Game DNS', s.gameDNS || '(not set)'],
             ['Base Port', s.basePort],
-            ['Default Seed', s.defaultSeed || '(random per world)'],
             ['Backups to Keep', s.backupsToKeep],
             ['Client Download URL', s.phvalheimClientURL ? (s.phvalheimClientURL.length > 50 ? s.phvalheimClientURL.substring(0, 50) + '...' : s.phvalheimClientURL) : '(not set)'],
             ['Timezone', s.timezone || 'Etc/UTC'],

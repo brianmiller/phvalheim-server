@@ -247,20 +247,20 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					</div>
 					<div class="col-12 col-md-6">
 						<label class="form-label alt-color">World Seed</label>
+						<div id="seedInputRow" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+							<input type="text" class="form-control" name="seed" id="seed" maxlength="10" placeholder="Generated seed" style="flex:1;">
+							<button type="button" class="action-btn primary" id="seedGenerateBtn" onclick="document.getElementById('seed').value=Array.from({length:10},()=>'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[Math.floor(Math.random()*62)]).join('')">Generate</button>
+						</div>
 						<div class="d-flex align-items-center mb-2" style="gap: 1rem;">
 							<div class="form-check">
-								<input class="form-check-input" type="radio" name="seedType" id="seedTypeRandom" value="random" checked onchange="document.getElementById('seedCustomRow').style.display='none'">
+								<input class="form-check-input" type="radio" name="seedType" id="seedTypeRandom" value="random" checked onchange="toggleSeedMode('random')">
 								<label class="form-check-label" for="seedTypeRandom">Random</label>
 							</div>
 							<div class="form-check">
-								<input class="form-check-input" type="radio" name="seedType" id="seedTypeCustom" value="custom" onchange="document.getElementById('seedCustomRow').style.display='block'">
+								<input class="form-check-input" type="radio" name="seedType" id="seedTypeCustom" value="custom" onchange="toggleSeedMode('custom')">
 								<label class="form-check-label" for="seedTypeCustom">Custom</label>
 							</div>
 						</div>
-						<div id="seedCustomRow" style="display:none;">
-							<input type="text" class="form-control" name="seed" id="seed" maxlength="10" placeholder="Enter seed">
-						</div>
-						<div class="form-text text-secondary">Random generates a unique seed per world<?php echo !empty($defaultSeed) ? ". Default: $defaultSeed" : ''; ?></div>
 					</div>
 				</div>
 				<div id="formMsg" class="mt-3 text-center" style="display:none;"></div>
@@ -393,6 +393,28 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 		</div>
 
 		<script>
+			var seedChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+			function generateSeed() {
+				return Array.from({length:10}, function() { return seedChars[Math.floor(Math.random()*62)]; }).join('');
+			}
+			function toggleSeedMode(mode) {
+				var input = document.getElementById('seed');
+				var btn = document.getElementById('seedGenerateBtn');
+				if (mode === 'random') {
+					input.value = generateSeed();
+					input.readOnly = true;
+					input.placeholder = 'Generated seed';
+					btn.style.display = '';
+				} else {
+					input.value = '';
+					input.readOnly = false;
+					input.placeholder = 'Enter seed';
+					btn.style.display = 'none';
+				}
+			}
+			// Generate initial random seed on load
+			document.addEventListener('DOMContentLoaded', function() { toggleSeedMode('random'); });
+
 			// Global state
 			var allModsData = [];
 			var depMap = {};           // moduuid -> [dep uuids]
@@ -950,7 +972,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 
 				var payload = {
 					world: worldName,
-					seed: document.getElementById('seedTypeCustom').checked ? $('#seed').val().trim() : '',
+					seed: $('#seed').val().trim(),
 					mods: selectedMods
 				};
 
