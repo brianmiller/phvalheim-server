@@ -1,8 +1,26 @@
 <?php
 
 # Pull settings from database (source of truth since v2.31)
-$_settingsPdo = new PDO('mysql:host=localhost;dbname=phvalheim', 'phvalheim_user', 'phvalheim_secretpassword');
-$_settingsRow = $_settingsPdo->query("SELECT * FROM settings LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+try {
+    $_settingsPdo = new PDO('mysql:host=localhost;dbname=phvalheim', 'phvalheim_user', 'phvalheim_secretpassword');
+    $_settingsRow = $_settingsPdo->query("SELECT * FROM settings LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Database not ready yet (e.g. MariaDB still starting) — show a friendly page
+    http_response_code(503);
+    echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+    echo '<meta http-equiv="refresh" content="5">';
+    echo '<link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">';
+    echo '<link rel="stylesheet" href="/css/phvalheimStyles.css">';
+    echo '<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}.startup-logo{animation:pulse 2s ease-in-out infinite}</style>';
+    echo '</head>';
+    echo '<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg-primary);color:var(--text-primary);">';
+    echo '<div style="text-align:center;max-width:400px;padding:2rem;">';
+    echo '<img src="/images/phvalheim_favicon.svg" class="startup-logo" style="width:64px;height:64px;margin-bottom:1.5rem;" alt="PhValheim">';
+    echo '<h2 style="margin-bottom:0.75rem;">PhValheim Server is Starting&hellip;</h2>';
+    echo '<p style="color:var(--text-muted);">The database is initializing. This page will automatically refresh.</p>';
+    echo '</div></body></html>';
+    exit;
+}
 
 # Version comes from Dockerfile ENV (not user-configurable)
 $phvalheimVersion = getenv('phvalheimVersion');

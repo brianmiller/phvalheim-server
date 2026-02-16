@@ -13,6 +13,7 @@ docker run -d \
   -p 25000-25050:25000-25050/udp \
   -e "geminiApiKey=$geminiApiKey" \
   -e "claudeApiKey=$claudeApiKey" \
+  -e "openaiApiKey=$openaiApiKey" \
   -e "ollamaUrl=http://2.2.20.11:11434" \
   -e "steamAPIKey=$steamAPIKey" \
   -e 'basePort'='25000' \
@@ -22,7 +23,7 @@ docker run -d \
   -e 'phvalheimClientURL'='https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe' \
   -v /opt/phvalheim-test:/opt/stateful:Z \
   --restart unless-stopped \
-  theoriginalbrian/phvalheim-server:rc
+  theoriginalbrian/phvalheim-server:2.30
 
 docker exec -it phvalheim-server /bin/bash
 
