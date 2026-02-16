@@ -80,6 +80,10 @@ else
 	ln -sf /usr/share/zoneinfo/$TZ /etc/localtime
 fi
 
+# sync MariaDB global timezone with system timezone
+TZ_OFFSET=$(date +%:z)
+SQL "SET GLOBAL time_zone = '$TZ_OFFSET'"
+
 # set environment
 /usr/bin/printenv |grep -v "HOME="|grep -v "PWD=" > /etc/environment
 cat /etc/bash.bashrc|grep "source /etc/environment" > /dev/null 2>&1
@@ -131,6 +135,11 @@ while [ true ]; do
 
 		if [ -z "$worldSeed" ]; then
 			worldSeed="$defaultSeed"
+		fi
+		if [ -z "$worldSeed" ]; then
+			worldSeed=$(od -An -tu4 -N4 /dev/urandom | tr -d ' ')
+			echo "`date` [NOTICE : phvalheim] Generated random seed for '$worldName': $worldSeed"
+			SQL "UPDATE worlds SET seed='$worldSeed' WHERE id='$worldID'"
 		fi
 
 

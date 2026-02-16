@@ -338,7 +338,7 @@ function getLastTsUpdated($pdo) {
         $sth->execute();
         $result = $sth->fetchColumn();
 
-	$timezone = exec('date +%Z');
+	$timezone = date('T');
 
         if(!empty($result)) {
                 $result = "$result $timezone";
@@ -354,7 +354,7 @@ function getLastTsLocalDiffExecTime($pdo) {
         $sth->execute();
         $result = $sth->fetchColumn();
 
-        $timezone = exec('date +%Z');
+        $timezone = date('T');
 
 	if(!empty($result)) {
 		$result = "$result $timezone";
@@ -369,7 +369,7 @@ function getLastTsRemoteDiffExecTime($pdo) {
         $sth->execute();
 	$result = $sth->fetchColumn();
 
-        $timezone = exec('date +%Z');
+        $timezone = date('T');
 
         if(!empty($result)) {
 		$result = "$result $timezone";
@@ -384,7 +384,7 @@ function getLastWorldBackupExecTime($pdo) {
         $sth->execute();
 	$result = $sth->fetchColumn();
 
-        $timezone = exec('date +%Z');
+        $timezone = date('T');
 
         if(!empty($result)) {
 		$result = "$result $timezone";
@@ -399,7 +399,7 @@ function getLastLogRotateExecTime($pdo) {
         $sth->execute();
 	$result = $sth->fetchColumn();
 
-        $timezone = exec('date +%Z');
+        $timezone = date('T');
 
         if(!empty($result)) {
 		$result = "$result $timezone";
@@ -414,7 +414,7 @@ function getLastUtilizationMonitorExecTime($pdo) {
         $sth->execute();
 	$result = $sth->fetchColumn();
 
-        $timezone = exec('date +%Z');
+        $timezone = date('T');
 
         if(!empty($result)) {
 		$result = "$result $timezone";

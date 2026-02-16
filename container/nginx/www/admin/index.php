@@ -2030,7 +2030,15 @@ $totalCount = count($worlds);
                         </div>
                         <div class="col-3">
                             <label style="font-size:0.8rem;color:orchid" ${tip('Seed used when creating new worlds if none is specified')}>Default Seed</label>
-                            <input type="text" class="form-control form-control-sm" id="ss-defaultSeed" value="${s.defaultSeed || ''}" maxlength="10" style="font-family:var(--font-mono)" ${tip('World generation seed (up to 10 characters). Leave blank for random.')}>
+                            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.35rem;">
+                                <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;font-size:0.75rem;color:var(--text-secondary);">
+                                    <input type="radio" name="ss-seedType" value="random" ${!s.defaultSeed ? 'checked' : ''} onchange="document.getElementById('ss-defaultSeed').style.display='none'"> Random
+                                </label>
+                                <label style="display:flex;align-items:center;gap:0.25rem;cursor:pointer;font-size:0.75rem;color:var(--text-secondary);">
+                                    <input type="radio" name="ss-seedType" value="fixed" ${s.defaultSeed ? 'checked' : ''} onchange="document.getElementById('ss-defaultSeed').style.display='block'"> Fixed
+                                </label>
+                            </div>
+                            <input type="text" class="form-control form-control-sm" id="ss-defaultSeed" value="${s.defaultSeed || ''}" maxlength="10" style="font-family:var(--font-mono);display:${s.defaultSeed ? 'block' : 'none'}" ${tip('World generation seed (up to 10 characters)')}>
                         </div>
                     </div>
                     <div class="row mb-2">
@@ -2142,7 +2150,7 @@ $totalCount = count($worlds);
         const payload = {
             gameDNS: document.getElementById('ss-gameDNS').value.trim(),
             basePort: parseInt(document.getElementById('ss-basePort').value) || 25000,
-            defaultSeed: document.getElementById('ss-defaultSeed').value.trim(),
+            defaultSeed: document.querySelector('input[name="ss-seedType"]:checked').value === 'fixed' ? document.getElementById('ss-defaultSeed').value.trim() : '',
             backupsToKeep: parseInt(document.getElementById('ss-backupsToKeep').value) || 24,
             sessionTimeout: parseInt(document.getElementById('ss-sessionTimeout').value) || 2592000,
             maxLogSize: parseInt(document.getElementById('ss-maxLogSize').value) || 1000000,

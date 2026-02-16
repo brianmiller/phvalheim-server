@@ -25,4 +25,8 @@ else
 	echo "TZ=$TZ_NEW" >> /etc/environment
 fi
 
+# Update MariaDB global timezone so NOW() returns correct local time
+TZ_OFFSET=$(TZ="$TZ_NEW" date +%:z)
+mysql -u root -e "SET GLOBAL time_zone = '$TZ_OFFSET';" 2>/dev/null
+
 echo "Timezone set to $TZ_NEW"

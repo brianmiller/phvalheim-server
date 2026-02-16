@@ -246,9 +246,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						<div class="form-text text-secondary">Alphanumeric characters only, max 30 characters</div>
 					</div>
 					<div class="col-12 col-md-6">
-						<label for="seed" class="form-label alt-color">World Seed</label>
-						<input type="text" class="form-control" name="seed" id="seed" maxlength="10" placeholder="<?php echo $defaultSeed ?>">
-						<div class="form-text text-secondary">Leave empty for default seed</div>
+						<label class="form-label alt-color">World Seed</label>
+						<div class="d-flex align-items-center mb-2" style="gap: 1rem;">
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="seedType" id="seedTypeRandom" value="random" checked onchange="document.getElementById('seedCustomRow').style.display='none'">
+								<label class="form-check-label" for="seedTypeRandom">Random</label>
+							</div>
+							<div class="form-check">
+								<input class="form-check-input" type="radio" name="seedType" id="seedTypeCustom" value="custom" onchange="document.getElementById('seedCustomRow').style.display='block'">
+								<label class="form-check-label" for="seedTypeCustom">Custom</label>
+							</div>
+						</div>
+						<div id="seedCustomRow" style="display:none;">
+							<input type="text" class="form-control" name="seed" id="seed" maxlength="10" placeholder="Enter seed">
+						</div>
+						<div class="form-text text-secondary">Random generates a unique seed per world<?php echo !empty($defaultSeed) ? ". Default: $defaultSeed" : ''; ?></div>
 					</div>
 				</div>
 				<div id="formMsg" class="mt-3 text-center" style="display:none;"></div>
@@ -938,7 +950,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 
 				var payload = {
 					world: worldName,
-					seed: $('#seed').val().trim(),
+					seed: document.getElementById('seedTypeCustom').checked ? $('#seed').val().trim() : '',
 					mods: selectedMods
 				};
 

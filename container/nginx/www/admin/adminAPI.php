@@ -854,6 +854,9 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
     if (empty($seed)) {
         $seed = $defaultSeed;
     }
+    if (empty($seed)) {
+        $seed = (string)random_int(0, 4294967295);
+    }
 
     $result = addWorld($pdo, $world, $gameDNS, $seed);
 
@@ -1471,6 +1474,9 @@ function saveServerSettingsJson($pdo, $input) {
         exec("sudo /opt/stateless/engine/tools/applyTimezone.sh $tzSafe 2>&1", $tzOutput, $tzResult);
         if ($tzResult === 0) {
             date_default_timezone_set($tz);
+            // Also update MariaDB session timezone so NOW() uses new timezone
+            $offset = (new DateTime('now', new DateTimeZone($tz)))->format('P');
+            $pdo->exec("SET time_zone = '$offset'");
         }
     }
 
