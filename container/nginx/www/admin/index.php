@@ -4,6 +4,12 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
 
+// Redirect to setup wizard if fresh install
+if ($setupComplete === 0) {
+    header('Location: setup.php');
+    exit;
+}
+
 // Handle world actions via traditional GET (preserving existing behavior)
 if (!empty($_GET['delete_world'])) {
     $world = $_GET['delete_world'];
@@ -172,6 +178,12 @@ $totalCount = count($worlds);
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                         </svg>
                         File Browser
+                    </a>
+                    <a href="#" onclick="showServerSettingsModal(); return false;" class="nav-item">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                        </svg>
+                        Server Settings
                     </a>
                     <a href="#" onclick="return confirmThunderstoreSync()" class="nav-item ts-sync-tool" id="tsSyncTool" style="background: rgba(251, 191, 36, 0.1); border-left: 3px solid var(--warning);">
                         <svg class="nav-icon ts-sync-icon" id="tsSyncIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -678,6 +690,64 @@ $totalCount = count($worlds);
                     <span id="steamIdResultText">—</span>
                     <button id="steamIdCopyBtn" class="action-btn" onclick="copySteamId()" style="display: none; padding: 0.25rem 0.5rem; font-size: 0.75rem;">Copy</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Migration Notice Dialog -->
+    <?php if ($setupComplete == 1 && $migrationNoticeShown == 0): ?>
+    <div class="mods-modal-overlay show" id="migrationNoticeOverlay">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Settings Migration Complete
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    Your server settings have been migrated from environment variables to the PhValheim database. You can now manage all settings directly from the Admin UI using <strong>Server Settings</strong> in the sidebar.
+                </p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    You may remove the following environment variables from your Docker run command, Compose file, or Unraid template &mdash; they are no longer needed:
+                </p>
+                <div style="background: var(--bg-primary); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">
+                    basePort, defaultSeed, backupsToKeep, gameDNS, steamAPIKey, phvalheimClientURL, sessionTimeout, openaiApiKey, geminiApiKey, claudeApiKey, ollamaUrl
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem;">
+                    Port mappings (<code>-p</code>) and volume mounts (<code>-v</code>) must remain in your Docker configuration.
+                </p>
+
+                <h6 style="color: var(--text-secondary); margin-bottom: 0.75rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Migrated Values</h6>
+                <table style="width: 100%; font-size: 0.8rem; margin-bottom: 1.25rem;">
+                    <tbody id="migrationValuesTable"></tbody>
+                </table>
+
+                <div style="text-align: center;">
+                    <button class="action-btn success" onclick="dismissMigrationNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Server Settings Modal -->
+    <div class="mods-modal-overlay" id="serverSettingsOverlay" onclick="closeServerSettingsModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 700px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">Server Settings</h3>
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <a href="https://github.com/brianmiller/phvalheim-server" target="_blank" rel="noopener" title="PhValheim Documentation" style="color:var(--text-muted);font-size:0.75rem;text-decoration:none;display:flex;align-items:center;gap:0.3rem;opacity:0.7;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                        Docs
+                    </a>
+                    <button class="mods-modal-close" onclick="closeServerSettingsModal()">&times;</button>
+                </div>
+            </div>
+            <div class="mods-modal-body" id="serverSettingsBody">
+                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
             </div>
         </div>
     </div>
@@ -1837,6 +1907,294 @@ $totalCount = count($worlds);
             .then(r => r.json())
             .then(() => fetchWorldStatus())
             .catch(err => console.error('World action failed:', err));
+    });
+
+    // ===== Migration Notice =====
+    <?php if ($setupComplete == 1 && $migrationNoticeShown == 0): ?>
+    (async function loadMigrationValues() {
+        try {
+            const res = await fetch('adminAPI.php?action=getServerSettings');
+            const data = await res.json();
+            if (data.success) {
+                const s = data.settings;
+                const rows = [
+                    ['Base Port', s.basePort],
+                    ['Default Seed', s.defaultSeed || '(empty)'],
+                    ['Game DNS', s.gameDNS || '(empty)'],
+                    ['Steam API Key', s.steamAPIKey ? s.steamAPIKey.substring(0, 8) + '...' : '(empty)'],
+                    ['Client Download URL', s.phvalheimClientURL ? (s.phvalheimClientURL.length > 40 ? s.phvalheimClientURL.substring(0, 40) + '...' : s.phvalheimClientURL) : '(empty)'],
+                    ['Backups to Keep', s.backupsToKeep],
+                    ['Session Timeout', s.sessionTimeout + 's'],
+                ];
+                const tbody = document.getElementById('migrationValuesTable');
+                tbody.innerHTML = rows.map(([k, v]) =>
+                    `<tr><td style="padding:0.3rem 0;color:var(--text-muted);width:40%">${k}</td><td style="padding:0.3rem 0;color:var(--text-primary);font-family:var(--font-mono)">${v}</td></tr>`
+                ).join('');
+            }
+        } catch(e) { console.error('Failed to load migration values:', e); }
+    })();
+    <?php endif; ?>
+
+    async function dismissMigrationNotice() {
+        try {
+            await fetch('adminAPI.php?action=dismissMigrationNotice', { method: 'POST' });
+            document.getElementById('migrationNoticeOverlay').classList.remove('show');
+        } catch(e) { console.error('Failed to dismiss notice:', e); }
+    }
+
+    // ===== Server Settings Modal =====
+    async function showServerSettingsModal() {
+        const overlay = document.getElementById('serverSettingsOverlay');
+        const body = document.getElementById('serverSettingsBody');
+        body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">Loading...</div>';
+        overlay.classList.add('show');
+
+        try {
+            const res = await fetch('adminAPI.php?action=getServerSettings');
+            const data = await res.json();
+            if (!data.success) {
+                body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger)">Error loading settings</div>';
+                return;
+            }
+            const s = data.settings;
+            const keyField = (id, val) => `
+                <div style="position:relative">
+                    <input type="password" class="form-control form-control-sm" id="${id}" value="${val || ''}" style="font-family:var(--font-mono);padding-right:3.5rem">
+                    <button onclick="togglePasswordField('${id}')" style="position:absolute;right:0.5rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:3px;border:1px solid var(--border-color);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent-primary)';this.style.color='var(--accent-primary)'" onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-muted)'" title="Toggle visibility">show</button>
+                </div>`;
+            const sectionHead = (label, color) => `
+                <h6 style="color:${color};margin-bottom:1rem;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;display:flex;align-items:center;gap:0.5rem;">
+                    <span style="display:inline-block;width:3px;height:14px;background:${color};border-radius:2px;"></span>
+                    ${label}
+                </h6>`;
+            const tip = (text) => `title="${text}"`;
+            const buildTimezoneOptions = (selected) => {
+                const tzList = [
+                    ['Etc/UTC',              '(GMT)  UTC'],
+                    ['Pacific/Kwajalein',    '(GMT -12:00) Eniwetok, Kwajalein'],
+                    ['Pacific/Midway',       '(GMT -11:00) Midway Island, Samoa'],
+                    ['Pacific/Honolulu',     '(GMT -10:00) Hawaii'],
+                    ['Pacific/Marquesas',    '(GMT -9:30) Marquesas Islands'],
+                    ['America/Anchorage',    '(GMT -9:00) Alaska'],
+                    ['America/Los_Angeles',  '(GMT -8:00) Pacific Time (US & Canada)'],
+                    ['America/Denver',       '(GMT -7:00) Mountain Time (US & Canada)'],
+                    ['America/Chicago',      '(GMT -6:00) Central Time (US & Canada), Mexico City'],
+                    ['America/New_York',     '(GMT -5:00) Eastern Time (US & Canada), Bogota, Lima'],
+                    ['America/Caracas',      '(GMT -4:30) Caracas'],
+                    ['America/Halifax',      '(GMT -4:00) Atlantic Time (Canada), La Paz'],
+                    ['America/St_Johns',     '(GMT -3:30) Newfoundland'],
+                    ['America/Sao_Paulo',    '(GMT -3:00) Brazil, Buenos Aires, Georgetown'],
+                    ['Atlantic/South_Georgia','(GMT -2:00) Mid-Atlantic'],
+                    ['Atlantic/Azores',      '(GMT -1:00) Azores, Cape Verde Islands'],
+                    ['Europe/London',        '(GMT)  Western Europe Time, London, Lisbon, Casablanca'],
+                    ['Europe/Paris',         '(GMT +1:00) Brussels, Copenhagen, Madrid, Paris'],
+                    ['Europe/Kaliningrad',   '(GMT +2:00) Kaliningrad, South Africa'],
+                    ['Europe/Moscow',        '(GMT +3:00) Baghdad, Riyadh, Moscow, St. Petersburg'],
+                    ['Asia/Tehran',          '(GMT +3:30) Tehran'],
+                    ['Asia/Dubai',           '(GMT +4:00) Abu Dhabi, Muscat, Baku, Tbilisi'],
+                    ['Asia/Kabul',           '(GMT +4:30) Kabul'],
+                    ['Asia/Karachi',         '(GMT +5:00) Ekaterinburg, Islamabad, Karachi, Tashkent'],
+                    ['Asia/Kolkata',         '(GMT +5:30) Mumbai, Kolkata, New Delhi'],
+                    ['Asia/Kathmandu',       '(GMT +5:45) Kathmandu, Pokhara'],
+                    ['Asia/Dhaka',           '(GMT +6:00) Almaty, Dhaka, Colombo'],
+                    ['Asia/Yangon',          '(GMT +6:30) Yangon, Mandalay'],
+                    ['Asia/Bangkok',         '(GMT +7:00) Bangkok, Hanoi, Jakarta'],
+                    ['Asia/Singapore',       '(GMT +8:00) Beijing, Perth, Singapore, Hong Kong'],
+                    ['Australia/Eucla',      '(GMT +8:45) Eucla'],
+                    ['Asia/Tokyo',           '(GMT +9:00) Tokyo, Seoul, Osaka, Sapporo, Yakutsk'],
+                    ['Australia/Adelaide',   '(GMT +9:30) Adelaide, Darwin'],
+                    ['Australia/Sydney',     '(GMT +10:00) Eastern Australia, Guam, Vladivostok'],
+                    ['Australia/Lord_Howe',  '(GMT +10:30) Lord Howe Island'],
+                    ['Pacific/Guadalcanal',  '(GMT +11:00) Magadan, Solomon Islands, New Caledonia'],
+                    ['Pacific/Norfolk',      '(GMT +11:30) Norfolk Island'],
+                    ['Pacific/Auckland',     '(GMT +12:00) Auckland, Wellington, Fiji, Kamchatka'],
+                    ['Pacific/Chatham',      '(GMT +12:45) Chatham Islands'],
+                    ['Pacific/Apia',         '(GMT +13:00) Apia, Nukualofa'],
+                    ['Pacific/Kiritimati',   '(GMT +14:00) Line Islands, Tokelau'],
+                ];
+                return tzList.map(([val, label]) =>
+                    `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`
+                ).join('');
+            };
+            body.innerHTML = `
+                <div style="margin-bottom: 1.5rem;">
+                    ${sectionHead('Server', 'var(--accent-primary)')}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('The DNS name or IP that game clients use to connect to your Valheim worlds')}>Game DNS</label>
+                            <input type="text" class="form-control form-control-sm" id="ss-gameDNS" value="${s.gameDNS || ''}" style="font-family:var(--font-mono)" ${tip('Public hostname or IP for Valheim client connections (e.g. valheim.example.com)')}>
+                        </div>
+                        <div class="col-3">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Starting UDP port for world servers. Each world uses 2 consecutive ports.')}>Base Port</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-basePort" value="${s.basePort}" style="font-family:var(--font-mono)" ${tip('First UDP port in the range (default: 25000). Ensure ports are forwarded.')}>
+                        </div>
+                        <div class="col-3">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Seed used when creating new worlds if none is specified')}>Default Seed</label>
+                            <input type="text" class="form-control form-control-sm" id="ss-defaultSeed" value="${s.defaultSeed || ''}" maxlength="10" style="font-family:var(--font-mono)" ${tip('World generation seed (up to 10 characters). Leave blank for random.')}>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Number of automatic world backups to retain before oldest are deleted')}>Backups to Keep</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-backupsToKeep" value="${s.backupsToKeep}" style="font-family:var(--font-mono)" ${tip('Backups run every 30 minutes. 24 = 12 hours of backups (default).')}>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Controls how long public UI login cookies stay valid before expiring (in seconds)')}>Session Timeout (s)</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-sessionTimeout" value="${s.sessionTimeout}" style="font-family:var(--font-mono)" ${tip('Controls public UI cookie expiry. Default: 2592000 (30 days). After this, players must re-login via Steam.')}>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Maximum world log file size in bytes before rotation')}>Max Log Size</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-maxLogSize" value="${s.maxLogSize}" style="font-family:var(--font-mono)" ${tip('Log files exceeding this size are rotated. Default: 1000000 (1 MB).')}>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label style="font-size:0.8rem;color:orchid" ${tip('URL where players download the PhValheim client installer')}>Client Download URL</label>
+                        <input type="text" class="form-control form-control-sm" id="ss-phvalheimClientURL" value="${s.phvalheimClientURL || ''}" style="font-family:var(--font-mono)" ${tip('Direct download link to the PhValheim client .exe installer')}>
+                    </div>
+                    <div class="mb-2">
+                        <label style="font-size:0.8rem;color:orchid" ${tip('Server timezone for logs, backups, and world timestamps')}>Timezone</label>
+                        <select class="form-control form-control-sm" id="ss-timezone" ${tip('Affects all timestamps in logs, backups, and the admin dashboard clock')}>
+                            ${buildTimezoneOptions(s.timezone || 'Etc/UTC')}
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    ${sectionHead('Steam', '#1b9fff')}
+                    <div class="mb-2">
+                        <label style="font-size:0.8rem;color:orchid" ${tip('Required for Steam authentication and player identity resolution')}>Steam API Key</label>
+                        ${keyField('ss-steamAPIKey', s.steamAPIKey)}
+                        <div style="margin-top:0.3rem;font-size:0.7rem;color:var(--text-muted)">Get a key at <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener" style="color:#1b9fff;">steamcommunity.com/dev/apikey</a></div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    ${sectionHead('AI Helper', 'var(--warning)')}
+                    <div style="margin-bottom:0.75rem;font-size:0.75rem;color:var(--text-muted)">Optional. Configure one or more providers for the AI log analysis feature.</div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('API key from platform.openai.com for GPT-based log analysis')}>OpenAI API Key</label>
+                            ${keyField('ss-openaiApiKey', s.openaiApiKey)}
+                        </div>
+                        <div class="col-6">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('API key from console.anthropic.com for Claude-based log analysis')}>Claude API Key</label>
+                            ${keyField('ss-claudeApiKey', s.claudeApiKey)}
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('API key from aistudio.google.com for Gemini-based log analysis')}>Gemini API Key</label>
+                            ${keyField('ss-geminiApiKey', s.geminiApiKey)}
+                        </div>
+                        <div class="col-6">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('URL of your local Ollama instance (e.g. http://host:11434)')}>Ollama URL</label>
+                            <input type="text" class="form-control form-control-sm" id="ss-ollamaUrl" value="${s.ollamaUrl || ''}" style="font-family:var(--font-mono)" ${tip('Full URL including port for a local Ollama server. No API key needed.')}>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    ${sectionHead('Advanced', 'var(--text-secondary)')}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('When enabled, Thunderstore mod metadata is cached locally for faster browsing')}>Thunderstore Local Sync</label>
+                            <select class="form-control form-control-sm" id="ss-thunderstore_local_sync" ${tip('Syncs mod metadata every 12 hours. Disable if you have limited disk space.')}>
+                                <option value="1" ${s.thunderstore_local_sync == 1 ? 'selected' : ''}>Enabled</option>
+                                <option value="0" ${s.thunderstore_local_sync == 0 ? 'selected' : ''}>Disabled</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Number of mods processed per batch during Thunderstore sync')}>Thunderstore Chunk Size</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-thunderstore_chunk_size" value="${s.thunderstore_chunk_size}" style="font-family:var(--font-mono)" ${tip('Lower values spawn more threads and increase CPU demand. Higher values use fewer threads but more memory per thread. Default: 1000.')}>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="text-align:center;">
+                    <button class="action-btn success" onclick="saveServerSettings()" id="ssSubmitBtn" style="padding:0.5rem 2rem;">Save Settings</button>
+                    <div id="ssStatus" style="margin-top:0.75rem;font-size:0.85rem;"></div>
+                </div>
+            `;
+        } catch(e) {
+            body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger)">Error loading settings</div>';
+        }
+    }
+
+    function togglePasswordField(id) {
+        const input = document.getElementById(id);
+        const btn = input.parentElement.querySelector('button');
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = 'hide';
+        } else {
+            input.type = 'password';
+            btn.textContent = 'show';
+        }
+    }
+
+    async function saveServerSettings() {
+        const btn = document.getElementById('ssSubmitBtn');
+        const status = document.getElementById('ssStatus');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        status.textContent = '';
+
+        const payload = {
+            gameDNS: document.getElementById('ss-gameDNS').value.trim(),
+            basePort: parseInt(document.getElementById('ss-basePort').value) || 25000,
+            defaultSeed: document.getElementById('ss-defaultSeed').value.trim(),
+            backupsToKeep: parseInt(document.getElementById('ss-backupsToKeep').value) || 24,
+            sessionTimeout: parseInt(document.getElementById('ss-sessionTimeout').value) || 2592000,
+            maxLogSize: parseInt(document.getElementById('ss-maxLogSize').value) || 1000000,
+            phvalheimClientURL: document.getElementById('ss-phvalheimClientURL').value.trim(),
+            timezone: document.getElementById('ss-timezone').value.trim() || 'Etc/UTC',
+            steamAPIKey: document.getElementById('ss-steamAPIKey').value.trim(),
+            openaiApiKey: document.getElementById('ss-openaiApiKey').value.trim(),
+            claudeApiKey: document.getElementById('ss-claudeApiKey').value.trim(),
+            geminiApiKey: document.getElementById('ss-geminiApiKey').value.trim(),
+            ollamaUrl: document.getElementById('ss-ollamaUrl').value.trim(),
+            thunderstore_local_sync: parseInt(document.getElementById('ss-thunderstore_local_sync').value),
+            thunderstore_chunk_size: parseInt(document.getElementById('ss-thunderstore_chunk_size').value) || 1000,
+        };
+
+        try {
+            const res = await fetch('adminAPI.php?action=saveServerSettings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                status.style.color = 'var(--success)';
+                status.textContent = 'Settings saved. Reloading...';
+                setTimeout(() => window.location.reload(), 1000);
+                return;
+            } else {
+                status.style.color = 'var(--danger)';
+                status.textContent = data.error || 'Failed to save settings.';
+            }
+        } catch(e) {
+            status.style.color = 'var(--danger)';
+            status.textContent = 'Network error.';
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Save Settings';
+    }
+
+    function closeServerSettingsModal(event) {
+        if (!event || event.target === document.getElementById('serverSettingsOverlay')) {
+            document.getElementById('serverSettingsOverlay').classList.remove('show');
+        }
+    }
+
+    // Close server settings modal on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeServerSettingsModal();
+            const migrationOverlay = document.getElementById('migrationNoticeOverlay');
+            if (migrationOverlay) migrationOverlay.classList.remove('show');
+        }
     });
     </script>
 

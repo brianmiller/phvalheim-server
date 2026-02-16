@@ -9,6 +9,15 @@
 	include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 	include '/opt/stateless/nginx/www/includes/session_auth.php';
 
+	// If setup is not complete, show a friendly message
+	if ($setupComplete === 0) {
+		echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg"><link rel="stylesheet" href="/css/phvalheimStyles.css"></head>';
+		echo '<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg-primary);color:var(--text-primary);">';
+		echo '<div style="text-align:center;max-width:400px;padding:2rem;"><img src="/images/phvalheim_favicon.svg" style="width:64px;height:64px;margin-bottom:1.5rem;" alt="PhValheim"><h2 style="margin-bottom:0.75rem;">PhValheim is Starting Up</h2><p style="color:var(--text-muted);">The server is being configured by the administrator. Please check back soon.</p></div>';
+		echo '</body></html>';
+		exit;
+	}
+
 	// If user already has a valid session, skip login
 	if (isSessionValid()) {
 		header('Location: authenticated.php');

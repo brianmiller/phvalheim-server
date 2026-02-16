@@ -255,59 +255,23 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
 		# mandatory vars missing
                 if(empty($backupsToKeep)) {
-
-                        echo "
-                                <tr>
-                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: Backup retention is not configured properly. Ensure you're passing the \"backupsToKeep\" variable to your Docker run command.</div>
-                        ";
+                        echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: Backup retention is not configured. Set this in Admin UI &rarr; Server Settings.</div>";
                 }
 
                 if(empty($playerName)) {
-
-                        echo "
-                                <tr>
-                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The SteamAPI could not be contacted. Ensure you're passing a valid Steam API Key to the \"steamAPIKey\" variable within your Docker run command.</div>
-                        ";
+                        echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: The SteamAPI could not be contacted. Check your Steam API Key in Admin UI &rarr; Server Settings.</div>";
                 }
 
                 if(empty($phvalheimClientURL)) {
-
-	                echo "
-				<tr>
-				<td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Client Download URL is missing! Ensure you're passing the \"phvalheimClientURL\" variable to your Docker run command.</div>
-			";
+                        echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Client Download URL is missing! Set this in Admin UI &rarr; Server Settings.</div>";
 		}
 
-                if(empty($phvalheimHost)) {
-
-                        echo "
-                                <tr>
-                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Host FQDN variable is missing! Ensure you're passing the \"phvalheimHost\" variable to your Docker run command.</div>
-                        ";
-                }
-
                 if(empty($basePort)) {
-
-                        echo "
-                                <tr>
-                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Base Port is not set! Ensure you're passing the \"basePort\" variable to your Docker run command.</div>
-                        ";
+                        echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Base Port is not set! Set this in Admin UI &rarr; Server Settings.</div>";
                 }
 
                 if(empty($gameDNS)) {
-
-                        echo "
-                                <tr>
-                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim game DNS endpoint is not set! Ensure you're passing the \"gameDNS\" variable to your Docker run command.</div>
-                        ";
-                }
-
-                if(empty($defaultSeed)) {
-
-                        echo "
-                                <tr>
-                                <td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Default Seed is not set! Ensure you're passing the \"defaultSeed\" variable to your Docker run command.</div>
-                        ";
+                        echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim game DNS endpoint is not set! Set this in Admin UI &rarr; Server Settings.</div>";
                 }
 
 
@@ -323,6 +287,26 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 }
 
 ?>
+
+<?php if ($setupComplete === 0): ?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="../css/phvalheimStyles.css?v=<?php echo time(); ?>">
+</head>
+<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg-primary);color:var(--text-primary);">
+    <div style="text-align:center;max-width:400px;padding:2rem;">
+        <img src="/images/phvalheim_favicon.svg" style="width:64px;height:64px;margin-bottom:1.5rem;" alt="PhValheim">
+        <h2 style="margin-bottom:0.75rem;">PhValheim is Starting Up</h2>
+        <p style="color:var(--text-muted);">The server is being configured by the administrator. Please check back soon.</p>
+    </div>
+</body>
+</html>
+<?php exit; endif; ?>
 
 <!DOCTYPE html>
 <html>

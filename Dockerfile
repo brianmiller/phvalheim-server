@@ -14,7 +14,7 @@ RUN apt-get -y update
 RUN apt-get -y upgrade
 
 # basic tools
-RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip unzip supervisor curl vim jq wget language-pack-en rsync ca-certificates bc
+RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip unzip supervisor curl vim jq wget language-pack-en rsync ca-certificates bc sudo
 RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql php-curl cron inetutils-ping time
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client
@@ -74,6 +74,9 @@ COPY container/cron.d/* /etc/cron.d/
 
 RUN chown -R phvalheim: /opt/stateless
 RUN chown -R phvalheim: /run/php
+
+# Allow phvalheim user to apply timezone changes at runtime (via sudo)
+RUN echo "phvalheim ALL=(root) NOPASSWD: /opt/stateless/engine/tools/applyTimezone.sh" > /etc/sudoers.d/phvalheim-tz && chmod 440 /etc/sudoers.d/phvalheim-tz
 
 # enable PhValheim within NGINX
 RUN ln -s /etc/nginx/sites-available/phvalheim.conf /etc/nginx/sites-enabled/phvalheim

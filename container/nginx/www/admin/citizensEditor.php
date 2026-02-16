@@ -8,7 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 
     $vanityURL = $_POST['vanityURL'];
 
-    $apiKey = getenv('steamAPIKey');
+    global $steamAPIKey; $apiKey = $steamAPIKey;
     if (!isset($apiKey) || $apiKey == '') {
         echo "APIKEY NOT SET";
         return;
@@ -90,7 +90,7 @@ $steamIDResult = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['vanityURL'])) {
     $vanityURL = $_POST['vanityURL'];
-    $apiKey = getenv('steamAPIKey');
+    global $steamAPIKey; $apiKey = $steamAPIKey;
     $steamIDResult = Get_SteamID_From_VanityURL($vanityURL, $apiKey);
 }
 

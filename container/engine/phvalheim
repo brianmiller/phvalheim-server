@@ -1,20 +1,14 @@
 #!/bin/bash
 echo
 echo "`date` [NOTICE : phvalheim] Starting PhValheim pre-flight..."
-echo "`date` [NOTICE : phvalheim] Loading PhValheim variables from environment..."
 echo "`date` [NOTICE : phvalheim] PhValheim Version: $phvalheimVersion"
-echo "`date` [NOTICE : phvalheim] basePort: $basePort"
-echo "`date` [NOTICE : phvalheim] defaultSeed: $defaultSeed"
-echo "`date` [NOTICE : phvalheim] Game DNS: $gameDNS"
-echo "`date` [NOTICE : phvalheim] PhValheim Host: $phvalheimHost"
-echo "`date` [NOTICE : phvalheim] PhValheim Client URL: $phvalheimClientURL"
 
 
 # load configs
 source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateless/engine/includes/0-functions.sh
 
-# set timezone using database value
+# set initial timezone from env var (DB not ready yet)
 /opt/stateless/engine/tools/tzSetter.sh
 
 # wait for database
@@ -26,10 +20,65 @@ source /opt/stateless/engine/includes/0-functions.sh
 # prep directories and filesystem
 /opt/stateless/engine/tools/phvalheimprep.sh
 
-# pull settings from database
-#steamApiKey=$(SQL "SELECT steamApiKey FROM settings")
-export maxLogSize=$(SQL "SELECT maxLogSize FROM settings")
+# migrate environment variables to database (one-time, for upgrades from pre-2.31)
+setupComplete=$(SQL "SELECT setupComplete FROM settings")
+if [ "$setupComplete" = "0" ]; then
+	# Check if any env vars are set (indicates upgrade from older version)
+	envVarFound=0
+	for envVar in steamAPIKey gameDNS basePort defaultSeed phvalheimClientURL backupsToKeep sessionTimeout openaiApiKey geminiApiKey claudeApiKey ollamaUrl TZ; do
+		val="${!envVar}"
+		if [ ! -z "$val" ]; then
+			envVarFound=1
+			break
+		fi
+	done
+
+	if [ $envVarFound = 1 ]; then
+		echo "`date` [NOTICE : phvalheim] Migrating environment variables to database settings..."
+
+		# Migrate each env var if it has a value
+		[ ! -z "$steamAPIKey" ]       && SQL "UPDATE settings SET steamApiKey='$steamAPIKey'"
+		[ ! -z "$gameDNS" ]           && SQL "UPDATE settings SET gameDNS='$gameDNS'"
+		[ ! -z "$basePort" ]          && SQL "UPDATE settings SET basePort='$basePort'"
+		[ ! -z "$defaultSeed" ]       && SQL "UPDATE settings SET defaultSeed='$defaultSeed'"
+		[ ! -z "$phvalheimClientURL" ] && SQL "UPDATE settings SET phvalheimClientURL='$phvalheimClientURL'"
+		[ ! -z "$backupsToKeep" ]     && SQL "UPDATE settings SET backupsToKeep='$backupsToKeep'"
+		[ ! -z "$sessionTimeout" ]    && SQL "UPDATE settings SET sessionTimeout='$sessionTimeout'"
+		[ ! -z "$openaiApiKey" ]      && SQL "UPDATE settings SET openaiApiKey='$openaiApiKey'"
+		[ ! -z "$geminiApiKey" ]      && SQL "UPDATE settings SET geminiApiKey='$geminiApiKey'"
+		[ ! -z "$claudeApiKey" ]      && SQL "UPDATE settings SET claudeApiKey='$claudeApiKey'"
+		[ ! -z "$ollamaUrl" ]         && SQL "UPDATE settings SET ollamaUrl='$ollamaUrl'"
+		[ ! -z "$TZ" ]                && SQL "UPDATE settings SET timezone='$TZ'"
+
+		# Mark as migrated (setupComplete=1 triggers one-time migration notice in admin UI)
+		SQL "UPDATE settings SET setupComplete=1, migrationNoticeShown=0"
+		echo "`date` [NOTICE : phvalheim] Environment variables migrated to database. These env vars are now deprecated and can be removed from your Docker configuration."
+	else
+		echo "`date` [NOTICE : phvalheim] Fresh install detected. Setup wizard will be available at the admin UI (port 8081)."
+	fi
+fi
+
+# pull settings from database (DB is now the source of truth)
+export basePort=$(SQL "SELECT basePort FROM settings")
+export defaultSeed=$(SQL "SELECT defaultSeed FROM settings")
+export gameDNS=$(SQL "SELECT gameDNS FROM settings")
+export steamAPIKey=$(SQL "SELECT steamApiKey FROM settings")
+export phvalheimClientURL=$(SQL "SELECT phvalheimClientURL FROM settings")
 export backupsToKeep=$(SQL "SELECT backupsToKeep FROM settings")
+export maxLogSize=$(SQL "SELECT maxLogSize FROM settings")
+export sessionTimeout=$(SQL "SELECT sessionTimeout FROM settings")
+export TZ=$(SQL "SELECT timezone FROM settings")
+
+# apply timezone from database to the running system
+if [ -f "/usr/share/zoneinfo/$TZ" ]; then
+	echo "$TZ" > /etc/timezone
+	ln -sf /usr/share/zoneinfo/$TZ /etc/localtime
+else
+	echo "`date` [WARN : phvalheim] Invalid timezone '$TZ' in database, falling back to UTC"
+	export TZ="Etc/UTC"
+	echo "$TZ" > /etc/timezone
+	ln -sf /usr/share/zoneinfo/$TZ /etc/localtime
+fi
 
 # set environment
 /usr/bin/printenv |grep -v "HOME="|grep -v "PWD=" > /etc/environment
@@ -39,9 +88,12 @@ if [ ! $? = 0 ]; then
 fi
 
 # post pre-flight echos
-#echo "`date` [NOTICE : phvalheim] Steam API Key: $steamApiKey"
+echo "`date` [NOTICE : phvalheim] basePort: $basePort"
+echo "`date` [NOTICE : phvalheim] defaultSeed: $defaultSeed"
+echo "`date` [NOTICE : phvalheim] gameDNS: $gameDNS"
 echo "`date` [NOTICE : phvalheim] backupsToKeep: $backupsToKeep"
 echo "`date` [NOTICE : phvalheim] maxLogSize: $maxLogSize"
+echo "`date` [NOTICE : phvalheim] timezone: $TZ"
 
 # start the engine
 echo "`date` [NOTICE : phvalheim] PhValheim engine started..."
@@ -52,6 +104,9 @@ autoStart
 ####### BEGIN: Main loop #######
 while [ true ]; do
 	sleep 2
+
+	# Re-read environment so admin UI setting changes (timezone, etc.) take effect
+	source /etc/environment
 
 	WORLDS=$(SQL "SELECT id FROM worlds;")
 

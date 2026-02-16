@@ -231,24 +231,39 @@ switch($action) {
         }
         break;
 
-    case 'getAiProviders':
-        getAiProvidersJson();
+    case 'getServerSettings':
+        getServerSettingsJson($pdo);
         break;
 
-    case 'aiHelper':
+    case 'saveServerSettings':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $input = json_decode(file_get_contents('php://input'), true);
-            $provider = $input['provider'] ?? 'gemini';
-            $model = $input['model'] ?? 'gemini-2.0-flash';
-            $context = $input['context'] ?? 'engine';
-            $history = $input['history'] ?? [];
-            $message = $input['message'] ?? '';
-
-            if ($message) {
-                aiHelperDispatch($provider, $model, $context, $history, $message);
+            if ($input) {
+                saveServerSettingsJson($pdo, $input);
             } else {
-                echo json_encode(['success' => false, 'error' => 'Message required']);
+                echo json_encode(['success' => false, 'error' => 'Invalid JSON input']);
             }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'completeSetup':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            if ($input) {
+                completeSetupJson($pdo, $input);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Invalid JSON input']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'dismissMigrationNotice':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            dismissMigrationNoticeJson($pdo);
         } else {
             echo json_encode(['success' => false, 'error' => 'POST method required']);
         }
@@ -625,7 +640,8 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
  * Fetch SteamID from vanity URL
  */
 function fetchSteamIDJson($vanityURL) {
-    $apiKey = getenv('steamAPIKey');
+    global $steamAPIKey;
+    $apiKey = $steamAPIKey;
     if (empty($apiKey)) {
         echo json_encode(['success' => false, 'error' => 'Steam API key not configured']);
         return;
@@ -1330,6 +1346,211 @@ function getOllamaModels($ollamaUrl) {
     }
 
     return $models;
+}
+
+/**
+ * Returns all server settings from the settings table
+ */
+function getServerSettingsJson($pdo) {
+    $stmt = $pdo->query("SELECT * FROM settings LIMIT 1");
+    $settings = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$settings) {
+        echo json_encode(['success' => false, 'error' => 'No settings found']);
+        return;
+    }
+
+    echo json_encode([
+        'success' => true,
+        'settings' => [
+            'basePort' => (int)$settings['basePort'],
+            'defaultSeed' => $settings['defaultSeed'] ?? '',
+            'gameDNS' => $settings['gameDNS'] ?? '',
+            'steamAPIKey' => $settings['steamApiKey'] ?? '',
+            'phvalheimClientURL' => $settings['phvalheimClientURL'] ?? '',
+            'backupsToKeep' => (int)$settings['backupsToKeep'],
+            'maxLogSize' => (int)$settings['maxLogSize'],
+            'sessionTimeout' => (int)$settings['sessionTimeout'],
+            'timezone' => $settings['timezone'] ?? 'Etc/UTC',
+            'thunderstore_local_sync' => (int)$settings['thunderstore_local_sync'],
+            'thunderstore_chunk_size' => (int)$settings['thunderstore_chunk_size'],
+            'openaiApiKey' => $settings['openaiApiKey'] ?? '',
+            'geminiApiKey' => $settings['geminiApiKey'] ?? '',
+            'claudeApiKey' => $settings['claudeApiKey'] ?? '',
+            'ollamaUrl' => $settings['ollamaUrl'] ?? '',
+            'setupComplete' => (int)$settings['setupComplete'],
+            'migrationNoticeShown' => (int)$settings['migrationNoticeShown'],
+        ]
+    ]);
+}
+
+/**
+ * Save server settings
+ */
+function saveServerSettingsJson($pdo, $input) {
+    $allowedFields = [
+        'basePort' => 'int',
+        'defaultSeed' => 'string',
+        'gameDNS' => 'string',
+        'steamAPIKey' => 'string',
+        'phvalheimClientURL' => 'string',
+        'backupsToKeep' => 'int',
+        'maxLogSize' => 'int',
+        'sessionTimeout' => 'int',
+        'timezone' => 'string',
+        'thunderstore_local_sync' => 'int',
+        'thunderstore_chunk_size' => 'int',
+        'openaiApiKey' => 'string',
+        'geminiApiKey' => 'string',
+        'claudeApiKey' => 'string',
+        'ollamaUrl' => 'string',
+    ];
+
+    // Map input field names to actual DB column names where they differ
+    $columnMap = ['steamAPIKey' => 'steamApiKey'];
+
+    $updates = [];
+    $params = [];
+    foreach ($input as $key => $value) {
+        if (!isset($allowedFields[$key])) continue;
+        $col = $columnMap[$key] ?? $key;
+        if ($allowedFields[$key] === 'int') {
+            $updates[] = "$col = ?";
+            $params[] = (int)$value;
+        } else {
+            $updates[] = "$col = ?";
+            $params[] = (string)$value;
+        }
+    }
+
+    if (empty($updates)) {
+        echo json_encode(['success' => false, 'error' => 'No valid fields to update']);
+        return;
+    }
+
+    $sql = "UPDATE settings SET " . implode(', ', $updates);
+    $stmt = $pdo->prepare($sql);
+    $result = $stmt->execute($params);
+
+    // Re-export settings to /etc/environment so engine/cron picks them up
+    if ($result) {
+        $settings = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $tz = $settings['timezone'] ?? 'Etc/UTC';
+        $envVars = [
+            'basePort' => $settings['basePort'],
+            'defaultSeed' => $settings['defaultSeed'],
+            'gameDNS' => $settings['gameDNS'],
+            'steamAPIKey' => $settings['steamApiKey'],
+            'phvalheimClientURL' => $settings['phvalheimClientURL'],
+            'backupsToKeep' => $settings['backupsToKeep'],
+            'maxLogSize' => $settings['maxLogSize'],
+            'sessionTimeout' => $settings['sessionTimeout'],
+            'TZ' => $tz,
+        ];
+
+        // Read existing /etc/environment and update/add our vars
+        $envFile = '/etc/environment';
+        $envLines = file_exists($envFile) ? file($envFile, FILE_IGNORE_NEW_LINES) : [];
+        $envMap = [];
+        foreach ($envLines as $line) {
+            if (preg_match('/^([^=]+)=(.*)$/', $line, $m)) {
+                $envMap[$m[1]] = $m[2];
+            }
+        }
+        foreach ($envVars as $k => $v) {
+            $envMap[$k] = $v;
+        }
+        $output = '';
+        foreach ($envMap as $k => $v) {
+            $output .= "$k=$v\n";
+        }
+        @file_put_contents($envFile, $output);
+
+        // Apply timezone to the running system via helper script (needs sudo for /etc files)
+        $tzSafe = escapeshellarg($tz);
+        exec("sudo /opt/stateless/engine/tools/applyTimezone.sh $tzSafe 2>&1", $tzOutput, $tzResult);
+        if ($tzResult === 0) {
+            date_default_timezone_set($tz);
+        }
+    }
+
+    echo json_encode([
+        'success' => $result ? true : false,
+        'message' => $result ? 'Settings saved successfully' : 'Failed to save settings'
+    ]);
+}
+
+/**
+ * Complete the setup wizard (fresh install)
+ */
+function completeSetupJson($pdo, $input) {
+    // Save all provided settings first
+    saveServerSettingsJson_internal($pdo, $input);
+
+    // Mark setup as complete
+    $stmt = $pdo->prepare("UPDATE settings SET setupComplete = 2");
+    $stmt->execute();
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Setup complete'
+    ]);
+}
+
+/**
+ * Internal helper to save settings without JSON output
+ */
+function saveServerSettingsJson_internal($pdo, $input) {
+    $allowedFields = [
+        'basePort' => 'int',
+        'defaultSeed' => 'string',
+        'gameDNS' => 'string',
+        'steamAPIKey' => 'string',
+        'phvalheimClientURL' => 'string',
+        'backupsToKeep' => 'int',
+        'maxLogSize' => 'int',
+        'sessionTimeout' => 'int',
+        'timezone' => 'string',
+        'openaiApiKey' => 'string',
+        'geminiApiKey' => 'string',
+        'claudeApiKey' => 'string',
+        'ollamaUrl' => 'string',
+    ];
+
+    $columnMap = ['steamAPIKey' => 'steamApiKey'];
+
+    $updates = [];
+    $params = [];
+    foreach ($input as $key => $value) {
+        if (!isset($allowedFields[$key])) continue;
+        $col = $columnMap[$key] ?? $key;
+        if ($allowedFields[$key] === 'int') {
+            $updates[] = "$col = ?";
+            $params[] = (int)$value;
+        } else {
+            $updates[] = "$col = ?";
+            $params[] = (string)$value;
+        }
+    }
+
+    if (!empty($updates)) {
+        $sql = "UPDATE settings SET " . implode(', ', $updates);
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+    }
+}
+
+/**
+ * Dismiss the one-time migration notice
+ */
+function dismissMigrationNoticeJson($pdo) {
+    $stmt = $pdo->prepare("UPDATE settings SET migrationNoticeShown = 1, setupComplete = 2");
+    $result = $stmt->execute();
+
+    echo json_encode([
+        'success' => $result ? true : false,
+        'message' => $result ? 'Migration notice dismissed' : 'Failed to dismiss notice'
+    ]);
 }
 
 /**
