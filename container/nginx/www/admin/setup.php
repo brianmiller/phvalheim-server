@@ -42,7 +42,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
         }
         .setup-card {
             background: var(--bg-secondary);
-            border: 1px solid var(--border-primary);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 2.5rem;
         }
@@ -81,7 +81,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: var(--border-primary);
+            background: var(--border-color);
             transition: background 0.3s;
         }
         .setup-progress-dot.active {
@@ -106,7 +106,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             width: 100%;
             padding: 0.6rem 0.85rem;
             background: var(--bg-primary);
-            border: 1px solid var(--border-primary);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             color: var(--text-primary);
             font-size: 0.9rem;
@@ -136,13 +136,13 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             font-size: 0.9rem;
             font-weight: 500;
             cursor: pointer;
-            border: 1px solid var(--border-primary);
+            border: 1px solid var(--border-color);
             background: var(--bg-tertiary);
             color: var(--text-primary);
             transition: all 0.2s;
         }
         .setup-btn:hover {
-            background: var(--bg-hover);
+            background: var(--bg-tertiary);
         }
         .setup-btn-primary {
             background: rgba(34, 211, 238, 0.1);
@@ -184,7 +184,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
         }
         .setup-review-table td {
             padding: 0.4rem 0;
-            border-bottom: 1px solid var(--border-primary);
+            border-bottom: 1px solid var(--border-color);
         }
         .setup-review-table td:first-child {
             color: var(--text-muted);
@@ -298,7 +298,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
                 <div class="setup-field">
                     <label>Timezone</label>
-                    <select id="setup-timezone" style="width:100%;padding:0.6rem 0.85rem;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:6px;color:var(--text-primary);font-size:0.9rem;">
+                    <select id="setup-timezone" style="width:100%;padding:0.6rem 0.85rem;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.9rem;">
                         <option value="Etc/UTC" selected>(GMT)  UTC</option>
                         <option value="Pacific/Kwajalein">(GMT -12:00) Eniwetok, Kwajalein</option>
                         <option value="Pacific/Midway">(GMT -11:00) Midway Island, Samoa</option>

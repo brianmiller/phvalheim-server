@@ -4,8 +4,27 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
 
-// Redirect to setup wizard if fresh install
+// Redirect to setup wizard if fresh install (but not for upgrades)
 if ($setupComplete === 0) {
+    $worldCheck = $pdo->query("SELECT COUNT(*) FROM worlds")->fetchColumn();
+    if ((int)$worldCheck > 0) {
+        // Upgrade in progress — engine migration hasn't completed yet
+        // Show a brief auto-refreshing page instead of the setup wizard
+        http_response_code(200);
+        echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">';
+        echo '<meta http-equiv="refresh" content="3">';
+        echo '<link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">';
+        echo '<link rel="stylesheet" href="/css/phvalheimStyles.css">';
+        echo '<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}.startup-logo{animation:pulse 2s ease-in-out infinite}</style>';
+        echo '</head>';
+        echo '<body style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg-primary);color:var(--text-primary);">';
+        echo '<div style="text-align:center;max-width:400px;padding:2rem;">';
+        echo '<img src="/images/phvalheim_favicon.svg" class="startup-logo" style="width:64px;height:64px;margin-bottom:1.5rem;" alt="PhValheim">';
+        echo '<h2 style="margin-bottom:0.75rem;">Migrating Settings&hellip;</h2>';
+        echo '<p style="color:var(--text-muted);">PhValheim is upgrading your configuration. This page will refresh automatically.</p>';
+        echo '</div></body></html>';
+        exit;
+    }
     header('Location: setup.php');
     exit;
 }
