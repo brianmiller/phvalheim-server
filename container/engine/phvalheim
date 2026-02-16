@@ -54,7 +54,14 @@ if [ "$setupComplete" = "0" ]; then
 		SQL "UPDATE settings SET setupComplete=1, migrationNoticeShown=0"
 		echo "`date` [NOTICE : phvalheim] Environment variables migrated to database. These env vars are now deprecated and can be removed from your Docker configuration."
 	else
-		echo "`date` [NOTICE : phvalheim] Fresh install detected. Setup wizard will be available at the admin UI (port 8081)."
+		# Check if worlds exist — if so, this is an upgrade (not a fresh install)
+		worldCount=$(SQL "SELECT COUNT(*) FROM worlds")
+		if [ "$worldCount" -gt 0 ] 2>/dev/null; then
+			echo "`date` [NOTICE : phvalheim] Existing worlds detected. Marking setup as complete (upgrade without env vars)."
+			SQL "UPDATE settings SET setupComplete=2"
+		else
+			echo "`date` [NOTICE : phvalheim] Fresh install detected. Setup wizard will be available at the admin UI (port 8081)."
+		fi
 	fi
 fi
 

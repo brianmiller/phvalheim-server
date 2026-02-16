@@ -145,12 +145,12 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             background: var(--bg-hover);
         }
         .setup-btn-primary {
-            background: var(--accent-primary);
-            border-color: var(--accent-primary);
-            color: #fff;
+            background: rgba(34, 211, 238, 0.1);
+            color: var(--accent-primary);
+            border-color: rgba(34, 211, 238, 0.3);
         }
         .setup-btn-primary:hover {
-            opacity: 0.9;
+            background: rgba(34, 211, 238, 0.2);
         }
         .setup-btn-skip {
             background: transparent;
