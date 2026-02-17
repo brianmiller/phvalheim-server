@@ -21,13 +21,14 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 
     $logOutput = nl2br(file_get_contents($logPath));
 
-    // Exclusions - match the entire line including <br> and newline
+    // Exclusions - remove entire lines containing exclusion text
     foreach ($logExclusions as $logExclusion) {
-        $logOutput = preg_replace("/^.*" . preg_quote($logExclusion, '/') . ".*<br[^>]*>\n?$/im", '', $logOutput);
+        // Match from start of line through the end (including <br> tag and newline)
+        $logOutput = preg_replace("/^[^\n]*" . preg_quote($logExclusion, '/') . "[^\n]*<br[^>]*>\n/im", '', $logOutput);
     }
 
-    // Remove any remaining blank lines (just newlines or whitespace)
-    $logOutput = preg_replace("/^\s*\n/m", '', $logOutput);
+    // Remove any remaining blank lines or lines with only whitespace
+    $logOutput = preg_replace("/^\s*\n+/m", '', $logOutput);
 
     // Put log lines into an array for highlighting
     $logArray = explode("\n", $logOutput);
