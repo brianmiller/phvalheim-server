@@ -25,7 +25,7 @@ setupComplete=$(SQL "SELECT setupComplete FROM settings")
 if [ "$setupComplete" = "0" ]; then
 	# Check if any env vars are set (indicates upgrade from older version)
 	envVarFound=0
-	for envVar in steamAPIKey gameDNS basePort defaultSeed phvalheimClientURL backupsToKeep sessionTimeout openaiApiKey geminiApiKey claudeApiKey ollamaUrl TZ; do
+	for envVar in steamAPIKey gameDNS basePort phvalheimClientURL backupsToKeep sessionTimeout openaiApiKey geminiApiKey claudeApiKey ollamaUrl TZ; do
 		val="${!envVar}"
 		if [ ! -z "$val" ]; then
 			envVarFound=1
@@ -40,7 +40,6 @@ if [ "$setupComplete" = "0" ]; then
 		[ ! -z "$steamAPIKey" ]       && SQL "UPDATE settings SET steamApiKey='$steamAPIKey'"
 		[ ! -z "$gameDNS" ]           && SQL "UPDATE settings SET gameDNS='$gameDNS'"
 		[ ! -z "$basePort" ]          && SQL "UPDATE settings SET basePort='$basePort'"
-		[ ! -z "$defaultSeed" ]       && SQL "UPDATE settings SET defaultSeed='$defaultSeed'"
 		[ ! -z "$phvalheimClientURL" ] && SQL "UPDATE settings SET phvalheimClientURL='$phvalheimClientURL'"
 		[ ! -z "$backupsToKeep" ]     && SQL "UPDATE settings SET backupsToKeep='$backupsToKeep'"
 		[ ! -z "$sessionTimeout" ]    && SQL "UPDATE settings SET sessionTimeout='$sessionTimeout'"
@@ -57,8 +56,8 @@ if [ "$setupComplete" = "0" ]; then
 		# Check if worlds exist — if so, this is an upgrade (not a fresh install)
 		worldCount=$(SQL "SELECT COUNT(*) FROM worlds")
 		if [ "$worldCount" -gt 0 ] 2>/dev/null; then
-			echo "`date` [NOTICE : phvalheim] Existing worlds detected but no environment variables found. Showing migration notice so admin can configure settings."
-			SQL "UPDATE settings SET setupComplete=1, migrationNoticeShown=0"
+			echo "`date` [NOTICE : phvalheim] Existing worlds detected but no environment variables found. Settings can be managed via Admin UI → Server Settings."
+			SQL "UPDATE settings SET setupComplete=2, migrationNoticeShown=1"
 		else
 			echo "`date` [NOTICE : phvalheim] Fresh install detected. Setup wizard will be available at the admin UI (port 8081)."
 		fi

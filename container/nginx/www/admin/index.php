@@ -733,7 +733,7 @@ $totalCount = count($worlds);
                     You may remove the following environment variables from your Docker run command, Compose file, or Unraid template &mdash; they are no longer needed:
                 </p>
                 <div style="background: var(--bg-primary); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">
-                    basePort, defaultSeed, backupsToKeep, gameDNS, steamAPIKey, phvalheimClientURL, sessionTimeout, openaiApiKey, geminiApiKey, claudeApiKey, ollamaUrl
+                    basePort, backupsToKeep, gameDNS, steamAPIKey, phvalheimClientURL, sessionTimeout, openaiApiKey, geminiApiKey, claudeApiKey, ollamaUrl
                 </div>
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem;">
                     Port mappings (<code>-p</code>) and volume mounts (<code>-v</code>) must remain in your Docker configuration.
@@ -1938,7 +1938,6 @@ $totalCount = count($worlds);
                 const s = data.settings;
                 const rows = [
                     ['Base Port', s.basePort],
-                    ['Default Seed', s.defaultSeed || '(empty)'],
                     ['Game DNS', s.gameDNS || '(empty)'],
                     ['Steam API Key', s.steamAPIKey ? s.steamAPIKey.substring(0, 8) + '...' : '(empty)'],
                     ['Client Download URL', s.phvalheimClientURL ? (s.phvalheimClientURL.length > 40 ? s.phvalheimClientURL.substring(0, 40) + '...' : s.phvalheimClientURL) : '(empty)'],
