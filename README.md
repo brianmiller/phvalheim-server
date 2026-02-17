@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="container/nginx/www/images/phvalheim_tech_visual.svg" width="280" alt="PhValheim">
+  <img src="https://raw.githubusercontent.com/brianmiller/phvalheim-server/master/container/nginx/www/images/phvalheim_tech_visual.svg" width="280" alt="PhValheim">
 </p>
 
 <h1 align="center">PhValheim Server</h1>
@@ -101,7 +101,7 @@ docker start phvalheim
 
 ### Unraid
 
-<img src="container/nginx/www/images/phvalheim_unraid_icon.svg" alt="PhValheim Unraid Icon" width="48" style="vertical-align:middle;"> Search for **PhValheim** in the Community Apps store.
+<img src="https://raw.githubusercontent.com/brianmiller/phvalheim-server/master/container/nginx/www/images/phvalheim_unraid_icon.svg" alt="PhValheim Unraid Icon" width="48" style="vertical-align:middle;"> Search for **PhValheim** in the Community Apps store.
 
 ---
 
