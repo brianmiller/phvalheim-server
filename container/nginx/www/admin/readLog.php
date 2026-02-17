@@ -23,7 +23,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 
     // Exclusions
     foreach ($logExclusions as $logExclusion) {
-        $logOutput = preg_replace("/(.*)$logExclusion(.*)/i", '', $logOutput);
+        $logOutput = preg_replace("/^.*" . preg_quote($logExclusion, '/') . ".*$/im", '', $logOutput);
     }
 
     // Put log lines into an array for highlighting

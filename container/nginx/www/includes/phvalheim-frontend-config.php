@@ -49,7 +49,10 @@ $logExclusions = array(
 	"memorysetup",
 	"Failed Allocations",
 	"Failed count:",
-	"steamconsole.so"
+	"steamconsole.so",
+	"mbind: Operation not permitted",
+	"CA certificate ca.pem is self signed",
+	"Insecure configuration for"
 );
 
 
