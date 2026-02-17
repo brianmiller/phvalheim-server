@@ -19,14 +19,16 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
         return "<span style='color: var(--danger);'>Log file not found: $logFile</span>";
     }
 
-    $logOutput = file_get_contents($logPath);
+    $logOutput = nl2br(file_get_contents($logPath));
 
-    // Exclusions (before nl2br to cleanly remove entire lines)
+    // Exclusions
     foreach ($logExclusions as $logExclusion) {
-        $logOutput = preg_replace("/^.*" . preg_quote($logExclusion, '/') . ".*\n?$/im", '', $logOutput);
+        $logOutput = preg_replace("/^.*" . preg_quote($logExclusion, '/') . ".*$/im", '', $logOutput);
     }
 
-    $logOutput = nl2br($logOutput);
+    // Remove orphaned <br> tags that are left on empty lines
+    $logOutput = preg_replace("/<br\s*\/?>\s*<br\s*\/?>/", '<br>', $logOutput);
+    $logOutput = preg_replace("/^\s*<br\s*\/?>\s*$/m", '', $logOutput);
 
     // Put log lines into an array for highlighting
     $logArray = explode("\n", $logOutput);
