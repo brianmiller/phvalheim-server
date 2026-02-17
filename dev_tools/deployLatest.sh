@@ -13,7 +13,7 @@ docker run -d \
   -p 25000-25050:25000-25050/udp \
   -v /opt/phvalheim-test:/opt/stateful:Z \
   --restart unless-stopped \
-  theoriginalbrian/phvalheim-server:rc
+  theoriginalbrian/phvalheim-server:latest
 
 docker exec -it phvalheim-server /bin/bash
 

@@ -56,8 +56,8 @@ if [ "$setupComplete" = "0" ]; then
 		# Check if worlds exist — if so, this is an upgrade (not a fresh install)
 		worldCount=$(SQL "SELECT COUNT(*) FROM worlds")
 		if [ "$worldCount" -gt 0 ] 2>/dev/null; then
-			echo "`date` [NOTICE : phvalheim] Existing worlds detected but no environment variables found. Settings can be managed via Admin UI → Server Settings."
-			SQL "UPDATE settings SET setupComplete=2, migrationNoticeShown=1"
+			echo "`date` [NOTICE : phvalheim] Existing worlds detected but no environment variables found. Showing migration notice so admin can configure settings."
+			SQL "UPDATE settings SET setupComplete=1, migrationNoticeShown=0"
 		else
 			echo "`date` [NOTICE : phvalheim] Fresh install detected. Setup wizard will be available at the admin UI (port 8081)."
 		fi

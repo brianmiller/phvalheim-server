@@ -265,6 +265,30 @@ $totalCount = count($worlds);
                 </div>
             </header>
 
+            <?php
+            // Check for missing critical configuration
+            $missingSettings = [];
+            if (empty($steamAPIKey)) $missingSettings[] = 'Steam API Key';
+            if (empty($gameDNS)) $missingSettings[] = 'Game DNS';
+            if (empty($basePort)) $missingSettings[] = 'Base Port';
+            if (empty($phvalheimClientURL)) $missingSettings[] = 'Client Download URL';
+            ?>
+            <?php if (!empty($missingSettings)): ?>
+            <div id="criticalConfigBanner" style="margin: 0.75rem 0; padding: 1rem 1.25rem; background: rgba(248, 113, 113, 0.08); border: 1px solid var(--danger); border-radius: 8px; display: flex; align-items: flex-start; gap: 0.75rem;">
+                <svg width="22" height="22" fill="none" stroke="var(--danger)" viewBox="0 0 24 24" style="flex-shrink: 0; margin-top: 1px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: var(--danger); font-size: 0.95rem; margin-bottom: 0.4rem;">Critical Configuration Missing</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.6rem;">
+                        The following required settings are not configured:
+                        <strong style="color: var(--text-primary);"><?php echo implode(', ', $missingSettings); ?></strong>
+                    </div>
+                    <button class="action-btn" onclick="showServerSettingsModal()" style="padding: 0.35rem 1rem; font-size: 0.8rem; background: var(--danger); border-color: var(--danger); color: #fff;">Open Server Settings</button>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Stats Cards -->
             <div class="stats-grid" id="statsGrid">
                 <div class="stat-card">
@@ -1953,6 +1977,14 @@ $totalCount = count($worlds);
     })();
     <?php endif; ?>
 
+    // ===== Auto-open Server Settings when critical config is missing =====
+    <?php if (!empty($missingSettings)): ?>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Small delay so migration notice (if present) renders first
+        setTimeout(function() { showServerSettingsModal(); }, 500);
+    });
+    <?php endif; ?>
+
     async function dismissMigrationNotice() {
         try {
             await fetch('adminAPI.php?action=dismissMigrationNotice', { method: 'POST' });
@@ -2039,11 +2071,11 @@ $totalCount = count($worlds);
                     ${sectionHead('Server', 'var(--accent-primary)')}
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('The DNS name or IP that game clients use to connect to your Valheim worlds')}>Game DNS</label>
+                            <label style="font-size:0.8rem;color:orchid" ${tip('The DNS name or IP that game clients use to connect to your Valheim worlds')}>Game DNS <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
                             <input type="text" class="form-control form-control-sm" id="ss-gameDNS" value="${s.gameDNS || ''}" style="font-family:var(--font-mono)" ${tip('Public hostname or IP for Valheim client connections (e.g. valheim.example.com)')}>
                         </div>
                         <div class="col-3">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('Starting UDP port for world servers. Each world uses 2 consecutive ports.')}>Base Port</label>
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Starting UDP port for world servers. Each world uses 2 consecutive ports.')}>Base Port <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
                             <input type="number" class="form-control form-control-sm" id="ss-basePort" value="${s.basePort}" style="font-family:var(--font-mono)" ${tip('First UDP port in the range (default: 25000). Ensure ports are forwarded.')}>
                         </div>
                     </div>
@@ -2062,7 +2094,7 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="mb-2">
-                        <label style="font-size:0.8rem;color:orchid" ${tip('URL where players download the PhValheim client installer')}>Client Download URL</label>
+                        <label style="font-size:0.8rem;color:orchid" ${tip('URL where players download the PhValheim client installer')}>Client Download URL <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
                         <input type="text" class="form-control form-control-sm" id="ss-phvalheimClientURL" value="${s.phvalheimClientURL || ''}" style="font-family:var(--font-mono)" ${tip('Direct download link to the PhValheim client .exe installer')}>
                     </div>
                     <div class="mb-2">
@@ -2076,7 +2108,7 @@ $totalCount = count($worlds);
                 <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('Steam', '#1b9fff')}
                     <div class="mb-2">
-                        <label style="font-size:0.8rem;color:orchid" ${tip('Required for Steam authentication and player identity resolution')}>Steam API Key</label>
+                        <label style="font-size:0.8rem;color:orchid" ${tip('Required for Steam authentication and player identity resolution')}>Steam API Key <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
                         ${keyField('ss-steamAPIKey', s.steamAPIKey)}
                         <div style="margin-top:0.3rem;font-size:0.7rem;color:var(--text-muted)">Get a key at <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener" style="color:#1b9fff;">steamcommunity.com/dev/apikey</a></div>
                     </div>
@@ -2129,6 +2161,14 @@ $totalCount = count($worlds);
                     <div id="ssStatus" style="margin-top:0.75rem;font-size:0.85rem;"></div>
                 </div>
             `;
+            // Highlight empty required fields with red border
+            ['ss-gameDNS', 'ss-basePort', 'ss-steamAPIKey', 'ss-phvalheimClientURL'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !el.value.trim()) {
+                    el.style.borderColor = 'var(--danger)';
+                    el.style.boxShadow = '0 0 0 1px var(--danger)';
+                }
+            });
         } catch(e) {
             body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger)">Error loading settings</div>';
         }
