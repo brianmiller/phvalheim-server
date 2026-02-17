@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-2496ed?style=flat-square&logo=docker&logoColor=white" alt="Docker"></a>
+  <a href="https://kubernetes.io/"><img src="https://img.shields.io/badge/Kubernetes-326ce5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes"></a>
   <a href="https://www.unraid.net/"><img src="https://img.shields.io/badge/Unraid-f4672d?style=flat-square&logo=unraid&logoColor=white" alt="Unraid"></a>
   <a href="https://store.steampowered.com/"><img src="https://img.shields.io/badge/Steam_Login-000000?style=flat-square&logo=steam&logoColor=white" alt="Steam"></a>
   <a href="https://en.wikipedia.org/wiki/Open-source_software"><img src="https://img.shields.io/badge/Open_Source-green?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="Open Source"></a>
@@ -102,6 +103,40 @@ docker start phvalheim
 ### Unraid
 
 <img src="https://raw.githubusercontent.com/brianmiller/phvalheim-server/master/container/nginx/www/images/phvalheim_unraid_icon.svg" alt="PhValheim Unraid Icon" width="48" style="vertical-align:middle;"> Search for **PhValheim** in the Community Apps store.
+
+### Kubernetes / K3s (Helm)
+
+A Helm chart is included in the repo at `helm/phvalheim/`.
+
+```bash
+# Minimal install
+helm install phvalheim ./helm/phvalheim/
+
+# With Ingress for the public UI
+helm install phvalheim ./helm/phvalheim/ \
+  --set ingress.public.enabled=true \
+  --set ingress.public.hosts[0].host=phvalheim.example.com \
+  --set ingress.public.hosts[0].paths[0].path=/ \
+  --set ingress.public.hosts[0].paths[0].pathType=Prefix
+
+# With an existing PVC
+helm install phvalheim ./helm/phvalheim/ \
+  --set persistence.data.existingClaim=my-phvalheim-pvc
+```
+
+**How it works:**
+
+- The pod runs with `hostNetwork: true` by default so Valheim's UDP game ports (25000-26000) bind directly to the node — no NodePort or LoadBalancer gymnastics required.
+- Two ClusterIP Services are created: one for the **public UI** (8080) and one for the **admin UI** (8081). Each has an optional Ingress resource (disabled by default).
+- A 20Gi PersistentVolumeClaim is created for `/opt/stateful`. An optional separate PVC for backups can be enabled with `persistence.backups.enabled=true`.
+- Without Ingress enabled, access the admin UI via port-forward to run the Setup Wizard:
+
+  ```bash
+  kubectl port-forward svc/phvalheim-admin 8081:8081
+  # Then open http://localhost:8081
+  ```
+
+See `helm/phvalheim/values.yaml` for the full set of configurable values.
 
 ---
 
