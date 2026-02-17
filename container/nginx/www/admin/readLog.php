@@ -19,12 +19,14 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
         return "<span style='color: var(--danger);'>Log file not found: $logFile</span>";
     }
 
-    $logOutput = nl2br(file_get_contents($logPath));
+    $logOutput = file_get_contents($logPath);
 
-    // Exclusions
+    // Exclusions (before nl2br to cleanly remove entire lines)
     foreach ($logExclusions as $logExclusion) {
         $logOutput = preg_replace("/^.*" . preg_quote($logExclusion, '/') . ".*\n?$/im", '', $logOutput);
     }
+
+    $logOutput = nl2br($logOutput);
 
     // Put log lines into an array for highlighting
     $logArray = explode("\n", $logOutput);
