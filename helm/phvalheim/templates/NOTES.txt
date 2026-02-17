@@ -1,0 +1,29 @@
+PhValheim Server has been deployed!
+
+{{- if .Values.hostNetwork }}
+
+Game ports (UDP 25000-26000) are available directly on the host node.
+{{- end }}
+
+1. Access the Admin UI to run the Setup Wizard:
+{{- if .Values.ingress.admin.enabled }}
+{{- range .Values.ingress.admin.hosts }}
+   https://{{ .host }}
+{{- end }}
+{{- else }}
+   kubectl port-forward svc/{{ include "phvalheim.fullname" . }}-admin {{ .Values.service.admin.port }}:{{ .Values.service.admin.port }}
+   Then open: http://localhost:{{ .Values.service.admin.port }}
+{{- end }}
+
+2. Access the Public UI:
+{{- if .Values.ingress.public.enabled }}
+{{- range .Values.ingress.public.hosts }}
+   https://{{ .host }}
+{{- end }}
+{{- else }}
+   kubectl port-forward svc/{{ include "phvalheim.fullname" . }}-public {{ .Values.service.public.port }}:{{ .Values.service.public.port }}
+   Then open: http://localhost:{{ .Values.service.public.port }}
+{{- end }}
+
+3. The Setup Wizard will guide you through initial configuration
+   (Steam API Key, hostnames, etc.) on first launch.

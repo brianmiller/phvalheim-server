@@ -1,0 +1,66 @@
+image:
+  repository: theoriginalbrian/phvalheim-server
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Required for UDP game port range 25000-26000
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+
+service:
+  public:
+    type: ClusterIP
+    port: 8080
+  admin:
+    type: ClusterIP
+    port: 8081
+
+ingress:
+  public:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: phvalheim.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  admin:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: phvalheim-admin.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+persistence:
+  data:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    # Set to use a pre-existing PVC instead of creating one
+    existingClaim: ""
+  backups:
+    # Optional separate PVC for backups (ideally on a different disk)
+    enabled: false
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 50Gi
+    existingClaim: ""
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: 4
+    memory: 8Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

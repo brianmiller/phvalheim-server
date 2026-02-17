@@ -1,0 +1,6 @@
+apiVersion: v2
+name: phvalheim
+description: A Helm chart for PhValheim Server - Docker-based Valheim game server manager
+type: application
+version: 0.1.0
+appVersion: "latest"
