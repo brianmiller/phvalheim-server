@@ -65,30 +65,31 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
                     $logEntry = "<p style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
                 }
             }
-
-            // Ready for connections message
-            if (preg_match('/Game server connected/i', $logEntry)) {
-                $logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
-            }
-
-            // Steam flaky install message
-            if (preg_match('/Failed to install app.*896660.*Missing configuration/i', $logEntry)) {
-                $logEntry .= " <---- Steam is flaky, we'll retry.";
-            }
-
-            // Remove error messages
-            if (preg_match('/[S_API FAIL] Tried to access Steam interface(.*)/i', $logEntry)) {
-                $logEntry = "";
-            }
-            if (preg_match('/ILocalize(.*)/i', $logEntry)) {
-                $logEntry = "";
-            }
-
-            // World completely stopped message
-            if (preg_match('/Net scene destroyed/i', $logEntry)) {
-                $logEntry = "<br><p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim world sucessfully stopped.</p>";
-            }
         }
+
+        // Ready for connections message
+        if (preg_match('/Game server connected/i', $logEntry)) {
+            $logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
+        }
+
+        // Steam flaky install message
+        if (preg_match('/Failed to install app.*896660.*Missing configuration/i', $logEntry)) {
+            $logEntry .= " <---- Steam is flaky, we'll retry.";
+        }
+
+        // Remove error messages
+        if (preg_match('/[S_API FAIL] Tried to access Steam interface(.*)/i', $logEntry)) {
+            $logEntry = "";
+        }
+        if (preg_match('/ILocalize(.*)/i', $logEntry)) {
+            $logEntry = "";
+        }
+
+        // World completely stopped message
+        if (preg_match('/Net scene destroyed/i', $logEntry)) {
+            $logEntry = "<br><p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim world sucessfully stopped.</p>";
+        }
+
         $result .= $logEntry;
     }
 
