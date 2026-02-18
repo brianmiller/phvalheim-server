@@ -52,7 +52,8 @@ $logExclusions = array(
 	"steamconsole.so",
 	"mbind: Operation not permitted",
 	"CA certificate ca.pem is self signed",
-	"Insecure configuration for"
+	"Insecure configuration for",
+	"sha256_password"
 );
 
 
