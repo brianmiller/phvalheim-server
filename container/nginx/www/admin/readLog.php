@@ -54,6 +54,11 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
             $logEntry = preg_replace('/<br\s*\/?>\s*$/', '', $logEntry) . " <strong><---- Steam is flaky, there is no misconfiguration. We'll retry. If all 5 attempts fail, you will need to click Update again.</strong>";
         }
 
+        // Ready for connections message
+        if (preg_match('/Opened Steam server/i', $logEntry)) {
+            $logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
+        }
+
         foreach ($logHighlight as $keyword => $alertType) {
             if (stripos($logEntry, $keyword) !== false) {
                 if ($alertType == "error") {
