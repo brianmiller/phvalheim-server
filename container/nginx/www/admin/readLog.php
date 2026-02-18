@@ -378,7 +378,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 			const btnText = document.getElementById('exclusionsBtnText');
 
 			if (noExclusions) {
-				btnText.textContent = '🔒 Hide Filtered';
+				btnText.textContent = '🔍 Hide Filtered';
 				btn.classList.add('active');
 			} else {
 				btnText.textContent = '🔍 Show All';
