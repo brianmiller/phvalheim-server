@@ -49,7 +49,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
     foreach ($logArray as $key => $logEntry) {
         // Steam flaky install message - do this first before any HTML wrapping
         if (preg_match('/Failed to install app.*896660.*Missing configuration/i', $logEntry)) {
-            $logEntry .= " <---- Steam is flaky, we'll retry.";
+            $logEntry = preg_replace('/<br\s*\/?>\s*$/', '', $logEntry) . " <---- Steam is flaky, we'll retry.";
         }
 
         foreach ($logHighlight as $keyword => $alertType) {
