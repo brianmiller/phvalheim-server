@@ -21,6 +21,9 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 
     $rawOutput = file_get_contents($logPath);
 
+    // Strip ANSI escape codes
+    $rawOutput = preg_replace('/\x1b\[[0-9;]*m/', '', $rawOutput);
+
     // Filter out excluded lines
     $lines = explode("\n", $rawOutput);
     $filteredLines = array();
