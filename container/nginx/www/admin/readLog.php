@@ -9,7 +9,9 @@ if (!empty($_GET['logfile'])) {
 // AJAX endpoint for fetching log content
 if (!empty($_GET['fetch']) && $_GET['fetch'] === 'content') {
     header('Content-Type: text/html; charset=utf-8');
-    echo getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker);
+    $useExclusions = empty($_GET['noExclusions']) || $_GET['noExclusions'] !== '1';
+    $exclusionsToUse = $useExclusions ? $logExclusions : array();
+    echo getFormattedLogContent($logFile, $exclusionsToUse, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker);
     exit;
 }
 
@@ -275,6 +277,9 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 				</button>
 				<button class="control-btn" onclick="scrollToBottom()">↓ Go to Bottom</button>
 				<button class="control-btn" onclick="scrollToTop()">↑ Go to Top</button>
+				<button class="control-btn" id="exclusionsBtn" onclick="toggleExclusions()">
+					<span id="exclusionsBtnText">🔍 Show All</span>
+				</button>
 <?php if (!empty($aiKeys['openai']) || !empty($aiKeys['gemini']) || !empty($aiKeys['claude']) || !empty($aiKeys['ollama'])): ?>
 				<button class="control-btn ai-analyze-btn" id="aiAnalyzeBtn" onclick="analyzeWithAi()">
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px;">
@@ -298,6 +303,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 		let isLive = true;
 		let pollInterval = null;
 		let autoScroll = true;
+		let noExclusions = false;
 		const POLL_RATE = 2000; // 2 seconds
 
 		// Initialize
@@ -322,7 +328,8 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 			if (!isLive) return;
 
 			try {
-				const response = await fetch(`readLog.php?logfile=${encodeURIComponent(logFile)}&fetch=content&_=${Date.now()}`);
+				const url = `readLog.php?logfile=${encodeURIComponent(logFile)}&fetch=content&noExclusions=${noExclusions ? '1' : '0'}&_=${Date.now()}`;
+				const response = await fetch(url);
 				const content = await response.text();
 
 				const logContent = document.getElementById('logContent');
@@ -363,6 +370,21 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 				statusText.textContent = 'Paused';
 				stopPolling();
 			}
+		}
+
+		function toggleExclusions() {
+			noExclusions = !noExclusions;
+			const btn = document.getElementById('exclusionsBtn');
+			const btnText = document.getElementById('exclusionsBtnText');
+
+			if (noExclusions) {
+				btnText.textContent = '🔒 Hide Filtered';
+				btn.classList.add('active');
+			} else {
+				btnText.textContent = '🔍 Show All';
+				btn.classList.remove('active');
+			}
+			fetchLog();
 		}
 
 		function scrollToBottom() {
