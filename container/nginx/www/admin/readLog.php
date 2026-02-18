@@ -9,11 +9,11 @@ if (!empty($_GET['logfile'])) {
 // AJAX endpoint for fetching log content
 if (!empty($_GET['fetch']) && $_GET['fetch'] === 'content') {
     header('Content-Type: text/html; charset=utf-8');
-    echo getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker);
+    echo getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker);
     exit;
 }
 
-function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker) {
+function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker) {
     $logPath = "/opt/stateful/logs/$logFile";
     if (!file_exists($logPath)) {
         return "<span style='color: var(--danger);'>Log file not found: $logFile</span>";
@@ -57,6 +57,9 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
                 }
                 if ($alertType == "magenta") {
                     $logEntry = "<p style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                }
+                if ($alertType == "cyan") {
+                    $logEntry = "<p style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
                 }
             }
 

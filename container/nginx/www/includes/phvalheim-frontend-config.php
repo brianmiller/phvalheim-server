@@ -77,6 +77,8 @@ $logHighlightGreen = "#000000";
 $logHighlightGreenDarker = "#13FF00";
 $logHighlightMagenta = "#000000";
 $logHighlightMagentaDarker = "#FF00FF";
+$logHighlightCyan = "#000000";
+$logHighlightCyanDarker = "#00FFFF";
 
 #highlighter keyword array
 $logHighlight = array(
@@ -91,6 +93,7 @@ $logHighlight = array(
         "Setting -savedir to:" => "notice",
         "isModded:" => "notice",
         "notice" => "notice",
+        "ready for connections" => "cyan",
 	"Get create world" => "notice",
 	"PhValheim Companion:" => "notice",
 	"Seed:" => "notice",
