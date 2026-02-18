@@ -68,6 +68,11 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
                 $logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
             }
 
+            // Steam flaky install message
+            if (preg_match('/Failed to install app.*896660.*Missing configuration/i', $logEntry)) {
+                $logEntry = "<---- Steam is flaky, we'll retry.";
+            }
+
             // Remove error messages
             if (preg_match('/[S_API FAIL] Tried to access Steam interface(.*)/i', $logEntry)) {
                 $logEntry = "";
