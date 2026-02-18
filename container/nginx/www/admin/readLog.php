@@ -62,19 +62,19 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
         foreach ($logHighlight as $keyword => $alertType) {
             if (stripos($logEntry, $keyword) !== false) {
                 if ($alertType == "error") {
-                    $logEntry = "<span style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span><br>";
+                    $logEntry = "<span style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;margin-left:-1em;text-indent:0;'>" . ltrim($logEntry) . "</span><br>";
                 }
                 if ($alertType == "warn") {
-                    $logEntry = "<span style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span><br>";
+                    $logEntry = "<span style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;margin-left:-1em;text-indent:0;'>" . ltrim($logEntry) . "</span><br>";
                 }
                 if ($alertType == "notice") {
-                    $logEntry = "<span style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span><br>";
+                    $logEntry = "<span style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;margin-left:-1em;text-indent:0;'>" . ltrim($logEntry) . "</span><br>";
                 }
                 if ($alertType == "magenta") {
-                    $logEntry = "<span style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span><br>";
+                    $logEntry = "<span style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;margin-left:-1em;text-indent:0;'>" . ltrim($logEntry) . "</span><br>";
                 }
                 if ($alertType == "cyan") {
-                    $logEntry = "<span style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span><br>";
+                    $logEntry = "<span style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;margin-left:-1em;text-indent:0;'>" . ltrim($logEntry) . "</span><br>";
                 }
             }
         }
