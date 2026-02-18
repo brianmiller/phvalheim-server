@@ -73,7 +73,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 
             // Steam flaky install message
             if (preg_match('/Failed to install app.*896660.*Missing configuration/i', $logEntry)) {
-                $logEntry = "<---- Steam is flaky, we'll retry.";
+                $logEntry .= " <---- Steam is flaky, we'll retry.";
             }
 
             // Remove error messages
