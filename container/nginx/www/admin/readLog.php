@@ -62,19 +62,19 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
         foreach ($logHighlight as $keyword => $alertType) {
             if (stripos($logEntry, $keyword) !== false) {
                 if ($alertType == "error") {
-                    $logEntry = "<p style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                    $logEntry = "<span style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span>";
                 }
                 if ($alertType == "warn") {
-                    $logEntry = "<p style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                    $logEntry = "<span style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span>";
                 }
                 if ($alertType == "notice") {
-                    $logEntry = "<p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                    $logEntry = "<span style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span>";
                 }
                 if ($alertType == "magenta") {
-                    $logEntry = "<p style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                    $logEntry = "<span style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span>";
                 }
                 if ($alertType == "cyan") {
-                    $logEntry = "<p style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;margin:0.125rem 0;'>$logEntry</p>";
+                    $logEntry = "<span style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:inline-block;'>$logEntry</span>";
                 }
             }
         }
