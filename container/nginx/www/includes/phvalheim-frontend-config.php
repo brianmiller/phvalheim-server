@@ -50,6 +50,7 @@ $logExclusions = array(
 	"Failed Allocations",
 	"Failed count:",
 	"steamconsole.so",
+	"AsyncResourceUpload failed.",
 	"mbind: Operation not permitted",
 	"CA certificate ca.pem is self signed",
 	"Insecure configuration for",
@@ -72,7 +73,7 @@ $logHighlightErrorDarker = "#FF0000";
 $logHighlightWarn = "#000000";
 $logHighlightWarnDarker = "#FFCD00";
 $logHighlightNotice = "#000000";
-$logHighlightNoticeDarker = "#00F7FF";
+$logHighlightNoticeDarker = "#00FFFF";
 $logHighlightGreen = "#000000";
 $logHighlightGreenDarker = "#13FF00";
 $logHighlightMagenta = "#000000";
@@ -80,12 +81,17 @@ $logHighlightMagentaDarker = "#FF00FF";
 $logHighlightCyan = "#000000";
 $logHighlightCyanDarker = "#00FFFF";
 
+#lines that should NOT be highlighted despite matching a keyword
+$highlightExclusions = array(
+	"Available space to current user",
+);
+
 #highlighter keyword array
 $logHighlight = array(
-        "error" => "error",
-        "fail" => "error",
         "warning" => "warn",
         "warn" => "warn",
+        "error" => "error",
+        "fail" => "error",
         "This is a success message" => "notice",
         "Loaded locations" => "notice",
         "plugins to load" => "notice",
@@ -100,7 +106,8 @@ $logHighlight = array(
 	"Valheim version:" => "notice",
 	"BepInExPack Valheim version" => "notice",
 	"Detected Unity version:" => "notice",
-	" BepInEx] Loading [" => "magenta"
+	" BepInEx] Loading [" => "magenta",
+	"fully installed" => "cyan"
 );
 
 ?>

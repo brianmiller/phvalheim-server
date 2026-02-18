@@ -11,11 +11,14 @@ if (!empty($_GET['fetch']) && $_GET['fetch'] === 'content') {
     header('Content-Type: text/html; charset=utf-8');
     $useExclusions = empty($_GET['noExclusions']) || $_GET['noExclusions'] !== '1';
     $exclusionsToUse = $useExclusions ? $logExclusions : array();
-    echo getFormattedLogContent($logFile, $exclusionsToUse, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker);
+    if ($logFile === 'nginx.log') {
+        $highlightExclusions[] = 'phvalheim';
+    }
+    echo getFormattedLogContent($logFile, $exclusionsToUse, $highlightExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker, $useExclusions);
     exit;
 }
 
-function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker) {
+function getFormattedLogContent($logFile, $logExclusions, $highlightExclusions, $logHighlight, $logHighlightError, $logHighlightWarn, $logHighlightNotice, $logHighlightGreen, $logHighlightErrorDarker, $logHighlightWarnDarker, $logHighlightNoticeDarker, $logHighlightGreenDarker, $logHighlightMagenta, $logHighlightMagentaDarker, $logHighlightCyan, $logHighlightCyanDarker, $useReplacements = true) {
     $logPath = "/opt/stateful/logs/$logFile";
     if (!file_exists($logPath)) {
         return "<span style='color: var(--danger);'>Log file not found: $logFile</span>";
@@ -37,7 +40,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
                 break;
             }
         }
-        if (!$excluded) {
+        if (!$excluded && trim($line) !== '') {
             $filteredLines[] = $line;
         }
     }
@@ -49,33 +52,39 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
     $result = '';
 
     foreach ($logArray as $key => $logEntry) {
-        // Steam flaky install message - do this first before any HTML wrapping
-        if (preg_match('/Failed to install app.*896660.*Missing configuration/i', $logEntry)) {
-            $logEntry = preg_replace('/<br\s*\/?>\s*$/', '', $logEntry) . " <strong><---- Steam is flaky, there is no misconfiguration. We'll retry. If all 5 attempts fail, you will need to click Update again.</strong>";
+        // Steam flaky install message
+        if ($useReplacements && preg_match('/Failed to install app.*896660.*Missing configuration/i', $logEntry)) {
+            $ts = date('D M d H:i:s T Y');
+            $logEntry = "$ts [WARN : phvalheim] Steam is having trouble. We'll retry. If all 5 attempts are unsuccessful, you will need to click Update again.";
         }
 
-        // Ready for connections message
-        if (preg_match('/Opened Steam server/i', $logEntry)) {
-            $logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
+        $skipHighlight = false;
+        foreach ($highlightExclusions as $highlightExclusion) {
+            if (stripos($logEntry, $highlightExclusion) !== false) {
+                $skipHighlight = true;
+                break;
+            }
         }
 
         foreach ($logHighlight as $keyword => $alertType) {
-            if (stripos($logEntry, $keyword) !== false) {
+            if (!$skipHighlight && stripos($logEntry, $keyword) !== false) {
+                $cleanEntry = preg_replace('/<br\s*\/?>\s*$/i', '', ltrim($logEntry));
                 if ($alertType == "error") {
-                    $logEntry = "<span style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:block;width:fit-content;'>" . ltrim($logEntry) . "</span>";
+                    $logEntry = "<span style='background:$logHighlightError;color:$logHighlightErrorDarker;border-radius:0.25rem;padding:0.125rem 0.35rem;display:block;width:fit-content;'>$cleanEntry</span>";
                 }
                 if ($alertType == "warn") {
-                    $logEntry = "<span style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:block;width:fit-content;'>" . ltrim($logEntry) . "</span>";
+                    $logEntry = "<span style='background:$logHighlightWarn;color:$logHighlightWarnDarker;border-radius:0.25rem;padding:0.125rem 0.35rem;display:block;width:fit-content;'>$cleanEntry</span>";
                 }
                 if ($alertType == "notice") {
-                    $logEntry = "<span style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:block;width:fit-content;'>" . ltrim($logEntry) . "</span>";
+                    $logEntry = "<span style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.125rem 0.35rem;display:block;width:fit-content;'>$cleanEntry</span>";
                 }
                 if ($alertType == "magenta") {
-                    $logEntry = "<span style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:block;width:fit-content;'>" . ltrim($logEntry) . "</span>";
+                    $logEntry = "<span style='background:$logHighlightMagenta;color:$logHighlightMagentaDarker;border-radius:0.25rem;padding:0.125rem 0.35rem;display:block;width:fit-content;'>$cleanEntry</span>";
                 }
                 if ($alertType == "cyan") {
-                    $logEntry = "<span style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.5rem;display:block;width:fit-content;'>" . ltrim($logEntry) . "</span>";
+                    $logEntry = "<span style='background:$logHighlightCyan;color:$logHighlightCyanDarker;border-radius:0.25rem;padding:0.125rem 0.35rem;display:block;width:fit-content;'>$cleanEntry</span>";
                 }
+                break;
             }
         }
 
@@ -87,8 +96,20 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
             $logEntry = "";
         }
 
+        // Ready for connections message - after highlight loop so the banner isn't re-processed
+        if ($useReplacements && preg_match('/Opened Steam server/i', $logEntry)) {
+            $worldName = preg_replace('/^valheimworld_(.+)\.log$/', '$1', $logFile);
+            if (preg_match('/^(\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2})/', $logEntry, $tsMatch)) {
+                $dt = DateTime::createFromFormat('m/d/Y H:i:s', $tsMatch[1], new DateTimeZone('UTC'));
+                $ts = $dt->format('D M d H:i:s') . ' UTC ' . $dt->format('Y');
+            } else {
+                $ts = date('D M d H:i:s T Y');
+            }
+            $logEntry .= "<span style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.125rem 0.35rem;display:block;width:fit-content;font-weight:500;'>$ts [NOTICE : phvalheim] Valheim world $worldName is online and ready for players.</span>";
+        }
+
         // World completely stopped message
-        if (preg_match('/Net scene destroyed/i', $logEntry)) {
+        if ($useReplacements && preg_match('/Net scene destroyed/i', $logEntry)) {
             $logEntry = "<br><p style='background:$logHighlightNotice;color:$logHighlightNoticeDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim world sucessfully stopped.</p>";
         }
 
@@ -174,6 +195,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
 			.log-content {
 				white-space: pre-wrap;
 				word-wrap: break-word;
+				line-height: 1.5;
 			}
 
 			.log-controls {
