@@ -74,12 +74,7 @@ function getFormattedLogContent($logFile, $logExclusions, $logHighlight, $logHig
             }
         }
 
-        // Ready for connections message
-        if (preg_match('/Game server connected/i', $logEntry)) {
-            $logEntry = "<br><p style='background:$logHighlightGreen;color:$logHighlightGreenDarker;border-radius:0.25rem;padding:0.25rem 0.75rem;margin:0.25rem 0;font-weight:500;'>Valheim World is online and ready for players.</p>";
-        }
-
-        // Remove error messages
+// Remove error messages
         if (preg_match('/[S_API FAIL] Tried to access Steam interface(.*)/i', $logEntry)) {
             $logEntry = "";
         }
