@@ -130,13 +130,31 @@ if [ -z "$payload" ]; then
 fi
 
 # ── POST ──────────────────────────────────────────────────────────
+# Primary: public HTTPS endpoint (requires analytics.phvalheim.com DNS → this node)
+# Fallback: node-local HTTP via nginx proxy on port 80 (always works when co-deployed)
+primary_url="https://analytics.phvalheim.com/api/ingest"
+fallback_url="http://localhost/api/ingest"
+
 http_code=$(curl -s -o /tmp/phvalheim_analytics.tmp -w "%{http_code}" \
 	-X POST \
 	-H "Content-Type: application/json" \
 	-d "$payload" \
 	--max-time 30 \
 	--connect-timeout 10 \
-	"https://analytics.phvalheim.com/api/ingest" 2>/dev/null)
+	"$primary_url" 2>/dev/null)
+
+# If HTTPS endpoint fails or returns non-200, try the local fallback
+response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
+if [ "$http_code" != "200" ] || ! echo "$response_body" | grep -q '"success":true'; then
+	http_code=$(curl -s -o /tmp/phvalheim_analytics.tmp -w "%{http_code}" \
+		-X POST \
+		-H "Content-Type: application/json" \
+		-d "$payload" \
+		--max-time 10 \
+		--connect-timeout 5 \
+		"$fallback_url" 2>/dev/null)
+	response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
+fi
 
 if [ "$http_code" = "200" ]; then
 	echo "$(date) [NOTICE : phvalheim] Analytics data pushed successfully"
