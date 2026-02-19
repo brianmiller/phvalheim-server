@@ -2,13 +2,25 @@
 # PhValheim Analytics Pusher
 # Collects installation metrics and world data, then POSTs to the analytics service.
 # Runs on startup and every 24 hours via cron.
+#
+# Usage: pushAnalytics.sh [--disabled]
+#   --disabled  Send one final payload marking analytics as disabled, then exit.
+#               Used automatically when the user turns off analytics in settings.
 
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
-# ── Check if analytics is enabled ────────────────────────────────
-analyticsEnabled=$(SQL "SELECT analyticsEnabled FROM settings" 2>/dev/null)
-if [ "$analyticsEnabled" != "1" ]; then
-	exit 0
+# ── Check for --disabled flag ─────────────────────────────────────
+SEND_DISABLED_NOTICE=0
+if [ "$1" = "--disabled" ]; then
+	SEND_DISABLED_NOTICE=1
+fi
+
+# ── Check if analytics is enabled (skip when sending disabled notice) ──
+if [ "$SEND_DISABLED_NOTICE" != "1" ]; then
+	analyticsEnabled=$(SQL "SELECT analyticsEnabled FROM settings" 2>/dev/null)
+	if [ "$analyticsEnabled" != "1" ]; then
+		exit 0
+	fi
 fi
 
 # ── Validate UUID ─────────────────────────────────────────────────
@@ -73,9 +85,9 @@ for wid in $world_ids; do
 	mods_json="[]"
 	for muuid in $wmods; do
 		[ -z "$muuid" ] && continue
-		mod_name=$(SQL    "SELECT name    FROM tsmods WHERE uuid='$muuid'" 2>/dev/null)
-		mod_version=$(SQL "SELECT version FROM tsmods WHERE uuid='$muuid'" 2>/dev/null)
-		mod_owner=$(SQL   "SELECT owner   FROM tsmods WHERE uuid='$muuid'" 2>/dev/null)
+		mod_name=$(SQL    "SELECT name    FROM tsmods WHERE moduuid='$muuid' LIMIT 1" 2>/dev/null)
+		mod_version=$(SQL "SELECT REPLACE(version, '\"', '') FROM tsmods WHERE moduuid='$muuid' LIMIT 1" 2>/dev/null)
+		mod_owner=$(SQL   "SELECT owner   FROM tsmods WHERE moduuid='$muuid' LIMIT 1" 2>/dev/null)
 		[ -z "$mod_name" ] && continue
 
 		ts_url="https://thunderstore.io/c/valheim/p/${mod_owner}/${mod_name}/"
@@ -95,6 +107,13 @@ for wid in $world_ids; do
 		'. += [{"name":$n,"mode":$m,"last_updated":$u,"mods":$mods}]')
 done
 
+# ── Analytics disabled flag ───────────────────────────────────────
+if [ "$SEND_DISABLED_NOTICE" = "1" ]; then
+	analytics_disabled_val="true"
+else
+	analytics_disabled_val="false"
+fi
+
 # ── Build payload ─────────────────────────────────────────────────
 payload=$(jq -n \
 	--arg  uuid     "$analyticsUUID" \
@@ -102,26 +121,28 @@ payload=$(jq -n \
 	--arg  version  "$pv_version" \
 	--arg  kernel   "$pv_kernel" \
 	--arg  cpu      "$pv_cpu" \
-	--argjson mem_total  "$mem_total_mb" \
-	--argjson mem_used   "$mem_used_mb" \
-	--argjson disk_total "$disk_total_gb" \
-	--argjson disk_used  "$disk_used_gb" \
-	--argjson ai_enabled "$ai_enabled" \
-	--argjson ai_providers "$ai_providers" \
-	--argjson worlds       "$worlds_json" \
+	--argjson mem_total          "$mem_total_mb" \
+	--argjson mem_used           "$mem_used_mb" \
+	--argjson disk_total         "$disk_total_gb" \
+	--argjson disk_used          "$disk_used_gb" \
+	--argjson ai_enabled         "$ai_enabled" \
+	--argjson ai_providers       "$ai_providers" \
+	--argjson worlds             "$worlds_json" \
+	--argjson analytics_disabled "$analytics_disabled_val" \
 	'{
-		uuid:            $uuid,
-		hostname:        $hostname,
-		version:         $version,
-		kernel:          $kernel,
-		cpu_type:        $cpu,
-		memory_total_mb: $mem_total,
-		memory_used_mb:  $mem_used,
-		disk_total_gb:   $disk_total,
-		disk_used_gb:    $disk_used,
-		ai_enabled:      $ai_enabled,
-		ai_providers:    $ai_providers,
-		worlds:          $worlds
+		uuid:                $uuid,
+		hostname:            $hostname,
+		version:             $version,
+		kernel:              $kernel,
+		cpu_type:            $cpu,
+		memory_total_mb:     $mem_total,
+		memory_used_mb:      $mem_used,
+		disk_total_gb:       $disk_total,
+		disk_used_gb:        $disk_used,
+		ai_enabled:          $ai_enabled,
+		ai_providers:        $ai_providers,
+		worlds:              $worlds,
+		analytics_disabled:  $analytics_disabled
 	}')
 
 if [ -z "$payload" ]; then
@@ -157,7 +178,11 @@ if [ "$http_code" != "200" ] || ! echo "$response_body" | grep -q '"success":tru
 fi
 
 if [ "$http_code" = "200" ]; then
-	echo "$(date) [NOTICE : phvalheim] Analytics data pushed successfully"
+	if [ "$SEND_DISABLED_NOTICE" = "1" ]; then
+		echo "$(date) [NOTICE : phvalheim] Analytics opt-out notice sent successfully"
+	else
+		echo "$(date) [NOTICE : phvalheim] Analytics data pushed successfully"
+	fi
 else
 	response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
 	echo "$(date) [WARN : phvalheim] Analytics push failed (HTTP ${http_code:-000}): ${response_body}"

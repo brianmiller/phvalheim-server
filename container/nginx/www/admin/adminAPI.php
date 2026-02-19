@@ -1414,6 +1414,15 @@ function saveServerSettingsJson($pdo, $input) {
     // Map input field names to actual DB column names where they differ
     $columnMap = ['steamAPIKey' => 'steamApiKey'];
 
+    // Detect analytics being switched off: send one final opt-out notice before saving
+    if (isset($input['analyticsEnabled']) && (int)$input['analyticsEnabled'] === 0) {
+        $row = $pdo->query("SELECT analyticsEnabled FROM settings LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ((int)($row['analyticsEnabled'] ?? 1) === 1) {
+            // Fire in background — do not block the settings save response
+            exec('nohup /opt/stateless/engine/tools/pushAnalytics.sh --disabled > /dev/null 2>&1 &');
+        }
+    }
+
     $updates = [];
     $params = [];
     foreach ($input as $key => $value) {
