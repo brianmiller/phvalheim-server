@@ -97,6 +97,22 @@ if [ ! $? = 0 ]; then
         echo "source /etc/environment" >> /etc/bash.bashrc
 fi
 
+# generate analytics UUID on first run
+analyticsUUID=$(SQL "SELECT analyticsUUID FROM settings")
+if [ -z "$analyticsUUID" ]; then
+	analyticsUUID=$(cat /proc/sys/kernel/random/uuid)
+	SQL "UPDATE settings SET analyticsUUID='$analyticsUUID'"
+	echo "`date` [NOTICE : phvalheim] Analytics UUID generated: $analyticsUUID"
+fi
+export analyticsUUID
+export analyticsEnabled=$(SQL "SELECT analyticsEnabled FROM settings")
+
+# push analytics on startup (background, non-blocking)
+if [ "$analyticsEnabled" = "1" ]; then
+	echo "`date` [NOTICE : phvalheim] Pushing analytics data..."
+	/opt/stateless/engine/tools/pushAnalytics.sh >> /opt/stateful/logs/phvalheim.log 2>&1 &
+fi
+
 # post pre-flight echos
 echo "`date` [NOTICE : phvalheim] basePort: $basePort"
 echo "`date` [NOTICE : phvalheim] defaultSeed: $defaultSeed"

@@ -1,0 +1,1 @@
+0 0 * * * phvalheim /opt/stateless/engine/tools/pushAnalytics.sh >> /opt/stateful/logs/phvalheim.log 2>&1

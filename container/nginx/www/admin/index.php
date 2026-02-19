@@ -2156,6 +2156,22 @@ $totalCount = count($worlds);
                     </div>
                 </div>
 
+                <div style="margin-bottom: 1.5rem;">
+                    ${sectionHead('Analytics', 'var(--text-muted)')}
+                    <div class="row mb-2">
+                        <div class="col-12">
+                            <label style="font-size:0.8rem;color:orchid">Usage Analytics</label>
+                            <select class="form-control form-control-sm" id="ss-analyticsEnabled">
+                                <option value="1" ${s.analyticsEnabled == 1 ? 'selected' : ''}>Enabled</option>
+                                <option value="0" ${s.analyticsEnabled == 0 ? 'selected' : ''}>Disabled</option>
+                            </select>
+                            <div style="margin-top:0.4rem;font-size:0.72rem;color:var(--text-muted);line-height:1.5;">
+                                When enabled, this installation periodically sends anonymous usage data to the PhValheim developer — including hostname, version, kernel, CPU/memory/disk info, AI feature usage (keys present, not values), and world+mod list. No player data is collected. This helps understand how PhValheim is being used.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div style="text-align:center;">
                     <button class="action-btn success" onclick="saveServerSettings()" id="ssSubmitBtn" style="padding:0.5rem 2rem;">Save Settings</button>
                     <div id="ssStatus" style="margin-top:0.75rem;font-size:0.85rem;"></div>
@@ -2209,6 +2225,7 @@ $totalCount = count($worlds);
             ollamaUrl: document.getElementById('ss-ollamaUrl').value.trim(),
             thunderstore_local_sync: parseInt(document.getElementById('ss-thunderstore_local_sync').value),
             thunderstore_chunk_size: parseInt(document.getElementById('ss-thunderstore_chunk_size').value) || 1000,
+            analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),
         };
 
         try {

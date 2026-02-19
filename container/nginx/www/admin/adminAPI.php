@@ -1383,6 +1383,7 @@ function getServerSettingsJson($pdo) {
             'ollamaUrl' => $settings['ollamaUrl'] ?? '',
             'setupComplete' => (int)$settings['setupComplete'],
             'migrationNoticeShown' => (int)$settings['migrationNoticeShown'],
+            'analyticsEnabled' => (int)($settings['analyticsEnabled'] ?? 1),
         ]
     ]);
 }
@@ -1407,6 +1408,7 @@ function saveServerSettingsJson($pdo, $input) {
         'geminiApiKey' => 'string',
         'claudeApiKey' => 'string',
         'ollamaUrl' => 'string',
+        'analyticsEnabled' => 'int',
     ];
 
     // Map input field names to actual DB column names where they differ
