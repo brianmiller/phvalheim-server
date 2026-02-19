@@ -150,6 +150,11 @@ if [ -z "$payload" ]; then
 	exit 1
 fi
 
+# Write payload to a temp file so curl reads it with --data-binary.
+# This avoids bash's null-byte truncation when expanding "$payload" inline.
+payload_file="/tmp/phvalheim_analytics_payload.json"
+printf '%s' "$payload" > "$payload_file"
+
 # ── POST ──────────────────────────────────────────────────────────
 # Primary: public HTTPS endpoint (requires analytics.phvalheim.com DNS → this node)
 # Fallback: node-local HTTP via nginx proxy on port 80 (always works when co-deployed)
@@ -159,7 +164,7 @@ fallback_url="http://localhost/api/ingest"
 http_code=$(curl -s -o /tmp/phvalheim_analytics.tmp -w "%{http_code}" \
 	-X POST \
 	-H "Content-Type: application/json" \
-	-d "$payload" \
+	--data-binary "@${payload_file}" \
 	--max-time 30 \
 	--connect-timeout 10 \
 	"$primary_url" 2>/dev/null)
@@ -170,7 +175,7 @@ if [ "$http_code" != "200" ] || ! echo "$response_body" | grep -q '"success":tru
 	http_code=$(curl -s -o /tmp/phvalheim_analytics.tmp -w "%{http_code}" \
 		-X POST \
 		-H "Content-Type: application/json" \
-		-d "$payload" \
+		--data-binary "@${payload_file}" \
 		--max-time 10 \
 		--connect-timeout 5 \
 		"$fallback_url" 2>/dev/null)
@@ -188,4 +193,4 @@ else
 	echo "$(date) [WARN : phvalheim] Analytics push failed (HTTP ${http_code:-000}): ${response_body}"
 fi
 
-rm -f /tmp/phvalheim_analytics.tmp
+rm -f /tmp/phvalheim_analytics.tmp "$payload_file"
