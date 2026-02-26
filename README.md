@@ -162,6 +162,43 @@ All settings are configured through the **Admin UI** after first launch. No envi
 | **Backups to Keep** | Number of backup snapshots to retain per world. |
 | **Client Download URL** | URL for the PhValheim Client installer. |
 
+### Performance Tuning
+
+| Setting | Default | Description |
+|---|---|---|
+| **Thunderstore Chunk Size** | `1000` | Number of mods processed per batch during Thunderstore sync. |
+
+The Thunderstore sync runs every 12 hours and processes the full Valheim mod catalog using parallel worker threads — one thread per chunk. The chunk size directly controls the parallelism:
+
+- **Lower value** → more chunks → more parallel threads → higher CPU and MariaDB load, but faster sync on multi-core hosts.
+- **Higher value** → fewer chunks → fewer threads → lower CPU pressure, more memory per thread.
+
+**Thread count math** (based on ~9,400 mods in the Thunderstore Valheim catalog as of early 2026):
+
+| Goal | Chunk Size | Threads spawned |
+|---|---|---|
+| 1 thread | `9400` | `9400 / 9400 = 1` |
+| 2 threads | `4700` | `9400 / 4700 = 2` |
+| 5 threads | `1880` | `9400 / 1880 = 5` |
+| 10 threads | `940` | `9400 / 940 = 10` |
+| Default | `1000` | `9400 / 1000 ≈ 10` |
+
+The default of `1000` spawns roughly 10 parallel threads. On low-resource hosts (shared VMs, small cloud instances), raising the chunk size to `4700`–`9400` reduces the sync to 1–2 threads and keeps the host responsive during the sync window.
+
+> **Note:** Running at a single thread (chunk size `9400`) serializes all mod processing through one worker. Depending on the single-core clock speed of your CPU, a full sync at this setting could take several hours to complete. A chunk size in the `2000`–`5000` range is generally a better balance for resource-constrained hosts — enough parallelism to finish in a reasonable time without saturating the CPU.
+
+If you see this warning in `tsSync.log`, your chunk size is too aggressive for the host — increase the value:
+
+```
+WARNING: a previous thunderstore sync process is still running. This could mean
+your thunderstore chunk size is too aggressive for your system. Consider
+increasing the 'thunderstore_chunk_size' database value.
+```
+
+Adjust **Thunderstore Chunk Size** in the Admin UI under **Server Settings**.
+
+---
+
 ### AI Helper (Optional)
 
 Configure one or more AI providers in Server Settings to enable the built-in log analysis assistant.
