@@ -62,7 +62,7 @@ PhValheim is a two-part system (server + client) that locks server and client mo
 
 <img width="811" alt="AI Helper" src="https://github.com/user-attachments/assets/2a6526c0-0a20-4d73-b6a3-a7e2993b6d37">
 
-<img width="1420" height="1524" alt="image" src="https://github.com/user-attachments/assets/e592748c-361e-450b-8307-1284f6f3e157" />
+<img width="811" alt="image" src="https://github.com/user-attachments/assets/e592748c-361e-450b-8307-1284f6f3e157" />
 
 
 ---
