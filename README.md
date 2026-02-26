@@ -162,6 +162,29 @@ All settings are configured through the **Admin UI** after first launch. No envi
 | **Backups to Keep** | Number of backup snapshots to retain per world. |
 | **Client Download URL** | URL for the PhValheim Client installer. |
 
+### Performance Tuning
+
+| Setting | Default | Description |
+|---|---|---|
+| **Thunderstore Chunk Size** | `1000` | Number of mods processed per batch during Thunderstore sync. |
+
+The Thunderstore sync runs every 12 hours and processes the full Valheim mod catalog using parallel worker threads — one thread per chunk. The chunk size directly controls the parallelism:
+
+- **Lower value** → more chunks → more parallel threads → higher CPU and MariaDB load, but faster sync on multi-core hosts.
+- **Higher value** → fewer chunks → fewer threads → lower CPU pressure, more memory per thread.
+
+If you see this warning in `tsSync.log`, your chunk size is too aggressive for the host — increase the value:
+
+```
+WARNING: a previous thunderstore sync process is still running. This could mean
+your thunderstore chunk size is too aggressive for your system. Consider
+increasing the 'thunderstore_chunk_size' database value.
+```
+
+Adjust **Thunderstore Chunk Size** in the Admin UI under **Server Settings**.
+
+---
+
 ### AI Helper (Optional)
 
 Configure one or more AI providers in Server Settings to enable the built-in log analysis assistant.
