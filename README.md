@@ -173,6 +173,18 @@ The Thunderstore sync runs every 12 hours and processes the full Valheim mod cat
 - **Lower value** → more chunks → more parallel threads → higher CPU and MariaDB load, but faster sync on multi-core hosts.
 - **Higher value** → fewer chunks → fewer threads → lower CPU pressure, more memory per thread.
 
+**Thread count math** (based on ~9,400 mods in the Thunderstore Valheim catalog as of early 2026):
+
+| Goal | Chunk Size | Threads spawned |
+|---|---|---|
+| 1 thread | `9400` | `9400 / 9400 = 1` |
+| 2 threads | `4700` | `9400 / 4700 = 2` |
+| 5 threads | `1880` | `9400 / 1880 = 5` |
+| 10 threads | `940` | `9400 / 940 = 10` |
+| Default | `1000` | `9400 / 1000 ≈ 10` |
+
+The default of `1000` spawns roughly 10 parallel threads. On low-resource hosts (shared VMs, small cloud instances), raising the chunk size to `4700`–`9400` reduces the sync to 1–2 threads and keeps the host responsive during the sync window.
+
 If you see this warning in `tsSync.log`, your chunk size is too aggressive for the host — increase the value:
 
 ```
