@@ -60,9 +60,9 @@ PhValheim is a two-part system (server + client) that locks server and client mo
 ### Log Viewer & AI Analysis
 <img width="922" alt="Engine Logs" src="https://github.com/user-attachments/assets/a91d718b-7163-4a35-b3eb-a6a838fdf7a1">
 
-<img width="811" alt="AI Helper" src="https://github.com/user-attachments/assets/2a6526c0-0a20-4d73-b6a3-a7e2993b6d37">
-
 <img width="811" alt="image" src="https://github.com/user-attachments/assets/e592748c-361e-450b-8307-1284f6f3e157" />
+
+<img width="811" alt="AI Helper" src="https://github.com/user-attachments/assets/2a6526c0-0a20-4d73-b6a3-a7e2993b6d37">
 
 
 ---
