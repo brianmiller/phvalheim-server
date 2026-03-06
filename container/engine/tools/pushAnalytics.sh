@@ -182,13 +182,7 @@ if [ "$http_code" != "200" ] || ! echo "$response_body" | grep -q '"success":tru
 	response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
 fi
 
-if [ "$http_code" = "200" ]; then
-	if [ "$SEND_DISABLED_NOTICE" = "1" ]; then
-		echo "$(date) [NOTICE : phvalheim] Analytics opt-out notice sent successfully"
-	else
-		echo "$(date) [NOTICE : phvalheim] Analytics data pushed successfully"
-	fi
-else
+if [ "$http_code" != "200" ]; then
 	response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
 	echo "$(date) [WARN : phvalheim] Analytics push failed (HTTP ${http_code:-000}): ${response_body}"
 fi
