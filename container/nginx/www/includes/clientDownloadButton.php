@@ -12,6 +12,10 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                 $downloadHeaderTitle = "<b class='client_download_tooltip'>PhValheim Client for Linux</b>";
         }
 
+        if($operatingSystem == "Mac"){
+                $downloadHeaderTitle = "<b class='client_download_tooltip'>PhValheim Client for macOS</b>";
+        }
+
 
 	function populateDownloadLinks($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 		$phValheimClientGitReleases = getGitReleases($phValheimClientGitRepo,$clientVersionsToRender);
@@ -52,6 +56,19 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                                         <td>
                                                                 <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.rpm'>
                                                                         <img class='client_download_link_colorizer' src='../images/fedora.png'>
+                                                                        <p class='versionLabel'>Download</p>
+                                                                </a>
+                                                        </td>
+                                                </div>
+                                        ";
+                                }
+
+                                if($operatingSystem == "Mac"){
+                                        echo "
+                                                <div class='client_download_os_icon $release'>
+                                                        <td>
+                                                                <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-macos-universal.pkg'>
+                                                                        <img class='client_download_link_colorizer' src='../images/macos.svg'>
                                                                         <p class='versionLabel'>Download</p>
                                                                 </a>
                                                         </td>

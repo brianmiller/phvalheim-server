@@ -412,12 +412,17 @@ function packageClient() {
 
         cd /opt/stateful/games/valheim/worlds/$worldName/game
 
+        # inject universal macOS doorstop dylib for macOS client support
+        cp /opt/stateless/games/valheim/macos/libdoorstop.dylib ./doorstop_libs/libdoorstop.dylib
+
         zip ../$worldName.zip -r \
         ./BepInEx \
         ./doorstop_libs \
         ./doorstop_config.ini \
         ./start_game_bepinex.sh \
         ./winhttp.dll
+
+        rm -f ./doorstop_libs/libdoorstop.dylib
 
         return $?
 }

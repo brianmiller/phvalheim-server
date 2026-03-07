@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.35
+ENV phvalheimVersion=2.36
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -60,6 +60,7 @@ COPY container/nginx/phvalheim.conf /etc/nginx/sites-available/phvalheim.conf
 COPY container/nginx/www/ /opt/stateless/nginx/www/
 COPY container/engine/ /opt/stateless/engine/
 COPY container/games/ /opt/stateless/games/
+COPY container/games/valheim/macos/libdoorstop.dylib /opt/stateless/games/valheim/macos/libdoorstop.dylib
 COPY container/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed /opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed
 COPY container/php-fpm/php.ini /etc/php/8.1/fpm/php.ini
 COPY container/php-fpm/www.conf /etc/php/8.1/fpm/pool.d/www.conf
