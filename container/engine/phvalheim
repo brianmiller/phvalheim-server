@@ -25,7 +25,7 @@ setupComplete=$(SQL "SELECT setupComplete FROM settings")
 if [ "$setupComplete" = "0" ]; then
 	# Check if any env vars are set (indicates upgrade from older version)
 	envVarFound=0
-	for envVar in steamAPIKey gameDNS basePort phvalheimClientURL backupsToKeep sessionTimeout openaiApiKey geminiApiKey claudeApiKey ollamaUrl TZ; do
+	for envVar in steamAPIKey gameDNS basePort phvalheimClientURL backupsToKeep sessionTimeout openaiApiKey geminiApiKey claudeApiKey ollamaUrl; do
 		val="${!envVar}"
 		if [ ! -z "$val" ]; then
 			envVarFound=1
