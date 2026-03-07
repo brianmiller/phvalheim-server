@@ -231,13 +231,17 @@ Configure one or more AI providers in Server Settings to enable the built-in log
 
 ## PhValheim Client
 
-The server is only half the equation. **PhValheim Client** is a companion Windows app that registers a custom `phvalheim://` URL protocol. When a player clicks a launch link:
+The server is only half the equation. **PhValheim Client** is a cross-platform companion app (Windows, Linux, macOS) that registers a custom `phvalheim://` URL protocol. When a player clicks a launch link:
 
 1. The client compares the remote world's checksum against the local copy.
 2. If outdated, it downloads the new payload (mods, configs, dependencies).
 3. It launches Valheim, connecting to the correct server and world automatically.
 
-Client files install to `%appdata%/PhValheim` and add the BepInEx bootstrap to your Valheim Steam directory.
+| Platform | Installer | Config location |
+|---|---|---|
+| **Windows** | `.msi` | `%appdata%\PhValheim` |
+| **Linux** | `.deb`, `.rpm`, or `.tar.gz` | `~/.config/PhValheim` |
+| **macOS** | `.pkg` (universal — Intel + Apple Silicon) | `~/Library/Application Support/PhValheim` |
 
 > **Client repo:** [brianmiller/phvalheim-client](https://github.com/brianmiller/phvalheim-client)
 
