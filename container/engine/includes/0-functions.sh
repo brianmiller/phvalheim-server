@@ -54,6 +54,19 @@ function InstallAndUpdateBepInEx() {
         fi
 
 
+        # Apply macOS arm64 compatibility patch to BepInEx.Preloader.dll.
+        # The stock BepInEx.Preloader.dll crashes on macOS arm64 (M-series Macs) because
+        # MonoMod.RuntimeDetour.DetourHelper.GetIdentifiable() returns null for Console.SetOut
+        # and similar methods on the macOS Mono runtime. This patch wraps the affected
+        # RuntimeFix.Apply() calls in try-catch so BepInEx loads fully on Apple Silicon.
+        PATCHED_PRELOADER="/opt/stateless/games/valheim/bepinex_patches/BepInEx.Preloader.macos_arm64.dll"
+        TARGET_PRELOADER="/opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/core/BepInEx.Preloader.dll"
+        if [ -f "$PATCHED_PRELOADER" ] && [ -f "$TARGET_PRELOADER" ]; then
+                echo "`date` [NOTICE : phvalheim] Applying macOS arm64 BepInEx.Preloader patch..."
+                cp "$PATCHED_PRELOADER" "$TARGET_PRELOADER"
+        fi
+
+
         chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
