@@ -54,16 +54,21 @@ function InstallAndUpdateBepInEx() {
         fi
 
 
-        # Apply macOS arm64 compatibility patch to BepInEx.Preloader.dll.
-        # The stock BepInEx.Preloader.dll crashes on macOS arm64 (M-series Macs) because
-        # MonoMod.RuntimeDetour.DetourHelper.GetIdentifiable() returns null for Console.SetOut
-        # and similar methods on the macOS Mono runtime. This patch wraps the affected
-        # RuntimeFix.Apply() calls in try-catch so BepInEx loads fully on Apple Silicon.
-        PATCHED_PRELOADER="/opt/stateless/games/valheim/bepinex_patches/BepInEx.Preloader.macos_arm64.dll"
-        TARGET_PRELOADER="/opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/core/BepInEx.Preloader.dll"
-        if [ -f "$PATCHED_PRELOADER" ] && [ -f "$TARGET_PRELOADER" ]; then
-                echo "`date` [NOTICE : phvalheim] Applying macOS arm64 BepInEx.Preloader patch..."
-                cp "$PATCHED_PRELOADER" "$TARGET_PRELOADER"
+        # Ship macOS arm64 patched DLLs alongside stock ones (not replacing them).
+        # The phvalheim-client swaps these in at launch ONLY on Apple Silicon Macs.
+        # - BepInEx.Preloader: wraps RuntimeFix.Apply() in try-catch (stock crashes on arm64)
+        # - MonoMod.RuntimeDetour: fixes DetourHelper/DetourNativeMonoPlatform for MAP_JIT W^X
+        PATCHES_SRC="/opt/stateless/games/valheim/bepinex_patches"
+        PATCHES_DST="/opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/patches/macos_arm64"
+        if [ -d "$PATCHES_SRC" ]; then
+                mkdir -p "$PATCHES_DST"
+                for patch_dll in "$PATCHES_SRC"/*.macos_arm64.dll; do
+                        [ -f "$patch_dll" ] || continue
+                        # derive stock name: BepInEx.Preloader.macos_arm64.dll -> BepInEx.Preloader.dll
+                        stock_name=$(basename "$patch_dll" | sed 's/\.macos_arm64\.dll$/.dll/')
+                        cp "$patch_dll" "$PATCHES_DST/$stock_name"
+                        echo "`date` [NOTICE : phvalheim] Staged macOS arm64 patch: $stock_name"
+                done
         fi
 
 

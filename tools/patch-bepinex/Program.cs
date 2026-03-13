@@ -121,7 +121,8 @@ static int InspectMethod(string dllPath, string typeName, string methodName)
     if (!File.Exists(dllPath)) { Console.Error.WriteLine($"Not found: {dllPath}"); return 1; }
     var module = ModuleDefinition.FromFile(dllPath);
     var allTypes = module.TopLevelTypes.Concat(module.TopLevelTypes.SelectMany(t => t.NestedTypes)).ToList();
-    var type = allTypes.FirstOrDefault(t => t.Name == typeName || t.FullName.Contains(typeName));
+    var type = allTypes.FirstOrDefault(t => t.Name == typeName || t.FullName == typeName)
+            ?? allTypes.FirstOrDefault(t => t.FullName.Contains(typeName));
     if (type == null) { Console.Error.WriteLine($"Type '{typeName}' not found. Types: {string.Join(", ", allTypes.Select(t => t.Name).Take(20))}"); return 1; }
     Console.WriteLine($"Type: {type.FullName}");
     Console.WriteLine($"Methods: {string.Join(", ", type.Methods.Select(m => m.Name))}");
@@ -131,6 +132,13 @@ static int InspectMethod(string dllPath, string typeName, string methodName)
     Console.WriteLine($"\n{method.Name} ({instrs.Count} instructions):");
     for (int i = 0; i < instrs.Count; i++)
         Console.WriteLine($"  {i:000}: {instrs[i]}");
+    var handlers = method.CilMethodBody.ExceptionHandlers;
+    if (handlers.Count > 0)
+    {
+        Console.WriteLine($"\nException handlers ({handlers.Count}):");
+        foreach (var eh in handlers)
+            Console.WriteLine($"  {eh.HandlerType}: try=[{eh.TryStart}..{eh.TryEnd}) handler=[{eh.HandlerStart}..{eh.HandlerEnd}) exType={eh.ExceptionType}");
+    }
     return 0;
 }
 
@@ -231,6 +239,9 @@ static int PatchRuntimeDetour(string dllPath)
     // Also upgrade the original leave.s at tryEnd to Leave (it may now be too far)
     if (instrs[tryEnd].OpCode == CilOpCodes.Leave_S) instrs[tryEnd].OpCode = CilOpCodes.Leave;
 
+    // Capture return label BEFORE Part 1 inserts instructions (indices shift after insert)
+    var returnLabel = (ICilLabel)instrs[tryEnd].Operand!;
+
     var newCatchPop   = new CilInstruction(CilOpCodes.Pop);
     var newCatchLeave = new CilInstruction(CilOpCodes.Leave, nextBlockInstr.CreateLabel());
 
@@ -255,6 +266,194 @@ static int PatchRuntimeDetour(string dllPath)
     module.Write(tmp);
     File.Move(tmp, dllPath, overwrite: true);
     Console.WriteLine("Part 1 done: libmonobdwgc-2.0 fallback added.");
+
+    // ── Part 1b: Also try DOORSTOP_MONO_LIB_PATH env var as library path ─────────
+    // DynDll resolves library names via dlopen() which only searches standard paths.
+    // libmonobdwgc-2.0.dylib lives in Valheim.app/Contents/Frameworks/ which is not
+    // in DYLD_LIBRARY_PATH, so the Part 1 name-only lookup fails.
+    // Solution: also try the value of DOORSTOP_MONO_LIB_PATH which doorstop sets to
+    // the FULL PATH of the Mono library — this is exactly what we need.
+    //
+    // Insert after the bdwgc try block: another try block that does:
+    //   string path = Environment.GetEnvironmentVariable("DOORSTOP_MONO_LIB_PATH");
+    //   if (!string.IsNullOrEmpty(path))
+    //       return _Native = new DetourNativeMonoPlatform(native, path);
+    //
+    // We find the insertion point = instruction after the bdwgc catch block (= the MonoPosixHelper block start)
+
+    // Find ldstr "DOORSTOP_MONO_LIB_PATH" if already there
+    bool part1bAlready = getNative.CilMethodBody!.Instructions
+        .Any(i => i.OpCode == CilOpCodes.Ldstr && i.Operand is string s2 && s2 == "DOORSTOP_MONO_LIB_PATH");
+
+    if (part1bAlready)
+    {
+        Console.WriteLine("Part 1b: already patched.");
+    }
+    else
+    {
+        // The bdwgc catch block ends at insertAt (the MonoPosixHelper ldstr "MONOMOD..." block)
+        // We need to insert a new try block just before insertAt
+        // Reuse the same insertAt from Part 1
+        var insertAt1b = nextBlockInstr; // MonoPosixHelper block start (captured before Part 1 shifted indices)
+
+        // Import needed types
+        var stringType = module.CorLibTypeFactory.String;
+        var envClass   = new TypeReference(module, module.CorLibTypeFactory.CorLibScope, "System", "Environment");
+        var getEnvMethod = new MemberReference(envClass, "GetEnvironmentVariable",
+            MethodSignature.CreateStatic(stringType, stringType));
+        var isNullOrEmptyMethod = new MemberReference(
+            new TypeReference(module, module.CorLibTypeFactory.CorLibScope, "System", "String"),
+            "IsNullOrEmpty",
+            MethodSignature.CreateStatic(module.CorLibTypeFactory.Boolean, stringType));
+
+        var importedGetEnv      = module.DefaultImporter.ImportMethod(getEnvMethod);
+        var importedIsNullEmpty = module.DefaultImporter.ImportMethod(isNullOrEmptyMethod);
+
+        // Find DetourNativeMonoPlatform..ctor reference from the bdwgc try block we added earlier
+        // (it's the newobj instruction in our cloned block)
+        IMethodDescriptor? monoPlatformCtor = null;
+        for (int k = instrs.Count - 1; k >= 0; k--)
+        {
+            var ci3 = instrs[k];
+            if (ci3.OpCode == CilOpCodes.Newobj && ci3.Operand?.ToString()?.Contains("DetourNativeMonoPlatform") == true)
+            { monoPlatformCtor = ci3.Operand as IMethodDescriptor; break; }
+        }
+
+        if (monoPlatformCtor == null) { Console.Error.WriteLine("DetourNativeMonoPlatform ctor ref not found, skipping 1b"); goto part2; }
+
+        // Find the _Native stsfld reference
+        IFieldDescriptor? nativeField = null;
+        for (int k = instrs.Count - 1; k >= 0; k--)
+        {
+            var ci3 = instrs[k];
+            if ((ci3.OpCode == CilOpCodes.Stsfld) && ci3.Operand?.ToString()?.Contains("_Native") == true)
+            { nativeField = ci3.Operand as IFieldDescriptor; break; }
+        }
+
+        if (nativeField == null) { Console.Error.WriteLine("_Native stsfld ref not found, skipping 1b"); goto part2; }
+
+        // Build the try block:
+        //   ldloc.1                           (inner native platform)
+        //   ldstr "DOORSTOP_MONO_LIB_PATH"
+        //   call Environment.GetEnvironmentVariable
+        //   dup
+        //   call String.IsNullOrEmpty
+        //   brtrue.s [leave_after]            (if null/empty, skip)
+        //   newobj DetourNativeMonoPlatform..ctor
+        //   dup
+        //   stsfld _Native
+        //   stloc.3
+        //   leave [return]
+        // [leave_after]:
+        //   pop                               (pop the non-null string we didn't use)
+        //   leave [insertAt1b]               (exit try, continue to MonoPosix)
+        // [catch]:
+        //   pop
+        //   leave [insertAt1b]
+
+        var ldNative1b  = new CilInstruction(CilOpCodes.Ldloc_1);
+        var ldStr1b     = new CilInstruction(CilOpCodes.Ldstr, "DOORSTOP_MONO_LIB_PATH");
+        var callGetEnv  = new CilInstruction(CilOpCodes.Call, importedGetEnv);
+        var dup1b       = new CilInstruction(CilOpCodes.Dup);
+        var callIsNull  = new CilInstruction(CilOpCodes.Call, importedIsNullEmpty);
+        var popIfNull   = new CilInstruction(CilOpCodes.Pop);  // pop the string when IsNullOrEmpty is true
+        var leaveIfNull = new CilInstruction(CilOpCodes.Leave, insertAt1b.CreateLabel());
+        // When not null: stack has string, newobj needs 2 args (native + string)
+        // But wait: after dup + brtrue, if we jump we have the string on stack...
+        // Let me rethink the stack manipulation:
+        // Stack at callGetEnv result: [string]
+        // dup: [string, string]
+        // callIsNull: [string, bool]
+        // brtrue.s [skipBlock]: [string] if null/empty → pop string, leave
+        //                       [string] if not empty → proceed to newobj
+
+        // Actually, need to pop the duplicated string when IsNullOrEmpty=true, then leave:
+        var brtrue1b    = new CilInstruction(CilOpCodes.Brtrue, popIfNull.CreateLabel()); // replace later with correct target
+        var newobj1b    = new CilInstruction(CilOpCodes.Newobj, monoPlatformCtor);
+        var dup2        = new CilInstruction(CilOpCodes.Dup);
+        var stsfld1b    = new CilInstruction(CilOpCodes.Stsfld, nativeField);
+        var stloc1b     = new CilInstruction(CilOpCodes.Stloc_3);
+        var leave1bRet  = new CilInstruction(CilOpCodes.Leave, returnLabel); // leave to return
+        var leave1bSkip = new CilInstruction(CilOpCodes.Leave, insertAt1b.CreateLabel());
+        var catch1bPop  = new CilInstruction(CilOpCodes.Pop);
+        var catch1bLeave = new CilInstruction(CilOpCodes.Leave, insertAt1b.CreateLabel());
+
+        // Fix the brtrue target: jump to popIfNull
+        brtrue1b.Operand = popIfNull.CreateLabel();
+
+        // returnLabel was captured before Part 1 inserted instructions; already set above.
+
+        // Insert order: ldNative1b, ldStr1b, callGetEnv, dup1b, callIsNull, brtrue1b (→popIfNull),
+        //   ldloc.1 (WAIT - we consumed ldloc.1 already and string is on stack)
+        // Actually the stack situation is complex. Let me simplify:
+        // Don't dup the getenv result. Instead:
+        // ldloc.1
+        // ldstr "DOORSTOP_MONO_LIB_PATH"
+        // call GetEnvironmentVariable
+        // dup → [str, str]
+        // brtrue.s [hasValue] → [str]
+        // pop → []
+        // leave [skip]
+        // [hasValue]:
+        //   store in local → pop from stack (we'll reload ldloc.1 and ldstr)
+        //   pop → []... hmm this is getting complex
+
+        // Simplest approach: store the env var result in a temp local (stloc.s V_new)
+        // But we can't add locals easily.
+        // Alternative: just call GetEnvironmentVariable TWICE (once for null check, once for value)
+
+        // Even simpler - just try/catch the whole thing:
+        // try {
+        //   return _Native = new DetourNativeMonoPlatform(native, Environment.GetEnvironmentVariable("DOORSTOP_MONO_LIB_PATH") ?? "");
+        // } catch {}
+
+        // Let's do it without the null check - just try with the env var and if it's null/empty, DetourNativeMonoPlatform constructor will fail and catch handles it
+
+        // Simplified try block:
+        //   ldloc.1
+        //   ldstr "DOORSTOP_MONO_LIB_PATH"
+        //   call GetEnvironmentVariable
+        //   newobj DetourNativeMonoPlatform..ctor(inner, envval)
+        //   dup
+        //   stsfld _Native
+        //   stloc.3
+        //   leave [return]
+        // catch: pop, leave [insertAt1b]
+
+        // Remove all the complex null-check stuff and just use the simplified approach:
+        var part1bInstrs = new List<CilInstruction>
+        {
+            new CilInstruction(CilOpCodes.Ldloc_1),           // native
+            new CilInstruction(CilOpCodes.Ldstr, "DOORSTOP_MONO_LIB_PATH"),
+            new CilInstruction(CilOpCodes.Call, importedGetEnv),
+            new CilInstruction(CilOpCodes.Newobj, monoPlatformCtor),  // new DetourNativeMonoPlatform(native, envval)
+            new CilInstruction(CilOpCodes.Dup),
+            new CilInstruction(CilOpCodes.Stsfld, nativeField),
+            new CilInstruction(CilOpCodes.Stloc_3),
+            new CilInstruction(CilOpCodes.Leave, returnLabel), // leave to return
+        };
+        var part1bCatchPop  = new CilInstruction(CilOpCodes.Pop);
+        var part1bCatchLeave = new CilInstruction(CilOpCodes.Leave, insertAt1b.CreateLabel());
+
+        // Need to upgrade any short leaves to long form in this area (already done partially)
+        int pos1b = instrs.IndexOf(insertAt1b);
+        foreach (var c in part1bInstrs) instrs.Insert(pos1b++, c);
+        instrs.Insert(pos1b++, part1bCatchPop);
+        instrs.Insert(pos1b, part1bCatchLeave);
+
+        getNative.CilMethodBody.ExceptionHandlers.Add(new CilExceptionHandler
+        {
+            HandlerType   = CilExceptionHandlerType.Exception,
+            TryStart      = part1bInstrs[0].CreateLabel(),
+            TryEnd        = part1bCatchPop.CreateLabel(),
+            HandlerStart  = part1bCatchPop.CreateLabel(),
+            HandlerEnd    = insertAt1b.CreateLabel(),
+            ExceptionType = new TypeReference(module, module.CorLibTypeFactory.CorLibScope, "System", "Exception"),
+        });
+
+        Console.WriteLine("Part 1b: DOORSTOP_MONO_LIB_PATH try block added.");
+    }
+    part2:
 
     // ── Part 2: Wrap _HookSelftest calls in DetourRuntimeILPlatform..ctor ─────────
     // On macOS arm64 (Apple Silicon), JIT pages use W^X enforcement via
@@ -382,6 +581,23 @@ static int PatchRuntimeDetour(string dllPath)
         var bigLeave2 = new CilInstruction(CilOpCodes.Leave, ctorRet.CreateLabel());
 
         int retIdx = ctorInstrs2.IndexOf(ctorRet);
+
+        // Redirect any branch inside [bigTryStart..ret) that jumps directly to ctorRet.
+        // CIL forbids jumping out of a try block with brXXX — only 'leave' is valid.
+        // Example: "brfalse IL_0200" (skip DynamicMethodDef if not available) would
+        // branch straight to ret, which is outside our new try block → JIT rejects the method.
+        // Fix: redirect those branches to bigLeave, which properly exits the try.
+        int tryBodyStart = ctorInstrs2.IndexOf(bigTryStart);
+        for (int k = tryBodyStart; k < retIdx; k++)
+        {
+            var ci = ctorInstrs2[k];
+            if (ci.Operand is CilInstructionLabel lbl && lbl.Instruction == ctorRet)
+            {
+                ci.Operand = bigLeave.CreateLabel();
+                Console.WriteLine($"  Part 2b: redirected instr {k} ({ci.OpCode}) → bigLeave");
+            }
+        }
+
         ctorInstrs2.Insert(retIdx, bigLeave2);
         ctorInstrs2.Insert(retIdx, bigPop);
         ctorInstrs2.Insert(retIdx, bigLeave);
@@ -468,7 +684,15 @@ static int PatchRuntimeDetour(string dllPath)
 
     Console.WriteLine("Part 3 done: get_Runtime will retry if _Runtime==null.");
 
-    // ── Part 4: Add pthread_jit_write_protect_np to DetourNativeMonoPosixPlatform ─
+    // ── Part 4: DISABLED — pthread_jit_write_protect_np causes SIGBUS ─────────────
+    // Calling pthread_jit_write_protect_np from managed JIT code switches the current
+    // thread to write mode for MAP_JIT pages, but the `ret` instruction returning from
+    // the managed P/Invoke is ALSO in a MAP_JIT page — executing it crashes (SIGBUS).
+    // The correct fix is Part 1b (loading DetourNativeMonoPlatform via full path),
+    // which uses mono_mprotect internally and handles W^X correctly from native code.
+    Console.WriteLine("Part 4: SKIPPED (pthread_jit_write_protect_np causes SIGBUS from managed code).");
+    goto skipPart4;
+
     // On Apple Silicon (macOS arm64), mprotect(PROT_RWX) always fails with EACCES
     // because JIT pages use hardware W^X enforcement. MAP_JIT pages must be toggled
     // via pthread_jit_write_protect_np(0) to enable writing and (1) to re-enable exec.
@@ -565,6 +789,61 @@ static int PatchRuntimeDetour(string dllPath)
     PatchMemProtectMethod("MakeReadWriteExecutable", 0); // disable write protection
 
     Console.WriteLine("Part 4 done.");
+
+    skipPart4:
+
+    // ── Part 5: Make DetourHelper.GetIdentifiable null-safe ────────────────────────
+    // On macOS arm64, get_Runtime() can return null if the DetourRuntimeILPlatform
+    // selftest fails. The original code does:
+    //   get_Runtime().GetIdentifiable(method) → NRE when Runtime is null
+    //
+    // Fix: insert a null check before the callvirt. If get_Runtime() returns null,
+    // return the method argument unchanged. This uses a simple branch instead of
+    // try-catch, avoiding Mono exception handler quirks.
+    //
+    // Original:
+    //   000: call get_Runtime()
+    //   001: ldarg.0
+    //   002: callvirt GetIdentifiable
+    //   003: ret
+    //
+    // Patched:
+    //   000: call get_Runtime()
+    //   001: dup
+    //   002: brtrue.s [ok]
+    //   003: pop              ← drop null runtime ref
+    //   004: ldarg.0          ← return method unchanged
+    //   005: ret
+    //   [ok]:
+    //   006: ldarg.0
+    //   007: callvirt GetIdentifiable
+    //   008: ret
+
+    var getIdentifiable = detourHelper.Methods.FirstOrDefault(m =>
+        m.Name == "GetIdentifiable" && m.CilMethodBody != null && m.Parameters.Count == 1);
+
+    if (getIdentifiable == null)
+    { Console.Error.WriteLine("DetourHelper.GetIdentifiable not found, skipping Part 5"); goto writePart2; }
+
+    {
+        var gi = getIdentifiable.CilMethodBody.Instructions;
+
+        // Check if already patched (look for dup after call get_Runtime)
+        if (gi.Count > 1 && gi[1].OpCode == CilOpCodes.Dup)
+        { Console.WriteLine("Part 5: GetIdentifiable already patched, skipping."); goto writePart2; }
+
+        // Original: [0]=call get_Runtime, [1]=ldarg.0, [2]=callvirt GetIdentifiable, [3]=ret
+        // We need to insert dup + brtrue + pop + ldarg.0 + ret after the call
+        var okLabel = gi[1]; // original ldarg.0 — will become the branch target
+
+        gi.Insert(1, new CilInstruction(CilOpCodes.Dup));
+        gi.Insert(2, new CilInstruction(CilOpCodes.Brtrue_S, okLabel.CreateLabel()));
+        gi.Insert(3, new CilInstruction(CilOpCodes.Pop));
+        gi.Insert(4, new CilInstruction(CilOpCodes.Ldarg_0));
+        gi.Insert(5, new CilInstruction(CilOpCodes.Ret));
+
+        Console.WriteLine("Part 5: DetourHelper.GetIdentifiable is now null-safe (branch, no try-catch).");
+    }
 
     writePart2:
     string tmp2 = dllPath + ".patched";
