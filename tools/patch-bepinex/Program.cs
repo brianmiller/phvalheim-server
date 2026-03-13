@@ -262,6 +262,11 @@ static int PatchRuntimeDetour(string dllPath)
         ExceptionType = new TypeReference(module, module.CorLibTypeFactory.CorLibScope, "System", "Exception"),
     });
 
+    // CRITICAL: Redirect the original catch's leave to Part 1's try start.
+    // Without this, the original catch does pop → leave [MonoPosix], skipping Part 1 entirely.
+    instrs[catchEnd].OpCode = CilOpCodes.Br;
+    instrs[catchEnd].Operand = cloned[0].CreateLabel();
+
     string tmp = dllPath + ".patched";
     module.Write(tmp);
     File.Move(tmp, dllPath, overwrite: true);
@@ -450,6 +455,11 @@ static int PatchRuntimeDetour(string dllPath)
             HandlerEnd    = insertAt1b.CreateLabel(),
             ExceptionType = new TypeReference(module, module.CorLibTypeFactory.CorLibScope, "System", "Exception"),
         });
+
+        // CRITICAL: Redirect Part 1's catch leave to Part 1b's try start.
+        // Without this, Part 1's catch does pop → leave [MonoPosix], skipping Part 1b.
+        newCatchLeave.OpCode = CilOpCodes.Br;
+        newCatchLeave.Operand = part1bInstrs[0].CreateLabel();
 
         Console.WriteLine("Part 1b: DOORSTOP_MONO_LIB_PATH try block added.");
     }
