@@ -503,6 +503,64 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                         </a>
                 </div>
 
+                <!-- macOS Install Modal -->
+                <div class="modal fade" id="macInstallModal" tabindex="-1" aria-labelledby="macInstallModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content mac-install-modal">
+                                        <div class="modal-header mac-install-header">
+                                                <img src="../images/macos.svg" alt="macOS" style="width:28px;height:28px;margin-right:10px;">
+                                                <h5 class="modal-title" id="macInstallModalLabel">Install PhValheim Client for macOS</h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body mac-install-body">
+                                                <p>Open <strong>Terminal</strong> and paste the following command:</p>
+                                                <div class="mac-install-command-wrap">
+                                                        <code class="mac-install-command" id="macInstallCmd" title="curl -fsSL https://raw.githubusercontent.com/brianmiller/phvalheim-client/master/macinstall.sh | bash">curl -fsSL https://.../<wbr>macinstall.sh | bash</code>
+                                                        <input type="hidden" id="macInstallCmdFull" value="curl -fsSL https://raw.githubusercontent.com/brianmiller/phvalheim-client/master/macinstall.sh | bash">
+                                                        <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyMacCommand()" title="Copy to clipboard">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                        </button>
+                                                </div>
+                                                <p class="mac-install-note">The installer will download and configure everything automatically. You'll be ready to play in just a moment.</p>
+                                        </div>
+                                        <div class="modal-footer mac-install-footer">
+                                                <a href="https://github.com/brianmiller/phvalheim-client#macos" target="_blank" rel="noopener" class="mac-install-ref-link">View install guide on GitHub</a>
+                                                <button type="button" class="btn btn-sm btn-outline-download" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                </div>
+                        </div>
+                </div>
+
+                <script>
+                function copyMacCommand() {
+                        var cmd = document.getElementById('macInstallCmdFull').value;
+                        var showSuccess = function() {
+                                var btn = document.querySelector('.mac-install-copy-btn');
+                                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="palegreen" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+                                setTimeout(function() {
+                                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                                }, 2000);
+                        };
+                        if (navigator.clipboard && window.isSecureContext) {
+                                navigator.clipboard.writeText(cmd).then(showSuccess);
+                        } else {
+                                var sel = window.getSelection();
+                                var range = document.createRange();
+                                var el = document.getElementById('macInstallCmdFull');
+                                el.type = 'text';
+                                el.style.position = 'fixed';
+                                el.style.left = '-9999px';
+                                el.select();
+                                document.execCommand('copy');
+                                el.type = 'hidden';
+                                el.style.position = '';
+                                el.style.left = '';
+                                sel.removeAllRanges();
+                                showSuccess();
+                        }
+                }
+                </script>
+
                 <div class="cookie-consent" id="cookieConsent">
                         <div class="cookie-consent-content">
                                 <div class="cookie-consent-header">

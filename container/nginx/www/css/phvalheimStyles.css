@@ -1292,6 +1292,120 @@ table.table-hover tbody tr:hover {
 	background-color: var(--bg-secondary);
 }
 
+/* macOS Install Modal — scoped overrides for Bootstrap modal on public UI */
+#macInstallModal.modal {
+	display: none;
+	position: fixed;
+	z-index: 9999;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(6px);
+}
+
+#macInstallModal .modal-dialog {
+	max-width: 648px;
+	margin: auto;
+}
+
+#macInstallModal .modal-content.mac-install-modal {
+	background: linear-gradient(to bottom, #1e2d4a, #131729) !important;
+	border: 1px solid #34e2e2;
+	border-radius: 12px;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(52, 226, 226, 0.08);
+	font-family: "Lucida Console", "Courier New", monospace;
+	padding: 0;
+	margin: 0;
+	width: 100%;
+	max-width: 648px;
+}
+
+.mac-install-header {
+	border-bottom: 1px solid rgba(52, 226, 226, 0.2);
+	padding: 1rem 1.25rem;
+	display: flex;
+	align-items: center;
+}
+
+.mac-install-header .modal-title {
+	color: palegreen;
+	font-size: 0.95rem;
+	margin: 0;
+}
+
+.mac-install-body {
+	padding: 1.25rem;
+	color: #DEDEDE;
+	font-size: 0.85rem;
+	line-height: 1.6;
+}
+
+.mac-install-body p {
+	margin-bottom: 0.75rem;
+}
+
+.mac-install-command-wrap {
+	display: flex;
+	align-items: center;
+	background: rgba(0, 0, 0, 0.35);
+	border: 1px solid rgba(52, 226, 226, 0.25);
+	border-radius: 8px;
+	padding: 0.75rem 1rem;
+	margin-bottom: 1rem;
+	gap: 0.75rem;
+}
+
+.mac-install-command {
+	color: #34e2e2;
+	font-size: 0.78rem;
+	word-break: break-all;
+	flex: 1;
+	user-select: all;
+}
+
+.mac-install-copy-btn {
+	color: #DEDEDE;
+	background: none;
+	border: 1px solid rgba(52, 226, 226, 0.3);
+	border-radius: 6px;
+	padding: 4px 6px;
+	flex-shrink: 0;
+	transition: all 0.15s ease;
+}
+
+.mac-install-copy-btn:hover {
+	color: palegreen;
+	border-color: #34e2e2;
+	background: rgba(52, 226, 226, 0.1);
+}
+
+.mac-install-note {
+	color: #9a9ab0;
+	font-size: 0.8rem;
+	margin-bottom: 0 !important;
+}
+
+.mac-install-footer {
+	border-top: 1px solid rgba(52, 226, 226, 0.2);
+	padding: 0.75rem 1.25rem;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.mac-install-ref-link {
+	color: orchid;
+	font-size: 0.78rem;
+	text-decoration: none;
+	transition: color 0.15s ease;
+}
+
+.mac-install-ref-link:hover {
+	color: palegreen;
+}
+
 /* Bootstrap 5 Popover overrides */
 .popover {
 	min-width: 100px;

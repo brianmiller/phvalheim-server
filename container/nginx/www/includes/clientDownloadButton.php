@@ -62,33 +62,24 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                                 </div>
                                         ";
                                 }
-
-                                if($operatingSystem == "Mac"){
-                                        echo "
-                                                <div class='client_download_os_icon $release'>
-                                                        <td>
-                                                                <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-macos-universal.pkg'>
-                                                                        <img class='client_download_link_colorizer' src='../images/macos.svg'>
-                                                                        <p class='versionLabel'>Download</p>
-                                                                </a>
-                                                        </td>
-                                                </div>
-                                        ";
-                                }
 			}
 
 
 		}
 	}
 
-	echo "
+	// macOS gets a modal instead of the popover
+	if($operatingSystem == "Mac"){
+		echo "<button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" data-bs-toggle=\"modal\" data-bs-target=\"#macInstallModal\">Download PhValheim Client</button>";
+	} else {
+		echo "
         <button type=\"button\" class=\"btn btn-sm btn-outline-download client_download_button_font\" tabindex=\"0\" data-bs-trigger=\"focus\" data-bs-toggle=\"popover\" data-bs-placement=\"bottom\" data-bs-offset=\"-30,10\" data-bs-title=\"$downloadHeaderTitle\" data-bs-html=\"true\"
         data-bs-content=\"
 			<table class='center' border=0 style='width:100%;'>
 	";
-	
+
 						populateDownloadLinks($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
-	
+
 	echo "
 			</table>
 
@@ -99,8 +90,9 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking for other builds?</a></p></td>
 
 			</table>
-	
+
 	\">Download PhValheim Client</button>";
+	}
 }
 
 ?>
