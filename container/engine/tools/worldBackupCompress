@@ -1,0 +1,76 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+
+# Scheduled backup compression - compresses uncompressed backups at the configured hour.
+# Runs hourly via cron; self-gates based on backupCompressionHour setting.
+
+# read compression settings
+compression=$(SQL "SELECT backupCompression FROM settings LIMIT 1;")
+compressionHour=$(SQL "SELECT backupCompressionHour FROM settings LIMIT 1;")
+compression=${compression:-none}
+compressionHour=${compressionHour:-3}
+
+# exit if compression is disabled or set to immediate
+if [ "$compression" = "none" ]; then
+	exit 0
+fi
+if [ "$compressionHour" = "-1" ]; then
+	# immediate mode - compression happens at backup time, nothing to do here
+	exit 0
+fi
+
+# check if current hour matches the configured compression hour
+currentHour=$(date +%-H)
+if [ "$currentHour" != "$compressionHour" ]; then
+	exit 0
+fi
+
+echo "`date` [NOTICE : phvalheim] Starting scheduled backup compression ($compression)..."
+
+# find all uncompressed backups
+backupIds=$(SQL "SELECT id FROM backups WHERE compressed=0 AND file_path LIKE '%.tar';")
+
+if [ -z "$backupIds" ]; then
+	echo "`date` [phvalheim] No uncompressed backups to process."
+	exit 0
+fi
+
+count=0
+errors=0
+
+for backupId in $backupIds; do
+	filePath=$(SQL "SELECT file_path FROM backups WHERE id=$backupId;")
+
+	if [ ! -f "$filePath" ]; then
+		echo "`date` [WARN : phvalheim] Backup file missing: $filePath (id=$backupId), cleaning DB record."
+		SQL "DELETE FROM backups WHERE id=$backupId;"
+		continue
+	fi
+
+	echo "`date` [phvalheim]  Compressing: $filePath"
+
+	newPath=""
+	if [ "$compression" = "gzip" ]; then
+		gzip "$filePath"
+		if [ $? -eq 0 ]; then
+			newPath="${filePath}.gz"
+		fi
+	elif [ "$compression" = "zstd" ]; then
+		zstd --rm -q "$filePath"
+		if [ $? -eq 0 ]; then
+			newPath="${filePath}.zst"
+		fi
+	fi
+
+	if [ -n "$newPath" ] && [ -f "$newPath" ]; then
+		newSize=$(stat --format=%s "$newPath" 2>/dev/null || echo 0)
+		SQL "UPDATE backups SET compressed=1, compression_type='$compression', file_path='$newPath', file_size=$newSize WHERE id=$backupId;"
+		echo "`date` [phvalheim]  Compressed: $newPath ($newSize bytes)"
+		count=$((count + 1))
+	else
+		echo "`date` [WARN : phvalheim]  Compression failed for: $filePath"
+		errors=$((errors + 1))
+	fi
+done
+
+echo "`date` [NOTICE : phvalheim] Compression complete. Processed: $count, Errors: $errors"

@@ -20,6 +20,9 @@ source /opt/stateless/engine/includes/0-functions.sh
 # prep directories and filesystem
 /opt/stateless/engine/tools/phvalheimprep.sh
 
+# reconcile backup records with files on disk
+/opt/stateless/engine/tools/worldBackupReconcile
+
 # migrate environment variables to database (one-time, for upgrades from pre-2.31)
 setupComplete=$(SQL "SELECT setupComplete FROM settings")
 if [ "$setupComplete" = "0" ]; then

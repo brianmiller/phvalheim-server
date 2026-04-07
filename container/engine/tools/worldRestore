@@ -1,0 +1,223 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+
+# World Restore - restores a world from a backup
+#
+# Usage: worldRestore <backupId>
+#
+# Outputs JSON progress lines to stdout for PHP to capture.
+# Final line is the JSON result.
+
+LOCK_FILE="/tmp/worldRestore.lock"
+LOG="/opt/stateful/logs/worldBackups.log"
+
+function jsonError() {
+	echo "{\"success\":false,\"error\":\"$1\"}"
+	rm -f "$LOCK_FILE"
+	exit 1
+}
+
+function jsonSuccess() {
+	echo "{\"success\":true,\"message\":\"$1\",\"safetyBackupId\":\"${2:-}\"}"
+	rm -f "$LOCK_FILE"
+	exit 0
+}
+
+function progress() {
+	echo "{\"progress\":\"$1\"}"
+	echo "`date` [phvalheim]  $1" >> "$LOG"
+}
+
+# prevent concurrent restores
+if [ -f "$LOCK_FILE" ]; then
+	lockPid=$(cat "$LOCK_FILE")
+	if kill -0 "$lockPid" 2>/dev/null; then
+		jsonError "Another restore is already in progress"
+	else
+		rm -f "$LOCK_FILE"
+	fi
+fi
+echo $$ > "$LOCK_FILE"
+
+backupId="$1"
+
+if [ -z "$backupId" ]; then
+	jsonError "Backup ID required"
+fi
+
+# validate backup exists in DB
+backupData=$(SQL "SELECT CONCAT(world_name, '|', file_path, '|', file_size, '|', compressed, '|', compression_type, '|', IFNULL(created_at,'')) FROM backups WHERE id=$backupId;")
+if [ -z "$backupData" ]; then
+	jsonError "Backup ID $backupId not found in database"
+fi
+
+worldName=$(echo "$backupData" | cut -d'|' -f1)
+backupFilePath=$(echo "$backupData" | cut -d'|' -f2)
+backupFileSize=$(echo "$backupData" | cut -d'|' -f3)
+backupCompressed=$(echo "$backupData" | cut -d'|' -f4)
+backupCompressionType=$(echo "$backupData" | cut -d'|' -f5)
+backupCreatedAt=$(echo "$backupData" | cut -d'|' -f6)
+
+# check if world is in a transitional state — do not restore during start/stop/update/create/delete/backup
+worldMode=$(SQL "SELECT mode FROM worlds WHERE name='$worldName';")
+case "$worldMode" in
+	start|starting|stop|stopping|create|creating|update|updating|delete|deleting|backup)
+		jsonError "World '$worldName' is currently ${worldMode}. Cannot restore while the world is in a transitional state. Please wait and try again."
+		;;
+esac
+
+# validate backup file exists on disk
+if [ ! -f "$backupFilePath" ]; then
+	jsonError "Backup file not found: $backupFilePath"
+fi
+
+progress "Backup file: $(basename "$backupFilePath") ($(echo "$backupFileSize" | awk '{printf "%.1f MB", $1/1048576}'))"
+
+worldDir="$worldsDirectoryRoot/$worldName"
+
+echo "`date` [NOTICE : phvalheim] Starting restore of '$worldName' from backup id=$backupId" >> "$LOG"
+
+# step 1: create world directory if missing
+if [ ! -d "$worldDir" ]; then
+	progress "Creating world directory (was missing)..."
+	mkdir -p "$worldDir"
+	chown phvalheim:phvalheim "$worldDir"
+fi
+
+# step 2: stop the world if running
+supervisorctl status "valheimworld_$worldName" 2>/dev/null | grep -q RUNNING
+if [ $? -eq 0 ]; then
+	progress "Stopping world process..."
+	supervisorctl stop "valheimworld_$worldName" >> "$LOG" 2>&1
+	sleep 3
+fi
+
+# step 3: create pre-restore safety backup (only if directory has content and enough disk space)
+safetyBackupId=""
+dirContentCount=$(find "$worldDir" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l)
+if [ "$dirContentCount" -gt 0 ]; then
+	# check disk space for safety backup
+	worldDirSize=$(du -sb "$worldDir" --exclude="${worldName}.zip" 2>/dev/null | cut -f1)
+	worldDirSize=${worldDirSize:-0}
+	availBytes=$(df --output=avail -B1 "$backupDir" 2>/dev/null | tail -1 | tr -d ' ')
+	availBytes=${availBytes:-0}
+	neededBytes=$((worldDirSize + worldDirSize / 10))  # world size + 10% headroom
+
+	if [ "$availBytes" -lt "$neededBytes" ]; then
+		availMB=$(echo "$availBytes" | awk '{printf "%.1f", $1/1048576}')
+		neededMB=$(echo "$neededBytes" | awk '{printf "%.1f", $1/1048576}')
+		progress "WARNING: Not enough disk space for safety backup (need ~${neededMB} MB, only ${availMB} MB free). Skipping pre-restore backup."
+	else
+		progress "Creating pre-restore safety backup of current state..."
+		safetyTimestamp=$(date +%Y-%m-%dT%H:%M:%S%z)
+		safetyFile="$backupDir/valheimworld_${worldName}-${safetyTimestamp}-prerestore.tar"
+
+		cd "$worldDir"
+		/usr/bin/tar cf "$safetyFile" --exclude="./${worldName}.zip" . >> "$LOG" 2>&1
+
+		if [ -f "$safetyFile" ]; then
+			safetySize=$(stat --format=%s "$safetyFile" 2>/dev/null || echo 0)
+			SQL "INSERT INTO backups (world_name, created_at, type, file_path, file_size, compressed, compression_type, metadata)
+				VALUES ('$worldName', NOW(), 'manual', '$safetyFile', $safetySize, 0, 'none', '{\"pre_restore\":true,\"restored_from_id\":$backupId}');"
+			safetyBackupId=$(SQL "SELECT id FROM backups WHERE file_path='$safetyFile' LIMIT 1;")
+			progress "Safety backup created ($(echo "$safetySize" | awk '{printf "%.1f MB", $1/1048576}'))"
+		fi
+	fi
+else
+	progress "World directory is empty, skipping safety backup."
+fi
+
+# step 4: clear current world directory
+progress "Clearing current world directory..."
+find "$worldDir" -mindepth 1 -delete
+
+# step 5: detect backup format and extract
+# Old backups (pre-2.38) contain Unity save files (worlds_local/, adminlist.txt)
+# New backups (2.38+) contain the full world directory (game/, custom_configs/, etc.)
+isOldFormat=0
+case "$backupFilePath" in
+	*.tar.gz)
+		tarListCmd="tar tzf"
+		tarExtractCmd="tar xzf"
+		;;
+	*.tar.zst)
+		tarListCmd="zstd -dq --stdout $backupFilePath | tar tf -"
+		tarExtractCmd="zstd -dq --stdout $backupFilePath | tar xf -"
+		;;
+	*.tar)
+		tarListCmd="tar tf"
+		tarExtractCmd="tar xf"
+		;;
+	*)
+		jsonError "Unknown backup format: $backupFilePath"
+		;;
+esac
+
+# check if old format by looking for worlds_local/ in the archive
+if [ "$tarListCmd" = "tar tf" ] || [ "$tarListCmd" = "tar tzf" ]; then
+	$tarListCmd "$backupFilePath" 2>/dev/null | grep -q "worlds_local/" && isOldFormat=1
+else
+	eval "$tarListCmd" 2>/dev/null | grep -q "worlds_local/" && isOldFormat=1
+fi
+
+extractStart=$(date +%s%N)
+
+if [ "$isOldFormat" = "1" ]; then
+	# old format: extract to game/.config/unity3d/IronGate/Valheim/
+	progress "Detected legacy backup format — extracting to Unity save path..."
+	targetDir="$worldDir/game/.config/unity3d/IronGate/Valheim"
+	mkdir -p "$targetDir"
+
+	case "$backupFilePath" in
+		*.tar.gz)  tar xzf "$backupFilePath" -C "$targetDir" ;;
+		*.tar.zst) zstd -dq --stdout "$backupFilePath" | tar xf - -C "$targetDir" ;;
+		*.tar)     tar xf "$backupFilePath" -C "$targetDir" ;;
+	esac
+else
+	# new format: extract directly to world directory
+	progress "Extracting full world backup..."
+
+	case "$backupFilePath" in
+		*.tar.gz)  tar xzf "$backupFilePath" -C "$worldDir" ;;
+		*.tar.zst) zstd -dq --stdout "$backupFilePath" | tar xf - -C "$worldDir" ;;
+		*.tar)     tar xf "$backupFilePath" -C "$worldDir" ;;
+	esac
+fi
+
+if [ $? -ne 0 ]; then
+	echo "`date` [FAIL : phvalheim]  Backup extraction failed!" >> "$LOG"
+	jsonError "Backup extraction failed"
+fi
+
+extractEnd=$(date +%s%N)
+extractMs=$(( (extractEnd - extractStart) / 1000000 ))
+extractSec=$(echo "$extractMs" | awk '{printf "%.1f", $1/1000}')
+restoredFiles=$(find "$worldDir" -type f 2>/dev/null | wc -l)
+restoredSize=$(du -sb "$worldDir" 2>/dev/null | cut -f1)
+restoredSize=${restoredSize:-0}
+progress "Extracted $restoredFiles files ($(echo "$restoredSize" | awk '{printf "%.1f MB", $1/1048576}')) in ${extractSec}s"
+
+# step 6: fix ownership
+progress "Setting file ownership on $restoredFiles files..."
+chown -R phvalheim:phvalheim "$worldDir"
+
+# step 7: set world mode to 'update' to trigger engine rebuild
+progress "Triggering world rebuild (mode=update)..."
+SQL "UPDATE worlds SET mode='update' WHERE name='$worldName';"
+
+# step 8: start the world
+progress "Starting world process (valheimworld_$worldName)..."
+supervisorctl start "valheimworld_$worldName" >> "$LOG" 2>&1
+
+# verify process started
+sleep 1
+supervisorctl status "valheimworld_$worldName" 2>/dev/null | grep -q RUNNING
+if [ $? -eq 0 ]; then
+	progress "World process started successfully"
+else
+	progress "World process queued (engine will start when ready)"
+fi
+
+echo "`date` [NOTICE : phvalheim] Restore complete for '$worldName' from backup id=$backupId" >> "$LOG"
+
+jsonSuccess "World '$worldName' restored successfully from backup #$backupId" "$safetyBackupId"

@@ -1,0 +1,186 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+
+# Tiered backup retention pruner
+# Runs hourly. For each world, applies tiered retention policy to scheduled backups.
+# Manual backups are NEVER auto-pruned.
+#
+# Tiers (configurable per-world or global):
+#   1. Keep ALL backups younger than retainAllHours
+#   2. Keep 1/day for retainDailyDays
+#   3. Keep 1/week for retainWeeklyDays
+#   4. Keep 1/month for retainMonthlyMonths
+#   5. Delete everything older
+
+echo "`date` [NOTICE : phvalheim] Starting backup retention pruning..."
+
+# read global retention settings
+globalRetainAllHours=$(SQL "SELECT backupRetainAllHours FROM settings LIMIT 1;")
+globalRetainDailyDays=$(SQL "SELECT backupRetainDailyDays FROM settings LIMIT 1;")
+globalRetainWeeklyDays=$(SQL "SELECT backupRetainWeeklyDays FROM settings LIMIT 1;")
+globalRetainMonthlyMonths=$(SQL "SELECT backupRetainMonthlyMonths FROM settings LIMIT 1;")
+globalRetainAllHours=${globalRetainAllHours:-24}
+globalRetainDailyDays=${globalRetainDailyDays:-7}
+globalRetainWeeklyDays=${globalRetainWeeklyDays:-30}
+globalRetainMonthlyMonths=${globalRetainMonthlyMonths:-6}
+
+
+# Get effective retention setting for a world
+# $1=worldName, $2=columnName, $3=globalValue
+function getEffective() {
+	local worldName="$1"
+	local col="$2"
+	local globalVal="$3"
+
+	local useGlobal=$(SQL "SELECT backup_use_global FROM worlds WHERE name='$worldName';")
+	if [ "$useGlobal" = "1" ] || [ -z "$useGlobal" ]; then
+		echo "$globalVal"
+	else
+		local val=$(SQL "SELECT $col FROM worlds WHERE name='$worldName';")
+		echo "${val:-$globalVal}"
+	fi
+}
+
+
+# Process each world
+worldNames=$(SQL "SELECT DISTINCT world_name FROM backups;")
+
+totalDeleted=0
+totalErrors=0
+
+for worldName in $worldNames; do
+
+	# resolve effective retention settings
+	retainAllHours=$(getEffective "$worldName" "backup_retain_all_hours" "$globalRetainAllHours")
+	retainDailyDays=$(getEffective "$worldName" "backup_retain_daily_days" "$globalRetainDailyDays")
+	retainWeeklyDays=$(getEffective "$worldName" "backup_retain_weekly_days" "$globalRetainWeeklyDays")
+	retainMonthlyMonths=$(getEffective "$worldName" "backup_retain_monthly_months" "$globalRetainMonthlyMonths")
+
+	# calculate tier boundaries in hours from now
+	tier1End=$retainAllHours
+	tier2End=$((tier1End + retainDailyDays * 24))
+	tier3End=$((tier2End + retainWeeklyDays * 24))
+	tier4End=$((tier3End + retainMonthlyMonths * 730))
+
+	# get all scheduled backups for this world, oldest first
+	# format: id|age_hours|date_key|week_key|month_key
+	backupData=$(SQL "SELECT CONCAT(
+		id, '|',
+		TIMESTAMPDIFF(HOUR, created_at, NOW()), '|',
+		DATE(created_at), '|',
+		YEARWEEK(created_at, 1), '|',
+		DATE_FORMAT(created_at, '%Y-%m')
+	) FROM backups
+	WHERE world_name='$worldName' AND type='scheduled'
+	ORDER BY created_at DESC;")
+
+	[ -z "$backupData" ] && continue
+
+	# track which date/week/month keys we've already kept a representative for
+	declare -A keptDaily
+	declare -A keptWeekly
+	declare -A keptMonthly
+	deleteIds=""
+
+	while IFS='|' read -r id ageHours dateKey weekKey monthKey; do
+		[ -z "$id" ] && continue
+
+		# tier 1: keep all
+		if [ "$ageHours" -lt "$tier1End" ] 2>/dev/null; then
+			continue
+		fi
+
+		# tier 2: keep 1 per day
+		if [ "$ageHours" -lt "$tier2End" ] 2>/dev/null; then
+			if [ -z "${keptDaily[$dateKey]}" ]; then
+				keptDaily[$dateKey]=1
+				continue
+			else
+				deleteIds="$deleteIds $id"
+				continue
+			fi
+		fi
+
+		# tier 3: keep 1 per week
+		if [ "$ageHours" -lt "$tier3End" ] 2>/dev/null; then
+			if [ -z "${keptWeekly[$weekKey]}" ]; then
+				keptWeekly[$weekKey]=1
+				continue
+			else
+				deleteIds="$deleteIds $id"
+				continue
+			fi
+		fi
+
+		# tier 4: keep 1 per month
+		if [ "$ageHours" -lt "$tier4End" ] 2>/dev/null; then
+			if [ -z "${keptMonthly[$monthKey]}" ]; then
+				keptMonthly[$monthKey]=1
+				continue
+			else
+				deleteIds="$deleteIds $id"
+				continue
+			fi
+		fi
+
+		# beyond all tiers: delete
+		deleteIds="$deleteIds $id"
+
+	done <<< "$backupData"
+
+	# clear associative arrays for next world
+	unset keptDaily keptWeekly keptMonthly
+
+	# delete identified backups (file first, then DB row)
+	for delId in $deleteIds; do
+		filePath=$(SQL "SELECT file_path FROM backups WHERE id=$delId;")
+
+		if [ -n "$filePath" ] && [ -f "$filePath" ]; then
+			rm -f "$filePath"
+			if [ $? -eq 0 ]; then
+				SQL "DELETE FROM backups WHERE id=$delId;"
+				echo "`date` [phvalheim]  Pruned backup id=$delId: $filePath"
+				totalDeleted=$((totalDeleted + 1))
+			else
+				echo "`date` [WARN : phvalheim]  Failed to delete file: $filePath"
+				totalErrors=$((totalErrors + 1))
+			fi
+		else
+			# file already gone, clean up DB
+			SQL "DELETE FROM backups WHERE id=$delId;"
+			echo "`date` [phvalheim]  Cleaned orphaned DB record id=$delId"
+			totalDeleted=$((totalDeleted + 1))
+		fi
+	done
+done
+
+
+# --- Orphan cleanup ---
+
+# orphaned files: files in backup dir with no DB record
+if [ -d "$backupDir" ]; then
+	for backupFile in "$backupDir"/valheimworld_*.tar "$backupDir"/valheimworld_*.tar.gz "$backupDir"/valheimworld_*.tar.zst; do
+		[ -f "$backupFile" ] || continue
+		dbCount=$(SQL "SELECT COUNT(*) FROM backups WHERE file_path='$backupFile';")
+		if [ "$dbCount" = "0" ]; then
+			echo "`date` [phvalheim]  Removing orphaned file: $backupFile"
+			rm -f "$backupFile"
+			totalDeleted=$((totalDeleted + 1))
+		fi
+	done
+fi
+
+# orphaned DB rows: rows where file no longer exists
+orphanedIds=$(SQL "SELECT id FROM backups WHERE file_path NOT IN (SELECT file_path FROM backups WHERE 1=1) OR file_path IS NULL;" 2>/dev/null)
+# simpler approach: check each record
+allBackupIds=$(SQL "SELECT id FROM backups;")
+for checkId in $allBackupIds; do
+	checkPath=$(SQL "SELECT file_path FROM backups WHERE id=$checkId;")
+	if [ -n "$checkPath" ] && [ ! -f "$checkPath" ]; then
+		echo "`date` [phvalheim]  Removing orphaned DB record id=$checkId (file missing: $checkPath)"
+		SQL "DELETE FROM backups WHERE id=$checkId;"
+		totalDeleted=$((totalDeleted + 1))
+	fi
+done
+
+echo "`date` [NOTICE : phvalheim] Retention pruning complete. Deleted: $totalDeleted, Errors: $totalErrors"

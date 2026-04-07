@@ -340,16 +340,17 @@ $totalCount = count($worlds);
                     </div>
                 </div>
 
-                <div class="stat-card">
-                    <div class="stat-icon disk">
+                <div class="stat-card" id="storageCard" style="min-width:280px;">
+                    <div class="stat-icon disk" id="storageIcon">
                         <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
                         </svg>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-label">Disk</div>
-                        <div class="stat-value" id="statDisk"><?php echo getUsedDisk('/opt/stateful'); ?></div>
-                        <div class="stat-subtext" id="statDiskDetail">of <?php echo getTotalDisk('/opt/stateful'); ?> (<?php echo getFreeDisk('/opt/stateful'); ?> free)</div>
+                    <div class="stat-content" id="storageContent" style="flex:1;min-width:0;">
+                        <div class="stat-label">Storage</div>
+                        <div id="storageVolumes" style="margin-top:0.25rem;">
+                            <div class="stat-subtext">Loading...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -389,7 +390,8 @@ $totalCount = count($worlds);
                         'start' => 'Starting',
                         'stop' => 'Stopping',
                         'starting' => 'Starting',
-                        'stopping' => 'Stopping'
+                        'stopping' => 'Stopping',
+                        'backup' => 'Backup'
                     ];
                     ?>
                     <div class="table-responsive">
@@ -705,15 +707,107 @@ $totalCount = count($worlds);
         </div>
     </div>
 
-    <!-- Settings Modal (includes Citizens) -->
+    <!-- Settings Modal (includes Citizens + Backups) -->
     <div class="mods-modal-overlay" id="settingsModalOverlay" onclick="closeSettingsModal(event)">
-        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 700px;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 950px;">
             <div class="mods-modal-header">
                 <h3 class="mods-modal-title" id="settingsModalTitle">World Settings</h3>
                 <button class="mods-modal-close" onclick="closeSettingsModal()">&times;</button>
             </div>
+            <div class="backup-tab-bar" id="settingsTabBar" style="display:none;">
+                <button class="backup-tab active" data-tab="settingsTab" onclick="switchSettingsTab('settingsTab', this)">Settings</button>
+                <button class="backup-tab" data-tab="backupsTab" onclick="switchSettingsTab('backupsTab', this)">Backups</button>
+            </div>
             <div class="mods-modal-body" id="settingsModalBody">
                 <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Restore Confirmation Modal -->
+    <div class="mods-modal-overlay" id="restoreConfirmOverlay" onclick="closeRestoreConfirm(event)" style="z-index:1060;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width:520px;">
+            <div class="mods-modal-header" style="background:var(--bg-secondary);border-bottom:2px solid var(--warning);">
+                <h3 class="mods-modal-title" style="color:var(--warning);">
+                    <svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                    Restore Backup
+                </h3>
+                <button class="mods-modal-close" onclick="closeRestoreConfirm()">&times;</button>
+            </div>
+            <div class="mods-modal-body" id="restoreConfirmBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Restore Progress Modal -->
+    <div class="mods-modal-overlay" id="restoreProgressOverlay" style="z-index:1070;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width:520px;">
+            <div class="mods-modal-header" style="background:var(--bg-secondary);border-bottom:2px solid var(--accent-primary);">
+                <h3 class="mods-modal-title" style="color:var(--accent-primary);">
+                    <svg width="20" height="20" fill="none" stroke="var(--accent-primary)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Restoring World
+                </h3>
+            </div>
+            <div class="mods-modal-body" id="restoreProgressBody">
+                <div style="text-align:center;padding:2rem;color:var(--text-muted)">
+                    <div class="backup-spinner"></div>
+                    <div style="margin-top:1rem;">Initializing restore...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Delete Confirmation Modal -->
+    <div class="mods-modal-overlay" id="deleteConfirmOverlay" onclick="closeDeleteConfirm(event)" style="z-index:1060;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width:420px;">
+            <div class="mods-modal-header" style="background:var(--bg-secondary);border-bottom:2px solid var(--danger);">
+                <h3 class="mods-modal-title" style="color:var(--danger);">
+                    <svg width="20" height="20" fill="none" stroke="var(--danger)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                    Delete Backup
+                </h3>
+                <button class="mods-modal-close" onclick="closeDeleteConfirm()">&times;</button>
+            </div>
+            <div class="mods-modal-body" id="deleteConfirmBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup Create Confirmation Modal -->
+    <div class="mods-modal-overlay" id="backupConfirmOverlay" onclick="document.getElementById('backupConfirmOverlay').classList.remove('show')" style="z-index:1060;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width:520px;">
+            <div class="mods-modal-header" style="background:var(--bg-secondary);border-bottom:2px solid var(--success);">
+                <h3 class="mods-modal-title" style="color:var(--success);">
+                    <svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                    </svg>
+                    Create Backup
+                </h3>
+                <button class="mods-modal-close" onclick="document.getElementById('backupConfirmOverlay').classList.remove('show')">&times;</button>
+            </div>
+            <div class="mods-modal-body" id="backupConfirmBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- Backup View Details Modal -->
+    <div class="mods-modal-overlay" id="backupViewOverlay" onclick="document.getElementById('backupViewOverlay').classList.remove('show')" style="z-index:1060;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width:560px;">
+            <div class="mods-modal-header" style="background:var(--bg-secondary);border-bottom:2px solid var(--accent-primary);">
+                <h3 class="mods-modal-title" style="color:var(--accent-primary);">
+                    <svg width="20" height="20" fill="none" stroke="var(--accent-primary)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Backup Details
+                </h3>
+                <button class="mods-modal-close" onclick="document.getElementById('backupViewOverlay').classList.remove('show')">&times;</button>
+            </div>
+            <div class="mods-modal-body" id="backupViewBody">
             </div>
         </div>
     </div>
@@ -949,10 +1043,133 @@ $totalCount = count($worlds);
         });
     }
 
+    // Backup disk stats
+    // Global tooltip system — appends to <body> to escape overflow:hidden containers
+    (function() {
+        const tip = document.createElement('div');
+        tip.id = 'phvTooltip';
+        tip.style.cssText = 'position:fixed;z-index:99999;background:var(--bg-primary,#1a1a2e);color:var(--text-primary,#e0e0e0);border:1px solid var(--border-color,#333);border-radius:0.375rem;padding:0.4rem 0.6rem;font-size:0.7rem;font-weight:400;line-height:1.4;max-width:280px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.4);display:none;';
+        document.body.appendChild(tip);
+
+        document.addEventListener('mouseover', function(e) {
+            const el = e.target.closest('[data-tip]');
+            if (!el) { tip.style.display = 'none'; return; }
+            tip.textContent = el.getAttribute('data-tip');
+            tip.style.display = 'block';
+            const r = el.getBoundingClientRect();
+            let top = r.top - tip.offsetHeight - 6;
+            let left = r.left + r.width / 2 - tip.offsetWidth / 2;
+            // keep within viewport
+            if (top < 4) top = r.bottom + 6;
+            if (left < 4) left = 4;
+            if (left + tip.offsetWidth > window.innerWidth - 4) left = window.innerWidth - tip.offsetWidth - 4;
+            tip.style.top = top + 'px';
+            tip.style.left = left + 'px';
+        });
+        document.addEventListener('mouseout', function(e) {
+            const el = e.target.closest('[data-tip]');
+            if (el) tip.style.display = 'none';
+        });
+    })();
+
+    function fmtBytes(bytes) {
+        if (bytes >= 1099511627776) return (bytes / 1099511627776).toFixed(1) + ' TB';
+        if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+        if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+        return (bytes / 1024).toFixed(0) + ' KB';
+    }
+
+    async function fetchVolumeStats() {
+        try {
+            const res = await fetch('adminAPI.php?action=getVolumeStats');
+            const data = await res.json();
+            if (!data.success) return;
+
+            const volContainer = document.getElementById('storageVolumes');
+            const card = document.getElementById('storageCard');
+            const icon = document.getElementById('storageIcon');
+            let html = '';
+            let worstPerc = 0;
+            let hasWarning = false;
+
+            data.volumes.forEach((vol, idx) => {
+                const perc = vol.perc;
+                if (perc > worstPerc) worstPerc = perc;
+
+                let barColor, warnHtml = '';
+                if (perc > 90) {
+                    barColor = 'var(--danger)';
+                    warnHtml = ' <span style="color:var(--danger);font-weight:600;">&#9888;</span>';
+                    hasWarning = true;
+                } else if (perc > 75) {
+                    barColor = 'var(--warning)';
+                    warnHtml = ' <span style="color:var(--warning);font-weight:600;">&#9888;</span>';
+                    hasWarning = true;
+                } else {
+                    barColor = 'var(--success)';
+                }
+
+                // Extra detail for backup info
+                let extraDetail = '';
+                if (vol.name === 'Backups') {
+                    extraDetail = data.backupCount + ' backup' + (data.backupCount !== 1 ? 's' : '') + ' (' + fmtBytes(data.backupTotalSize) + ')';
+                }
+                if (vol.name === 'Data' && !data.backupMounted) {
+                    extraDetail = data.backupCount + ' backup' + (data.backupCount !== 1 ? 's' : '') + ' (' + fmtBytes(data.backupTotalSize) + ')';
+                }
+
+                if (idx > 0) html += '<div style="border-top:1px solid var(--border-light);margin:0.3rem 0;"></div>';
+
+                html += `<div>
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                            <span style="font-size:0.7rem;font-weight:600;color:var(--text-primary);">${vol.name}</span>
+                            <span style="font-size:0.65rem;color:var(--text-muted);font-family:var(--font-mono);white-space:nowrap;">${vol.usedH}/${vol.totalH} (${vol.freeH} free)${warnHtml}</span>
+                        </div>
+                        <div style="font-size:0.55rem;color:var(--text-muted);font-family:var(--font-mono);margin-top:-0.05rem;">${vol.path}</div>
+                        <div style="height:4px;background:var(--bg-tertiary);border-radius:2px;margin:0.15rem 0;overflow:hidden;">
+                            <div style="height:100%;width:${perc}%;background:${barColor};border-radius:2px;transition:width 0.5s ease;"></div>
+                        </div>
+                        ${extraDetail ? '<div style="font-size:0.6rem;color:var(--text-muted);">' + extraDetail + '</div>' : ''}
+                    </div>`;
+            });
+
+            // Warnings — compact single line each
+            if (!data.backupMounted) {
+                html += '<div style="font-size:0.6rem;font-weight:600;color:var(--danger);margin-top:0.25rem;white-space:nowrap;">&#9888; No dedicated backup volume</div>';
+                hasWarning = true;
+            }
+
+            if (data.orphanedCount > 0) {
+                html += `<div style="font-size:0.6rem;color:var(--warning);margin-top:0.2rem;white-space:nowrap;">&#9888; ${data.orphanedCount} orphaned record${data.orphanedCount !== 1 ? 's' : ''} <button onclick="purgeOrphanedBackups()" style="font-size:0.55rem;padding:0.05rem 0.3rem;margin-left:0.2rem;border:1px solid var(--warning);color:var(--warning);background:transparent;border-radius:2px;cursor:pointer;">Clean up</button></div>`;
+                hasWarning = true;
+            }
+
+            volContainer.innerHTML = html;
+
+            // Card border + icon color based on worst status
+            if (worstPerc > 90 || (!data.backupMounted)) {
+                card.style.borderLeft = '3px solid var(--danger)';
+                icon.style.background = 'rgba(var(--danger-rgb,220,53,69),0.15)';
+                icon.style.color = 'var(--danger)';
+            } else if (worstPerc > 75) {
+                card.style.borderLeft = '3px solid var(--warning)';
+                icon.style.background = 'rgba(var(--warning-rgb,255,193,7),0.15)';
+                icon.style.color = 'var(--warning)';
+            } else {
+                card.style.borderLeft = 'none';
+                icon.className = 'stat-icon disk';
+                icon.style.background = '';
+                icon.style.color = '';
+            }
+        } catch(e) {}
+    }
+
     // Start stats polling for charts
     function startStatsPolling() {
         fetchSystemStats();
+        fetchVolumeStats();
         statsPollTimer = setInterval(fetchSystemStats, STATS_POLL_INTERVAL);
+        setInterval(fetchVolumeStats, 60000); // refresh volume stats every 60s
     }
 
     // Fetch system stats and update charts
@@ -1100,7 +1317,8 @@ $totalCount = count($worlds);
             'start': 'Starting',
             'stop': 'Stopping',
             'starting': 'Starting',
-            'stopping': 'Stopping'
+            'stopping': 'Stopping',
+            'backup': 'Backup'
         };
         return modeMap[mode] || mode;
     }
@@ -1585,14 +1803,823 @@ $totalCount = count($worlds);
     // Settings Modal (includes Citizens)
     let currentSettingsWorld = '';
 
+    function switchSettingsTab(tabId, btn) {
+        document.querySelectorAll('#settingsTabBar .backup-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.settings-tab-pane').forEach(p => p.style.display = 'none');
+        document.getElementById(tabId).style.display = 'block';
+        if (tabId === 'backupsTab' && !document.getElementById('backupsTab').dataset.loaded) {
+            loadWorldBackups(currentSettingsWorld);
+        }
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes || bytes == 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    async function loadWorldBackups(worldName) {
+        const container = document.getElementById('backupsList');
+        container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--text-muted)">Loading backups...</div>';
+
+        try {
+            const [backupsRes, bkSettingsRes] = await Promise.all([
+                fetch(`adminAPI.php?action=getWorldBackups&world=${encodeURIComponent(worldName)}`),
+                fetch(`adminAPI.php?action=getWorldBackupSettings&world=${encodeURIComponent(worldName)}`)
+            ]);
+            const backupsData = await backupsRes.json();
+            const bkSettings = await bkSettingsRes.json();
+
+            if (bkSettings.success) {
+                const bs = bkSettings.settings;
+                const useGlobal = bs.backup_use_global == 1;
+                document.getElementById('bk-useGlobal').checked = useGlobal;
+                document.getElementById('bk-overrideFields').style.display = useGlobal ? 'none' : 'block';
+                document.getElementById('bk-interval').value = bs.backup_interval_minutes;
+                document.getElementById('bk-requireActivity').value = bs.backup_require_activity;
+                document.getElementById('bk-retainAllHours').value = bs.backup_retain_all_hours;
+                document.getElementById('bk-retainDailyDays').value = bs.backup_retain_daily_days;
+                document.getElementById('bk-retainWeeklyDays').value = bs.backup_retain_weekly_days;
+                document.getElementById('bk-retainMonthlyMonths').value = bs.backup_retain_monthly_months;
+                document.getElementById('bk-compression').value = bs.backup_compression || 'none';
+                document.getElementById('bk-compressionHour').value = bs.backup_compression_hour !== undefined ? bs.backup_compression_hour : 3;
+                document.getElementById('bk-cpuPriority').value = bs.backup_cpu_priority !== undefined ? bs.backup_cpu_priority : 10;
+                document.getElementById('bk-ioPriority').value = bs.backup_io_priority || 'low';
+                document.getElementById('bk-compressionLevel').value = bs.backup_compression_level || 0;
+            }
+
+            if (backupsData.success && backupsData.backups) {
+                if (backupsData.backups.length === 0) {
+                    container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">No backups yet</div>';
+                } else {
+                    let html = '<table class="backup-table"><thead><tr>'
+                        + '<th><input type="checkbox" id="bkSelectAll" onchange="toggleAllBackupCheckboxes(this)"></th>'
+                        + '<th>Date</th><th>Type</th><th>Size</th><th>Compressed</th><th>Actions</th>'
+                        + '</tr></thead><tbody>';
+                    backupsData.backups.forEach(b => {
+                        const isOrphaned = b.orphaned == 1;
+                        const rowStyle = isOrphaned ? ' style="opacity:0.6;background:rgba(var(--warning-rgb,255,193,7),0.05);"' : '';
+                        const typeBadge = b.type === 'manual'
+                            ? '<span class="backup-badge backup-badge-manual">manual</span>'
+                            : '<span class="backup-badge backup-badge-scheduled">scheduled</span>';
+                        const orphanBadge = isOrphaned ? ' <span class="backup-badge" style="background:var(--warning);color:#000;font-size:0.6rem">missing</span>' : '';
+                        const compBadge = b.compressed == 1
+                            ? '<span class="backup-badge backup-badge-compressed">' + (b.compression_type || 'yes') + '</span>'
+                            : '<span style="color:var(--text-muted);font-size:0.75rem">no</span>';
+                        const meta = b.metadata ? JSON.parse(b.metadata) : {};
+                        const preRestore = meta.pre_restore ? ' <span class="backup-badge" style="background:var(--warning);color:#000;font-size:0.6rem">pre-restore</span>' : '';
+                        // size display: show both if compressed
+                        let sizeDisplay = formatBytes(b.file_size);
+                        if (b.compressed == 1 && b.uncompressed_size > 0) {
+                            sizeDisplay = formatBytes(b.file_size) + '<br><span style="color:var(--text-muted);font-size:0.65rem">' + formatBytes(b.uncompressed_size) + ' uncompressed</span>';
+                        } else if (b.uncompressed_size > 0 && b.uncompressed_size != b.file_size) {
+                            sizeDisplay = formatBytes(b.file_size) + '<br><span style="color:var(--text-muted);font-size:0.65rem">' + formatBytes(b.uncompressed_size) + ' uncompressed</span>';
+                        }
+                        // Actions: orphaned backups can only be removed (no restore/download)
+                        let actionsHtml;
+                        if (isOrphaned) {
+                            actionsHtml = '<button class="action-btn danger" style="padding:0.2rem 0.5rem;font-size:0.7rem" onclick="deleteSingleBackup(' + b.id + ')">Remove record</button>';
+                        } else {
+                            actionsHtml = '<button class="action-btn" style="padding:0.2rem 0.5rem;font-size:0.7rem" onclick="viewBackupDetails(' + b.id + ',\'' + b.created_at + '\',\'' + b.type + '\',' + b.file_size + ',' + (b.uncompressed_size||0) + ',' + b.compressed + ',\'' + (b.compression_type||'none') + '\',\'' + encodeURIComponent(b.metadata||'{}') + '\')">View</button> '
+                                + '<button class="action-btn" style="padding:0.2rem 0.5rem;font-size:0.7rem" onclick="restoreBackup(' + b.id + ',\'' + b.created_at + '\',\'' + currentSettingsWorld + '\')">Restore</button> '
+                                + '<a href="adminAPI.php?action=downloadBackup&backupId=' + b.id + '" class="action-btn" style="padding:0.2rem 0.5rem;font-size:0.7rem;text-decoration:none">Download</a> '
+                                + '<button class="action-btn danger" style="padding:0.2rem 0.5rem;font-size:0.7rem" onclick="deleteSingleBackup(' + b.id + ')">Delete</button>';
+                        }
+                        html += '<tr' + rowStyle + '>'
+                            + '<td><input type="checkbox" class="bk-check" value="' + b.id + '"></td>'
+                            + '<td style="font-family:var(--font-mono);font-size:0.8rem;white-space:nowrap">' + b.created_at + preRestore + orphanBadge + '</td>'
+                            + '<td>' + typeBadge + '</td>'
+                            + '<td style="font-family:var(--font-mono);font-size:0.8rem">' + sizeDisplay + '</td>'
+                            + '<td>' + compBadge + '</td>'
+                            + '<td class="backup-actions">' + actionsHtml + '</td></tr>';
+                    });
+                    html += '</tbody></table>';
+                    container.innerHTML = html;
+                }
+            } else {
+                container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--danger)">Error loading backups</div>';
+            }
+
+            document.getElementById('backupsTab').dataset.loaded = '1';
+        } catch(e) {
+            container.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--danger)">Error loading backups</div>';
+        }
+    }
+
+    function toggleAllBackupCheckboxes(master) {
+        document.querySelectorAll('.bk-check').forEach(cb => cb.checked = master.checked);
+    }
+
+    function viewBackupDetails(id, createdAt, type, fileSize, uncompressedSize, compressed, compressionType, metadataEncoded) {
+        const meta = JSON.parse(decodeURIComponent(metadataEncoded));
+        const body = document.getElementById('backupViewBody');
+
+        // build info rows
+        let html = '<div style="padding:0.25rem 0;">';
+
+        // General info section
+        html += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">General</div>';
+        html += '<div style="background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem;margin-bottom:1rem;">';
+        html += detailRow('Backup ID', '#' + id);
+        html += detailRow('Created', createdAt);
+        html += detailRow('Type', type === 'manual' ? '<span class="backup-badge backup-badge-manual">manual</span>' : '<span class="backup-badge backup-badge-scheduled">scheduled</span>');
+        if (meta.pre_restore) {
+            html += detailRow('Pre-Restore', 'Safety backup before restoring from #' + meta.restored_from_id);
+        }
+        html += '</div>';
+
+        // Size info
+        html += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Size &amp; Compression</div>';
+        html += '<div style="background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem;margin-bottom:1rem;">';
+        html += detailRow('File Size', formatBytes(fileSize));
+        if (uncompressedSize > 0 && uncompressedSize !== fileSize) {
+            html += detailRow('Uncompressed Size', formatBytes(uncompressedSize));
+            const ratio = ((fileSize / uncompressedSize) * 100).toFixed(1);
+            html += detailRow('Compression Ratio', ratio + '%');
+        }
+        html += detailRow('Compressed', compressed == 1 ? '<span class="backup-badge backup-badge-compressed">' + compressionType + '</span>' : 'No');
+        html += '</div>';
+
+        // World info (from metadata)
+        if (meta.seed || meta.port) {
+            html += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">World Settings</div>';
+            html += '<div style="background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem;margin-bottom:1rem;">';
+            if (meta.seed) html += detailRow('Seed', '<code>' + meta.seed + '</code>');
+            if (meta.port !== undefined) html += detailRow('Port', meta.port);
+            if (meta.beta !== undefined) html += detailRow('Beta', meta.beta == 1 ? 'Yes' : 'No');
+            html += '</div>';
+        }
+
+        // Contents info
+        if (meta.file_count || meta.top_dirs) {
+            html += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">Contents</div>';
+            html += '<div style="background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem;margin-bottom:1rem;">';
+            if (meta.file_count) html += detailRow('Files', meta.file_count + ' files in ' + (meta.dir_count||0) + ' directories');
+            if (meta.has_game !== undefined) html += detailRow('Game Data', meta.has_game ? '<span style="color:var(--success)">&#10003;</span> Present' : '<span style="color:var(--text-muted)">&#10007;</span> Missing');
+            if (meta.has_custom_configs !== undefined) html += detailRow('Custom Configs', meta.has_custom_configs ? '<span style="color:var(--success)">&#10003;</span> Present' : '<span style="color:var(--text-muted)">&#10007;</span> Not used');
+            if (meta.has_mods !== undefined) html += detailRow('BepInEx Mods', meta.has_mods ? '<span style="color:var(--success)">&#10003;</span> Present' : '<span style="color:var(--text-muted)">&#10007;</span> None');
+            if (meta.top_dirs) {
+                const dirs = meta.top_dirs.split(',');
+                const dirSummary = dirs.length + ' director' + (dirs.length === 1 ? 'y' : 'ies');
+                const dirId = 'bkDirs_' + id;
+                html += '<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border-light);"><span style="color:var(--text-muted);font-size:0.8rem;">Directories</span><span style="font-size:0.8rem;color:var(--text-primary);"><a href="#" onclick="event.preventDefault();document.getElementById(\'' + dirId + '\').style.display=document.getElementById(\'' + dirId + '\').style.display===\'none\'?\'block\':\'none\'" style="color:var(--accent-primary);text-decoration:none;font-size:0.8rem;">' + dirSummary + ' &#9662;</a></span></div>';
+                html += '<div id="' + dirId + '" style="display:none;padding:0.5rem 0;"><div style="display:flex;flex-wrap:wrap;gap:0.3rem;">';
+                dirs.forEach(d => {
+                    html += '<code style="font-size:0.7rem;background:var(--bg-secondary);padding:0.1rem 0.4rem;border-radius:0.25rem;border:1px solid var(--border-light);">' + d.trim() + '/</code>';
+                });
+                html += '</div></div>';
+            }
+            html += '</div>';
+        }
+
+        // Mods
+        if (meta.mod_names && meta.mod_names.length > 0) {
+            const modId = 'bkMods_' + id;
+            html += '<div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;">'
+                + '<a href="#" onclick="event.preventDefault();document.getElementById(\'' + modId + '\').style.display=document.getElementById(\'' + modId + '\').style.display===\'none\'?\'block\':\'none\'" style="color:var(--text-muted);text-decoration:none;">Mods (' + meta.mod_names.length + ') &#9662;</a>'
+                + '</div>';
+            html += '<div id="' + modId + '" style="display:none;background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem;margin-bottom:0.5rem;">';
+            html += '<div style="display:flex;flex-direction:column;gap:0.25rem;">';
+            meta.mod_names.forEach((m, i) => {
+                html += '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0.4rem;background:var(--bg-secondary);border-radius:0.25rem;border:1px solid var(--border-light);font-size:0.75rem;">'
+                    + '<span style="color:var(--text-muted);font-family:var(--font-mono);font-size:0.65rem;width:1.5rem;text-align:right;">' + (i+1) + '</span>'
+                    + '<span style="color:var(--text-primary);">' + m + '</span></div>';
+            });
+            html += '</div></div>';
+        }
+
+        html += '<div style="text-align:center;margin-top:1rem;"><button class="action-btn" onclick="document.getElementById(\'backupViewOverlay\').classList.remove(\'show\')" style="padding:0.4rem 1.5rem;">Close</button></div>';
+        html += '</div>';
+        body.innerHTML = html;
+        document.getElementById('backupViewOverlay').classList.add('show');
+    }
+
+    function detailRow(label, value) {
+        return '<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border-light);"><span style="color:var(--text-muted);font-size:0.8rem;">' + label + '</span><span style="font-size:0.8rem;color:var(--text-primary);">' + value + '</span></div>';
+    }
+
+    async function confirmCreateBackup(worldName) {
+        const body = document.getElementById('backupConfirmBody');
+        body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><div class="backup-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto 1rem;"></div>Checking disk space...</div>';
+        document.getElementById('backupConfirmOverlay').classList.add('show');
+
+        // Fetch preflight data
+        let preflight = { mounted: false, worldSize: 0, freeBytes: 0 };
+        try {
+            const res = await fetch(`adminAPI.php?action=getBackupPreflight&world=${encodeURIComponent(worldName)}`);
+            const data = await res.json();
+            if (data.success) preflight = data;
+        } catch(e) {}
+
+        const worldSize = preflight.worldSize;
+        const freeBytes = preflight.freeBytes;
+        const isMounted = preflight.mounted;
+        const isTransitional = preflight.transitional || false;
+        const worldMode = preflight.worldMode || '';
+
+        // Block if world is in a transitional state
+        if (isTransitional) {
+            body.innerHTML = `
+                <div style="margin-bottom:1.25rem;">
+                    <div style="background:rgba(var(--danger-rgb,220,53,69),0.1);border:1px solid var(--danger);border-radius:0.375rem;padding:1rem;font-size:0.85rem;text-align:center;">
+                        <div style="font-size:1.5rem;margin-bottom:0.5rem;">&#9888;</div>
+                        <strong style="color:var(--danger);">Cannot backup while world is ${worldMode}</strong>
+                        <div style="color:var(--text-secondary);margin-top:0.5rem;">The world is currently in a transitional state (<strong>${worldMode}</strong>). Backups cannot run while files are being modified by another operation. Please wait for it to complete and try again.</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                    <button class="action-btn" onclick="document.getElementById('backupConfirmOverlay').classList.remove('show')" style="padding:0.4rem 1rem;">Close</button>
+                </div>`;
+            return;
+        }
+
+        function fmtSize(bytes) {
+            if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        // Calculate space needed based on compression choice
+        // none: world_size * 1.1 (tar + headroom)
+        // compressed: world_size * 2.1 (tar + compressed output coexist during compression + headroom)
+        function getSpaceNeeded(comp) {
+            return comp === 'none' ? worldSize * 1.1 : worldSize * 2.1;
+        }
+
+        function updateDiskStatus(comp) {
+            const needed = getSpaceNeeded(comp);
+            const hasSpace = freeBytes > needed;
+            const el = document.getElementById('backupDiskStatus');
+            const btn = document.getElementById('startBackupBtn');
+
+            if (!isMounted) {
+                el.innerHTML = `
+                    <div style="background:rgba(var(--danger-rgb,220,53,69),0.1);border:1px solid var(--danger);border-radius:0.375rem;padding:0.75rem;font-size:0.8rem;">
+                        <strong style="color:var(--danger);">&#9888; No dedicated backup volume</strong>
+                        <div style="color:var(--text-secondary);margin-top:0.25rem;">No separate backup mount detected. Backups will write to the main data volume which is not recommended.</div>
+                    </div>`;
+                btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+            } else if (!hasSpace) {
+                const extra = comp !== 'none' ? ' Compression requires ~2x world size since both the archive and compressed file exist simultaneously during the process.' : '';
+                el.innerHTML = `
+                    <div style="background:rgba(var(--danger-rgb,220,53,69),0.1);border:1px solid var(--danger);border-radius:0.375rem;padding:0.75rem;font-size:0.8rem;">
+                        <strong style="color:var(--danger);">&#9888; Insufficient disk space</strong>
+                        <div style="color:var(--text-secondary);margin-top:0.25rem;">Need <strong>~${fmtSize(needed)}</strong> but only <strong>${fmtSize(freeBytes)}</strong> free on the backup volume.${extra}</div>
+                    </div>`;
+                btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed';
+            } else {
+                el.innerHTML = `
+                    <div style="background:rgba(var(--success-rgb,25,135,84),0.1);border:1px solid var(--success);border-radius:0.375rem;padding:0.75rem;font-size:0.8rem;">
+                        <strong style="color:var(--success);">&#10003; Disk space OK</strong>
+                        <div style="color:var(--text-secondary);margin-top:0.25rem;">World: <strong>${fmtSize(worldSize)}</strong> &nbsp;|&nbsp; Required: <strong>~${fmtSize(needed)}</strong> &nbsp;|&nbsp; Free: <strong>${fmtSize(freeBytes)}</strong></div>
+                    </div>`;
+                btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer';
+            }
+        }
+
+        body.innerHTML = `
+            <div style="margin-bottom:1.25rem;">
+                <p style="color:var(--text-primary);font-size:0.9rem;margin-bottom:1rem;">
+                    This will create a <strong>full snapshot</strong> of world <strong>"${worldName}"</strong>.
+                </p>
+                <div id="backupDiskStatus" style="margin-bottom:1rem;"></div>
+                <div style="background:var(--bg-primary);border-radius:0.5rem;padding:1rem;margin-bottom:1rem;">
+                    <div style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:0.5rem;">What will be backed up:</div>
+                    <ul style="margin:0 0 0 1.25rem;padding:0;color:var(--text-secondary);font-size:0.8rem;line-height:1.8;">
+                        <li><strong>Game save data</strong> — world files, player data, map exploration</li>
+                        <li><strong>BepInEx mods &amp; plugins</strong> — all installed server-side mods</li>
+                        <li><strong>Custom configs</strong> — any custom configuration overrides</li>
+                        <li><strong>World settings</strong> — seed, port, mod list (stored as metadata)</li>
+                    </ul>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.75rem;background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;">
+                    <label style="font-size:0.8rem;color:var(--text-secondary);font-weight:600;white-space:nowrap;">Compression:</label>
+                    <select id="manualBackupCompression" class="form-control form-control-sm" style="max-width:160px;font-size:0.8rem;">
+                        <option value="none">None (fastest)</option>
+                        <option value="gzip">Gzip</option>
+                        <option value="zstd">Zstd (recommended)</option>
+                    </select>
+                </div>
+                <div style="background:rgba(var(--accent-primary-rgb,13,110,253),0.08);border:1px solid var(--accent-primary);border-radius:0.375rem;padding:0.75rem;font-size:0.8rem;color:var(--text-secondary);">
+                    <strong style="color:var(--accent-primary);">Note:</strong> The client payload ZIP is excluded to save space.
+                </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                <button class="action-btn" onclick="document.getElementById('backupConfirmOverlay').classList.remove('show')" style="padding:0.4rem 1rem;">Cancel</button>
+                <button class="action-btn success" id="startBackupBtn" style="padding:0.4rem 1rem;font-weight:600;" onclick="document.getElementById('backupConfirmOverlay').classList.remove('show');createManualBackup('${worldName}', document.getElementById('manualBackupCompression').value)">Start Backup</button>
+            </div>
+        `;
+
+        // Initial disk status check and reactive update on compression change
+        updateDiskStatus('none');
+        document.getElementById('manualBackupCompression').addEventListener('change', function() {
+            updateDiskStatus(this.value);
+        });
+    }
+
+    // Shared progress bar helper
+    function createProgressUI(titleEl, bodyEl, title, icon, stepLabels) {
+        titleEl.innerHTML = icon + ' ' + title;
+        const totalSteps = stepLabels.length;
+        bodyEl.innerHTML = `
+            <div style="padding:1rem;">
+                <div id="pgCurrentStep" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+                    <div class="backup-spinner" style="width:16px;height:16px;border-width:2px;"></div>
+                    <span style="color:var(--text-primary);font-weight:600;font-size:0.85rem;" id="pgStepLabel">Initializing...</span>
+                    <span id="pgPct" style="margin-left:auto;font-family:var(--font-mono);font-size:0.8rem;color:var(--accent-primary);font-weight:600;">0%</span>
+                </div>
+                <div class="backup-progress-track"><div class="backup-progress-fill pulsing" id="pgBar" style="width:0%"></div></div>
+                <div id="pgSteps" style="background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem;margin-top:0.75rem;max-height:220px;overflow-y:auto;"></div>
+                <div id="pgResult" style="margin-top:1rem;"></div>
+            </div>
+        `;
+
+        let stepCount = 0;
+        let hadWarnings = false;
+        const stepsEl = document.getElementById('pgSteps');
+
+        function addStep(text, status) {
+            if (status === 'warn') hadWarnings = true;
+            stepCount++;
+            const pct = Math.min(Math.round((stepCount / totalSteps) * 100), 99);
+            const bar = document.getElementById('pgBar');
+            const pctEl = document.getElementById('pgPct');
+            const labelEl = document.getElementById('pgStepLabel');
+
+            bar.style.width = pct + '%';
+            pctEl.textContent = pct + '%';
+            labelEl.textContent = text.length > 50 ? text.substring(0, 50) + '...' : text;
+
+            const icon = status === 'ok' ? '<span style="color:var(--success);">&#10003;</span>'
+                       : status === 'warn' ? '<span style="color:var(--warning);">&#9888;</span>'
+                       : status === 'fail' ? '<span style="color:var(--danger);">&#10007;</span>'
+                       : '<span style="color:var(--accent-primary);">&#9679;</span>';
+            stepsEl.innerHTML += `<div class="backup-step${status==='active'?' active':''}"><span class="backup-step-icon">${icon}</span><span>${text}</span><span class="backup-step-pct">${pct}%</span></div>`;
+            stepsEl.scrollTop = stepsEl.scrollHeight;
+        }
+
+        function complete(state) {
+            // state: true=success, false=failed, 'warn'=completed with warnings
+            const bar = document.getElementById('pgBar');
+            const pctEl = document.getElementById('pgPct');
+            const stepRow = document.getElementById('pgCurrentStep');
+            bar.style.width = '100%';
+            bar.classList.remove('pulsing');
+            if (state === 'warn') {
+                bar.classList.add('complete');
+                bar.style.background = 'var(--warning)';
+                pctEl.textContent = '100%';
+                pctEl.style.color = 'var(--warning)';
+                stepRow.innerHTML = `<svg width="18" height="18" fill="none" stroke="var(--warning)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg><span style="color:var(--warning);font-weight:600;font-size:0.85rem;">Completed with warnings</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:0.8rem;color:var(--warning);font-weight:600;">100%</span>`;
+            } else {
+                bar.classList.add(state ? 'complete' : 'failed');
+                pctEl.textContent = '100%';
+                pctEl.style.color = state ? 'var(--success)' : 'var(--danger)';
+                stepRow.innerHTML = state
+                    ? `<svg width="18" height="18" fill="none" stroke="var(--success)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span style="color:var(--success);font-weight:600;font-size:0.85rem;">Complete</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:0.8rem;color:var(--success);font-weight:600;">100%</span>`
+                    : `<svg width="18" height="18" fill="none" stroke="var(--danger)" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M15 9l-6 6m0-6l6 6"/></svg><span style="color:var(--danger);font-weight:600;font-size:0.85rem;">Failed</span><span style="margin-left:auto;font-family:var(--font-mono);font-size:0.8rem;color:var(--danger);font-weight:600;">100%</span>`;
+            }
+        }
+
+        return { addStep, complete, stepsEl, get hadWarnings() { return hadWarnings; } };
+    }
+
+    // Stream lines from a fetch response, calling onLine for each
+    async function streamLines(response, onLine) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // keep incomplete line in buffer
+            for (const line of lines) {
+                if (line.trim()) onLine(line);
+            }
+        }
+        if (buffer.trim()) onLine(buffer);
+    }
+
+    async function createManualBackup(worldName, compression) {
+        compression = compression || 'none';
+        const progressBody = document.getElementById('restoreProgressBody');
+        const titleEl = document.querySelector('#restoreProgressOverlay .mods-modal-title');
+        const svgBackup = '<svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>';
+
+        const expectedSteps = compression !== 'none' ? 14 : 9; // more steps with compression polling
+        const pg = createProgressUI(titleEl, progressBody, 'Creating Backup', svgBackup, Array(expectedSteps));
+        document.getElementById('restoreProgressOverlay').classList.add('show');
+
+        pg.addStep('Sending backup request...', 'ok');
+
+        try {
+            const res = await fetch('adminAPI.php?action=createManualBackup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({world: worldName, compression: compression})
+            });
+
+            let finalResult = null;
+            await streamLines(res, line => {
+                try {
+                    const obj = JSON.parse(line);
+                    if (obj.progress) {
+                        const lc = obj.progress.toLowerCase();
+                        const status = (lc.includes('failed') || lc.includes('error')) ? 'warn' : 'ok';
+                        pg.addStep(obj.progress, status);
+                    } else if (obj.success !== undefined) {
+                        finalResult = obj;
+                    }
+                } catch(e) {
+                    if (line.trim()) pg.addStep(line.trim(), 'ok');
+                }
+            });
+
+            if (finalResult && finalResult.success) {
+                const svgWarn = '<svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>';
+                if (pg.hadWarnings) {
+                    pg.complete('warn');
+                    titleEl.innerHTML = svgWarn + ' Backup Saved (with warnings)';
+                    document.getElementById('pgResult').innerHTML = `
+                        <div style="background:rgba(var(--warning-rgb,255,193,7),0.1);border:1px solid var(--warning);border-radius:0.375rem;padding:0.75rem;text-align:center;margin-bottom:0.75rem;">
+                            <div style="color:var(--text-secondary);font-size:0.8rem;">The backup was saved <strong>uncompressed</strong> because compression could not complete. Check the log above for details.</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <button class="action-btn" style="padding:0.4rem 1.5rem;border-color:var(--warning);color:var(--warning);" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');document.getElementById('backupsTab').dataset.loaded='';loadWorldBackups('${worldName}');fetchVolumeStats();">Done</button>
+                        </div>`;
+                } else {
+                    pg.complete(true);
+                    titleEl.innerHTML = svgBackup + ' Backup Complete';
+                    document.getElementById('pgResult').innerHTML = `
+                        <div style="text-align:center;margin-top:0.75rem;">
+                            <button class="action-btn success" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');document.getElementById('backupsTab').dataset.loaded='';loadWorldBackups('${worldName}');fetchVolumeStats();" style="padding:0.4rem 1.5rem;">Done</button>
+                        </div>`;
+                }
+            } else {
+                pg.complete(false);
+                titleEl.innerHTML = '<svg width="20" height="20" fill="none" stroke="var(--danger)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M15 9l-6 6m0-6l6 6"/></svg> Backup Failed';
+                document.getElementById('pgResult').innerHTML = `
+                    <div style="background:rgba(var(--danger-rgb,220,53,69),0.1);border:1px solid var(--danger);border-radius:0.375rem;padding:0.75rem;text-align:center;">
+                        <div style="color:var(--text-secondary);font-size:0.8rem;">${finalResult ? (finalResult.error || 'Unknown error') : 'No result from server'}</div>
+                    </div>
+                    <div style="text-align:center;margin-top:0.75rem;">
+                        <button class="action-btn" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');" style="padding:0.4rem 1.5rem;">Close</button>
+                    </div>`;
+            }
+        } catch(e) {
+            pg.addStep('Connection error: ' + e.message, 'fail');
+            pg.complete(false);
+            document.getElementById('pgResult').innerHTML = `
+                <div style="text-align:center;margin-top:0.75rem;">
+                    <button class="action-btn" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');" style="padding:0.4rem 1.5rem;">Close</button>
+                </div>`;
+        }
+    }
+
+    // --- Restore Confirmation Modal ---
+    let pendingRestoreId = null;
+    let pendingRestoreWorld = null;
+
+    async function restoreBackup(backupId, backupDate, worldName) {
+        pendingRestoreId = backupId;
+        pendingRestoreWorld = worldName;
+
+        const confirmBody = document.getElementById('restoreConfirmBody');
+        confirmBody.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><div class="backup-spinner" style="width:24px;height:24px;border-width:3px;margin:0 auto 1rem;"></div>Checking disk space...</div>';
+        document.getElementById('restoreConfirmOverlay').classList.add('show');
+
+        // Fetch preflight — safety backup needs world_size of free space
+        let preflight = { mounted: false, worldSize: 0, freeBytes: 0 };
+        try {
+            const res = await fetch(`adminAPI.php?action=getBackupPreflight&world=${encodeURIComponent(worldName)}`);
+            const data = await res.json();
+            if (data.success) preflight = data;
+        } catch(e) {}
+
+        function fmtSize(bytes) {
+            if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB';
+            return (bytes / 1048576).toFixed(1) + ' MB';
+        }
+
+        // Block if world is in a transitional state
+        const isTransitional = preflight.transitional || false;
+        const worldModeRestore = preflight.worldMode || '';
+        if (isTransitional) {
+            confirmBody.innerHTML = `
+                <div style="margin-bottom:1.25rem;">
+                    <div style="background:rgba(var(--danger-rgb,220,53,69),0.1);border:1px solid var(--danger);border-radius:0.375rem;padding:1rem;font-size:0.85rem;text-align:center;">
+                        <div style="font-size:1.5rem;margin-bottom:0.5rem;">&#9888;</div>
+                        <strong style="color:var(--danger);">Cannot restore while world is ${worldModeRestore}</strong>
+                        <div style="color:var(--text-secondary);margin-top:0.5rem;">The world is currently in a transitional state (<strong>${worldModeRestore}</strong>). Restores cannot run while files are being modified by another operation. Please wait for it to complete and try again.</div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                    <button class="action-btn" onclick="closeRestoreConfirm()" style="padding:0.4rem 1rem;">Close</button>
+                </div>`;
+            return;
+        }
+
+        const worldSize = preflight.worldSize;
+        const freeBytes = preflight.freeBytes;
+        const needed = worldSize * 1.1; // safety backup = world size + 10% headroom
+        const canSafetyBackup = freeBytes > needed;
+
+        // Disk space warning for safety backup
+        let diskStatusHtml = '';
+        if (worldSize > 0 && !canSafetyBackup) {
+            diskStatusHtml = `
+                <div style="background:rgba(var(--danger-rgb,220,53,69),0.1);border:1px solid var(--danger);border-radius:0.375rem;padding:0.75rem;font-size:0.8rem;margin-bottom:1rem;">
+                    <strong style="color:var(--danger);">&#9888; Insufficient space for safety backup</strong>
+                    <div style="color:var(--text-secondary);margin-top:0.25rem;">A pre-restore safety backup requires <strong>~${fmtSize(needed)}</strong> but only <strong>${fmtSize(freeBytes)}</strong> is free on the backup volume. The safety backup will be <strong>skipped</strong> — you will not be able to undo this restore.</div>
+                </div>`;
+        } else if (worldSize > 0) {
+            diskStatusHtml = `
+                <div style="background:rgba(var(--success-rgb,25,135,84),0.1);border:1px solid var(--success);border-radius:0.375rem;padding:0.75rem;font-size:0.8rem;margin-bottom:1rem;">
+                    <strong style="color:var(--success);">&#10003; Disk space OK</strong>
+                    <div style="color:var(--text-secondary);margin-top:0.25rem;">Safety backup: <strong>~${fmtSize(needed)}</strong> &nbsp;|&nbsp; Free: <strong>${fmtSize(freeBytes)}</strong></div>
+                </div>`;
+        }
+
+        confirmBody.innerHTML = `
+            <div style="margin-bottom:1.25rem;">
+                <p style="color:var(--text-primary);font-size:0.9rem;margin-bottom:1rem;">
+                    This will <strong style="color:var(--warning)">replace the entire current state</strong> of world
+                    <strong>"${worldName}"</strong> with the selected backup.
+                </p>
+                ${diskStatusHtml}
+                <div style="background:var(--bg-primary);border-radius:0.5rem;padding:1rem;margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--border-light);">
+                        <span style="color:var(--text-muted);font-size:0.8rem;">Backup Date</span>
+                        <code style="font-size:0.8rem;color:var(--accent-primary);">${backupDate}</code>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.35rem 0;border-bottom:1px solid var(--border-light);">
+                        <span style="color:var(--text-muted);font-size:0.8rem;">World</span>
+                        <span style="font-size:0.8rem;color:var(--text-primary);">${worldName}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:0.35rem 0;">
+                        <span style="color:var(--text-muted);font-size:0.8rem;">Backup ID</span>
+                        <code style="font-size:0.8rem;color:var(--text-secondary);">#${backupId}</code>
+                    </div>
+                </div>
+                <div style="background:rgba(var(--warning-rgb,255,193,7),0.1);border:1px solid var(--warning);border-radius:0.375rem;padding:0.75rem;font-size:0.8rem;">
+                    <strong style="color:var(--warning);">What will happen:</strong>
+                    <ul style="margin:0.5rem 0 0 1.25rem;padding:0;color:var(--text-secondary);line-height:1.6;">
+                        <li>The world process will be <strong>stopped</strong></li>
+                        <li>${canSafetyBackup || worldSize === 0 ? 'A <strong>safety backup</strong> of the current state will be created' : '<strong style="color:var(--danger);">Safety backup will be SKIPPED</strong> (not enough disk space)'}</li>
+                        <li>Current world files will be <strong>replaced</strong> with backup contents</li>
+                        <li>World will be set to <strong>rebuild</strong> and restarted</li>
+                    </ul>
+                </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                <button class="action-btn" onclick="closeRestoreConfirm()" style="padding:0.4rem 1rem;">Cancel</button>
+                <button class="action-btn" onclick="executeRestore()" style="padding:0.4rem 1rem;background:var(--warning);border-color:var(--warning);color:#000;font-weight:600;">Restore Backup</button>
+            </div>
+        `;
+    }
+
+    function closeRestoreConfirm(event) {
+        if (!event || event.target === document.getElementById('restoreConfirmOverlay')) {
+            document.getElementById('restoreConfirmOverlay').classList.remove('show');
+            pendingRestoreId = null;
+            pendingRestoreWorld = null;
+        }
+    }
+
+    async function executeRestore() {
+        const backupId = pendingRestoreId;
+        const worldName = pendingRestoreWorld;
+        closeRestoreConfirm();
+
+        const progressBody = document.getElementById('restoreProgressBody');
+        const titleEl = document.querySelector('#restoreProgressOverlay .mods-modal-title');
+        const svgRestore = '<svg width="20" height="20" fill="none" stroke="var(--accent-primary)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>';
+
+        // Expected steps: request, validate, stop, safety backup, clear, extract, extracted stats, ownership, rebuild, start, verify
+        const pg = createProgressUI(titleEl, progressBody, 'Restoring World', svgRestore, Array(12));
+        document.getElementById('restoreProgressOverlay').classList.add('show');
+
+        pg.addStep('Sending restore request...', 'ok');
+
+        try {
+            const res = await fetch('adminAPI.php?action=restoreBackup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({backupId: backupId})
+            });
+
+            let finalResult = null;
+            await streamLines(res, line => {
+                try {
+                    const obj = JSON.parse(line);
+                    if (obj.progress) {
+                        const lc = obj.progress.toLowerCase();
+                        const status = (lc.includes('warning') || lc.includes('failed') || lc.includes('error') || lc.includes('skipping')) ? 'warn' : 'ok';
+                        pg.addStep(obj.progress, status);
+                    } else if (obj.success !== undefined) {
+                        finalResult = obj;
+                    }
+                } catch(e) {
+                    if (line.trim()) pg.addStep(line.trim(), 'ok');
+                }
+            });
+
+            if (finalResult && finalResult.success) {
+                const svgWarnRestore = '<svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>';
+                if (pg.hadWarnings) {
+                    pg.complete('warn');
+                    titleEl.innerHTML = svgWarnRestore + ' Restored (with warnings)';
+                    document.getElementById('pgResult').innerHTML = `
+                        <div style="background:rgba(var(--warning-rgb,255,193,7),0.1);border:1px solid var(--warning);border-radius:0.375rem;padding:0.75rem;text-align:center;margin-bottom:0.75rem;">
+                            <div style="color:var(--text-secondary);font-size:0.8rem;">The world was restored but the <strong>pre-restore safety backup was skipped</strong> due to insufficient disk space. This restore cannot be undone.</div>
+                        </div>
+                        <div style="text-align:center;">
+                            <button class="action-btn" style="padding:0.4rem 1.5rem;border-color:var(--warning);color:var(--warning);" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');document.getElementById('backupsTab').dataset.loaded='';loadWorldBackups('${worldName}');fetchVolumeStats();">Done</button>
+                        </div>`;
+                } else {
+                    pg.complete(true);
+                    titleEl.innerHTML = '<svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Restore Complete';
+                    document.getElementById('pgResult').innerHTML = `
+                        <div style="background:rgba(var(--success-rgb,40,167,69),0.1);border:1px solid var(--success);border-radius:0.375rem;padding:0.75rem;text-align:center;">
+                            <div style="color:var(--text-secondary);font-size:0.8rem;">${finalResult.message}</div>
+                            ${finalResult.safetyBackupId ? '<div style="color:var(--text-muted);font-size:0.75rem;margin-top:0.35rem;">Safety backup created (ID #' + finalResult.safetyBackupId + ')</div>' : ''}
+                        </div>
+                        <div style="text-align:center;margin-top:0.75rem;">
+                            <button class="action-btn success" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');document.getElementById('backupsTab').dataset.loaded='';loadWorldBackups('${worldName}');fetchVolumeStats();" style="padding:0.4rem 1.5rem;">Done</button>
+                        </div>`;
+                }
+            } else {
+                pg.complete(false);
+                titleEl.innerHTML = '<svg width="20" height="20" fill="none" stroke="var(--danger)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M15 9l-6 6m0-6l6 6"/></svg> Restore Failed';
+                document.getElementById('pgResult').innerHTML = `
+                    <div style="background:rgba(var(--danger-rgb,220,53,69),0.1);border:1px solid var(--danger);border-radius:0.375rem;padding:0.75rem;text-align:center;">
+                        <div style="color:var(--text-secondary);font-size:0.8rem;">${finalResult ? (finalResult.error || 'Unknown error') : 'No response from server'}</div>
+                    </div>
+                    <div style="text-align:center;margin-top:0.75rem;">
+                        <button class="action-btn" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');" style="padding:0.4rem 1.5rem;">Close</button>
+                    </div>`;
+            }
+        } catch(e) {
+            pg.addStep('Connection error: ' + e.message, 'fail');
+            pg.complete(false);
+            titleEl.innerHTML = '<svg width="20" height="20" fill="none" stroke="var(--danger)" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:0.5rem;"><circle cx="12" cy="12" r="10" stroke-width="2"/><path stroke-linecap="round" stroke-width="2" d="M15 9l-6 6m0-6l6 6"/></svg> Restore Failed';
+            document.getElementById('pgResult').innerHTML = `
+                <div style="text-align:center;margin-top:0.75rem;">
+                    <button class="action-btn" onclick="document.getElementById('restoreProgressOverlay').classList.remove('show');" style="padding:0.4rem 1.5rem;">Close</button>
+                </div>`;
+        }
+    }
+
+    // --- Delete Confirmation Modal ---
+    let pendingDeleteIds = [];
+
+    function deleteSingleBackup(backupId) {
+        pendingDeleteIds = [backupId];
+        document.getElementById('deleteConfirmBody').innerHTML = `
+            <div style="margin-bottom:1.25rem;">
+                <p style="color:var(--text-primary);font-size:0.9rem;">
+                    Permanently delete backup <strong>#${backupId}</strong>?
+                </p>
+                <p style="color:var(--text-muted);font-size:0.8rem;">This action cannot be undone. The backup file will be removed from disk.</p>
+            </div>
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                <button class="action-btn" onclick="closeDeleteConfirm()" style="padding:0.4rem 1rem;">Cancel</button>
+                <button class="action-btn danger" onclick="executeDelete()" style="padding:0.4rem 1rem;font-weight:600;">Delete</button>
+            </div>
+        `;
+        document.getElementById('deleteConfirmOverlay').classList.add('show');
+    }
+
+    function deleteSelectedBackups() {
+        const checked = Array.from(document.querySelectorAll('.bk-check:checked')).map(cb => parseInt(cb.value));
+        if (checked.length === 0) {
+            document.getElementById('backupActionStatus').innerHTML = '<span style="color:var(--warning);font-size:0.8rem;">No backups selected</span>';
+            setTimeout(() => { document.getElementById('backupActionStatus').innerHTML = ''; }, 2000);
+            return;
+        }
+        pendingDeleteIds = checked;
+        document.getElementById('deleteConfirmBody').innerHTML = `
+            <div style="margin-bottom:1.25rem;">
+                <p style="color:var(--text-primary);font-size:0.9rem;">
+                    Permanently delete <strong>${checked.length}</strong> selected backup${checked.length > 1 ? 's' : ''}?
+                </p>
+                <p style="color:var(--text-muted);font-size:0.8rem;">This action cannot be undone. All selected backup files will be removed from disk.</p>
+            </div>
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;">
+                <button class="action-btn" onclick="closeDeleteConfirm()" style="padding:0.4rem 1rem;">Cancel</button>
+                <button class="action-btn danger" onclick="executeDelete()" style="padding:0.4rem 1rem;font-weight:600;">Delete ${checked.length} Backup${checked.length > 1 ? 's' : ''}</button>
+            </div>
+        `;
+        document.getElementById('deleteConfirmOverlay').classList.add('show');
+    }
+
+    function closeDeleteConfirm(event) {
+        if (!event || event.target === document.getElementById('deleteConfirmOverlay')) {
+            document.getElementById('deleteConfirmOverlay').classList.remove('show');
+            pendingDeleteIds = [];
+        }
+    }
+
+    async function purgeOrphanedBackups() {
+        if (!confirm('Remove all orphaned backup records? This only removes database entries for backups whose files no longer exist on disk.')) return;
+        try {
+            const res = await fetch('adminAPI.php?action=purgeOrphanedBackups', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            const data = await res.json();
+            if (data.success) {
+                fetchVolumeStats();
+                // Refresh backup table if open
+                if (currentSettingsWorld && document.getElementById('backupsTab')?.dataset.loaded === '1') {
+                    loadWorldBackups(currentSettingsWorld);
+                }
+            }
+        } catch(e) {}
+    }
+
+    async function executeDelete() {
+        const ids = [...pendingDeleteIds];
+        closeDeleteConfirm();
+
+        try {
+            const action = ids.length === 1 ? 'deleteBackup' : 'deleteBackups';
+            const body = ids.length === 1 ? {backupId: ids[0]} : {backupIds: ids};
+            const res = await fetch('adminAPI.php?action=' + action, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('backupsTab').dataset.loaded = '';
+                loadWorldBackups(currentSettingsWorld);
+                fetchVolumeStats();
+            } else {
+                document.getElementById('backupActionStatus').innerHTML = '<span style="color:var(--danger);font-size:0.8rem;">Delete failed: ' + (data.error || 'Unknown error') + '</span>';
+                setTimeout(() => { document.getElementById('backupActionStatus').innerHTML = ''; }, 4000);
+            }
+        } catch(e) {
+            document.getElementById('backupActionStatus').innerHTML = '<span style="color:var(--danger);font-size:0.8rem;">Delete failed: ' + e.message + '</span>';
+            setTimeout(() => { document.getElementById('backupActionStatus').innerHTML = ''; }, 4000);
+        }
+    }
+
+    async function saveWorldBackupSettings(worldName) {
+        const statusEl = document.getElementById('bkSettingsStatus');
+        statusEl.innerHTML = '<span style="color:var(--text-secondary)">Saving...</span>';
+
+        const payload = {
+            world: worldName,
+            settings: {
+                backup_use_global: document.getElementById('bk-useGlobal').checked ? 1 : 0,
+                backup_interval_minutes: parseInt(document.getElementById('bk-interval').value) || 30,
+                backup_require_activity: parseInt(document.getElementById('bk-requireActivity').value),
+                backup_retain_all_hours: parseInt(document.getElementById('bk-retainAllHours').value) || 24,
+                backup_retain_daily_days: parseInt(document.getElementById('bk-retainDailyDays').value) || 7,
+                backup_retain_weekly_days: parseInt(document.getElementById('bk-retainWeeklyDays').value) || 30,
+                backup_retain_monthly_months: parseInt(document.getElementById('bk-retainMonthlyMonths').value) || 6,
+                backup_compression: document.getElementById('bk-compression').value,
+                backup_compression_hour: parseInt(document.getElementById('bk-compressionHour').value),
+                backup_cpu_priority: parseInt(document.getElementById('bk-cpuPriority').value),
+                backup_io_priority: document.getElementById('bk-ioPriority').value,
+                backup_compression_level: parseInt(document.getElementById('bk-compressionLevel').value) || 0,
+            }
+        };
+
+        try {
+            const res = await fetch('adminAPI.php?action=saveWorldBackupSettings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                statusEl.innerHTML = '<span style="color:var(--success)">Saved!</span>';
+                setTimeout(() => { statusEl.innerHTML = ''; }, 2000);
+            } else {
+                statusEl.innerHTML = '<span style="color:var(--danger)">Error saving settings</span>';
+            }
+        } catch(e) {
+            statusEl.innerHTML = '<span style="color:var(--danger)">Error saving settings</span>';
+        }
+    }
+
     async function showSettingsModal(worldName) {
         currentSettingsWorld = worldName;
         document.getElementById('settingsModalTitle').textContent = `Settings - ${worldName}`;
         document.getElementById('settingsModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>';
+        document.getElementById('settingsTabBar').style.display = 'flex';
+        // Reset to Settings tab
+        document.querySelectorAll('#settingsTabBar .backup-tab').forEach(t => t.classList.remove('active'));
+        document.querySelector('#settingsTabBar .backup-tab[data-tab="settingsTab"]').classList.add('active');
         document.getElementById('settingsModalOverlay').classList.add('show');
 
         try {
-            // Fetch settings and citizens in parallel
             const [settingsRes, citizensRes] = await Promise.all([
                 fetch(`adminAPI.php?action=getWorldSettings&world=${encodeURIComponent(worldName)}`),
                 fetch(`adminAPI.php?action=getCitizens&world=${encodeURIComponent(worldName)}`)
@@ -1607,6 +2634,8 @@ $totalCount = count($worlds);
                 const isPublic = citizens.public ? 'checked' : '';
 
                 document.getElementById('settingsModalBody').innerHTML = `
+                    <!-- Settings Tab -->
+                    <div class="settings-tab-pane" id="settingsTab" style="display:block;">
                     <div style="margin-bottom: 1.5rem;">
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">World Information</h6>
                         <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
@@ -1691,6 +2720,113 @@ $totalCount = count($worlds);
                             <button class="action-btn success" onclick="saveSettingsCitizens()">Save Settings</button>
                         </div>
                         <div id="settingsCitizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                    </div>
+                    </div>
+
+                    <!-- Backups Tab -->
+                    <div class="settings-tab-pane" id="backupsTab" style="display:none;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                            <div style="display:flex;gap:0.5rem;">
+                                <button class="action-btn success" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="confirmCreateBackup('${worldName}')">Start Manual Backup</button>
+                                <button class="action-btn danger" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="deleteSelectedBackups()">Delete Selected</button>
+                            </div>
+                            <div id="backupActionStatus" style="font-size:0.8rem;"></div>
+                        </div>
+
+                        <details style="margin-bottom:1rem;background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem 1rem;">
+                            <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-secondary);user-select:none;">Per-World Backup Settings</summary>
+                            <div style="margin-top:0.75rem;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                                    <div>
+                                        <span style="font-size:0.85rem;">Use Global Defaults</span>
+                                        <small style="display:block;color:var(--text-muted);font-size:0.7rem;">When enabled, this world uses the server-wide backup settings.</small>
+                                    </div>
+                                    <label class="switch"><input type="checkbox" id="bk-useGlobal" checked onchange="document.getElementById('bk-overrideFields').style.display=this.checked?'none':'block'"><span class="slider round"></span></label>
+                                </div>
+                                <div id="bk-overrideFields" style="display:none;">
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Interval (min) <span class="backup-info-icon" data-tip="How often scheduled backups run for this world. Backups only trigger when conditions are met.">&#9432;</span></label>
+                                            <input type="number" class="form-control form-control-sm" id="bk-interval" value="30" style="font-family:var(--font-mono)">
+                                        </div>
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Require Activity <span class="backup-info-icon" data-tip="When enabled, backups only occur if players have connected since the last backup.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="bk-requireActivity">
+                                                <option value="1" selected>Yes</option>
+                                                <option value="0">No</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Compression <span class="backup-info-icon" data-tip="Compression algorithm for this world's backups. 'none' stores as uncompressed tar. Gzip is widely compatible. Zstd is faster with better ratios.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="bk-compression">
+                                                <option value="none">None</option>
+                                                <option value="gzip">Gzip</option>
+                                                <option value="zstd">Zstd</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Compression Schedule <span class="backup-info-icon" data-tip="Hour (0-23) to run deferred compression, or Immediate to compress right after backup. Only applies if compression is not 'none'.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="bk-compressionHour">
+                                                <option value="-1">Immediate</option>
+                                                ${Array.from({length:24}, (_,i) => '<option value="'+i+'">'+String(i).padStart(2,'0')+':00</option>').join('')}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div style="font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;">Performance Tuning</div>
+                                    <div class="row mb-2">
+                                        <div class="col-4">
+                                            <label style="font-size:0.7rem;color:var(--text-secondary)">CPU Priority <span class="backup-info-icon" data-tip="CPU scheduling priority. Higher nice value = lower priority = less impact on players.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="bk-cpuPriority">
+                                                <option value="0">Normal (0)</option>
+                                                <option value="10" selected>Low (10)</option>
+                                                <option value="19">Lowest (19)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <label style="font-size:0.7rem;color:var(--text-secondary)">I/O Priority <span class="backup-info-icon" data-tip="Disk I/O class. Idle = backups only use disk when game server isn't reading/writing.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="bk-ioPriority">
+                                                <option value="normal">Normal</option>
+                                                <option value="low" selected>Low</option>
+                                                <option value="idle">Idle</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-4">
+                                            <label style="font-size:0.7rem;color:var(--text-secondary)">Comp. Level <span class="backup-info-icon" data-tip="Compression level (0=default). Lower = faster, higher = smaller files but more CPU.">&#9432;</span></label>
+                                            <input type="number" class="form-control form-control-sm" id="bk-compressionLevel" value="0" min="0" max="19" style="font-family:var(--font-mono)">
+                                        </div>
+                                    </div>
+                                    <div style="font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.35rem;">Retention Override</div>
+                                    <div class="row mb-2">
+                                        <div class="col-3">
+                                            <label style="font-size:0.7rem;color:var(--text-secondary)">All (hrs) <span class="backup-info-icon" data-tip="Keep every backup created within this many hours. Default: 24 hours.">&#9432;</span></label>
+                                            <input type="number" class="form-control form-control-sm" id="bk-retainAllHours" value="24" style="font-family:var(--font-mono)">
+                                        </div>
+                                        <div class="col-3">
+                                            <label style="font-size:0.7rem;color:var(--text-secondary)">Daily (days) <span class="backup-info-icon" data-tip="After the keep-all window, retain one backup per day for this many days. Default: 7 days.">&#9432;</span></label>
+                                            <input type="number" class="form-control form-control-sm" id="bk-retainDailyDays" value="7" style="font-family:var(--font-mono)">
+                                        </div>
+                                        <div class="col-3">
+                                            <label style="font-size:0.7rem;color:var(--text-secondary)">Weekly (days) <span class="backup-info-icon" data-tip="After the daily tier, retain one backup per week for this many days. Default: 30 days.">&#9432;</span></label>
+                                            <input type="number" class="form-control form-control-sm" id="bk-retainWeeklyDays" value="30" style="font-family:var(--font-mono)">
+                                        </div>
+                                        <div class="col-3">
+                                            <label style="font-size:0.7rem;color:var(--text-secondary)">Monthly (mo) <span class="backup-info-icon" data-tip="After the weekly tier, retain one backup per month for this many months. Default: 6 months.">&#9432;</span></label>
+                                            <input type="number" class="form-control form-control-sm" id="bk-retainMonthlyMonths" value="6" style="font-family:var(--font-mono)">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:0.75rem;justify-content:flex-end;padding-top:0.75rem;border-top:1px solid var(--border-light);">
+                                    <button class="action-btn success" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="saveWorldBackupSettings('${worldName}')">Save Backup Settings</button>
+                                </div>
+                                <div id="bkSettingsStatus" style="text-align:center;margin-top:0.5rem;font-size:0.8rem;"></div>
+                            </div>
+                        </details>
+
+                        <div id="backupsList">
+                            <div style="text-align:center;padding:2rem;color:var(--text-muted)">Switch to this tab to load backups</div>
+                        </div>
                     </div>
                 `;
             } else {
@@ -1965,7 +3101,6 @@ $totalCount = count($worlds);
                     ['Game DNS', s.gameDNS || '(empty)'],
                     ['Steam API Key', s.steamAPIKey ? s.steamAPIKey.substring(0, 8) + '...' : '(empty)'],
                     ['Client Download URL', s.phvalheimClientURL ? (s.phvalheimClientURL.length > 40 ? s.phvalheimClientURL.substring(0, 40) + '...' : s.phvalheimClientURL) : '(empty)'],
-                    ['Backups to Keep', s.backupsToKeep],
                     ['Session Timeout', s.sessionTimeout + 's'],
                 ];
                 const tbody = document.getElementById('migrationValuesTable');
@@ -2017,7 +3152,7 @@ $totalCount = count($worlds);
                     <span style="display:inline-block;width:3px;height:14px;background:${color};border-radius:2px;"></span>
                     ${label}
                 </h6>`;
-            const tip = (text) => `title="${text}"`;
+            const tip = (text) => `data-tip="${text}"`;
             const buildTimezoneOptions = (selected) => {
                 const tzList = [
                     ['Etc/UTC',              '(GMT)  UTC'],
@@ -2080,15 +3215,11 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-4">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('Number of automatic world backups to retain before oldest are deleted')}>Backups to Keep</label>
-                            <input type="number" class="form-control form-control-sm" id="ss-backupsToKeep" value="${s.backupsToKeep}" style="font-family:var(--font-mono)" ${tip('Backups run every 30 minutes. 24 = 12 hours of backups (default).')}>
-                        </div>
-                        <div class="col-4">
+                        <div class="col-6">
                             <label style="font-size:0.8rem;color:orchid" ${tip('Controls how long public UI login cookies stay valid before expiring (in seconds)')}>Session Timeout (s)</label>
                             <input type="number" class="form-control form-control-sm" id="ss-sessionTimeout" value="${s.sessionTimeout}" style="font-family:var(--font-mono)" ${tip('Controls public UI cookie expiry. Default: 2592000 (30 days). After this, players must re-login via Steam.')}>
                         </div>
-                        <div class="col-4">
+                        <div class="col-6">
                             <label style="font-size:0.8rem;color:orchid" ${tip('Maximum world log file size in bytes before rotation')}>Max Log Size</label>
                             <input type="number" class="form-control form-control-sm" id="ss-maxLogSize" value="${s.maxLogSize}" style="font-family:var(--font-mono)" ${tip('Log files exceeding this size are rotated. Default: 1000000 (1 MB).')}>
                         </div>
@@ -2112,6 +3243,121 @@ $totalCount = count($worlds);
                         ${keyField('ss-steamAPIKey', s.steamAPIKey)}
                         <div style="margin-top:0.3rem;font-size:0.7rem;color:var(--text-muted)">Get a key at <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener" style="color:#1b9fff;">steamcommunity.com/dev/apikey</a></div>
                     </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    ${sectionHead('Backups', 'var(--success)')}
+
+                    ${!s.backupPathMounted ? `
+                    <div style="background:rgba(var(--danger-rgb,220,53,69),0.12);border:1px solid var(--danger);border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem;">
+                            <svg width="18" height="18" fill="none" stroke="var(--danger)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                            <strong style="color:var(--danger);font-size:0.85rem;">No dedicated backup volume detected</strong>
+                        </div>
+                        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.5;">
+                            Backups are writing to the main <code>/opt/stateful</code> volume. This means backups compete with game data for disk space.
+                            <strong>Mount a separate host path to <code>/opt/stateful/backups</code></strong> in your container config for safe, isolated backup storage.
+                            Automatic backups are <strong style="color:var(--danger)">disabled</strong> until a dedicated backup volume is mounted.
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <div style="background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <div>
+                                <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.25rem;">Backup Storage</div>
+                                <code style="font-size:0.8rem;color:var(--accent-primary);">${s.backupPath}</code>
+                                <a href="https://github.com/brianmiller/phvalheim-server#backups" target="_blank" rel="noopener" style="margin-left:0.35rem;color:var(--accent-primary);text-decoration:none;font-size:0.8rem;" title="This is the internal container path. Your Docker host path must be mapped to this location. Click to view backup documentation.">&#9432;</a>
+                                ${s.backupPathMounted
+                                    ? '<span style="margin-left:0.5rem;font-size:0.7rem;color:var(--success);">&#10003; dedicated volume</span>'
+                                    : '<span style="margin-left:0.5rem;font-size:0.7rem;color:var(--warning);">&#9888; shared with /opt/stateful</span>'}
+                            </div>
+                            <div style="text-align:right;font-size:0.8rem;">
+                                <div style="color:var(--text-primary);font-weight:600;">${s.backupCount} backup${s.backupCount !== 1 ? 's' : ''}</div>
+                                <div style="color:var(--text-muted);font-size:0.75rem;">${(s.backupTotalSize / 1073741824).toFixed(1)} GB used — ${s.backupDiskFree} free of ${s.backupDiskTotal}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top:0.5rem;height:4px;background:var(--bg-secondary);border-radius:2px;overflow:hidden;">
+                            <div style="height:100%;border-radius:2px;width:${s.backupDiskPerc};background:${parseInt(s.backupDiskPerc) > 85 ? 'var(--danger)' : parseInt(s.backupDiskPerc) > 70 ? 'var(--warning)' : 'var(--success)'};"></div>
+                        </div>
+                    </div>
+
+                    <div id="ss-backupFields" ${!s.backupPathMounted ? 'style="opacity:0.4;pointer-events:none;"' : ''}>
+                    <div class="row mb-2">
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('How often scheduled backups run (in minutes)')}>Backup Interval (min)</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-backupIntervalMinutes" value="${s.backupIntervalMinutes}" style="font-family:var(--font-mono)" ${tip('Default: 30 minutes. Backups only occur when conditions are met.')}>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Only create backups when players have been online since the last backup')}>Require Player Activity</label>
+                            <select class="form-control form-control-sm" id="ss-backupRequireActivity" ${tip('When enabled, worlds with no player activity since last backup are skipped.')}>
+                                <option value="1" ${s.backupRequireActivity == 1 ? 'selected' : ''}>Yes</option>
+                                <option value="0" ${s.backupRequireActivity == 0 ? 'selected' : ''}>No</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Compression algorithm for backup files')}>Compression</label>
+                            <select class="form-control form-control-sm" id="ss-backupCompression" ${tip('None = uncompressed tar. Gzip/Zstd reduce size significantly.')}>
+                                <option value="none" ${s.backupCompression === 'none' ? 'selected' : ''}>None</option>
+                                <option value="gzip" ${s.backupCompression === 'gzip' ? 'selected' : ''}>Gzip</option>
+                                <option value="zstd" ${s.backupCompression === 'zstd' ? 'selected' : ''}>Zstd</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Hour of day (0-23) when deferred compression runs, or -1 for immediate')}>Compression Schedule</label>
+                            <select class="form-control form-control-sm" id="ss-backupCompressionHour" ${tip('Set to Immediate to compress at backup time, or pick an off-peak hour.')}>
+                                <option value="-1" ${s.backupCompressionHour == -1 ? 'selected' : ''}>Immediate</option>
+                                ${Array.from({length:24}, (_,i) => '<option value="' + i + '" ' + (s.backupCompressionHour == i ? 'selected' : '') + '>' + (i === 0 ? '12:00 AM' : i < 12 ? i + ':00 AM' : i === 12 ? '12:00 PM' : (i-12) + ':00 PM') + '</option>').join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div style="margin-top:0.75rem;margin-bottom:0.35rem;font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Performance Tuning</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:0.5rem;">Control how aggressively backups use system resources. Lower priority = less impact on active players.</div>
+                    <div class="row mb-2">
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('CPU scheduling priority for tar and compression. Higher nice values = lower priority.')}>CPU Priority</label>
+                            <select class="form-control form-control-sm" id="ss-backupCpuPriority" ${tip('Normal (0) = full speed. Low (10) = reduced priority. Lowest (19) = minimal CPU impact.')}>
+                                <option value="0" ${s.backupCpuPriority == 0 ? 'selected' : ''}>Normal (0)</option>
+                                <option value="10" ${s.backupCpuPriority == 10 ? 'selected' : ''}>Low (10)</option>
+                                <option value="19" ${s.backupCpuPriority == 19 ? 'selected' : ''}>Lowest (19)</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Disk I/O scheduling class. Idle = only use disk when nothing else needs it.')}>I/O Priority</label>
+                            <select class="form-control form-control-sm" id="ss-backupIoPriority" ${tip('Normal = default scheduling. Low = reduced I/O priority. Idle = only runs when disk is free.')}>
+                                <option value="normal" ${s.backupIoPriority === 'normal' ? 'selected' : ''}>Normal</option>
+                                <option value="low" ${s.backupIoPriority === 'low' ? 'selected' : ''}>Low</option>
+                                <option value="idle" ${s.backupIoPriority === 'idle' ? 'selected' : ''}>Idle</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Compression level (0=default). Gzip: 1-9, Zstd: 1-19. Higher = smaller files but more CPU.')}>Compression Level</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-backupCompressionLevel" value="${s.backupCompressionLevel || 0}" min="0" max="19" style="font-family:var(--font-mono)" ${tip('0 = tool default (gzip: 6, zstd: 3). Lower = faster. Higher = better ratio but slower.')}>
+                        </div>
+                    </div>
+                    <div style="margin-top:0.75rem;margin-bottom:0.35rem;font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Retention Policy</div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:0.5rem;">Scheduled backups are thinned over time. Manual backups are never auto-deleted.</div>
+                    <div class="row mb-2">
+                        <div class="col-3">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('Keep every backup created within this many hours')}>Keep All (hours)</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-backupRetainAllHours" value="${s.backupRetainAllHours}" style="font-family:var(--font-mono)" ${tip('Default: 24. All backups within this window are kept.')}>
+                        </div>
+                        <div class="col-3">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('After the keep-all window, retain one backup per day for this many days')}>1/Day (days)</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-backupRetainDailyDays" value="${s.backupRetainDailyDays}" style="font-family:var(--font-mono)" ${tip('Default: 7. One backup per day is kept in this tier.')}>
+                        </div>
+                        <div class="col-3">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('After the daily tier, retain one backup per week for this many days')}>1/Week (days)</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-backupRetainWeeklyDays" value="${s.backupRetainWeeklyDays}" style="font-family:var(--font-mono)" ${tip('Default: 30. One backup per week is kept in this tier.')}>
+                        </div>
+                        <div class="col-3">
+                            <label style="font-size:0.8rem;color:orchid" ${tip('After the weekly tier, retain one backup per month for this many months')}>1/Month (months)</label>
+                            <input type="number" class="form-control form-control-sm" id="ss-backupRetainMonthlyMonths" value="${s.backupRetainMonthlyMonths}" style="font-family:var(--font-mono)" ${tip('Default: 6. One backup per month is kept in this tier.')}>
+                        </div>
+                    </div>
+                    </div><!-- /ss-backupFields -->
                 </div>
 
                 <div style="margin-bottom: 1.5rem;">
@@ -2213,7 +3459,6 @@ $totalCount = count($worlds);
             gameDNS: document.getElementById('ss-gameDNS').value.trim(),
             basePort: parseInt(document.getElementById('ss-basePort').value) || 25000,
             defaultSeed: '',
-            backupsToKeep: parseInt(document.getElementById('ss-backupsToKeep').value) || 24,
             sessionTimeout: parseInt(document.getElementById('ss-sessionTimeout').value) || 2592000,
             maxLogSize: parseInt(document.getElementById('ss-maxLogSize').value) || 1000000,
             phvalheimClientURL: document.getElementById('ss-phvalheimClientURL').value.trim(),
@@ -2226,6 +3471,17 @@ $totalCount = count($worlds);
             thunderstore_local_sync: parseInt(document.getElementById('ss-thunderstore_local_sync').value),
             thunderstore_chunk_size: parseInt(document.getElementById('ss-thunderstore_chunk_size').value) || 1000,
             analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),
+            backupIntervalMinutes: parseInt(document.getElementById('ss-backupIntervalMinutes').value) || 30,
+            backupRequireActivity: parseInt(document.getElementById('ss-backupRequireActivity').value),
+            backupCompression: document.getElementById('ss-backupCompression').value,
+            backupCompressionHour: parseInt(document.getElementById('ss-backupCompressionHour').value),
+            backupRetainAllHours: parseInt(document.getElementById('ss-backupRetainAllHours').value) || 24,
+            backupRetainDailyDays: parseInt(document.getElementById('ss-backupRetainDailyDays').value) || 7,
+            backupRetainWeeklyDays: parseInt(document.getElementById('ss-backupRetainWeeklyDays').value) || 30,
+            backupRetainMonthlyMonths: parseInt(document.getElementById('ss-backupRetainMonthlyMonths').value) || 6,
+            backupCpuPriority: parseInt(document.getElementById('ss-backupCpuPriority').value),
+            backupIoPriority: document.getElementById('ss-backupIoPriority').value,
+            backupCompressionLevel: parseInt(document.getElementById('ss-backupCompressionLevel').value) || 0,
         };
 
         try {

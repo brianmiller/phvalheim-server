@@ -1,0 +1,1 @@
+45 * * * * phvalheim /opt/stateless/engine/tools/worldBackupRetention >> /opt/stateful/logs/worldBackups.log 2>&1

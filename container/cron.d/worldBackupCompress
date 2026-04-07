@@ -1,0 +1,1 @@
+30 * * * * phvalheim /opt/stateless/engine/tools/worldBackupCompress >> /opt/stateful/logs/worldBackups.log 2>&1

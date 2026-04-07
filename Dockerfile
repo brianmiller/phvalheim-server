@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.37
+ENV phvalheimVersion=2.38
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -17,7 +17,7 @@ RUN apt-get -y upgrade
 RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip unzip supervisor curl vim jq wget language-pack-en rsync ca-certificates bc sudo
 RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql php-curl cron inetutils-ping time
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
-RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client
+RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client zstd
 
 # github cli
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg

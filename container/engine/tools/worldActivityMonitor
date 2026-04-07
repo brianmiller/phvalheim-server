@@ -1,0 +1,54 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+
+# Player activity monitor - parses world logs for player join/leave events
+# and updates worlds.last_player_activity in the database.
+# Uses a high-water mark file per world to avoid rescanning old log entries.
+
+markerDir="/opt/stateful/logs/.activity_markers"
+mkdir -p "$markerDir"
+
+worldNames=$(SQL "SELECT name FROM worlds WHERE mode='running';")
+
+for worldName in $worldNames; do
+	logFile="/opt/stateful/logs/valheimworld_${worldName}.log"
+	markerFile="$markerDir/${worldName}.offset"
+
+	[ -f "$logFile" ] || continue
+
+	# get previous byte offset (high-water mark)
+	lastOffset=0
+	if [ -f "$markerFile" ]; then
+		lastOffset=$(cat "$markerFile")
+		# if log was rotated (smaller than offset), reset
+		currentSize=$(stat --format=%s "$logFile" 2>/dev/null || echo 0)
+		if [ "$currentSize" -lt "$lastOffset" ]; then
+			lastOffset=0
+		fi
+	fi
+
+	# read only new log content since last check
+	newContent=$(tail -c +$((lastOffset + 1)) "$logFile" 2>/dev/null)
+
+	if [ -z "$newContent" ]; then
+		# save current position even if no new content
+		stat --format=%s "$logFile" > "$markerFile" 2>/dev/null
+		continue
+	fi
+
+	# check for player activity patterns in new content
+	# Valheim server logs these on player connect/disconnect:
+	#   "Got connection SteamID <id>"
+	#   "Got character ZDOID from <name>"
+	#   "Closing socket <id>"
+	#   "Peer <id> has wrong password"
+	activityFound=$(echo "$newContent" | grep -cE "Got connection SteamID|Got character ZDOID from|Closing socket [0-9]")
+
+	if [ "$activityFound" -gt 0 ]; then
+		SQL "UPDATE worlds SET last_player_activity=NOW() WHERE name='$worldName';"
+		echo "`date` [phvalheim] Activity detected for '$worldName' ($activityFound events)"
+	fi
+
+	# update high-water mark
+	stat --format=%s "$logFile" > "$markerFile" 2>/dev/null
+done

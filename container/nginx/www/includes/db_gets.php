@@ -511,6 +511,160 @@ function getFreeMemory() {
         return $result;
 }
 
+function getWorldBackups($pdo, $worldName) {
+        $stmt = $pdo->prepare("SELECT id, world_name, created_at, type, file_path, file_size, uncompressed_size, compressed, compression_type, metadata, orphaned FROM backups WHERE world_name = ? ORDER BY created_at DESC");
+        $stmt->execute([$worldName]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getBackupById($pdo, $backupId) {
+        $stmt = $pdo->prepare("SELECT id, world_name, created_at, type, file_path, file_size, uncompressed_size, compressed, compression_type, metadata FROM backups WHERE id = ?");
+        $stmt->execute([$backupId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function getWorldBackupSettings($pdo, $worldName) {
+        $stmt = $pdo->prepare("SELECT backup_use_global, backup_interval_minutes, backup_require_activity, backup_retain_all_hours, backup_retain_daily_days, backup_retain_weekly_days, backup_retain_monthly_months, backup_compression, backup_compression_hour, backup_cpu_priority, backup_io_priority, backup_compression_level, last_player_activity, last_backup_time FROM worlds WHERE name = ?");
+        $stmt->execute([$worldName]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function getWorldBackupCount($pdo, $worldName) {
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM backups WHERE world_name = ?");
+        $stmt->execute([$worldName]);
+        return (int)$stmt->fetchColumn();
+}
+
+function getWorldBackupTotalSize($pdo, $worldName) {
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(file_size), 0) FROM backups WHERE world_name = ?");
+        $stmt->execute([$worldName]);
+        return (int)$stmt->fetchColumn();
+}
+
+function getTotalBackupCount($pdo) {
+        $stmt = $pdo->query("SELECT COUNT(*) FROM backups");
+        return (int)$stmt->fetchColumn();
+}
+
+function getTotalBackupSize($pdo) {
+        $stmt = $pdo->query("SELECT COALESCE(SUM(file_size), 0) FROM backups");
+        return (int)$stmt->fetchColumn();
+}
+
+function isBackupPathMounted() {
+        // Check if /opt/stateful/backups is a separate mount point (bind mount or distinct volume)
+        $ret = 0;
+        exec("mountpoint -q /opt/stateful/backups 2>/dev/null", $out, $ret);
+        return $ret === 0;
+}
+
+function getBackupDiskInfo() {
+        $path = '/opt/stateful/backups';
+        return [
+            'total' => getTotalDisk($path),
+            'used' => getUsedDisk($path),
+            'free' => getFreeDisk($path),
+            'perc' => getUsedDiskPerc($path),
+        ];
+}
+
+function getVolumeStats() {
+        $paths = [
+            ['name' => 'Data', 'path' => '/opt/stateful', 'desc' => 'Worlds, database, logs, configs'],
+            ['name' => 'Backups', 'path' => '/opt/stateful/backups', 'desc' => 'World backup archives'],
+        ];
+
+        // Detect which device each path is on to avoid duplicate entries
+        $seen = [];
+        $volumes = [];
+        $backupMounted = isBackupPathMounted();
+
+        foreach ($paths as $p) {
+            if (!is_dir($p['path'])) continue;
+            $device = trim(exec("df " . escapeshellarg($p['path']) . " 2>/dev/null | tail -1 | tr -s ' ' | cut -d' ' -f1"));
+            // If backups are on the same device as data, merge them
+            if ($p['name'] === 'Backups' && !$backupMounted) continue;
+            if (isset($seen[$device]) && $p['name'] !== 'Backups') continue;
+            $seen[$device] = true;
+
+            $total = disk_total_space($p['path']);
+            $free = disk_free_space($p['path']);
+            $used = $total - $free;
+            $perc = $total > 0 ? round(($used / $total) * 100) : 0;
+            $volumes[] = [
+                'name' => $p['name'],
+                'path' => $p['path'],
+                'desc' => $p['desc'],
+                'device' => $device,
+                'total' => $total,
+                'used' => $used,
+                'free' => $free,
+                'perc' => $perc,
+                'totalH' => getTotalDisk($p['path']),
+                'usedH' => getUsedDisk($p['path']),
+                'freeH' => getFreeDisk($p['path']),
+            ];
+        }
+
+        // If backups are on the same device, annotate the data volume
+        if (!$backupMounted) {
+            if (!empty($volumes)) $volumes[0]['desc'] .= ' (+ backups, shared)';
+        }
+
+        return $volumes;
+}
+
+function getWorldMode($pdo, $worldName) {
+        $stmt = $pdo->prepare("SELECT mode FROM worlds WHERE name = ?");
+        $stmt->execute([$worldName]);
+        return $stmt->fetchColumn() ?: 'unknown';
+}
+
+function isWorldTransitional($mode) {
+        return in_array($mode, ['start', 'starting', 'stop', 'stopping', 'create', 'creating', 'update', 'updating', 'delete', 'deleting', 'backup']);
+}
+
+function getWorldDirSize($worldName) {
+        $path = '/opt/stateful/games/valheim/worlds/' . basename($worldName);
+        if (!is_dir($path)) return 0;
+        $size = trim(exec("du -sb " . escapeshellarg($path) . " --exclude=" . escapeshellarg($worldName . ".zip") . " 2>/dev/null | cut -f1"));
+        return (int)$size;
+}
+
+function getBackupDiskFreeBytes() {
+        $free = disk_free_space('/opt/stateful/backups');
+        return $free !== false ? (int)$free : 0;
+}
+
+function getOrphanedBackupCount($pdo) {
+        $stmt = $pdo->query("SELECT COUNT(*) FROM backups WHERE orphaned = 1");
+        return (int)$stmt->fetchColumn();
+}
+
+function getOrphanedBackups($pdo) {
+        $stmt = $pdo->query("SELECT id, world_name, created_at, type, file_path, file_size, compressed, compression_type, metadata FROM backups WHERE orphaned = 1 ORDER BY created_at DESC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function purgeOrphanedBackups($pdo) {
+        $stmt = $pdo->query("SELECT id, file_path FROM backups WHERE orphaned = 1");
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $count = 0;
+        foreach ($rows as $row) {
+            // Double-check file is truly missing before deleting record
+            if (!empty($row['file_path']) && file_exists($row['file_path'])) {
+                // File reappeared — clear orphan flag instead of deleting
+                $update = $pdo->prepare("UPDATE backups SET orphaned = 0 WHERE id = ?");
+                $update->execute([$row['id']]);
+            } else {
+                $del = $pdo->prepare("DELETE FROM backups WHERE id = ?");
+                $del->execute([$row['id']]);
+                $count++;
+            }
+        }
+        return $count;
+}
+
 function getCpuUtilization($pdo) {
         $sth = $pdo->prepare("SELECT currentCpuUtilization FROM systemstats LIMIT 1;");
         $sth->execute();

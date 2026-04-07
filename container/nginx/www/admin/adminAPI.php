@@ -269,6 +269,262 @@ switch($action) {
         }
         break;
 
+    case 'getBackupDiskStats':
+        $mounted = isBackupPathMounted();
+        $info = getBackupDiskInfo();
+        $count = getTotalBackupCount($pdo);
+        $totalSize = getTotalBackupSize($pdo);
+        echo json_encode([
+            'success' => true,
+            'mounted' => $mounted,
+            'total' => $info['total'],
+            'used' => $info['used'],
+            'free' => $info['free'],
+            'perc' => $info['perc'],
+            'backupCount' => $count,
+            'backupTotalSize' => $totalSize,
+        ]);
+        break;
+
+    case 'getVolumeStats':
+        $volumes = getVolumeStats();
+        $backupCount = getTotalBackupCount($pdo);
+        $backupTotalSize = getTotalBackupSize($pdo);
+        $orphanedCount = getOrphanedBackupCount($pdo);
+        echo json_encode([
+            'success' => true,
+            'volumes' => $volumes,
+            'backupCount' => $backupCount,
+            'backupTotalSize' => $backupTotalSize,
+            'backupMounted' => isBackupPathMounted(),
+            'orphanedCount' => $orphanedCount,
+        ]);
+        break;
+
+    case 'getBackupPreflight':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            $mounted = isBackupPathMounted();
+            $worldSize = getWorldDirSize($world);
+            $freeBytes = getBackupDiskFreeBytes();
+            $worldMode = getWorldMode($pdo, $world);
+            $transitional = isWorldTransitional($worldMode);
+            echo json_encode([
+                'success' => true,
+                'mounted' => $mounted,
+                'worldSize' => $worldSize,
+                'freeBytes' => $freeBytes,
+                'worldMode' => $worldMode,
+                'transitional' => $transitional,
+            ]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'World name required']);
+        }
+        break;
+
+    case 'getWorldBackups':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            $backups = getWorldBackups($pdo, $world);
+            echo json_encode(['success' => true, 'backups' => $backups]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'World name required']);
+        }
+        break;
+
+    case 'createManualBackup':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $compression = $input['compression'] ?? '';
+            // validate compression value
+            if (!in_array($compression, ['none', 'gzip', 'zstd'])) $compression = '';
+            if ($world) {
+                header('Content-Type: text/plain; charset=utf-8');
+                header('X-Accel-Buffering: no');
+                header('Cache-Control: no-cache');
+                if (ob_get_level()) ob_end_flush();
+                $compArg = $compression ? ' ' . escapeshellarg($compression) : '';
+                $proc = popen("/opt/stateless/engine/tools/worldBackup " . escapeshellarg($world) . " manual" . $compArg . " 2>&1", 'r');
+                if ($proc) {
+                    while (!feof($proc)) {
+                        $line = fgets($proc);
+                        if ($line !== false) {
+                            echo $line;
+                            flush();
+                        }
+                    }
+                    pclose($proc);
+                } else {
+                    echo json_encode(['success' => false, 'error' => 'Failed to start backup process']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'restoreBackup':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $backupId = (int)($input['backupId'] ?? 0);
+            if ($backupId > 0) {
+                header('Content-Type: text/plain; charset=utf-8');
+                header('X-Accel-Buffering: no');
+                header('Cache-Control: no-cache');
+                if (ob_get_level()) ob_end_flush();
+                $proc = popen("/opt/stateless/engine/tools/worldRestore " . escapeshellarg($backupId) . " 2>&1", 'r');
+                if ($proc) {
+                    while (!feof($proc)) {
+                        $line = fgets($proc);
+                        if ($line !== false) {
+                            echo $line;
+                            flush();
+                        }
+                    }
+                    pclose($proc);
+                } else {
+                    echo json_encode(['success' => false, 'error' => 'Failed to start restore process']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Valid backup ID required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'deleteBackup':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $backupId = (int)($input['backupId'] ?? 0);
+            if ($backupId > 0) {
+                $backup = getBackupById($pdo, $backupId);
+                if ($backup) {
+                    if (!empty($backup['file_path']) && file_exists($backup['file_path'])) {
+                        unlink($backup['file_path']);
+                    }
+                    deleteBackupRecord($pdo, $backupId);
+                    echo json_encode(['success' => true, 'message' => 'Backup deleted']);
+                } else {
+                    echo json_encode(['success' => false, 'error' => 'Backup not found']);
+                }
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Valid backup ID required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'deleteBackups':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $backupIds = $input['backupIds'] ?? [];
+            if (!empty($backupIds) && is_array($backupIds)) {
+                $deleted = 0;
+                foreach ($backupIds as $bid) {
+                    $bid = (int)$bid;
+                    if ($bid <= 0) continue;
+                    $backup = getBackupById($pdo, $bid);
+                    if ($backup) {
+                        if (!empty($backup['file_path']) && file_exists($backup['file_path'])) {
+                            unlink($backup['file_path']);
+                        }
+                        deleteBackupRecord($pdo, $bid);
+                        $deleted++;
+                    }
+                }
+                echo json_encode(['success' => true, 'deleted' => $deleted]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Backup IDs array required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'downloadBackup':
+        $backupId = (int)($_GET['backupId'] ?? 0);
+        if ($backupId > 0) {
+            $backup = getBackupById($pdo, $backupId);
+            if ($backup && !empty($backup['file_path']) && file_exists($backup['file_path'])) {
+                $filePath = $backup['file_path'];
+                $fileName = basename($filePath);
+                header('Content-Type: application/octet-stream');
+                header('Content-Disposition: attachment; filename="' . $fileName . '"');
+                header('Content-Length: ' . filesize($filePath));
+                header('Cache-Control: no-cache, must-revalidate');
+                readfile($filePath);
+                exit;
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Backup file not found']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'Valid backup ID required']);
+        }
+        break;
+
+    case 'getWorldBackupSettings':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            $settings = getWorldBackupSettings($pdo, $world);
+            if ($settings) {
+                echo json_encode(['success' => true, 'settings' => $settings]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'World not found']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'World name required']);
+        }
+        break;
+
+    case 'saveWorldBackupSettings':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $settings = $input['settings'] ?? [];
+            if ($world && !empty($settings)) {
+                $result = saveWorldBackupSettings($pdo, $world, $settings);
+                echo json_encode(['success' => $result ? true : false]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'World name and settings required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'reconcileBackups':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $output = trim(shell_exec('/opt/stateless/engine/tools/worldBackupReconcile --json 2>&1'));
+            $result = json_decode($output, true);
+            if ($result && isset($result['success'])) {
+                echo json_encode($result);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Reconcile failed', 'raw' => $output]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'purgeOrphanedBackups':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $purged = purgeOrphanedBackups($pdo);
+            echo json_encode(['success' => true, 'purged' => $purged]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'getOrphanedBackupCount':
+        $count = getOrphanedBackupCount($pdo);
+        echo json_encode(['success' => true, 'count' => $count]);
+        break;
+
     default:
         // Preserve original behavior for backwards compatibility
         echo "true";
@@ -1384,6 +1640,26 @@ function getServerSettingsJson($pdo) {
             'setupComplete' => (int)$settings['setupComplete'],
             'migrationNoticeShown' => (int)$settings['migrationNoticeShown'],
             'analyticsEnabled' => (int)($settings['analyticsEnabled'] ?? 1),
+            'backupIntervalMinutes' => (int)($settings['backupIntervalMinutes'] ?? 30),
+            'backupRequireActivity' => (int)($settings['backupRequireActivity'] ?? 1),
+            'backupCompression' => $settings['backupCompression'] ?? 'none',
+            'backupCompressionHour' => (int)($settings['backupCompressionHour'] ?? 3),
+            'backupRetainAllHours' => (int)($settings['backupRetainAllHours'] ?? 24),
+            'backupRetainDailyDays' => (int)($settings['backupRetainDailyDays'] ?? 7),
+            'backupRetainWeeklyDays' => (int)($settings['backupRetainWeeklyDays'] ?? 30),
+            'backupRetainMonthlyMonths' => (int)($settings['backupRetainMonthlyMonths'] ?? 6),
+            'backupCpuPriority' => (int)($settings['backupCpuPriority'] ?? 10),
+            'backupIoPriority' => $settings['backupIoPriority'] ?? 'low',
+            'backupCompressionLevel' => (int)($settings['backupCompressionLevel'] ?? 0),
+            // Backup disk info
+            'backupPath' => '/opt/stateful/backups',
+            'backupPathMounted' => isBackupPathMounted(),
+            'backupDiskTotal' => getTotalDisk('/opt/stateful/backups'),
+            'backupDiskUsed' => getUsedDisk('/opt/stateful/backups'),
+            'backupDiskFree' => getFreeDisk('/opt/stateful/backups'),
+            'backupDiskPerc' => getUsedDiskPerc('/opt/stateful/backups'),
+            'backupCount' => getTotalBackupCount($pdo),
+            'backupTotalSize' => getTotalBackupSize($pdo),
         ]
     ]);
 }
@@ -1409,6 +1685,17 @@ function saveServerSettingsJson($pdo, $input) {
         'claudeApiKey' => 'string',
         'ollamaUrl' => 'string',
         'analyticsEnabled' => 'int',
+        'backupIntervalMinutes' => 'int',
+        'backupRequireActivity' => 'int',
+        'backupCompression' => 'string',
+        'backupCompressionHour' => 'int',
+        'backupRetainAllHours' => 'int',
+        'backupRetainDailyDays' => 'int',
+        'backupRetainWeeklyDays' => 'int',
+        'backupRetainMonthlyMonths' => 'int',
+        'backupCpuPriority' => 'int',
+        'backupIoPriority' => 'string',
+        'backupCompressionLevel' => 'int',
     ];
 
     // Map input field names to actual DB column names where they differ

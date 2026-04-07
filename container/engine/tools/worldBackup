@@ -1,107 +1,393 @@
 #!/bin/bash
 source /opt/stateless/engine/includes/phvalheim-static.conf
-#source /opt/stateful/config/phvalheim-backend.conf
 
-# update database
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastExecStatus='running';"
+# World Backup v2.38 - Activity-aware, full directory backup with DB tracking
+#
+# Usage:
+#   worldBackup                            - Scheduled run (checks activity + interval per world)
+#   worldBackup <worldName> manual [comp]  - On-demand backup (skips activity/interval checks)
+#                                            comp = none|gzip|zstd (overrides configured compression)
 
+MANUAL_MODE=0
+LOCK_FILE="/tmp/worldBackup.lock"
 
-# error setter
-function errorSetter() {
-        RESULT=$1
-
-        if [ $RESULT -ne 0 ]; then
-                /opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastExecStatus='error';"
-                exit 1
-        fi
-}
-
-
-#$1=worldName, $2=backupsToKeep
-function purgeOldBackups() {
-        worldName="$1"
-        backupsToKeep="$2"
-
-        backupFiles=$(ls -alt $backupDir/valheimworld_$worldName-***.tar|rev|cut -d " " -f1|rev)
-        totalBackups=$(echo "$backupFiles"|wc -l)
-        keepBackups=$(echo "$backupFiles"|head -$backupsToKeep)
-
-        if [ $totalBackups -gt $backupsToKeep ]; then
-                numberOfBackupsToDelete=$(echo $totalBackups-$backupsToKeep|bc)
-                deleteBackups=$(echo "$backupFiles"|tail -$numberOfBackupsToDelete)
-
-                for deleteBackup in $deleteBackups; do
-                        echo "`date` [phvalheim] Deleting old backup $deleteBackup..."
-                        rm -f "$deleteBackup"
-			errorSetter $?
-                done
-        fi
-}
-
-
-#$1=worldName
-function backupWorld(){
-        worldName="$1"
-
-	backupTimeStamp=''
-	backupDestinationFile=''
-	backupTimeTaken=''
-	backupSize=''
-
-
-        cd $worldsDirectoryRoot/$worldName/game/.config/unity3d/IronGate/Valheim/
-	if [ ! $? = 0 ]; then
-		echo "`date` [WARN : phvalheim] .config directory missing for '$worldName', skipping backup..."
+# prevent concurrent runs
+if [ -f "$LOCK_FILE" ]; then
+	lockPid=$(cat "$LOCK_FILE")
+	if kill -0 "$lockPid" 2>/dev/null; then
+		echo "`date` [WARN : phvalheim] Backup already running (PID $lockPid), skipping."
+		exit 0
 	else
-	        backupTimeStamp=$(date +%Y-%m-%dT%H:%M:%S%z)
-		errorSetter $?
+		rm -f "$LOCK_FILE"
+	fi
+fi
+echo $$ > "$LOCK_FILE"
+trap "rm -f $LOCK_FILE" EXIT
 
-	        backupDestinationFile="$backupDir/valheimworld_$worldName-$backupTimeStamp.tar"
+# update status
+SQL "UPDATE systemstats SET worldBackupLastExecStatus='running';"
 
-	        backupTimeTaken=$(/usr/bin/time --format='%e' /usr/bin/tar cf $backupDestinationFile . 2>&1)
-		errorSetter $?
 
-	        backupSize=$(stat --format=%s "$backupDestinationFile")
-		errorSetter $?
+BACKUP_WORLD_NAME=""
+BACKUP_ORIGINAL_MODE=""
 
-		#echo
-		echo "`date` [phvalheim]  Backup time (seconds): $backupTimeTaken"
-		#echo
-		echo "`date` [phvalheim]  Backup size (bytes): $backupSize"
+function errorSetter() {
+	if [ $1 -ne 0 ]; then
+		# restore world mode if we were mid-backup
+		if [ -n "$BACKUP_WORLD_NAME" ] && [ -n "$BACKUP_ORIGINAL_MODE" ]; then
+			SQL "UPDATE worlds SET mode='$BACKUP_ORIGINAL_MODE' WHERE name='$BACKUP_WORLD_NAME';"
+			BACKUP_WORLD_NAME=""
+			BACKUP_ORIGINAL_MODE=""
+		fi
+		SQL "UPDATE systemstats SET worldBackupLastExecStatus='error';"
+		exit 1
 	fi
 }
 
 
-#echo
-echo "`date` [NOTICE : phvalheim] Starting world backups..."
-#echo
+# Get effective setting for a world (per-world override or global)
+# $1=worldName, $2=settingName, $3=globalValue
+function getEffectiveSetting() {
+	local worldName="$1"
+	local settingName="$2"
+	local globalValue="$3"
+
+	local useGlobal=$(SQL "SELECT backup_use_global FROM worlds WHERE name='$worldName';")
+	if [ "$useGlobal" = "1" ] || [ -z "$useGlobal" ]; then
+		echo "$globalValue"
+	else
+		local worldValue=$(SQL "SELECT $settingName FROM worlds WHERE name='$worldName';")
+		if [ -n "$worldValue" ]; then
+			echo "$worldValue"
+		else
+			echo "$globalValue"
+		fi
+	fi
+}
+
+
+# Build metadata JSON for a world backup
+# $1=worldName, $2=worldDir
+function buildMetadata() {
+	local worldName="$1"
+	local worldDir="$2"
+
+	# get world data from DB
+	local worldData=$(SQL "SELECT CONCAT(
+		'\"seed\":\"', IFNULL(seed,''), '\",',
+		'\"port\":', IFNULL(port,0), ',',
+		'\"beta\":', IFNULL(beta,0), ',',
+		'\"modsViewer\":', IFNULL(modsViewer,0), ',',
+		'\"thunderstore_mods\":\"', IFNULL(thunderstore_mods,''), '\",',
+		'\"thunderstore_mods_deps\":\"', IFNULL(thunderstore_mods_deps,''), '\"')
+		FROM worlds WHERE name='$worldName';")
+
+	# count files and get directory listing
+	local fileCount=$(find "$worldDir" -type f ! -name "${worldName}.zip" 2>/dev/null | wc -l)
+	local dirCount=$(find "$worldDir" -type d 2>/dev/null | wc -l)
+
+	# check for key subdirectories
+	local hasGame=$( [ -d "$worldDir/game" ] && echo "true" || echo "false" )
+	local hasCustomConfigs=$( [ -d "$worldDir/custom_configs" ] && echo "true" || echo "false" )
+	local hasMods=$( [ -d "$worldDir/game/BepInEx/plugins" ] && echo "true" || echo "false" )
+
+	# get top-level directory names
+	local topDirs=$(ls -1d "$worldDir"/*/ 2>/dev/null | xargs -I{} basename {} | tr '\n' ',' | sed 's/,$//')
+
+	# get mod names from thunderstore_mods UUIDs
+	local modNames=""
+	local modUuids=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$worldName';")
+	if [ -n "$modUuids" ]; then
+		for uuid in $modUuids; do
+			[ "$uuid" = "placeholder" ] && continue
+			local modName=$(SQL "SELECT name FROM tsmods WHERE moduuid='$uuid' LIMIT 1;")
+			[ -n "$modName" ] && modNames="${modNames}${modNames:+,}\"$modName\""
+		done
+	fi
+
+	echo "{$worldData,\"file_count\":$fileCount,\"dir_count\":$dirCount,\"has_game\":$hasGame,\"has_custom_configs\":$hasCustomConfigs,\"has_mods\":$hasMods,\"top_dirs\":\"$topDirs\",\"mod_names\":[$modNames]}"
+}
+
+
+# Perform the actual backup
+# $1=worldName, $2=backupType (scheduled/manual)
+function backupWorld() {
+	local worldName="$1"
+	local backupType="${2:-scheduled}"
+
+	local worldDir="$worldsDirectoryRoot/$worldName"
+
+	if [ ! -d "$worldDir" ]; then
+		echo "`date` [WARN : phvalheim] World directory missing for '$worldName', skipping backup."
+		[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"World directory missing, cannot backup.\"}"
+		return 1
+	fi
+
+	# check if world is in a transitional state — do not backup during start/stop/update/create/delete
+	local originalMode=$(SQL "SELECT mode FROM worlds WHERE name='$worldName';")
+	case "$originalMode" in
+		start|starting|stop|stopping|create|creating|update|updating|delete|deleting|backup)
+			[ "$MANUAL_MODE" != "1" ] && echo "`date` [WARN : phvalheim] World '$worldName' is in state '$originalMode', skipping backup."
+			[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"World is currently ${originalMode} — backup cannot run while the world is in a transitional state. Please wait and try again.\"}"
+			return 1
+			;;
+	esac
+
+	# save current mode and set to 'backup' for UI indicator
+	BACKUP_WORLD_NAME="$worldName"
+	BACKUP_ORIGINAL_MODE="$originalMode"
+	SQL "UPDATE worlds SET mode='backup' WHERE name='$worldName';"
+
+	# scan world directory
+	local fileCount=$(find "$worldDir" -type f ! -name "${worldName}.zip" 2>/dev/null | wc -l)
+	local dirSize=$(du -sb "$worldDir" --exclude="${worldName}.zip" 2>/dev/null | cut -f1)
+	dirSize=${dirSize:-0}
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Scanning world directory: $fileCount files, $(echo "$dirSize" | awk '{printf "%.1f MB", $1/1048576}')\"}"
+
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Reading compression settings...\"}"
+
+	# read compression settings (per-world override or global)
+	local globalCompression=$(SQL "SELECT backupCompression FROM settings LIMIT 1;")
+	local globalCompressionHour=$(SQL "SELECT backupCompressionHour FROM settings LIMIT 1;")
+	globalCompression=${globalCompression:-none}
+	globalCompressionHour=${globalCompressionHour:-3}
+	local compression=$(getEffectiveSetting "$worldName" "backup_compression" "$globalCompression")
+	local compressionHour=$(getEffectiveSetting "$worldName" "backup_compression_hour" "$globalCompressionHour")
+	compression=${compression:-none}
+	compressionHour=${compressionHour:-3}
+
+	# read performance tuning settings (per-world override or global)
+	local globalCpuPriority=$(SQL "SELECT backupCpuPriority FROM settings LIMIT 1;")
+	local globalIoPriority=$(SQL "SELECT backupIoPriority FROM settings LIMIT 1;")
+	local globalCompLevel=$(SQL "SELECT backupCompressionLevel FROM settings LIMIT 1;")
+	globalCpuPriority=${globalCpuPriority:-10}
+	globalIoPriority=${globalIoPriority:-low}
+	globalCompLevel=${globalCompLevel:-0}
+	local cpuPriority=$(getEffectiveSetting "$worldName" "backup_cpu_priority" "$globalCpuPriority")
+	local ioPriority=$(getEffectiveSetting "$worldName" "backup_io_priority" "$globalIoPriority")
+	local compLevel=$(getEffectiveSetting "$worldName" "backup_compression_level" "$globalCompLevel")
+	cpuPriority=${cpuPriority:-10}
+	ioPriority=${ioPriority:-low}
+	compLevel=${compLevel:-0}
+
+	# build nice/ionice prefix for backup commands
+	local ioniceCmd=""
+	case "$ioPriority" in
+		idle)   ioniceCmd="ionice -c3" ;;
+		low)    ioniceCmd="ionice -c2 -n7" ;;
+		*)      ioniceCmd="" ;;  # normal — no ionice
+	esac
+	local nicePrefix="${ioniceCmd:+$ioniceCmd }nice -n $cpuPriority"
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Performance: CPU priority $cpuPriority, I/O $ioPriority${compLevel:+, compression level $compLevel}\"}"
+
+	# manual mode compression override from CLI argument
+	if [ "$MANUAL_MODE" = "1" ] && [ -n "$MANUAL_COMPRESSION" ]; then
+		compression="$MANUAL_COMPRESSION"
+		[ "$compression" != "none" ] && compressionHour="-1"  # immediate when manually specified
+	fi
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Compression: $compression (schedule: $([ \"$compressionHour\" = \"-1\" ] && echo 'immediate' || echo \"hour $compressionHour\"))\"}"
+
+	local backupTimestamp=$(date +%Y-%m-%dT%H:%M:%S%z)
+	local backupFileName="valheimworld_${worldName}-${backupTimestamp}.tar"
+	local backupFilePath="$backupDir/$backupFileName"
+
+	[ "$MANUAL_MODE" != "1" ] && echo "`date` [phvalheim]  Backing up world directory: $worldDir"
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Creating tar archive of $fileCount files...\"}"
+
+	# create backup - full world directory, excluding the client zip
+	cd "$worldDir"
+	errorSetter $?
+
+	local backupTimeTaken=$(/usr/bin/time --format='%e' $nicePrefix /usr/bin/tar cf "$backupFilePath" \
+		--exclude="./${worldName}.zip" \
+		. 2>&1)
+	errorSetter $?
+
+	local uncompressedSize=$(stat --format=%s "$backupFilePath" 2>/dev/null || echo 0)
+	local backupSize=$uncompressedSize
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Archive created ($(echo "$uncompressedSize" | awk '{printf "%.1f MB", $1/1048576}'), took ${backupTimeTaken}s)\"}"
+	local compressed=0
+	local compressionType="none"
+
+	# immediate compression if configured
+	if [ "$compressionHour" = "-1" ] && [ "$compression" != "none" ]; then
+		# check available disk space — compression needs the original + compressed file simultaneously
+		local availBytes=$(df --output=avail -B1 "$backupDir" 2>/dev/null | tail -1 | tr -d ' ')
+		availBytes=${availBytes:-0}
+		local neededBytes=$uncompressedSize  # compressed output written alongside original
+		if [ "$availBytes" -lt "$neededBytes" ]; then
+			local availMB=$(echo "$availBytes" | awk '{printf "%.1f", $1/1048576}')
+			local neededMB=$(echo "$neededBytes" | awk '{printf "%.1f", $1/1048576}')
+			[ "$MANUAL_MODE" != "1" ] && echo "`date` [WARN : phvalheim]  Not enough disk space to compress (need ~${neededMB} MB free, only ${availMB} MB available)."
+			[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Insufficient disk space for compression — need ~${neededMB} MB free but only ${availMB} MB available. Saving uncompressed.\"}"
+		else
+		[ "$MANUAL_MODE" != "1" ] && echo "`date` [phvalheim]  Compressing backup (immediate, $compression)..."
+		[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Compressing with $compression...\"}"
+
+		local compOutPath=""
+		local compLevelArg=""
+		if [ "$compression" = "gzip" ]; then
+			compOutPath="${backupFilePath}.gz"
+			[ "$compLevel" -gt 0 ] 2>/dev/null && compLevelArg="-$compLevel"
+			$nicePrefix gzip $compLevelArg "$backupFilePath" &
+		elif [ "$compression" = "zstd" ]; then
+			compOutPath="${backupFilePath}.zst"
+			[ "$compLevel" -gt 0 ] 2>/dev/null && compLevelArg="-$compLevel"
+			$nicePrefix zstd --rm -q $compLevelArg "$backupFilePath" &
+		fi
+		local compPid=$!
+
+		# poll CPU and disk write stats while compressing
+		if [ "$MANUAL_MODE" = "1" ] && [ -n "$compPid" ]; then
+			while kill -0 "$compPid" 2>/dev/null; do
+				local cpuUsage=$(ps -p $compPid -o %cpu= 2>/dev/null | tr -d ' ')
+				local curSize=$(stat --format=%s "$compOutPath" 2>/dev/null || echo 0)
+				local pct=$(echo "$curSize $uncompressedSize" | awk '{if($2>0) printf "%.0f", ($1/$2)*100; else print "0"}')
+				local curSizeMB=$(echo "$curSize" | awk '{printf "%.1f", $1/1048576}')
+				echo "{\"progress\":\"Compressing... ${pct}% — ${curSizeMB} MB written | CPU: ${cpuUsage:-0}%\"}"
+				sleep 2
+			done
+		fi
+		wait $compPid
+		local compResult=$?
+
+		if [ $compResult -eq 0 ] && [ -f "$compOutPath" ]; then
+			backupFilePath="$compOutPath"
+			backupSize=$(stat --format=%s "$backupFilePath" 2>/dev/null || echo 0)
+			local ratio=$(echo "$backupSize $uncompressedSize" | awk '{if($2>0) printf "%.0f", ($1/$2)*100; else print "0"}')
+			[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Compressed: $(echo "$backupSize" | awk '{printf "%.1f MB", $1/1048576}') (${ratio}% of original)\"}"
+			compressed=1
+			compressionType="$compression"
+		else
+			[ "$MANUAL_MODE" != "1" ] && echo "`date` [WARN : phvalheim]  Compression failed (exit $compResult), keeping uncompressed backup."
+			[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Compression failed — saving uncompressed backup.\"}"
+			rm -f "$compOutPath" 2>/dev/null
+			# backupFilePath/backupSize remain as the uncompressed tar
+		fi
+		fi # end disk space check
+	fi
+
+	# build metadata
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Building backup metadata...\"}"
+	local metadata=$(buildMetadata "$worldName" "$worldDir")
+
+	# escape single quotes in metadata for SQL
+	local metadataEscaped=$(echo "$metadata" | sed "s/'/''/g")
+
+	# register in database
+	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Registering backup in database...\"}"
+	SQL "INSERT INTO backups (world_name, created_at, type, file_path, file_size, uncompressed_size, compressed, compression_type, metadata)
+		VALUES ('$worldName', NOW(), '$backupType', '$backupFilePath', $backupSize, $uncompressedSize, $compressed, '$compressionType', '$metadataEscaped');"
+	errorSetter $?
+
+	# update world's last backup time and restore original mode
+	SQL "UPDATE worlds SET last_backup_time=NOW(), mode='$originalMode' WHERE name='$worldName';"
+	BACKUP_WORLD_NAME=""
+	BACKUP_ORIGINAL_MODE=""
+
+	if [ "$MANUAL_MODE" != "1" ]; then
+		echo "`date` [phvalheim]  Backup time (seconds): $backupTimeTaken"
+		echo "`date` [phvalheim]  Backup size (bytes): $backupSize"
+		echo "`date` [NOTICE : phvalheim]  Backup written to: $backupFilePath"
+	fi
+
+	return 0
+}
+
+
+# --- Manual backup mode ---
+if [ -n "$1" ] && [ "$2" = "manual" ]; then
+	MANUAL_MODE=1
+	MANUAL_COMPRESSION="$3"  # optional: none|gzip|zstd
+	worldName="$1"
+
+	# verify world exists
+	worldExists=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName';")
+	if [ "$worldExists" -eq 0 ] 2>/dev/null; then
+		echo "{\"progress\":\"World '$worldName' not found in database.\"}"
+		echo '{"success":false,"error":"World not found in database"}'
+		SQL "UPDATE systemstats SET worldBackupLastExecStatus='error';"
+		exit 1
+	fi
+
+	echo "{\"progress\":\"Starting manual backup for '$worldName'...\"}"
+	backupWorld "$worldName" "manual"
+	result=$?
+
+	SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
+	SQL "UPDATE systemstats SET worldBackupLastRun=NOW();"
+
+	if [ $result -eq 0 ]; then
+		echo "{\"progress\":\"Backup complete!\"}"
+		echo '{"success":true}'
+	else
+		echo "{\"progress\":\"Backup failed.\"}"
+		echo '{"success":false,"error":"Backup failed for '"'"'$worldName'"'"'"}'
+	fi
+	exit $result
+fi
+
+
+# --- Scheduled backup mode ---
+
+# check if backup path has a dedicated mount (different device than /opt/stateful)
+backupDevice=$(df "$backupDir" 2>/dev/null | tail -1 | tr -s ' ' | cut -d' ' -f1)
+statefulDevice=$(df /opt/stateful 2>/dev/null | tail -1 | tr -s ' ' | cut -d' ' -f1)
+if [ "$backupDevice" = "$statefulDevice" ]; then
+	echo "`date` [WARN : phvalheim] Backup path ($backupDir) is on the same volume as /opt/stateful — no dedicated backup volume mounted. Automatic backups disabled."
+	SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
+	exit 0
+fi
+
+echo "`date` [NOTICE : phvalheim] Starting scheduled world backups..."
 echo "`date` [phvalheim]  Backup directory: $backupDir"
-#echo
 
+# read global settings
+globalInterval=$(SQL "SELECT backupIntervalMinutes FROM settings LIMIT 1;")
+globalRequireActivity=$(SQL "SELECT backupRequireActivity FROM settings LIMIT 1;")
+globalInterval=${globalInterval:-30}
+globalRequireActivity=${globalRequireActivity:-1}
 
-#backup all the worlds
+# backup all worlds
 worldNames=$(SQL "SELECT name FROM worlds;")
 for worldName in $worldNames; do
 
-        echo "`date` [phvalheim]  World backup started for '$worldName'..."
+	echo "`date` [phvalheim]  Evaluating '$worldName' for backup..."
 
-        #run backup
-        backupWorld "$worldName"
+	# resolve effective settings
+	effectiveInterval=$(getEffectiveSetting "$worldName" "backup_interval_minutes" "$globalInterval")
+	effectiveRequireActivity=$(getEffectiveSetting "$worldName" "backup_require_activity" "$globalRequireActivity")
+
+	# interval check: skip if last backup was too recent
+	lastBackupTime=$(SQL "SELECT TIMESTAMPDIFF(MINUTE, last_backup_time, NOW()) FROM worlds WHERE name='$worldName';")
+	if [ -n "$lastBackupTime" ] && [ "$lastBackupTime" -lt "$effectiveInterval" ] 2>/dev/null; then
+		echo "`date` [phvalheim]  Skipping '$worldName' - last backup ${lastBackupTime}m ago (interval: ${effectiveInterval}m)"
+		continue
+	fi
+
+	# activity check: skip if no player activity since last backup
+	if [ "$effectiveRequireActivity" = "1" ]; then
+		activityCheck=$(SQL "SELECT
+			CASE
+				WHEN last_player_activity IS NULL THEN 'no_activity'
+				WHEN last_backup_time IS NULL THEN 'needs_backup'
+				WHEN last_player_activity > last_backup_time THEN 'needs_backup'
+				ELSE 'no_activity'
+			END
+			FROM worlds WHERE name='$worldName';")
+
+		if [ "$activityCheck" = "no_activity" ]; then
+			echo "`date` [phvalheim]  Skipping '$worldName' - no player activity since last backup"
+			continue
+		fi
+	fi
+
+	echo "`date` [phvalheim]  World backup started for '$worldName'..."
+	backupWorld "$worldName" "scheduled"
 	errorSetter $?
-
-        if [ -f "$backupDestinationFile" ]; then
-                echo "`date` [NOTICE : phvalheim]  Backup written to: $backupDestinationFile"
-                purgeOldBackups $worldName $backupsToKeep
-		errorSetter $?
-                continue
-        else
-                echo "`date` [FAIL : phvalheim]  Backup failed for '$worldName'!"
-		errorSetter $?
-                continue
-        fi
 
 done
 
-# update database
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
-/opt/stateless/engine/tools/sql "UPDATE systemstats SET worldBackupLastRun=NOW();"
+# update status
+SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
+SQL "UPDATE systemstats SET worldBackupLastRun=NOW();"

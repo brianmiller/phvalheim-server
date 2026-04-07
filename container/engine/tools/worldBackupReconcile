@@ -1,0 +1,112 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+
+# World Backup Reconcile - ensures DB records match files on disk
+#
+# Usage: worldBackupReconcile [--json]
+#
+# 1. Marks DB records as orphaned when file is missing on disk
+# 2. Clears orphaned flag when file reappears (e.g., volume remounted)
+# 3. Discovers backup files on disk that have no DB record and imports them
+#
+# --json  Output JSON summary (for API calls)
+
+LOG="/opt/stateful/logs/worldBackups.log"
+JSON_MODE=0
+[ "$1" = "--json" ] && JSON_MODE=1
+
+orphanedCount=0
+restoredCount=0
+importedCount=0
+purgedCount=0
+
+# Step 1: Check all DB records — mark orphaned if file missing, clear if file returned
+allRecords=$(SQL "SELECT id, file_path, orphaned FROM backups ORDER BY id;")
+while IFS=$'\t' read -r id filePath isOrphaned; do
+	[ -z "$id" ] && continue
+
+	if [ -f "$filePath" ]; then
+		# File exists — clear orphaned flag if it was set
+		if [ "$isOrphaned" = "1" ]; then
+			SQL "UPDATE backups SET orphaned=0 WHERE id=$id;"
+			restoredCount=$((restoredCount + 1))
+			echo "`date` [NOTICE : phvalheim] Backup #$id file reappeared: $(basename "$filePath")" >> "$LOG"
+		fi
+	else
+		# File missing — mark as orphaned
+		if [ "$isOrphaned" != "1" ]; then
+			SQL "UPDATE backups SET orphaned=1 WHERE id=$id;"
+			orphanedCount=$((orphanedCount + 1))
+			echo "`date` [NOTICE : phvalheim] Backup #$id file missing (orphaned): $(basename "$filePath")" >> "$LOG"
+		fi
+	fi
+done <<< "$allRecords"
+
+# Step 2: Discover backup files on disk with no DB record
+if [ -d "$backupDir" ]; then
+	for backupFile in "$backupDir"/valheimworld_*.tar "$backupDir"/valheimworld_*.tar.gz "$backupDir"/valheimworld_*.tar.zst; do
+		[ -f "$backupFile" ] || continue
+
+		# Check if this file is already tracked in DB
+		existingId=$(SQL "SELECT id FROM backups WHERE file_path='$backupFile' LIMIT 1;")
+		if [ -n "$existingId" ]; then
+			continue
+		fi
+
+		# Parse world name and timestamp from filename
+		fileName=$(basename "$backupFile")
+		# Remove extension(s): .tar, .tar.gz, .tar.zst
+		baseName="$fileName"
+		baseName="${baseName%.zst}"
+		baseName="${baseName%.gz}"
+		baseName="${baseName%.tar}"
+
+		# Format: valheimworld_<name>-<timestamp> or valheimworld_<name>-<timestamp>-prerestore
+		worldName=$(echo "$baseName" | sed 's/^valheimworld_//; s/-[0-9T:+-]*\(-prerestore\)\?$//')
+		timestamp=$(echo "$baseName" | sed 's/^valheimworld_[^-]*-//; s/-prerestore$//' | sed 's/T/ /; s/\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1:\2/')
+		fileSize=$(stat --format=%s "$backupFile" 2>/dev/null || echo 0)
+
+		# Detect compression
+		compressed=0
+		compressionType="none"
+		case "$backupFile" in
+			*.tar.gz)  compressed=1; compressionType="gzip" ;;
+			*.tar.zst) compressed=1; compressionType="zstd" ;;
+		esac
+
+		# Detect type from filename
+		backupType="scheduled"
+		echo "$fileName" | grep -q "prerestore" && backupType="manual"
+
+		# Build metadata
+		metadata="{\"imported_by_reconcile\":true}"
+		echo "$fileName" | grep -q "prerestore" && metadata="{\"imported_by_reconcile\":true,\"pre_restore\":true}"
+
+		# Only import if world exists in DB (or if we can determine the world name)
+		worldExists=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName';")
+		if [ "$worldExists" -gt 0 ] 2>/dev/null; then
+			SQL "INSERT INTO backups (world_name, created_at, type, file_path, file_size, compressed, compression_type, orphaned, metadata)
+				VALUES ('$worldName', '$timestamp', '$backupType', '$backupFile', $fileSize, $compressed, '$compressionType', 0, '$metadata');"
+			importedCount=$((importedCount + 1))
+			echo "`date` [NOTICE : phvalheim] Discovered and imported backup: $fileName (world: $worldName)" >> "$LOG"
+		else
+			echo "`date` [WARN : phvalheim] Discovered backup for unknown world '$worldName': $fileName (skipped)" >> "$LOG"
+		fi
+	done
+fi
+
+# Count current orphans
+totalOrphaned=$(SQL "SELECT COUNT(*) FROM backups WHERE orphaned=1;")
+totalOrphaned=${totalOrphaned:-0}
+
+if [ $JSON_MODE = 1 ]; then
+	echo "{\"success\":true,\"newlyOrphaned\":$orphanedCount,\"restored\":$restoredCount,\"imported\":$importedCount,\"totalOrphaned\":$totalOrphaned}"
+else
+	[ $orphanedCount -gt 0 ] && echo "`date` [NOTICE : phvalheim] Reconcile: $orphanedCount backup(s) newly orphaned"
+	[ $restoredCount -gt 0 ] && echo "`date` [NOTICE : phvalheim] Reconcile: $restoredCount backup(s) restored from orphan state"
+	[ $importedCount -gt 0 ] && echo "`date` [NOTICE : phvalheim] Reconcile: $importedCount backup file(s) discovered and imported"
+	if [ $orphanedCount -eq 0 ] && [ $restoredCount -eq 0 ] && [ $importedCount -eq 0 ]; then
+		echo "`date` [NOTICE : phvalheim] Reconcile: all backup records are consistent"
+	fi
+	[ $totalOrphaned -gt 0 ] && echo "`date` [WARN : phvalheim] $totalOrphaned total orphaned backup record(s) in database"
+fi

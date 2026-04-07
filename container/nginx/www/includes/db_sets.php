@@ -162,6 +162,43 @@ function setHideSeed($pdo,$world,$mode){
         }
 }
 
+function saveWorldBackupSettings($pdo, $worldName, $settings) {
+        $allowedFields = [
+                'backup_use_global' => 'int',
+                'backup_interval_minutes' => 'int',
+                'backup_require_activity' => 'int',
+                'backup_retain_all_hours' => 'int',
+                'backup_retain_daily_days' => 'int',
+                'backup_retain_weekly_days' => 'int',
+                'backup_retain_monthly_months' => 'int',
+                'backup_compression' => 'string',
+                'backup_compression_hour' => 'int',
+                'backup_cpu_priority' => 'int',
+                'backup_io_priority' => 'string',
+                'backup_compression_level' => 'int',
+        ];
+
+        $updates = [];
+        $params = [];
+        foreach ($settings as $key => $value) {
+                if (!isset($allowedFields[$key])) continue;
+                $updates[] = "$key = ?";
+                $params[] = $allowedFields[$key] === 'string' ? (string)$value : (int)$value;
+        }
+
+        if (empty($updates)) return false;
+
+        $params[] = $worldName;
+        $sql = "UPDATE worlds SET " . implode(', ', $updates) . " WHERE name = ?";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute($params);
+}
+
+function deleteBackupRecord($pdo, $backupId) {
+        $stmt = $pdo->prepare("DELETE FROM backups WHERE id = ?");
+        return $stmt->execute([$backupId]);
+}
+
 function setHungHeads($pdo,$world,$hungHead) {
 	$hungHead = strtolower($hungHead);
 	$sql = "SELECT $hungHead FROM worlds WHERE name='$world'";
