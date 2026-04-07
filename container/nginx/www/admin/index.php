@@ -2187,21 +2187,24 @@ $totalCount = count($worlds);
     }
 
     // Stream lines from a fetch response, calling onLine for each
-    async function streamLines(response, onLine) {
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+    async function pollJobProgress(jobId, onLine) {
+        let offset = 0;
         while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop(); // keep incomplete line in buffer
-            for (const line of lines) {
-                if (line.trim()) onLine(line);
+            await new Promise(r => setTimeout(r, 800));
+            try {
+                const res = await fetch(`adminAPI.php?action=getJobProgress&jobId=${jobId}&offset=${offset}`);
+                const data = await res.json();
+                if (data.error) { onLine(JSON.stringify({progress: data.error})); return; }
+                for (const line of data.lines) {
+                    onLine(line);
+                }
+                offset = data.offset;
+                if (data.done) return;
+            } catch(e) {
+                onLine(JSON.stringify({progress: 'Connection error: ' + e.message}));
+                return;
             }
         }
-        if (buffer.trim()) onLine(buffer);
     }
 
     async function createManualBackup(worldName, compression) {
@@ -2222,9 +2225,15 @@ $totalCount = count($worlds);
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({world: worldName, compression: compression})
             });
+            const startData = await res.json();
+            if (!startData.success || !startData.jobId) {
+                pg.addStep(startData.error || 'Failed to start backup', 'warn');
+                pg.complete(false);
+                return;
+            }
 
             let finalResult = null;
-            await streamLines(res, line => {
+            await pollJobProgress(startData.jobId, line => {
                 try {
                     const obj = JSON.parse(line);
                     if (obj.progress) {
@@ -2411,9 +2420,15 @@ $totalCount = count($worlds);
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({backupId: backupId})
             });
+            const startData = await res.json();
+            if (!startData.success || !startData.jobId) {
+                pg.addStep(startData.error || 'Failed to start restore', 'warn');
+                pg.complete(false);
+                return;
+            }
 
             let finalResult = null;
-            await streamLines(res, line => {
+            await pollJobProgress(startData.jobId, line => {
                 try {
                     const obj = JSON.parse(line);
                     if (obj.progress) {

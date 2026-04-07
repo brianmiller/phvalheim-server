@@ -10,7 +10,7 @@
 - **Tiered retention**: Keep all backups for N hours, then daily, weekly, and monthly tiers — with per-world overrides
 - **Performance tuning**: CPU priority (nice), I/O priority (ionice), and compression level controls to minimize impact on active players
 - **Disk space preflight checks**: Backup and compression operations check available space before starting; graceful fallback to uncompressed if space is insufficient
-- **Manual backups**: On-demand backup creation from the admin UI with real-time progress streaming
+- **Manual backups**: On-demand backup creation from the admin UI with real-time progress polling
 - **Transitional state protection**: Backups and restores are blocked while a world is starting, stopping, updating, or being deleted
 
 ### Restore
@@ -44,6 +44,7 @@
 - **New cron jobs**: Activity monitor (every 5 min), backup (every 10 min, self-gating), compression (hourly), retention (hourly)
 - **Database migration**: New `backups` table, backup settings columns in `settings` and `worlds` tables
 - **CSS tooltips**: Replaced native `title` tooltips with JS-powered tooltips that work inside modals
+- **Cloudflare Tunnel compatibility**: Backup/restore progress uses background jobs with polling instead of streaming, which Cloudflare Tunnels buffer
 
 ---
 

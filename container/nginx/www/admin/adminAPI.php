@@ -337,27 +337,19 @@ switch($action) {
             $input = json_decode(file_get_contents('php://input'), true);
             $world = $input['world'] ?? '';
             $compression = $input['compression'] ?? '';
-            // validate compression value
             if (!in_array($compression, ['none', 'gzip', 'zstd'])) $compression = '';
             if ($world) {
-                header('Content-Type: text/plain; charset=utf-8');
-                header('X-Accel-Buffering: no');
-                header('Cache-Control: no-cache');
-                if (ob_get_level()) ob_end_flush();
+                // Launch backup in background, write progress to temp file for polling
+                $jobId = bin2hex(random_bytes(8));
+                $progressFile = "/tmp/phv_job_{$jobId}.log";
+                $doneFile = "/tmp/phv_job_{$jobId}.done";
+                touch($progressFile);
                 $compArg = $compression ? ' ' . escapeshellarg($compression) : '';
-                $proc = popen("/opt/stateless/engine/tools/worldBackup " . escapeshellarg($world) . " manual" . $compArg . " 2>&1", 'r');
-                if ($proc) {
-                    while (!feof($proc)) {
-                        $line = fgets($proc);
-                        if ($line !== false) {
-                            echo $line;
-                            flush();
-                        }
-                    }
-                    pclose($proc);
-                } else {
-                    echo json_encode(['success' => false, 'error' => 'Failed to start backup process']);
-                }
+                $cmd = "/opt/stateless/engine/tools/worldBackup " . escapeshellarg($world) . " manual" . $compArg;
+                // Run fully detached: redirect all FDs so PHP doesn't wait
+                $shell = "nohup bash -c '($cmd) > " . escapeshellarg($progressFile) . " 2>&1; echo \$? > " . escapeshellarg($doneFile) . "' > /dev/null 2>&1 < /dev/null &";
+                exec($shell);
+                echo json_encode(['success' => true, 'jobId' => $jobId]);
             } else {
                 echo json_encode(['success' => false, 'error' => 'World name required']);
             }
@@ -371,29 +363,62 @@ switch($action) {
             $input = json_decode(file_get_contents('php://input'), true);
             $backupId = (int)($input['backupId'] ?? 0);
             if ($backupId > 0) {
-                header('Content-Type: text/plain; charset=utf-8');
-                header('X-Accel-Buffering: no');
-                header('Cache-Control: no-cache');
-                if (ob_get_level()) ob_end_flush();
-                $proc = popen("/opt/stateless/engine/tools/worldRestore " . escapeshellarg($backupId) . " 2>&1", 'r');
-                if ($proc) {
-                    while (!feof($proc)) {
-                        $line = fgets($proc);
-                        if ($line !== false) {
-                            echo $line;
-                            flush();
-                        }
-                    }
-                    pclose($proc);
-                } else {
-                    echo json_encode(['success' => false, 'error' => 'Failed to start restore process']);
-                }
+                // Launch restore in background, write progress to temp file for polling
+                $jobId = bin2hex(random_bytes(8));
+                $progressFile = "/tmp/phv_job_{$jobId}.log";
+                $doneFile = "/tmp/phv_job_{$jobId}.done";
+                touch($progressFile);
+                $cmd = "/opt/stateless/engine/tools/worldRestore " . escapeshellarg($backupId);
+                // Run fully detached: redirect all FDs so PHP doesn't wait
+                $shell = "nohup bash -c '($cmd) > " . escapeshellarg($progressFile) . " 2>&1; echo \$? > " . escapeshellarg($doneFile) . "' > /dev/null 2>&1 < /dev/null &";
+                exec($shell);
+                echo json_encode(['success' => true, 'jobId' => $jobId]);
             } else {
                 echo json_encode(['success' => false, 'error' => 'Valid backup ID required']);
             }
         } else {
+            header('Content-Type: application/json');
             echo json_encode(['success' => false, 'error' => 'POST method required']);
         }
+        break;
+
+    case 'getJobProgress':
+        $jobId = preg_replace('/[^a-f0-9]/', '', $_GET['jobId'] ?? '');
+        $offset = max(0, (int)($_GET['offset'] ?? 0));
+        if (!$jobId) {
+            echo json_encode(['error' => 'Job ID required']);
+            break;
+        }
+        $progressFile = "/tmp/phv_job_{$jobId}.log";
+        $doneFile = "/tmp/phv_job_{$jobId}.done";
+        if (!file_exists($progressFile)) {
+            echo json_encode(['error' => 'Job not found']);
+            break;
+        }
+        // Read new lines from the progress file starting at offset
+        $lines = [];
+        $fp = fopen($progressFile, 'r');
+        if ($fp) {
+            fseek($fp, $offset);
+            while (($line = fgets($fp)) !== false) {
+                $trimmed = trim($line);
+                if ($trimmed !== '') $lines[] = $trimmed;
+            }
+            $newOffset = ftell($fp);
+            fclose($fp);
+        } else {
+            $newOffset = $offset;
+        }
+        $done = file_exists($doneFile);
+        $exitCode = $done ? (int)trim(file_get_contents($doneFile)) : null;
+        $result = ['lines' => $lines, 'offset' => $newOffset, 'done' => $done];
+        if ($done) {
+            $result['exitCode'] = $exitCode;
+            // Clean up temp files
+            @unlink($progressFile);
+            @unlink($doneFile);
+        }
+        echo json_encode($result);
         break;
 
     case 'deleteBackup':
