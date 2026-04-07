@@ -55,6 +55,7 @@ if [ ! $? = 0 ]; then
 		uncompressed_size BIGINT DEFAULT 0,
 		compressed TINYINT DEFAULT 0,
 		compression_type VARCHAR(10) DEFAULT 'none',
+		orphaned TINYINT DEFAULT 0,
 		metadata JSON,
 		INDEX idx_world_created (world_name, created_at)
 	);"
