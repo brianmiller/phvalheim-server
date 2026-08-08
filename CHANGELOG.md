@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.39 — Modpack Rebuild Boot Fix
+
+First stable release of the 2.38 backup system work, plus a fix for worlds failing to boot after a modpack rebuild.
+
+### Fixes
+- **World boot failure after modpack rebuild** ([#80](https://github.com/brianmiller/phvalheim-server/issues/80)): Mod zips packaged on Windows can store directories without the execute bit. `unzip` preserves that, leaving BepInEx unable to traverse the extracted plugin directories and aborting startup with a fatal `UnauthorizedAccessException`. `u+rwX` is now restored after Thunderstore extraction and after custom mods/configs/patchers installs (`cp -p` preserves the bad source permissions the same way).
+- **Backup/restore progress behind Cloudflare Tunnel**: Replaced streaming progress with background jobs plus polling, which Cloudflare Tunnels do not buffer.
+- **NGINX FastCGI buffering**: Disabled for streaming progress endpoints.
+- **Backups table schema**: The `orphaned` column is now present in the initial table creation, not only in the migration path.
+
+### Included from v2.38 (previously pre-release)
+The full backup system modernization — activity-aware scheduling, tiered retention, compression, one-click restore, backup management UI, and startup reconciliation. See the v2.38 notes below for details.
+
+---
+
 ## v2.38 — Backup System Modernization (Pre-release)
 
 ### Backup Engine
