@@ -315,7 +315,12 @@ function downloadAndInstallTsModsForWorld() {
         done
 
         #final step, ensure the world and all its files are owned by phvalheim
-        chown -R phvalheim:phvalheim $worldsDirectoryRoot/$worldName 
+        chown -R phvalheim:phvalheim $worldsDirectoryRoot/$worldName
+
+        #some mod zips (built on Windows) store directories without the execute bit; unzip
+        #preserves that, and BepInEx then fails to boot with a fatal UnauthorizedAccessException
+        #(issue #80). u+rwX restores directory traverse without touching group/other bits.
+        chmod -R u+rwX $worldsDirectoryRoot/$worldName/game/BepInEx
 
 
 }
@@ -368,6 +373,10 @@ function installCustomModsConfigsPatchers() {
         chown -R phvalheim:phvalheim $customModsSourceDir
         chown -R phvalheim:phvalheim $customConfigsSourceDir
         chown -R phvalheim:phvalheim $customPatchersSourceDir
+
+        #cp -p preserves source permissions, which may lack the directory execute bit
+        #(same failure mode as issue #80) — restore traverse for the phvalheim user
+        chmod -R u+rwX $worldModsDestDir $worldConfigsDestDir $worldPatchersDestDir
 
 }
 
