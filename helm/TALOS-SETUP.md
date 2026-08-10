@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Cluster Name** | wopr |
-| **Control Plane** | `2.2.20.20` (37648-talos1.phospher.com) |
+| **Control Plane** | `<CONTROL_PLANE_IP>` (<control-plane-hostname>) |
 | **Talos Version** | v1.12.4 |
 | **Kubernetes Version** | v1.35.0 |
 | **CNI** | Flannel (Talos default) |
@@ -15,7 +15,7 @@
 ### 1. Generated cluster config
 
 ```bash
-talosctl gen config wopr https://2.2.20.20:6443 --output ~/.talos/
+talosctl gen config wopr https://<CONTROL_PLANE_IP>:6443 --output ~/.talos/
 ```
 
 This created three files in `~/.talos/`:
@@ -26,28 +26,28 @@ This created three files in `~/.talos/`:
 ### 2. Configured talosctl endpoints
 
 ```bash
-talosctl --talosconfig ~/.talos/talosconfig config endpoint 2.2.20.20
-talosctl --talosconfig ~/.talos/talosconfig config node 2.2.20.20
+talosctl --talosconfig ~/.talos/talosconfig config endpoint <CONTROL_PLANE_IP>
+talosctl --talosconfig ~/.talos/talosconfig config node <CONTROL_PLANE_IP>
 ```
 
 ### 3. Applied control plane config
 
 ```bash
 talosctl --talosconfig ~/.talos/talosconfig apply-config \
-  --insecure --nodes 2.2.20.20 --file ~/.talos/controlplane.yaml
+  --insecure --nodes <CONTROL_PLANE_IP> --file ~/.talos/controlplane.yaml
 ```
 
 ### 4. Bootstrapped Kubernetes
 
 ```bash
-talosctl --talosconfig ~/.talos/talosconfig bootstrap --nodes 2.2.20.20
+talosctl --talosconfig ~/.talos/talosconfig bootstrap --nodes <CONTROL_PLANE_IP>
 ```
 
 ### 5. Retrieved kubeconfig
 
 ```bash
 talosctl --talosconfig ~/.talos/talosconfig kubeconfig ~/.kube/config \
-  --nodes 2.2.20.20 --force
+  --nodes <CONTROL_PLANE_IP> --force
 ```
 
 ### 6. Deployed local-path-provisioner (storage)

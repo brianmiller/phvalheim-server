@@ -1,0 +1,22 @@
+# Secrets — never commit. This repo is PUBLIC.
+secrets.cfg
+*.secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+.htpasswd
+
+# Local infra / cluster config (internal addressing — keep in a private repo)
+*mirrors-patch.yaml
+talosconfig
+kubeconfig
+controlplane.yaml
+worker.yaml
+
+# Editor / OS noise
+.DS_Store
+*.swp
+*~
