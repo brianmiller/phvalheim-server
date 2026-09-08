@@ -4308,3 +4308,61 @@ input:checked + .slider:before {
 	color: var(--text-muted);
 	flex-shrink: 0;
 }
+
+/* --- Vanilla world cards (2.40) ---------------------------------------------
+   A vanilla world has no mods, no client payload and no boss progression, so its
+   card shows connection details instead of a trophy row. It shares .catbox so it
+   reads as a peer of the modded cards, not a stripped-down version of one. */
+.catbox-vanilla .vanilla-badge {
+	display: inline-block;
+	padding: 0.1rem 0.5rem;
+	margin-right: 0.25rem;
+	border-radius: 0.75rem;
+	font-size: 0.7rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	background: var(--accent-primary, #4a8);
+	color: #0b0b0b;
+}
+
+.catbox-vanilla .vanilla-badge-muted {
+	background: var(--bg-tertiary, #333);
+	color: var(--text-secondary, #aaa);
+}
+
+.catbox-vanilla .world-endpoint code {
+	font-size: 0.85em;
+	word-break: break-all;
+}
+
+.catbox-vanilla .vanilla-password-mask {
+	font-family: monospace;
+	letter-spacing: 0.1em;
+	margin-right: 0.4rem;
+}
+
+.catbox-vanilla .vanilla-password-reveal {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	text-decoration: none;
+	opacity: 0.75;
+}
+
+.catbox-vanilla .vanilla-password-reveal:hover {
+	opacity: 1;
+	text-decoration: underline;
+}
+
+.catbox-vanilla .vanilla-hint {
+	margin-top: 0.6rem;
+	padding: 0 0.5rem;
+	font-size: 0.72rem;
+	line-height: 1.35;
+	text-align: center;
+	color: var(--text-muted, #888);
+}
+
+.catbox-vanilla.card_dimmed .vanilla-badge {
+	opacity: 0.4;
+}

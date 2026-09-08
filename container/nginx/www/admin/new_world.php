@@ -263,6 +263,45 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						</div>
 					</div>
 				</div>
+				<div class="row g-3 mt-1">
+					<div class="col-12">
+						<div class="form-check">
+							<input class="form-check-input" type="checkbox" id="vanillaWorld" onchange="toggleVanillaWorld(this.checked)">
+							<label class="form-check-label alt-color" for="vanillaWorld"><strong>Vanilla world (no mods)</strong></label>
+							<div class="form-text text-secondary">
+								Runs stock Valheim with zero mods and no BepInEx. Players join with the normal
+								Valheim client, so no PhValheim client install is needed.
+							</div>
+						</div>
+					</div>
+					<div class="col-12" id="vanillaOptions" style="display:none;">
+						<div class="card-panel" style="padding:1rem;">
+							<div class="row g-3">
+								<div class="col-12 col-md-6">
+									<label class="form-label alt-color" for="vanillaPassword">Server Password</label>
+									<input type="text" class="form-control" id="vanillaPassword" maxlength="64" placeholder="(no password)">
+									<div class="form-text text-secondary">Minimum 5 characters, and cannot appear inside the world name.</div>
+								</div>
+								<div class="col-12 col-md-6 d-flex flex-column justify-content-center">
+									<div class="form-check">
+										<input class="form-check-input" type="checkbox" id="vanillaCrossplay">
+										<label class="form-check-label" for="vanillaCrossplay">Enable crossplay (Xbox / Microsoft Store)</label>
+									</div>
+									<div class="form-check">
+										<input class="form-check-input" type="checkbox" id="vanillaListed">
+										<label class="form-check-label" for="vanillaListed">List in the public server browser</label>
+									</div>
+								</div>
+								<div class="col-12">
+									<div class="form-text text-warning">
+										Note: a custom seed needs a mod, so a vanilla world always generates a random one.
+										Valheim also requires a password before a world can be listed in the server browser.
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 				<div id="formMsg" class="mt-3 text-center" style="display:none;"></div>
 			</div>
 
@@ -295,6 +334,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					<div style="font-size: 0.875rem; color: var(--warning);">Warning: Cloning will replace all mod selections with the selected world's mods.</div>
 				</div>
 				<?php endif; ?>
+				<div id="modSelectionArea">
 				<!-- Selected Mods Table -->
 				<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-bottom: 2px solid var(--accent-primary);">
 					<span style="font-weight: 600; color: var(--text-primary);">Selected Mods</span>
@@ -311,6 +351,10 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				</div>
 				<div class="table-responsive">
 					<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+				</div>
+				</div>
+				<div id="vanillaNoModsNotice" style="display:none; padding: 1.5rem; text-align: center; color: var(--text-secondary);">
+					This is a vanilla world &mdash; no mods will be installed.
 				</div>
 			</div>
 
@@ -847,6 +891,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			}
 
 			// Get all checked mod UUIDs (state-driven, no DOM dependency)
+			// A vanilla world has no mods and no custom seed, so hide both rather than
+			// letting someone pick mods that will be silently dropped at create time.
+			function toggleVanillaWorld(checked) {
+				$('#vanillaOptions').toggle(checked);
+				$('#modSelectionArea').toggle(!checked);
+				$('#vanillaNoModsNotice').toggle(checked);
+				if (checked) {
+					// Custom seeds are implemented by a BepInEx mod, so a vanilla world
+					// cannot have one. Force it back to random rather than accepting a
+					// seed that would be silently ignored.
+					$('#seedTypeRandom').prop('checked', true);
+					toggleSeedMode('random');
+				}
+			}
+
 			function getSelectedMods() {
 				return Object.keys(checkedSet);
 			}
@@ -970,10 +1029,18 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 
 				var selectedMods = getSelectedMods();
 
+				var isVanilla = $('#vanillaWorld').is(':checked');
+
 				var payload = {
 					world: worldName,
 					seed: $('#seed').val().trim(),
-					mods: selectedMods
+					// A vanilla world means ZERO mods. Send an empty list rather than
+					// relying on the operator having cleared the mod table.
+					mods: isVanilla ? [] : selectedMods,
+					vanilla: isVanilla ? 1 : 0,
+					password: isVanilla ? $('#vanillaPassword').val().trim() : '',
+					crossplay: (isVanilla && $('#vanillaCrossplay').is(':checked')) ? 1 : 0,
+					listed: (isVanilla && $('#vanillaListed').is(':checked')) ? 1 : 0
 				};
 
 				// Add clone data if present

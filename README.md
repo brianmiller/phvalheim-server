@@ -27,6 +27,8 @@ Modding Valheim is easy. Keeping mods perfectly in sync across your server and e
 
 PhValheim is a two-part system (server + client) that locks server and client mod configurations together. Deploy worlds with any combination of Thunderstore mods, and every player automatically gets the exact same files when they connect. No more "which version do you have?" conversations.
 
+Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — stock Valheim, zero mods, joined with the ordinary Valheim client — so you can run plain servers alongside your modded ones without managing a second stack.
+
 ---
 
 ## Features
@@ -34,9 +36,12 @@ PhValheim is a two-part system (server + client) that locks server and client mo
 | | |
 |---|---|
 | **One-Click Worlds** | Deploy unique Valheim worlds with any combination of Thunderstore mods at the click of a button. |
+| **Vanilla Servers** | Run stock, zero-mod worlds alongside your modded ones. Password protected, crossplay capable, and optionally listed in the public Valheim server browser. Players join with the ordinary Valheim client — no PhValheim client needed. |
 | **Automatic Mod Sync** | Server and client mods stay in lock-step. Players always have the right files. |
 | **Setup Wizard** | Guided first-run configuration — just start the container and follow the steps. No environment variables required. |
 | **Steam Authentication** | Players log in with their Steam account. Per-world access control lists manage who can see and join each world. |
+| **Citizens & Admins** | Per-world allow lists, plus a per-world admin list granting in-game admin commands. |
+| **Custom Launch Parameters** | Append your own arguments to any world's Valheim server command line. |
 | **Thunderstore Integration** | Full Thunderstore mod catalog synced every 12 hours. Search, select, and deploy mods with dependency resolution built in. |
 | **Backup System** | Activity-aware scheduled backups with compression (gzip/zstd), tiered retention, one-click restore, and per-world overrides. Supports separate backup volumes. |
 | **Live Monitoring** | Real-time CPU, memory, and load metrics for every running world, visible in both the admin and public UIs. |
@@ -310,6 +315,53 @@ Configure one or more AI providers in Server Settings to enable the built-in log
 
 ---
 
+## Vanilla Worlds
+
+A world can be created as **vanilla**: stock Valheim with zero mods and no BepInEx. Players join with the ordinary Valheim client, so no PhValheim client install is required.
+
+Tick **Vanilla world (no mods)** when creating a world, or flip it later in the world's **Settings** modal (the world needs an update/restart to apply).
+
+| Option | Notes |
+|---|---|
+| **Server Password** | Minimum 5 characters, and it cannot appear inside the world name — Valheim refuses to start otherwise. |
+| **Crossplay** | Lets Xbox / Microsoft Store players join. |
+| **List in server browser** | Publishes the world to the public Valheim community server list. Valheim requires a password for this. |
+
+Players see a dedicated card on the public UI with the server address, the password (click to reveal), and a **Join** button. They can also connect from Valheim's own *Join IP* screen using the address shown.
+
+> **Note:** Valheim has no way to pre-fill a server password from a launch argument, so players type it at the prompt — which is why the card shows it.
+
+Because these worlds run no mods, a few PhValheim features that depend on the companion mod do not apply to them: boss progression ("hung heads"), player join/leave events, and tick-health metrics. Custom seeds also require a mod, so vanilla worlds generate a random seed.
+
+Modded worlds are unaffected by any of this — they continue to be gated by the **Citizens** list.
+
+---
+
+## Citizens & Admins
+
+Each world has two per-world player lists, both in the world's **Settings** modal:
+
+- **Citizens** — who may join (`permittedlist.txt`). Setting a world **Public** here removes the restriction entirely and lets anyone join.
+- **Admins** — who gets in-game admin commands (`adminlist.txt`). Entries must be SteamID64s.
+
+Valheim reads both files at world start, so changes need a world restart to take effect.
+
+> **Note:** A world's **Public** toggle controls the Citizens gate only. It does *not* publish the world to the Valheim server browser — that is the separate **List in server browser** option on vanilla worlds.
+
+---
+
+## Custom Launch Parameters
+
+Each world's **Settings** modal has a **Custom Launch Parameters** field, appended to the Valheim server command line after everything PhValheim generates, so it can override the defaults.
+
+```
+-saveinterval 900 -instanceid myserver
+```
+
+Shell metacharacters are rejected. Invalid Valheim arguments will stop the world from booting, with the reason only visible in the world log — change these one at a time.
+
+---
+
 ## PhValheim Client
 
 The server is only half the equation. **PhValheim Client** is a cross-platform companion app (Windows, Linux, macOS) that registers a custom `phvalheim://` URL protocol. When a player clicks a launch link:
@@ -318,11 +370,13 @@ The server is only half the equation. **PhValheim Client** is a cross-platform c
 2. If outdated, it downloads the new payload (mods, configs, dependencies).
 3. It launches Valheim, connecting to the correct server and world automatically.
 
+Vanilla worlds skip steps 1 and 2 — there is no payload — and are joined directly, so players do not need the client for them at all.
+
 | Platform | Installer | Config location |
 |---|---|---|
 | **Windows** | `.msi` | `%appdata%\PhValheim` |
 | **Linux** | `.deb`, `.rpm`, or `.tar.gz` | `~/.config/PhValheim` |
-| **macOS** | `.pkg` (universal — Intel + Apple Silicon) | `~/Library/Application Support/PhValheim` |
+| **macOS** | `macinstall.sh` (universal — Intel + Apple Silicon) | `~/Library/Application Support/PhValheim` |
 
 > **Client repo:** [brianmiller/phvalheim-client](https://github.com/brianmiller/phvalheim-client)
 

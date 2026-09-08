@@ -123,13 +123,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					$worldMemory = "<i>pending...</i>";
 				}
 
-				$trophyEikthyr = getBossTrophyStatus($pdo,$myWorld,"trophyeikthyr");
-                                $trophyTheElder = getBossTrophyStatus($pdo,$myWorld,"trophytheelder");
-                                $trophyBonemass = getBossTrophyStatus($pdo,$myWorld,"trophybonemass");
-                                $trophyDragonQueen = getBossTrophyStatus($pdo,$myWorld,"trophydragonqueen");
-                                $trophyGoblinKing = getBossTrophyStatus($pdo,$myWorld,"trophygoblinking");
-				$trophySeekerQueen = getBossTrophyStatus($pdo,$myWorld,"trophyseekerqueen");
-				$trophyFader = getBossTrophyStatus($pdo,$myWorld,"trophyfader");
+				# A vanilla world has no companion mod, so it reports no boss progression
+				# at all. It gets its own card below rather than an empty trophy row.
+				$isVanilla = (getVanilla($pdo,$myWorld) == 1);
+				$bossProgression = $isVanilla ? [] : getBossProgression($pdo,$myWorld);
 
 				if(!$isOnline) {
 					$worldDimmed = "card_dimmed";
@@ -146,63 +143,88 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					$launchLabel = "Launch!";
 				}
 
-				if($trophyEikthyr && $worldDimmed == "") {
-						$trophyEikthyrDimmed = "";
-						$trophyEikthyrStatus = "Eikthyr has been defeated";
-				} else {
-						$trophyEikthyrDimmed = "trophy_dimmed";
-						$trophyEikthyrStatus = "Eikthyr is undefeated";
+				# Render the trophy row straight from the registry, in progression order.
+				# Adding a boss is an entry in includes/bosses.php -- nothing here changes.
+				$trophyRow = "";
+				foreach ($bossProgression as $bossKey => $boss) {
+					$trophyDimmed = ($boss['defeated'] && $worldDimmed == "") ? "" : "trophy_dimmed";
+					$trophyRow .= "<td class='trophy_icon trophy-" . htmlspecialchars($bossKey) . " $trophyDimmed'>"
+						. "<img title='" . htmlspecialchars($boss['status']) . "' src='../images/" . htmlspecialchars($boss['icon']) . "'></img></td>\n";
 				}
-                                if($trophyTheElder && $worldDimmed == "") {
-                                                $trophyTheElderDimmed = "";
-						$trophyTheElderStatus = "The Elder has been defeated";
-                                } else {
-                                                $trophyTheElderDimmed = "trophy_dimmed";
-						$trophyTheElderStatus = "The Elder is undefeated";
-                                }
-                                if($trophyBonemass && $worldDimmed == "") {
-                                                $trophyBonemassDimmed = "";
-						$trophyBonemassStatus = "Bonemass has been defeated";
-                                } else {
-                                                $trophyBonemassDimmed = "trophy_dimmed";
-						$trophyBonemassStatus = "Bonemass is undefeated";
-                                }
-                                if($trophyDragonQueen && $worldDimmed == "") {
-                                                $trophyDragonQueenDimmed = "";
-                                                $trophyDragonQueenStatus = "Moder has been defeated";
-                                } else {
-                                                $trophyDragonQueenDimmed = "trophy_dimmed";
-						$trophyDragonQueenStatus = "Moder is undefeated";
-                                }
-                                if($trophyGoblinKing && $worldDimmed == "") {
-                                                $trophyGoblinKingDimmed = "";
-						$trophyGoblinKingStatus = "Yagluth has been defeated";
-                                } else {
-                                                $trophyGoblinKingDimmed = "trophy_dimmed";
-						$trophyGoblinKingStatus = "Yagluth is undefeated";
-                                }
-                                if($trophySeekerQueen && $worldDimmed == "") {
-                                                $trophySeekerQueenDimmed = "";
-						$trophySeekerQueenStatus = "The Queen has been defeated";
-                                } else {
-                                                $trophySeekerQueenDimmed = "trophy_dimmed";
-						$trophySeekerQueenStatus = "The Queen is undefeated";
-
-                                }
-                                if($trophyFader && $worldDimmed == "") {
-                                                $trophyFaderDimmed = "";
-                                                $trophyFaderStatus = "Fader has been defeated";
-                                } else {
-                                                $trophyFaderDimmed = "trophy_dimmed";
-                                                $trophyFaderStatus = "Fader is undefeated";
-
-                                }
 
 
 				if ($hideSeed == 1) {
 					$seed = '<i>hidden</i>';
 				}
 
+				if ($isVanilla) {
+					# --- Vanilla world card ---
+					#
+					# Deliberately NOT the modded card with the mod/MD5/trophy rows blanked
+					# out. A vanilla world is joined with Valheim's own +connect and has no
+					# client payload, so what a player needs is the endpoint and password,
+					# not a row of grey trophies telling them nothing.
+					$vanillaPassword = getWorldPassword($pdo,$myWorld);
+					$vanillaPort = getPort($pdo,$myWorld);
+					$vanillaCrossplay = (getCrossplay($pdo,$myWorld) == 1);
+					$vanillaListed = (getListed($pdo,$myWorld) == 1);
+					$vanillaEndpoint = htmlspecialchars($gameDNS . ":" . $vanillaPort);
+					$vanillaSteamUrl = htmlspecialchars("steam://run/892970//+connect " . $gameDNS . ":" . $vanillaPort);
+
+					# Vanilla Valheim has no launch argument to pre-fill a password, so the
+					# player has to type it. Showing it here is the other half of the feature.
+					if (!empty($vanillaPassword)) {
+						$passwordCell = "<span class='vanilla-password' data-password=\"" . htmlspecialchars($vanillaPassword) . "\">"
+							. "<span class='vanilla-password-mask'>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>"
+							. "<a href='#' class='vanilla-password-reveal' onclick='revealVanillaPassword(this); return false;'>show</a></span>";
+					} else {
+						$passwordCell = "<i>none</i>";
+					}
+
+					$badges = "";
+					if ($vanillaCrossplay) { $badges .= "<span class='vanilla-badge'>crossplay</span> "; }
+					if ($vanillaListed)    { $badges .= "<span class='vanilla-badge'>in server browser</span> "; }
+					if ($badges == "")     { $badges = "<span class='vanilla-badge vanilla-badge-muted'>invite only</span>"; }
+
+					$joinLink = $isOnline
+						? "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Join!</a>"
+						: "<a class='$worldDimmed card_worldLaunch'>offline</a>";
+
+					echo "
+                                        <div class=\"$worldDimmed catbox catbox-vanilla\" data-world=\"$myWorld\" data-vanilla=\"1\">
+                                                <table width=100% height=100% border=0>
+                                                        <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
+                                                        <tr>
+                                                        <th class='$worldDimmed card_worldLaunch' colspan=2>$joinLink</th>
+                                                        <tr>
+                                                        <td style='height: 12px;'</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Type&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Vanilla &mdash; no mods needed</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Server&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-endpoint'><code>$vanillaEndpoint</code></td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Password&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-password'>$passwordCell</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$badges</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-seed'>$seed</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Deployed&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-deployed'>$dateDeployed</td>
+                                                        <tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-memory'>$worldMemory</td>
+                                                        <tr>
+                                                </table>
+                                                <div class='vanilla-hint'>Join from Valheim's <em>Join IP</em> screen with the address above, or use the Join button.</div>
+                                        </div>
+                                ";
+				} else {
 				echo "
                                         <div class=\"$worldDimmed catbox\" data-world=\"$myWorld\">
                                                 <table width=100% height=100% border=0>
@@ -235,16 +257,11 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>
                                                 </table>
 						<table border=0 class='trophy-table'>
-							<td class='trophy_icon trophy-eikthyr $trophyEikthyrDimmed'><img title='$trophyEikthyrStatus' src='../images/TrophyEikthyr.png'></img></td>
-                                                        <td class='trophy_icon trophy-theElder $trophyTheElderDimmed'><img title='$trophyTheElderStatus' src='../images/TrophyTheElder.png'></img></td>
-                                                        <td class='trophy_icon trophy-bonemass $trophyBonemassDimmed'><img title='$trophyBonemassStatus' src='../images/TrophyBonemass.png'></img></td>
-                                                        <td class='trophy_icon trophy-dragonQueen $trophyDragonQueenDimmed'><img title='$trophyDragonQueenStatus' src='../images/TrophyDragonQueen.png'></img></td>
-                                                        <td class='trophy_icon trophy-goblinKing $trophyGoblinKingDimmed'><img title='$trophyGoblinKingStatus' src='../images/TrophyGoblinKing.png'></img></td>
-							<td class='trophy_icon trophy-seekerQueen $trophySeekerQueenDimmed'><img title='$trophySeekerQueenStatus' src='../images/TrophySeekerQueen.png'></img></td>
-							<td class='trophy_icon trophy-fader $trophyFaderDimmed'><img title='$trophyFaderStatus' src='../images/TrophyFader.png'></img></td>
+							$trophyRow
 						</table>
                                         </div>
                                 ";
+				}
                         }//end foreach loop through worlds
 
                 } else {
@@ -366,6 +383,25 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                     }
                 }
 
+                // Vanilla worlds show their server password on the card, since vanilla
+                // Valheim has no way to receive it from a launch argument. Masked until
+                // asked for, so it isn't sitting in plain sight on a shared screen.
+                function revealVanillaPassword(link) {
+                    const wrap = link.closest('.vanilla-password');
+                    if (!wrap) return;
+                    const mask = wrap.querySelector('.vanilla-password-mask');
+                    if (!mask) return;
+                    if (mask.dataset.revealed === '1') {
+                        mask.textContent = '••••••••';
+                        mask.dataset.revealed = '0';
+                        link.textContent = 'show';
+                    } else {
+                        mask.textContent = wrap.dataset.password;
+                        mask.dataset.revealed = '1';
+                        link.textContent = 'hide';
+                    }
+                }
+
                 function updateWorldCards(worlds) {
                     worlds.forEach(world => {
                         const card = document.querySelector(`.catbox[data-world="${world.name}"]`);
@@ -455,30 +491,43 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                             }
                         }
 
-                        // Update trophy states
-                        const trophyMap = {
-                            'eikthyr': { el: '.trophy-eikthyr', defeated: 'Eikthyr has been defeated', undefeated: 'Eikthyr is undefeated' },
-                            'theElder': { el: '.trophy-theElder', defeated: 'The Elder has been defeated', undefeated: 'The Elder is undefeated' },
-                            'bonemass': { el: '.trophy-bonemass', defeated: 'Bonemass has been defeated', undefeated: 'Bonemass is undefeated' },
-                            'dragonQueen': { el: '.trophy-dragonQueen', defeated: 'Moder has been defeated', undefeated: 'Moder is undefeated' },
-                            'goblinKing': { el: '.trophy-goblinKing', defeated: 'Yagluth has been defeated', undefeated: 'Yagluth is undefeated' },
-                            'seekerQueen': { el: '.trophy-seekerQueen', defeated: 'The Seeker Queen has been defeated', undefeated: 'The Seeker Queen is undefeated' },
-                            'fader': { el: '.trophy-fader', defeated: 'Fader has been defeated', undefeated: 'Fader is undefeated' }
-                        };
-
-                        Object.keys(trophyMap).forEach(key => {
-                            const trophyEl = card.querySelector(trophyMap[key].el);
-                            if (trophyEl) {
-                                const img = trophyEl.querySelector('img');
-                                if (world.trophies[key] && isOnline) {
-                                    trophyEl.classList.remove('trophy_dimmed');
-                                    if (img) img.title = trophyMap[key].defeated;
-                                } else {
-                                    trophyEl.classList.add('trophy_dimmed');
-                                    if (img) img.title = trophyMap[key].undefeated;
-                                }
+                        // Update trophy states.
+                        //
+                        // Emitted from includes/bosses.php so this is not a second list to
+                        // keep in step with the PHP one -- a new boss is still a single
+                        // entry in the registry. (The old hardcoded map here also drifted:
+                        // it said "The Seeker Queen" where the server-rendered card said
+                        // "The Queen", so the tooltip changed on the first AJAX refresh.)
+                        const trophyMap = <?php
+                            $jsTrophyMap = [];
+                            foreach ($PHVALHEIM_BOSSES as $b) {
+                                $jsTrophyMap[$b['key']] = [
+                                    'el'         => '.trophy-' . $b['key'],
+                                    'defeated'   => $b['name'] . ' has been defeated',
+                                    'undefeated' => $b['name'] . ' is undefeated'
+                                ];
                             }
-                        });
+                            echo json_encode($jsTrophyMap);
+                        ?>;
+
+                        // A vanilla world reports no boss progression and renders no trophy
+                        // row. Skip only this block -- the dimmed-state update below still
+                        // has to run for vanilla cards.
+                        if (!world.vanilla) {
+                            Object.keys(trophyMap).forEach(key => {
+                                const trophyEl = card.querySelector(trophyMap[key].el);
+                                if (trophyEl) {
+                                    const img = trophyEl.querySelector('img');
+                                    if (world.trophies[key] && isOnline) {
+                                        trophyEl.classList.remove('trophy_dimmed');
+                                        if (img) img.title = trophyMap[key].defeated;
+                                    } else {
+                                        trophyEl.classList.add('trophy_dimmed');
+                                        if (img) img.title = trophyMap[key].undefeated;
+                                    }
+                                }
+                            });
+                        }
 
                         // Update all card_worldInfo cells dimmed state
                         card.querySelectorAll('.card_worldInfo, .card_worldName, .card_worldLaunch').forEach(el => {

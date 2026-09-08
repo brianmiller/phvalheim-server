@@ -4,6 +4,9 @@ include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_gets.php';
 include '../includes/db_sets.php';
+# require_once with the SAME absolute path db_sets.php uses -- a relative include here
+# would not dedupe against it and PHP would fatal on redeclaring the boss functions.
+require_once '/opt/stateless/nginx/www/includes/bosses.php';
 include '/opt/stateless/nginx/www/includes/session_auth.php';
 
 
@@ -45,16 +48,24 @@ if ($jsonIncoming->world) {
 ############## END: Mode detectors ##############
 
 
-if($action == "TrophyEikthyr"    ||
-   $action == "TrophyTheElder"   ||
-   $action == "TrophyBonemass"   ||
-   $action == "TrophyDragonQueen"||
-   $action == "TrophyGoblinKing" ||
-   $action == "TrophySeekerQueen" ||
-   $action == "TrophyFader") {
-	if(setHungHeads($pdo,$world,$action)) {
-		print "true";
-	} else {
+# Hung head reported by phvalheim-companion.
+#
+# bossColumnForPrefab() is the ONLY thing standing between the posted prefab name and a
+# column name interpolated into SQL by setHungHeads(). Never pass $action through raw.
+if ($action !== NULL) {
+	$bossColumn = bossColumnForPrefab($action);
+
+	if ($bossColumn !== NULL) {
+		if (setHungHeads($pdo, $world, $bossColumn)) {
+			print "true";
+		} else {
+			print "false";
+		}
+	} elseif (looksLikeBossPrefab($action)) {
+		# A trophy we don't have registered yet -- almost certainly a new boss.
+		# Log it so the first real kill tells us the prefab name without anyone
+		# having to watch a companion console. See includes/bosses.php.
+		logUnknownBoss($action, $world);
 		print "false";
 	}
 }
@@ -111,6 +122,36 @@ if ($mode == "getMyWorldsStatus") {
                 }
             }
 
+            $isVanilla = (getVanilla($pdo, $myWorld) == 1);
+
+            // Boss progression comes from the companion mod, which a vanilla world does
+            // not run. Send an empty set rather than seven zeroes -- "no data" and "all
+            // seven bosses still alive" are different claims and the UI must not confuse
+            // them. The vanilla card does not render a trophy row at all.
+            $trophies = [];
+            if (!$isVanilla) {
+                foreach (getBossProgression($pdo, $myWorld) as $key => $boss) {
+                    $trophies[$key] = $boss['defeated'] ? 1 : 0;
+                }
+            }
+
+            // Vanilla worlds are joined with Valheim's own +connect, so the player needs
+            // the endpoint and password in front of them. Only ever shown to a citizen of
+            // that world -- getMyWorlds() has already scoped this loop to their worlds.
+            $connection = NULL;
+            if ($isVanilla) {
+                $worldPort = getPort($pdo, $myWorld);
+                $connection = [
+                    'endpoint'  => $gameDNS . ':' . $worldPort,
+                    'host'      => $gameDNS,
+                    'port'      => $worldPort,
+                    'password'  => getWorldPassword($pdo, $myWorld),
+                    'crossplay' => (getCrossplay($pdo, $myWorld) == 1),
+                    'listed'    => (getListed($pdo, $myWorld) == 1),
+                    'steamUrl'  => 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
+                ];
+            }
+
             $worldsData[] = [
                 'name' => $myWorld,
                 'online' => $isOnline,
@@ -121,15 +162,9 @@ if ($mode == "getMyWorldsStatus") {
                 'dateDeployed' => getDateDeployed($pdo, $myWorld),
                 'dateUpdated' => getDateUpdated($pdo, $myWorld),
                 'mods' => $mods,
-                'trophies' => [
-                    'eikthyr' => getBossTrophyStatus($pdo, $myWorld, "trophyeikthyr"),
-                    'theElder' => getBossTrophyStatus($pdo, $myWorld, "trophytheelder"),
-                    'bonemass' => getBossTrophyStatus($pdo, $myWorld, "trophybonemass"),
-                    'dragonQueen' => getBossTrophyStatus($pdo, $myWorld, "trophydragonqueen"),
-                    'goblinKing' => getBossTrophyStatus($pdo, $myWorld, "trophygoblinking"),
-                    'seekerQueen' => getBossTrophyStatus($pdo, $myWorld, "trophyseekerqueen"),
-                    'fader' => getBossTrophyStatus($pdo, $myWorld, "trophyfader")
-                ]
+                'vanilla' => $isVanilla,
+                'connection' => $connection,
+                'trophies' => $trophies
             ];
         }
     }

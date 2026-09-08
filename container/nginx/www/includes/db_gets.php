@@ -286,6 +286,12 @@ function modExistCheck($pdo,$world,$modUUID) {
 	return $result;
 }
 
+# Launch string field order is POSITIONAL and parsed by index in the client's
+# Arguments.cs. Only ever APPEND fields -- an older client ignores trailing fields it
+# does not know about, but reordering silently breaks every installed client.
+#
+#   0        1      2         3         4      5               6            7
+#   launch ? world ? password ? gameDNS ? port ? phvalheimHost ? httpScheme ? vanilla
 function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
         $getWorldData = $pdo->query("SELECT status,name,port FROM worlds WHERE name='$world'");
         foreach($getWorldData as $row)
@@ -293,9 +299,15 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
                 $status = $row['status'];
                 $world = $row['name'];
                 $port = $row['port'];
-                $password = "hammertime";
-                #$password = $row['password'];
-                $launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost?$httpScheme");
+
+                $vanilla = (int)getVanilla($pdo, $world);
+
+                # A modded world's password is inert -- startWorld.sh has never passed
+                # -password for one, and access is gated by the CITIZENS list instead.
+                # Keep sending the historical literal so older clients behave identically.
+                $password = $vanilla ? (getWorldPassword($pdo, $world) ?: "") : "hammertime";
+
+                $launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost?$httpScheme?$vanilla");
 
 		return $launchString;
 	}
@@ -313,6 +325,51 @@ function getPublic($pdo,$world) {
         $sth->execute();
         $result = $sth->fetchColumn();
         return $result;
+}
+
+function getVanilla($pdo,$world) {
+        $sth = $pdo->prepare("SELECT vanilla FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
+function getWorldPassword($pdo,$world) {
+        $sth = $pdo->prepare("SELECT password FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
+function getCrossplay($pdo,$world) {
+        $sth = $pdo->prepare("SELECT crossplay FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
+# NOTE: `listed` is the Steam server-browser flag (Valheim's -public argument).
+# It is NOT the same as `public` -- see getPublic() below, which is the CITIZENS
+# access-control flag. Conflating them would list every open world publicly.
+function getListed($pdo,$world) {
+        $sth = $pdo->prepare("SELECT listed FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
+function getPort($pdo,$world) {
+        $sth = $pdo->prepare("SELECT port FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
+function getLaunchParams($pdo,$world) {
+        $sth = $pdo->prepare("SELECT launch_params FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
+function getAdmins($pdo,$world) {
+        $sth = $pdo->prepare("SELECT admins FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
 }
 
 function getBossTrophyStatus($pdo,$world,$trophy) {

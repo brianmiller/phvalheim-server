@@ -2,6 +2,9 @@
 
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
+# setHungHeads() re-validates against $PHVALHEIM_BOSSES, so the registry must be loaded
+# even when a caller only pulled in db_sets.php.
+require_once '/opt/stateless/nginx/www/includes/bosses.php';
 
 #return codes: 0=world created, 1=world failed to create, 2=world exists
 function addWorld($pdo,$new_world,$external_endpoint,$seed){
@@ -199,27 +202,73 @@ function deleteBackupRecord($pdo, $backupId) {
         return $stmt->execute([$backupId]);
 }
 
+function setVanilla($pdo,$world,$vanilla){
+	$sth = $pdo->prepare("UPDATE worlds SET vanilla=? WHERE name=?");
+	return $sth->execute([(int)$vanilla, $world]);
+}
+
+function setWorldPassword($pdo,$world,$password){
+	$sth = $pdo->prepare("UPDATE worlds SET password=? WHERE name=?");
+	return $sth->execute([$password === '' ? NULL : $password, $world]);
+}
+
+function setCrossplay($pdo,$world,$crossplay){
+	$sth = $pdo->prepare("UPDATE worlds SET crossplay=? WHERE name=?");
+	return $sth->execute([(int)$crossplay, $world]);
+}
+
+# `listed` is Valheim's -public server browser flag. NOT the same as setPublic(),
+# which is the CITIZENS access-control flag.
+function setListed($pdo,$world,$listed){
+	$sth = $pdo->prepare("UPDATE worlds SET listed=? WHERE name=?");
+	return $sth->execute([(int)$listed, $world]);
+}
+
+function setLaunchParams($pdo,$world,$params){
+	$sth = $pdo->prepare("UPDATE worlds SET launch_params=? WHERE name=?");
+	return $sth->execute([$params === '' ? NULL : $params, $world]);
+}
+
+function setAdmins($pdo,$world,$admins){
+	$sth = $pdo->prepare("UPDATE worlds SET admins=? WHERE name=?");
+	return $sth->execute([$admins, $world]);
+}
+
+# $hungHead MUST already be a worlds column name resolved through
+# bossColumnForPrefab() in includes/bosses.php. A column name cannot be bound as a
+# parameter, so this re-validates against the registry rather than trusting the caller --
+# this endpoint is reachable unauthenticated by the companion mod.
 function setHungHeads($pdo,$world,$hungHead) {
-	$hungHead = strtolower($hungHead);
-	$sql = "SELECT $hungHead FROM worlds WHERE name='$world'";
-        $result = $pdo->query($sql);
-        $row = $result->fetch();
-        $result = $row[$hungHead];
-	
-	# hung head is already seen by the database
-	if($result == "1") {
-		return true;
-	} else {
-		# tell that database a new head has been hung
-                $sql = "UPDATE worlds SET $hungHead=1 WHERE name='$world'";
-                if ($pdo->query($sql)) {
-			# successfully wrote to the database
-			return true;
-                } else {
-			# failed to write to the database
-			return false;
-                }
+	global $PHVALHEIM_BOSSES;
+
+	$known = false;
+	foreach ($PHVALHEIM_BOSSES as $boss) {
+		if ($boss['column'] === $hungHead) {
+			$known = true;
+			break;
+		}
 	}
+	if (!$known) {
+		return false;
+	}
+
+	$sth = $pdo->prepare("SELECT `$hungHead` FROM worlds WHERE name = ?");
+	$sth->execute([$world]);
+	$row = $sth->fetch();
+
+	# unknown world
+	if ($row === false) {
+		return false;
+	}
+
+	# hung head is already seen by the database
+	if ($row[$hungHead] == "1") {
+		return true;
+	}
+
+	# tell the database a new head has been hung
+	$sth = $pdo->prepare("UPDATE worlds SET `$hungHead` = 1 WHERE name = ?");
+	return $sth->execute([$world]);
 }
 
 ?>

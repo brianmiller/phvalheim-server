@@ -198,7 +198,15 @@ while [ true ]; do
 				echo "`date` [NOTICE : phvalheim] Checking for required mods..."
 
 				#generate custom seed config
-				createCustomSeedConfig "$worldName" "$worldSeed"
+				#
+				#Custom seeds are implemented by the ZeroBandwidth-CustomSeed BepInEx
+				#mod, so a vanilla world cannot use one -- Valheim itself has no seed
+				#argument, the seed is baked into the .fwl at first generation.
+				if [ "$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName'")" = "1" ]; then
+					echo "`date` [NOTICE : phvalheim] World '$worldName' is vanilla -- custom seed not applied (requires a mod). Valheim will generate a random seed."
+				else
+					createCustomSeedConfig "$worldName" "$worldSeed"
+				fi
 
 				#create supervisor config file for this world
 				createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
@@ -322,39 +330,62 @@ while [ true ]; do
 					continue
 				fi
 
-				#Update BepInEx
-				InstallAndUpdateBepInEx "$worldName"
+				#Is this a vanilla (zero-mod) world? See docs/RELEASE-2.40-DESIGN.md
+				isVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName'")
 
-				#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
-				purgeWorldModsConfigsPatchers "$worldName"
+				if [ "$isVanilla" = "1" ]; then
+					#A vanilla world means ZERO MODS: no BepInEx, no system plugins,
+					#no quickconnect, no Thunderstore mods. Players join it with
+					#Valheim's own +connect, so there is no client payload either.
+					echo "`date` [NOTICE : phvalheim] World '$worldName' is vanilla -- skipping BepInEx, mods and client packaging."
 
-                                #add required mods to final list
-                                mergeRequiredTsMods "$worldName"
+					#Make sure a world converted to vanilla has no mod remnants
+					purgeWorldModsConfigsPatchers "$worldName"
 
-				#Install mods
-				downloadAndInstallTsModsForWorld "$worldName"
+					#Empty the mod viewer list so the UI doesn't show stale mods
+					generateModViewerJson "$worldName"
+				else
+					#Update BepInEx
+					InstallAndUpdateBepInEx "$worldName"
 
-                                #generate mod viwer list
-                                generateModViewerJson "$worldName"
+					#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
+					purgeWorldModsConfigsPatchers "$worldName"
 
-				#Generate quick connect config
-				createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+					#add required mods to final list
+					mergeRequiredTsMods "$worldName"
 
-                                #Install system plugins (health monitor, etc)
-                                installSystemPlugins "$worldName"
+					#Install mods
+					downloadAndInstallTsModsForWorld "$worldName"
 
-                                #Install custom mods and config
-                                installCustomModsConfigsPatchers "$worldName"
+					#generate mod viwer list
+					generateModViewerJson "$worldName"
 
-				#Packge client
-                                packageClient "$worldName"
+					#Generate quick connect config
+					createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
 
-				#Copy custom_config_secure files to. These files will not end up on the client side
-                                InstallCustomConfigSecureFiles "$worldName"
+					#Install system plugins (health monitor, etc)
+					installSystemPlugins "$worldName"
 
-				#Update the database to reflect new client pacakge version via MD5
-                                worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
-                                setMD5 "$worldName" "$worldMD5"
+					#Install custom mods and config
+					installCustomModsConfigsPatchers "$worldName"
+
+					#Packge client
+					packageClient "$worldName"
+				fi
+
+				if [ "$isVanilla" != "1" ]; then
+					#Copy custom_config_secure files to. These files will not end up on the client side
+					InstallCustomConfigSecureFiles "$worldName"
+
+					#Update the database to reflect new client pacakge version via MD5
+					worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
+					setMD5 "$worldName" "$worldMD5"
+				else
+					#No client payload exists for a vanilla world, so there is nothing to
+					#checksum. Clear it rather than leaving the md5 of a stale zip behind,
+					#which the client would otherwise treat as a payload worth syncing.
+					setMD5 "$worldName" ""
+				fi
 
 				#set last updated timestamp
 				SQL "UPDATE worlds SET date_updated='`date +'%F %T'`' WHERE name='$worldName'"

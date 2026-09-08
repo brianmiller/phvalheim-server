@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.40-rc — Vanilla Servers, Admins, Custom Launch Parameters
+
+Release candidate. Held at `:rc` pending the Valheim 1.0 (Deep North) boss trophy prefab name — see "Known gaps" below.
+
+### Features
+- **Vanilla (zero-mod) worlds** ([#81](https://github.com/brianmiller/phvalheim-server/issues/81)): A world can now be created as vanilla — stock Valheim, no BepInEx, no mods, no client payload. Players join with the ordinary Valheim client, so no PhValheim client install is needed. New per-world settings: **server password**, **crossplay**, and **list in the public server browser**. These are vanilla-only; modded worlds keep being gated by the CITIZENS list exactly as before.
+- **Bespoke public UI card for vanilla worlds**: shows the endpoint, a click-to-reveal password, access badges, and a Join button (`steam://run/892970//+connect`). Vanilla Valheim has no launch argument to pre-fill a server password, so showing it on the card is what makes the world joinable.
+- **Custom launch parameters** per world, appended after everything PhValheim generates so they can override it. Validated in the admin UI and never `eval`'d by `startWorld.sh`.
+- **ADMINS editor** under CITIZENS in the world Settings modal, writing `adminlist.txt`. Entries are validated as SteamID64 — Valheim silently ignores malformed ones, which previously looked like "I added an admin and nothing happened."
+- **Boss registry** (`includes/bosses.php`): the boss list is now defined once and consumed by the API, the public card and the AJAX refresh. Adding a boss is one array entry, one DB column and one PNG.
+
+### Fixes
+- **`-public` was hardcoded to `0`** in `startWorld.sh`, and `-password` was never passed at all despite being accepted as an argument. No world has ever been listed or password protected.
+- **`worlds.public` is not a "public server" flag.** It is the CITIZENS access-control flag — when set it blanks `permittedlist.txt`. Valheim's `-public` argument is now driven by a separate `listed` column, so worlds that were opened to all citizens are not silently published to the global server browser on upgrade.
+- **Trophy tooltip drift**: the AJAX refresh said "The Seeker Queen" where the server-rendered card said "The Queen", so the tooltip changed on first refresh. Both now come from the registry.
+- **SQL injection in `setHungHeads()`**: the world name and trophy column were interpolated into SQL from an unauthenticated POST body. Both are now bound/validated against the registry.
+
+### Client (2.0.13)
+- Understands vanilla worlds via a new optional 8th launch-string field and launches them with Valheim's `+connect`, skipping the world sync and BepInEx entirely. Older servers that send 7 fields still work.
+- Removed the dead `ProgressBar/` directory — 6 files, 524 of 1591 lines, all declaring `namespace UpdateHOB` and referenced by nothing.
+
+### Known gaps
+- The Deep North boss is **not yet registered**: its trophy prefab name is unknown until the 1.0 release. `public/api.php` now logs any unrecognised `Trophy*` POST to `phvalheim.log`, so the first hung head anywhere reveals the name. Landing it is one entry in `includes/bosses.php`, one uncommented line in `dbUpdate_2.40.sh`, and one PNG.
+- Custom seeds need a BepInEx mod, so vanilla worlds always generate a random seed.
+
 ## v2.39 — Modpack Rebuild Boot Fix
 
 First stable release of the 2.38 backup system work, plus a fix for worlds failing to boot after a modpack rebuild.

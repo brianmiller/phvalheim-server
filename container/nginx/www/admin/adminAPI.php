@@ -83,6 +83,53 @@ switch($action) {
         }
         break;
 
+    case 'getAdmins':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getAdminsJson($pdo, $world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
+    case 'saveAdmins':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $admins = $input['admins'] ?? '';
+            if ($world) {
+                saveAdminsJson($pdo, $world, $admins);
+            } else {
+                echo json_encode(['error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    case 'getWorldOptions':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getWorldOptionsJson($pdo, $world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
+    case 'saveWorldOptions':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            if ($world) {
+                saveWorldOptionsJson($pdo, $world, $input);
+            } else {
+                echo json_encode(['error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
     case 'fetchSteamID':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $input = json_decode(file_get_contents('php://input'), true);
@@ -185,8 +232,14 @@ switch($action) {
             $cloneSource = $input['cloneSourceWorld'] ?? '';
             $cloneConfigs = isset($input['cloneConfigs']) ? (bool)$input['cloneConfigs'] : false;
             $clonePlugins = isset($input['clonePlugins']) ? (bool)$input['clonePlugins'] : false;
+            $vanillaOptions = [
+                'vanilla'   => isset($input['vanilla'])   ? (int)$input['vanilla']   : 0,
+                'password'  => $input['password'] ?? '',
+                'crossplay' => isset($input['crossplay']) ? (int)$input['crossplay'] : 0,
+                'listed'    => isset($input['listed'])    ? (int)$input['listed']    : 0
+            ];
             if ($world) {
-                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins);
+                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions);
             } else {
                 echo json_encode(['error' => 'World name required']);
             }
@@ -568,12 +621,15 @@ function getWorldsJson($pdo) {
         $httpScheme = "http";
     }
 
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated FROM worlds ORDER BY name");
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
-        $password = "hammertime";
-        $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme");
+        // Same positional contract as getLaunchString() in db_gets.php -- keep the two
+        // in step, and only ever append fields.
+        $vanilla = (int)$row['vanilla'];
+        $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
+        $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme?$vanilla");
 
         $worlds[] = [
             'name' => $row['name'],
@@ -918,6 +974,169 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
 }
 
 /**
+ * Returns the admin list for a specific world
+ */
+function getAdminsJson($pdo, $world) {
+    $adminsStr = getAdmins($pdo, $world);
+
+    echo json_encode([
+        'success' => true,
+        'admins'  => $adminsStr ?: ''
+    ]);
+}
+
+/**
+ * Save the admin list for a specific world.
+ *
+ * Mirrors saveCitizensJson(), but writes adminlist.txt instead of permittedlist.txt.
+ * Valheim reads adminlist.txt at world start, so changes need a world restart.
+ */
+function saveAdminsJson($pdo, $world, $admins) {
+    // Normalise to a single space separated string, same shape as citizens
+    $admins = str_replace(["\r\n", "\r", "\n"], " ", $admins);
+    $admins = preg_replace('!\s+!', ' ', trim($admins));
+
+    // SteamID64 only. Anything else in adminlist.txt is silently ignored by Valheim,
+    // which would look like "I added an admin and it did nothing".
+    $rejected = [];
+    $clean = [];
+    foreach (array_filter(explode(' ', $admins)) as $candidate) {
+        if (preg_match('/^\d{17}$/', $candidate)) {
+            $clean[] = $candidate;
+        } else {
+            $rejected[] = $candidate;
+        }
+    }
+
+    if (!empty($rejected)) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'Not a valid SteamID64 (17 digits): ' . implode(', ', $rejected)
+        ]);
+        return;
+    }
+
+    $admins = implode(' ', $clean);
+    setAdmins($pdo, $world, $admins);
+
+    $adminListPath = "/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/adminlist.txt";
+    $dirPath = dirname($adminListPath);
+
+    if (is_dir($dirPath)) {
+        $adminsNewlines = str_replace(' ', "\n", $admins);
+        file_put_contents($adminListPath, "// List admin players ID ONE per line\n" . $adminsNewlines);
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Admins saved. Restart the world for this to take effect.'
+    ]);
+}
+
+/**
+ * Per-world options: vanilla flag, password, crossplay, server browser listing,
+ * and custom launch parameters.
+ */
+function getWorldOptionsJson($pdo, $world) {
+    echo json_encode([
+        'success'      => true,
+        'vanilla'      => (int)getVanilla($pdo, $world),
+        'password'     => getWorldPassword($pdo, $world) ?: '',
+        'crossplay'    => (int)getCrossplay($pdo, $world),
+        'listed'       => (int)getListed($pdo, $world),
+        'launchParams' => getLaunchParams($pdo, $world) ?: ''
+    ]);
+}
+
+/**
+ * Validate a Valheim server password.
+ *
+ * These are Valheim's own rules -- break any of them and the server refuses to boot,
+ * which surfaces to the operator as a world that restart-loops with the reason buried
+ * in the world log. Rejecting here makes it a form error instead.
+ */
+function validateWorldPassword($password, $world) {
+    if ($password === '') {
+        return NULL;
+    }
+    if (strlen($password) < 5) {
+        return 'Password must be at least 5 characters.';
+    }
+    if (stripos($world, $password) !== false) {
+        return 'Password cannot be part of the world name.';
+    }
+    return NULL;
+}
+
+/**
+ * Validate custom launch parameters.
+ *
+ * startWorld.sh splits these with globbing disabled and never evals them, so a shell
+ * metacharacter cannot execute. We still reject them: they can only ever be a mistake
+ * here, and letting them through would leave the safety resting entirely on one line
+ * of shell staying correct forever.
+ */
+function validateLaunchParams($params) {
+    if ($params === '') {
+        return NULL;
+    }
+    if (preg_match('/[;&|`$<>\n\r]/', $params)) {
+        return 'Launch parameters cannot contain shell metacharacters ( ; & | ` $ < > ).';
+    }
+    if (strlen($params) > 512) {
+        return 'Launch parameters are limited to 512 characters.';
+    }
+    return NULL;
+}
+
+function saveWorldOptionsJson($pdo, $world, $input) {
+    $vanilla      = isset($input['vanilla'])   ? (int)$input['vanilla']   : 0;
+    $crossplay    = isset($input['crossplay']) ? (int)$input['crossplay'] : 0;
+    $listed       = isset($input['listed'])    ? (int)$input['listed']    : 0;
+    $password     = trim($input['password'] ?? '');
+    $launchParams = trim($input['launchParams'] ?? '');
+
+    if ($err = validateWorldPassword($password, $world)) {
+        echo json_encode(['success' => false, 'error' => $err]);
+        return;
+    }
+    if ($err = validateLaunchParams($launchParams)) {
+        echo json_encode(['success' => false, 'error' => $err]);
+        return;
+    }
+
+    // Valheim requires a password on a server that is listed in the browser. Catch it
+    // here so the operator sees why, rather than at boot.
+    if ($listed && $password === '') {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'A world listed in the server browser must have a password.'
+        ]);
+        return;
+    }
+
+    // Password, crossplay and listing are vanilla-only. Modded worlds are gated by the
+    // CITIZENS list. Storing them for a modded world would show settings in the UI that
+    // startWorld.sh deliberately ignores.
+    if (!$vanilla) {
+        $password = '';
+        $crossplay = 0;
+        $listed = 0;
+    }
+
+    setVanilla($pdo, $world, $vanilla);
+    setWorldPassword($pdo, $world, $password);
+    setCrossplay($pdo, $world, $crossplay);
+    setListed($pdo, $world, $listed);
+    setLaunchParams($pdo, $world, $launchParams);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'World options saved. Restart the world for this to take effect.'
+    ]);
+}
+
+/**
  * Fetch SteamID from vanity URL
  */
 function fetchSteamIDJson($vanityURL) {
@@ -1129,14 +1348,32 @@ function saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $cl
 /**
  * Create a new world with optional mod selection
  */
-function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins) {
+function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions = NULL) {
     global $gameDNS, $defaultSeed;
+
+    $isVanilla = !empty($vanillaOptions['vanilla']);
 
     if (empty($seed)) {
         $seed = $defaultSeed;
     }
     if (empty($seed)) {
         $seed = (string)random_int(0, 4294967295);
+    }
+
+    // Validate before creating anything, so a bad password doesn't leave a half made world
+    if ($isVanilla) {
+        $pw = trim($vanillaOptions['password'] ?? '');
+        if ($err = validateWorldPassword($pw, $world)) {
+            echo json_encode(['success' => false, 'error' => $err]);
+            return;
+        }
+        if (!empty($vanillaOptions['listed']) && $pw === '') {
+            echo json_encode([
+                'success' => false,
+                'error'   => 'A world listed in the server browser must have a password.'
+            ]);
+            return;
+        }
     }
 
     $result = addWorld($pdo, $world, $gameDNS, $seed);
@@ -1146,6 +1383,16 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
         // Handle clone folder operations if requested
         if (!empty($cloneSource)) {
             handleCloneFolders($cloneSource, $world, $cloneConfigs, $clonePlugins);
+        }
+
+        if ($isVanilla) {
+            // A vanilla world means ZERO mods -- ignore any mod selection outright
+            // rather than storing mods the build path will never install.
+            setVanilla($pdo, $world, 1);
+            setWorldPassword($pdo, $world, trim($vanillaOptions['password'] ?? ''));
+            setCrossplay($pdo, $world, !empty($vanillaOptions['crossplay']) ? 1 : 0);
+            setListed($pdo, $world, !empty($vanillaOptions['listed']) ? 1 : 0);
+            $mods = [];
         }
 
         // Add mods if any selected

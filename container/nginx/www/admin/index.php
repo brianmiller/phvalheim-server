@@ -2635,18 +2635,29 @@ $totalCount = count($worlds);
         document.getElementById('settingsModalOverlay').classList.add('show');
 
         try {
-            const [settingsRes, citizensRes] = await Promise.all([
+            const [settingsRes, citizensRes, optionsRes, adminsRes] = await Promise.all([
                 fetch(`adminAPI.php?action=getWorldSettings&world=${encodeURIComponent(worldName)}`),
-                fetch(`adminAPI.php?action=getCitizens&world=${encodeURIComponent(worldName)}`)
+                fetch(`adminAPI.php?action=getCitizens&world=${encodeURIComponent(worldName)}`),
+                fetch(`adminAPI.php?action=getWorldOptions&world=${encodeURIComponent(worldName)}`),
+                fetch(`adminAPI.php?action=getAdmins&world=${encodeURIComponent(worldName)}`)
             ]);
             const settings = await settingsRes.json();
             const citizens = await citizensRes.json();
+            const options = await optionsRes.json();
+            const admins = await adminsRes.json();
 
             if (settings.success && citizens.success) {
                 const hideSeedChecked = settings.hideSeed == 1 ? 'checked' : '';
                 const autostartChecked = settings.autostart == 1 ? 'checked' : '';
                 const citizensText = citizens.citizens ? citizens.citizens.replace(/ /g, '\n') : '';
                 const isPublic = citizens.public ? 'checked' : '';
+                const adminsText = (admins.admins || '').replace(/ /g, '\n');
+                const isVanilla = options.vanilla == 1;
+                const vanillaChecked = isVanilla ? 'checked' : '';
+                const crossplayChecked = options.crossplay == 1 ? 'checked' : '';
+                const listedChecked = options.listed == 1 ? 'checked' : '';
+                const worldPassword = options.password || '';
+                const launchParams = options.launchParams || '';
 
                 document.getElementById('settingsModalBody').innerHTML = `
                     <!-- Settings Tab -->
@@ -2702,6 +2713,60 @@ $totalCount = count($worlds);
                             </label>
                         </div>
                     </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Vanilla Server</h6>
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+                            <div>
+                                <span style="display: block; margin-bottom: 0.25rem;">Vanilla world (no mods)</span>
+                                <small style="color: var(--text-muted);">Runs stock Valheim with zero mods and no BepInEx. Players join with the normal Valheim client. Requires a world update to take effect.</small>
+                            </div>
+                            <label class="switch" style="margin-left: 1rem;">
+                                <input type="checkbox" id="settingsVanillaToggle" ${vanillaChecked} onchange="toggleVanillaFields(this.checked)">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div id="vanillaOptionsBlock" style="display: ${isVanilla ? 'block' : 'none'};">
+                            <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+                                <span style="display: block; margin-bottom: 0.25rem;">Server Password</span>
+                                <small style="color: var(--text-muted); display:block; margin-bottom: 0.5rem;">Minimum 5 characters, and it cannot appear inside the world name. Players are shown this on the public UI.</small>
+                                <input type="text" id="settingsWorldPassword" class="form-control" style="font-family: var(--font-mono);" value="${worldPassword.replace(/"/g, '&quot;')}" placeholder="(no password)">
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+                                <div>
+                                    <span style="display: block; margin-bottom: 0.25rem;">Crossplay</span>
+                                    <small style="color: var(--text-muted);">Allow Xbox / Microsoft Store players to join.</small>
+                                </div>
+                                <label class="switch" style="margin-left: 1rem;">
+                                    <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked}>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
+                                <div>
+                                    <span style="display: block; margin-bottom: 0.25rem;">List in server browser</span>
+                                    <small style="color: var(--text-muted);">Publish to the public Valheim community server list. Valheim requires a password for this.</small>
+                                </div>
+                                <label class="switch" style="margin-left: 1rem;">
+                                    <input type="checkbox" id="settingsListedToggle" ${listedChecked}>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Custom Launch Parameters</h6>
+                        <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
+                            <small style="color: var(--text-muted); display:block; margin-bottom: 0.5rem;">
+                                Appended to the Valheim server command line, after everything PhValheim generates.
+                                An invalid value will stop the world from booting with the reason only in the world log.
+                            </small>
+                            <input type="text" id="settingsLaunchParams" class="form-control" style="font-family: var(--font-mono); font-size: 0.85rem;" value="${launchParams.replace(/"/g, '&quot;')}" placeholder="-saveinterval 900">
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem;">
+                            <button class="action-btn success" onclick="saveWorldOptions()">Save World Options</button>
+                        </div>
+                        <div id="settingsOptionsSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                    </div>
                     <div>
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
                         <div style="margin-bottom: 1rem;">
@@ -2735,6 +2800,22 @@ $totalCount = count($worlds);
                             <button class="action-btn success" onclick="saveSettingsCitizens()">Save Settings</button>
                         </div>
                         <div id="settingsCitizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                    </div>
+                    <div style="margin-top: 1.5rem;">
+                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Admins</h6>
+                        <div style="margin-bottom: 1rem;">
+                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                                SteamIDs with in-game admin commands (one per line):
+                            </p>
+                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
+                                <em>Note: Valheim reads the admin list at world start, so the world must be restarted for changes to apply.</em>
+                            </p>
+                            <textarea id="settingsAdminsTextarea" class="form-control" style="min-height: 120px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${adminsText}</textarea>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                            <button class="action-btn success" onclick="saveSettingsAdmins()">Save Admins</button>
+                        </div>
+                        <div id="settingsAdminsSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
                     </div>
                     </div>
 
@@ -2849,6 +2930,71 @@ $totalCount = count($worlds);
             }
         } catch (error) {
             document.getElementById('settingsModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading settings</div>';
+        }
+    }
+
+    // Password / crossplay / listing only apply to vanilla worlds -- modded worlds are
+    // gated by the CITIZENS list and startWorld.sh ignores these for them. Hide rather
+    // than disable so nobody sets a password on a modded world and wonders why nothing
+    // asks for it.
+    function toggleVanillaFields(checked) {
+        const block = document.getElementById('vanillaOptionsBlock');
+        if (block) block.style.display = checked ? 'block' : 'none';
+    }
+
+    async function saveWorldOptions() {
+        const statusEl = document.getElementById('settingsOptionsSaveStatus');
+        statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
+
+        try {
+            const response = await fetch('adminAPI.php?action=saveWorldOptions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    world: currentSettingsWorld,
+                    vanilla: document.getElementById('settingsVanillaToggle').checked ? 1 : 0,
+                    password: document.getElementById('settingsWorldPassword').value,
+                    crossplay: document.getElementById('settingsCrossplayToggle').checked ? 1 : 0,
+                    listed: document.getElementById('settingsListedToggle').checked ? 1 : 0,
+                    launchParams: document.getElementById('settingsLaunchParams').value
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                statusEl.innerHTML = `<span style="color: var(--success);">${data.message || 'Saved successfully!'}</span>`;
+                setTimeout(() => { statusEl.innerHTML = ''; }, 4000);
+            } else {
+                statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
+            }
+        } catch (error) {
+            statusEl.innerHTML = '<span style="color: var(--danger);">Error saving world options</span>';
+        }
+    }
+
+    async function saveSettingsAdmins() {
+        const statusEl = document.getElementById('settingsAdminsSaveStatus');
+        statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
+
+        try {
+            const response = await fetch('adminAPI.php?action=saveAdmins', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    world: currentSettingsWorld,
+                    admins: document.getElementById('settingsAdminsTextarea').value
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                statusEl.innerHTML = `<span style="color: var(--success);">${data.message || 'Saved successfully!'}</span>`;
+                setTimeout(() => { statusEl.innerHTML = ''; }, 4000);
+            } else {
+                statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
+            }
+        } catch (error) {
+            statusEl.innerHTML = '<span style="color: var(--danger);">Error saving admins</span>';
         }
     }
 
