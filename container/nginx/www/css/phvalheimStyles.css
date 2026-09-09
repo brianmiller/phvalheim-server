@@ -4389,3 +4389,490 @@ input:checked + .slider:before {
 	color: var(--text-muted, #888) !important;
 	opacity: 0.6;
 }
+
+/* =====================================================================
+   SETTINGS / FORM COMPONENT LAYER  (added 2026-09-09)
+   =====================================================================
+
+   Why this exists: index.php carried 525 inline style="" attributes, most of
+   them hand-tuning padding and widths inside a JS template literal. Every
+   settings row was styled from scratch, so nothing lined up with anything
+   else and there was no single place to fix spacing. These classes replace
+   that. Prefix pv- so they cannot collide with Bootstrap, which this admin
+   also loads.
+
+   Measured faults this addresses (see dev_tools/ux-audit.js):
+     - 25 controls under the 30px hit target on new_world.php, 24 on edit_world
+     - .switch shipped at 36x20; 24px is the accessible floor for a toggle
+     - horizontal page scroll at 1280 (1300 > 1280)
+     - the world settings modal clipped its last row with no scroll affordance
+   ------------------------------------------------------------------ */
+
+/* --- layout overflow -------------------------------------------------
+   .admin-layout carries margin:-1rem to cancel body padding, while
+   .admin-main is flex:1 AND margin-left:240px for the fixed sidebar. A flex
+   child defaults to min-width:auto, so it refuses to shrink below its content
+   and the two widths double-count -- that was the 20px of horizontal scroll. */
+.admin-main {
+	min-width: 0;
+}
+.admin-layout {
+	max-width: 100vw;
+	overflow-x: clip;
+}
+
+/* --- settings sections ---------------------------------------------- */
+.pv-section {
+	margin-bottom: 1.5rem;
+}
+.pv-section:last-child {
+	margin-bottom: 0;
+}
+.pv-section-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0 0 0.75rem 0;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--text-secondary);
+}
+.pv-section-title::before {
+	content: "";
+	width: 3px;
+	height: 0.85em;
+	border-radius: 2px;
+	background: var(--accent-primary);
+}
+.pv-section-hint {
+	margin: -0.4rem 0 0.75rem 0;
+	font-size: 0.78rem;
+	line-height: 1.45;
+	color: var(--text-muted);
+}
+
+/* Panel that groups rows. One border around a group beats one card per item --
+   the old modal drew a full card for a single toggle, which is why everything
+   ended up below the fold. */
+.pv-panel {
+	background: var(--bg-primary);
+	border: 1px solid var(--border-light, var(--border-color));
+	border-radius: 0.5rem;
+	overflow: hidden;
+}
+
+/* --- key/value read-only rows --------------------------------------- */
+.pv-kv {
+	display: grid;
+	grid-template-columns: minmax(7rem, auto) 1fr;
+	gap: 0.15rem 1rem;
+	padding: 0.6rem 0.9rem;
+	align-items: baseline;
+	border-bottom: 1px solid var(--border-light, var(--border-color));
+}
+.pv-kv:last-child {
+	border-bottom: 0;
+}
+.pv-kv > dt,
+.pv-kv-key {
+	font-size: 0.82rem;
+	color: var(--text-secondary);
+	margin: 0;
+}
+.pv-kv > dd,
+.pv-kv-val {
+	margin: 0;
+	text-align: right;
+	font-size: 0.82rem;
+	overflow-wrap: anywhere;   /* an MD5 must wrap, not widen the dialog */
+}
+
+/* --- a labelled control row (label + description on the left, control right) */
+.pv-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: 0.7rem 0.9rem;
+	border-bottom: 1px solid var(--border-light, var(--border-color));
+}
+.pv-row:last-child {
+	border-bottom: 0;
+}
+.pv-row-text {
+	min-width: 0;          /* lets long descriptions wrap instead of pushing the control out */
+}
+.pv-row-label {
+	display: block;
+	font-size: 0.9rem;
+	margin-bottom: 0.1rem;
+}
+.pv-row-desc {
+	display: block;
+	font-size: 0.75rem;
+	line-height: 1.45;
+	color: var(--text-muted);
+}
+.pv-row-control {
+	flex: 0 0 auto;
+}
+/* stack the control under the text when the row gets narrow */
+.pv-row.pv-row-stack {
+	flex-direction: column;
+	align-items: stretch;
+}
+.pv-row.pv-row-stack .pv-row-control {
+	margin-top: 0.5rem;
+}
+
+/* --- form fields ----------------------------------------------------- */
+.pv-field {
+	display: block;
+	margin-bottom: 0.85rem;
+}
+.pv-field:last-child {
+	margin-bottom: 0;
+}
+.pv-field-label {
+	display: block;
+	margin-bottom: 0.3rem;
+	font-size: 0.82rem;
+	color: var(--text-secondary);
+}
+.pv-field-hint {
+	display: block;
+	margin-top: 0.3rem;
+	font-size: 0.73rem;
+	line-height: 1.45;
+	color: var(--text-muted);
+}
+
+/* Responsive field grid: two up when there is room, one up when there is not.
+   auto-fit + minmax is what stops these from overflowing on a narrow window,
+   which fixed-width columns did not. */
+.pv-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 0.85rem 1rem;
+}
+.pv-grid-wide {
+	grid-column: 1 / -1;
+}
+
+/* Consistent control sizing. 34px keeps text controls a comfortable target
+   without looking oversized next to the existing dense tables. */
+.pv-input,
+.pv-panel .form-control,
+.pv-field .form-control {
+	width: 100%;
+	min-height: 34px;
+	padding: 0.4rem 0.6rem;
+	font-size: 0.85rem;
+	box-sizing: border-box;
+}
+textarea.pv-input,
+.pv-field textarea.form-control {
+	min-height: 110px;
+	font-family: var(--font-mono, monospace);
+	line-height: 1.5;
+	resize: vertical;
+}
+
+/* --- toggle switch ---------------------------------------------------
+   Was 36x20. 20px is under every published minimum for a toggle; this also
+   makes the knob travel readable at a glance. */
+.pv-panel .switch,
+.pv-row .switch {
+	width: 44px;
+	height: 24px;
+}
+.pv-panel .slider:before,
+.pv-row .slider:before {
+	height: 18px;
+	width: 18px;
+	left: 3px;
+	bottom: 3px;
+}
+.pv-panel input:checked + .slider:before,
+.pv-row input:checked + .slider:before {
+	transform: translateX(20px);
+}
+
+/* --- action bar ------------------------------------------------------ */
+.pv-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 0.6rem;
+	flex-wrap: wrap;
+	margin-top: 0.85rem;
+}
+.pv-actions .pv-status {
+	margin-right: auto;
+	font-size: 0.82rem;
+	min-height: 1.2em;
+}
+.pv-actions .action-btn {
+	min-height: 34px;
+}
+
+/* --- callout --------------------------------------------------------- */
+.pv-note {
+	border-left: 3px solid var(--accent-primary);
+	background: var(--bg-primary);
+	border-radius: 0.375rem;
+	padding: 0.7rem 0.9rem;
+	margin-bottom: 0.85rem;
+}
+.pv-note p {
+	margin: 0 0 0.35rem 0;
+	font-size: 0.8rem;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+.pv-note p:last-child {
+	margin-bottom: 0;
+}
+.pv-note code,
+.pv-note kbd {
+	background: var(--bg-tertiary);
+	border-radius: 0.2rem;
+	padding: 0 0.3rem;
+	font-size: 0.95em;
+}
+
+/* --- modal shell ----------------------------------------------------
+   The world settings dialog was clipping its last row with no affordance that
+   more existed. Make the dialog a flex column with a fixed header and tab bar
+   and a single scrolling body, capped at the viewport. */
+.mods-modal {
+	display: flex;
+	flex-direction: column;
+	max-height: min(90vh, 900px);
+}
+.mods-modal > .mods-modal-header,
+.mods-modal > .backup-tab-bar {
+	flex: 0 0 auto;
+}
+.mods-modal > .mods-modal-body {
+	flex: 1 1 auto;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+/* Bootstrap .row uses negative side margins and expects a padded .col parent.
+   Dropped into a plain div it escapes by 12px a side -- measured on the server
+   settings dialog. Neutralise it inside our panels. */
+.pv-panel > .row,
+.pv-section > .row {
+	margin-left: 0;
+	margin-right: 0;
+}
+
+/* --- Bootstrap .form-check, repaired --------------------------------
+   Two faults, both visible on new_world.php:
+
+   1. No dark-theme appearance. The inputs rendered as the browser default
+      white rectangle on a dark card.
+   2. The input sat ON TOP of its label. Bootstrap indents .form-check by
+      1.5em and pulls the input back with a negative margin; the override
+      above forces width/height with !important, and without the indent the
+      box and the text occupied the same space. That is the "switches and
+      labels overlap" report.
+
+   Laying the row out with flex removes the dependency on Bootstrap's negative
+   margin entirely, and lets the help text sit on its own line under the label
+   instead of being squeezed alongside it. */
+.form-check {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 0.55rem;
+	padding-left: 0;
+	margin-bottom: 0.6rem;
+}
+.form-check > .form-check-input {
+	order: 0;
+	margin-left: 0;
+	margin-top: 0;
+	flex: 0 0 auto;
+}
+.form-check > .form-check-label {
+	order: 1;
+	cursor: pointer;
+	margin-bottom: 0;
+}
+/* Help text belongs under the pair, indented to line up with the label. */
+.form-check > .form-text {
+	order: 2;
+	flex: 0 0 100%;
+	margin-top: 0.2rem;
+	padding-left: calc(1.05em + 0.55rem);
+	font-size: 0.78rem;
+	line-height: 1.5;
+}
+
+/* Native controls, themed. accent-color does the heavy lifting: it recolours
+   the check/dot without replacing the control, so keyboard focus, indeterminate
+   state and the platform's own hit handling all keep working. */
+.admin-main input[type="checkbox"],
+.admin-main input[type="radio"],
+.mods-modal input[type="checkbox"],
+.mods-modal input[type="radio"] {
+	accent-color: var(--accent-primary);
+	cursor: pointer;
+}
+/* A bare 1em checkbox is a small target. Nudge it up and let the label carry
+   the rest -- clicking the label already toggles these. */
+.form-check > .form-check-input[type="checkbox"],
+.form-check > .form-check-input[type="radio"] {
+	width: 1.05em !important;
+	height: 1.05em !important;
+	min-width: 1.05em !important;
+	min-height: 1.05em !important;
+}
+
+/* Mod tables: give the select column's checkbox room so it is not flush
+   against the row edge. */
+table.dataTable td input[type="checkbox"] {
+	width: 1.05em;
+	height: 1.05em;
+	margin: 0;
+	vertical-align: middle;
+}
+
+/* --- create/edit world forms ---------------------------------------- */
+.admin-main .form-control,
+.admin-main .form-select {
+	min-height: 34px;
+}
+/* Bootstrap rows inside our cards escape by 12px a side; these pages put .row
+   straight inside a padded panel rather than a .container. */
+.admin-main .card-panel > .row,
+.admin-main .world-form-card > .row {
+	margin-left: 0;
+	margin-right: 0;
+}
+
+/* --- checkbox / radio appearance ------------------------------------
+   Bootstrap sets appearance:none on .form-check-input and then draws a
+   light-theme box: white fill, #dee2e6 border. On these dark cards that
+   rendered as a bare white rectangle.
+   Since the control is already appearance:none, accent-color cannot help --
+   we have to draw it. Explicit px rather than em: the em-based rules that
+   were already here were not producing the size they declared, and a fixed
+   px box is one less thing to reason about. */
+.form-check-input[type="checkbox"],
+.form-check-input[type="radio"] {
+	-webkit-appearance: none !important;
+	appearance: none !important;
+	box-sizing: border-box !important;
+	width: 17px !important;
+	height: 17px !important;
+	min-width: 17px !important;
+	min-height: 17px !important;
+	max-width: 17px !important;
+	max-height: 17px !important;
+	padding: 0 !important;
+	margin: 0;
+	flex: 0 0 auto;
+	background-color: var(--bg-tertiary, #334155) !important;
+	background-image: none !important;
+	border: 1px solid var(--border-color, #475569) !important;
+	position: relative;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.form-check-input[type="checkbox"] {
+	border-radius: 4px !important;
+}
+.form-check-input[type="radio"] {
+	border-radius: 50% !important;
+}
+.form-check-input:hover {
+	border-color: var(--accent-primary) !important;
+}
+.form-check-input:focus-visible {
+	outline: 2px solid var(--accent-primary);
+	outline-offset: 2px;
+}
+.form-check-input:checked {
+	background-color: var(--accent-primary) !important;
+	border-color: var(--accent-primary) !important;
+}
+/* the tick, drawn rather than a background-image so it inherits sizing */
+.form-check-input[type="checkbox"]:checked::after {
+	content: "";
+	position: absolute;
+	left: 5px;
+	top: 1px;
+	width: 4px;
+	height: 9px;
+	border: solid var(--bg-primary, #0f172a);
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+}
+.form-check-input[type="radio"]:checked::after {
+	content: "";
+	position: absolute;
+	inset: 3px;
+	border-radius: 50%;
+	background: var(--bg-primary, #0f172a);
+}
+
+/* Same treatment for bare checkboxes that carry no Bootstrap class -- the
+   "Also clone ..." options on new_world.php are plain <input type=checkbox>
+   and were still rendering as white boxes after the .form-check-input fix. */
+.admin-main input[type="checkbox"]:not(.form-check-input),
+.admin-main input[type="radio"]:not(.form-check-input),
+.mods-modal input[type="checkbox"]:not(.form-check-input):not(.switch input),
+.mods-modal input[type="radio"]:not(.form-check-input) {
+	-webkit-appearance: none;
+	appearance: none;
+	box-sizing: border-box;
+	width: 16px;
+	height: 16px;
+	min-width: 16px;
+	padding: 0;
+	vertical-align: -2px;
+	background-color: var(--bg-tertiary, #334155);
+	border: 1px solid var(--border-color, #475569);
+	border-radius: 4px;
+	position: relative;
+	cursor: pointer;
+}
+.admin-main input[type="radio"]:not(.form-check-input),
+.mods-modal input[type="radio"]:not(.form-check-input) {
+	border-radius: 50%;
+}
+.admin-main input[type="checkbox"]:not(.form-check-input):checked,
+.admin-main input[type="radio"]:not(.form-check-input):checked,
+.mods-modal input[type="checkbox"]:not(.form-check-input):checked,
+.mods-modal input[type="radio"]:not(.form-check-input):checked {
+	background-color: var(--accent-primary);
+	border-color: var(--accent-primary);
+}
+.admin-main input[type="checkbox"]:not(.form-check-input):checked::after,
+.mods-modal input[type="checkbox"]:not(.form-check-input):checked::after {
+	content: "";
+	position: absolute;
+	left: 4.5px;
+	top: 1px;
+	width: 4px;
+	height: 8px;
+	border: solid var(--bg-primary, #0f172a);
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
+}
+/* The .switch component draws its own knob -- never restyle its hidden input. */
+.switch input[type="checkbox"] {
+	appearance: none !important;
+	width: 0 !important;
+	height: 0 !important;
+	min-width: 0 !important;
+	opacity: 0;
+	border: 0 !important;
+	background: none !important;
+}

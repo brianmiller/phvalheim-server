@@ -727,7 +727,9 @@ $totalCount = count($worlds);
                 <button class="mods-modal-close" onclick="closeSettingsModal()">&times;</button>
             </div>
             <div class="backup-tab-bar" id="settingsTabBar" style="display:none;">
-                <button class="backup-tab active" data-tab="settingsTab" onclick="switchSettingsTab('settingsTab', this)">Settings</button>
+                <button class="backup-tab active" data-tab="settingsTab" onclick="switchSettingsTab('settingsTab', this)">General</button>
+                <button class="backup-tab" data-tab="optionsTab" onclick="switchSettingsTab('optionsTab', this)">Options</button>
+                <button class="backup-tab" data-tab="accessTab" onclick="switchSettingsTab('accessTab', this)">Access</button>
                 <button class="backup-tab" data-tab="backupsTab" onclick="switchSettingsTab('backupsTab', this)">Backups</button>
             </div>
             <div class="mods-modal-body" id="settingsModalBody">
@@ -1828,6 +1830,10 @@ $totalCount = count($worlds);
         btn.classList.add('active');
         document.querySelectorAll('.settings-tab-pane').forEach(p => p.style.display = 'none');
         document.getElementById(tabId).style.display = 'block';
+        // The dialog body is the scroll container now, so a tab switch must reset it --
+        // otherwise you arrive at a new tab already scrolled to the middle of it.
+        const body = document.getElementById('settingsModalBody');
+        if (body) body.scrollTop = 0;
         if (tabId === 'backupsTab' && !document.getElementById('backupsTab').dataset.loaded) {
             loadWorldBackups(currentSettingsWorld);
         }
@@ -2701,126 +2707,124 @@ $totalCount = count($worlds);
                 const launchParams = options.launchParams || '';
 
                 document.getElementById('settingsModalBody').innerHTML = `
-                    <!-- Settings Tab -->
+                    <!-- General Tab -->
                     <div class="settings-tab-pane" id="settingsTab" style="display:block;">
-                    <div style="margin-bottom: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">World Information</h6>
-                        <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
-                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
-                                <span style="color: var(--text-secondary);">Endpoint</span>
-                                <code style="font-size: 0.85rem; color: var(--accent-primary);">${settings.endpoint}:${settings.port}</code>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
-                                <span style="color: var(--text-secondary);">MD5 Hash</span>
-                                <code style="font-size: 0.75rem; color: var(--accent-secondary);">${settings.md5 || 'N/A'}</code>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
-                                <span style="color: var(--text-secondary);">Seed</span>
-                                <code style="color: var(--accent-primary);">${settings.seed || 'N/A'}</code>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border-light);">
-                                <span style="color: var(--text-secondary);">Date Deployed</span>
-                                <span>${settings.dateDeployed || 'N/A'}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
-                                <span style="color: var(--text-secondary);">Date Updated</span>
-                                <span>${settings.dateUpdated || 'N/A'}</span>
-                            </div>
-                        </div>
+                    <div class="pv-section">
+                        <h6 class="pv-section-title">World Information</h6>
+                        <dl class="pv-panel">
+                            <div class="pv-kv"><dt>Endpoint</dt><dd><code style="color: var(--accent-primary);">${settings.endpoint}:${settings.port}</code></dd></div>
+                            <div class="pv-kv"><dt>MD5 Hash</dt><dd><code style="color: var(--accent-secondary); font-size: 0.72rem;">${settings.md5 || 'N/A'}</code></dd></div>
+                            <div class="pv-kv"><dt>Seed</dt><dd><code style="color: var(--accent-primary);">${settings.seed || 'N/A'}</code></dd></div>
+                            <div class="pv-kv"><dt>Date Deployed</dt><dd>${settings.dateDeployed || 'N/A'}</dd></div>
+                            <div class="pv-kv"><dt>Date Updated</dt><dd>${settings.dateUpdated || 'N/A'}</dd></div>
+                        </dl>
                     </div>
-                    <div style="margin-bottom: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Startup Settings</h6>
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
-                            <div>
-                                <span style="display: block; margin-bottom: 0.25rem;">Auto-Start</span>
-                                <small style="color: var(--text-muted);">Automatically start this world when PhValheim server starts.</small>
-                            </div>
-                            <label class="switch" style="margin-left: 1rem;">
-                                <input type="checkbox" ${autostartChecked} onchange="toggleAutostart('${worldName}', this.checked)">
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Privacy Settings</h6>
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
-                            <div>
-                                <span style="display: block; margin-bottom: 0.25rem;">Hide seed from public UI</span>
-                                <small style="color: var(--text-muted);">When enabled, the world seed will not be visible on the public player interface.</small>
-                            </div>
-                            <label class="switch" style="margin-left: 1rem;">
-                                <input type="checkbox" ${hideSeedChecked} onchange="toggleHideSeed('${worldName}', this.checked)">
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Vanilla Server</h6>
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-                            <div>
-                                <span style="display: block; margin-bottom: 0.25rem;">Vanilla world (no mods)</span>
-                                <small style="color: var(--text-muted);">Runs stock Valheim with zero mods and no BepInEx. Players join with the normal Valheim client. Requires a world update to take effect.</small>
-                            </div>
-                            <label class="switch" style="margin-left: 1rem;">
-                                <input type="checkbox" id="settingsVanillaToggle" ${vanillaChecked} onchange="toggleVanillaFields(this.checked)">
-                                <span class="slider round"></span>
-                            </label>
-                        </div>
-                        <div id="vanillaOptionsBlock" style="display: ${isVanilla ? 'block' : 'none'};">
-                            <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-                                <span style="display: block; margin-bottom: 0.25rem;">Server Password</span>
-                                <small style="color: var(--text-muted); display:block; margin-bottom: 0.5rem;">Minimum 5 characters, and it cannot appear inside the world name.</small>
-                                <input type="text" id="settingsWorldPassword" class="form-control" style="font-family: var(--font-mono);" value="${worldPassword.replace(/"/g, '&quot;')}" placeholder="(no password)">
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-                                <div>
-                                    <span style="display: block; margin-bottom: 0.25rem;">Show password on public UI</span>
-                                    <small style="color: var(--text-muted);">When off, the password row is removed from the world card entirely. Valheim cannot be handed a password at launch, so players will need it from you another way.</small>
+                    <div class="pv-section">
+                        <h6 class="pv-section-title">Behaviour</h6>
+                        <div class="pv-panel">
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Auto-Start</span>
+                                    <span class="pv-row-desc">Automatically start this world when the PhValheim server starts.</span>
                                 </div>
-                                <label class="switch" style="margin-left: 1rem;">
+                                <label class="switch pv-row-control">
+                                    <input type="checkbox" ${autostartChecked} onchange="toggleAutostart('${worldName}', this.checked)">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Hide seed from public UI</span>
+                                    <span class="pv-row-desc">When enabled, the world seed is not shown on the public player interface.</span>
+                                </div>
+                                <label class="switch pv-row-control">
+                                    <input type="checkbox" ${hideSeedChecked} onchange="toggleHideSeed('${worldName}', this.checked)">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <p class="pv-section-hint">These two apply immediately &mdash; there is no Save for this tab.</p>
+                    </div>
+                    </div>
+
+                    <!-- Options Tab -->
+                    <div class="settings-tab-pane" id="optionsTab" style="display:none;">
+                    <div class="pv-section">
+                        <h6 class="pv-section-title">Server Type</h6>
+                        <div class="pv-panel">
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Vanilla world (no mods)</span>
+                                    <span class="pv-row-desc">Runs stock Valheim with zero mods and no BepInEx. Players join with the normal Valheim client. Requires a world update to take effect.</span>
+                                </div>
+                                <label class="switch pv-row-control">
+                                    <input type="checkbox" id="settingsVanillaToggle" ${vanillaChecked} onchange="toggleVanillaFields(this.checked)">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Enable crossplay</span>
+                                    <span class="pv-row-desc">Let Xbox, PlayStation and Nintendo players join. Applies to modded and unmodded worlds alike &mdash; those platforms cannot install mods, so a heavily modded world may not be joinable for them.</span>
+                                </div>
+                                <label class="switch pv-row-control">
+                                    <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked}>
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pv-section" id="vanillaOptionsBlock" style="display: ${isVanilla ? 'block' : 'none'};">
+                        <h6 class="pv-section-title">Unmodded Server Access</h6>
+                        <div class="pv-panel">
+                            <div class="pv-row pv-row-stack">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Server Password</span>
+                                    <span class="pv-row-desc">Minimum 5 characters, and it cannot appear inside the world name.</span>
+                                </div>
+                                <div class="pv-row-control" style="width: 100%;">
+                                    <input type="text" id="settingsWorldPassword" class="form-control pv-input" style="font-family: var(--font-mono);" value="${worldPassword.replace(/"/g, '&quot;')}" placeholder="(no password)">
+                                </div>
+                            </div>
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Show password on public UI</span>
+                                    <span class="pv-row-desc">When off, the password row is removed from the world card entirely. Valheim cannot be handed a password at launch, so players will need it from you another way.</span>
+                                </div>
+                                <label class="switch pv-row-control">
                                     <input type="checkbox" id="settingsPasswordPublicToggle" ${passwordPublicChecked}>
                                     <span class="slider round"></span>
                                 </label>
                             </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
-                                <div>
-                                    <span style="display: block; margin-bottom: 0.25rem;">List in server browser</span>
-                                    <small style="color: var(--text-muted);">Publish to the public Valheim community server list. Valheim requires a password for this.</small>
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">List in server browser</span>
+                                    <span class="pv-row-desc">Publish to the public Valheim community server list. Valheim requires a password for this.</span>
                                 </div>
-                                <label class="switch" style="margin-left: 1rem;">
+                                <label class="switch pv-row-control">
                                     <input type="checkbox" id="settingsListedToggle" ${listedChecked}>
                                     <span class="slider round"></span>
                                 </label>
                             </div>
                         </div>
                     </div>
-                    <div style="margin-bottom: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Crossplay</h6>
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
-                            <div>
-                                <span style="display: block; margin-bottom: 0.25rem;">Enable crossplay</span>
-                                <small style="color: var(--text-muted);">Allow Xbox / Microsoft Store players to join. Applies to modded and unmodded worlds alike &mdash; note that players on those platforms cannot install mods, so a heavily modded world may not be joinable for them. Requires a world restart.</small>
-                            </div>
-                            <label class="switch" style="margin-left: 1rem;">
-                                <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked}>
-                                <span class="slider round"></span>
-                            </label>
+                    <div class="pv-section">
+                        <h6 class="pv-section-title">Custom Launch Parameters</h6>
+                        <div class="pv-panel" style="padding: 0.9rem;">
+                            <label class="pv-field-label" for="settingsLaunchParams">Appended to the Valheim server command line, after everything PhValheim generates.</label>
+                            <input type="text" id="settingsLaunchParams" class="form-control pv-input" style="font-family: var(--font-mono);" value="${launchParams.replace(/"/g, '&quot;')}" placeholder="-saveinterval 900">
+                            <span class="pv-field-hint">An invalid value stops the world booting, with the reason only in the world log.</span>
                         </div>
                     </div>
-                    <div style="margin-bottom: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Custom Launch Parameters</h6>
-                        <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
-                            <small style="color: var(--text-muted); display:block; margin-bottom: 0.5rem;">
-                                Appended to the Valheim server command line, after everything PhValheim generates.
-                                An invalid value will stop the world from booting with the reason only in the world log.
-                            </small>
-                            <input type="text" id="settingsLaunchParams" class="form-control" style="font-family: var(--font-mono); font-size: 0.85rem;" value="${launchParams.replace(/"/g, '&quot;')}" placeholder="-saveinterval 900">
-                        </div>
-                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem;">
-                            <button class="action-btn success" onclick="saveWorldOptions()">Save World Options</button>
-                        </div>
-                        <div id="settingsOptionsSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                    <div class="pv-actions">
+                        <span class="pv-status" id="settingsOptionsSaveStatus"></span>
+                        <button class="action-btn success" onclick="saveWorldOptions()">Save World Options</button>
                     </div>
+                    <p class="pv-section-hint" style="margin-top: 0.75rem;">Changes here need a world restart to take effect.</p>
+                    </div>
+
+                    <!-- Access Tab -->
+                    <div class="settings-tab-pane" id="accessTab" style="display:none;">
                     <div>
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
                         <div style="margin-bottom: 1rem;">
