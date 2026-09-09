@@ -244,7 +244,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			<div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
 				<h4 class="mb-0" style="color: var(--accent-primary);">Edit World Mods</h4>
 				<div class="d-flex gap-2">
-					<button id="submit_button" class="sm-bttn" type="button" onclick="submitSaveWorld();" style="background-color: var(--success-dark); border-color: var(--success);">Save Changes</button>
+					<!-- Primary action lives in the sticky bar at the bottom of the form. -->
 					<a href='index.php'><button class="sm-bttn" type="button">Back to Dashboard</button></a>
 				</div>
 			</div>
@@ -310,27 +310,32 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					<div style="font-size: 0.875rem; color: var(--warning);">Warning: Cloning will remove all previously enabled mods and replace them with the selected world's mods.</div>
 				</div>
 				<?php endif; ?>
-				<!-- Selected Mods Table -->
-				<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-bottom: 2px solid var(--accent-primary);">
-					<span style="font-weight: 600; color: var(--text-primary);">Selected Mods</span>
-					<span class="badge bg-info" id="activeModCount">0</span>
-				</div>
-				<div class="table-responsive" style="margin-bottom: 1.5rem;">
-					<table id="modtable-active" class="table table-hover mb-0" style="width:100%;"></table>
+				<!-- One table at a time. Stacked, each carried its own Show/Search chrome and
+				     the ~9,000-row Available table pushed the actions far below the fold. -->
+				<div class="pv-tabbar" id="modTabBar">
+					<button type="button" class="pv-tab active" data-modtab="modPaneSelected" onclick="switchModTab('modPaneSelected', this)">
+						Selected <span class="badge bg-info" id="activeModCount">0</span>
+					</button>
+					<button type="button" class="pv-tab" data-modtab="modPaneAvailable" onclick="switchModTab('modPaneAvailable', this)">
+						Available <span class="badge bg-secondary" id="availableModCount">0</span>
+					</button>
 				</div>
 
-				<!-- Available Mods Table -->
-				<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-bottom: 2px solid var(--accent-primary);">
-					<span style="font-weight: 600; color: var(--text-primary);">Available Mods</span>
-					<span class="badge bg-secondary" id="availableModCount">0</span>
+				<div class="mod-pane" id="modPaneSelected">
+					<div class="table-responsive">
+						<table id="modtable-active" class="table table-hover mb-0" style="width:100%;"></table>
+					</div>
 				</div>
-				<div class="table-responsive">
-					<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+
+				<div class="mod-pane" id="modPaneAvailable" style="display:none;">
+					<div class="table-responsive">
+						<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+					</div>
 				</div>
 			</div>
 
-			<!-- Action Buttons -->
-			<div class="d-flex justify-content-center gap-3 mb-4">
+			<!-- Action Buttons -- sticky so Save stays reachable from anywhere on the page. -->
+			<div class="pv-stickybar">
 				<a href='index.php'><button class="sm-bttn" type="button">Cancel</button></a>
 				<button id="submit_button_bottom" class="sm-bttn" type="button" onclick="submitSaveWorld();" style="background-color: var(--success-dark); border-color: var(--success);">Save Changes</button>
 			</div>
@@ -945,6 +950,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			});
 
 			// Submit world save via AJAX
+			// Show one mod table at a time (they used to be stacked).
+			// DataTables measures column widths at draw time and gets them wrong for a table
+			// inside a display:none container, so re-adjust whichever table just became
+			// visible. Using the tables() API avoids depending on the instance variables.
+			function switchModTab(paneId, btn) {
+				document.querySelectorAll('#modTabBar .pv-tab').forEach(function (t) { t.classList.remove('active'); });
+				if (btn) { btn.classList.add('active'); }
+				document.querySelectorAll('.mod-pane').forEach(function (p) { p.style.display = 'none'; });
+				var pane = document.getElementById(paneId);
+				if (pane) { pane.style.display = 'block'; }
+				if (window.jQuery && $.fn.dataTable) {
+					$.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+				}
+			}
+
 			function submitSaveWorld() {
 				if (submitting) return;
 

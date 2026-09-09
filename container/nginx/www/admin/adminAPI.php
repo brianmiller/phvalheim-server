@@ -670,6 +670,13 @@ function getWorldsJson($pdo) {
             'vanilla' => $vanilla,
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
             'launchString' => $launchString,
+            // MUST stay in step with getWorldsData() in index.php: the dashboard renders
+            // Launch from PHP on load and then re-renders it from this payload on every
+            // poll. If only one of them knows about vanilla worlds, the button is correct
+            // on load and wrong a few seconds later.
+            'launchHref' => $vanilla
+                ? 'steam://run/892970//+connect ' . $gameDNS . ':' . $row['port']
+                : 'phvalheim://?' . $launchString,
             'dateUpdated' => $row['date_updated']
         ];
     }

@@ -231,7 +231,9 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			<div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
 				<h4 class="mb-0" style="color: var(--accent-primary);">Create New World</h4>
 				<div class="d-flex gap-2">
-					<button id="submit_button" class="sm-bttn" type="button" onclick="submitCreateWorld();" style="background-color: var(--success-dark); border-color: var(--success);">Create World</button>
+					<!-- The primary action lives in the sticky bar at the bottom of the form.
+					     Having "Create World" here as well meant two primary buttons on one
+					     page, and the top one sat above the form it submits. -->
 					<a href='index.php'><button class="sm-bttn" type="button">Back to Dashboard</button></a>
 				</div>
 			</div>
@@ -350,22 +352,28 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				</div>
 				<?php endif; ?>
 				<div id="modSelectionArea">
-				<!-- Selected Mods Table -->
-				<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-bottom: 2px solid var(--accent-primary);">
-					<span style="font-weight: 600; color: var(--text-primary);">Selected Mods</span>
-					<span class="badge bg-info" id="activeModCount">0</span>
-				</div>
-				<div class="table-responsive" style="margin-bottom: 1.5rem;">
-					<table id="modtable-active" class="table table-hover mb-0" style="width:100%;"></table>
+				<!-- Two DataTables used to be stacked, each with its own Show/Search controls,
+				     so the page carried two sets of table chrome and ~9,000 available mods
+				     pushed the action buttons far below the fold. One at a time instead. -->
+				<div class="pv-tabbar" id="modTabBar">
+					<button type="button" class="pv-tab active" data-modtab="modPaneSelected" onclick="switchModTab('modPaneSelected', this)">
+						Selected <span class="badge bg-info" id="activeModCount">0</span>
+					</button>
+					<button type="button" class="pv-tab" data-modtab="modPaneAvailable" onclick="switchModTab('modPaneAvailable', this)">
+						Available <span class="badge bg-secondary" id="availableModCount">0</span>
+					</button>
 				</div>
 
-				<!-- Available Mods Table -->
-				<div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background-color: var(--bg-tertiary); border-bottom: 2px solid var(--accent-primary);">
-					<span style="font-weight: 600; color: var(--text-primary);">Available Mods</span>
-					<span class="badge bg-secondary" id="availableModCount">0</span>
+				<div class="mod-pane" id="modPaneSelected">
+					<div class="table-responsive">
+						<table id="modtable-active" class="table table-hover mb-0" style="width:100%;"></table>
+					</div>
 				</div>
-				<div class="table-responsive">
-					<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+
+				<div class="mod-pane" id="modPaneAvailable" style="display:none;">
+					<div class="table-responsive">
+						<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+					</div>
 				</div>
 				</div>
 				<div id="vanillaNoModsNotice" style="display:none; padding: 1.5rem; text-align: center; color: var(--text-secondary);">
@@ -373,8 +381,9 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				</div>
 			</div>
 
-			<!-- Action Buttons -->
-			<div class="d-flex justify-content-center gap-3 mb-4">
+			<!-- Action Buttons -- sticky so the primary action stays reachable without
+			     scrolling past ~9,000 available mods. -->
+			<div class="pv-stickybar">
 				<a href='index.php'><button class="sm-bttn" type="button">Cancel</button></a>
 				<button id="submit_button_bottom" class="sm-bttn" type="button" onclick="submitCreateWorld();" style="background-color: var(--success-dark); border-color: var(--success);">Create World</button>
 			</div>
@@ -1033,6 +1042,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			});
 
 			// Submit world creation via AJAX
+			// Show one mod table at a time (they used to be stacked).
+			// DataTables measures column widths at draw time and gets them wrong for a table
+			// inside a display:none container, so re-adjust whichever table just became
+			// visible. Using the tables() API avoids depending on the instance variables.
+			function switchModTab(paneId, btn) {
+				document.querySelectorAll('#modTabBar .pv-tab').forEach(function (t) { t.classList.remove('active'); });
+				if (btn) { btn.classList.add('active'); }
+				document.querySelectorAll('.mod-pane').forEach(function (p) { p.style.display = 'none'; });
+				var pane = document.getElementById(paneId);
+				if (pane) { pane.style.display = 'block'; }
+				if (window.jQuery && $.fn.dataTable) {
+					$.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+				}
+			}
+
 			function submitCreateWorld() {
 				if (submitting) return;
 

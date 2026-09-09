@@ -4825,8 +4825,8 @@ table.dataTable td input[type="checkbox"] {
 /* Same treatment for bare checkboxes that carry no Bootstrap class -- the
    "Also clone ..." options on new_world.php are plain <input type=checkbox>
    and were still rendering as white boxes after the .form-check-input fix. */
-.admin-main input[type="checkbox"]:not(.form-check-input),
-.admin-main input[type="radio"]:not(.form-check-input),
+body input[type="checkbox"]:not(.form-check-input),
+body input[type="radio"]:not(.form-check-input),
 .mods-modal input[type="checkbox"]:not(.form-check-input):not(.switch input),
 .mods-modal input[type="radio"]:not(.form-check-input) {
 	-webkit-appearance: none;
@@ -4843,18 +4843,18 @@ table.dataTable td input[type="checkbox"] {
 	position: relative;
 	cursor: pointer;
 }
-.admin-main input[type="radio"]:not(.form-check-input),
+body input[type="radio"]:not(.form-check-input),
 .mods-modal input[type="radio"]:not(.form-check-input) {
 	border-radius: 50%;
 }
-.admin-main input[type="checkbox"]:not(.form-check-input):checked,
-.admin-main input[type="radio"]:not(.form-check-input):checked,
+body input[type="checkbox"]:not(.form-check-input):checked,
+body input[type="radio"]:not(.form-check-input):checked,
 .mods-modal input[type="checkbox"]:not(.form-check-input):checked,
 .mods-modal input[type="radio"]:not(.form-check-input):checked {
 	background-color: var(--accent-primary);
 	border-color: var(--accent-primary);
 }
-.admin-main input[type="checkbox"]:not(.form-check-input):checked::after,
+body input[type="checkbox"]:not(.form-check-input):checked::after,
 .mods-modal input[type="checkbox"]:not(.form-check-input):checked::after {
 	content: "";
 	position: absolute;
@@ -4875,4 +4875,55 @@ table.dataTable td input[type="checkbox"] {
 	opacity: 0;
 	border: 0 !important;
 	background: none !important;
+}
+
+/* --- mod table tabs + sticky action bar (new_world / edit_world) ------
+   The Selected and Available mod tables were stacked, each with its own
+   DataTables "Show N entries" and "Search" chrome, and Available holds ~9,000
+   rows. That put two sets of table controls on screen at once and pushed the
+   submit buttons a long way below the fold -- which is why the page had a
+   second "Create World" button at the top, duplicating the primary action. */
+.pv-tabbar {
+	display: flex;
+	gap: 0.25rem;
+	border-bottom: 2px solid var(--accent-primary);
+	background: var(--bg-tertiary);
+	padding: 0 0.5rem;
+}
+.pv-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	border: 0;
+	background: none;
+	color: var(--text-secondary);
+	font-weight: 600;
+	font-size: 0.9rem;
+	padding: 0.65rem 1rem;
+	margin-bottom: -2px;
+	border-bottom: 2px solid transparent;
+	cursor: pointer;
+	transition: color 0.15s ease, border-color 0.15s ease;
+}
+.pv-tab:hover {
+	color: var(--text-primary);
+}
+.pv-tab.active {
+	color: var(--accent-primary);
+	border-bottom-color: var(--accent-primary);
+}
+
+/* Keeps the primary action reachable from anywhere in a very long form. */
+.pv-stickybar {
+	position: sticky;
+	bottom: 0;
+	z-index: 20;
+	display: flex;
+	justify-content: center;
+	gap: 0.75rem;
+	padding: 0.85rem 1rem;
+	margin-top: 1.5rem;
+	background: var(--bg-secondary);
+	border-top: 1px solid var(--accent-primary);
+	box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);
 }

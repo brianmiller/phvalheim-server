@@ -91,7 +91,16 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
         $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
         $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme?$vanilla");
 
+        // A vanilla world has no client payload and no BepInEx, so phvalheim:// is
+        // meaningless for it -- handing that link to the client makes it try to sync mods
+        // that do not exist. Join it the way the public card does, with Valheim's own
+        // +connect. Computed once here so every Launch button agrees.
+        $launchHref = $vanilla
+            ? 'steam://run/892970//+connect ' . $gameDNS . ':' . $row['port']
+            : 'phvalheim://?' . $launchString;
+
         $worlds[] = [
+            'launchHref' => $launchHref,
             'name' => $row['name'],
             'status' => $row['status'],
             'mode' => $row['mode'],
@@ -446,7 +455,7 @@ $totalCount = count($worlds);
                                         <td>
                                             <div class="action-group">
                                                 <?php if ($world['mode'] === 'running'): ?>
-                                                <a href="phvalheim://?<?php echo $world['launchString']; ?>" class="action-btn success" data-action="launch">Launch</a>
+                                                <a href="<?php echo htmlspecialchars($world['launchHref']); ?>" class="action-btn success" data-action="launch">Launch</a>
                                                 <span class="action-btn disabled" data-action="start">Start</span>
                                                 <a href="?stop_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="stop">Stop</a>
                                                 <?php else: ?>
@@ -1437,7 +1446,7 @@ $totalCount = count($worlds);
         let actionsHtml, configHtml;
         if (world.mode === 'running') {
             actionsHtml = `
-                <a href="phvalheim://?${world.launchString}" class="action-btn success" data-action="launch">Launch</a>
+                <a href="${world.launchHref}" class="action-btn success" data-action="launch">Launch</a>
                 <span class="action-btn disabled" data-action="start">Start</span>
                 <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
@@ -1569,7 +1578,7 @@ $totalCount = count($worlds);
 
         if (launchBtn && startBtn && stopBtn) {
             if (world.mode === 'running') {
-                launchBtn.outerHTML = `<a href="phvalheim://?${world.launchString}" class="action-btn success" data-action="launch">Launch</a>`;
+                launchBtn.outerHTML = `<a href="${world.launchHref}" class="action-btn success" data-action="launch">Launch</a>`;
                 startBtn.outerHTML = `<span class="action-btn disabled" data-action="start">Start</span>`;
                 stopBtn.outerHTML = `<a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>`;
             } else if (world.mode === 'stopped') {
