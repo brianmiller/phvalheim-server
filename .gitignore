@@ -20,3 +20,9 @@ worker.yaml
 .DS_Store
 *.swp
 *~
+
+# Agent tooling — settings.local.json records approved shell commands verbatim,
+# which routinely includes hostnames, usernames and plaintext passwords.
+# This is a PUBLIC repository: never commit it. Do not rely on a global
+# ~/.config/git/ignore rule for this — that protection does not travel with a clone.
+.claude/settings.local.json
