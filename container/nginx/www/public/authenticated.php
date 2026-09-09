@@ -207,9 +207,13 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					if ($vanillaListed)    { $badges .= "<span class='vanilla-badge $badgeDim'>in server browser</span> "; }
 					if ($badges == "")     { $badges = "<span class='vanilla-badge vanilla-badge-muted $badgeDim'>invite only</span>"; }
 
+					# Same label as a modded world -- a vanilla world is a peer, not a
+					# different kind of thing. Only the scheme differs: steam:// +connect
+					# instead of phvalheim://, because there is no client payload to sync.
+					# Keep the .launch-link class so the AJAX refresh finds and updates it.
 					$joinLink = $isOnline
-						? "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Join!</a>"
-						: "<a class='$worldDimmed card_worldLaunch'>offline</a>";
+						? "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Launch!</a>"
+						: "<a class='$worldDimmed card_worldLaunch launch-link' href='#'>offline</a>";
 
 					echo "
                                         <div class=\"$worldDimmed catbox catbox-vanilla\" data-world=\"$myWorld\" data-vanilla=\"1\">
@@ -480,7 +484,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                         if (launchLink) {
                             if (isOnline) {
                                 launchLink.textContent = 'Launch!';
-                                launchLink.href = `phvalheim://?${world.launchString}`;
+                                // A vanilla world has no client payload and no quickconnect
+                                // mod, so phvalheim:// is meaningless for it -- it is joined
+                                // with Valheim's own +connect via steam://. This runs every
+                                // 5s, so without the branch the poll overwrites the correct
+                                // server-rendered link a few seconds after page load.
+                                launchLink.href = (world.vanilla && world.connection)
+                                    ? world.connection.steamUrl
+                                    : `phvalheim://?${world.launchString}`;
                                 launchLink.classList.remove(dimmedClass);
                                 if (launchTh) launchTh.classList.remove(dimmedClass);
                             } else {

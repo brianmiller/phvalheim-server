@@ -59,6 +59,20 @@ ck "old reveal class gone (css)"    "$(grep -c 'vanilla-password-reveal' $C)" 0
 ck "old reveal class gone (php)"    "$(grep -c 'vanilla-password-reveal' $A)" 0
 ck "new action class styled"        "$(grep -c "vanilla-password-action" $C)" 3
 
+echo "8. AJAX poll must not clobber vanilla server-rendered state"
+# This class of bug has bitten three times: the 5s refresh overwrites correct
+# server-rendered markup a few seconds after page load, so the page looks right
+# on load and wrong immediately after. Every field the poll writes that also
+# exists on the vanilla card needs a vanilla-aware branch.
+ck "poll uses steam:// for vanilla"  "$(grep -c 'world.vanilla && world.connection' $A)" 1
+ck "no unconditional phvalheim:// "  "$(grep -c 'launchLink.href = `phvalheim' $A)" 0
+ck "api sends connection.steamUrl"   "$(grep -c "'steamUrl'" $P)" 1
+ck "api sends vanilla flag"          "$(grep -c "'vanilla' =>" $P)" 1
+ck "api seed mirrors renderer"       "$(grep -c 'generated on first start' $P)" 1
+ck "renderer has the same string"    "$(grep -c 'generated on first start' $A)" 1
+ck "vanilla link: steam url + Launch!" "$(grep -cF 'vanillaSteamUrl' $A)" 2
+ck "no 'Join!' label left"           "$(grep -c '>Join!<' $A)" 0
+
 echo "7. Seed hidden for vanilla"
 ck "seedField id"                   "$(grep -c 'id="seedField"' $N)" 1
 ck "seedField toggled"              "$(grep -c "seedField').toggle" $N)" 1

@@ -164,7 +164,15 @@ if ($mode == "getMyWorldsStatus") {
                 'memory' => $worldMemory,
                 'launchString' => $launchString,
                 'md5' => getMD5($pdo, $myWorld),
-                'seed' => (getHideSeed($pdo, $myWorld) == 1) ? '<i>hidden</i>' : getSeed($pdo, $myWorld),
+                // Mirror authenticated.php's seed rendering exactly. This payload drives
+                // the 5s refresh, which writes .world-seed -- if the two disagree, the
+                // server-rendered value is silently replaced a few seconds after load.
+                // A vanilla world has no seed until Valheim generates the .fwl.
+                'seed' => (getHideSeed($pdo, $myWorld) == 1)
+                    ? '<i>hidden</i>'
+                    : (($seedValue = getSeed($pdo, $myWorld)) === '' || $seedValue === NULL
+                        ? '<i>generated on first start</i>'
+                        : $seedValue),
                 'dateDeployed' => getDateDeployed($pdo, $myWorld),
                 'dateUpdated' => getDateUpdated($pdo, $myWorld),
                 'mods' => $mods,
