@@ -384,6 +384,12 @@ while [ true ]; do
 
 					#Update the database to reflect new client pacakge version via MD5
 					worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
+					#A modded world MUST have a client payload. An empty md5 here means
+					#packageClient produced no zip -- do not let that pass as the same
+					#quiet "cleared" state a vanilla world legitimately has.
+					if [ -z "$worldMD5" ]; then
+						echo "`date` [WARNING : phvalheim] No client payload found for modded world '$worldName' -- clients will have nothing to sync."
+					fi
 					setMD5 "$worldName" "$worldMD5"
 				else
 					#No client payload exists for a vanilla world, so there is nothing to

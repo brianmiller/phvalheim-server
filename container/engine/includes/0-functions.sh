@@ -508,7 +508,14 @@ function setMD5 () {
         worldName="$1"
         worldMD5="$2"
 
-        echo "`date` [NOTICE : phvalheim] Setting world md5sum for '$worldName' to '$worldMD5'"
+        #An empty md5 is not a failure -- a vanilla world has no client payload to
+        #checksum, so the column is deliberately cleared. Say that, instead of logging
+        #"Setting world md5sum for 'x' to ''", which reads like a checksum that failed.
+        if [ -z "$worldMD5" ]; then
+                echo "`date` [NOTICE : phvalheim] Clearing world md5sum for '$worldName' (no client payload)"
+        else
+                echo "`date` [NOTICE : phvalheim] Setting world md5sum for '$worldName' to '$worldMD5'"
+        fi
         SQL "UPDATE worlds SET world_md5='$worldMD5' WHERE name='$worldName';"
 }
 

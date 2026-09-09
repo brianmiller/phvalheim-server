@@ -323,7 +323,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			</div>
 
 			<!-- Mod Selection Card -->
-			<div class="card-panel mb-4" style="position: relative;">
+			<div class="card-panel mb-4" id="modSelectionCard" style="position: relative;">
 				<div id="modProcessingOverlay"><div class="processing-content"><div class="processing-spinner"><span></span><span></span><span></span><span></span><span></span></div>Processing...</div></div>
 				<div class="card-panel-header">Select Mods (Optional)</div>
 				<?php if (!empty($allWorlds)): ?>
@@ -376,7 +376,15 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					</div>
 				</div>
 				</div>
-				<div id="vanillaNoModsNotice" style="display:none; padding: 1.5rem; text-align: center; color: var(--text-secondary);">
+			</div>
+
+			<!-- Shown INSTEAD of the mod card for a vanilla world. It lives outside that
+			     card so hiding the card hides every mod control with it -- the header, the
+			     clone-from-another-world block and both tables -- rather than leaving an
+			     inert "Select Mods (Optional)" panel wrapped around a notice. -->
+			<div class="card-panel mb-4" id="vanillaNoModsNotice" style="display:none;">
+				<div class="card-panel-header">Mods</div>
+				<div style="padding: 1rem; color: var(--text-secondary);">
 					This is a vanilla world &mdash; no mods will be installed.
 				</div>
 			</div>
@@ -919,7 +927,11 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			// letting someone pick mods that will be silently dropped at create time.
 			function toggleVanillaWorld(checked) {
 				$('#vanillaOptions').toggle(checked);
-				$('#modSelectionArea').toggle(!checked);
+				// Hide the WHOLE mod card, not just the tables inside it. Hiding only
+				// #modSelectionArea left the "Select Mods (Optional)" header and the
+				// clone-from-another-world control on screen for a world that can hold
+				// no mods at all.
+				$('#modSelectionCard').toggle(!checked);
 				$('#vanillaNoModsNotice').toggle(checked);
 
 				// Custom seeds are implemented by the ZeroBandwidth-CustomSeed BepInEx mod
@@ -931,6 +943,10 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				if (checked) {
 					$('#seedTypeRandom').prop('checked', true);
 					toggleSeedMode('random');
+				} else if (window.jQuery && $.fn.dataTable) {
+					// A DataTable measured while its container was display:none comes back
+					// with collapsed column widths. Re-measure whatever is visible now.
+					$.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
 				}
 			}
 
