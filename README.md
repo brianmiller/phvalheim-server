@@ -41,7 +41,7 @@ Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — 
 | **Automatic Mod Sync** | Server and client mods stay in lock-step. Players always have the right files. |
 | **Setup Wizard** | Guided first-run configuration — just start the container and follow the steps. No environment variables required. |
 | **Steam Authentication** | Players log in with their Steam account. Per-world access control lists manage who can see and join each world. |
-| **Citizens & Admins** | Per-world allow lists, plus a per-world admin list granting in-game admin commands. |
+| **Citizens, Admins & Banned** | Per-world allow list, admin list granting in-game admin commands, and ban list — all rendered from the database at every world start. |
 | **Custom Launch Parameters** | Append your own arguments to any world's Valheim server command line. |
 | **Thunderstore Integration** | Full Thunderstore mod catalog synced every 12 hours. Search, select, and deploy mods with dependency resolution built in. |
 | **Backup System** | Activity-aware scheduled backups with compression (gzip/zstd), tiered retention, one-click restore, and per-world overrides. Supports separate backup volumes. |
@@ -345,14 +345,17 @@ Modded worlds are unaffected by any of this — they continue to be gated by the
 
 ---
 
-## Citizens & Admins
+## Citizens, Admins & Banned
 
-Each world has two per-world player lists, both in the world's **Settings** modal:
+Each world has three per-world player lists, all in the world's **Settings** modal. Entries must be SteamID64s — Valheim silently ignores anything else, so PhValheim rejects it up front rather than letting it look like it worked.
 
 - **Citizens** — who may join (`permittedlist.txt`). Setting a world **Public** here removes the restriction entirely and lets anyone join.
-- **Admins** — who gets in-game admin commands (`adminlist.txt`). Entries must be SteamID64s.
+- **Admins** — who gets in-game admin commands (`adminlist.txt`).
+- **Banned** — who is blocked from the world (`bannedlist.txt`). A ban applies even when the world is public.
 
-Valheim reads both files at world start, so changes need a world restart to take effect.
+Valheim reads all three files at world start, so changes need a world restart to take effect.
+
+The **database is the source of truth**. All three files are regenerated from it every time a world starts, so a world that was restored from a backup or rebuilt converges back to what the admin UI shows instead of quietly keeping an older list.
 
 > **Note:** A world's **Public** toggle controls the Citizens gate only. It does *not* publish the world to the Valheim server browser — that is the separate **List in server browser** option on vanilla worlds.
 

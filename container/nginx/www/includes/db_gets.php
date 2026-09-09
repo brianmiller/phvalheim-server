@@ -379,6 +379,12 @@ function getAdmins($pdo,$world) {
         return $sth->fetchColumn();
 }
 
+function getBanned($pdo,$world) {
+        $sth = $pdo->prepare("SELECT banned FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
 function getBossTrophyStatus($pdo,$world,$trophy) {
 	$sth = $pdo->query("SELECT $trophy FROM worlds WHERE name='$world';");
         $sth->execute();

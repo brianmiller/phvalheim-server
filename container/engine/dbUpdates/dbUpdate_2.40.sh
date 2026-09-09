@@ -53,8 +53,14 @@ addColumn worlds password_public "TINYINT DEFAULT 1"
 # --- worlds table: custom launch parameters (all worlds) ---
 addColumn worlds launch_params "VARCHAR(512) DEFAULT NULL"
 
-# --- worlds table: per-world admin list (all worlds) ---
+# --- worlds table: per-world admin and banned lists (all worlds) ---
+#
+# These mirror adminlist.txt and bannedlist.txt. The DATABASE is the source of truth:
+# syncAccessLists.sh rewrites all three files from these columns at every world start, so
+# a world that was restored from an old backup, or rebuilt, converges back to what the
+# admin UI shows instead of silently keeping a stale list.
 addColumn worlds admins        "TEXT DEFAULT NULL"
+addColumn worlds banned        "TEXT DEFAULT NULL"
 
 # --- worlds table: Deep North boss trophy ---
 #

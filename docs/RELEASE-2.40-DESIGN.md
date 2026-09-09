@@ -11,9 +11,12 @@ Target: ship alongside Valheim 1.0 (Deep North). Version bumped `2.39` → `2.40
 | 3 | Custom launch parameters | **DONE** |
 | 4 | ADMINS editor | **DONE** |
 | 5 | Client dead code | **DONE** — `ProgressBar/` removed (524 lines) |
+| 6 | Access lists (CITIZENS / ADMINS / BANNED) | **DONE** — see §7 |
 
-Tests: `dev_tools/test-startWorld-args.sh` (9 cases, mutation-checked) and
-`dev_tools/test-bosses.php` (12 cases). Both green.
+Tests: `dev_tools/test-startWorld-args.sh` (9 cases, mutation-checked),
+`dev_tools/test-bosses.php` (12 cases), and `dev_tools/test-accesslists.sh`
+(22 cases end-to-end against a live container, mutation-checked: 9 fail on the pre-fix code).
+All green.
 
 **To land the boss once the name is known:**
 1. Uncomment + fill the Deep North entry in `container/nginx/www/includes/bosses.php`
@@ -323,3 +326,99 @@ wrong:
   no `DOORSTOP_*` var is in the process environment. A world that launches proves nothing; the
   doorstop exports are harmless when the DLL is missing.
 - **`launch_params` injection:** feed `; touch /tmp/pwned` and assert the file is not created.
+
+---
+
+## 7. Access lists — CITIZENS / ADMINS / BANNED (reported 2026-09-09)
+
+Brian's report: *"the CITIZENS editor ... doesn't seem to be respected anymore and users are
+not being allowed into their servers. ADMINS doesn't write at all to the adminlist.txt file."*
+
+### 7.1 Ground truth, measured against the real dedicated server
+
+Before changing anything I downloaded the actual Valheim dedicated server (app 896660) and
+observed it, because every theory about these files hinged on behaviour I could not read off
+the source. `dev_tools/` has no copy of the probes; they are recorded here.
+
+| Question | Answer | How it was established |
+|---|---|---|
+| Where does Valheim read these files? | The `-savedir` **root** | Started with a clean savedir; it created `adminlist.txt`, `bannedlist.txt`, `permittedlist.txt` there and nowhere else |
+| Does it create missing ones? | Yes, at startup, with a header comment | Same run — the savedir began empty |
+| Does it clobber external edits? | **No** | Pre-populated all three before boot: entries survived. Edited all three while running, waited 90s: entries survived, including across a clean shutdown |
+| Exact header text | `// List permitted players ID ONE per line`, `// List admin players ID  ONE per line`, `// List banned players ID  ONE per line` | Read back from the files it wrote. **The admin and banned headers have a DOUBLE space** — that is Valheim's, not a typo |
+
+So PhValheim's path was right all along, and writing these files from outside is safe. The
+fault was never *where* or *whether Valheim cooperates* — it was the write itself.
+
+### 7.2 Root cause — a silently swallowed write
+
+Both editors did:
+
+```php
+if (is_dir($dirPath)) {
+    file_put_contents($path, $header . "\n" . $ids);   // return value ignored
+}
+echo json_encode(['success' => true, 'message' => 'Saved successfully']);
+```
+
+`file_put_contents()` cannot replace a file the web user does not own, and **nothing checked**.
+Reproduced end-to-end against a live container: with the list files owned by `root` (which an
+older engine, or `worldRestore` running as root, can leave behind), the API returned
+
+```
+{"success":true,"message":"Citizens saved successfully"}
+{"success":true,"message":"Admins saved. Restart the world for this to take effect."}
+```
+
+the database updated, and **neither file changed**. PHP logged `Failed to open stream:
+Permission denied` where no operator would ever see it.
+
+That is both reported symptoms from one defect:
+
+* **CITIZENS "not respected"** — `permittedlist.txt` freezes with an older list, so a player
+  the operator just added is genuinely refused. The file is non-empty, so Valheim keeps
+  enforcing it.
+* **ADMINS "doesn't write at all"** — `adminlist.txt` never picks up any change, so it looks
+  like the editor does nothing.
+
+### 7.3 Contributing defects found while tracing it
+
+* **Nothing rewrote these files from the database, ever.** The admin UI was the only writer.
+  A restore or rebuild silently reinstated an old list, permanently.
+* **`worldDirPrep` created only `permittedlist.txt`.** The ADMINS editor was writing a file
+  that did not exist until Valheim's first boot created it.
+* **`importWorld.sh` wrote `adminlist.txt` but never set `worlds.admins`.** An imported world
+  showed no admins in the Settings modal, and under the new sync would have lost them.
+* Citizens were not validated as SteamID64, though admins were.
+
+### 7.4 The fix
+
+* `nginx/www/includes/accesslists.php` — one module owning the paths, the header text, and the
+  write. Writes are **atomic (temp + `rename`)**, which needs permission on the *directory*
+  rather than the target file, so it succeeds where `file_put_contents()` failed *and* leaves
+  the file owned by the web user, repairing the condition permanently. Every failure path
+  returns an error; callers surface it.
+* `games/valheim/scripts/syncAccessLists.sh` — renders all three files from the database, run
+  from `startWorld.sh` on **every** world start and from `worldDirPrep`. The database is now
+  the single source of truth and drift heals itself on the next restart.
+* BANNED list added end to end: `worlds.banned` column, `getBanned`/`saveBanned`, Settings
+  modal section, and the engine sync.
+* `citizensEditor.php` (the legacy page) routed through the same module and now shows write
+  failures.
+
+### 7.5 Why the tests are worth something
+
+`dev_tools/test-accesslists.sh` asserts on **the bytes in the real files**, never on what the
+API said — the bug was an API that said "saved" about a file it had not written. It runs
+against a live container and includes a control case proving the assertions can detect a wrong
+file at all.
+
+Mutation-checked: restoring the pre-fix `adminAPI.php` and `0-functions.sh` turns **9 of the
+22 cases red**, including the two reported symptoms verbatim. A suite that stays green against
+the broken code would have been worthless here.
+
+### 7.6 Not established
+
+Whether a **running** Valheim server re-reads these files, or only reads them at startup, was
+not determined — proving it needs a real game client connecting. The UI therefore tells the
+operator a restart is required for all three lists, which is correct either way.

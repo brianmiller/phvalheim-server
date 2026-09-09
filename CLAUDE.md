@@ -120,6 +120,11 @@ supervisorctl start valheimworld_myworld # Start world
   by `startWorld.sh`. See `docs/RELEASE-2.40-DESIGN.md`.
 - `worlds.public` is the CITIZENS access-control flag, NOT Valheim's `-public` server browser
   argument — that is the separate `listed` column. Do not conflate them.
+- Access lists (`permittedlist.txt` / `adminlist.txt` / `bannedlist.txt`) live in the `-savedir`
+  ROOT. The **database is the source of truth**: `syncAccessLists.sh` renders all three at every
+  world start. Write them only via `writeAccessList()` (PHP) or that script — never
+  `file_put_contents()` directly, and never ignore the return value. A silently-failed write is
+  what made the CITIZENS editor look like it had stopped working while the UI said "saved".
 - Admin interface (8081) should never be exposed publicly
 - Thunder Store mod metadata syncs every 12 hours via cron
 - World backups run every 30 minutes

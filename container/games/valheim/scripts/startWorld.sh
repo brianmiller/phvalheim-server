@@ -28,19 +28,17 @@ echo "`date` [phvalheim]  World: $worldName"
 echo "`date` [phvalheim]  Port: $worldPort/udp"
 echo ""
 
-# public check
+# Access lists: rewrite permittedlist/adminlist/bannedlist from the database.
 #
-# NOTE: `public` is the CITIZENS access-control flag -- when 1, permittedlist.txt is
-# blanked so anyone may join. It is NOT Valheim's -public server-browser argument; that
-# is the separate `listed` column, read below. Do not merge these two.
-unset isPublic
-unset public
-isPublic=$(/opt/stateless/engine/tools/sql "SELECT public FROM worlds WHERE name='$worldName'")
-if [ "$isPublic" = "1" ]; then
-	echo "`date` [NOTICE : phvalheim] World is set to public!"
-	## reset permittedlist.txt
-	#echo "// List permitted players ID ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
-fi
+# The database is the source of truth. Doing this on every start means a list file that
+# drifted -- because a write from the admin UI failed, or because a restore unpacked an old
+# copy over it -- converges back to what the admin UI shows. Valheim reads all three from
+# -savedir at startup, so this has to happen before the server is exec'd.
+#
+# NOTE: `public` is the CITIZENS access-control flag -- when 1, permittedlist.txt is written
+# empty so anyone may join. It is NOT Valheim's -public server-browser argument; that is the
+# separate `listed` column, read below. Do not merge these two.
+/opt/stateless/games/valheim/scripts/syncAccessLists.sh "$worldName"
 
 # vanilla world settings (see docs/RELEASE-2.40-DESIGN.md)
 #

@@ -140,18 +140,14 @@ fi
 # add imported patchers: you shouldn't do this. you should use PhValheim's mod manager which will keep plugins up-to-date. using the custom_plugins directory is acceptable if the mod(s) are not in thunderstore.
 #cp -prfv import_wip/BepInEx/plugins/* /opt/stateful/games/valheim/worlds/$worldName/custom_patchers/.
 
-# set admins
-echo "// List admin players ID  ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/adminlist.txt
-for worldAdmin in $worldAdmins; do
-	echo "$worldAdmin" >> /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/adminlist.txt
-done
-
-# set citizens
-echo "// List permitted players ID  ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
-for worldCitizen in $worldCitizens; do
-        echo "$worldCitizen" >> /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
-done
-sql "UPDATE worlds SET citizens='$worldCitizens' WHERE name='$worldName'"
+# set admins and citizens
+#
+# Store them in the DATABASE and let syncAccessLists.sh render the files. Writing the files
+# directly here used to leave the admins nowhere but on disk: the `admins` column stayed
+# empty, so the Settings modal showed no admins for an imported world, and the next world
+# start would rewrite adminlist.txt from that empty column and drop them.
+sql "UPDATE worlds SET citizens='$worldCitizens', admins='$worldAdmins' WHERE name='$worldName'"
+/opt/stateless/games/valheim/scripts/syncAccessLists.sh "$worldName"
 
 # download and install TS mods
 downloadAndInstallTsModsForWorld "$worldName"

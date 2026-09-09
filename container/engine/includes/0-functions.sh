@@ -88,8 +88,12 @@ function worldDirPrep(){
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_patchers
 
         # we need the world .config directory before the world starts (citizens and such...)
+        #
+        # Only permittedlist.txt was created here; adminlist.txt and bannedlist.txt were left
+        # for Valheim to create on first boot, so the admin UI was editing files that did not
+        # exist yet. syncAccessLists.sh writes all three from the database.
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/
-        echo "// List permitted players ID ONE per line" > /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/permittedlist.txt
+        /opt/stateless/games/valheim/scripts/syncAccessLists.sh "$worldName"
 
 
         chown -R phvalheim: $worldsDirectoryRoot/$worldName

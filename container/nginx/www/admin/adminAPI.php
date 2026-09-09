@@ -10,6 +10,9 @@ include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
+# Owns the permittedlist/adminlist/bannedlist files. Absolute path to match db_sets.php's
+# include of bosses.php -- a relative include here would redeclare its functions fatally.
+require_once '/opt/stateless/nginx/www/includes/accesslists.php';
 
 header('Content-Type: application/json');
 
@@ -99,6 +102,30 @@ switch($action) {
             $admins = $input['admins'] ?? '';
             if ($world) {
                 saveAdminsJson($pdo, $world, $admins);
+            } else {
+                echo json_encode(['error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    case 'getBanned':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            getBannedJson($pdo, $world);
+        } else {
+            echo json_encode(['error' => 'World name required']);
+        }
+        break;
+
+    case 'saveBanned':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $banned = $input['banned'] ?? '';
+            if ($world) {
+                saveBannedJson($pdo, $world, $banned);
             } else {
                 echo json_encode(['error' => 'World name required']);
             }
@@ -945,32 +972,38 @@ function getCitizensJson($pdo, $world) {
 
 /**
  * Save citizens for a specific world
+ *
+ * A public world writes an EMPTY permittedlist, which is Valheim's "everyone may join".
+ * The citizens are still stored, so turning public back off restores the previous list.
  */
 function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
-    // Clean up citizens string - convert newlines to spaces, remove extra whitespace
-    $citizens = str_replace(["\r\n", "\r", "\n"], " ", $citizens);
-    $citizens = preg_replace('!\s+!', ' ', trim($citizens));
+    $citizens = normaliseIdList($citizens);
 
-    // Update database
+    list($valid, $rejected) = partitionSteamIds($citizens);
+    if (!empty($rejected)) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'Not a valid SteamID64 (17 digits): ' . implode(', ', $rejected)
+        ]);
+        return;
+    }
+    $citizens = implode(' ', $valid);
+
     setCitizens($pdo, $world, $citizens);
     setPublic($pdo, $world, $isPublic);
 
-    // Update the permittedlist.txt file
-    $permittedListPath = "/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt";
-    $dirPath = dirname($permittedListPath);
-
-    if (is_dir($dirPath)) {
-        if ($isPublic) {
-            file_put_contents($permittedListPath, "// List permitted players ID ONE per line");
-        } else {
-            $citizensNewlines = str_replace(' ', "\n", $citizens);
-            file_put_contents($permittedListPath, "// List permitted players ID ONE per line\n" . $citizensNewlines);
-        }
+    $result = writeAccessList($world, 'citizens', $isPublic ? '' : $citizens);
+    if (!$result['ok']) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'Saved to the database, but permittedlist.txt could not be written: ' . $result['error']
+        ]);
+        return;
     }
 
     echo json_encode([
         'success' => true,
-        'message' => 'Citizens saved successfully'
+        'message' => 'Citizens saved. Restart the world for this to take effect.'
     ]);
 }
 
@@ -993,22 +1026,42 @@ function getAdminsJson($pdo, $world) {
  * Valheim reads adminlist.txt at world start, so changes need a world restart.
  */
 function saveAdminsJson($pdo, $world, $admins) {
-    // Normalise to a single space separated string, same shape as citizens
-    $admins = str_replace(["\r\n", "\r", "\n"], " ", $admins);
-    $admins = preg_replace('!\s+!', ' ', trim($admins));
+    saveAccessListJson($pdo, $world, 'admins', $admins);
+}
 
-    // SteamID64 only. Anything else in adminlist.txt is silently ignored by Valheim,
-    // which would look like "I added an admin and it did nothing".
-    $rejected = [];
-    $clean = [];
-    foreach (array_filter(explode(' ', $admins)) as $candidate) {
-        if (preg_match('/^\d{17}$/', $candidate)) {
-            $clean[] = $candidate;
-        } else {
-            $rejected[] = $candidate;
-        }
-    }
+/**
+ * Returns the banned list for a specific world
+ */
+function getBannedJson($pdo, $world) {
+    $bannedStr = getBanned($pdo, $world);
 
+    echo json_encode([
+        'success' => true,
+        'banned'  => $bannedStr ?: ''
+    ]);
+}
+
+/**
+ * Save the banned list for a specific world
+ */
+function saveBannedJson($pdo, $world, $banned) {
+    saveAccessListJson($pdo, $world, 'banned', $banned);
+}
+
+/**
+ * Shared save path for the admin and banned lists.
+ *
+ * Citizens keeps its own function only because it also carries the `public` toggle.
+ *
+ * SteamID64 only. Anything else in these files is silently ignored by Valheim, which
+ * from the operator's side looks exactly like "I added them and it did nothing".
+ */
+function saveAccessListJson($pdo, $world, $kind, $raw) {
+    global $PHVALHEIM_ACCESS_LISTS;
+    $label = $PHVALHEIM_ACCESS_LISTS[$kind]['label'];
+    $file  = $PHVALHEIM_ACCESS_LISTS[$kind]['file'];
+
+    list($valid, $rejected) = partitionSteamIds(normaliseIdList($raw));
     if (!empty($rejected)) {
         echo json_encode([
             'success' => false,
@@ -1017,20 +1070,25 @@ function saveAdminsJson($pdo, $world, $admins) {
         return;
     }
 
-    $admins = implode(' ', $clean);
-    setAdmins($pdo, $world, $admins);
+    $ids = implode(' ', $valid);
+    if ($kind === 'admins') {
+        setAdmins($pdo, $world, $ids);
+    } else {
+        setBanned($pdo, $world, $ids);
+    }
 
-    $adminListPath = "/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/adminlist.txt";
-    $dirPath = dirname($adminListPath);
-
-    if (is_dir($dirPath)) {
-        $adminsNewlines = str_replace(' ', "\n", $admins);
-        file_put_contents($adminListPath, "// List admin players ID ONE per line\n" . $adminsNewlines);
+    $result = writeAccessList($world, $kind, $ids);
+    if (!$result['ok']) {
+        echo json_encode([
+            'success' => false,
+            'error'   => "Saved to the database, but $file could not be written: " . $result['error']
+        ]);
+        return;
     }
 
     echo json_encode([
         'success' => true,
-        'message' => 'Admins saved. Restart the world for this to take effect.'
+        'message' => "$label saved. Restart the world for this to take effect."
     ]);
 }
 

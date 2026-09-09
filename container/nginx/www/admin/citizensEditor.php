@@ -2,6 +2,7 @@
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
+require_once '/opt/stateless/nginx/www/includes/accesslists.php';
 
 // Handle AJAX request for fetching SteamID
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'fetchSteamID') {
@@ -64,26 +65,34 @@ if ($saved == true && $public == false) {
     $publicFlag = NULL;
 }
 
+$citizensWriteError = null;
+
 if (isset($_GET['citizens'], $_GET['world'])) {
     $citizens = $_GET['citizens'];
     $world = $_GET['world'];
 
+    # A public world writes an EMPTY permitted list, which is Valheim's "anyone may join".
     $getPublic = getPublic($pdo, $world);
     if ($getPublic) {
-        file_put_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt", "// List permitted players ID ONE per line");
+        $writeResult = writeAccessList($world, 'citizens', '');
     } else {
-        $citizens = str_replace("\r\n", " ", $citizens);
-        $citizens = preg_replace('!\s+!', ' ', $citizens);
-
+        $citizens = normaliseIdList($citizens);
         setCitizens($pdo, $world, $citizens);
-        $currentCitizens = getCitizens($pdo, $world);
-        $currentCitizens = str_replace(' ', PHP_EOL, $currentCitizens);
+        $writeResult = writeAccessList($world, 'citizens', getCitizens($pdo, $world));
+    }
 
-        file_put_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt", "// List permitted players ID ONE per line\n" . $currentCitizens);
+    # Never report a save that did not reach the file. This page used to ignore the return
+    # value of file_put_contents(), so a write it could not do looked identical to success
+    # while Valheim carried on enforcing the previous list.
+    if (!$writeResult['ok']) {
+        $citizensWriteError = $writeResult['error'];
     }
 }
 
-$currentAllowListFile = file_get_contents("/opt/stateful/games/valheim/worlds/$world/game/.config/unity3d/IronGate/Valheim/permittedlist.txt");
+$currentAllowListFile = @file_get_contents(accessListPath($world, 'citizens'));
+if ($currentAllowListFile === false) {
+    $currentAllowListFile = '';
+}
 
 // Initialize the SteamID result variable
 $steamIDResult = "";
@@ -144,6 +153,13 @@ function Get_SteamID_From_VanityURL(string $vanityURL, string $apiKey): ?string
                 <p class="mb-1">Add player's SteamID to grant access or set the world to public.</p>
                 <p class="mb-0 small text-secondary"><strong class="alt-color">Note:</strong> <em>SteamIDs listed below will be ignored when world is set to public.</em></p>
             </div>
+
+            <?php if ($citizensWriteError !== null) { ?>
+            <div class="card-panel mb-4" style="border-color: var(--danger);">
+                <p class="mb-0"><strong class="alt-color">Saved to the database, but permittedlist.txt could not be written:</strong>
+                <em><?php echo htmlspecialchars($citizensWriteError); ?></em></p>
+            </div>
+            <?php } ?>
 
             <form action='citizensEditor.php'>
                 <input type='hidden' name='world' value='<?php echo $world;?>'>

@@ -2655,16 +2655,18 @@ $totalCount = count($worlds);
         document.getElementById('settingsModalOverlay').classList.add('show');
 
         try {
-            const [settingsRes, citizensRes, optionsRes, adminsRes] = await Promise.all([
+            const [settingsRes, citizensRes, optionsRes, adminsRes, bannedRes] = await Promise.all([
                 fetch(`adminAPI.php?action=getWorldSettings&world=${encodeURIComponent(worldName)}`),
                 fetch(`adminAPI.php?action=getCitizens&world=${encodeURIComponent(worldName)}`),
                 fetch(`adminAPI.php?action=getWorldOptions&world=${encodeURIComponent(worldName)}`),
-                fetch(`adminAPI.php?action=getAdmins&world=${encodeURIComponent(worldName)}`)
+                fetch(`adminAPI.php?action=getAdmins&world=${encodeURIComponent(worldName)}`),
+                fetch(`adminAPI.php?action=getBanned&world=${encodeURIComponent(worldName)}`)
             ]);
             const settings = await settingsRes.json();
             const citizens = await citizensRes.json();
             const options = await optionsRes.json();
             const admins = await adminsRes.json();
+            const banned = await bannedRes.json();
 
             if (settings.success && citizens.success) {
                 const hideSeedChecked = settings.hideSeed == 1 ? 'checked' : '';
@@ -2672,6 +2674,7 @@ $totalCount = count($worlds);
                 const citizensText = citizens.citizens ? citizens.citizens.replace(/ /g, '\n') : '';
                 const isPublic = citizens.public ? 'checked' : '';
                 const adminsText = (admins.admins || '').replace(/ /g, '\n');
+                const bannedText = (banned.banned || '').replace(/ /g, '\n');
                 const isVanilla = options.vanilla == 1;
                 const vanillaChecked = isVanilla ? 'checked' : '';
                 const crossplayChecked = options.crossplay == 1 ? 'checked' : '';
@@ -2851,6 +2854,22 @@ $totalCount = count($worlds);
                         </div>
                         <div id="settingsAdminsSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
                     </div>
+                    <div style="margin-top: 1.5rem;">
+                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Banned</h6>
+                        <div style="margin-bottom: 1rem;">
+                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                                SteamIDs blocked from this world (one per line):
+                            </p>
+                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
+                                <em>Note: a ban applies even when the world is public. Valheim reads the banned list at world start, so the world must be restarted for changes to apply.</em>
+                            </p>
+                            <textarea id="settingsBannedTextarea" class="form-control" style="min-height: 120px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${bannedText}</textarea>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                            <button class="action-btn danger" onclick="saveSettingsBanned()">Save Banned</button>
+                        </div>
+                        <div id="settingsBannedSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                    </div>
                     </div>
 
                     <!-- Backups Tab -->
@@ -3010,6 +3029,32 @@ $totalCount = count($worlds);
         }
     }
 
+    async function saveSettingsBanned() {
+        const statusEl = document.getElementById('settingsBannedSaveStatus');
+        statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
+
+        try {
+            const response = await fetch('adminAPI.php?action=saveBanned', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    world: currentSettingsWorld,
+                    banned: document.getElementById('settingsBannedTextarea').value
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                statusEl.innerHTML = `<span style="color: var(--success);">${data.message || 'Saved successfully!'}</span>`;
+                setTimeout(() => { statusEl.innerHTML = ''; }, 4000);
+            } else {
+                statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
+            }
+        } catch (error) {
+            statusEl.innerHTML = '<span style="color: var(--danger);">Error saving banned list</span>';
+        }
+    }
+
     async function saveSettingsAdmins() {
         const statusEl = document.getElementById('settingsAdminsSaveStatus');
         statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
@@ -3056,8 +3101,8 @@ $totalCount = count($worlds);
             const data = await response.json();
 
             if (data.success) {
-                statusEl.innerHTML = '<span style="color: var(--success);">Saved successfully!</span>';
-                setTimeout(() => { statusEl.innerHTML = ''; }, 2000);
+                statusEl.innerHTML = `<span style="color: var(--success);">${data.message || 'Saved successfully!'}</span>`;
+                setTimeout(() => { statusEl.innerHTML = ''; }, 4000);
             } else {
                 statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
             }

@@ -239,6 +239,11 @@ function setAdmins($pdo,$world,$admins){
 	return $sth->execute([$admins, $world]);
 }
 
+function setBanned($pdo,$world,$banned){
+	$sth = $pdo->prepare("UPDATE worlds SET banned=? WHERE name=?");
+	return $sth->execute([$banned, $world]);
+}
+
 # $hungHead MUST already be a worlds column name resolved through
 # bossColumnForPrefab() in includes/bosses.php. A column name cannot be bound as a
 # parameter, so this re-validates against the registry rather than trusting the caller --
