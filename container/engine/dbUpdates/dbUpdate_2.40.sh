@@ -27,8 +27,12 @@ echo "`date` [NOTICE : phvalheim] Applying database schema update for phvalheim-
 
 # --- worlds table: vanilla (zero-mod) world support (issue #81) ---
 #
-# These four are VANILLA-ONLY settings. Modded worlds keep their existing behaviour:
-# gated by the CITIZENS list (permittedlist.txt), -public 0, and no -password.
+# `vanilla`, `password` and `listed` are VANILLA-ONLY settings. Modded worlds keep their
+# existing behaviour: gated by the CITIZENS list (permittedlist.txt), -public 0, no -password.
+#
+# `crossplay` is NOT vanilla-only -- it controls whether Xbox / Microsoft Store players can
+# join, which is orthogonal to whether a world runs mods. It applies to EVERY world and is
+# grouped here only because 2.40 is when it was added.
 #
 # NOTE: worlds.public already exists and does NOT mean "public server". It is an
 # access-control flag written by saveCitizensJson() -- when 1 it BLANKS permittedlist.txt,

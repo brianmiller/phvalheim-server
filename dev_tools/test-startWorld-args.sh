@@ -89,6 +89,13 @@ else
 	PASS=$((PASS+1))
 fi
 
+# --- 3b. Crossplay is NOT vanilla-only ---
+# A modded world with crossplay=1 must get -crossplay. It was originally scoped as a
+# vanilla-only option by mistake; nothing caught that because every modded case used
+# crossplay=0, so the assertion held either way.
+expected=$(printf -- '-nographics\n-batchmode\n-name\ntestworld\n-port\n25000\n-world\ntestworld\n-oldconsole\n-public\n0\n-crossplay\n-savedir\n%s' "$SAVEDIR")
+check "modded world honours crossplay" "$expected" "$(run_case '0	0	1		' 0)"
+
 # --- 4. Vanilla, listed, password, crossplay ---
 expected=$(printf -- '-nographics\n-batchmode\n-name\ntestworld\n-port\n25000\n-world\ntestworld\n-oldconsole\n-public\n1\n-password\nhunter2secret\n-crossplay\n-savedir\n%s' "$SAVEDIR")
 check "vanilla listed+password+crossplay" "$expected" "$(run_case '1	1	1	hunter2secret	' 0)"

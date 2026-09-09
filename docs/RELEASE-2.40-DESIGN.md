@@ -106,7 +106,15 @@ Existing columns: `trophyeikthyr`, `trophytheelder`, `trophybonemass`, `trophydr
 ## 1. Item 1 — Vanilla (zero-mod) worlds  [issue #81]
 
 ### 1.0 Scope decision (Brian, 2026-09-08)
-**Password, crossplay and server-browser listing are vanilla-only options.** Modded worlds keep
+> **CORRECTED 2026-09-09:** crossplay is **not** vanilla-only. Brian scoped *password* to
+> vanilla worlds; I extended that to crossplay and listing on my own. Listing is right to
+> keep vanilla-only, but crossplay controls whether Xbox / Microsoft Store players can join
+> and is orthogonal to mods — a modded world can legitimately want it. It now applies to
+> every world, and `dev_tools/test-startWorld-args.sh` asserts a modded world honours it.
+> Nothing caught this originally because every modded test case used `crossplay=0`, so the
+> assertion held whether or not the flag was scoped correctly.
+
+**Password and server-browser listing are vanilla-only options.** Modded worlds keep
 today's behaviour exactly: gated by the **CITIZENS** list (`permittedlist.txt`), `-public 0`, no
 `-password`. `"hammertime"` stays hardcoded on the modded path — it is inert anyway, since the
 server has never been given a `-password` to match it against.
@@ -130,7 +138,7 @@ Use a new, separate column `listed` for the online-catalog flag.
 ```sql
 ALTER TABLE worlds ADD COLUMN vanilla       TINYINT      DEFAULT 0;
 ALTER TABLE worlds ADD COLUMN password      VARCHAR(64)  DEFAULT NULL;  -- vanilla only
-ALTER TABLE worlds ADD COLUMN crossplay     TINYINT      DEFAULT 0;     -- vanilla only
+ALTER TABLE worlds ADD COLUMN crossplay     TINYINT      DEFAULT 0;     -- ALL worlds
 ALTER TABLE worlds ADD COLUMN listed        TINYINT      DEFAULT 0;     -- vanilla only, -public 1
 ALTER TABLE worlds ADD COLUMN launch_params VARCHAR(512) DEFAULT NULL;  -- item 3, all worlds
 ALTER TABLE worlds ADD COLUMN admins        TEXT         DEFAULT NULL;  -- item 4, all worlds

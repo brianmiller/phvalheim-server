@@ -1121,12 +1121,14 @@ function saveWorldOptionsJson($pdo, $world, $input) {
         return;
     }
 
-    // Password, crossplay and listing are vanilla-only. Modded worlds are gated by the
-    // CITIZENS list. Storing them for a modded world would show settings in the UI that
-    // startWorld.sh deliberately ignores.
+    // Password and server-browser listing are vanilla-only -- modded worlds are gated by
+    // the CITIZENS list instead. Storing them for a modded world would show settings in
+    // the UI that startWorld.sh deliberately ignores.
+    //
+    // Crossplay is NOT in that group: it controls whether Xbox / Microsoft Store players
+    // can join, which is orthogonal to whether the world runs mods.
     if (!$vanilla) {
         $password = '';
-        $crossplay = 0;
         $listed = 0;
     }
 
@@ -1419,12 +1421,14 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
             handleCloneFolders($cloneSource, $world, $cloneConfigs, $clonePlugins);
         }
 
+        // Crossplay applies to any world, modded or not.
+        setCrossplay($pdo, $world, !empty($vanillaOptions['crossplay']) ? 1 : 0);
+
         if ($isVanilla) {
             // A vanilla world means ZERO mods -- ignore any mod selection outright
             // rather than storing mods the build path will never install.
             setVanilla($pdo, $world, 1);
             setWorldPassword($pdo, $world, trim($vanillaOptions['password'] ?? ''));
-            setCrossplay($pdo, $world, !empty($vanillaOptions['crossplay']) ? 1 : 0);
             setListed($pdo, $world, !empty($vanillaOptions['listed']) ? 1 : 0);
             $mods = [];
         }

@@ -274,6 +274,17 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				<div class="row g-3 mt-1">
 					<div class="col-12">
 						<div class="form-check">
+							<input class="form-check-input" type="checkbox" id="worldCrossplay">
+							<label class="form-check-label alt-color" for="worldCrossplay"><strong>Enable crossplay</strong></label>
+							<div class="form-text text-secondary">
+								Allow Xbox / Microsoft Store players to join. Works on modded and unmodded
+								worlds alike &mdash; though players on those platforms cannot install mods,
+								so a heavily modded world may not be joinable for them.
+							</div>
+						</div>
+					</div>
+					<div class="col-12">
+						<div class="form-check">
 							<input class="form-check-input" type="checkbox" id="vanillaWorld" onchange="toggleVanillaWorld(this.checked)">
 							<label class="form-check-label alt-color" for="vanillaWorld"><strong>Vanilla world (no mods)</strong></label>
 							<div class="form-text text-secondary">
@@ -291,10 +302,6 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 									<div class="form-text text-secondary">Minimum 5 characters, and cannot appear inside the world name.</div>
 								</div>
 								<div class="col-12 col-md-6 d-flex flex-column justify-content-center">
-									<div class="form-check">
-										<input class="form-check-input" type="checkbox" id="vanillaCrossplay">
-										<label class="form-check-label" for="vanillaCrossplay">Enable crossplay (Xbox / Microsoft Store)</label>
-									</div>
 									<div class="form-check">
 										<input class="form-check-input" type="checkbox" id="vanillaListed">
 										<label class="form-check-label" for="vanillaListed">List in the public server browser</label>
@@ -1051,7 +1058,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					mods: isVanilla ? [] : selectedMods,
 					vanilla: isVanilla ? 1 : 0,
 					password: isVanilla ? $('#vanillaPassword').val().trim() : '',
-					crossplay: (isVanilla && $('#vanillaCrossplay').is(':checked')) ? 1 : 0,
+					// Crossplay applies to any world, so it is NOT gated on isVanilla.
+					crossplay: $('#worldCrossplay').is(':checked') ? 1 : 0,
 					listed: (isVanilla && $('#vanillaListed').is(':checked')) ? 1 : 0
 				};
 

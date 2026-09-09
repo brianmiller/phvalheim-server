@@ -36,7 +36,8 @@ Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — 
 | | |
 |---|---|
 | **One-Click Worlds** | Deploy unique Valheim worlds with any combination of Thunderstore mods at the click of a button. |
-| **Vanilla Servers** | Run stock, zero-mod worlds alongside your modded ones. Password protected, crossplay capable, and optionally listed in the public Valheim server browser. Players join with the ordinary Valheim client — no PhValheim client needed. |
+| **Vanilla Servers** | Run stock, zero-mod worlds alongside your modded ones. Password protected and optionally listed in the public Valheim server browser. Players join with the ordinary Valheim client — no PhValheim client needed. |
+| **Crossplay** | Let Xbox / Microsoft Store players join. Available on every world, modded or unmodded. |
 | **Automatic Mod Sync** | Server and client mods stay in lock-step. Players always have the right files. |
 | **Setup Wizard** | Guided first-run configuration — just start the container and follow the steps. No environment variables required. |
 | **Steam Authentication** | Players log in with their Steam account. Per-world access control lists manage who can see and join each world. |
@@ -324,7 +325,7 @@ Tick **Vanilla world (no mods)** when creating a world, or flip it later in the 
 | Option | Notes |
 |---|---|
 | **Server Password** | Minimum 5 characters, and it cannot appear inside the world name — Valheim refuses to start otherwise. |
-| **Crossplay** | Lets Xbox / Microsoft Store players join. |
+| **Crossplay** | Lets Xbox / Microsoft Store players join. **Not vanilla-only** — this setting is available on every world from its **Settings** modal. Note that players on those platforms cannot install mods, so a heavily modded world may not be joinable for them. |
 | **List in server browser** | Publishes the world to the public Valheim community server list. Valheim requires a password for this. |
 | **Show password on public UI** | On by default. Turn it off and the password row is removed from the world card entirely, for worlds whose password you share another way. |
 

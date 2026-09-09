@@ -2762,16 +2762,6 @@ $totalCount = count($worlds);
                                     <span class="slider round"></span>
                                 </label>
                             </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-                                <div>
-                                    <span style="display: block; margin-bottom: 0.25rem;">Crossplay</span>
-                                    <small style="color: var(--text-muted);">Allow Xbox / Microsoft Store players to join.</small>
-                                </div>
-                                <label class="switch" style="margin-left: 1rem;">
-                                    <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked}>
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
                             <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
                                 <div>
                                     <span style="display: block; margin-bottom: 0.25rem;">List in server browser</span>
@@ -2782,6 +2772,19 @@ $totalCount = count($worlds);
                                     <span class="slider round"></span>
                                 </label>
                             </div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Crossplay</h6>
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem;">
+                            <div>
+                                <span style="display: block; margin-bottom: 0.25rem;">Enable crossplay</span>
+                                <small style="color: var(--text-muted);">Allow Xbox / Microsoft Store players to join. Applies to modded and unmodded worlds alike &mdash; note that players on those platforms cannot install mods, so a heavily modded world may not be joinable for them. Requires a world restart.</small>
+                            </div>
+                            <label class="switch" style="margin-left: 1rem;">
+                                <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked}>
+                                <span class="slider round"></span>
+                            </label>
                         </div>
                     </div>
                     <div style="margin-bottom: 1.5rem;">

@@ -84,13 +84,18 @@ if [ "$isVanilla" = "1" ]; then
 		exit 1
 	fi
 
-	if [ "$isCrossplay" = "1" ]; then
-		set -- "$@" -crossplay
-	fi
 else
-	# Modded world: unchanged from pre-2.40. Gated by the CITIZENS permittedlist,
-	# never listed, never password protected.
+	# Modded world: gated by the CITIZENS permittedlist, never listed in the server
+	# browser, never password protected.
 	set -- "$@" -public 0
+fi
+
+# Crossplay is NOT vanilla-only. It controls whether Xbox / Microsoft Store players
+# can join and is orthogonal to mods -- a modded world can legitimately want it.
+# (Whether those players can actually load the mods is the operator's call, not
+# something to decide for them here.)
+if [ "$isCrossplay" = "1" ]; then
+	set -- "$@" -crossplay
 fi
 
 set -- "$@" -savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim
