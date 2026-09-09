@@ -347,13 +347,21 @@ Modded worlds are unaffected by any of this — they continue to be gated by the
 
 ## Citizens, Admins & Banned
 
-Each world has three per-world player lists, all in the world's **Settings** modal. Entries must be SteamID64s — Valheim silently ignores anything else, so PhValheim rejects it up front rather than letting it look like it worked.
+Each world has three per-world player lists, all in the world's **Settings** modal:
 
 - **Citizens** — who may join (`permittedlist.txt`). Setting a world **Public** here removes the restriction entirely and lets anyone join.
 - **Admins** — who gets in-game admin commands (`adminlist.txt`).
 - **Banned** — who is blocked from the world (`bannedlist.txt`). A ban applies even when the world is public.
 
-Valheim reads all three files at world start, so changes need a world restart to take effect.
+### Getting a player's ID
+
+**Have them join any public world and press `F2`.** The panel shows their **Platform User ID** — note it down and paste it in. This is the only method that works for every player: Xbox, PlayStation, Nintendo and GameCenter players have no SteamID64 at all.
+
+A plain SteamID64 (17 digits) also works for Steam players. PhValheim stores what you type and converts it on write.
+
+> **Why the conversion:** since Valheim 1.0, a bare SteamID64 in these files **does not match**. `ZNet.ListContainsId()` finishes by looking up the *display-prefix* form of the ID (`Steam` → `V`) and **assigns** that result over the earlier checks rather than OR-ing it, so only `V_<steamid64>` can match. PhValheim writes that form for you. This is a bug in Valheim — it is also why Valheim's own `ban` console command writes an entry its own matcher cannot match, and why older "put your SteamID64 in permittedlist.txt" guides no longer work.
+
+Changes take effect **without a restart** — Valheim re-reads all three files while running. The one exception is admin status, which a connected client caches until it reconnects.
 
 The **database is the source of truth**. All three files are regenerated from it every time a world starts, so a world that was restored from a backup or rebuilt converges back to what the admin UI shows instead of quietly keeping an older list.
 

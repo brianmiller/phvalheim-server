@@ -39,6 +39,32 @@ mkdir -p "$saveDir" || {
 	exit 1
 }
 
+# Convert one entry to the ONLY form Valheim will match.
+#
+# Valheim 1.0's ZNet.ListContainsId() ends with
+#     val2 = PlatformUserID.FilterPlatformUserID(val);
+#     if (val2 != val) { flag = list.Contains(val2.ToString()); }   # ASSIGNS, does not OR
+# which replaces the earlier "Steam_<id>" and bare "<id>" checks with a lookup for the
+# single-letter DISPLAY prefix form (Steam -> "V"). So only "V_<steamid64>" ever matches.
+# Confirmed by decompiling the shipped assembly and verified on a live server.
+#
+# Must stay in lockstep with canonicalAccessId() in nginx/www/includes/accesslists.php.
+canonicalId() {
+	entry="$1"
+	case "$entry" in
+		# bare SteamID64
+		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])
+			echo "V_$entry" ;;
+		Steam_*)       echo "V_${entry#Steam_}" ;;
+		Xbox_*)        echo "X_${entry#Xbox_}" ;;
+		PlayStation_*) echo "S_${entry#PlayStation_}" ;;
+		Nintendo_*)    echo "N_${entry#Nintendo_}" ;;
+		GameCenter_*)  echo "A_${entry#GameCenter_}" ;;
+		# already a display prefix, or something we do not recognise -- pass through
+		*)             echo "$entry" ;;
+	esac
+}
+
 # $1=target file, $2=header comment, $3=space separated ids
 writeList() {
 	target="$1"
@@ -52,10 +78,12 @@ writeList() {
 		return 1
 	}
 
-	# tr rather than a for loop so an empty list writes nothing at all rather than a
-	# blank line. Valheim ignores blank lines, but an empty file is what it writes itself.
+	# One line per entry, converted on the way out. The database keeps whatever the
+	# operator typed, so an existing world's plain SteamID64s are repaired on next start.
 	if [ -n "$ids" ]; then
-		echo "$ids" | tr ' ' '\n' >> "$tmp"
+		for entry in $ids; do
+			canonicalId "$entry" >> "$tmp"
+		done
 	fi
 
 	# Atomic: Valheim may read this file at any moment, and a rename swaps it in whole.

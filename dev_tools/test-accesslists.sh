@@ -151,6 +151,58 @@ dsh "head -1 $SD/permittedlist.txt | grep -qx '// List permitted players ID ONE 
 dsh "head -1 $SD/adminlist.txt     | grep -qx '// List admin players ID  ONE per line'"    && ok "adminlist header matches Valheim"     || bad "adminlist header differs from Valheim"
 dsh "head -1 $SD/bannedlist.txt    | grep -qx '// List banned players ID  ONE per line'"   && ok "bannedlist header matches Valheim"    || bad "bannedlist header differs from Valheim"
 
+# ---------------------------------------------------------------------------------------
+echo
+echo "--- 9. entries are written in the form Valheim actually matches ---"
+# Valheim 1.0's ZNet.ListContainsId() ends with a lookup for the single-letter DISPLAY
+# prefix form (Steam -> "V") that OVERWRITES the earlier bare/"Steam_" checks. So a plain
+# SteamID64 on disk can never match, no matter that it is the id everyone knows.
+# Confirmed by decompiling the shipped assembly and verified on a live server.
+post saveCitizens "{\"world\":\"$WORLD\",\"citizens\":\"76561198000000101\",\"public\":0}" >/dev/null
+if fileHas permittedlist.txt "^V_76561198000000101$"; then
+	ok "bare SteamID64 is written as V_76561198000000101"
+else
+	bad "bare SteamID64 NOT converted -> file says: $(dsh "cat $SD/permittedlist.txt" | tr '\n' '|')"
+fi
+if fileHas permittedlist.txt "^76561198000000101$"; then
+	bad "the unmatched bare form was written -- Valheim will ignore it"
+else
+	ok "the unmatched bare form is not written"
+fi
+
+echo "  (the database keeps what the operator typed:)"
+case "$(get getCitizens)" in
+	*'"citizens":"76561198000000101"'*) ok "database stores the plain SteamID64" ;;
+	*)                                  bad "database was rewritten: $(get getCitizens)" ;;
+esac
+
+echo
+echo "--- 10. already-canonical and console IDs are accepted and preserved ---"
+post saveAdmins "{\"world\":\"$WORLD\",\"admins\":\"V_76561198000000201 X_1234567890 Steam_76561198000000202\"}" >/dev/null
+fileHas adminlist.txt "^V_76561198000000201$" && ok "V_ form passes through"          || bad "V_ form mangled"
+fileHas adminlist.txt "^X_1234567890$"        && ok "Xbox console ID accepted"        || bad "Xbox console ID rejected or mangled"
+fileHas adminlist.txt "^V_76561198000000202$" && ok "Steam_ long form mapped to V_"   || bad "Steam_ long form not mapped"
+
+echo
+echo "--- 11. genuinely invalid entries are still rejected ---"
+BEFORE=$(dsh "cat $SD/adminlist.txt")
+RESP=$(post saveAdmins "{\"world\":\"$WORLD\",\"admins\":\"notanid\"}")
+case "$RESP" in
+	*'"success":false'*) ok "bare non-numeric junk rejected" ;;
+	*)                   bad "junk accepted: $RESP" ;;
+esac
+[ "$BEFORE" = "$(dsh "cat $SD/adminlist.txt")" ] && ok "adminlist.txt untouched" || bad "adminlist.txt modified by a rejected save"
+
+echo
+echo "--- 12. the engine-side sync converts identically to the PHP side ---"
+# Two writers render these files (admin UI and world start). If they disagree, a world
+# start silently rewrites what the UI just saved into a different form.
+dex mysql phvalheim -e "UPDATE worlds SET citizens='76561198000000101', admins='76561198000000201', banned='76561198000000301' WHERE name='$WORLD';" >/dev/null 2>&1
+dex /opt/stateless/games/valheim/scripts/syncAccessLists.sh "$WORLD" >/dev/null 2>&1
+fileHas permittedlist.txt "^V_76561198000000101$" && ok "syncAccessLists converts citizens" || bad "syncAccessLists did NOT convert citizens"
+fileHas adminlist.txt     "^V_76561198000000201$" && ok "syncAccessLists converts admins"   || bad "syncAccessLists did NOT convert admins"
+fileHas bannedlist.txt    "^V_76561198000000301$" && ok "syncAccessLists converts banned"   || bad "syncAccessLists did NOT convert banned"
+
 echo
 echo "========================================"
 echo " PASS: $PASS   FAIL: $FAIL"

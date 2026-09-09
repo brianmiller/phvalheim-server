@@ -1001,9 +1001,11 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
         return;
     }
 
+    # Valheim re-reads these files while running -- verified on a live server, where a player
+    # rejected at 18:39 was admitted at 18:41 with no restart in between. No restart prompt.
     echo json_encode([
         'success' => true,
-        'message' => 'Citizens saved. Restart the world for this to take effect.'
+        'message' => 'Citizens saved.'
     ]);
 }
 
@@ -1086,9 +1088,15 @@ function saveAccessListJson($pdo, $world, $kind, $raw) {
         return;
     }
 
+    # Valheim re-reads these files while running, so no restart is needed. The one caveat is
+    # admin status, which a connected client caches from the list pushed to it on connect.
+    $note = ($kind === 'admins')
+        ? ' Players already connected keep their previous admin status until they reconnect.'
+        : '';
+
     echo json_encode([
         'success' => true,
-        'message' => "$label saved. Restart the world for this to take effect."
+        'message' => "$label saved.$note"
     ]);
 }
 

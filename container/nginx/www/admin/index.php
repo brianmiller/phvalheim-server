@@ -2675,6 +2675,23 @@ $totalCount = count($worlds);
                 const isPublic = citizens.public ? 'checked' : '';
                 const adminsText = (admins.admins || '').replace(/ /g, '\n');
                 const bannedText = (banned.banned || '').replace(/ /g, '\n');
+
+                // Shown above all three access lists. Valheim 1.0 matches on the Platform
+                // User ID, not the SteamID64, and console players have no SteamID64 at all --
+                // so F2 is the only method that works for every player.
+                const idHelpHtml = `
+                    <div style="background: var(--bg-primary); border-left: 3px solid var(--accent-primary); border-radius: 0.375rem; padding: 0.75rem 1rem; margin-bottom: 1rem;">
+                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0 0 0.4rem 0;">
+                            <strong>Easiest way to get a player's ID:</strong> have them join any public world and press
+                            <kbd style="background: var(--bg-tertiary); border-radius: 0.2rem; padding: 0 0.3rem;">F2</kbd>.
+                            The panel shows their <em>Platform User ID</em> &mdash; note it down and paste it here.
+                        </p>
+                        <p style="color: var(--text-muted); font-size: 0.72rem; margin: 0;">
+                            A plain SteamID64 (17 digits) also works &mdash; PhValheim converts it to the
+                            <code>V_</code> form Valheim actually matches. Xbox, PlayStation, Nintendo and
+                            GameCenter players have no SteamID64, so for them F2 is the only way.
+                        </p>
+                    </div>`;
                 const isVanilla = options.vanilla == 1;
                 const vanillaChecked = isVanilla ? 'checked' : '';
                 const crossplayChecked = options.crossplay == 1 ? 'checked' : '';
@@ -2808,10 +2825,11 @@ $totalCount = count($worlds);
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
                         <div style="margin-bottom: 1rem;">
                             <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                Add SteamIDs to grant access (one per line):
+                                Add player IDs to grant access (one per line):
                             </p>
+                            ${idHelpHtml}
                             <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
-                                <em>Note: SteamIDs are ignored when world is set to public.</em>
+                                <em>Note: player IDs are ignored when world is set to public.</em>
                             </p>
                             <textarea id="settingsCitizensTextarea" class="form-control" style="min-height: 150px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${citizensText}</textarea>
                         </div>
@@ -2842,10 +2860,11 @@ $totalCount = count($worlds);
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Admins</h6>
                         <div style="margin-bottom: 1rem;">
                             <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                SteamIDs with in-game admin commands (one per line):
+                                Player IDs with in-game admin commands (one per line):
                             </p>
+                            ${idHelpHtml}
                             <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
-                                <em>Note: Valheim reads the admin list at world start, so the world must be restarted for changes to apply.</em>
+                                <em>Note: players already connected keep their previous admin status until they reconnect.</em>
                             </p>
                             <textarea id="settingsAdminsTextarea" class="form-control" style="min-height: 120px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${adminsText}</textarea>
                         </div>
@@ -2858,10 +2877,11 @@ $totalCount = count($worlds);
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Banned</h6>
                         <div style="margin-bottom: 1rem;">
                             <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                SteamIDs blocked from this world (one per line):
+                                Player IDs blocked from this world (one per line):
                             </p>
+                            ${idHelpHtml}
                             <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
-                                <em>Note: a ban applies even when the world is public. Valheim reads the banned list at world start, so the world must be restarted for changes to apply.</em>
+                                <em>Note: a ban applies even when the world is public, and takes effect without a restart.</em>
                             </p>
                             <textarea id="settingsBannedTextarea" class="form-control" style="min-height: 120px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${bannedText}</textarea>
                         </div>

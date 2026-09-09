@@ -75,17 +75,101 @@ function normaliseIdList($raw) {
 }
 
 /**
+ * Platform display prefixes, from Splatform.dll PlatformUserID.s_platformToDisplayPrefixes.
+ *
+ * These single letters -- NOT the platform names -- are what Valheim actually matches on.
+ * See canonicalAccessId() for why.
+ */
+$PHVALHEIM_PLATFORM_PREFIXES = [
+	'Steam'       => 'V',
+	'Xbox'        => 'X',
+	'PlayStation' => 'S',
+	'Nintendo'    => 'N',
+	'GameCenter'  => 'A',
+];
+
+/**
+ * Convert an entry to the ONLY form Valheim will match, or null if it is not a valid id.
+ *
+ * WHY THIS IS NOT JUST THE STEAMID64
+ *
+ * Confirmed by decompiling ZNet.ListContainsId() (Valheim 1.0) and then verified on a live
+ * server: every access-list lookup ends with
+ *
+ *     PlatformUserID val2 = PlatformUserID.FilterPlatformUserID(val);
+ *     if (val2 != val) { flag = list.Contains(val2.ToString()); }   // ASSIGNS, does not OR
+ *
+ * FilterPlatformUserID() swaps the platform name for its single-letter DISPLAY prefix
+ * (Steam -> "V"), and because the result overwrites `flag` rather than being OR'd into it,
+ * the earlier checks against "Steam_<id>" and the bare "<id>" are discarded. So for a Steam
+ * player only "V_<steamid64>" can ever match.
+ *
+ * That is a bug in Valheim -- Steam is not "number filtered", so the filtered id is a plain
+ * relabel clearly intended for display, not for matching. It is also why every guide that
+ * says "put your SteamID64 in permittedlist.txt" is now wrong, and why Valheim's own `ban`
+ * console command writes an entry its own matcher cannot match.
+ *
+ * We therefore accept the friendly forms and normalise to the display-prefix form on write.
+ * If Iron Gate ever fixes the overwrite, "V_<id>" still matches, because it parses back to
+ * the same (Steam, id) pair. Converting is safe in both worlds.
+ *
+ * Accepted input:
+ *   76561198000000000    bare SteamID64        -> V_76561198000000000
+ *   V_76561198000000000  already canonical     -> unchanged
+ *   Steam_7656...        long platform name    -> V_7656...
+ *   X_...  S_...  N_...  A_...                 -> unchanged (console players)
+ *   Xbox_... PlayStation_... Nintendo_... GameCenter_...  -> mapped to their letter
+ */
+function canonicalAccessId($candidate) {
+	global $PHVALHEIM_PLATFORM_PREFIXES;
+
+	# Bare SteamID64: what an operator gets from steamid.io or a Steam profile URL.
+	if (preg_match('/^\d{17}$/', $candidate)) {
+		return 'V_' . $candidate;
+	}
+
+	$underscore = strpos($candidate, '_');
+	if ($underscore === false || $underscore === 0 || $underscore === strlen($candidate) - 1) {
+		return null;
+	}
+
+	$prefix = substr($candidate, 0, $underscore);
+	$userId = substr($candidate, $underscore + 1);
+
+	# The id part is opaque for console platforms (Valheim multiplies those by a constant
+	# before display), so only require that it is non-empty and free of whitespace.
+	if ($userId === '' || preg_match('/\s/', $userId)) {
+		return null;
+	}
+
+	# Already a display prefix.
+	if (in_array($prefix, $PHVALHEIM_PLATFORM_PREFIXES, true)) {
+		return $prefix . '_' . $userId;
+	}
+
+	# Long platform name -> display prefix.
+	if (isset($PHVALHEIM_PLATFORM_PREFIXES[$prefix])) {
+		return $PHVALHEIM_PLATFORM_PREFIXES[$prefix] . '_' . $userId;
+	}
+
+	return null;
+}
+
+/**
  * Split a normalised list into [valid, rejected].
  *
- * Valheim silently ignores anything in these files that is not a SteamID64, which from the
+ * Valheim silently ignores anything in these files it cannot match, which from the
  * operator's side looks identical to "I added them and nothing happened". Rejecting the
  * input outright is the only way they find out.
+ *
+ * The values returned are the operator's ORIGINAL text -- what they typed is what the admin
+ * UI shows back to them. Conversion to the matched form happens at write time.
  */
 function partitionSteamIds($normalised) {
 	$valid = [];
 	$rejected = [];
 	foreach (array_filter(explode(' ', $normalised)) as $candidate) {
-		if (preg_match('/^\d{17}$/', $candidate)) {
+		if (canonicalAccessId($candidate) !== null) {
 			$valid[] = $candidate;
 		} else {
 			$rejected[] = $candidate;
@@ -128,10 +212,17 @@ function writeAccessList($world, $kind, $ids) {
 
 	# Trailing newline after the last entry: Valheim copes without it, but every file it
 	# writes itself ends with one, and it keeps diffs and appends well behaved.
+	#
+	# Entries are converted to the display-prefix form here, at the last possible moment.
+	# The database keeps whatever the operator typed, so the admin UI stays readable and an
+	# existing world's plain SteamID64s are repaired the next time this runs.
 	$body = $header . "\n";
 	$ids  = trim((string)$ids);
 	if ($ids !== '') {
-		$body .= str_replace(' ', "\n", $ids) . "\n";
+		foreach (array_filter(explode(' ', $ids)) as $entry) {
+			$canonical = canonicalAccessId($entry);
+			$body .= ($canonical === null ? $entry : $canonical) . "\n";
+		}
 	}
 
 	$tmp = @tempnam($dir, '.list');

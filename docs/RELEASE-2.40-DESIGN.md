@@ -12,11 +12,12 @@ Target: ship alongside Valheim 1.0 (Deep North). Version bumped `2.39` → `2.40
 | 4 | ADMINS editor | **DONE** |
 | 5 | Client dead code | **DONE** — `ProgressBar/` removed (524 lines) |
 | 6 | Access lists (CITIZENS / ADMINS / BANNED) | **DONE** — see §7 |
+| 7 | Valheim 1.0 `V_` ID format | **DONE** — see §8. Confirmed live: permitted + admin |
 
 Tests: `dev_tools/test-startWorld-args.sh` (9 cases, mutation-checked),
 `dev_tools/test-bosses.php` (12 cases), and `dev_tools/test-accesslists.sh`
-(22 cases end-to-end against a live container, mutation-checked: 9 fail on the pre-fix code).
-All green.
+(33 cases end-to-end against a live container, mutation-checked: 9 fail on the pre-§7 code,
+8 more on the pre-§8 code). All green.
 
 **To land the boss once the name is known:**
 1. Uncomment + fill the Deep North entry in `container/nginx/www/includes/bosses.php`
@@ -422,3 +423,102 @@ the broken code would have been worthless here.
 Whether a **running** Valheim server re-reads these files, or only reads them at startup, was
 not determined — proving it needs a real game client connecting. The UI therefore tells the
 operator a restart is required for all three lists, which is correct either way.
+
+---
+
+## 8. Valheim 1.0 broke the access lists — the `V_` prefix (2026-09-09)
+
+Brian tested §7 on the live server and still got **"Banned"** with `public` off and his SteamID64
+in `permittedlist.txt`. That turned out to be a *second*, unrelated fault: a Valheim 1.0
+behaviour change, not anything §7 introduced.
+
+### 8.1 What the live log established
+
+```
+17:42:13  bare SteamID64 in file   -> Kicking player not in permitted list <player> host: 76561198XXXXXXXXX
+18:39:03  bare SteamID64 in file   -> Player <player> : 76561198XXXXXXXXX is blacklisted or not in whitelist.
+18:41:04  list emptied (public on) -> New peer connected ... Got character ZDOID from <player>   [ADMITTED]
+```
+
+Three facts, all from the server's own log:
+
+1. A **bare SteamID64 does not match** — it is in the file, Valheim reads the file, and kicks anyway.
+2. An **empty list still means "allow everyone"** — that is the only reason 18:41 succeeded.
+3. **Valheim hot-reloads these files.** Rejected at 18:39, admitted at 18:41, with no
+   `Game server connected` line in between, so no restart. This retires the open question from §7.6
+   and the "restart required" wording that went with it.
+
+Also: `rpc.Invoke("Error", 8)` is the allowlist rejection, and the client renders error 8 as
+**"Banned"**. A player who is merely not on the allowlist is told they are banned.
+
+### 8.2 Root cause, from the decompiled assembly
+
+`ZNet.ListContainsId()` (ilspycmd on the shipped `assembly_valheim.dll`):
+
+```csharp
+if (val.m_platform == m_steamPlatform)
+    flag = list.Contains(val.ToString()) || list.Contains(val.m_userID.ToString());  // bare DOES match here
+else
+    flag = list.Contains(val.ToString());
+
+PlatformUserID val2 = PlatformUserID.FilterPlatformUserID(val);
+if (val2 != val)
+    flag = list.Contains(val2.ToString());     // <-- ASSIGNS over the result, does not OR into it
+```
+
+and in `Splatform.dll`:
+
+```csharp
+s_platformToDisplayPrefixes = { PlayStation:"S", Xbox:"X", Nintendo:"N", GameCenter:"A", Steam:"V" }
+
+FilterPlatformUserID(platID):
+    platform = s_platformToDisplayPrefixes[platID.m_platform]        // "Steam" -> "V"
+    if (IsPlatformUserIDNumberFiltered(platID))                      // false for Steam
+        return new PlatformUserID(platform, id * 11400714819323198485);
+    return new PlatformUserID(platform, id);
+
+PlatformUserID.ToString() => $"{m_platform}_{m_userID}"
+```
+
+So for a Steam player `val2` is `("V", id)`, `val2 != val` is always true, and the final line
+throws away the bare and `Steam_` matches. **Only `V_<steamid64>` can ever match.** Verified live:
+`V_76561198XXXXXXXXX` in `permittedlist.txt` admitted him immediately, with no restart.
+
+This is a Valheim bug. Steam is not number-filtered, so the "filtered" ID is a plain relabel
+obviously meant for display. The same overwrite makes Valheim's own `ban` command broken:
+`InternalBan()` stores `peer.m_socket.GetHostName()` — the bare host name — which
+`ListContainsId()` then cannot match.
+
+### 8.3 Scope — all three lists, one function
+
+| List | How it is checked | Needs `V_` |
+|---|---|---|
+| `permittedlist.txt` | `ListContainsId(m_permittedList, hostName)` | yes |
+| `adminlist.txt` | `ListContainsId(m_adminList, hostName)` — every admin RPC, and `IsAdmin()` | yes |
+| `bannedlist.txt` | `ListContainsId(m_bannedList, hostName) \|\| m_bannedList.Contains(playerName)` | yes (**or** a bare character name, which also bans) |
+
+Permitted and admin are confirmed live. Banned is inference from the identical call — not tested,
+because testing it means kicking the only player available.
+
+### 8.4 The fix
+
+Convert at the last moment, in both writers, keeping the DB human-readable:
+
+* `canonicalAccessId()` in `includes/accesslists.php` and `canonicalId()` in
+  `syncAccessLists.sh` — deliberately duplicated logic, and test case 12 asserts the two agree,
+  because a disagreement would mean a world start silently rewrites what the UI just saved.
+* Bare 17-digit → `V_`; `Steam_`/`Xbox_`/`PlayStation_`/`Nintendo_`/`GameCenter_` → their letter;
+  `V_`/`X_`/`S_`/`N_`/`A_` pass through.
+* Console IDs are opaque (number-filtered), so they are accepted as-is and **cannot be derived** —
+  the UI now tells operators to get them from the player's **F2** panel, which is also the one
+  method that works for every platform.
+* The validator added in §7 only accepted 17 digits, which would have made console players
+  impossible to add at all. That was my regression, cleared here.
+
+Forward-safe: if Iron Gate fixes the overwrite, `V_<id>` still matches, because it parses back to
+the same `(Steam, id)` pair.
+
+### 8.5 Tests
+
+`dev_tools/test-accesslists.sh` grew to **33 cases**. The new ones (9–12) are mutation-checked:
+reverting `accesslists.php` and `syncAccessLists.sh` turns exactly **8** of them red.
