@@ -148,6 +148,11 @@ while [ true ]; do
 		worldHost=$(SQL "SELECT external_endpoint FROM worlds WHERE id='$worldID';")
 		worldPassword="hammertime";
 
+		# A vanilla world's seed is invented by Valheim when it first generates the
+		# .fwl, so it is unknown until then. Read it back out of the save once it
+		# exists. No-op once recorded, and for worlds that already have a seed.
+		syncWorldSeedFromSave "$worldName"
+
 
 		if [ "$worldMode" = "stopped" ]; then
 			orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)

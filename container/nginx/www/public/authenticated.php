@@ -155,6 +155,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
 				if ($hideSeed == 1) {
 					$seed = '<i>hidden</i>';
+				} elseif ($seed === '' || $seed === NULL) {
+					# A vanilla world's seed is chosen by Valheim at first world generation
+					# and read back out of the .fwl afterwards, so it is genuinely unknown
+					# until the world has started once. Say so rather than render an empty
+					# cell that looks like a rendering fault.
+					$seed = '<i>generated on first start</i>';
 				}
 
 				if ($isVanilla) {

@@ -1375,11 +1375,23 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
 
     $isVanilla = !empty($vanillaOptions['vanilla']);
 
-    if (empty($seed)) {
-        $seed = $defaultSeed;
-    }
-    if (empty($seed)) {
-        $seed = (string)random_int(0, 4294967295);
+    if ($isVanilla) {
+        // A vanilla world has no CustomSeed mod and Valheim's dedicated server has no
+        // seed argument, so whatever we pick here can never reach the game -- Valheim
+        // generates its own seed when it first creates the .fwl.
+        //
+        // Store nothing rather than a value we invented. Storing one would put a
+        // fabricated seed on the public world card that does not match the actual
+        // world, which is worse than showing nothing: it looks authoritative and is
+        // wrong. The engine reads the real seed out of the .fwl after first start.
+        $seed = '';
+    } else {
+        if (empty($seed)) {
+            $seed = $defaultSeed;
+        }
+        if (empty($seed)) {
+            $seed = (string)random_int(0, 4294967295);
+        }
     }
 
     // Validate before creating anything, so a bad password doesn't leave a half made world

@@ -499,13 +499,47 @@ function getMD5 () {
 }
 
 
-#$1=world, $2=md5sum, sets world md5sum in database.  Used for client version checking and download consistency validation 
+#$1=world, $2=md5sum, sets world md5sum in database.  Used for client version checking and download consistency validation
 function setMD5 () {
         worldName="$1"
         worldMD5="$2"
 
         echo "`date` [NOTICE : phvalheim] Setting world md5sum for '$worldName' to '$worldMD5'"
         SQL "UPDATE worlds SET world_md5='$worldMD5' WHERE name='$worldName';"
+}
+
+
+#$1=world. Reads the REAL seed out of the world's .fwl and stores it.
+#
+#A vanilla world gets no CustomSeed mod, and Valheim's dedicated server has no seed
+#argument -- it invents a seed when it first generates the .fwl. So the only way to
+#know a vanilla world's seed is to read it back out of the save file afterwards.
+#
+#The extraction is the same one importWorld.sh has always used on uploaded saves.
+#No-op if the .fwl does not exist yet (world has never been started) or the seed is
+#already recorded.
+function syncWorldSeedFromSave () {
+        worldName="$1"
+        worldSaveDir="/opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/worlds_local"
+        fwl="$worldSaveDir/$worldName.fwl"
+
+        currentSeed=$(SQL "SELECT IFNULL(seed,'') FROM worlds WHERE name='$worldName'")
+        if [ -n "$currentSeed" ]; then
+                return 0
+        fi
+
+        if [ ! -f "$fwl" ]; then
+                return 0
+        fi
+
+        worldSeed=$((head -c$(od -j$(od -j8 -N1 -An -t u1) -N1 -An -t u1);echo)<"$fwl")
+        if [ -z "$worldSeed" ]; then
+                echo "`date` [WARN : phvalheim] Could not read seed from '$fwl'"
+                return 1
+        fi
+
+        echo "`date` [NOTICE : phvalheim] Recording generated seed for '$worldName': $worldSeed"
+        SQL "UPDATE worlds SET seed='$worldSeed' WHERE name='$worldName';"
 }
 
 

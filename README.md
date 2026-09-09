@@ -332,7 +332,11 @@ Players see a dedicated card on the public UI with the server address, the passw
 
 > **Note:** Valheim has no way to pre-fill a server password from a launch argument, so players type it at the prompt — which is why the card shows it.
 
-Because these worlds run no mods, a few PhValheim features that depend on the companion mod do not apply to them: boss progression ("hung heads"), player join/leave events, and tick-health metrics — so the **HEALTH** bar is hidden for them in the admin UI. Custom seeds also require a mod, so the seed control is hidden and vanilla worlds always generate a random seed.
+Because these worlds run no mods, a few PhValheim features that depend on the companion mod do not apply to them: boss progression ("hung heads"), player join/leave events, and tick-health metrics — so the **HEALTH** bar is hidden for them in the admin UI.
+
+**Seeds.** Valheim's dedicated server has no seed argument — the seed is fixed when the world is first generated. Choosing one needs the CustomSeed mod, which a vanilla world does not run, so the seed control is hidden when creating one. PhValheim reads the seed Valheim actually generated out of the world's `.fwl` after first start and displays that; until then the card shows *generated on first start*.
+
+If you want a **specific** seed on a vanilla world, generate the world in the Valheim client (where you can type a seed) and use **Import World** — no mod required.
 
 A vanilla world cannot have mods: **Edit Mods** is disabled for it, and turning the vanilla switch on clears any existing mod selection. Turn the switch back off to make it a modded world again, then use **Edit Mods** and run an **Update**.
 
