@@ -10,6 +10,14 @@ if (!empty($_GET['world'])) {
 	$world = $_GET['world'];
 }
 
+// A vanilla world runs ZERO mods. Hiding the Edit Mods button is not enough on its own --
+// this page is reachable by URL, and saving from it would put mods on a world that the
+// build path will never install them for, which looks like the mods silently vanishing.
+if ($world !== '' && getVanilla($pdo, $world) == 1) {
+	header('Location: index.php?msg=' . urlencode("'$world' is a vanilla world and cannot have mods. Turn off \"Vanilla world\" in its Settings first."));
+	exit;
+}
+
 $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
 
 ?>

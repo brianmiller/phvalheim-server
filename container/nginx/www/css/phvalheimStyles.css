@@ -4341,17 +4341,28 @@ input:checked + .slider:before {
 	margin-right: 0.4rem;
 }
 
-.catbox-vanilla .vanilla-password-reveal {
+.catbox-vanilla .vanilla-password-action {
 	font-size: 0.72rem;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	text-decoration: none;
 	opacity: 0.75;
+	margin-left: 0.45rem;
 }
 
-.catbox-vanilla .vanilla-password-reveal:hover {
+.catbox-vanilla .vanilla-password-action:hover {
 	opacity: 1;
 	text-decoration: underline;
+}
+
+.catbox-vanilla .vanilla-password-copied {
+	color: var(--success, #4ade80);
+	opacity: 1;
+}
+
+.catbox-vanilla .vanilla-password-failed {
+	color: var(--danger, #f87171);
+	opacity: 1;
 }
 
 .catbox-vanilla .vanilla-hint {
@@ -4363,6 +4374,18 @@ input:checked + .slider:before {
 	color: var(--text-muted, #888);
 }
 
+/* An offline vanilla card must grey out exactly like an offline modded card.
+   The badges set their own background, so opacity alone would still leave a tinted
+   pill sitting on an otherwise grey card — the colour has to be replaced, not faded. */
+.catbox-vanilla .vanilla-badge-dimmed,
 .catbox-vanilla.card_dimmed .vanilla-badge {
-	opacity: 0.4;
+	background: var(--bg-tertiary, #333) !important;
+	color: var(--text-muted, #888) !important;
+	opacity: 0.6;
+}
+
+.catbox-vanilla.card_dimmed .world-endpoint code,
+.catbox-vanilla.card_dimmed .vanilla-password-action {
+	color: var(--text-muted, #888) !important;
+	opacity: 0.6;
 }

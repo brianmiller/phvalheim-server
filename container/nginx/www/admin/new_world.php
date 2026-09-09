@@ -245,7 +245,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						<input type="text" class="form-control" maxlength="30" name="world" id="world" required placeholder="Enter world name">
 						<div class="form-text text-secondary">Alphanumeric characters only, max 30 characters</div>
 					</div>
-					<div class="col-12 col-md-6">
+					<div class="col-12 col-md-6" id="seedField">
 						<label class="form-label alt-color">World Seed</label>
 						<div id="seedInputRow" style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
 							<input type="text" class="form-control" name="seed" id="seed" maxlength="10" placeholder="Generated seed" style="flex:1;">
@@ -260,6 +260,14 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 								<input class="form-check-input" type="radio" name="seedType" id="seedTypeCustom" value="custom" onchange="toggleSeedMode('custom')">
 								<label class="form-check-label" for="seedTypeCustom">Custom</label>
 							</div>
+						</div>
+					</div>
+					<div class="col-12 col-md-6" id="vanillaSeedNotice" style="display:none;">
+						<label class="form-label alt-color">World Seed</label>
+						<div class="form-text text-secondary">
+							Vanilla worlds always generate a random seed. Choosing your own requires a mod,
+							and Valheim itself has no seed option &mdash; the seed is fixed when the world
+							is first created.
 						</div>
 					</div>
 				</div>
@@ -897,10 +905,14 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				$('#vanillaOptions').toggle(checked);
 				$('#modSelectionArea').toggle(!checked);
 				$('#vanillaNoModsNotice').toggle(checked);
+
+				// Custom seeds are implemented by the ZeroBandwidth-CustomSeed BepInEx mod
+				// and Valheim itself has no seed argument, so a vanilla world always gets a
+				// random seed. Hide the whole control rather than leaving a field that
+				// silently does nothing.
+				$('#seedField').toggle(!checked);
+				$('#vanillaSeedNotice').toggle(checked);
 				if (checked) {
-					// Custom seeds are implemented by a BepInEx mod, so a vanilla world
-					// cannot have one. Force it back to random rather than accepting a
-					// seed that would be silently ignored.
 					$('#seedTypeRandom').prop('checked', true);
 					toggleSeedMode('random');
 				}

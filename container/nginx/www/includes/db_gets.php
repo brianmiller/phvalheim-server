@@ -354,6 +354,13 @@ function getListed($pdo,$world) {
         return $sth->fetchColumn();
 }
 
+# Is the password allowed to appear on the public world card?
+function getPasswordPublic($pdo,$world) {
+        $sth = $pdo->prepare("SELECT password_public FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        return $sth->fetchColumn();
+}
+
 function getPort($pdo,$world) {
         $sth = $pdo->prepare("SELECT port FROM worlds WHERE name=?");
         $sth->execute([$world]);

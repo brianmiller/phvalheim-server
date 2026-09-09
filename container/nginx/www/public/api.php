@@ -141,14 +141,20 @@ if ($mode == "getMyWorldsStatus") {
             $connection = NULL;
             if ($isVanilla) {
                 $worldPort = getPort($pdo, $myWorld);
+                // Honour the per-world password visibility flag here too. The card is
+                // server-rendered, but this same payload drives the AJAX refresh -- omitting
+                // the check would put the password back in a JSON response the admin has
+                // explicitly said not to publish.
+                $showPassword = (getPasswordPublic($pdo, $myWorld) != 0);
                 $connection = [
-                    'endpoint'  => $gameDNS . ':' . $worldPort,
-                    'host'      => $gameDNS,
-                    'port'      => $worldPort,
-                    'password'  => getWorldPassword($pdo, $myWorld),
-                    'crossplay' => (getCrossplay($pdo, $myWorld) == 1),
-                    'listed'    => (getListed($pdo, $myWorld) == 1),
-                    'steamUrl'  => 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
+                    'endpoint'       => $gameDNS . ':' . $worldPort,
+                    'host'           => $gameDNS,
+                    'port'           => $worldPort,
+                    'password'       => $showPassword ? getWorldPassword($pdo, $myWorld) : NULL,
+                    'passwordPublic' => $showPassword,
+                    'crossplay'      => (getCrossplay($pdo, $myWorld) == 1),
+                    'listed'         => (getListed($pdo, $myWorld) == 1),
+                    'steamUrl'       => 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
                 ];
             }
 

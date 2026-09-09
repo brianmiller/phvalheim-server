@@ -40,6 +40,12 @@ addColumn worlds password      "VARCHAR(64) DEFAULT NULL"
 addColumn worlds crossplay     "TINYINT DEFAULT 0"
 addColumn worlds listed        "TINYINT DEFAULT 0"
 
+# Whether the password is shown on the public world card. Defaults to 1 because a
+# vanilla world is unjoinable without it -- Valheim has no way to receive a password
+# from a launch argument, so the player must read it somewhere and type it.
+# Turn it off for a world whose password is shared out of band.
+addColumn worlds password_public "TINYINT DEFAULT 1"
+
 # --- worlds table: custom launch parameters (all worlds) ---
 addColumn worlds launch_params "VARCHAR(512) DEFAULT NULL"
 

@@ -81,12 +81,15 @@ $tsSyncLocalStatus = getLastTsSyncLocalExecStatus($pdo);
 
 // Get initial world data for page load
 function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated FROM worlds ORDER BY name");
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
-        $password = "hammertime";
-        $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme");
+        // Same positional launch-string contract as getLaunchString() in db_gets.php and
+        // getWorldsJson() in adminAPI.php -- keep all three in step, and only ever append.
+        $vanilla = (int)$row['vanilla'];
+        $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
+        $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme?$vanilla");
 
         $worlds[] = [
             'name' => $row['name'],
@@ -97,6 +100,7 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
             'seed' => $row['seed'],
             'autostart' => (int)$row['autostart'],
             'beta' => (int)$row['beta'],
+            'vanilla' => $vanilla,
             'launchString' => $launchString,
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
             'dateUpdated' => $row['date_updated']
@@ -471,6 +475,7 @@ $totalCount = count($worlds);
                                                     <canvas class="world-mem-chart" width="60" height="20"></canvas>
                                                     <span class="resource-value world-mem-value">—</span>
                                                 </div>
+                                                <?php if (!$world['vanilla']): /* tick health comes from the TickMonitor BepInEx plugin, which a vanilla world does not run */ ?>
                                                 <div class="world-resource-item">
                                                     <span class="resource-label">HEALTH</span>
                                                     <div class="world-load-bar" title="Server tick rate (target: 50 TPS). 45-50 = healthy, 35-44 = busy, below 35 = lagging. Low TPS means the server can't keep up with game updates.">
@@ -478,6 +483,7 @@ $totalCount = count($worlds);
                                                     </div>
                                                     <span class="resource-value world-load-value">—</span>
                                                 </div>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
                                     </tr>
@@ -546,7 +552,11 @@ $totalCount = count($worlds);
                                         </td>
                                         <td>
                                             <div class="action-group">
+                                                <?php if ($world['vanilla']): ?>
+                                                <span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>
+                                                <?php else: ?>
                                                 <a href="edit_world.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn primary" data-action="edit-mods">Edit Mods</a>
+                                                <?php endif; ?>
                                                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                                 </a>
@@ -562,6 +572,7 @@ $totalCount = count($worlds);
                                                     <canvas class="world-mem-chart" width="60" height="20"></canvas>
                                                     <span class="resource-value world-mem-value">—</span>
                                                 </div>
+                                                <?php if (!$world['vanilla']): /* tick health comes from the TickMonitor BepInEx plugin, which a vanilla world does not run */ ?>
                                                 <div class="world-resource-item">
                                                     <span class="resource-label">HEALTH</span>
                                                     <div class="world-load-bar" title="Server tick rate (target: 50 TPS). 45-50 = healthy, 35-44 = busy, below 35 = lagging. Low TPS means the server can't keep up with game updates.">
@@ -569,6 +580,7 @@ $totalCount = count($worlds);
                                                     </div>
                                                     <span class="resource-value world-load-value">—</span>
                                                 </div>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
                                     </tr>
@@ -1440,7 +1452,9 @@ $totalCount = count($worlds);
                 <span class="action-btn disabled" data-action="stop">Stop</span>
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
-                <a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>
+                ${world.vanilla
+                    ? `<span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>`
+                    : `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`}
                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
@@ -1477,13 +1491,14 @@ $totalCount = count($worlds);
                         <canvas class="world-mem-chart" width="60" height="20"></canvas>
                         <span class="resource-value world-mem-value">—</span>
                     </div>
+                    ${world.vanilla ? '' : `
                     <div class="world-resource-item">
                         <span class="resource-label">HEALTH</span>
                         <div class="world-load-bar" title="Server tick rate (target: 50 TPS). 45-50 = healthy, 35-44 = busy, below 35 = lagging. Low TPS means the server can't keep up with game updates.">
                             <div class="world-load-fill" style="width:0%"></div>
                         </div>
                         <span class="resource-value world-load-value">—</span>
-                    </div>
+                    </div>`}
                 </div>
             </td>`;
 
@@ -1572,7 +1587,12 @@ $totalCount = count($worlds);
 
         if (editModsBtn && updateBtn && deleteBtn) {
             if (world.mode === 'stopped') {
-                editModsBtn.outerHTML = `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`;
+                // A vanilla world runs no mods, so Edit Mods stays disabled even when the
+                // world is stopped. This runs on every poll, so without the check here the
+                // PHP-rendered gating would be undone a few seconds after page load.
+                editModsBtn.outerHTML = world.vanilla
+                    ? `<span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>`
+                    : `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`;
                 updateBtn.outerHTML = `<a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>`;
                 deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
             } else {
@@ -2656,6 +2676,7 @@ $totalCount = count($worlds);
                 const vanillaChecked = isVanilla ? 'checked' : '';
                 const crossplayChecked = options.crossplay == 1 ? 'checked' : '';
                 const listedChecked = options.listed == 1 ? 'checked' : '';
+                const passwordPublicChecked = options.passwordPublic != 0 ? 'checked' : '';
                 const worldPassword = options.password || '';
                 const launchParams = options.launchParams || '';
 
@@ -2728,8 +2749,18 @@ $totalCount = count($worlds);
                         <div id="vanillaOptionsBlock" style="display: ${isVanilla ? 'block' : 'none'};">
                             <div style="background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
                                 <span style="display: block; margin-bottom: 0.25rem;">Server Password</span>
-                                <small style="color: var(--text-muted); display:block; margin-bottom: 0.5rem;">Minimum 5 characters, and it cannot appear inside the world name. Players are shown this on the public UI.</small>
+                                <small style="color: var(--text-muted); display:block; margin-bottom: 0.5rem;">Minimum 5 characters, and it cannot appear inside the world name.</small>
                                 <input type="text" id="settingsWorldPassword" class="form-control" style="font-family: var(--font-mono);" value="${worldPassword.replace(/"/g, '&quot;')}" placeholder="(no password)">
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+                                <div>
+                                    <span style="display: block; margin-bottom: 0.25rem;">Show password on public UI</span>
+                                    <small style="color: var(--text-muted);">When off, the password row is removed from the world card entirely. Valheim cannot be handed a password at launch, so players will need it from you another way.</small>
+                                </div>
+                                <label class="switch" style="margin-left: 1rem;">
+                                    <input type="checkbox" id="settingsPasswordPublicToggle" ${passwordPublicChecked}>
+                                    <span class="slider round"></span>
+                                </label>
                             </div>
                             <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
                                 <div>
@@ -2956,6 +2987,7 @@ $totalCount = count($worlds);
                     password: document.getElementById('settingsWorldPassword').value,
                     crossplay: document.getElementById('settingsCrossplayToggle').checked ? 1 : 0,
                     listed: document.getElementById('settingsListedToggle').checked ? 1 : 0,
+                    passwordPublic: document.getElementById('settingsPasswordPublicToggle').checked ? 1 : 0,
                     launchParams: document.getElementById('settingsLaunchParams').value
                 })
             });
@@ -2963,7 +2995,10 @@ $totalCount = count($worlds);
 
             if (data.success) {
                 statusEl.innerHTML = `<span style="color: var(--success);">${data.message || 'Saved successfully!'}</span>`;
-                setTimeout(() => { statusEl.innerHTML = ''; }, 4000);
+                // Flipping vanilla changes whether Edit Mods is available on the world
+                // row, so the dashboard behind the modal is now stale. Refresh it.
+                if (typeof fetchWorldStatus === 'function') { fetchWorldStatus(); }
+                setTimeout(() => { statusEl.innerHTML = ''; }, 6000);
             } else {
                 statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
             }

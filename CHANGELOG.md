@@ -10,6 +10,15 @@ Release candidate. Held at `:rc` pending the Valheim 1.0 (Deep North) boss troph
 - **Custom launch parameters** per world, appended after everything PhValheim generates so they can override it. Validated in the admin UI and never `eval`'d by `startWorld.sh`.
 - **ADMINS editor** under CITIZENS in the world Settings modal, writing `adminlist.txt`. Entries are validated as SteamID64 — Valheim silently ignores malformed ones, which previously looked like "I added an admin and nothing happened."
 - **Boss registry** (`includes/bosses.php`): the boss list is now defined once and consumed by the API, the public card and the AJAX refresh. Adding a boss is one array entry, one DB column and one PNG.
+- **Password visibility control**: a per-world toggle (`password_public`) removes the password row from the public card entirely. It is also stripped from the AJAX payload, not just hidden in the markup.
+- **Copy button** next to Show on the vanilla card's password, with a non-secure-context fallback — `navigator.clipboard` is undefined over plain HTTP, which is how most self-hosted installs are reached on a LAN.
+
+### Vanilla world refinements
+- Card now reads `Type: unmodded`.
+- The **HEALTH** bar is hidden for vanilla worlds in the admin UI. Tick health comes from the TickMonitor BepInEx plugin, which a vanilla world does not run, so the bar could only ever sit empty.
+- **Edit Mods is disabled** for vanilla worlds, and `edit_world.php` refuses them server-side — the page is reachable by URL regardless of the button. Switching a world to vanilla now clears its mod selection, so flipping back later does not resurrect a list you thought you had removed.
+- Offline vanilla cards grey out fully. The access badges set their own background, so they needed their colour **replaced** rather than faded — opacity alone left a tinted pill on an otherwise grey card.
+- The seed control is hidden when creating a vanilla world, replaced with an explanation. Custom seeds require the CustomSeed BepInEx mod and Valheim itself has no seed argument, so the field could only ever be ignored.
 
 ### Fixes
 - **`-public` was hardcoded to `0`** in `startWorld.sh`, and `-password` was never passed at all despite being accepted as an argument. No world has ever been listed or password protected.

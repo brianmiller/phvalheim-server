@@ -224,6 +224,11 @@ function setListed($pdo,$world,$listed){
 	return $sth->execute([(int)$listed, $world]);
 }
 
+function setPasswordPublic($pdo,$world,$visible){
+	$sth = $pdo->prepare("UPDATE worlds SET password_public=? WHERE name=?");
+	return $sth->execute([(int)$visible, $world]);
+}
+
 function setLaunchParams($pdo,$world,$params){
 	$sth = $pdo->prepare("UPDATE worlds SET launch_params=? WHERE name=?");
 	return $sth->execute([$params === '' ? NULL : $params, $world]);

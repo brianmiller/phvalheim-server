@@ -173,18 +173,33 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
 					# Vanilla Valheim has no launch argument to pre-fill a password, so the
 					# player has to type it. Showing it here is the other half of the feature.
-					if (!empty($vanillaPassword)) {
-						$passwordCell = "<span class='vanilla-password' data-password=\"" . htmlspecialchars($vanillaPassword) . "\">"
+					#
+					# An admin can turn that off per world (password_public), in which case the
+					# row is dropped from the card entirely rather than rendered empty or masked
+					# with no way to reveal it -- a permanently blank "Password:" row just reads
+					# as a bug.
+					$showPassword = (getPasswordPublic($pdo,$myWorld) != 0) && !empty($vanillaPassword);
+					$passwordRow = "";
+					if ($showPassword) {
+						$passwordRow = "
+                                                        <td class='$worldDimmed card_worldInfo'>Password&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-password'>"
+							. "<span class='vanilla-password' data-password=\"" . htmlspecialchars($vanillaPassword) . "\">"
 							. "<span class='vanilla-password-mask'>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>"
-							. "<a href='#' class='vanilla-password-reveal' onclick='revealVanillaPassword(this); return false;'>show</a></span>";
-					} else {
-						$passwordCell = "<i>none</i>";
+							. "<a href='#' class='vanilla-password-action' onclick='revealVanillaPassword(this); return false;'>show</a>"
+							. "<a href='#' class='vanilla-password-action' onclick='copyVanillaPassword(this); return false;'>copy</a>"
+							. "</span></td>
+                                                        <tr>";
 					}
 
+					# Offline cards are fully greyed, same as the modded ones. Carry the dimmed
+					# class onto the badges themselves -- they set their own background colour,
+					# so opacity alone still leaves a tinted pill on an otherwise grey card.
+					$badgeDim = $worldDimmed ? "vanilla-badge-dimmed" : "";
 					$badges = "";
-					if ($vanillaCrossplay) { $badges .= "<span class='vanilla-badge'>crossplay</span> "; }
-					if ($vanillaListed)    { $badges .= "<span class='vanilla-badge'>in server browser</span> "; }
-					if ($badges == "")     { $badges = "<span class='vanilla-badge vanilla-badge-muted'>invite only</span>"; }
+					if ($vanillaCrossplay) { $badges .= "<span class='vanilla-badge $badgeDim'>crossplay</span> "; }
+					if ($vanillaListed)    { $badges .= "<span class='vanilla-badge $badgeDim'>in server browser</span> "; }
+					if ($badges == "")     { $badges = "<span class='vanilla-badge vanilla-badge-muted $badgeDim'>invite only</span>"; }
 
 					$joinLink = $isOnline
 						? "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Join!</a>"
@@ -200,14 +215,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td style='height: 12px;'</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Type&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>Vanilla &mdash; no mods needed</td>
+                                                        <td class='$worldDimmed card_worldInfo'>unmodded</td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Server&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo world-endpoint'><code>$vanillaEndpoint</code></td>
                                                         <tr>
-                                                        <td class='$worldDimmed card_worldInfo'>Password&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo world-password'>$passwordCell</td>
-                                                        <tr>
+                                                        $passwordRow
                                                         <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>$badges</td>
                                                         <tr>
@@ -399,6 +412,44 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                         mask.textContent = wrap.dataset.password;
                         mask.dataset.revealed = '1';
                         link.textContent = 'hide';
+                    }
+                }
+
+                function copyVanillaPassword(link) {
+                    const wrap = link.closest('.vanilla-password');
+                    if (!wrap) return;
+                    const password = wrap.dataset.password;
+
+                    const done = (ok) => {
+                        link.textContent = ok ? 'copied!' : 'failed';
+                        link.classList.add(ok ? 'vanilla-password-copied' : 'vanilla-password-failed');
+                        setTimeout(() => {
+                            link.textContent = 'copy';
+                            link.classList.remove('vanilla-password-copied', 'vanilla-password-failed');
+                        }, 1500);
+                    };
+
+                    // navigator.clipboard needs a secure context. A self-hosted PhValheim is
+                    // very often reached over plain http on a LAN, where it is simply
+                    // undefined — so fall back rather than throwing and looking dead.
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(password).then(() => done(true), () => done(false));
+                        return;
+                    }
+
+                    try {
+                        const scratch = document.createElement('textarea');
+                        scratch.value = password;
+                        scratch.setAttribute('readonly', '');
+                        scratch.style.position = 'fixed';
+                        scratch.style.opacity = '0';
+                        document.body.appendChild(scratch);
+                        scratch.select();
+                        const ok = document.execCommand('copy');
+                        document.body.removeChild(scratch);
+                        done(ok);
+                    } catch (e) {
+                        done(false);
                     }
                 }
 

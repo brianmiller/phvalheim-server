@@ -640,6 +640,7 @@ function getWorldsJson($pdo) {
             'seed' => $row['seed'],
             'autostart' => (int)$row['autostart'],
             'beta' => (int)$row['beta'],
+            'vanilla' => $vanilla,
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
             'launchString' => $launchString,
             'dateUpdated' => $row['date_updated']
@@ -1038,13 +1039,17 @@ function saveAdminsJson($pdo, $world, $admins) {
  * and custom launch parameters.
  */
 function getWorldOptionsJson($pdo, $world) {
+    $passwordPublic = getPasswordPublic($pdo, $world);
     echo json_encode([
-        'success'      => true,
-        'vanilla'      => (int)getVanilla($pdo, $world),
-        'password'     => getWorldPassword($pdo, $world) ?: '',
-        'crossplay'    => (int)getCrossplay($pdo, $world),
-        'listed'       => (int)getListed($pdo, $world),
-        'launchParams' => getLaunchParams($pdo, $world) ?: ''
+        'success'        => true,
+        'vanilla'        => (int)getVanilla($pdo, $world),
+        'password'       => getWorldPassword($pdo, $world) ?: '',
+        'crossplay'      => (int)getCrossplay($pdo, $world),
+        'listed'         => (int)getListed($pdo, $world),
+        // NULL for a row that predates the column -- default to visible, matching
+        // the column default, or the toggle would read as "off" on every old world.
+        'passwordPublic' => ($passwordPublic === NULL || $passwordPublic === false) ? 1 : (int)$passwordPublic,
+        'launchParams'   => getLaunchParams($pdo, $world) ?: ''
     ]);
 }
 
@@ -1090,11 +1095,12 @@ function validateLaunchParams($params) {
 }
 
 function saveWorldOptionsJson($pdo, $world, $input) {
-    $vanilla      = isset($input['vanilla'])   ? (int)$input['vanilla']   : 0;
-    $crossplay    = isset($input['crossplay']) ? (int)$input['crossplay'] : 0;
-    $listed       = isset($input['listed'])    ? (int)$input['listed']    : 0;
-    $password     = trim($input['password'] ?? '');
-    $launchParams = trim($input['launchParams'] ?? '');
+    $vanilla        = isset($input['vanilla'])        ? (int)$input['vanilla']        : 0;
+    $crossplay      = isset($input['crossplay'])      ? (int)$input['crossplay']      : 0;
+    $listed         = isset($input['listed'])         ? (int)$input['listed']         : 0;
+    $passwordPublic = isset($input['passwordPublic']) ? (int)$input['passwordPublic'] : 1;
+    $password       = trim($input['password'] ?? '');
+    $launchParams   = trim($input['launchParams'] ?? '');
 
     if ($err = validateWorldPassword($password, $world)) {
         echo json_encode(['success' => false, 'error' => $err]);
@@ -1124,15 +1130,31 @@ function saveWorldOptionsJson($pdo, $world, $input) {
         $listed = 0;
     }
 
+    $wasVanilla = (int)getVanilla($pdo, $world);
+
     setVanilla($pdo, $world, $vanilla);
     setWorldPassword($pdo, $world, $password);
     setCrossplay($pdo, $world, $crossplay);
     setListed($pdo, $world, $listed);
+    setPasswordPublic($pdo, $world, $passwordPublic);
     setLaunchParams($pdo, $world, $launchParams);
+
+    // Switching a modded world to vanilla means ZERO mods. Clear the selection here as
+    // well as gating the UI -- otherwise the mods stay in the database, the Mods column
+    // keeps showing them, and flipping back later silently resurrects a mod list the
+    // operator thinks they removed.
+    $message = 'World options saved. Restart the world for this to take effect.';
+    if ($vanilla && !$wasVanilla) {
+        deleteAllWorldMods($pdo, $world);
+        $message = 'World is now vanilla. Its mod selection has been cleared — run an Update to rebuild it without mods.';
+    } elseif (!$vanilla && $wasVanilla) {
+        $message = 'World is now modded. Use Edit Mods to choose mods, then run an Update.';
+    }
 
     echo json_encode([
         'success' => true,
-        'message' => 'World options saved. Restart the world for this to take effect.'
+        'vanilla' => $vanilla,
+        'message' => $message
     ]);
 }
 
