@@ -85,26 +85,35 @@ $PHVALHEIM_BOSSES = [
         'icon'   => 'TrophyFader.png',
     ],
 
-    // --- Deep North (Valheim 1.0) ---
+    // --- Deep North / Kall Fimbulbringer (Valheim 1.0) -- NOT ADDABLE HERE ---
     //
-    // BLOCKED on the real trophy prefab name. 'prefab' must be the literal string the
-    // companion mod POSTs, which is the prefab's name and NOT the display name.
+    // Do not go looking for a trophy prefab for the final boss. There isn't one, and this
+    // registry is the wrong place to hook him. Verified against the shipped 1.0 dedicated
+    // server assets (build 25185644), each check with a control that passed:
     //
-    // To find it: hang the trophy once on any modded world and read the companion log:
-    //     "Completed BossStone Detected: <prefab>"
-    // Rejected Trophy* actions are also logged by public/api.php (see logUnknownBoss()),
-    // so the first real kill on any world answers this without anyone watching a console.
+    //   * All 131 Trophy* tokens across the whole of valheim_server_Data: there is no
+    //     TrophyKall and no TrophyFimbulbringer. (Control: TrophyEikthyr, TrophyFader and
+    //     TrophySeekerQueen were all found by the same scan.)
+    //   * All BossStone* tokens, any case: still exactly SEVEN, Eikthyr through Fader.
+    //     There is no eighth sacrificial stone.
+    //   * "Fimbulbringer" exists only as a bare token -- no trophy, no stone.
     //
-    // Then: uncomment, add the matching column in dbUpdate_2.40.sh, drop the PNG in
-    // images/, and add a .trophy-<key> rule to css/phvalheimStyles.css.
+    // The hung-heads feature works by patching ItemStand.DelayedPowerActivation on a
+    // BossStone_<Boss>. With no trophy item and no stone to hang it on, nothing the
+    // companion mod can observe ever happens, so an entry here could never fire.
     //
-    //[
-    //    'key'    => '<newboss>',
-    //    'column' => 'trophy<newboss>',
-    //    'prefab' => 'Trophy<NewBoss>',
-    //    'name'   => '<Display Name>',
-    //    'icon'   => 'Trophy<NewBoss>.png',
-    //],
+    // Consistent with how 1.0 actually ends: the boss yields Sacrificial Blood and the
+    // ending is a cinematic (cinematics_end_credits, tutorial_sacrificialblood_*), not a
+    // trophy placed on a stone.
+    //
+    // WHEN WE FIND THE REAL HOOK it will not be a row in this array -- it needs a different
+    // mechanism, most likely the server-side global key set on the kill, which the server
+    // knows on its own and would need no client or companion release. That was NOT
+    // confirmed: the scan for defeated_* keys failed its own control (defeated_queen and
+    // defeated_fader did not appear either, though both certainly exist), so the key name
+    // is still unknown. Start there, and make the control pass before believing the result.
+    //
+    // See docs/RELEASE-2.40-DESIGN.md section 9.
 ];
 
 /**

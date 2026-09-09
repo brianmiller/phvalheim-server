@@ -7,7 +7,7 @@ Target: ship alongside Valheim 1.0 (Deep North). Version bumped `2.39` → `2.40
 | § | Item | State |
 |---|---|---|
 | 1 | Vanilla worlds (#81) | **DONE** — schema, `startWorld.sh`, build gating, admin UI, create-world, public card, client |
-| 2 | Deep North boss | **BLOCKED on the prefab name.** All plumbing done and data-driven; landing it is 3 lines + a PNG |
+| 2 | Deep North boss | **NOT POSSIBLE as a hung head — see §9.** Valheim 1.0 ships no trophy item and no 8th boss stone for Kall Fimbulbringer. Needs a different hook entirely |
 | 3 | Custom launch parameters | **DONE** |
 | 4 | ADMINS editor | **DONE** |
 | 5 | Client dead code | **DONE** — `ProgressBar/` removed (524 lines) |
@@ -19,15 +19,12 @@ Tests: `dev_tools/test-startWorld-args.sh` (9 cases, mutation-checked),
 (33 cases end-to-end against a live container, mutation-checked: 9 fail on the pre-§7 code,
 8 more on the pre-§8 code). All green.
 
-**To land the boss once the name is known:**
-1. Uncomment + fill the Deep North entry in `container/nginx/www/includes/bosses.php`
-2. Uncomment + fill the `addColumn` line in `container/engine/dbUpdates/dbUpdate_2.40.sh`
-   (the script is column-by-column idempotent, so re-running it on an RC server applies it)
-3. Drop `Trophy<NewBoss>.png` into `container/nginx/www/images/`
-4. Add a `.trophy-<key>` rule to `css/phvalheimStyles.css` mirroring `.trophy-fader`
+**The Deep North boss is NOT a hung head.** Do not look for a trophy prefab — §9 has the
+evidence. When we do hook Kall Fimbulbringer it will be a different mechanism, most likely the
+server-side global key set on the kill, which needs no client or companion release.
 
-The prefab name will appear in `/opt/stateful/logs/phvalheim.log` as
-`UNKNOWN BOSS TROPHY: prefab='...'` the first time anyone hangs the new head.
+The `UNKNOWN BOSS TROPHY: prefab='...'` log line in `public/api.php` still stands and is still
+useful — it catches any *future* boss that genuinely does use a stone.
 
 ---
 
@@ -522,3 +519,50 @@ the same `(Steam, id)` pair.
 
 `dev_tools/test-accesslists.sh` grew to **33 cases**. The new ones (9–12) are mutation-checked:
 reverting `accesslists.php` and `syncAccessLists.sh` turns exactly **8** of them red.
+
+---
+
+## 9. Deep North boss — why it is NOT in the boss registry (2026-09-09)
+
+Valheim 1.0 shipped. The Deep North boss is **Kall Fimbulbringer**, a Jotun frost giant and the
+final boss of the game, reached through the Aesir Passage.
+
+**He cannot be added to `includes/bosses.php`.** Verified against the shipped 1.0 dedicated
+server assets (build `25185644`), each check with a control that passed:
+
+| Check | Result |
+|---|---|
+| All 131 `Trophy*` tokens across all of `valheim_server_Data` | No `TrophyKall`, no `TrophyFimbulbringer`. Control: `TrophyEikthyr`, `TrophyFader`, `TrophySeekerQueen` all found by the same scan |
+| All `BossStone*` tokens, any case | Exactly **seven**, Eikthyr → Fader. No eighth stone. Confirmed twice, and confirmed in game by Brian |
+| `Fimbulbringer` | Present, but only as a bare token — no trophy item, no stone |
+
+The hung-heads chain is `ItemStand.DelayedPowerActivation` on a `BossStone_<Boss>`. With no
+trophy item and no stone, nothing the companion mod patches ever fires. This is consistent
+with how 1.0 actually ends: the boss yields **Sacrificial Blood** and the ending is a
+cinematic (`cinematics_end_credits`, `tutorial_sacrificialblood_*`), not a hung trophy.
+
+### 9.1 A wrong turn worth recording
+
+I first identified `TrophyElaking` as the boss trophy and wrote it into the registry, the
+schema and the tests. It was wrong: **Elaking is a trash mob** — small horned imp-like
+creatures in the Winding Tunnels.
+
+The mistake was treating a rich asset set (`Elaking_AttackClaw`/`AttackJump`/`AttackLantern`,
+own animator, ragdoll, spawner) as boss evidence, when that describes plenty of ordinary
+creatures. Worse, I *had* the disconfirming evidence in hand — no `BossStone_Elaking` — and
+wrote it up as a gap in Valheim rather than as evidence against my own hypothesis. Brian
+supplied the boss's real name and the whole thing collapsed.
+
+**The lesson: when the one artefact that would confirm a hypothesis is missing, that is
+evidence against the hypothesis, not an anomaly to explain away.**
+
+### 9.2 Where to start when we do hook it
+
+Most likely the **server-side global key** set on the kill. That would be strictly better
+than the hung-heads path: the dedicated server knows it on its own, so it would need no
+phvalheim-client and no phvalheim-companion release.
+
+**Not confirmed.** The scan for `defeated_*` keys failed its own control — `defeated_queen`
+and `defeated_fader` did not appear either, though both certainly exist — so the key name is
+unknown and nothing was concluded from it. Make the control pass before believing any result
+from that scan.
