@@ -312,24 +312,27 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				<?php endif; ?>
 				<!-- One table at a time. Stacked, each carried its own Show/Search chrome and
 				     the ~9,000-row Available table pushed the actions far below the fold. -->
+				<!-- ALL is the landing tab: it is the browser, and it now contains the
+				     selected mods too (pinned to the top), so Selected is a filtered view
+				     of it rather than the only place the selection is visible. -->
 				<div class="pv-tabbar" id="modTabBar">
-					<button type="button" class="pv-tab active" data-modtab="modPaneSelected" onclick="switchModTab('modPaneSelected', this)">
+					<button type="button" class="pv-tab" data-modtab="modPaneSelected" onclick="switchModTab('modPaneSelected', this)">
 						Selected <span class="badge bg-info" id="activeModCount">0</span>
 					</button>
-					<button type="button" class="pv-tab" data-modtab="modPaneAvailable" onclick="switchModTab('modPaneAvailable', this)">
-						Available <span class="badge bg-secondary" id="availableModCount">0</span>
+					<button type="button" class="pv-tab active" data-modtab="modPaneAll" onclick="switchModTab('modPaneAll', this)">
+						All <span class="badge bg-secondary" id="allModCount">0</span>
 					</button>
 				</div>
 
-				<div class="mod-pane" id="modPaneSelected">
+				<div class="mod-pane" id="modPaneSelected" style="display:none;">
 					<div class="table-responsive">
 						<table id="modtable-active" class="table table-hover mb-0" style="width:100%;"></table>
 					</div>
 				</div>
 
-				<div class="mod-pane" id="modPaneAvailable" style="display:none;">
+				<div class="mod-pane" id="modPaneAll">
 					<div class="table-responsive">
-						<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+						<table id="modtable-all" class="table table-hover mb-0" style="width:100%;"></table>
 					</div>
 				</div>
 			</div>
@@ -420,7 +423,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			var reverseDepMap = {};    // moduuid -> [mods that depend on it]
 			var checkedSet = {};       // moduuid -> true for ALL checked mods
 			var activeTable = null;    // DataTable for selected mods (top)
-			var availableTable = null; // DataTable for available mods (bottom)
+			var allTable = null; // DataTable for available mods (bottom)
 			var pendingCloneData = null;
 			var cloneModalInstance = null;
 			var depRemovalModalInstance = null;
@@ -747,8 +750,13 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				});
 
 				// Build rows for each table
+				// "All" holds EVERY mod, selected ones included -- it is a browser, not a
+				// leftovers pile. Selected rows are concatenated in front so they sit at the
+				// top; within each group the API's alphabetical order is preserved
+				// (tableConfig sets order: [] so DataTables does not re-sort and undo this).
 				var activeRows = [];
-				var availableRows = [];
+				var allSelectedRows = [];
+				var allOtherRows = [];
 
 				allModsData.forEach(function(mod) {
 					var uuid = mod.moduuid;
@@ -769,18 +777,27 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 
 					if (isChecked || neededDeps[uuid]) {
 						activeRows.push(row);
+						// A needed-but-unchecked dependency counts as part of the selection,
+						// same as the Selected tab treats it, so it pins to the top too.
+						allSelectedRows.push(row);
 					} else {
-						availableRows.push(row);
+						allOtherRows.push(row);
 					}
 				});
 
-				if (activeTable && availableTable) {
+				var allRows = allSelectedRows.concat(allOtherRows);
+
+				if (activeTable && allTable) {
 					// Reuse existing DataTables — avoids expensive destroy/recreate
 					activeTable.clear().rows.add(activeRows).draw();
-					availableTable.clear().rows.add(availableRows).draw();
+					allTable.clear().rows.add(allRows).draw();
 				} else {
 					// First call: create tables
 					var tableConfig = {
+					// No initial sort: the row order is meaningful here (selected first), and
+					// DataTables' default [[0,'asc']] would re-sort by the checkbox column
+					// and scatter them. A user clicking a header still sorts normally.
+					order: [],
 						scrollY: '400px',
 						scrollCollapse: true,
 						paging: true,
@@ -799,22 +816,22 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					};
 
 					var savedActiveLen = parseInt(getCookie('phv_active_pageLen'), 10) || 20;
-					var savedAvailLen = parseInt(getCookie('phv_avail_pageLen'), 10) || 20;
+					var savedAllLen = parseInt(getCookie('phv_all_pageLen'), 10) || 20;
 					activeTable = $('#modtable-active').DataTable($.extend(true, {}, tableConfig, { data: activeRows, pageLength: savedActiveLen }));
-					availableTable = $('#modtable-available').DataTable($.extend(true, {}, tableConfig, { data: availableRows, pageLength: savedAvailLen }));
+					allTable = $('#modtable-all').DataTable($.extend(true, {}, tableConfig, { data: allRows, pageLength: savedAllLen }));
 
 					// Persist page length changes to cookies
 					$('#modtable-active').on('length.dt', function(e, settings, len) {
 						setCookie('phv_active_pageLen', len, 365);
 					});
-					$('#modtable-available').on('length.dt', function(e, settings, len) {
-						setCookie('phv_avail_pageLen', len, 365);
+					$('#modtable-all').on('length.dt', function(e, settings, len) {
+						setCookie('phv_all_pageLen', len, 365);
 					});
 				}
 
 				// Update count badges
 				$('#activeModCount').text(Object.keys(checkedSet).length);
-				$('#availableModCount').text(availableRows.length);
+				$('#allModCount').text(allRows.length);
 
 				// Update World Information card counts
 				var checkedCount = Object.keys(checkedSet).length;
@@ -882,7 +899,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				});
 
 				// Delegated event handler for both tables
-				$(document).on('change', '#modtable-active .mod-checkbox, #modtable-available .mod-checkbox', function() {
+				$(document).on('change', '#modtable-active .mod-checkbox, #modtable-all .mod-checkbox', function() {
 					var uuid = $(this).data('uuid');
 					var isChecked = $(this).prop('checked');
 					handleModCheck(uuid, isChecked);

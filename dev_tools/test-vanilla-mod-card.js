@@ -62,8 +62,8 @@ const HEADER_BY_TEXT = `(() => {
     await page.waitForSelector('#vanillaWorld', { timeout: 15000 });
     // Let the mod DataTables finish loading (~9,000 rows) before measuring anything.
     await page.waitForFunction(
-        () => document.querySelector('#availableModCount') &&
-              parseInt(document.querySelector('#availableModCount').textContent, 10) > 0,
+        () => document.querySelector('#allModCount') &&
+              parseInt(document.querySelector('#allModCount').textContent, 10) > 0,
         { timeout: 60000 }
     ).catch(() => console.log('  (note) mod list never populated -- widths case will be skipped'));
     // The count badge updates BEFORE DataTables finishes drawing, so waiting on the badge
@@ -112,7 +112,7 @@ const HEADER_BY_TEXT = `(() => {
     check('vanilla no-mods notice hidden', !notice.visible, JSON.stringify(notice));
 
     const widthsBefore = await page.evaluate(() => {
-        const t = document.querySelector('#modtable-available');
+        const t = document.querySelector('#modtable-all');
         return t ? Math.round(t.getBoundingClientRect().width) : 0;
     });
 
@@ -143,7 +143,7 @@ const HEADER_BY_TEXT = `(() => {
     check('vanilla no-mods notice hidden again', !notice.visible, JSON.stringify(notice));
 
     const widthsAfter = await page.evaluate(() => {
-        const t = document.querySelector('#modtable-available');
+        const t = document.querySelector('#modtable-all');
         return t ? Math.round(t.getBoundingClientRect().width) : 0;
     });
     if (widthsBefore > 0) {

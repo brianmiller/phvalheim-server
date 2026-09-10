@@ -355,16 +355,18 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				<!-- Two DataTables used to be stacked, each with its own Show/Search controls,
 				     so the page carried two sets of table chrome and ~9,000 available mods
 				     pushed the action buttons far below the fold. One at a time instead. -->
-				<!-- AVAILABLE is the landing tab HERE, unlike edit_world.php. A world being
-				     created has nothing selected yet, so opening on "Selected" showed
-				     "No data available in table" and hid the entire catalogue behind a tab
-				     nobody had a reason to click -- it read as "the mod list is empty". -->
+				<!-- ALL is the landing tab. Opening on "Selected" showed "No data available
+				     in table" for a world being created -- it has nothing selected yet by
+				     definition -- and hid the whole catalogue behind a tab nobody had a
+				     reason to click. It read as "the mod list is empty".
+				     All contains the selected mods too, pinned to the top, so Selected is a
+				     filtered view rather than the only place the selection shows up. -->
 				<div class="pv-tabbar" id="modTabBar">
 					<button type="button" class="pv-tab" data-modtab="modPaneSelected" onclick="switchModTab('modPaneSelected', this)">
 						Selected <span class="badge bg-info" id="activeModCount">0</span>
 					</button>
-					<button type="button" class="pv-tab active" data-modtab="modPaneAvailable" onclick="switchModTab('modPaneAvailable', this)">
-						Available <span class="badge bg-secondary" id="availableModCount">0</span>
+					<button type="button" class="pv-tab active" data-modtab="modPaneAll" onclick="switchModTab('modPaneAll', this)">
+						All <span class="badge bg-secondary" id="allModCount">0</span>
 					</button>
 				</div>
 
@@ -374,9 +376,9 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					</div>
 				</div>
 
-				<div class="mod-pane" id="modPaneAvailable">
+				<div class="mod-pane" id="modPaneAll">
 					<div class="table-responsive">
-						<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
+						<table id="modtable-all" class="table table-hover mb-0" style="width:100%;"></table>
 					</div>
 				</div>
 				</div>
@@ -501,7 +503,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			var reverseDepMap = {};    // moduuid -> [mods that depend on it]
 			var checkedSet = {};       // moduuid -> true for ALL checked mods
 			var activeTable = null;    // DataTable for selected mods (top)
-			var availableTable = null; // DataTable for available mods (bottom)
+			var allTable = null; // DataTable for available mods (bottom)
 			var pendingCloneData = null;
 			var cloneModalInstance = null;
 			var depRemovalModalInstance = null;
@@ -850,9 +852,16 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					});
 				});
 
-				// Build rows for each table
+				// Build rows for each table.
+				//
+				// "All" holds EVERY mod, selected ones included -- it is a browser, not a
+				// leftovers pile. Selected rows are collected separately and concatenated
+				// in front so they sit at the top; within each group the API's alphabetical
+				// order is preserved (tableConfig sets order: [] so DataTables does not
+				// re-sort and undo this).
 				var activeRows = [];
-				var availableRows = [];
+				var allSelectedRows = [];
+				var allOtherRows = [];
 
 				allModsData.forEach(function(mod) {
 					var uuid = mod.moduuid;
@@ -871,20 +880,30 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 
 					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.version_date_created, mod.version];
 
+					// A needed-but-unchecked dependency counts as part of the selection --
+					// that is what the Selected tab already shows, and it carries the
+					// "dependency (deselected)" warning badge -- so it pins to the top too.
 					if (isChecked || neededDeps[uuid]) {
 						activeRows.push(row);
+						allSelectedRows.push(row);
 					} else {
-						availableRows.push(row);
+						allOtherRows.push(row);
 					}
 				});
 
-				if (activeTable && availableTable) {
+				var allRows = allSelectedRows.concat(allOtherRows);
+
+				if (activeTable && allTable) {
 					// Reuse existing DataTables — avoids expensive destroy/recreate
 					activeTable.clear().rows.add(activeRows).draw();
-					availableTable.clear().rows.add(availableRows).draw();
+					allTable.clear().rows.add(allRows).draw();
 				} else {
 					// First call: create tables
 					var tableConfig = {
+					// No initial sort: the row order is meaningful here (selected first), and
+					// DataTables' default [[0,'asc']] would re-sort by the checkbox column
+					// and scatter them. A user clicking a header still sorts normally.
+					order: [],
 						scrollY: '400px',
 						scrollCollapse: true,
 						paging: true,
@@ -903,22 +922,22 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					};
 
 					var savedActiveLen = parseInt(getCookie('phv_active_pageLen'), 10) || 20;
-					var savedAvailLen = parseInt(getCookie('phv_avail_pageLen'), 10) || 20;
+					var savedAllLen = parseInt(getCookie('phv_all_pageLen'), 10) || 20;
 					activeTable = $('#modtable-active').DataTable($.extend(true, {}, tableConfig, { data: activeRows, pageLength: savedActiveLen }));
-					availableTable = $('#modtable-available').DataTable($.extend(true, {}, tableConfig, { data: availableRows, pageLength: savedAvailLen }));
+					allTable = $('#modtable-all').DataTable($.extend(true, {}, tableConfig, { data: allRows, pageLength: savedAllLen }));
 
 					// Persist page length changes to cookies
 					$('#modtable-active').on('length.dt', function(e, settings, len) {
 						setCookie('phv_active_pageLen', len, 365);
 					});
-					$('#modtable-available').on('length.dt', function(e, settings, len) {
-						setCookie('phv_avail_pageLen', len, 365);
+					$('#modtable-all').on('length.dt', function(e, settings, len) {
+						setCookie('phv_all_pageLen', len, 365);
 					});
 				}
 
 				// Update count badges
 				$('#activeModCount').text(Object.keys(checkedSet).length);
-				$('#availableModCount').text(availableRows.length);
+				$('#allModCount').text(allRows.length);
 			}
 
 			// Track unsaved changes
@@ -994,7 +1013,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				});
 
 				// Delegated event handler for both tables
-				$(document).on('change', '#modtable-active .mod-checkbox, #modtable-available .mod-checkbox', function() {
+				$(document).on('change', '#modtable-active .mod-checkbox, #modtable-all .mod-checkbox', function() {
 					var uuid = $(this).data('uuid');
 					var isChecked = $(this).prop('checked');
 					handleModCheck(uuid, isChecked);
