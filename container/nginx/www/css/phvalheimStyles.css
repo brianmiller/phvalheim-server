@@ -598,7 +598,11 @@ p.client_download_tooltip_otherbuilds:hover a {
    19-character id across three lines. It is inline-block with nowrap now: the box is sized by
    the id rather than the id being crammed into a fixed box. */
 .steamid-self {
-	display: inline-block;
+	/* BLOCK, so it sits on its own line under the welcome text -- inline-block put it on the
+	   same line, to the right of it. `width: fit-content` keeps the clickable/underlined box
+	   sized to the id rather than spanning the whole header, which a plain block would do. */
+	display: block;
+	width: fit-content;
 	margin-top: 2px;
 	font-size: 0.7rem;
 	font-weight: normal;

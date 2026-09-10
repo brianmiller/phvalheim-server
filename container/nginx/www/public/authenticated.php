@@ -126,6 +126,22 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
 		$getMyWorlds = getMyWorlds($pdo,$steamID);
 
+		# Online first, then alphabetical within each group.
+		#
+		# This cannot be done in SQL. "Online" here is a LIVE process check --
+		# isWorldRunning() -- not a database column, so the query has no way to sort by it.
+		# getMyWorlds() ordered by `currentMemory`, a cron-updated column that is stale for a
+		# world that just started or stopped and meaningless for one that never ran, which is
+		# why the order looked arbitrary.
+		#
+		# isWorldRunning() is evaluated ONCE per world here and reused in the loop below,
+		# rather than being called again for the same world a few lines later.
+		$worldIsOnline = [];
+		foreach ($getMyWorlds as $w) {
+			$worldIsOnline[$w] = isWorldRunning($w);
+		}
+		$getMyWorlds = sortWorldsOnlineFirst($getMyWorlds, $worldIsOnline);
+
                 if(!empty($getMyWorlds)) {
                         foreach ($getMyWorlds as $myWorld) { //only query and return authorized worlds
                                 $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost,$httpScheme);
@@ -135,8 +151,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				$dateDeployed = getDateDeployed($pdo,$myWorld);
 				$dateUpdated = getDateUpdated($pdo,$myWorld);
 
-				// Check real-time process status instead of cached DB value
-				$isOnline = isWorldRunning($myWorld);
+				// Check real-time process status instead of cached DB value.
+				// Computed once in the sort above; reused here so the card and the ordering
+				// cannot disagree about whether the world is up.
+				$isOnline = $worldIsOnline[$myWorld];
 				$worldMemory = $isOnline ? getWorldMemory($pdo,$myWorld) : "offline";
 				// Show "pending..." if online but memory cron hasn't updated yet
 				if ($isOnline && $worldMemory == "offline") {

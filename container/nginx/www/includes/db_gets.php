@@ -238,8 +238,40 @@ function getSeed($pdo,$world) {
 	return $result;
 }
 
+# Order a world-name list: ONLINE first, then alphabetically within each group.
+#
+# Separate from getMyWorlds() because it cannot be done in SQL -- "online" is a live process
+# check, not a column. Takes the online map as a plain array so it is testable without a
+# database, a container, or a running Valheim.
+#
+# $isOnlineMap: [worldName => bool]. A world missing from the map counts as offline, so a
+# lookup that failed sinks the world down the list rather than throwing.
+function sortWorldsOnlineFirst(array $worlds, array $isOnlineMap) {
+        usort($worlds, function($a, $b) use ($isOnlineMap) {
+                $aOn = !empty($isOnlineMap[$a]);
+                $bOn = !empty($isOnlineMap[$b]);
+                if ($aOn !== $bOn) {
+                        return $aOn ? -1 : 1;
+                }
+                # Case-insensitive: a byte comparison puts every capitalised name above every
+                # lowercase one, so "banana" would sort above "Apple". This list is read by
+                # people.
+                return strcasecmp($a, $b);
+        });
+        return $worlds;
+}
+
+# Ordered by NAME only.
+#
+# It used to lead with `currentMemory`, presumably as a stand-in for "online first". That column
+# is written by a cron, so it is stale for a world that has just started or stopped and
+# meaningless for one that has never run -- which made the card order look arbitrary. Worse, the
+# public page decides online-ness with a live isWorldRunning() check, so the column and the card
+# could disagree outright.
+#
+# Online-first grouping is applied by the caller, which is the only place that can know it.
 function getMyWorlds($pdo,$citizen) {
-        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' OR public = '1' ORDER BY currentMemory, name ASC");
+        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' OR public = '1' ORDER BY name ASC");
         $result = $sth->fetchAll(PDO::FETCH_COLUMN);
         return $result;
 }
