@@ -1269,11 +1269,15 @@ function saveWorldOptionsJson($pdo, $world, $input) {
     // the CITIZENS list instead. Storing them for a modded world would show settings in
     // the UI that startWorld.sh deliberately ignores.
     //
-    // Crossplay is NOT in that group: it controls whether Xbox / Microsoft Store players
-    // can join, which is orthogonal to whether the world runs mods.
+    // Crossplay is in that group TOO, for now. It makes Valheim open a PlayFab server, which
+    // has no host:port -- and the PhValheim client reaches a modded world through QuickConnect,
+    // whose config is host:port. So a modded crossplay world is unreachable by the client.
+    // Forced off here as well as hidden in the UI, because the endpoint is reachable directly.
+    // Revisit when the client can launch with -joincode.
     if (!$vanilla) {
         $password = '';
         $listed = 0;
+        $crossplay = 0;
     }
 
     $wasVanilla = (int)getVanilla($pdo, $world);
@@ -1574,7 +1578,9 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
         }
 
         // Crossplay applies to any world, modded or not.
-        setCrossplay($pdo, $world, !empty($vanillaOptions['crossplay']) ? 1 : 0);
+        // Vanilla only, for now: a modded crossplay world cannot be reached by the PhValheim
+        // client (QuickConnect's config is host:port; a PlayFab server has neither).
+        setCrossplay($pdo, $world, ($isVanilla && !empty($vanillaOptions['crossplay'])) ? 1 : 0);
 
         // Set the access model EXPLICITLY. Before this, create wrote no `public` value at all
         // and the world silently inherited the column default -- which is 0, "enforce the

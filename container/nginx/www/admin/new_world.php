@@ -274,14 +274,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					</div>
 				</div>
 				<div class="row g-3 mt-1">
-					<div class="col-12">
+					<!--
+						VANILLA ONLY for now, so this is hidden until "Vanilla world" is ticked.
+						Crossplay makes Valheim open a PlayFab server, which has no host:port -- and
+						the PhValheim client reaches a modded world through QuickConnect, whose config
+						is host:port. A modded crossplay world is therefore unreachable by the client.
+						Revisit when the client can launch with -joincode.
+					-->
+					<div class="col-12" id="crossplayOption" style="display:none;">
 						<div class="form-check">
 							<input class="form-check-input" type="checkbox" id="worldCrossplay">
 							<label class="form-check-label alt-color" for="worldCrossplay"><strong>Enable crossplay</strong></label>
 							<div class="form-text text-secondary">
-								Allow Xbox / Microsoft Store players to join. Works on modded and unmodded
-								worlds alike &mdash; though players on those platforms cannot install mods,
-								so a heavily modded world may not be joinable for them.
+								Allow Xbox, PlayStation and Nintendo players to join. <strong>Vanilla worlds
+								only</strong> for now &mdash; the PhValheim client cannot yet connect to a
+								modded crossplay world.
 							</div>
 						</div>
 					</div>
@@ -1009,6 +1016,12 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 
 			function toggleVanillaWorld(checked) {
 				$('#vanillaOptions').toggle(checked);
+
+				// Crossplay is vanilla-only for now. UNTICK it on the way out rather than just
+				// hiding it: a hidden-but-ticked box would keep sending crossplay:1 from a form
+				// that no longer shows the option, which is how invisible state ships.
+				$('#crossplayOption').toggle(checked);
+				if (!checked) $('#worldCrossplay').prop('checked', false);
 				// Hide the WHOLE mod card, not just the tables inside it. Hiding only
 				// #modSelectionArea left the "Select Mods (Optional)" header and the
 				// clone-from-another-world control on screen for a world that can hold
@@ -1200,7 +1213,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					vanilla: isVanilla ? 1 : 0,
 					password: isVanilla ? $('#vanillaPassword').val().trim() : '',
 					// Crossplay applies to any world, so it is NOT gated on isVanilla.
-					crossplay: $('#worldCrossplay').is(':checked') ? 1 : 0,
+					// Vanilla-only for now; the server enforces this too.
+					crossplay: (isVanilla && $('#worldCrossplay').is(':checked')) ? 1 : 0,
 					listed: (isVanilla && $('#vanillaListed').is(':checked')) ? 1 : 0,
 					// Sent as the CITIZENS access flag (worlds.public), NOT Valheim's -public
 					// server browser argument -- that is `listed` above. Same names, opposite

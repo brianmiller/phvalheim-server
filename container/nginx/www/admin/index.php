@@ -3026,10 +3026,19 @@ $totalCount = count($worlds);
                                     <span class="slider round"></span>
                                 </label>
                             </div>
-                            <div class="pv-row">
+                            <!--
+                                VANILLA ONLY for now. Crossplay makes Valheim open a PlayFab
+                                server, which has no host:port -- and the PhValheim client
+                                reaches a modded world through QuickConnect, whose config is
+                                host:port. So a modded crossplay world cannot be joined by the
+                                client at all. Hidden rather than disabled: an inert switch
+                                invites the question this comment would have to answer.
+                                Revisit when the client learns to launch with -joincode.
+                            -->
+                            <div class="pv-row" id="crossplayRow" style="display: ${isVanilla ? '' : 'none'};">
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">Enable crossplay</span>
-                                    <span class="pv-row-desc">Let Xbox, PlayStation and Nintendo players join. Applies to modded and unmodded worlds alike &mdash; those platforms cannot install mods, so a heavily modded world may not be joinable for them.</span>
+                                    <span class="pv-row-desc">Let Xbox, PlayStation and Nintendo players join. Vanilla worlds only for now &mdash; the PhValheim client cannot yet connect to a modded crossplay world.</span>
                                 </div>
                                 <label class="switch pv-row-control">
                                     <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked}>
@@ -3300,6 +3309,11 @@ $totalCount = count($worlds);
     function toggleVanillaFields(checked) {
         const block = document.getElementById('vanillaOptionsBlock');
         if (block) block.style.display = checked ? 'block' : 'none';
+
+        // Crossplay lives in the Server Type section rather than vanillaOptionsBlock -- it sits
+        // next to the Vanilla switch that controls it -- so it needs toggling by hand.
+        const crossplay = document.getElementById('crossplayRow');
+        if (crossplay) crossplay.style.display = checked ? '' : 'none';
     }
 
     // A public world does not consult permittedlist.txt at all, so showing an editor for

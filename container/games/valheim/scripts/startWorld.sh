@@ -88,12 +88,25 @@ else
 	set -- "$@" -public 0
 fi
 
-# Crossplay is NOT vanilla-only. It controls whether Xbox / Microsoft Store players
-# can join and is orthogonal to mods -- a modded world can legitimately want it.
-# (Whether those players can actually load the mods is the operator's call, not
-# something to decide for them here.)
-if [ "$isCrossplay" = "1" ]; then
+# Crossplay is VANILLA-ONLY for now.
+#
+# -crossplay makes Valheim open a PlayFab server instead of a Steam one. A PlayFab server is
+# reached by join code and has no host:port at all -- but the PhValheim client reaches a modded
+# world through QuickConnect, whose config file is `world:host:port:password`. So a modded
+# crossplay world cannot be joined by the client, whatever the operator intended.
+#
+# Enforced HERE and not only in the admin UI, because this is what actually reaches Valheim.
+# That also means a modded world whose crossplay flag was set before this gate existed stops
+# opening a PlayFab server on its next start, without anyone having to find and fix the row.
+#
+# NOTE: the `crossplay` column is left alone rather than zeroed -- it is the operator's stored
+# preference, and it becomes live again the moment the world is switched to vanilla.
+#
+# Revisit when the client can launch with -joincode; see docs and the 2.0.13 client work.
+if [ "$isCrossplay" = "1" ] && [ "$isVanilla" = "1" ]; then
 	set -- "$@" -crossplay
+elif [ "$isCrossplay" = "1" ]; then
+	echo "`date` [NOTICE : phvalheim] World '$worldName' has crossplay set but is MODDED -- starting without -crossplay. The PhValheim client cannot join a modded crossplay world."
 fi
 
 set -- "$@" -savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim

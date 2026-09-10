@@ -57,14 +57,20 @@ ck "copy handler"                   "$(grep -c 'function copyVanillaPassword' $A
 ck "copy link rendered"             "$(grep -c 'copyVanillaPassword' $A)" 2
 ck "old reveal class gone (css)"    "$(grep -c 'vanilla-password-reveal' $C)" 0
 ck "old reveal class gone (php)"    "$(grep -c 'vanilla-password-reveal' $A)" 0
-ck "new action class styled"        "$(grep -c "vanilla-password-action" $C)" 3
+# 4, not 3, since the crossplay work: the join-code row reuses this class for its own copy
+# link (.vanilla-joincode .vanilla-password-action), on top of the three password rules.
+ck "new action class styled"        "$(grep -c "vanilla-password-action" $C)" 4
 
 echo "8. AJAX poll must not clobber vanilla server-rendered state"
 # This class of bug has bitten three times: the 5s refresh overwrites correct
 # server-rendered markup a few seconds after page load, so the page looks right
 # on load and wrong immediately after. Every field the poll writes that also
 # exists on the vanilla card needs a vanilla-aware branch.
-ck "poll uses steam:// for vanilla"  "$(grep -c 'world.vanilla && world.connection' $A)" 1
+# 2, not 1, since the crossplay work: the poll now has a branch deciding WHICH steam:// link a
+# vanilla world gets (+connect vs -joincode) as well as the one that sets it. Counting alone is
+# weak, so the companion check below pins the crossplay branch by name.
+ck "poll uses steam:// for vanilla"  "$(grep -c 'world.vanilla && world.connection' $A)" 2
+ck "poll branches on the playfab backend" "$(grep -c 'world.connection.playfab' $A)" 1
 ck "no unconditional phvalheim:// "  "$(grep -c 'launchLink.href = `phvalheim' $A)" 0
 ck "api sends connection.steamUrl"   "$(grep -c "'steamUrl'" $P)" 1
 ck "api sends vanilla flag"          "$(grep -c "'vanilla' =>" $P)" 1

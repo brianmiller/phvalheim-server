@@ -50,6 +50,16 @@ run_case() {
 		| grep -v '^$' | grep -v 'phvalheim\]' | grep -v 'NOTICE\|ERROR'
 }
 
+# Same run, but WITHOUT the NOTICE/ERROR filtering above -- for asserting on what the script
+# logged rather than on the argv it built.
+run_case_log() {
+	local settings_row="$1" public_flag="$2"
+	setup_stubs "$settings_row" "$public_flag"
+	sed "s#/opt/#$SANDBOX/opt/#g" "$SCRIPT" > "$SANDBOX/startWorld.sh"
+	chmod +x "$SANDBOX/startWorld.sh"
+	sh "$SANDBOX/startWorld.sh" testworld hammertime 25000 2>&1
+}
+
 check() {
 	local label="$1" expected="$2" actual="$3"
 	if [ "$expected" = "$actual" ]; then
@@ -89,12 +99,33 @@ else
 	PASS=$((PASS+1))
 fi
 
-# --- 3b. Crossplay is NOT vanilla-only ---
-# A modded world with crossplay=1 must get -crossplay. It was originally scoped as a
-# vanilla-only option by mistake; nothing caught that because every modded case used
-# crossplay=0, so the assertion held either way.
+# --- 3b. Crossplay is VANILLA-ONLY again (2026-09-10) ---
+# This assertion has now been correct in both directions, so the reason matters:
+#
+#   It was first scoped vanilla-only by mistake, then widened to all worlds because crossplay
+#   really is orthogonal to mods as far as VALHEIM is concerned. It is scoped back now for a
+#   client reason, not a server one: -crossplay makes Valheim open a PlayFab server, which has
+#   no host:port, and the PhValheim client reaches a modded world through QuickConnect, whose
+#   config is host:port. So the world starts fine and simply cannot be joined.
+#
+# Enforced in startWorld.sh rather than only in the admin UI, so a world whose flag was set
+# before the gate existed stops opening a PlayFab server on its next start.
+expected=$(printf -- '-nographics\n-batchmode\n-name\ntestworld\n-port\n25000\n-world\ntestworld\n-oldconsole\n-public\n0\n-savedir\n%s' "$SAVEDIR")
+check "modded world does NOT get -crossplay" "$expected" "$(run_case '0	0	1		' 0)"
+
+# ...and says so, rather than silently dropping a setting the operator can still see stored.
+if run_case_log '0	0	1		' 0 | grep -q "crossplay set but is MODDED"; then
+	echo "  PASS: modded+crossplay logs why the flag was dropped"
+	PASS=$((PASS+1))
+else
+	echo "  FAIL: modded+crossplay dropped -crossplay silently"
+	FAIL=$((FAIL+1))
+fi
+
+# CONTROL: a VANILLA world with the same crossplay=1 must still get the flag. Without this,
+# a change that simply deleted the -crossplay line would pass the assertion above.
 expected=$(printf -- '-nographics\n-batchmode\n-name\ntestworld\n-port\n25000\n-world\ntestworld\n-oldconsole\n-public\n0\n-crossplay\n-savedir\n%s' "$SAVEDIR")
-check "modded world honours crossplay" "$expected" "$(run_case '0	0	1		' 0)"
+check "vanilla world still honours crossplay" "$expected" "$(run_case '1	0	1		' 0)"
 
 # --- 4. Vanilla, listed, password, crossplay ---
 expected=$(printf -- '-nographics\n-batchmode\n-name\ntestworld\n-port\n25000\n-world\ntestworld\n-oldconsole\n-public\n1\n-password\nhunter2secret\n-crossplay\n-savedir\n%s' "$SAVEDIR")
