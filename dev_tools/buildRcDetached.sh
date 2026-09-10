@@ -130,6 +130,16 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   uzline=$(grep -n "BepInEx/plugins/\$modName/" /opt/stateless/engine/includes/0-functions.sh | head -1 | cut -d: -f1)
   ao=0; [ -n "$mkline" ] && [ -n "$uzline" ] && [ "$mkline" -lt "$uzline" ] && ao=1
   echo "plugins mkdir=$am (want 1)  tolerates exit 11=$an (want 1)  mkdir before unzip=$ao (want 1)"
+  # Both admin launch paths must go through the shared helper, and the unconditional +connect
+  # must be GONE from both -- checking only that the helper is called would pass on an image
+  # where one path still built its own href.
+  ap=$(grep -c "function getVanillaJoinInfo" /opt/stateless/nginx/www/includes/db_gets.php)
+  aq=$(grep -c "getVanillaJoinInfo(" /opt/stateless/nginx/www/admin/index.php)
+  ar=$(grep -c "getVanillaJoinInfo(" /opt/stateless/nginx/www/admin/adminAPI.php)
+  as=$(grep -c "function launchButtonHtml" /opt/stateless/nginx/www/admin/index.php)
+  at=$(grep -hcE "^[[:space:]]*\? .steam://run/892970//\+connect ." /opt/stateless/nginx/www/admin/index.php /opt/stateless/nginx/www/admin/adminAPI.php | paste -sd+ | bc)
+  echo "shared join helper=$ap (want 1)  admin render=$aq (want 3)  admin poll=$ar (want 2)"
+  echo "js null-href guard=$as (want 1)  stale unconditional +connect=$at (want 0)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
@@ -141,6 +151,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$af" = "1" ] && [ "$ag" = "10" ] && [ "$ah" = "5" ] && [ "$ai" = "4" ] \
     && [ "$aj" = "1" ] && [ "$ak" = "3" ] && [ "$al" = "2" ] \
     && [ "$am" = "1" ] && [ "$an" = "1" ] && [ "$ao" = "1" ] \
+    && [ "$ap" = "1" ] && [ "$aq" = "3" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
