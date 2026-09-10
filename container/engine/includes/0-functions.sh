@@ -529,27 +529,102 @@ function setMD5 () {
 #The extraction is the same one importWorld.sh has always used on uploaded saves.
 #No-op if the .fwl does not exist yet (world has never been started) or the seed is
 #already recorded.
+#$2=1 when the world is VANILLA, which changes who owns the seed:
+#
+#  modded  -- the stored seed is an INPUT. It is fed to the CustomSeed mod, so it is
+#             the truth and the .fwl only ever confirms it. Fill it in if missing,
+#             never overwrite.
+#  vanilla -- the stored seed can only ever be an OUTPUT. Valheim invents the seed
+#             when it generates the .fwl and there is no way to influence it, so the
+#             .fwl is AUTHORITATIVE and anything that disagrees with it is wrong.
+#
+#That distinction is the whole fix: the engine used to stamp a random uint32 on every
+#seedless world including vanilla ones, and this function's "already has a seed, stop"
+#early-out then made that fabricated number permanent -- the real seed could never be
+#recorded, and the public card advertised a number belonging to no world at all.
+#$1=worlds_local dir, $2=world name. Echoes the path of the world-metadata file, or
+#nothing if the world has never been saved.
+#
+#VALHEIM 1.0 CHANGED THIS LAYOUT. It used to be one file per world:
+#
+#    worlds_local/<name>.fwl
+#
+#and is now a DIRECTORY per world holding a numbered save set:
+#
+#    worlds_local/<name>/_main.1.fwl2   (+ _main.1.db2, chunks, _main.1.ok)
+#
+#Looking only for the old name silently found nothing on 1.0 — no error, just a world
+#whose seed could never be read. Prefer the newest .fwl2, fall back to the legacy .fwl
+#so pre-1.0 saves and imported worlds still resolve.
+function findWorldSaveMeta () {
+        localDir="$1"
+        worldName="$2"
+
+        newest=$(ls -t "$localDir/$worldName"/_main.*.fwl2 2>/dev/null | head -1)
+        if [ -n "$newest" ]; then
+                echo "$newest"
+                return 0
+        fi
+
+        if [ -f "$localDir/$worldName.fwl" ]; then
+                echo "$localDir/$worldName.fwl"
+                return 0
+        fi
+
+        return 0
+}
+
+
+#$1=world metadata file (.fwl or .fwl2). Echoes the seed NAME, e.g. M5alDHpjHy.
+#
+#Both formats start with a length-prefixed world name followed by a length-prefixed
+#seed name, so one walk reads either — verified against a real .fwl2 written by the
+#1.0 server and against .fwl files from live pre-1.0 worlds.
+function readSeedFromSaveMeta () {
+        (head -c$(od -j$(od -j8 -N1 -An -t u1) -N1 -An -t u1);echo) < "$1"
+}
+
+
 function syncWorldSeedFromSave () {
         worldName="$1"
+        isVanillaWorld="$2"
         worldSaveDir="/opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim/worlds_local"
-        fwl="$worldSaveDir/$worldName.fwl"
+        fwl=$(findWorldSaveMeta "$worldSaveDir" "$worldName")
 
         currentSeed=$(SQL "SELECT IFNULL(seed,'') FROM worlds WHERE name='$worldName'")
-        if [ -n "$currentSeed" ]; then
+
+        if [ -z "$fwl" ] || [ ! -f "$fwl" ]; then
+                #No save yet. For a vanilla world any seed on record is fiction by
+                #definition -- there is nowhere else it could have come from -- so clear
+                #it rather than keep displaying it. The card then reads "generated on
+                #first start", which is the truth.
+                if [ "$isVanillaWorld" = "1" ] && [ -n "$currentSeed" ]; then
+                        echo "`date` [NOTICE : phvalheim] Clearing seed for vanilla world '$worldName' -- it has no save yet, so '$currentSeed' cannot be its seed"
+                        SQL "UPDATE worlds SET seed=NULL WHERE name='$worldName';"
+                fi
                 return 0
         fi
 
-        if [ ! -f "$fwl" ]; then
+        #Modded world with a seed already: that seed is the input, leave it alone.
+        if [ -n "$currentSeed" ] && [ "$isVanillaWorld" != "1" ]; then
                 return 0
         fi
 
-        worldSeed=$((head -c$(od -j$(od -j8 -N1 -An -t u1) -N1 -An -t u1);echo)<"$fwl")
+        worldSeed=$(readSeedFromSaveMeta "$fwl")
         if [ -z "$worldSeed" ]; then
                 echo "`date` [WARN : phvalheim] Could not read seed from '$fwl'"
                 return 1
         fi
 
-        echo "`date` [NOTICE : phvalheim] Recording generated seed for '$worldName': $worldSeed"
+        if [ "$worldSeed" = "$currentSeed" ]; then
+                return 0
+        fi
+
+        if [ -n "$currentSeed" ]; then
+                echo "`date` [NOTICE : phvalheim] Correcting seed for vanilla world '$worldName': '$currentSeed' -> '$worldSeed' (read from its save)"
+        else
+                echo "`date` [NOTICE : phvalheim] Recording generated seed for '$worldName': $worldSeed"
+        fi
         SQL "UPDATE worlds SET seed='$worldSeed' WHERE name='$worldName';"
 }
 

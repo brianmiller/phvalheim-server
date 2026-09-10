@@ -146,12 +146,13 @@ while [ true ]; do
 		worldPort=$(SQL "SELECT port FROM worlds WHERE id='$worldID';")
 		worldSeed=$(SQL "SELECT seed FROM worlds WHERE id='$worldID';")
 		worldHost=$(SQL "SELECT external_endpoint FROM worlds WHERE id='$worldID';")
+		worldVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE id='$worldID';")
 		worldPassword="hammertime";
 
 		# A vanilla world's seed is invented by Valheim when it first generates the
 		# .fwl, so it is unknown until then. Read it back out of the save once it
-		# exists. No-op once recorded, and for worlds that already have a seed.
-		syncWorldSeedFromSave "$worldName"
+		# exists. No-op once recorded, and for modded worlds that already have a seed.
+		syncWorldSeedFromSave "$worldName" "$worldVanilla"
 
 
 		if [ "$worldMode" = "stopped" ]; then
@@ -163,13 +164,21 @@ while [ true ]; do
 		fi
 
 
-		if [ -z "$worldSeed" ]; then
-			worldSeed="$defaultSeed"
-		fi
-		if [ -z "$worldSeed" ]; then
-			worldSeed=$(od -An -tu4 -N4 /dev/urandom | tr -d ' ')
-			echo "`date` [NOTICE : phvalheim] Generated random seed for '$worldName': $worldSeed"
-			SQL "UPDATE worlds SET seed='$worldSeed' WHERE id='$worldID'"
+		# NEVER invent a seed for a vanilla world. A seed only reaches Valheim through
+		# the CustomSeed BepInEx mod, which a vanilla world does not run, and Valheim
+		# has no seed argument -- so anything generated here could never be that
+		# world's actual seed, and storing it puts a fabricated number on the public
+		# card. A vanilla world's seed comes from its .fwl, via syncWorldSeedFromSave,
+		# and only after it has started.
+		if [ "$worldVanilla" != "1" ]; then
+			if [ -z "$worldSeed" ]; then
+				worldSeed="$defaultSeed"
+			fi
+			if [ -z "$worldSeed" ]; then
+				worldSeed=$(od -An -tu4 -N4 /dev/urandom | tr -d ' ')
+				echo "`date` [NOTICE : phvalheim] Generated random seed for '$worldName': $worldSeed"
+				SQL "UPDATE worlds SET seed='$worldSeed' WHERE id='$worldID'"
+			fi
 		fi
 
 
