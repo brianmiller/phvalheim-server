@@ -310,12 +310,18 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						-->
 						<div id="accessFirstIdWrap" class="mt-2">
 							<label class="form-label alt-color" for="accessFirstId">First player's Steam ID</label>
-							<input type="text" class="form-control" id="accessFirstId" maxlength="20"
-							       placeholder="76561197960287930" inputmode="numeric" autocomplete="off">
+							<!--
+								maxlength 24, not 20: the V_ form is 19 characters and a console
+								prefix can be longer. inputmode is no longer numeric, because the
+								value the player page hands out starts with "V_".
+							-->
+							<input type="text" class="form-control" id="accessFirstId" maxlength="24"
+							       placeholder="V_76561197960287930" autocomplete="off">
 							<div class="form-text text-secondary">
-								A 17-digit SteamID64 &mdash; almost always your own, so you can get in.
-								Players can copy theirs from under their avatar on the player page.
-								Add more later in <em>Settings &rarr; Access</em>.
+								The <code>V_</code> form Valheim matches on &mdash; almost always your own,
+								so you can get in. Players can copy theirs from the player page, under the
+								welcome line. A bare 17-digit SteamID64 is accepted too and upgraded
+								automatically. Add more later in <em>Settings &rarr; Access</em>.
 							</div>
 							<div class="form-text text-warning" id="accessFirstIdError" style="display:none;"></div>
 						</div>
@@ -1167,8 +1173,12 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						showAccessIdError('Enter the first player’s Steam ID, or choose "Anyone who can reach the server".');
 						return;
 					}
-					if (!/^[0-9]{17}$/.test(firstId)) {
-						showAccessIdError('That is not a SteamID64. It must be exactly 17 digits.');
+					// Accept what the server accepts: the V_ form (which is what the player page
+					// hands out), a bare SteamID64, or a console prefix. The server re-checks with
+					// canonicalAccessId() and stores the canonical form -- this is only the fast
+					// message. A digits-only check here would reject the field's own example.
+					if (!/^([A-Za-z]+_.+|[0-9]{17})$/.test(firstId)) {
+						showAccessIdError('That is not a player ID. Use the V_ form (V_76561197960287930) or a bare 17-digit SteamID64.');
 						return;
 					}
 				}

@@ -279,10 +279,17 @@ switch($action) {
                     echo json_encode(['error' => 'A restricted world needs at least one player ID. An empty access list lets everyone in rather than nobody.']);
                     break;
                 }
-                if (!preg_match('/^[0-9]{17}$/', $accessFirstId)) {
-                    echo json_encode(['error' => "Not a valid SteamID64 (17 digits): $accessFirstId"]);
+                # Validated with canonicalAccessId() rather than a bare-digits regex, so this
+                # accepts exactly what the Access tab accepts -- the V_ form the player page
+                # now shows, a bare SteamID64, or a console prefix. A digits-only check here
+                # would have rejected the very string the form's own example tells you to use.
+                $canonicalFirstId = canonicalAccessId($accessFirstId);
+                if ($canonicalFirstId === null) {
+                    echo json_encode(['error' => "Not a valid player ID: $accessFirstId. Use the V_ form (V_76561197960287930) or a bare 17-digit SteamID64."]);
                     break;
                 }
+                # Store the canonical form, matching what partitionSteamIds() stores.
+                $accessFirstId = $canonicalFirstId;
             }
             if ($world) {
                 createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions, $accessOpen, $accessFirstId);
@@ -1032,7 +1039,7 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
     if (!empty($rejected)) {
         echo json_encode([
             'success' => false,
-            'error'   => 'Not a valid SteamID64 (17 digits): ' . implode(', ', $rejected)
+            'error'   => 'Not a valid player ID: ' . implode(', ', $rejected) . '. Use the V_ form (V_76561197960287930) or a bare 17-digit SteamID64, which is upgraded automatically.'
         ]);
         return;
     }
@@ -1138,7 +1145,7 @@ function saveAccessListJson($pdo, $world, $kind, $raw) {
     if (!empty($rejected)) {
         echo json_encode([
             'success' => false,
-            'error'   => 'Not a valid SteamID64 (17 digits): ' . implode(', ', $rejected)
+            'error'   => 'Not a valid player ID: ' . implode(', ', $rejected) . '. Use the V_ form (V_76561197960287930) or a bare 17-digit SteamID64, which is upgraded automatically.'
         ]);
         return;
     }

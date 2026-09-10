@@ -170,10 +170,15 @@ else
 	ok "the unmatched bare form is not written"
 fi
 
-echo "  (the database keeps what the operator typed:)"
+# CHANGED 2026-09-10: the database used to keep the operator's original text, converting only
+# at write time. That left the DB and the admin UI showing a bare SteamID64 while the file --
+# the thing Valheim actually matches -- held V_<id>. Three views of one value, two in a shape
+# Valheim would never match. A bare id is still accepted as INPUT; it is just stored canonical.
+echo "  (the database stores the canonical, matched form:)"
 case "$(get getCitizens)" in
-	*'"citizens":"76561198000000101"'*) ok "database stores the plain SteamID64" ;;
-	*)                                  bad "database was rewritten: $(get getCitizens)" ;;
+	*'"citizens":"V_76561198000000101"'*) ok "database stores the canonical V_ form" ;;
+	*'"citizens":"76561198000000101"'*)   bad "database still stores the bare id, which matches nothing" ;;
+	*)                                    bad "unexpected: $(get getCitizens)" ;;
 esac
 
 echo

@@ -9,6 +9,10 @@ require_once '../vendor/autoload.php';
 include '../includes/config_env_puller.php';
 include '../includes/phvalheim-frontend-config.php';
 include '../includes/db_gets.php';
+# canonicalAccessId(): the player's ID is shown in the V_ form, which is the ONLY form Valheim
+# matches in permittedlist.txt. Handing out a bare SteamID64 sends people to a server owner
+# with a string that silently matches nothing.
+require_once '../includes/accesslists.php';
 include '../includes/db_sets.php';
 include '../includes/userAgent.php';
 include '../includes/clientDownloadButton.php';
@@ -61,6 +65,11 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 			$steamJSONObj = $steamJSONObj->response->players;
 			$steamJSONObj = $steamJSONObj[0];
 
+			# The access-list form of the player's own id, for handing to a server owner.
+			# Falls back to a plain V_ prefix if canonicalAccessId() cannot parse it, so the
+			# row never renders a bare id that would match nothing.
+			$steamAccessID = canonicalAccessId($steamID) ?: 'V_' . $steamID;
+
 			$steamNickName = $steamJSONObj->personaname;
 			$steamFullName = $steamJSONObj->realname;
 			$steamAvatarURL = $steamJSONObj->avatarmedium;
@@ -80,18 +89,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
                 echo "
                         <table width=100% height=100% border=0>
-                                <th class='google_header'>
-                                        <img src='$steamAvatarURL'></img>
-                                        <!--
-                                                A player's own SteamID64, shown so they can hand it to a server
-                                                owner who needs to add them to an access list. Before this the
-                                                only way to find it was a third-party lookup site, which is why
-                                                the admin UI is full of \"easiest way to get an ID\" banners.
-                                        -->
-                                        <div class='steamid-self' data-steamid='$steamID' onclick='copySteamSelfId(this)' title='Click to copy your Steam ID'>
-                                                <span class='steamid-self-value'>$steamID</span>
-                                        </div>
-                                </th>
+                                <th class='google_header'><img src='$steamAvatarURL'></img></th>
                                 <th class='header_right_section'><div class='header_right_inner'>
                                         <span class='client_download_button'>";
 				populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
@@ -102,7 +100,18 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                         </a>
                                 </div></th>
                                 <tr>
-                                <th colspan=2 class='name_header'>Welcome, $playerName!</th>
+                                <th colspan=2 class='name_header'>Welcome, $playerName!
+                                        <!--
+                                                The player's own id in the V_ form Valheim matches, so they can
+                                                hand it to a server owner who needs to add them to an access
+                                                list. Before this the only way to find it was a third-party
+                                                lookup site, which is why the admin UI carried \"easiest way to
+                                                get an ID\" banners.
+                                        -->
+                                        <div class='steamid-self' data-steamid='$steamAccessID' onclick='copySteamSelfId(this)' title='Click to copy your player ID'>
+                                                <span class='steamid-self-value'>$steamAccessID</span>
+                                        </div>
+                                </th>
 
 
                                 <tr>

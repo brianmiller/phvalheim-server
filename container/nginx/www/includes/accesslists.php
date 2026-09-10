@@ -169,15 +169,24 @@ function canonicalAccessId($candidate) {
  * operator's side looks identical to "I added them and nothing happened". Rejecting the
  * input outright is the only way they find out.
  *
- * The values returned are the operator's ORIGINAL text -- what they typed is what the admin
- * UI shows back to them. Conversion to the matched form happens at write time.
+ * The values returned are CANONICAL (`V_<steamid64>`, `X_<id>`, ...), not the operator's
+ * original text.
+ *
+ * This used to return what they typed, with conversion happening only at write time. That left
+ * the database and the admin UI showing a bare SteamID64 while the file on disk -- the thing
+ * Valheim actually matches -- held the prefixed form. Three views of one value, two of them in
+ * a shape Valheim would never match, which is exactly the confusion the prefix exists to end.
+ *
+ * A bare 17-digit id is still ACCEPTED and upgraded, because that is what steamid.io and a
+ * Steam profile URL give you. It is just no longer STORED that way.
  */
 function partitionSteamIds($normalised) {
 	$valid = [];
 	$rejected = [];
 	foreach (array_filter(explode(' ', $normalised)) as $candidate) {
-		if (canonicalAccessId($candidate) !== null) {
-			$valid[] = $candidate;
+		$canonical = canonicalAccessId($candidate);
+		if ($canonical !== null) {
+			$valid[] = $canonical;
 		} else {
 			$rejected[] = $candidate;
 		}
