@@ -125,6 +125,12 @@ supervisorctl start valheimworld_myworld # Start world
   world start. Write them only via `writeAccessList()` (PHP) or that script — never
   `file_put_contents()` directly, and never ignore the return value. A silently-failed write is
   what made the CITIZENS editor look like it had stopped working while the UI said "saved".
+- Valheim enforces `permittedlist.txt` **only when it has entries** — an empty file is *no
+  restriction*, not "nobody may join". So an enforced-but-empty list is a wide open server.
+  Both writers therefore inject a fail-closed placeholder (`V_76561197960265728`, Steam account
+  ID 0) when the list is enforced and empty. It is a RENDER-time entry: never stored, never
+  shown in the UI. If you change it, change it in `accesslists.php` **and**
+  `syncAccessLists.sh` — `dev_tools/test-accesslist-writer-parity.sh` diffs the two.
 - Admin interface (8081) should never be exposed publicly
 - Thunder Store mod metadata syncs every 12 hours via cron
 - World backups run every 30 minutes

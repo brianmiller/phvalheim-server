@@ -49,7 +49,11 @@ restore() { setState "$ORIG_PUBLIC" "$ORIG_CITIZENS_SQL" >/dev/null 2>&1; }
 trap restore EXIT
 
 echo "(container $CONTAINER, world \"$WORLD\")"
-WARN='ANYONE CAN JOIN'
+# Match the CONDITION the warning names, not its consequence clause. The wording of the
+# consequence has already changed once ("ANYONE CAN JOIN" -> "NOBODY can join") when the
+# sentinel landed, and a test keyed to it silently stopped matching -- which made the
+# must-NOT-warn cases pass vacuously, since a string that never matches is always "silent".
+WARN='access list ENABLED but EMPTY'
 
 echo
 echo "Case 1: list ENABLED, EMPTY -- must warn"
@@ -81,18 +85,51 @@ out=$(runSync)
 echo "$out" | grep -q "$WARN"; check "warns" "$([ $? -eq 0 ] && echo 1 || echo 0)"
 
 echo
-echo "Case 5: the warning tells the truth -- the file really has no entries"
-# If permittedlist.txt had entries, the warning would be a false alarm and this test would be
-# asserting noise. Ties the log line to the state on disk that Valheim actually reads.
+echo "Case 5: the warning tells the truth -- the list is CLOSED, not empty"
+# This case previously asserted ZERO entries, back when an enforced-empty list really did
+# render empty and the warning said "ANYONE CAN JOIN". The sentinel changed that: the file now
+# carries exactly one unassignable entry, which is what makes Valheim enforce it at all.
+# The assertion was updated deliberately -- if it had been left alone it would have failed,
+# which is the point of tying it to the bytes on disk rather than to the log text.
+SENTINEL="V_76561197960265728"
 setState 0 "''" >/dev/null
 runSync >/dev/null
 n=$(listEntries | tr -d '[:space:]')
-check "permittedlist.txt has 0 entries when we warn" "$([ "$n" = "0" ] && echo 1 || echo 0)" "found $n"
+check "exactly 1 entry (the placeholder) when we warn" "$([ "$n" = "1" ] && echo 1 || echo 0)" "found $n"
+docker exec "$CONTAINER" grep -q "^$SENTINEL\$" "$SAVEDIR/permittedlist.txt"
+check "and that entry IS the placeholder" "$([ $? -eq 0 ] && echo 1 || echo 0)"
 
 setState 0 "'76561197960287930'" >/dev/null
 runSync >/dev/null
 n=$(listEntries | tr -d '[:space:]')
-check "and 1 entry when we stay silent" "$([ "$n" = "1" ] && echo 1 || echo 0)" "found $n"
+check "1 entry when we stay silent" "$([ "$n" = "1" ] && echo 1 || echo 0)" "found $n"
+
+echo
+echo "Case 6: a real player's list must NOT get the placeholder"
+# The placeholder exists only to stop an empty list meaning "open". Once a real ID is present
+# Valheim already enforces, and an extra entry would be unexplained cruft in the operator's file.
+docker exec "$CONTAINER" grep -q "$SENTINEL" "$SAVEDIR/permittedlist.txt"
+check "absent when the operator has entries" "$([ $? -ne 0 ] && echo 1 || echo 0)" "placeholder leaked into a real list"
+
+echo
+echo "Case 7: a deliberately OPEN world must NOT get the placeholder"
+# THE MOST IMPORTANT CASE. If the placeholder leaked in here it would silently lock out every
+# player on a world the operator deliberately opened -- turning a safety fix into an outage.
+setState 1 "''" >/dev/null
+runSync >/dev/null
+n=$(listEntries | tr -d '[:space:]')
+check "open world renders 0 entries" "$([ "$n" = "0" ] && echo 1 || echo 0)" "found $n -- an open world was locked"
+
+echo
+echo "Case 8: admin and banned lists never get the placeholder"
+# An empty admin list ("no admins") and an empty banned list ("nobody banned") are both correct
+# and safe. Forcing an entry into either would invent access rules nobody asked for.
+setState 0 "''" >/dev/null
+runSync >/dev/null
+for f in adminlist bannedlist; do
+    docker exec "$CONTAINER" grep -q "$SENTINEL" "$SAVEDIR/$f.txt"
+    check "$f.txt is clean" "$([ $? -ne 0 ] && echo 1 || echo 0)"
+done
 
 echo
 echo "$pass passed, $fail failed"

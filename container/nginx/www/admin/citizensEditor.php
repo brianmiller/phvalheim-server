@@ -85,7 +85,9 @@ if (isset($_GET['citizens'], $_GET['world'])) {
     } else {
         $citizens = normaliseIdList($citizens);
         setCitizens($pdo, $world, $citizens);
-        $writeResult = writeAccessList($world, 'citizens', getCitizens($pdo, $world));
+        # enforced=true: if the operator cleared the list, writeAccessList() drops in the
+        # fail-closed sentinel rather than leaving a file Valheim would ignore entirely.
+        $writeResult = writeAccessList($world, 'citizens', getCitizens($pdo, $world), true);
     }
 
     # Never report a save that did not reach the file. This page used to ignore the return

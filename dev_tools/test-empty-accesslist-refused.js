@@ -40,8 +40,14 @@ const save = async (citizens, isPublic) => {
     console.log('\nCase 1: list ENFORCED, list EMPTY -- must be refused');
     let r = await save('', 0);
     check('refused', r.success === false, JSON.stringify(r).slice(0, 120));
+    // The message used to say an empty list would let EVERYONE in. The render-time sentinel
+    // made that false -- an enforced-empty list is now genuinely closed -- so the guard was
+    // reworded to the real risk: it locks out everybody, including the operator. Asserting the
+    // consequence clause keeps the message honest rather than merely present.
     check('the message says why, not just "invalid"',
-        /empty/i.test(r.error || '') && /everyone/i.test(r.error || ''), r.error);
+        /empty/i.test(r.error || '') && /nobody/i.test(r.error || ''), r.error);
+    check('and does NOT still claim the world would be open',
+        !/everyone/i.test(r.error || ''), r.error);
 
     console.log('\nCase 2: list ENFORCED with a real id -- must succeed');
     r = await save('76561197960287930', 0);

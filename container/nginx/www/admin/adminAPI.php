@@ -265,8 +265,12 @@ switch($action) {
                 'crossplay' => isset($input['crossplay']) ? (int)$input['crossplay'] : 0,
                 'listed'    => isset($input['listed'])    ? (int)$input['listed']    : 0
             ];
+            # The CITIZENS access flag, not Valheim's -public browser argument ('listed').
+            # Absent means RESTRICTED: an older client, a script, or a replayed request must
+            # never be able to create an open world by simply omitting the field.
+            $accessOpen = isset($input['accessOpen']) ? (int)$input['accessOpen'] : 0;
             if ($world) {
-                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions);
+                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions, $accessOpen);
             } else {
                 echo json_encode(['error' => 'World name required']);
             }
@@ -1017,13 +1021,17 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
     # anyone in while the Access tab reads "Use Access List: on". Observed on production: a
     # world with public=0 and no citizens, which a player joined without being on any list.
     #
-    # Refused rather than silently corrected: the two sane intents ("let anyone in" and "let
-    # these people in") are both one click away, and guessing which one was meant is how a
-    # server ends up open when its owner believed otherwise.
+    # This guard is now a LOCKOUT guard, not a security one. The render-time sentinel in
+    # writeAccessList()/syncAccessLists.sh means an enforced-but-empty list is genuinely
+    # closed, so the old wording ("it would let everyone in") became false the moment the
+    # sentinel shipped -- a message that lies about the risk is worse than no message.
+    #
+    # It still refuses, because an empty enforced list now shuts EVERYONE out including the
+    # operator, which is almost never what someone pressing Save intended.
     if (!$isPublic && $citizens === '') {
         echo json_encode([
             'success' => false,
-            'error'   => 'The access list is empty, so it would let everyone in rather than nobody. Add at least one player ID, or switch "Use Access List" off to open the world deliberately.'
+            'error'   => 'The access list is empty, so nobody at all would be able to join — not even you. Add at least one player ID, or switch "Use Access List" off to open the world deliberately.'
         ]);
         return;
     }
@@ -1031,7 +1039,7 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
     setCitizens($pdo, $world, $citizens);
     setPublic($pdo, $world, $isPublic);
 
-    $result = writeAccessList($world, 'citizens', $isPublic ? '' : $citizens);
+    $result = writeAccessList($world, 'citizens', $isPublic ? '' : $citizens, !$isPublic);
     if (!$result['ok']) {
         echo json_encode([
             'success' => false,
@@ -1485,7 +1493,7 @@ function saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $cl
 /**
  * Create a new world with optional mod selection
  */
-function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions = NULL) {
+function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions = NULL, $accessOpen = 0) {
     global $gameDNS, $defaultSeed;
 
     $isVanilla = !empty($vanillaOptions['vanilla']);
@@ -1536,6 +1544,13 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
 
         // Crossplay applies to any world, modded or not.
         setCrossplay($pdo, $world, !empty($vanillaOptions['crossplay']) ? 1 : 0);
+
+        // Set the access model EXPLICITLY. Before this, create wrote no `public` value at all
+        // and the world silently inherited the column default -- which is 0, "enforce the
+        // access list", with an empty list Valheim ignores. Every world was therefore born
+        // open while its Access tab called it restricted. Writing the chosen value here means
+        // the row says what the operator picked, not what the schema happened to default to.
+        setPublic($pdo, $world, $accessOpen ? 1 : 0);
 
         if ($isVanilla) {
             // A vanilla world means ZERO mods -- ignore any mod selection outright

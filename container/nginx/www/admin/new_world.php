@@ -285,6 +285,30 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 							</div>
 						</div>
 					</div>
+					<!--
+						Who can join. This used to be implicit: the create path never set `public`
+						at all, so every world inherited the column default of 0 -- "use the access
+						list" -- with an empty list. Valheim ignores an empty permitted list, so the
+						world came up OPEN while its Access tab called it restricted. Making it an
+						explicit choice is what stops a world being born in a state nobody picked.
+					-->
+					<div class="col-12">
+						<label class="form-label alt-color"><strong>Who can join</strong></label>
+						<div class="form-check">
+							<input class="form-check-input" type="radio" name="accessModel" id="accessRestricted" value="restricted" checked>
+							<label class="form-check-label" for="accessRestricted">Only players on the access list</label>
+						</div>
+						<div class="form-check">
+							<input class="form-check-input" type="radio" name="accessModel" id="accessOpen" value="open">
+							<label class="form-check-label" for="accessOpen">Anyone who can reach the server</label>
+						</div>
+						<div class="form-text text-secondary">
+							The access list starts empty, so a restricted world lets nobody in until you add
+							players in <em>Settings &rarr; Access</em>. It defaults to restricted deliberately:
+							a world that is accidentally locked is a nuisance, one that is accidentally open
+							is not.
+						</div>
+					</div>
 					<div class="col-12">
 						<div class="form-check">
 							<input class="form-check-input" type="checkbox" id="vanillaWorld" onchange="toggleVanillaWorld(this.checked)">
@@ -1123,7 +1147,11 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					password: isVanilla ? $('#vanillaPassword').val().trim() : '',
 					// Crossplay applies to any world, so it is NOT gated on isVanilla.
 					crossplay: $('#worldCrossplay').is(':checked') ? 1 : 0,
-					listed: (isVanilla && $('#vanillaListed').is(':checked')) ? 1 : 0
+					listed: (isVanilla && $('#vanillaListed').is(':checked')) ? 1 : 0,
+					// Sent as the CITIZENS access flag (worlds.public), NOT Valheim's -public
+					// server browser argument -- that is `listed` above. Same names, opposite
+					// meanings; conflating them would publish every open world.
+					accessOpen: $('#accessOpen').is(':checked') ? 1 : 0
 				};
 
 				// Add clone data if present

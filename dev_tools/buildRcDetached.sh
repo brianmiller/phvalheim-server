@@ -94,6 +94,17 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   y=$(grep -c "so it would let everyone in rather than nobody" /opt/stateless/nginx/www/admin/adminAPI.php)
   z=$(grep -cF "ANYONE CAN JOIN" /opt/stateless/games/valheim/scripts/syncAccessLists.sh)
   echo "empty-list save refusal=$y (want 1)  start-time warning=$z (want 1)"
+  # The fail-closed sentinel must be in BOTH writers -- one alone means the admin UI and the
+  # next world start disagree about who can connect. Also check the create path sets the
+  # access model, and that the old wording claiming an empty list lets EVERYONE in is gone,
+  # because the sentinel made that statement false.
+  aa=$(grep -cF "V_76561197960265728" /opt/stateless/games/valheim/scripts/syncAccessLists.sh)
+  ab=$(grep -cF "V_76561197960265728" /opt/stateless/nginx/www/includes/accesslists.php)
+  ac=$(grep -c "setPublic(\$pdo, \$world, \$accessOpen ? 1 : 0)" /opt/stateless/nginx/www/admin/adminAPI.php)
+  ad=$(grep -c "accessModel" /opt/stateless/nginx/www/admin/new_world.php)
+  ae=$(grep -c "let everyone in rather than nobody" /opt/stateless/nginx/www/admin/adminAPI.php)
+  echo "sentinel: shell=$aa (want 1)  php=$ab (want 1)"
+  echo "create sets access model=$ac (want 1)  who-can-join radios=$ad (want 2)  stale wording=$ae (want 0)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
@@ -101,6 +112,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
     && [ "$u" = "1" ] && [ "$v" = "1" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
     && [ "$y" = "1" ] && [ "$z" = "1" ] \
+    && [ "$aa" = "1" ] && [ "$ab" = "1" ] && [ "$ac" = "1" ] && [ "$ad" = "2" ] && [ "$ae" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
