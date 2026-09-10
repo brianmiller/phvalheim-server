@@ -145,6 +145,13 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   bc=$(grep -c "crossplayOption" /opt/stateless/nginx/www/admin/new_world.php)
   bd=$(grep -c "isVanilla && !empty(.vanillaOptions..crossplay..)" /opt/stateless/nginx/www/admin/adminAPI.php)
   echo "crossplay vanilla-only: launch gate=$ba (want 1)  settings row=$bb (want 2)  create option=$bc (want 2)  createWorld gate=$bd (want 1)"
+  # World cards online-first, and the player id on its own line. The stale ORDER BY is a
+  # NEGATIVE: the PHP sort would mask its return, so nothing would visibly break.
+  be=$(grep -c "function sortWorldsOnlineFirst" /opt/stateless/nginx/www/includes/db_gets.php)
+  bf=$(grep -c "sortWorldsOnlineFirst(.getMyWorlds, .worldIsOnline)" /opt/stateless/nginx/www/public/authenticated.php)
+  bg=$(grep -c "ORDER BY currentMemory" /opt/stateless/nginx/www/includes/db_gets.php)
+  bh=$(grep -A6 "^\.steamid-self {" /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "display: block")
+  echo "card order: sorter=$be (want 1)  caller=$bf (want 1)  stale ORDER BY=$bg (want 0)  id on own line=$bh (want 1)"
   # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
   # tolerated -- treating it as failure would mark every modded world broken.
   am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
@@ -177,6 +184,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$ap" = "1" ] && [ "$aq" = "3" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
     && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
     && [ "$ba" = "1" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "1" ] \
+    && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
