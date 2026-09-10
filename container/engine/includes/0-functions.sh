@@ -295,8 +295,32 @@ function downloadAndInstallTsModsForWorld() {
                         rm -rf /tmp/BepInEx_tmp
                 fi
 
+                #unzip -d creates only the LAST path component; it will NOT create missing
+                #parents, and fails with exit 2 ("cannot create extraction directory") when one
+                #is absent. The BepInEx pack ships BepInEx/config/ and BepInEx/core/ but NOT
+                #BepInEx/plugins/ or BepInEx/patchers/, so on a fresh world those two parents
+                #never existed -- and EVERY plugin unzip below failed, silently, because its
+                #output is discarded. That is a world coming up with zero mods while every log
+                #line reads "Installing...".
+                #
+                #Deterministic, not a race: it happens to every newly created modded world.
+                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/plugins
+                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/patchers
+                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/config
+                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/core
+
                 #Plugins
                 unzip -o $tsModsDir/$modFileConstructed -x config/* core/* patchers/* BepInExPack_Valheim/* README.md icon.png manifest.json -d $worldsDirectoryRoot/$worldName/game/BepInEx/plugins/$modName/ > /dev/null 2>&1
+                unzipResult=$?
+                #Captured BEFORE the test: inside the if, $? is the TEST's status, not unzip's.
+                #
+                #11 is "no matching files" and is CORRECT here -- the BepInEx pack contains only
+                #BepInExPack_Valheim/*, which this command excludes, so it legitimately extracts
+                #nothing. Treating 11 as failure would mark every modded world broken.
+                if [ $unzipResult -ne 0 ] && [ $unzipResult -ne 11 ]; then
+                        echo "`date` [ERROR : phvalheim]   #### PLUGIN INSTALL FAILED for $modName (unzip exit $unzipResult) -- it will be MISSING from '$worldName' ####"
+                        modInstallFailures=$((modInstallFailures+1))
+                fi
 
                 #Core
                 unzip -o $tsModsDir/$modFileConstructed core/* -d $worldsDirectoryRoot/$worldName/game/BepInEx/core/ > /dev/null 2>&1
