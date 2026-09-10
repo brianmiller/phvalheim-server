@@ -91,8 +91,12 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # The empty-access-list work: the save-time refusal, and the start-time warning for worlds
   # that predate it. Match the WARNING text, not the word "empty" -- this file discusses empty
   # lists in several comments and a bare word count would pass on an image with none of this.
-  y=$(grep -c "so it would let everyone in rather than nobody" /opt/stateless/nginx/www/admin/adminAPI.php)
-  z=$(grep -cF "ANYONE CAN JOIN" /opt/stateless/games/valheim/scripts/syncAccessLists.sh)
+  # Both strings were REWORDED when the sentinel landed -- the old ones claimed an empty list
+  # let everyone in, which the sentinel made false. Match the CONDITION each message names,
+  # not its consequence clause, so a future correction to the wording does not fail the build
+  # while the guard itself is perfectly intact.
+  y=$(grep -c "The access list is empty, so nobody at all" /opt/stateless/nginx/www/admin/adminAPI.php)
+  z=$(grep -cF "access list ENABLED but EMPTY" /opt/stateless/games/valheim/scripts/syncAccessLists.sh)
   echo "empty-list save refusal=$y (want 1)  start-time warning=$z (want 1)"
   # The fail-closed sentinel must be in BOTH writers -- one alone means the admin UI and the
   # next world start disagree about who can connect. Also check the create path sets the
