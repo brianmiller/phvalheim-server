@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.40.1 — Crossplay join codes, dashboard fixes
+
+- **A crossplay world now shows its join code instead of a Launch button that cannot work.** Enabling crossplay makes Valheim open a *PlayFab* server rather than a Steam one; the world is reached by join code and cannot be joined by IP at all. The card offered `steam://…+connect <host>:<port>` regardless, which asks for a direct connection the server is not serving — so it failed silently while the in-game browser worked fine. Crossplay cards now show the code with a copy button, and the hint no longer tells players to use *Join IP*. Non-crossplay vanilla worlds keep their Launch button. The code is read from the world log at render time rather than stored: it is reissued on every restart, so a cached one would keep advertising a code that no longer works.
+- **Resource readouts are cleared when a world stops.** Memory and tick-health bars stayed on screen for worlds that were offline or mid-update. Both APIs were already correct — they return only running worlds — but the way they report a stopped world is to *omit* it, and the dashboard only ever iterated what was in the payload, so those worlds were never visited again and kept their last drawn numbers.
+
 ## v2.40 — Vanilla Servers, Admins, Custom Launch Parameters
 
 Release candidate. Held at `:rc` pending the Valheim 1.0 (Deep North) boss trophy prefab name — see "Known gaps" below.

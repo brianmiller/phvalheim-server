@@ -71,11 +71,19 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # NO single quotes in these echoes -- the whole block is inside sh -c '...', so one
   # apostrophe closes it early and the rest of the verify silently never runs. That is
   # exactly how this script reported a clean build while skipping its last four checks.
+  # Crossplay join code, and the offline-world stats sweep.
+  q=$(grep -c "getWorldJoinCode" /opt/stateless/nginx/www/includes/db_gets.php)
+  r=$(grep -c "copyVanillaJoinCode" /opt/stateless/nginx/www/public/authenticated.php)
+  s=$(grep -c "joinCode" /opt/stateless/nginx/www/public/api.php)
+  t=$(grep -c "clearUnreportedWorlds" /opt/stateless/nginx/www/admin/index.php)
   echo "engine marks-broken=$o (want 2)  engine exit-1 count=$p (want 0)"
+  echo "getWorldJoinCode=$q (want 1)  copyVanillaJoinCode=$r (want 3)  api joinCode=$s (want 1)"
+  echo "clearUnreportedWorlds=$t (want 2)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
+    && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

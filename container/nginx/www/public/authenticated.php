@@ -207,13 +207,48 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					if ($vanillaListed)    { $badges .= "<span class='vanilla-badge $badgeDim'>in server browser</span> "; }
 					if ($badges == "")     { $badges = "<span class='vanilla-badge vanilla-badge-muted $badgeDim'>invite only</span>"; }
 
+					# A CROSSPLAY world cannot be joined by IP at all. Valheim opens a PlayFab
+					# server rather than a Steam one and hands out a join code; steam:// +connect
+					# asks for a direct connection that the server is not offering, so the button
+					# silently did nothing while the in-game browser worked fine. Show the code
+					# the player actually needs instead of a link that cannot work.
+					$vanillaJoinCode = $vanillaCrossplay && $isOnline ? getWorldJoinCode($myWorld) : NULL;
+
 					# Same label as a modded world -- a vanilla world is a peer, not a
 					# different kind of thing. Only the scheme differs: steam:// +connect
 					# instead of phvalheim://, because there is no client payload to sync.
 					# Keep the .launch-link class so the AJAX refresh finds and updates it.
-					$joinLink = $isOnline
-						? "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Launch!</a>"
-						: "<a class='$worldDimmed card_worldLaunch launch-link' href='#'>offline</a>";
+					if (!$isOnline) {
+						$joinLink = "<a class='$worldDimmed card_worldLaunch launch-link' href='#'>offline</a>";
+					} elseif ($vanillaCrossplay) {
+						# No href: there is nothing to launch. Crossplay joins go through the
+						# in-game Join Code box.
+						$joinLink = "<span class='card_worldLaunch launch-link launch-link-static'>Join Code</span>";
+					} else {
+						$joinLink = "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Launch!</a>";
+					}
+
+					# The instructions differ by networking mode, and the old text told every
+					# player to use "Join IP" with the address above -- which is precisely the
+					# thing that does not work on a crossplay world.
+					$vanillaHint = $vanillaCrossplay
+						? "Crossplay world &mdash; join with the code above from Valheim's <em>Join by code</em> box. It cannot be joined by IP."
+						: "Join from Valheim's <em>Join IP</em> screen with the address above, or use the Launch button.";
+
+					# Only rendered for crossplay. A missing code means the world is up but has
+					# not registered its lobby yet -- say so rather than showing an empty row.
+					$joinCodeRow = "";
+					if ($vanillaCrossplay) {
+						$codeCell = $vanillaJoinCode !== NULL
+							? "<span class='vanilla-joincode' data-joincode=\"" . htmlspecialchars($vanillaJoinCode) . "\">"
+								. "<code>" . htmlspecialchars($vanillaJoinCode) . "</code>"
+								. "<a href='#' class='vanilla-password-action' onclick='copyVanillaJoinCode(this); return false;'>copy</a></span>"
+							: ($isOnline ? "<em>starting&hellip;</em>" : "&mdash;");
+						$joinCodeRow = "
+                                                        <td class='$worldDimmed card_worldInfo'>Join&nbsp;code:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-joincode'>$codeCell</td>
+                                                        <tr>";
+					}
 
 					echo "
                                         <div class=\"$worldDimmed catbox catbox-vanilla\" data-world=\"$myWorld\" data-vanilla=\"1\">
@@ -230,6 +265,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>Server&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo world-endpoint'><code>$vanillaEndpoint</code></td>
                                                         <tr>
+                                                        $joinCodeRow
                                                         $passwordRow
                                                         <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>$badges</td>
@@ -244,7 +280,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo world-memory'>$worldMemory</td>
                                                         <tr>
                                                 </table>
-                                                <div class='vanilla-hint'>Join from Valheim's <em>Join IP</em> screen with the address above, or use the Join button.</div>
+                                                <div class='vanilla-hint'>$vanillaHint</div>
                                         </div>
                                 ";
 				} else {
@@ -428,7 +464,20 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                 function copyVanillaPassword(link) {
                     const wrap = link.closest('.vanilla-password');
                     if (!wrap) return;
-                    const password = wrap.dataset.password;
+                    copyCardValue(link, wrap.dataset.password);
+                }
+
+                // A crossplay world is joined by code, not by address, so the code needs the
+                // same one-click copy the password has. Shares the implementation rather than
+                // carrying a second copy of the insecure-context fallback below.
+                function copyVanillaJoinCode(link) {
+                    const wrap = link.closest('.vanilla-joincode');
+                    if (!wrap) return;
+                    copyCardValue(link, wrap.dataset.joincode);
+                }
+
+                function copyCardValue(link, password) {
+                    if (password === undefined || password === null) return;
 
                     const done = (ok) => {
                         link.textContent = ok ? 'copied!' : 'failed';
@@ -481,17 +530,28 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                         // Update launch link
                         const launchLink = card.querySelector('.launch-link');
                         const launchTh = launchLink ? launchLink.parentElement : null;
+                        const isCrossplay = !!(world.vanilla && world.connection && world.connection.crossplay);
                         if (launchLink) {
                             if (isOnline) {
-                                launchLink.textContent = 'Launch!';
-                                // A vanilla world has no client payload and no quickconnect
-                                // mod, so phvalheim:// is meaningless for it -- it is joined
-                                // with Valheim's own +connect via steam://. This runs every
-                                // 5s, so without the branch the poll overwrites the correct
-                                // server-rendered link a few seconds after page load.
-                                launchLink.href = (world.vanilla && world.connection)
-                                    ? world.connection.steamUrl
-                                    : `phvalheim://?${world.launchString}`;
+                                // A CROSSPLAY world has no launchable URL at all -- it is
+                                // reached by join code, not by address. Without this branch the
+                                // poll rewrites the server-rendered "Join Code" label back to
+                                // "Launch!" with a null href a few seconds after page load,
+                                // which is exactly how the dead button survived being noticed.
+                                if (isCrossplay) {
+                                    launchLink.textContent = 'Join Code';
+                                    launchLink.removeAttribute('href');
+                                } else {
+                                    launchLink.textContent = 'Launch!';
+                                    // A vanilla world has no client payload and no quickconnect
+                                    // mod, so phvalheim:// is meaningless for it -- it is joined
+                                    // with Valheim's own +connect via steam://. This runs every
+                                    // 5s, so without the branch the poll overwrites the correct
+                                    // server-rendered link a few seconds after page load.
+                                    launchLink.href = (world.vanilla && world.connection)
+                                        ? world.connection.steamUrl
+                                        : `phvalheim://?${world.launchString}`;
+                                }
                                 launchLink.classList.remove(dimmedClass);
                                 if (launchTh) launchTh.classList.remove(dimmedClass);
                             } else {
@@ -499,6 +559,22 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                 launchLink.href = '#';
                                 launchLink.classList.add(dimmedClass);
                                 if (launchTh) launchTh.classList.add(dimmedClass);
+                            }
+                        }
+
+                        // Update the join code. It is issued per session, so a world that
+                        // restarts gets a new one -- the poll is what keeps a card that was
+                        // open across a restart from advertising the old, dead code.
+                        const joinCodeEl = card.querySelector('.world-joincode');
+                        if (joinCodeEl && isCrossplay) {
+                            const code = world.connection.joinCode;
+                            if (code) {
+                                joinCodeEl.innerHTML =
+                                    `<span class="vanilla-joincode" data-joincode="${code}">`
+                                    + `<code>${code}</code>`
+                                    + `<a href="#" class="vanilla-password-action" onclick="copyVanillaJoinCode(this); return false;">copy</a></span>`;
+                            } else {
+                                joinCodeEl.innerHTML = isOnline ? '<em>starting&hellip;</em>' : '&mdash;';
                             }
                         }
 

@@ -154,7 +154,13 @@ if ($mode == "getMyWorldsStatus") {
                     'passwordPublic' => $showPassword,
                     'crossplay'      => (getCrossplay($pdo, $myWorld) == 1),
                     'listed'         => (getListed($pdo, $myWorld) == 1),
-                    'steamUrl'       => 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
+                    # A crossplay world serves players over PlayFab and cannot be reached by
+                    # IP, so it gets a join code and NO steamUrl -- handing back a +connect URL
+                    # here would let the refresh put the dead Launch button back on the card.
+                    'joinCode'       => (getCrossplay($pdo, $myWorld) == 1) ? getWorldJoinCode($myWorld) : NULL,
+                    'steamUrl'       => (getCrossplay($pdo, $myWorld) == 1)
+                                            ? NULL
+                                            : 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
                 ];
             }
 

@@ -345,6 +345,46 @@ function getCrossplay($pdo,$world) {
         return $sth->fetchColumn();
 }
 
+# The PlayFab join code for a CROSSPLAY world.
+#
+# A crossplay server does not accept a direct IP connection at all: Valheim opens a PlayFab
+# server instead of a Steam one, registers a lobby, and players reach it by join code. The
+# server prints that code once per session:
+#
+#   Session "BayArea" registered with join code 441944
+#
+# DERIVED, never stored. The code is issued per session, so a world that restarts gets a new
+# one -- a cached copy in the database would keep advertising a code that no longer works,
+# with nothing to say it had gone stale.
+#
+# Reads only the tail of the log. These files reach hundreds of MB, and the current session's
+# line is always near the end. The LAST match wins, because a restart appends a newer code
+# above nothing.
+function getWorldJoinCode($world) {
+        $log = "/opt/stateful/logs/valheimworld_" . $world . ".log";
+        if (!is_readable($log)) { return NULL; }
+
+        $size = @filesize($log);
+        if ($size === false) { return NULL; }
+
+        $fh = @fopen($log, 'rb');
+        if (!$fh) { return NULL; }
+        $window = 256 * 1024;
+        if ($size > $window) { fseek($fh, -$window, SEEK_END); }
+        $tail = stream_get_contents($fh);
+        fclose($fh);
+        if ($tail === false) { return NULL; }
+
+        # World logs can carry NUL bytes from torn writes; they break nothing here, but strip
+        # them so the match is not split across one.
+        $tail = str_replace("\0", '', $tail);
+
+        if (preg_match_all('/registered with join code (\d{4,10})/', $tail, $m)) {
+                return end($m[1]);
+        }
+        return NULL;
+}
+
 # NOTE: `listed` is the Steam server-browser flag (Valheim's -public argument).
 # It is NOT the same as `public` -- see getPublic() below, which is the CITIZENS
 # access-control flag. Conflating them would list every open world publicly.

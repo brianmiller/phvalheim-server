@@ -658,6 +658,23 @@ a.card_worldLaunch:hover {
 	color: var(--success);
 }
 
+/* A crossplay world has nothing to launch -- it is joined by code, not by address -- so its
+   header is a label rather than an anchor. Styled to read as a heading, deliberately NOT as
+   a link: a link-coloured word that does nothing on click is worse than plain text. */
+.card_worldLaunch.launch-link-static {
+	color: var(--text-secondary);
+	cursor: default;
+}
+
+/* The join code sits next to a copy action, same shape as the password row above it. */
+.vanilla-joincode code {
+	color: var(--accent-secondary);
+	font-size: 0.8rem;
+}
+.vanilla-joincode .vanilla-password-action {
+	margin-left: 0.4rem;
+}
+
 .card_worldInfo {
 	color: var(--text-secondary);
 	font-size: 0.75rem;
