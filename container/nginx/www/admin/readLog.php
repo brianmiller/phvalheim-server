@@ -41,7 +41,26 @@ function getFormattedLogContent($logFile, $logExclusions, $highlightExclusions, 
             }
         }
         if (!$excluded && trim($line) !== '') {
-            $filteredLines[] = $line;
+            // ESCAPE BEFORE THIS TEXT BECOMES HTML.
+            //
+            // Valheim stack traces are full of angle-bracketed fragments -- assembly
+            // GUIDs like <207a02655d0b483ca679ce75910d2c5e>, compiler-generated names
+            // like <ZNet::SaveWorld> and <DelayedSave>. This log had 1,424 lines
+            // containing one. Injected raw, the browser parses them as unknown TAGS: it
+            // opens elements that never close, swallows the following lines into them,
+            // and relocates the <br> separators -- which is why the viewer showed runs
+            // of up to 63 blank lines while consecutive log entries were glued together
+            // with no break at all. The file itself is fine; the damage was all in the
+            // rendering.
+            //
+            // Escaping here rather than later means everything downstream -- nl2br, the
+            // highlight wrapping, the message replacements -- operates on inert text,
+            // and the only HTML in the output is the markup this file adds itself.
+            // It also closes an injection sink: log lines carry player and mod names.
+            //
+            // Safe to do before the keyword matching: no entry in $logHighlight,
+            // $logExclusions or $highlightExclusions contains <, > or &.
+            $filteredLines[] = htmlspecialchars($line, ENT_QUOTES, 'UTF-8');
         }
     }
 
