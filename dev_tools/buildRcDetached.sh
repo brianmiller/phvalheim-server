@@ -133,6 +133,18 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   az=$(grep -c "canonicalFirstId" /opt/stateless/nginx/www/admin/adminAPI.php)
   echo "canonical stored=$au (want 1)  player-page V_ id=$av (want 3)  id does not wrap=$aw (want 1)"
   echo "create example is V_=$ax (want 1)  stale digits-only regex=$ay (want 0)  create canonicalises=$az (want 3)"
+  # Crossplay is vanilla-only again. The launch gate is the one that matters -- the UI gates
+  # are cosmetic without it -- so match something only the GATED version contains, rather than
+  # the word crossplay, which appears either way.
+  #
+  # NO APOSTROPHES anywhere in this section, including in comments: the whole block is inside
+  # sh -c and a single quote closes it early, silently skipping every later check. That trap is
+  # called out at the top of this file and it still caught me twice here.
+  ba=$(grep -c "crossplay set but is MODDED" /opt/stateless/games/valheim/scripts/startWorld.sh)
+  bb=$(grep -c "crossplayRow" /opt/stateless/nginx/www/admin/index.php)
+  bc=$(grep -c "crossplayOption" /opt/stateless/nginx/www/admin/new_world.php)
+  bd=$(grep -c "isVanilla && !empty(.vanillaOptions..crossplay..)" /opt/stateless/nginx/www/admin/adminAPI.php)
+  echo "crossplay vanilla-only: launch gate=$ba (want 1)  settings row=$bb (want 2)  create option=$bc (want 2)  createWorld gate=$bd (want 1)"
   # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
   # tolerated -- treating it as failure would mark every modded world broken.
   am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
@@ -164,6 +176,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$am" = "1" ] && [ "$an" = "1" ] && [ "$ao" = "1" ] \
     && [ "$ap" = "1" ] && [ "$aq" = "3" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
     && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
+    && [ "$ba" = "1" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
