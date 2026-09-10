@@ -137,11 +137,16 @@ function getWorldJoinCodeStub($w) { return $GLOBALS['STUB_CODE']; }
 # The block calls getWorldJoinCode(); route it to the stub for these cases.
 $block = str_replace('getWorldJoinCode($myWorld)', 'getWorldJoinCodeStub($myWorld)', $block);
 
-echo "\nCase 7: an ONLINE CROSSPLAY world offers the code, not a dead link\n";
+echo "\nCase 7: an ONLINE CROSSPLAY world launches with -joincode\n";
+# `-joincode` is a real Valheim launch argument -- it sits in the assembly's literal heap
+# alongside -crossplay/-password/-port/-world. So a crossplay world IS launchable from a
+# link; what it cannot use is +connect, which asks for a direct IP connection that a
+# PlayFab-hosted server never offers.
 $r = renderCard($block, true, true, '441944');
-check('no steam:// link is offered', strpos($r['link'], 'steam://') === false, $r['link']);
-check('the button reads "Join Code"', strpos($r['link'], 'Join Code') !== false, $r['link']);
-check('the code appears on the card', strpos($r['row'], '441944') !== false, $r['row']);
+check('launches via -joincode', strpos($r['link'], '-joincode 441944') !== false, $r['link']);
+check('does NOT use +connect', strpos($r['link'], '+connect') === false, $r['link']);
+check('the button reads "Launch!"', strpos($r['link'], 'Launch!') !== false, $r['link']);
+check('the code still appears on the card', strpos($r['row'], '441944') !== false, $r['row']);
 check('a copy action is offered', strpos($r['row'], 'copyVanillaJoinCode') !== false);
 check('the hint stops telling players to Join by IP',
     stripos($r['hint'], 'cannot be joined by IP') !== false, $r['hint']);
@@ -160,6 +165,12 @@ echo "\nCase 9: crossplay world that is UP but has not registered its lobby yet\
 $r = renderCard($block, true, true, NULL);
 check('says it is starting rather than showing blank',
     stripos($r['row'], 'starting') !== false, $r['row']);
+# A link with an empty argument is worse than no link -- it launches the game to nothing,
+# which is the exact failure this whole change exists to remove.
+check('offers no -joincode link with an empty code',
+    strpos($r['link'], '-joincode') === false || strpos($r['link'], '-joincode ') === false,
+    $r['link']);
+check('and no href at all while starting', strpos($r['link'], 'href') === false, $r['link']);
 
 echo "\nCase 10: an OFFLINE crossplay world\n";
 $r = renderCard($block, true, false, NULL);

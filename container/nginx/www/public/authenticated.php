@@ -214,6 +214,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# the player actually needs instead of a link that cannot work.
 					$vanillaJoinCode = $vanillaCrossplay && $isOnline ? getWorldJoinCode($myWorld) : NULL;
 
+					# Valheim takes the join code on the command line -- `-joincode` is a
+					# recognised launch argument, alongside -crossplay/-password/-port/-world.
+					# So a crossplay world IS launchable; it just cannot use +connect, which
+					# asks for a direct IP connection that a PlayFab-hosted server never offers.
+					$vanillaJoinUrl = $vanillaJoinCode !== NULL
+						? htmlspecialchars("steam://run/892970//-joincode " . $vanillaJoinCode)
+						: NULL;
+
 					# Same label as a modded world -- a vanilla world is a peer, not a
 					# different kind of thing. Only the scheme differs: steam:// +connect
 					# instead of phvalheim://, because there is no client payload to sync.
@@ -221,9 +229,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					if (!$isOnline) {
 						$joinLink = "<a class='$worldDimmed card_worldLaunch launch-link' href='#'>offline</a>";
 					} elseif ($vanillaCrossplay) {
-						# No href: there is nothing to launch. Crossplay joins go through the
-						# in-game Join Code box.
-						$joinLink = "<span class='card_worldLaunch launch-link launch-link-static'>Join Code</span>";
+						# Launchable via -joincode once the lobby exists. Before that there is
+						# genuinely no code to pass, so the label goes static rather than
+						# offering a link with an empty argument.
+						$joinLink = $vanillaJoinUrl !== NULL
+							? "<a class='card_worldLaunch launch-link' href='$vanillaJoinUrl'>Launch!</a>"
+							: "<span class='card_worldLaunch launch-link launch-link-static'>starting&hellip;</span>";
 					} else {
 						$joinLink = "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Launch!</a>";
 					}
@@ -232,7 +243,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# player to use "Join IP" with the address above -- which is precisely the
 					# thing that does not work on a crossplay world.
 					$vanillaHint = $vanillaCrossplay
-						? "Crossplay world &mdash; join with the code above from Valheim's <em>Join by code</em> box. It cannot be joined by IP."
+						? "Crossplay world &mdash; use the Launch button, or enter the join code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP."
 						: "Join from Valheim's <em>Join IP</em> screen with the address above, or use the Launch button.";
 
 					# Only rendered for crossplay. A missing code means the world is up but has
@@ -539,8 +550,16 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                 // "Launch!" with a null href a few seconds after page load,
                                 // which is exactly how the dead button survived being noticed.
                                 if (isCrossplay) {
-                                    launchLink.textContent = 'Join Code';
-                                    launchLink.removeAttribute('href');
+                                    // A crossplay world launches with -joincode, but only once
+                                    // the lobby exists. Until then there is no code to pass, so
+                                    // do not offer a link with an empty argument.
+                                    if (world.connection.steamUrl) {
+                                        launchLink.textContent = 'Launch!';
+                                        launchLink.href = world.connection.steamUrl;
+                                    } else {
+                                        launchLink.textContent = 'starting…';
+                                        launchLink.removeAttribute('href');
+                                    }
                                 } else {
                                     launchLink.textContent = 'Launch!';
                                     // A vanilla world has no client payload and no quickconnect

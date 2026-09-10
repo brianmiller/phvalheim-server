@@ -146,20 +146,26 @@ if ($mode == "getMyWorldsStatus") {
                 // the check would put the password back in a JSON response the admin has
                 // explicitly said not to publish.
                 $showPassword = (getPasswordPublic($pdo, $myWorld) != 0);
+                # Resolved once: getWorldJoinCode() reads the world log, so calling it per
+                # array entry would re-read the file for every field that mentions it.
+                $isCrossplayWorld  = (getCrossplay($pdo, $myWorld) == 1);
+                $crossplayJoinCode = $isCrossplayWorld ? getWorldJoinCode($myWorld) : NULL;
                 $connection = [
                     'endpoint'       => $gameDNS . ':' . $worldPort,
                     'host'           => $gameDNS,
                     'port'           => $worldPort,
                     'password'       => $showPassword ? getWorldPassword($pdo, $myWorld) : NULL,
                     'passwordPublic' => $showPassword,
-                    'crossplay'      => (getCrossplay($pdo, $myWorld) == 1),
+                    'crossplay'      => $isCrossplayWorld,
                     'listed'         => (getListed($pdo, $myWorld) == 1),
-                    # A crossplay world serves players over PlayFab and cannot be reached by
-                    # IP, so it gets a join code and NO steamUrl -- handing back a +connect URL
-                    # here would let the refresh put the dead Launch button back on the card.
-                    'joinCode'       => (getCrossplay($pdo, $myWorld) == 1) ? getWorldJoinCode($myWorld) : NULL,
-                    'steamUrl'       => (getCrossplay($pdo, $myWorld) == 1)
-                                            ? NULL
+                    # A crossplay world is served over PlayFab and cannot be reached by IP, so
+                    # it launches with -joincode rather than +connect. Handing back a +connect
+                    # URL here would let the 5s refresh put the dead Launch button back.
+                    'joinCode'       => $isCrossplayWorld ? getWorldJoinCode($myWorld) : NULL,
+                    'steamUrl'       => $isCrossplayWorld
+                                            ? ($crossplayJoinCode !== NULL
+                                                ? 'steam://run/892970//-joincode ' . $crossplayJoinCode
+                                                : NULL)
                                             : 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
                 ];
             }
