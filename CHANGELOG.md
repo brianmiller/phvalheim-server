@@ -43,12 +43,23 @@ Verified against the real Valheim dedicated server: it reads and writes all thre
 - **Trophy tooltip drift**: the AJAX refresh said "The Seeker Queen" where the server-rendered card said "The Queen", so the tooltip changed on first refresh. Both now come from the registry.
 - **SQL injection in `setHungHeads()`**: the world name and trophy column were interpolated into SQL from an unauthenticated POST body. Both are now bound/validated against the registry.
 
-### Client (2.0.13)
-- Understands vanilla worlds via a new optional 8th launch-string field and launches them with Valheim's `+connect`, skipping the world sync and BepInEx entirely. Older servers that send 7 fields still work.
-- Removed the dead `ProgressBar/` directory — 6 files, 524 of 1591 lines, all declaring `namespace UpdateHOB` and referenced by nothing.
+### Admin UI
+- **The mod browser is one "All" list.** The old "Available" tab held only the mods you had *not* picked, so ticking one made it vanish from the list you were reading. "All" holds every mod with the selected ones pinned to the top, and it is the landing tab on both Create World and Edit World. "Selected" remains as a filtered view. Previously the pages opened on "Selected" — empty by definition on a world being created — which rendered "No data available in table" and hid the whole catalogue behind a tab.
+- **Create World no longer offers mod selection for a vanilla world.** The whole card is hidden, not just the tables; the header and the clone-mods-from-another-world block used to stay on screen for a world that can hold no mods.
+- **World Settings modal reorganised** into General / Options / Access / Backups tabs, with the create and edit pages given a single primary action and a sticky action bar.
+- **Access tab**: Public World moved to the top — it decides whether the Citizens list is consulted at all — and gained its own **Save Access** button. Citizens keeps its own **Save Citizens**, which now hides along with the editor instead of sitting there answering "Citizens saved." for a list that was no longer on screen.
+- **Look Up SteamID returns the `V_` form** rather than a bare SteamID64. It pastes straight into an access list, so it was manufacturing the exact input Valheim 1.0 refuses. The same helper in the legacy `citizensEditor.php` is fixed too.
+- Hint text spacing on the General and Options tabs; the "needs a world restart" note now shares a line with its Save button instead of sitting stranded below it.
+
+### Upgrading from 2.39
+- **Stored access IDs are converted to the `V_` form automatically** on first start, and the Access tab explains the change once. Idempotent; already-prefixed and console IDs are left alone, and anything unparseable is kept verbatim rather than dropped — silently deleting an unrecognised ID would lock someone out of their own world. Note this is a *display* fix: `syncAccessLists.sh` already canonicalised on the way out to the files, so an upgraded server was functionally correct before it ran. What it was not was legible — the Access tab showed bare IDs while the file Valheim reads said `V_…`.
+- `container/mysql/tsmods_seed.sql` refreshed: **9,390 → 11,030 mods** (the committed seed was seven months old, so a fresh install started that far behind until the first 12-hourly sync).
+
+### Client
+- **No client update is required.** 2.0.12 remains current and works with both modded and vanilla worlds — vanilla worlds are joined from the public card's `steam://run/892970//+connect` button, which needs no client at all.
 
 ### Known gaps
-- The Deep North boss is **not yet registered**: its trophy prefab name is unknown until the 1.0 release. `public/api.php` now logs any unrecognised `Trophy*` POST to `phvalheim.log`, so the first hung head anywhere reveals the name. Landing it is one entry in `includes/bosses.php`, one uncommented line in `dbUpdate_2.40.sh`, and one PNG.
+- **The Deep North boss cannot be a hung head.** Valheim 1.0 shipped without a trophy for it: the assets carry 131 `Trophy*` tokens and only 7 `BossStone*`, none for Kall Fimbulbringer, and the seven existing stones are confirmed. The hung-head wall therefore stays at seven bosses. `public/api.php` still logs any unrecognised `Trophy*` POST, so if one ever appears it identifies itself. See `docs/RELEASE-2.40-DESIGN.md` §9.
 - Custom seeds need a BepInEx mod, so vanilla worlds always generate a random seed.
 
 ## v2.39 — Modpack Rebuild Boot Fix

@@ -359,13 +359,19 @@ Each world has three per-world player lists, all in the world's **Settings** mod
 
 A plain SteamID64 (17 digits) also works for Steam players. PhValheim stores what you type and converts it on write.
 
+For Steam players you can also use **Look Up SteamID** in the Citizens editor — enter a Steam username and it returns the ready-to-paste `V_…` form. (Requires a Steam API key in Server Settings.)
+
 > **Why the conversion:** since Valheim 1.0, a bare SteamID64 in these files **does not match**. `ZNet.ListContainsId()` finishes by looking up the *display-prefix* form of the ID (`Steam` → `V`) and **assigns** that result over the earlier checks rather than OR-ing it, so only `V_<steamid64>` can match. PhValheim writes that form for you. This is a bug in Valheim — it is also why Valheim's own `ban` console command writes an entry its own matcher cannot match, and why older "put your SteamID64 in permittedlist.txt" guides no longer work.
 
 Changes take effect **without a restart** — Valheim re-reads all three files while running. The one exception is admin status, which a connected client caches until it reconnects.
 
 The **database is the source of truth**. All three files are regenerated from it every time a world starts, so a world that was restored from a backup or rebuilt converges back to what the admin UI shows instead of quietly keeping an older list.
 
+**Upgrading from 2.39 or earlier:** your stored IDs are converted to the `V_` form automatically on first start, and the Access tab explains it once. Entries that were already prefixed, and console IDs, are left alone; anything unrecognised is kept exactly as you left it rather than dropped.
+
 > **Note:** A world's **Public** toggle controls the Citizens gate only. It does *not* publish the world to the Valheim server browser — that is the separate **List in server browser** option on vanilla worlds.
+
+**Public World** sits at the top of the Access tab. Switching it on hides the Citizens editor, since the list is not consulted while a world is public — the list is kept, not cleared, and comes back when you switch it off.
 
 ---
 
