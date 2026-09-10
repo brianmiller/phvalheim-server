@@ -65,25 +65,11 @@ canonicalId() {
 	esac
 }
 
-# The fail-closed sentinel for permittedlist.txt.
-#
-# 76561197960265728 is the SteamID64 base -- account ID 0, which Steam does not issue. It is a
-# structurally perfect SteamID64 that can never belong to anyone, so it can never accidentally
-# grant access the way a real person's ID (Gabe Newell's, say) could.
-#
-# The comment goes on its OWN line, not trailing the entry. Valheim may well tolerate a
-# same-line comment, but that has not been verified against the shipped assembly and there is
-# nothing to gain by betting the access control on it.
-#
-# Must stay in lockstep with accesslists.php.
-ACCESS_SENTINEL="V_76561197960265728"
-
-# $1=target file, $2=header comment, $3=space separated ids, $4=1 if this list must RESTRICT
+# $1=target file, $2=header comment, $3=space separated ids
 writeList() {
 	target="$1"
 	header="$2"
 	ids="$3"
-	enforced="$4"
 
 	tmp="$target.tmp.$$"
 
@@ -98,21 +84,6 @@ writeList() {
 		for entry in $ids; do
 			canonicalId "$entry" >> "$tmp"
 		done
-	elif [ "$enforced" = "1" ]; then
-		# FAIL CLOSED. Valheim ENFORCES this list only when it has entries, so an empty
-		# file is not "nobody may join" -- it is no restriction at all, and the world runs
-		# wide open while the Access tab calls it restricted.
-		#
-		# This runs at EVERY world start, so it is the backstop that covers paths the
-		# save-time guard cannot see: create (which never sets `public` or `citizens` at
-		# all), clone, and restore. It also heals worlds that were already in this state.
-		{
-			echo "// PhValheim placeholder -- Steam account ID 0, which is never issued to anyone."
-			echo "// Valheim ENFORCES this list only when it has entries, so an empty file would mean"
-			echo "// ANYONE may join. This entry keeps \"Use Access List\" closed until a real player is"
-			echo "// added. Remove it only by turning the access list off in the admin UI."
-			echo "$ACCESS_SENTINEL"
-		} >> "$tmp"
 	fi
 
 	# Atomic: Valheim may read this file at any moment, and a rename swaps it in whole.
@@ -155,21 +126,15 @@ else
 	# the access list off -- are one click apart and mean opposite things; guessing on the
 	# operator's behalf is how a server ends up locked or open against their intent.
 	if [ -z "`echo \"$citizens\" | tr -d '[:space:]'`" ]; then
-		echo "`date` [WARNING : phvalheim] World '$worldName' has the access list ENABLED but EMPTY. A placeholder entry is being written to keep it CLOSED, so NOBODY can join -- not even the operator. Fix it in Settings > Access: add at least one player ID, or switch 'Use Access List' off if the world is meant to be open."
+		echo "`date` [WARNING : phvalheim] World '$worldName' has the access list ENABLED but EMPTY. Valheim ignores an empty permitted list, so ANYONE CAN JOIN even though the Access tab shows this world as restricted. Fix it in Settings > Access: add at least one player ID, or switch 'Use Access List' off if the world is meant to be open."
 	fi
 fi
 
 # Header lines are byte-for-byte what the real Valheim server writes when it creates these
 # files itself. The DOUBLE space in the admin and banned headers is Valheim's, not a typo.
-# Only CITIZENS gets the sentinel, and only when the list is enforced. An empty admin list
-# ("no admins") and an empty banned list ("nobody banned") are both correct and safe as-is;
-# forcing an entry into either would invent access rules nobody asked for.
-enforceCitizens=0
-[ "$isPublic" != "1" ] && enforceCitizens=1
-
-writeList "$saveDir/permittedlist.txt" "// List permitted players ID ONE per line" "$citizens" "$enforceCitizens"
-writeList "$saveDir/adminlist.txt"     "// List admin players ID  ONE per line"    "$admins"   0
-writeList "$saveDir/bannedlist.txt"    "// List banned players ID  ONE per line"   "$banned"   0
+writeList "$saveDir/permittedlist.txt" "// List permitted players ID ONE per line" "$citizens"
+writeList "$saveDir/adminlist.txt"     "// List admin players ID  ONE per line"    "$admins"
+writeList "$saveDir/bannedlist.txt"    "// List banned players ID  ONE per line"   "$banned"
 
 echo "`date` [NOTICE : phvalheim] Access lists synced from database for '$worldName'."
 exit 0

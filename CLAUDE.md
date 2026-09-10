@@ -126,11 +126,13 @@ supervisorctl start valheimworld_myworld # Start world
   `file_put_contents()` directly, and never ignore the return value. A silently-failed write is
   what made the CITIZENS editor look like it had stopped working while the UI said "saved".
 - Valheim enforces `permittedlist.txt` **only when it has entries** — an empty file is *no
-  restriction*, not "nobody may join". So an enforced-but-empty list is a wide open server.
-  Both writers therefore inject a fail-closed placeholder (`V_76561197960265728`, Steam account
-  ID 0) when the list is enforced and empty. It is a RENDER-time entry: never stored, never
-  shown in the UI. If you change it, change it in `accesslists.php` **and**
-  `syncAccessLists.sh` — `dev_tools/test-accesslist-writer-parity.sh` diffs the two.
+  restriction*, not "nobody may join". So an enforced-but-empty list is a **wide open server**
+  whose Access tab claims otherwise. Nothing closes it at render time: a fail-closed placeholder
+  entry was tried and deliberately removed. The protection is entirely up front —
+  `createWorld` demands a first player ID, `saveCitizens` refuses an empty enforced list, and
+  `syncAccessLists.sh` logs a WARNING at every world start for any world already in that state.
+  **Never write an entry the operator did not supply**; if you are tempted to, read
+  `dev_tools/test-create-access-guards.sh` first.
 - Admin interface (8081) should never be exposed publicly
 - Thunder Store mod metadata syncs every 12 hours via cron
 - World backups run every 30 minutes

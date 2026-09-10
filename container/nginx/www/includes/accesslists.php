@@ -24,24 +24,13 @@
  *      write can be observed half-written.
  */
 
-# The fail-closed sentinel for permittedlist.txt.
+# NOTE: an enforced-but-empty permitted list is NOT closed. Valheim applies the list only when
+# it has entries, so an empty one is no restriction at all. A placeholder entry was tried here
+# to make the switch fail closed and was removed deliberately: the guards that now prevent the
+# state are the create-time and save-time checks, which demand a real player ID. A world that
+# reaches this state some other way (a restored backup, a direct database edit) is OPEN, and
+# syncAccessLists.sh warns loudly at every world start.
 #
-# 76561197960265728 is the SteamID64 base -- account ID 0, which Steam does not issue. It is a
-# structurally perfect SteamID64 that can never belong to anyone, so it can never accidentally
-# grant access the way a real person's ID (Gabe Newell's, say) could.
-#
-# The comment goes on its OWN line, not trailing the entry. Valheim may well tolerate a
-# same-line comment, but that has not been verified against the shipped assembly and there is
-# nothing to gain by betting the access control on it.
-#
-# Must stay in lockstep with syncAccessLists.sh.
-define('PHVALHEIM_ACCESS_SENTINEL', 'V_76561197960265728');
-define('PHVALHEIM_ACCESS_SENTINEL_COMMENT',
-	"// PhValheim placeholder -- Steam account ID 0, which is never issued to anyone.\n" .
-	"// Valheim ENFORCES this list only when it has entries, so an empty file would mean\n" .
-	"// ANYONE may join. This entry keeps \"Use Access List\" closed until a real player is\n" .
-	"// added. Remove it only by turning the access list off in the admin UI.\n");
-
 # Header lines are copied byte-for-byte from what the real Valheim server writes when it
 # creates these files itself. Note the DOUBLE space in the admin and banned headers -- that
 # is Valheim's own spacing, not a typo. They are only comments, but matching them keeps a
@@ -200,8 +189,6 @@ function partitionSteamIds($normalised) {
  * Write one access list file for a world.
  *
  * $ids is a space separated string (or empty for "no entries").
- * $enforced says whether this list is meant to RESTRICT access -- only meaningful for
- * 'citizens', and only when $ids is empty. See PHVALHEIM_ACCESS_SENTINEL.
  * Returns ['ok' => bool, 'error' => string|null].
  *
  * Every failure path returns an error rather than being swallowed. Callers MUST surface it;
@@ -210,7 +197,7 @@ function partitionSteamIds($normalised) {
  * Must stay in lockstep with syncAccessLists.sh, which renders the same three files at every
  * world start and is the authority. This function only makes the change visible sooner.
  */
-function writeAccessList($world, $kind, $ids, $enforced = false) {
+function writeAccessList($world, $kind, $ids) {
 	global $PHVALHEIM_ACCESS_LISTS;
 
 	if (!isset($PHVALHEIM_ACCESS_LISTS[$kind])) {
@@ -246,19 +233,6 @@ function writeAccessList($world, $kind, $ids, $enforced = false) {
 			$canonical = canonicalAccessId($entry);
 			$body .= ($canonical === null ? $entry : $canonical) . "\n";
 		}
-	} elseif ($kind === 'citizens' && $enforced) {
-		# FAIL CLOSED. Valheim only ENFORCES permittedlist.txt when it has entries: an empty
-		# file is not "nobody may join", it is no restriction at all. So an enforced-but-empty
-		# list produced a wide open server whose Access tab said "restricted" -- wrong in the
-		# dangerous direction, and the state EVERY world was born in, because the create path
-		# never sets `public` or `citizens` and the column defaults to 0 (= list enforced).
-		#
-		# One unassignable entry keeps the switch honest. It is injected at RENDER time and
-		# never stored, so the database stays exactly what the operator typed, the admin UI
-		# needs no filtering, and any path that reaches a file write is covered -- including
-		# create, clone and restore, none of which go through the save-time guard.
-		$body .= PHVALHEIM_ACCESS_SENTINEL_COMMENT;
-		$body .= PHVALHEIM_ACCESS_SENTINEL . "\n";
 	}
 
 	$tmp = @tempnam($dir, '.list');

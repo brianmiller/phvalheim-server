@@ -1043,17 +1043,19 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
     # anyone in while the Access tab reads "Use Access List: on". Observed on production: a
     # world with public=0 and no citizens, which a player joined without being on any list.
     #
-    # This guard is now a LOCKOUT guard, not a security one. The render-time sentinel in
-    # writeAccessList()/syncAccessLists.sh means an enforced-but-empty list is genuinely
-    # closed, so the old wording ("it would let everyone in") became false the moment the
-    # sentinel shipped -- a message that lies about the risk is worse than no message.
+    # Refused rather than silently corrected: the two sane intents ("let anyone in" and "let
+    # these people in") are both one click away, and guessing which one was meant is how a
+    # server ends up open when its owner believed otherwise.
     #
-    # It still refuses, because an empty enforced list now shuts EVERYONE out including the
-    # operator, which is almost never what someone pressing Save intended.
+    # A placeholder entry was briefly written at render time to make this state fail closed,
+    # which made the wording below temporarily false. That placeholder was dropped, so an
+    # enforced-but-empty list is once again genuinely OPEN and the original wording is correct.
+    # This is a SECURITY guard, not a lockout one -- with nothing else standing between an
+    # empty list and an open server, it must not be relaxed to a confirmation.
     if (!$isPublic && $citizens === '') {
         echo json_encode([
             'success' => false,
-            'error'   => 'The access list is empty, so nobody at all would be able to join — not even you. Add at least one player ID, or switch "Use Access List" off to open the world deliberately.'
+            'error'   => 'The access list is empty, so it would let everyone in rather than nobody. Add at least one player ID, or switch "Use Access List" off to open the world deliberately.'
         ]);
         return;
     }
@@ -1061,7 +1063,7 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
     setCitizens($pdo, $world, $citizens);
     setPublic($pdo, $world, $isPublic);
 
-    $result = writeAccessList($world, 'citizens', $isPublic ? '' : $citizens, !$isPublic);
+    $result = writeAccessList($world, 'citizens', $isPublic ? '' : $citizens);
     if (!$result['ok']) {
         echo json_encode([
             'success' => false,
@@ -1580,7 +1582,7 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
         // rendered, by canonicalAccessId()/canonicalId().
         if (!$accessOpen && $accessFirstId !== '') {
             setCitizens($pdo, $world, $accessFirstId);
-            $seedResult = writeAccessList($world, 'citizens', $accessFirstId, true);
+            $seedResult = writeAccessList($world, 'citizens', $accessFirstId);
             if (!$seedResult['ok']) {
                 // Not fatal: the world exists and the database is correct, and
                 // syncAccessLists.sh re-renders the file at every world start anyway.

@@ -4,14 +4,17 @@
 # WHY THIS EXISTS
 #
 # Two things write these files: writeAccessList() in accesslists.php (on Save, for immediate
-# feedback) and syncAccessLists.sh (at every world start, and the authority). The fail-closed
-# sentinel had to be implemented in BOTH -- separately, in two languages, with the entry and
-# its four comment lines duplicated.
+# feedback) and syncAccessLists.sh (at every world start, and the authority). They are separate
+# implementations in two languages of the same rules -- id canonicalisation, the public-world
+# blanking, the exact header bytes.
 #
 # That duplication is the hazard. If they drift, the admin UI writes one thing and the next
 # world start writes another, and the difference is *which players can connect*. A change to
 # one that forgets the other would otherwise show up only as a mysterious access change after
 # a restart -- exactly the class of silent drift syncAccessLists.sh was built to end.
+#
+# (It caught exactly that when a fail-closed placeholder was added to one writer and then
+# removed again: both times the two had to move together.)
 #
 # So this diffs the actual bytes produced by each, across the three states that matter.
 #
@@ -50,7 +53,7 @@ renderPhp() {
     docker exec "$CONTAINER" php -r "
         require_once '/opt/stateless/nginx/www/includes/accesslists.php';
         \$isPublic = $isPublic;
-        \$r = writeAccessList('$WORLD', 'citizens', \$isPublic ? '' : '$cit', !\$isPublic);
+        \$r = writeAccessList('$WORLD', 'citizens', \$isPublic ? '' : '$cit');
         if (!\$r['ok']) { fwrite(STDERR, \$r['error']); exit(1); }
     " 2>/dev/null
     docker exec "$CONTAINER" cat "$LIST"
@@ -73,18 +76,24 @@ compare() {
 echo "(container $CONTAINER, world \"$WORLD\")"
 echo
 echo "Byte-for-byte parity across the three states that change who can connect:"
-compare "enforced + EMPTY  (both must emit the placeholder)" 0 ""
-compare "enforced + one id (neither may emit the placeholder)" 0 "76561197960287930"
-compare "list OFF + empty  (neither may emit anything)"        1 ""
+compare "enforced + EMPTY  (both emit an empty list)" 0 ""
+compare "enforced + one id" 0 "76561197960287930"
+compare "list OFF + empty"                            1 ""
 
 echo
 echo "Control: the comparison can actually detect a difference"
 # Without this, a compare() that always returned equal -- a broken cat, an empty string on both
 # sides -- would report three passes while testing nothing.
-a=$(renderShell 0 "")
+#
+# This used to contrast public=0 against public=1 with an empty list, which differed only
+# because a placeholder was injected into the enforced one. That placeholder is gone, so both
+# now render an identical header-only file and the old control would fail. Contrast a populated
+# list against an empty one instead: a difference that comes from the DATA, not from anything
+# the writer invents.
+a=$(renderShell 0 "76561197960287930")
 b=$(renderShell 1 "")
-check "an open list and a closed list do NOT compare equal" "$([ "$a" != "$b" ] && echo 1 || echo 0)" \
-    "identical output for opposite states means this test is blind"
+check "a populated list and an empty one do NOT compare equal" "$([ "$a" != "$b" ] && echo 1 || echo 0)" \
+    "identical output for different inputs means this test is blind"
 
 echo
 echo "$pass passed, $fail failed"
