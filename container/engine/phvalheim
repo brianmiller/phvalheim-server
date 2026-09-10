@@ -377,6 +377,15 @@ while [ true ]; do
 
 					#Install mods
 					downloadAndInstallTsModsForWorld "$worldName"
+					if [ $? -ne 0 ]; then
+						#A modded world with no plugins must NOT be published. It used to be
+						#packaged, given an md5, marked ready and started, and the only symptom
+						#was BepInEx reporting "0 plugins to load" in the world log -- which
+						#nobody sees until a player joins and finds a vanilla server.
+						echo "`date` [ERROR : phvalheim] Mod installation failed for '$worldName' -- leaving it stopped, and NOT touching its client payload or md5."
+						SQL "UPDATE worlds SET mode='stopped', status='failed' WHERE name='$worldName'"
+						continue
+					fi
 
 					#generate mod viwer list
 					generateModViewerJson "$worldName"

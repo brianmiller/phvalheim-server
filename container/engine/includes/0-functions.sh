@@ -228,6 +228,10 @@ function mergeRequiredTsMods() {
 function downloadAndInstallTsModsForWorld() {
         worldName="$1"
 
+        #Counted per call, not per world -- this is a global, so a failure left over from the
+        #previous world would otherwise condemn the next one.
+        modInstallFailures=0
+
         #Ensure we know about all dependencies for every mod selected
         /opt/stateless/engine/tools/tsModDepGetter.sh "$worldName"
 
@@ -264,7 +268,17 @@ function downloadAndInstallTsModsForWorld() {
                 if [ ! -f $tsModsDir/$modFileConstructed ]; then
                         echo "`date` [phvalheim]   #### Downloading $modFileConstructed from Thunderstore... ####"
                         wget -q --show-progress -O $tsModsDir/$modFileConstructed $modDownloadUrl
-
+                        #wget's exit code was discarded here. A 404 (catalogue naming a version
+                        #Thunderstore no longer serves), a DNS blip or a full disk all left an
+                        #empty or absent file, and the loop carried on to "Installing..." as if
+                        #nothing had happened -- which is how a world reaches its first start
+                        #with no plugins at all while every log line reads like success.
+                        if [ $? -ne 0 ] || [ ! -s "$tsModsDir/$modFileConstructed" ]; then
+                                echo "`date` [ERROR : phvalheim]   #### DOWNLOAD FAILED for $modFileConstructed ($modDownloadUrl) -- this mod will be MISSING from '$worldName' ####"
+                                rm -f "$tsModsDir/$modFileConstructed"
+                                modInstallFailures=$((modInstallFailures+1))
+                                continue
+                        fi
                 else
                         echo "`date` [phvalheim]   #### $modFileConstructed already exists in local repository, using it... ####"
                 fi
@@ -324,9 +338,35 @@ function downloadAndInstallTsModsForWorld() {
         #some mod zips (built on Windows) store directories without the execute bit; unzip
         #preserves that, and BepInEx then fails to boot with a fatal UnauthorizedAccessException
         #(issue #80). u+rwX restores directory traverse without touching group/other bits.
-        chmod -R u+rwX $worldsDirectoryRoot/$worldName/game/BepInEx
+        #The dirs may legitimately not exist yet if nothing installed, hence the -d guards --
+        #without them chmod prints "cannot access" and that was the ONLY visible trace of a
+        #world whose mods had all silently failed to install.
+        [ -d "$worldsDirectoryRoot/$worldName/game/BepInEx" ] && chmod -R u+rwX $worldsDirectoryRoot/$worldName/game/BepInEx
 
+        #### Did any of that actually work? ####
+        #
+        #Everything above swallows its own errors: the unzips redirect stderr to /dev/null and
+        #nothing checked a return code, so "Mods download and installation sequence complete"
+        #was printed whether 15 mods installed or none did. A modded world would then be
+        #packaged, given an md5, marked ready and started -- and BepInEx would report
+        #"0 plugins to load" with nothing anywhere saying why.
+        #
+        #A world that asked for mods and ended up with an empty plugins directory is never
+        #correct, whatever the underlying cause (failed download, bad archive, full disk).
+        pluginRoot="$worldsDirectoryRoot/$worldName/game/BepInEx/plugins"
+        if [ ! -d "$pluginRoot" ] || [ -z "$(ls -A "$pluginRoot" 2>/dev/null)" ]; then
+                echo "`date` [ERROR : phvalheim] World '$worldName' selected mods but NO plugins were installed. Refusing to publish it as ready."
+                echo "`date` [ERROR : phvalheim] Check the download errors above; the world's plugins directory is '$pluginRoot'."
+                return 1
+        fi
 
+        if [ "${modInstallFailures:-0}" -gt 0 ]; then
+                echo "`date` [ERROR : phvalheim] World '$worldName': $modInstallFailures mod(s) failed to download and are MISSING."
+                return 1
+        fi
+
+        echo "`date` [NOTICE : phvalheim] Mod install verified for '$worldName': $(ls -A "$pluginRoot" | wc -l) plugin(s) present."
+        return 0
 }
 
 
