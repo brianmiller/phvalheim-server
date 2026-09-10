@@ -81,6 +81,36 @@ addColumn worlds banned        "TEXT DEFAULT NULL"
 # migration it never had, and a failed migration cannot produce a spurious one.
 addColumn settings accessIdNoticeShown "TINYINT DEFAULT 1"
 
+# --- one-time notice: the world access switch was RENAMED AND INVERTED in 2.40 ---
+#
+# "Public World: on" became "Use Access List: off". Same stored flag, same actual access,
+# opposite-looking control -- so an upgrader who "corrects" it back really does change who
+# can join. That is worth one modal.
+#
+# Armed here rather than by addColumn because it needs a value that depends on whether
+# this is an upgrade, and it must be armed EXACTLY ONCE. Every script in dbUpdates/ runs
+# on EVERY boot -- dbUpdater.sh has no version gate -- so an unconditional UPDATE would
+# re-raise the notice after every restart and it could never stay dismissed. The column
+# not existing yet is the only reliable "this database has not seen 2.40 before" signal.
+sql "DESCRIBE settings"|awk '{print $1}'|grep -qx "accessSwitchNoticeShown" > /dev/null 2>&1
+if [ ! $? = 0 ]; then
+	echo "`date` [NOTICE : phvalheim] Adding settings.accessSwitchNoticeShown"
+	# DEFAULT 1 = "already seen", i.e. stay quiet, so the arming below is the only
+	# thing that can ever raise it.
+	sql "ALTER TABLE settings ADD COLUMN accessSwitchNoticeShown TINYINT DEFAULT 1;"
+
+	# A server that already has worlds is upgrading, and its switches are about to
+	# change appearance. A fresh install has no switch it ever saw the old way.
+	worldCount=$(sql "SELECT COUNT(*) FROM worlds")
+	case "$worldCount" in
+		''|*[!0-9]*) worldCount=0 ;;
+	esac
+	if [ "$worldCount" -gt 0 ]; then
+		echo "`date` [NOTICE : phvalheim] Upgrade detected ($worldCount worlds) - arming the access-switch notice"
+		sql "UPDATE settings SET accessSwitchNoticeShown = 0;"
+	fi
+fi
+
 ## END UPDATE ##
 
 # --- Valheim 1.0 access-id format ---

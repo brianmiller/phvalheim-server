@@ -41,6 +41,7 @@ $migrationNoticeShown = (int)($_settingsRow['migrationNoticeShown'] ?? 0);
 # 1 = stay quiet. Defaults to 1 for a database that predates the column, so an install
 # that never ran the 2.40 migration cannot be told its ids were converted.
 $accessIdNoticeShown = (int)($_settingsRow['accessIdNoticeShown'] ?? 1);
+$accessSwitchNoticeShown = (int)($_settingsRow['accessSwitchNoticeShown'] ?? 1);
 $timezone = $_settingsRow['timezone'] ?? 'Etc/UTC';
 date_default_timezone_set($timezone);
 

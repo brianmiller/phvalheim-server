@@ -65,6 +65,16 @@ function check(name, ok, detail) {
     await page.waitForTimeout(500);
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(300);
+    // Close any one-time upgrade notice first. They fire ON the Access tab, and an armed
+    // one covers the page so real clicks land on the overlay instead of the button --
+    // which fails this test for a reason that has nothing to do with the lookup.
+    await page.evaluate(() => {
+        document.querySelectorAll('.mods-modal-overlay.show').forEach(o => {
+            if (/Notice/i.test(o.id)) o.classList.remove('show');
+        });
+    });
+    await page.waitForTimeout(200);
+
     // Make sure the editor is on screen. It rides with "Use Access List": the list is
     // only shown when it is actually enforced, so switch it ON.
     await page.evaluate(() => {

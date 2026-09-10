@@ -55,11 +55,21 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   l=$(grep -c "\.pv-disclosure" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   echo "settingsAccessListToggle=$e (want 3)  settingsPublicToggle=$f (want 0)"
   echo "\"Use Access List\"=$g (want 3)  \"Public World\"=$h (want 0)"
+  # The switch-inversion upgrade notice, and the engine no longer dying on one bad world.
+  # The engine check is a NEGATIVE: `exit 1` must be GONE from the whole file. Checking only
+  # that the new message is present would pass on an image that had both.
+  m=$(grep -c "accessSwitchNoticeShown" /opt/stateless/nginx/www/admin/index.php)
+  n=$(grep -c "accessSwitchNoticeShown" /opt/stateless/engine/dbUpdates/dbUpdate_2.40.sh)
+  o=$(grep -c "Marking it broken" /opt/stateless/engine/phvalheim)
+  p=$(grep -c "exit 1" /opt/stateless/engine/phvalheim)
   echo "idHelpDisclosure=$i (want 2)  old banner=$j (want 0)"
   echo "pv-list-lookup=$k (want 3)  .pv-disclosure css rules=$l (want >0)"
+  echo "accessSwitchNoticeShown ui=$m (want 2) migration=$n (want 4)"
+  echo "engine 'Marking it broken'=$o (want 2)  engine 'exit 1'=$p (want 0)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "3" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
+    && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

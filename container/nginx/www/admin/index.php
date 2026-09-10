@@ -897,6 +897,53 @@ $totalCount = count($worlds);
     </div>
     <?php endif; ?>
 
+    <!-- Access switch rename/inversion notice.
+         Kept SEPARATE from the id notice above rather than folded into it: that one
+         states the lists "have already been converted", which is only true for a server
+         that actually had ids to convert. This one is true for every upgrader. When both
+         are armed they are shown one after the other, see maybeShowAccessNotices(). -->
+    <?php if ($accessSwitchNoticeShown == 0): ?>
+    <div class="mods-modal-overlay" id="accessSwitchNoticeOverlay">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 620px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/>
+                    </svg>
+                    The world access switch changed name
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    <strong>Public World</strong> is now <strong>Use Access List</strong>, and it reads
+                    the opposite way round. It never had anything to do with the Valheim server
+                    browser &mdash; it only decides whether your Citizens list is enforced &mdash; so
+                    the old name kept being read as the separate
+                    <strong>List in server browser</strong> option.
+                </p>
+                <div class="pv-note" style="margin-bottom: 1rem;">
+                    <div style="font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);">before</span>&nbsp;&nbsp;Public World <strong>on</strong> &nbsp;&mdash;&nbsp; anyone may join<br>
+                        <span style="color: var(--text-muted);">after</span>&nbsp;&nbsp;&nbsp;Use Access List <strong>off</strong> &nbsp;&mdash;&nbsp; anyone may join
+                    </div>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    <strong>Nothing about your worlds changed</strong> &mdash; not who can join, not
+                    your lists, nothing stored. Only the wording on the switch. A world that read
+                    &ldquo;Public World: on&rdquo; now reads &ldquo;Use Access List: off&rdquo;.
+                </p>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0;">
+                    So if a switch looks backwards to you, it is showing the same setting you
+                    already had. Flipping it <em>will</em> change who can join.
+                </p>
+            </div>
+            <div style="display: flex; justify-content: center; padding: 1rem;">
+                <button class="action-btn success" onclick="dismissAccessSwitchNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Migration Notice Dialog -->
     <?php if ($setupComplete == 1 && $migrationNoticeShown == 0): ?>
     <div class="mods-modal-overlay show" id="migrationNoticeOverlay">
@@ -1902,7 +1949,7 @@ $totalCount = count($worlds);
             loadWorldBackups(currentSettingsWorld);
         }
         if (tabId === 'accessTab') {
-            maybeShowAccessIdNotice();
+            maybeShowAccessNotices();
         }
     }
 
@@ -1913,6 +1960,21 @@ $totalCount = count($worlds);
     // PHP seeds this from the settings row. Flipping it in JS before the request completes
     // keeps a fast second click on another world from opening a second copy.
     let accessIdNoticePending = <?php echo $accessIdNoticeShown === 0 ? 'true' : 'false'; ?>;
+    let accessSwitchNoticePending = <?php echo $accessSwitchNoticeShown === 0 ? 'true' : 'false'; ?>;
+
+    // Both can be armed on the same upgrade. Show ONE at a time -- stacking two overlays
+    // puts them on top of each other and only the last is readable. The switch notice goes
+    // first: it is the one where acting on the confusion changes who can join a world.
+    function maybeShowAccessNotices() {
+        if (accessSwitchNoticePending) {
+            accessSwitchNoticePending = false;
+            const overlay = document.getElementById('accessSwitchNoticeOverlay');
+            if (overlay) { overlay.classList.add('show'); return; }
+            // No markup (PHP did not render it) -- fall through rather than swallow the
+            // id notice behind a modal that does not exist.
+        }
+        maybeShowAccessIdNotice();
+    }
 
     function maybeShowAccessIdNotice() {
         if (!accessIdNoticePending) return;
@@ -1930,6 +1992,19 @@ $totalCount = count($worlds);
             // Losing the dismissal is harmless -- the notice reappears next time rather
             // than the admin losing anything.
         }
+    }
+
+    async function dismissAccessSwitchNotice() {
+        const overlay = document.getElementById('accessSwitchNoticeOverlay');
+        if (overlay) overlay.classList.remove('show');
+        try {
+            await fetch('adminAPI.php?action=dismissAccessSwitchNotice', { method: 'POST' });
+        } catch (e) {
+            // As above -- worst case it is shown again.
+        }
+        // If the id notice is also armed, it follows this one now rather than waiting for
+        // the admin to leave the tab and come back.
+        maybeShowAccessIdNotice();
     }
 
     function formatBytes(bytes) {

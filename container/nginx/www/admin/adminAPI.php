@@ -357,6 +357,14 @@ switch($action) {
         }
         break;
 
+    case 'dismissAccessSwitchNotice':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            dismissAccessSwitchNoticeJson($pdo);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
     case 'getBackupDiskStats':
         $mounted = isBackupPathMounted();
         $info = getBackupDiskInfo();
@@ -2269,6 +2277,16 @@ function dismissAccessIdNoticeJson($pdo) {
     echo json_encode([
         'success' => $result ? true : false,
         'message' => $result ? 'Access id notice dismissed' : 'Failed to dismiss notice'
+    ]);
+}
+
+function dismissAccessSwitchNoticeJson($pdo) {
+    $stmt = $pdo->prepare("UPDATE settings SET accessSwitchNoticeShown = 1");
+    $result = $stmt->execute();
+
+    echo json_encode([
+        'success' => $result ? true : false,
+        'message' => $result ? 'Access switch notice dismissed' : 'Failed to dismiss notice'
     ]);
 }
 

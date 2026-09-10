@@ -299,29 +299,36 @@ while [ true ]; do
 				SQL "UPDATE worlds SET mode='starting' WHERE name='$worldName'"
 				/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
 				if [ $? != 0 ]; then
-					echo "`date` [ERROR : phvalheim] ERROR: Could not start world '$worldName', exiting..."
-					exit 1
-				fi
-
-				
-				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
-				worldPID_status=$?		
-				while [ $worldPID_status != 0 ]; do
-					echo "`date` [NOTICE : phvalheim] Waiting for world '$worldName' to start..."
-					sleep 2
-					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
-	                                worldPID_status=$?
-				done
-	
-				
-				/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
-                                worldPID_status=$?	
-				if [ $worldPID_status = 0 ]; then
-					echo "`date` [NOTICE : phvalheim] World '$worldName' has started!"
-					SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
-				else
-					echo "`date` World '$worldName' wasn't able to start, exiting..."
+					# One world that will not start must NOT take the engine down with it.
+					# supervisor restarts the engine, and the engine's pre-flight resets every
+					# world to 'stopped' -- so one unstartable world became a restart loop that
+					# also clobbered any create/update queued against the OTHER worlds.
+					echo "`date` [ERROR : phvalheim] ERROR: Could not start world '$worldName'. Marking it broken and continuing; the reason is in /opt/stateful/logs/valheimworld_$worldName.log"
 					SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
+				else
+					# Bounded wait. This loop had no limit, so a world that started and then
+					# died -- a rejected password, a mod that aborts -- parked the engine here
+					# forever and no other world's commands were ever processed again.
+					startWait=0
+					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+					worldPID_status=$?
+					while [ $worldPID_status != 0 ] && [ $startWait -lt 60 ]; do
+						echo "`date` [NOTICE : phvalheim] Waiting for world '$worldName' to start..."
+						sleep 2
+						let startWait=startWait+1
+						/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+						worldPID_status=$?
+					done
+
+					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
+					worldPID_status=$?
+					if [ $worldPID_status = 0 ]; then
+						echo "`date` [NOTICE : phvalheim] World '$worldName' has started!"
+						SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
+					else
+						echo "`date` [ERROR : phvalheim] World '$worldName' did not come up within 120s. Marking it broken and continuing; see /opt/stateful/logs/valheimworld_$worldName.log"
+						SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
+					fi
 				fi
 			fi
 		fi
