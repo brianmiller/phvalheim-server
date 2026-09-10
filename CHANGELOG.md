@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.40-rc — Vanilla Servers, Admins, Custom Launch Parameters
+## v2.40 — Vanilla Servers, Admins, Custom Launch Parameters
 
 Release candidate. Held at `:rc` pending the Valheim 1.0 (Deep North) boss trophy prefab name — see "Known gaps" below.
 
