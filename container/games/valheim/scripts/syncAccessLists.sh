@@ -112,6 +112,22 @@ banned=$(echo "$listSettings"    | cut -f4)
 if [ "$isPublic" = "1" ]; then
 	echo "`date` [NOTICE : phvalheim] World is public -- writing an empty permitted list."
 	citizens=""
+else
+	# ENFORCED BUT EMPTY: the admin UI says "Use Access List: on" and the list has nobody in
+	# it. Valheim only applies permittedlist.txt when it has ENTRIES -- an empty one is not
+	# "nobody may join", it is no restriction at all. So this world is wide open while its
+	# Access tab claims it is restricted, and that is the dangerous direction to be wrong in.
+	#
+	# saveCitizensJson() now refuses to CREATE this state, but nothing re-saves a world that
+	# is already in it, so worlds predating that guard stay open and stay silent. This is the
+	# only code that runs on every start and can see the condition, so it says so out loud.
+	#
+	# It is deliberately NOT auto-corrected. Both repairs -- add the intended players, or turn
+	# the access list off -- are one click apart and mean opposite things; guessing on the
+	# operator's behalf is how a server ends up locked or open against their intent.
+	if [ -z "`echo \"$citizens\" | tr -d '[:space:]'`" ]; then
+		echo "`date` [WARNING : phvalheim] World '$worldName' has the access list ENABLED but EMPTY. Valheim ignores an empty permitted list, so ANYONE CAN JOIN even though the Access tab shows this world as restricted. Fix it in Settings > Access: add at least one player ID, or switch 'Use Access List' off if the world is meant to be open."
+	fi
 fi
 
 # Header lines are byte-for-byte what the real Valheim server writes when it creates these

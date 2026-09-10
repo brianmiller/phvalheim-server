@@ -88,12 +88,19 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   x=$(grep -c "connection.playfab" /opt/stateless/nginx/www/public/authenticated.php)
   echo "joincode launch url: card=$u (want 1)  api=$v (want 1)"
   echo "getWorldNetBackend=$w (want 1)  poll keys off connection.playfab=$x (want 1)"
+  # The empty-access-list work: the save-time refusal, and the start-time warning for worlds
+  # that predate it. Match the WARNING text, not the word "empty" -- this file discusses empty
+  # lists in several comments and a bare word count would pass on an image with none of this.
+  y=$(grep -c "so it would let everyone in rather than nobody" /opt/stateless/nginx/www/admin/adminAPI.php)
+  z=$(grep -cF "ANYONE CAN JOIN" /opt/stateless/games/valheim/scripts/syncAccessLists.sh)
+  echo "empty-list save refusal=$y (want 1)  start-time warning=$z (want 1)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
     && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
     && [ "$u" = "1" ] && [ "$v" = "1" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
+    && [ "$y" = "1" ] && [ "$z" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

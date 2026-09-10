@@ -1,9 +1,12 @@
 # Changelog
 
-## v2.40.1 — Crossplay join codes, dashboard fixes
+## v2.40.1 — Crossplay join codes, access-list safety, dashboard fixes
 
 - **A crossplay world now shows its join code instead of a Launch button that cannot work.** Enabling crossplay makes Valheim open a *PlayFab* server rather than a Steam one; the world is reached by join code and cannot be joined by IP at all. The card offered `steam://…+connect <host>:<port>` regardless, which asks for a direct connection the server is not serving — so it failed silently while the in-game browser worked fine. Crossplay cards now show the code with a copy button, and the hint no longer tells players to use *Join IP*. Non-crossplay vanilla worlds keep their Launch button. The code is read from the world log at render time rather than stored: it is reissued on every restart, so a cached one would keep advertising a code that no longer works.
 - **Resource readouts are cleared when a world stops.** Memory and tick-health bars stayed on screen for worlds that were offline or mid-update. Both APIs were already correct — they return only running worlds — but the way they report a stopped world is to *omit* it, and the dashboard only ever iterated what was in the payload, so those worlds were never visited again and kept their last drawn numbers.
+- **An access list that is enabled but empty is now refused.** Valheim only applies `permittedlist.txt` when it has entries — an empty one is not "nobody may join", it is no restriction at all. A world could therefore sit with *Use Access List* switched on, no players in the list, and be joinable by anyone, while the Access tab showed it as restricted. Saving that combination now fails with an error naming both repairs (add a player, or switch the list off). It is refused rather than silently corrected: "let anyone in" and "let these people in" are one click apart and mean opposite things.
+- **Worlds already in that state now announce it at every start.** The save-time guard cannot help a world that was created before it, because nothing re-saves one. `syncAccessLists.sh` renders the lists on every world start and is the only code that can see the condition, so it now logs a `WARNING` saying the world is open despite showing as restricted. It does not change anyone's access.
+- **A modded world is never published with zero plugins installed.** A failed mod download left the world starting anyway with an empty `BepInEx/plugins`, so a world created with mods selected could come up vanilla. Mod installation failures now leave the world stopped and marked `failed`, with its client payload and md5 untouched, rather than shipping an empty modpack to players.
 
 ## v2.40 — Vanilla Servers, Admins, Custom Launch Parameters
 
