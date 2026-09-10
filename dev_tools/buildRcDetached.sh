@@ -46,10 +46,20 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # 2 = the wrapper <div id="modSelectionArea"> + the comment explaining why the
   # toggle moved off it. A THIRD would mean a live $(...).toggle() came back.
   echo "modSelectionArea mentions=$d (want 2: the div + the comment)"
+  # The Access-tab refactor: ONE shared ID-help disclosure instead of three copies
+  # of the banner, and per-list lookup buttons. The css must ship too -- the markup
+  # alone renders an unstyled <details>, which looks like nothing was done.
+  i=$(grep -c "idHelpDisclosure" /opt/stateless/nginx/www/admin/index.php)
+  j=$(grep -c "Easiest way to get" /opt/stateless/nginx/www/admin/index.php)
+  k=$(grep -c "pv-list-lookup" /opt/stateless/nginx/www/admin/index.php)
+  l=$(grep -c "\.pv-disclosure" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   echo "settingsAccessListToggle=$e (want 3)  settingsPublicToggle=$f (want 0)"
   echo "\"Use Access List\"=$g (want 3)  \"Public World\"=$h (want 0)"
+  echo "idHelpDisclosure=$i (want 2)  old banner=$j (want 0)"
+  echo "pv-list-lookup=$k (want 3)  .pv-disclosure css rules=$l (want >0)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "3" ] && [ "$h" = "0" ] \
+    && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
