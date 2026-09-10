@@ -93,14 +93,23 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
 
         // A vanilla world has no client payload and no BepInEx, so phvalheim:// is
         // meaningless for it -- handing that link to the client makes it try to sync mods
-        // that do not exist. Join it the way the public card does, with Valheim's own
-        // +connect. Computed once here so every Launch button agrees.
-        $launchHref = $vanilla
-            ? 'steam://run/892970//+connect ' . $gameDNS . ':' . $row['port']
-            : 'phvalheim://?' . $launchString;
+        // that do not exist. Join it the way the public card does.
+        //
+        // This used to be an unconditional +connect, which is wrong for a crossplay world:
+        // crossplay opens a PlayFab server that cannot be joined by IP at all, so the button
+        // failed silently. getVanillaJoinInfo() follows the RUNNING backend and is shared with
+        // the public card, so the two can no longer disagree.
+        $isRunning = ($row['mode'] === 'running');
+        $joinInfo = $vanilla
+            ? getVanillaJoinInfo($row['name'], $gameDNS, $row['port'], $isRunning)
+            : ['href' => 'phvalheim://?' . $launchString, 'playfab' => false, 'joinCode' => NULL];
 
         $worlds[] = [
-            'launchHref' => $launchHref,
+            // May be NULL: a crossplay world that is up but has not registered its lobby yet
+            // has no code to pass. Both render paths show a non-link state for that.
+            'launchHref' => $joinInfo['href'],
+            'launchPlayfab' => $joinInfo['playfab'],
+            'launchJoinCode' => $joinInfo['joinCode'],
             'name' => $row['name'],
             'status' => $row['status'],
             'mode' => $row['mode'],
@@ -455,7 +464,14 @@ $totalCount = count($worlds);
                                         <td>
                                             <div class="action-group">
                                                 <?php if ($world['mode'] === 'running'): ?>
+                                                <?php if ($world['launchHref'] === NULL): ?>
+                                                <?php // Crossplay world, up but no join code registered yet. There is
+                                                      // genuinely nothing to launch with, so say so rather than offer a
+                                                      // link with an empty argument. ?>
+                                                <span class="action-btn disabled" data-action="launch" title="Crossplay world: waiting for its join code">starting&hellip;</span>
+                                                <?php else: ?>
                                                 <a href="<?php echo htmlspecialchars($world['launchHref']); ?>" class="action-btn success" data-action="launch">Launch</a>
+                                                <?php endif; ?>
                                                 <span class="action-btn disabled" data-action="start">Start</span>
                                                 <a href="?stop_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="stop">Stop</a>
                                                 <?php else: ?>
@@ -1563,6 +1579,17 @@ $totalCount = count($worlds);
         updateActionButtons(row, world);
     }
 
+    // The Launch button for a RUNNING world. launchHref is null when the world is a crossplay
+    // one whose lobby has not registered a join code yet -- interpolating that straight into
+    // the markup produced href="null", a link that silently goes nowhere. Mirrors the PHP
+    // render in getWorldsData(); both take their href from getVanillaJoinInfo().
+    function launchButtonHtml(world) {
+        if (!world.launchHref) {
+            return '<span class="action-btn disabled" data-action="launch" title="Crossplay world: waiting for its join code">starting&hellip;</span>';
+        }
+        return `<a href="${world.launchHref}" class="action-btn success" data-action="launch">Launch</a>`;
+    }
+
     function createWorldRow(world, section) {
         const row = document.createElement('tr');
         row.setAttribute('data-world', world.name);
@@ -1574,7 +1601,7 @@ $totalCount = count($worlds);
         let actionsHtml, configHtml;
         if (world.mode === 'running') {
             actionsHtml = `
-                <a href="${world.launchHref}" class="action-btn success" data-action="launch">Launch</a>
+                ${launchButtonHtml(world)}
                 <span class="action-btn disabled" data-action="start">Start</span>
                 <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
@@ -1706,7 +1733,7 @@ $totalCount = count($worlds);
 
         if (launchBtn && startBtn && stopBtn) {
             if (world.mode === 'running') {
-                launchBtn.outerHTML = `<a href="${world.launchHref}" class="action-btn success" data-action="launch">Launch</a>`;
+                launchBtn.outerHTML = launchButtonHtml(world);
                 startBtn.outerHTML = `<span class="action-btn disabled" data-action="start">Start</span>`;
                 stopBtn.outerHTML = `<a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>`;
             } else if (world.mode === 'stopped') {

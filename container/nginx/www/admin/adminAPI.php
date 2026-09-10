@@ -693,6 +693,13 @@ function getWorldsJson($pdo) {
         $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
         $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme?$vanilla");
 
+        // Shared with the dashboard's PHP render and the public card, so a crossplay world
+        // gets -joincode rather than a +connect that can never reach a PlayFab server.
+        $isRunning = ($row['mode'] === 'running');
+        $joinInfo = $vanilla
+            ? getVanillaJoinInfo($row['name'], $gameDNS, $row['port'], $isRunning)
+            : ['href' => 'phvalheim://?' . $launchString, 'playfab' => false, 'joinCode' => NULL];
+
         $worlds[] = [
             'name' => $row['name'],
             'status' => $row['status'],
@@ -708,10 +715,10 @@ function getWorldsJson($pdo) {
             // MUST stay in step with getWorldsData() in index.php: the dashboard renders
             // Launch from PHP on load and then re-renders it from this payload on every
             // poll. If only one of them knows about vanilla worlds, the button is correct
-            // on load and wrong a few seconds later.
-            'launchHref' => $vanilla
-                ? 'steam://run/892970//+connect ' . $gameDNS . ':' . $row['port']
-                : 'phvalheim://?' . $launchString,
+            // on load and wrong a few seconds later. Both now call getVanillaJoinInfo().
+            'launchHref' => $joinInfo['href'],
+            'launchPlayfab' => $joinInfo['playfab'],
+            'launchJoinCode' => $joinInfo['joinCode'],
             'dateUpdated' => $row['date_updated']
         ];
     }

@@ -415,6 +415,56 @@ function getWorldJoinCode($world) {
         return NULL;
 }
 
+# How a VANILLA world is actually joined, as one answer for every caller.
+#
+# Enabling crossplay makes Valheim open a PlayFab server instead of a Steam one. A PlayFab
+# server is reached by join code and cannot be joined by IP at all, so the usual
+# `+connect host:port` asks for a direct connection it never offers -- the link fails
+# silently while the in-game browser works fine.
+#
+# This exists because the SAME decision is made in four places: the public card, the public
+# api.php poll, the admin dashboard's PHP render, and the admin poll payload. The admin pair
+# were left on an unconditional +connect and so ignored crossplay entirely.
+#
+# The two ADMIN callers now share this function and cannot drift apart. The two PUBLIC callers
+# still carry their own equivalent copy: they work, they are pinned by the 30 assertions in
+# test-vanilla-joincode.php, and rewriting a verified path while fixing a different bug is how
+# a working feature gets broken. Folding them in here is worth doing on its own.
+#
+# Follows the RUNNING backend rather than the `crossplay` column: toggling the column takes
+# effect only at the next restart, and in that window the column is simply wrong about how
+# players can reach the world.
+#
+# $isOnline gates it because the backend is read from the world's log -- a stopped world has no
+# current session to report, and there is no point reading the log for one.
+#
+# Returns ['href' => string|NULL, 'playfab' => bool, 'joinCode' => string|NULL].
+# href is NULL when the world is offline, or when it is a crossplay world whose lobby has not
+# registered a code yet -- callers should show a non-link state rather than a link with an
+# empty argument.
+function getVanillaJoinInfo($world, $gameDNS, $port, $isOnline) {
+        if (!$isOnline) {
+                return ['href' => NULL, 'playfab' => false, 'joinCode' => NULL];
+        }
+
+        if (getWorldNetBackend($world) !== 'playfab') {
+                return [
+                        'href'     => 'steam://run/892970//+connect ' . $gameDNS . ':' . $port,
+                        'playfab'  => false,
+                        'joinCode' => NULL,
+                ];
+        }
+
+        # -joincode IS a real Valheim launch argument, alongside -crossplay/-password/-port.
+        # So a crossplay world is launchable; it just cannot use +connect.
+        $code = getWorldJoinCode($world);
+        return [
+                'href'     => $code !== NULL ? 'steam://run/892970//-joincode ' . $code : NULL,
+                'playfab'  => true,
+                'joinCode' => $code,
+        ];
+}
+
 # NOTE: `listed` is the Steam server-browser flag (Valheim's -public argument).
 # It is NOT the same as `public` -- see getPublic() below, which is the CITIZENS
 # access-control flag. Conflating them would list every open world publicly.
