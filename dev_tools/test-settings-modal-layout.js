@@ -5,7 +5,8 @@
 //   2. Options tab -- "Changes here need a world restart" sat stranded BELOW the
 //      actions bar; it belongs on the same line as Save World Options.
 //   3. Access tab -- Public World belongs at the TOP, and switching it on must hide
-//      the Citizens editor while leaving Save Settings reachable.
+//      the Citizens editor -- including its own Save Citizens button -- while leaving
+//      Save Access reachable so the flag can still be persisted.
 //
 // Every assertion measures real geometry via getBoundingClientRect in a real browser.
 // Checking "the element exists" or "the class is present" would pass against all three
@@ -157,14 +158,14 @@ const rectOfText = (selector, needle) => `(() => {
 
     const editorAfter = await page.evaluate(rectOf('#settingsCitizensTextarea'));
     const lookupAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Look Up SteamID'));
-    const saveAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Settings'));
+    const saveAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Citizens'));
     const publicAfter = await page.evaluate(rectOfText('#accessTab span', 'Public World'));
     const accessSaveAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Access'));
     check('Citizens editor HIDDEN when public', !!editorAfter && !editorAfter.visible, JSON.stringify(editorAfter));
     check('Look Up SteamID hidden with it', !lookupAfter || !lookupAfter.visible, JSON.stringify(lookupAfter));
-    // The Citizens "Save Settings" belongs to the editor. Leaving it on screen gave a
+    // The "Save Citizens" button belongs to the editor. Leaving it on screen gave a
     // lone save button that answered "Citizens saved." with no list above it.
-    check('Citizens "Save Settings" hidden WITH the editor',
+    check('Citizens "Save Citizens" hidden WITH the editor',
         !saveAfter || !saveAfter.visible, JSON.stringify(saveAfter));
     check('Public World still on screen', !!publicAfter && publicAfter.visible, JSON.stringify(publicAfter));
     // ...but the public flag must still be savable, or hiding the shared button would
@@ -188,10 +189,10 @@ const rectOfText = (selector, needle) => `(() => {
     });
     await page.waitForTimeout(250);
     const editorBack = await page.evaluate(rectOf('#settingsCitizensTextarea'));
-    const saveBack = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Settings'));
+    const saveBack = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Citizens'));
     check('Citizens editor returns when public is switched off', !!editorBack && editorBack.visible,
         JSON.stringify(editorBack));
-    check('its Save Settings returns with it', !!saveBack && saveBack.visible, JSON.stringify(saveBack));
+    check('its Save Citizens returns with it', !!saveBack && saveBack.visible, JSON.stringify(saveBack));
 
     // ---------------------------------------------------------------- case 4
     console.log('\nCase 4: no JS errors');

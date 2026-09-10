@@ -1809,7 +1809,10 @@ $totalCount = count($worlds);
             const data = await response.json();
 
             if (data.success) {
-                document.getElementById('steamIdResultText').textContent = data.steamid;
+                // Show the ACCESS-LIST form (V_...), not the bare SteamID64. What the
+                // lookup hands back gets pasted straight into a list Valheim reads, and
+                // Valheim 1.0 refuses a bare id with a misleading "Banned".
+                document.getElementById('steamIdResultText').textContent = data.accessId || data.steamid;
                 document.getElementById('steamIdCopyBtn').style.display = 'block';
             } else {
                 document.getElementById('steamIdResultText').textContent = data.error || 'Not found';
@@ -2925,7 +2928,7 @@ $totalCount = count($worlds);
                         </div>
                         <!-- Public World needs its OWN save. It used to share the Citizens
                              one, which is why that button had to stay on screen after the
-                             editor hid -- a "Save Settings" with nothing above it that
+                             editor hid -- a lone save button with nothing above it that
                              answered "Citizens saved." -->
                         <div class="pv-actions">
                             <span class="pv-status" id="settingsPublicSaveStatus"></span>
@@ -2955,7 +2958,7 @@ $totalCount = count($worlds);
                             <!-- INSIDE the block: this button only saves the Citizens list,
                                  so it goes away with the editor it belongs to. -->
                             <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-                                <button class="action-btn success" onclick="saveSettingsCitizens()">Save Settings</button>
+                                <button class="action-btn success" onclick="saveSettingsCitizens()">Save Citizens</button>
                             </div>
                             <div id="settingsCitizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
                         </div>

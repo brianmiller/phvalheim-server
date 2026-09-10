@@ -22,7 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     }
 
 
-    echo $steamID ?: 'Invalid Vanity URL or SteamID not found';
+    # Hand back the ACCESS-LIST form (V_...). This value is copied straight into
+    # permittedlist.txt, and Valheim 1.0 refuses a bare SteamID64 with a misleading
+    # "Banned". Same treatment as the Access tab's lookup in adminAPI.php.
+    if ($steamID && $steamID != 2) {
+        echo canonicalAccessId($steamID) ?: $steamID;
+    } else {
+        echo 'Invalid Vanity URL or SteamID not found';
+    }
 
     exit();
 }

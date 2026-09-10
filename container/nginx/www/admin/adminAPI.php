@@ -1273,9 +1273,17 @@ function fetchSteamIDJson($vanityURL) {
         return;
     }
 
+    $steamid = $data['response']['steamid'];
+
+    # Valheim 1.0 matches on the PlatformUserID display form, so the id an operator is
+    # about to paste into an access list has to carry the V_ prefix. `steamid` stays the
+    # BARE id for anything that wants the raw Steam value; `accessId` is what belongs in
+    # permittedlist/adminlist/bannedlist. Derived with canonicalAccessId() rather than
+    # string-concatenating 'V_' here, so there is one definition of the format.
     echo json_encode([
-        'success' => true,
-        'steamid' => $data['response']['steamid']
+        'success'  => true,
+        'steamid'  => $steamid,
+        'accessId' => canonicalAccessId($steamid) ?? $steamid
     ]);
 }
 
