@@ -122,6 +122,17 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   echo "create demands id: server=$af (want 1)  form=$ag (want 10)"
   echo "self steamid: markup=$ah (want 5)  css=$ai (want 4)  shared clipboard=$aj (want 1)"
   echo "empty-list modal: overlay=$ak (want 3)  predicate=$al (want 2)"
+  # Access IDs are stored and shown in the V_ form. The NEGATIVE is the important one: the old
+  # digits-only regex must be GONE from both the create endpoint and the create form, or the
+  # V_ value the form now tells you to paste is rejected by the thing validating it.
+  au=$(grep -cF "valid[] = \$canonical" /opt/stateless/nginx/www/includes/accesslists.php)
+  av=$(grep -c "steamAccessID" /opt/stateless/nginx/www/public/authenticated.php)
+  aw=$(grep -A14 "^\.steamid-self {" /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "white-space: nowrap")
+  ax=$(grep -c "placeholder=\"V_76561197960287930\"" /opt/stateless/nginx/www/admin/new_world.php)
+  ay=$(grep -hc "\^\[0-9\]{17}\$" /opt/stateless/nginx/www/admin/adminAPI.php /opt/stateless/nginx/www/admin/new_world.php | paste -sd+ | bc)
+  az=$(grep -c "canonicalFirstId" /opt/stateless/nginx/www/admin/adminAPI.php)
+  echo "canonical stored=$au (want 1)  player-page V_ id=$av (want 3)  id does not wrap=$aw (want 1)"
+  echo "create example is V_=$ax (want 1)  stale digits-only regex=$ay (want 0)  create canonicalises=$az (want 3)"
   # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
   # tolerated -- treating it as failure would mark every modded world broken.
   am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
@@ -152,6 +163,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$aj" = "1" ] && [ "$ak" = "3" ] && [ "$al" = "2" ] \
     && [ "$am" = "1" ] && [ "$an" = "1" ] && [ "$ao" = "1" ] \
     && [ "$ap" = "1" ] && [ "$aq" = "3" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
+    && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
