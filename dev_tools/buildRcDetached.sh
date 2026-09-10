@@ -122,6 +122,14 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   echo "create demands id: server=$af (want 1)  form=$ag (want 10)"
   echo "self steamid: markup=$ah (want 5)  css=$ai (want 4)  shared clipboard=$aj (want 1)"
   echo "empty-list modal: overlay=$ak (want 3)  predicate=$al (want 2)"
+  # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
+  # tolerated -- treating it as failure would mark every modded world broken.
+  am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
+  an=$(grep -c "unzipResult -ne 11" /opt/stateless/engine/includes/0-functions.sh)
+  mkline=$(grep -n "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh | head -1 | cut -d: -f1)
+  uzline=$(grep -n "BepInEx/plugins/\$modName/" /opt/stateless/engine/includes/0-functions.sh | head -1 | cut -d: -f1)
+  ao=0; [ -n "$mkline" ] && [ -n "$uzline" ] && [ "$mkline" -lt "$uzline" ] && ao=1
+  echo "plugins mkdir=$am (want 1)  tolerates exit 11=$an (want 1)  mkdir before unzip=$ao (want 1)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
@@ -132,6 +140,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$aa" = "1" ] && [ "$ab" = "1" ] && [ "$ac" = "1" ] && [ "$ad" = "2" ] && [ "$ae" = "0" ] \
     && [ "$af" = "1" ] && [ "$ag" = "10" ] && [ "$ah" = "5" ] && [ "$ai" = "4" ] \
     && [ "$aj" = "1" ] && [ "$ak" = "3" ] && [ "$al" = "2" ] \
+    && [ "$am" = "1" ] && [ "$an" = "1" ] && [ "$ao" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
