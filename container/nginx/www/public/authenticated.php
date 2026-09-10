@@ -310,7 +310,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
 					echo "
                                         <div class=\"$worldDimmed catbox catbox-vanilla\" data-world=\"$myWorld\" data-vanilla=\"1\">
-                                                <table width=100% height=100% border=0>
+                                                <!-- NO height=100% on this table. The card is a flex item and
+                                                     stretches to the tallest card in its row; a 100%-height table
+                                                     then absorbs that slack by SPREADING ITS ROWS, so the gap
+                                                     between the world name and Launch! varied with card height
+                                                     (33px on a short card, 8px on a tall one). It also pushed the
+                                                     hint below the card, clipping it. Auto height stacks the rows
+                                                     naturally and lets the slack fall to the bottom. -->
+                                                <table width=100% border=0>
                                                         <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
                                                         <tr>
                                                         <th class='$worldDimmed card_worldLaunch' colspan=2>$joinLink</th>
@@ -344,7 +351,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				} else {
 				echo "
                                         <div class=\"$worldDimmed catbox\" data-world=\"$myWorld\">
-                                                <table width=100% height=100% border=0>
+                                                <!-- NO height=100% on this table. The card is a flex item and
+                                                     stretches to the tallest card in its row; a 100%-height table
+                                                     then absorbs that slack by SPREADING ITS ROWS, so the gap
+                                                     between the world name and Launch! varied with card height
+                                                     (33px on a short card, 8px on a tall one). It also pushed the
+                                                     hint below the card, clipping it. Auto height stacks the rows
+                                                     naturally and lets the slack fall to the bottom. -->
+                                                <table width=100% border=0>
                                                         <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
                                                         <tr>
                                                         <th class='$worldDimmed card_worldLaunch' colspan=2><a class='$worldDimmed card_worldLaunch launch-link' href='phvalheim://?$launchString' data-launch='$launchString'>$launchLabel</a></th>
