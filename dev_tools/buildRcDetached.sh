@@ -77,13 +77,19 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   s=$(grep -c "joinCode" /opt/stateless/nginx/www/public/api.php)
   t=$(grep -c "clearUnreportedWorlds" /opt/stateless/nginx/www/admin/index.php)
   echo "engine marks-broken=$o (want 2)  engine exit-1 count=$p (want 0)"
+  # A crossplay world launches with -joincode. Match the URL itself, not the bare word --
+  # the comments explaining all this mention "-joincode" nine times.
+  u=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/public/authenticated.php)
+  v=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/public/api.php)
   echo "getWorldJoinCode=$q (want 1)  copyVanillaJoinCode=$r (want 3)  api joinCode=$s (want 1)"
   echo "clearUnreportedWorlds=$t (want 2)"
+  echo "joincode launch url: card=$u (want 1)  api=$v (want 1)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
     && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
+    && [ "$u" = "1" ] && [ "$v" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
