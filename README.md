@@ -369,9 +369,9 @@ The **database is the source of truth**. All three files are regenerated from it
 
 **Upgrading from 2.39 or earlier:** your stored IDs are converted to the `V_` form automatically on first start, and the Access tab explains it once. Entries that were already prefixed, and console IDs, are left alone; anything unrecognised is kept exactly as you left it rather than dropped.
 
-> **Note:** A world's **Public** toggle controls the Citizens gate only. It does *not* publish the world to the Valheim server browser — that is the separate **List in server browser** option on vanilla worlds.
+> **Note:** **Use Access List** controls the Citizens gate only. It does *not* publish the world to the Valheim server browser — that is the separate **List in server browser** option on vanilla worlds.
 
-**Public World** sits at the top of the Access tab. Switching it on hides the Citizens editor, since the list is not consulted while a world is public — the list is kept, not cleared, and comes back when you switch it off.
+**Use Access List** sits at the top of the Access tab, because it decides whether the Citizens list is consulted at all. On, only the players on the list may join. Off, anyone may join, so the editor is hidden — the list is kept, not cleared, and comes back when you switch it on again.
 
 ---
 

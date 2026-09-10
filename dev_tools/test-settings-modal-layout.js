@@ -4,7 +4,7 @@
 //      hints under a section TITLE, not under a panel).
 //   2. Options tab -- "Changes here need a world restart" sat stranded BELOW the
 //      actions bar; it belongs on the same line as Save World Options.
-//   3. Access tab -- Public World belongs at the TOP, and switching it on must hide
+//   3. Access tab -- "Use Access List" belongs at the TOP, and switching it OFF must hide
 //      the Citizens editor -- including its own Save Citizens button -- while leaving
 //      Save Access reachable so the flag can still be persisted.
 //
@@ -75,7 +75,7 @@ const rectOfText = (selector, needle) => `(() => {
     await page.evaluate((w) => showSettingsModal(w), world);
     // state:'attached', NOT the default 'visible' -- the .switch checkbox is
     // appearance:none + opacity:0 by design, so it is never "visible" to playwright.
-    await page.waitForSelector('#settingsPublicToggle', { state: 'attached', timeout: 15000 });
+    await page.waitForSelector('#settingsAccessListToggle', { state: 'attached', timeout: 15000 });
     await page.waitForTimeout(600);
 
     // ---------------------------------------------------------------- case 1
@@ -120,55 +120,61 @@ const rectOfText = (selector, needle) => `(() => {
     }
 
     // ---------------------------------------------------------------- case 3
-    console.log('\nCase 3: Access tab -- Public World on top, Citizens editor follows it');
+    console.log('\nCase 3: Access tab -- "Use Access List" on top, Citizens editor follows it');
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(300);
 
-    // Start from the not-public state so the editor is on screen to begin with.
+    // Start with the list ENFORCED so the editor is on screen to begin with.
     await page.evaluate(() => {
-        const t = document.getElementById('settingsPublicToggle');
-        if (t.checked) { t.checked = false; t.dispatchEvent(new Event('change')); }
+        const t = document.getElementById('settingsAccessListToggle');
+        if (!t.checked) { t.checked = true; t.dispatchEvent(new Event('change')); }
     });
     await page.waitForTimeout(250);
 
-    const publicRow = await page.evaluate(rectOfText('#accessTab span', 'Public World'));
+    // The label is the thing under test -- "Public" was the confusing wording this
+    // replaced, so assert on the new text rather than on the row's position alone.
+    const publicRow = await page.evaluate(rectOfText('#accessTab span', 'Use Access List'));
     const citizensHdr = await page.evaluate(rectOfText('#accessTab h6', 'Citizens'));
     const adminsHdr = await page.evaluate(rectOfText('#accessTab h6', 'Admins'));
     if (!publicRow || !citizensHdr) {
-        check('found Public World and the Citizens heading', false, JSON.stringify({ publicRow, citizensHdr }));
+        check('found "Use Access List" and the Citizens heading', false, JSON.stringify({ publicRow, citizensHdr }));
     } else {
-        check('Public World is ABOVE the Citizens heading', publicRow.top < citizensHdr.top,
-            `public=${Math.round(publicRow.top)} citizens=${Math.round(citizensHdr.top)}`);
+        check('"Use Access List" is ABOVE the Citizens heading', publicRow.top < citizensHdr.top,
+            `switch=${Math.round(publicRow.top)} citizens=${Math.round(citizensHdr.top)}`);
         if (adminsHdr) {
-            check('Public World is above Admins too', publicRow.top < adminsHdr.top,
-                `public=${Math.round(publicRow.top)} admins=${Math.round(adminsHdr.top)}`);
+            check('"Use Access List" is above Admins too', publicRow.top < adminsHdr.top,
+                `switch=${Math.round(publicRow.top)} admins=${Math.round(adminsHdr.top)}`);
         }
     }
+    // The old wording must be gone, or the rename only half happened.
+    const stalePublic = await page.evaluate(rectOfText('#accessTab span', 'Public World'));
+    check('the old "Public World" label is gone', !stalePublic, JSON.stringify(stalePublic));
 
     const editorBefore = await page.evaluate(rectOf('#settingsCitizensTextarea'));
-    check('Citizens editor visible while NOT public', !!editorBefore && editorBefore.visible,
+    check('Citizens editor visible while the list is IN USE', !!editorBefore && editorBefore.visible,
         JSON.stringify(editorBefore));
 
-    // Flip it on through the real event path.
+    // Switch the list OFF through the real event path -- anyone may join, so the
+    // list is not consulted and must go away.
     await page.evaluate(() => {
-        const t = document.getElementById('settingsPublicToggle');
-        t.checked = true; t.dispatchEvent(new Event('change'));
+        const t = document.getElementById('settingsAccessListToggle');
+        t.checked = false; t.dispatchEvent(new Event('change'));
     });
     await page.waitForTimeout(250);
 
     const editorAfter = await page.evaluate(rectOf('#settingsCitizensTextarea'));
     const lookupAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Look Up SteamID'));
     const saveAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Citizens'));
-    const publicAfter = await page.evaluate(rectOfText('#accessTab span', 'Public World'));
+    const publicAfter = await page.evaluate(rectOfText('#accessTab span', 'Use Access List'));
     const accessSaveAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Access'));
-    check('Citizens editor HIDDEN when public', !!editorAfter && !editorAfter.visible, JSON.stringify(editorAfter));
+    check('Citizens editor HIDDEN when the list is switched off', !!editorAfter && !editorAfter.visible, JSON.stringify(editorAfter));
     check('Look Up SteamID hidden with it', !lookupAfter || !lookupAfter.visible, JSON.stringify(lookupAfter));
     // The "Save Citizens" button belongs to the editor. Leaving it on screen gave a
     // lone save button that answered "Citizens saved." with no list above it.
     check('Citizens "Save Citizens" hidden WITH the editor',
         !saveAfter || !saveAfter.visible, JSON.stringify(saveAfter));
-    check('Public World still on screen', !!publicAfter && publicAfter.visible, JSON.stringify(publicAfter));
-    // ...but the public flag must still be savable, or hiding the shared button would
+    check('"Use Access List" still on screen', !!publicAfter && publicAfter.visible, JSON.stringify(publicAfter));
+    // ...but the flag must still be savable, or hiding the shared button would
     // have stranded it.
     check('"Save Access" still reachable to persist the flag',
         !!accessSaveAfter && accessSaveAfter.visible, JSON.stringify(accessSaveAfter));
@@ -182,15 +188,15 @@ const rectOfText = (selector, needle) => `(() => {
     check('textarea still holds its value while hidden (not blanked)', textPreserved !== null,
         `value=${JSON.stringify(String(textPreserved).slice(0, 40))}`);
 
-    // Back off again -- the editor must return.
+    // Back on again -- the editor must return.
     await page.evaluate(() => {
-        const t = document.getElementById('settingsPublicToggle');
-        t.checked = false; t.dispatchEvent(new Event('change'));
+        const t = document.getElementById('settingsAccessListToggle');
+        t.checked = true; t.dispatchEvent(new Event('change'));
     });
     await page.waitForTimeout(250);
     const editorBack = await page.evaluate(rectOf('#settingsCitizensTextarea'));
     const saveBack = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Citizens'));
-    check('Citizens editor returns when public is switched off', !!editorBack && editorBack.visible,
+    check('Citizens editor returns when the list is switched back on', !!editorBack && editorBack.visible,
         JSON.stringify(editorBack));
     check('its Save Citizens returns with it', !!saveBack && saveBack.visible, JSON.stringify(saveBack));
 

@@ -45,7 +45,7 @@ async function clearBlockingOverlays(page) {
 
 async function openAccessTab(page, world) {
     await page.evaluate((w) => showSettingsModal(w), world);
-    await page.waitForSelector('#settingsPublicToggle', { state: 'attached', timeout: 15000 });
+    await page.waitForSelector('#settingsAccessListToggle', { state: 'attached', timeout: 15000 });
     await page.waitForTimeout(500);
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(400);
@@ -73,7 +73,7 @@ async function openAccessTab(page, world) {
     check('not visible on page load', onLoad.found && !onLoad.visible, JSON.stringify(onLoad));
 
     await page.evaluate((w) => showSettingsModal(w), world);
-    await page.waitForSelector('#settingsPublicToggle', { state: 'attached', timeout: 15000 });
+    await page.waitForSelector('#settingsAccessListToggle', { state: 'attached', timeout: 15000 });
     await page.waitForTimeout(500);
     let onGeneral = await page.evaluate(overlayVisible);
     check('not visible on the General tab', !onGeneral.visible, JSON.stringify(onGeneral));

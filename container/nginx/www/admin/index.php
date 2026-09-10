@@ -2762,7 +2762,9 @@ $totalCount = count($worlds);
                 const hideSeedChecked = settings.hideSeed == 1 ? 'checked' : '';
                 const autostartChecked = settings.autostart == 1 ? 'checked' : '';
                 const citizensText = citizens.citizens ? citizens.citizens.replace(/ /g, '\n') : '';
-                const isPublic = citizens.public ? 'checked' : '';
+                // The switch reads "Use Access List", which is the inverse of the stored
+                // worlds.public flag. Invert on the way in, and once more on the way out.
+                const useAccessList = citizens.public ? '' : 'checked';
                 const adminsText = (admins.admins || '').replace(/ /g, '\n');
                 const bannedText = (banned.banned || '').replace(/ /g, '\n');
 
@@ -2909,29 +2911,29 @@ $totalCount = count($worlds);
 
                     <!-- Access Tab -->
                     <div class="settings-tab-pane" id="accessTab" style="display:none;">
-                    <!-- Public World comes FIRST because it decides whether the Citizens
-                         list is consulted at all. Reading the list, then finding out
-                         underneath that it is switched off, was backwards. -->
+                    <!-- This comes FIRST because it decides whether the Citizens list is
+                         consulted at all. Reading the list, then finding out underneath
+                         that it is switched off, was backwards. -->
                     <div class="pv-section">
                         <h6 class="pv-section-title">World Access</h6>
                         <div class="pv-panel">
                             <div class="pv-row">
                                 <div class="pv-row-text">
-                                    <span class="pv-row-label">Public World</span>
-                                    <span class="pv-row-desc">Allow all players to access this world. While this is on the Citizens list is not used, so it is hidden &mdash; it is kept, not cleared, and comes back when you switch this off.</span>
+                                    <span class="pv-row-label">Use Access List</span>
+                                    <span class="pv-row-desc">Only the players on the Citizens list below may join this world. Switch this off to let anyone in &mdash; the list is kept, not cleared, and comes back when you switch it on again.</span>
                                 </div>
                                 <label class="switch pv-row-control">
-                                    <input type="checkbox" id="settingsPublicToggle" ${isPublic} onchange="toggleAccessCitizens(this.checked)">
+                                    <input type="checkbox" id="settingsAccessListToggle" ${useAccessList} onchange="toggleAccessCitizens(this.checked)">
                                     <span class="slider round"></span>
                                 </label>
                             </div>
                         </div>
-                        <!-- Public World needs its OWN save. It used to share the Citizens
-                             one, which is why that button had to stay on screen after the
+                        <!-- This needs its OWN save. It used to share the Citizens one,
+                             which is why that button had to stay on screen after the
                              editor hid -- a lone save button with nothing above it that
                              answered "Citizens saved." -->
                         <div class="pv-actions">
-                            <span class="pv-status" id="settingsPublicSaveStatus"></span>
+                            <span class="pv-status" id="settingsAccessSaveStatus"></span>
                             <button class="action-btn success" onclick="saveAccessPublic()">Save Access</button>
                         </div>
                     </div>
@@ -3126,9 +3128,11 @@ $totalCount = count($worlds);
     // it invites someone to curate a list that has no effect. Hide the EDITOR only --
     // the textarea stays in the DOM, so saveSettingsCitizens() still posts the existing
     // list back and the ids survive a trip through public and out again.
-    function toggleAccessCitizens(isPublic) {
+    // ON means the access list is enforced, so the Citizens editor belongs on screen.
+    // That is the opposite of the stored worlds.public flag -- see saveAccessPublic().
+    function toggleAccessCitizens(useAccessList) {
         const block = document.getElementById('settingsCitizensBlock');
-        if (block) block.style.display = isPublic ? 'none' : 'block';
+        if (block) block.style.display = useAccessList ? 'block' : 'none';
     }
 
     async function saveWorldOptions() {
@@ -3219,7 +3223,8 @@ $totalCount = count($worlds);
 
     async function saveSettingsCitizens() {
         const citizens = document.getElementById('settingsCitizensTextarea').value;
-        const isPublic = document.getElementById('settingsPublicToggle').checked ? 1 : 0;
+        // Switch ON = list enforced = NOT public. The column stores the inverse.
+        const isPublic = document.getElementById('settingsAccessListToggle').checked ? 0 : 1;
         const statusEl = document.getElementById('settingsCitizensSaveStatus');
 
         statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
@@ -3247,13 +3252,14 @@ $totalCount = count($worlds);
         }
     }
 
-    // Saves the Public World flag on its own. It posts the citizens textarea UNCHANGED
+    // Saves the access-list flag on its own. It posts the citizens textarea UNCHANGED
     // alongside it -- saveCitizens writes both columns, so sending an empty list here
-    // would wipe the ids the moment someone switched a world public.
+    // would wipe the ids the moment someone switched the list off.
     async function saveAccessPublic() {
         const ta = document.getElementById('settingsCitizensTextarea');
-        const isPublic = document.getElementById('settingsPublicToggle').checked ? 1 : 0;
-        const statusEl = document.getElementById('settingsPublicSaveStatus');
+        // "Use Access List" ON means the list is enforced, which is worlds.public = 0.
+        const isPublic = document.getElementById('settingsAccessListToggle').checked ? 0 : 1;
+        const statusEl = document.getElementById('settingsAccessSaveStatus');
 
         statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
 
@@ -3270,7 +3276,7 @@ $totalCount = count($worlds);
             const data = await response.json();
 
             if (data.success) {
-                statusEl.innerHTML = `<span style="color: var(--success);">${isPublic ? 'World is now public.' : 'World is now Citizens-only.'}</span>`;
+                statusEl.innerHTML = `<span style="color: var(--success);">${isPublic ? 'Access list off &mdash; anyone may join.' : 'Access list on &mdash; Citizens only.'}</span>`;
                 setTimeout(() => { statusEl.innerHTML = ''; }, 4000);
             } else {
                 statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;

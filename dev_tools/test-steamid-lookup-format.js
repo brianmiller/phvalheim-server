@@ -61,14 +61,15 @@ function check(name, ok, detail) {
     console.log(`(using world "${world}", stub returns bare ${BARE})`);
 
     await page.evaluate((w) => showSettingsModal(w), world);
-    await page.waitForSelector('#settingsPublicToggle', { state: 'attached', timeout: 15000 });
+    await page.waitForSelector('#settingsAccessListToggle', { state: 'attached', timeout: 15000 });
     await page.waitForTimeout(500);
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(300);
-    // Make sure the editor is on screen (it hides when the world is public).
+    // Make sure the editor is on screen. It rides with "Use Access List": the list is
+    // only shown when it is actually enforced, so switch it ON.
     await page.evaluate(() => {
-        const t = document.getElementById('settingsPublicToggle');
-        if (t.checked) { t.checked = false; t.dispatchEvent(new Event('change')); }
+        const t = document.getElementById('settingsAccessListToggle');
+        if (!t.checked) { t.checked = true; t.dispatchEvent(new Event('change')); }
     });
     await page.waitForTimeout(250);
 
