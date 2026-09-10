@@ -6,6 +6,10 @@
 //
 // The flag is driven directly in the DB between phases, which is what an upgrade does.
 //
+// ARM THE FLAG FIRST -- this test is not self-arming, and Case 3 dismisses the notice as
+// part of what it proves, so it only passes once per arming:
+//   docker exec <container> mysql -e "update phvalheim.settings set accessIdNoticeShown=0"
+//
 // Usage:
 //   docker run --rm --network host -v "$PWD/dev_tools":/w -w /w \
 //     mcr.microsoft.com/playwright:v1.47.0-jammy bash -c \
@@ -66,6 +70,18 @@ async function openAccessTab(page, world) {
     });
     if (!world) { console.log('NO WORLDS'); process.exit(1); }
     console.log(`(using world "${world}")`);
+
+    // PRECONDITION. This test is not self-arming, and Case 3 DISARMS the flag as part
+    // of what it proves -- so it passes once and then fails on every later run until
+    // the flag is set back to 0. Left undetected that surfaces as a TimeoutError deep
+    // in Case 3, which reads like a regression in the page. Say so plainly instead.
+    const armed = await page.evaluate(() => !!document.getElementById('accessIdNoticeOverlay'));
+    if (!armed) {
+        console.log('\nPRECONDITION NOT MET: the notice is already dismissed, so it is not rendered.');
+        console.log('This is not a failure of the page. Re-arm the flag and run again:');
+        console.log("  docker exec <container> mysql -e \"update phvalheim.settings set accessIdNoticeShown=0\"");
+        process.exit(2);
+    }
 
     console.log('\nCase 1: flag armed -- notice does NOT fire on page load, only on Access');
     // The page was loaded with the flag already armed by the caller.

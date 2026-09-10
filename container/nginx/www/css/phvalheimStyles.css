@@ -4662,6 +4662,122 @@ textarea.pv-input,
 	font-size: 0.95em;
 }
 
+/* --- access lists ---------------------------------------------------
+   The Access tab carries three peer lists (Citizens / Admins / Banned). It used
+   to repeat the same "how to find an ID" note above each one. Three copies of a
+   five-line explanation is noise on screen, and a screen reader reads the whole
+   thing out three times -- GOV.UK's guidance is that an explanation this long is
+   not hint text at all. It now appears once, as a disclosure, above all three.
+
+   Stacked sections rather than tabs, deliberately: the common question is "is
+   this player on more than one of these?", and tabs are the wrong control when
+   the user has to compare across the groups. */
+.pv-disclosure {
+	background: var(--bg-primary);
+	border: 1px solid var(--border-light);
+	border-radius: 0.375rem;
+	margin-bottom: 1.25rem;
+}
+.pv-disclosure > summary {
+	cursor: pointer;
+	padding: 0.6rem 0.9rem;
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: var(--text-secondary);
+	list-style: none;
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+}
+.pv-disclosure > summary::-webkit-details-marker {
+	display: none;
+}
+/* Own marker, so the affordance survives the list-style reset above. */
+.pv-disclosure > summary::before {
+	content: "▸";
+	font-size: 0.7rem;
+	transition: transform 0.15s ease;
+	color: var(--accent-primary);
+}
+.pv-disclosure[open] > summary::before {
+	transform: rotate(90deg);
+}
+.pv-disclosure > summary:hover {
+	color: var(--text-primary);
+}
+.pv-disclosure .pv-disclosure-body {
+	padding: 0 0.9rem 0.85rem;
+}
+.pv-disclosure .pv-disclosure-body p {
+	margin: 0 0 0.4rem 0;
+	font-size: 0.8rem;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+.pv-disclosure .pv-disclosure-body p:last-child {
+	margin-bottom: 0;
+}
+.pv-disclosure code,
+.pv-disclosure kbd {
+	background: var(--bg-tertiary);
+	border-radius: 0.2rem;
+	padding: 0 0.3rem;
+	font-size: 0.95em;
+}
+
+/* Count badge in a list heading. Cheap information scent -- "Banned 0" and
+   "Banned 14" are very different screens and used to look identical until you
+   read the textarea. */
+.pv-count {
+	background: var(--bg-tertiary);
+	color: var(--text-secondary);
+	border-radius: 999px;
+	padding: 0.05rem 0.45rem;
+	font-size: 0.7rem;
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+/* Banned is the one list here with a destructive edge, so it gets a warning
+   line -- not a red panel. Colouring the whole section would compete with the
+   danger save button for the same signal. */
+.pv-warn {
+	border-left: 3px solid var(--warning);
+	background: var(--bg-primary);
+	border-radius: 0.375rem;
+	padding: 0.55rem 0.8rem;
+	margin-bottom: 0.85rem;
+	font-size: 0.78rem;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+/* Per-list footer: lookup on the left, save on the right. */
+.pv-list-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	justify-content: flex-end;
+	padding-top: 0.85rem;
+	border-top: 1px solid var(--border-light);
+}
+.pv-list-actions .pv-list-lookup {
+	margin-right: auto;
+}
+.pv-list-status {
+	text-align: right;
+	margin-top: 0.6rem;
+	font-size: 0.8rem;
+	min-height: 1.1em;
+}
+.pv-list-area {
+	width: 100%;
+	min-height: 120px;
+	font-family: var(--font-mono);
+	font-size: 0.875rem;
+	resize: vertical;
+}
+
 /* --- modal shell ----------------------------------------------------
    The world settings dialog was clipping its last row with no affordance that
    more existed. Make the dialog a flex column with a fixed header and tab bar

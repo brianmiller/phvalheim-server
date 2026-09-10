@@ -1779,7 +1779,13 @@ $totalCount = count($worlds);
     // (Citizens functionality merged into Settings modal below)
 
     // SteamID Lookup Modal
-    function openSteamIdLookup() {
+    // Which list asked for the lookup. It used to always append to Citizens, so the
+    // Admins and Banned lists had no lookup at all and a result found while editing
+    // them landed in the wrong list.
+    let steamIdLookupTarget = 'settingsCitizensTextarea';
+
+    function openSteamIdLookup(targetId) {
+        steamIdLookupTarget = targetId || 'settingsCitizensTextarea';
         document.getElementById('steamIdLookupInput').value = '';
         document.getElementById('steamIdResultText').textContent = '—';
         document.getElementById('steamIdCopyBtn').style.display = 'none';
@@ -1826,11 +1832,14 @@ $totalCount = count($worlds);
         const steamId = document.getElementById('steamIdResultText').textContent;
         if (steamId && steamId !== '—') {
             navigator.clipboard.writeText(steamId).then(() => {
-                // Add to textarea if settings modal citizens section is open
-                const textarea = document.getElementById('settingsCitizensTextarea');
+                // Append to the list that opened the lookup, not always Citizens.
+                const textarea = document.getElementById(steamIdLookupTarget);
                 if (textarea) {
                     const currentValue = textarea.value.trim();
                     textarea.value = currentValue ? currentValue + '\n' + steamId : steamId;
+                    // The heading count is derived from the textarea, and setting .value
+                    // in script fires no input event -- so it would have gone stale here.
+                    textarea.dispatchEvent(new Event('input'));
                 }
                 closeSteamIdModal();
             });
@@ -2768,22 +2777,30 @@ $totalCount = count($worlds);
                 const adminsText = (admins.admins || '').replace(/ /g, '\n');
                 const bannedText = (banned.banned || '').replace(/ /g, '\n');
 
-                // Shown above all three access lists. Valheim 1.0 matches on the Platform
-                // User ID, not the SteamID64, and console players have no SteamID64 at all --
-                // so F2 is the only method that works for every player.
-                const idHelpHtml = `
-                    <div style="background: var(--bg-primary); border-left: 3px solid var(--accent-primary); border-radius: 0.375rem; padding: 0.75rem 1rem; margin-bottom: 1rem;">
-                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin: 0 0 0.4rem 0;">
-                            <strong>Easiest way to get a player's ID:</strong> have them join any public world and press
-                            <kbd style="background: var(--bg-tertiary); border-radius: 0.2rem; padding: 0 0.3rem;">F2</kbd>.
-                            The panel shows their <em>Platform User ID</em> &mdash; note it down and paste it here.
-                        </p>
-                        <p style="color: var(--text-muted); font-size: 0.72rem; margin: 0;">
-                            A plain SteamID64 (17 digits) also works &mdash; PhValheim converts it to the
-                            <code>V_</code> form Valheim actually matches. Xbox, PlayStation, Nintendo and
-                            GameCenter players have no SteamID64, so for them F2 is the only way.
-                        </p>
-                    </div>`;
+                // ONE copy, above all three lists, collapsed by default. This used to be
+                // stamped over every list; an admin only needs to learn "press F2" once, and
+                // a screen reader had to read the whole procedure out three times per visit.
+                // Valheim 1.0 matches on the Platform User ID, not the SteamID64, and console
+                // players have no SteamID64 at all -- so F2 is the only universal method.
+                const idHelpDisclosure = `
+                    <details class="pv-disclosure">
+                        <summary>How do I find a player's ID?</summary>
+                        <div class="pv-disclosure-body">
+                            <p>
+                                Have them join any world and press <kbd>F2</kbd>. The panel shows their
+                                <em>Platform User ID</em> &mdash; paste that into any of the lists below.
+                            </p>
+                            <p>
+                                A plain SteamID64 (17 digits) also works &mdash; PhValheim converts it to the
+                                <code>V_</code> form Valheim actually matches. Xbox, PlayStation, Nintendo and
+                                GameCenter players have no SteamID64, so for them F2 is the only way.
+                            </p>
+                        </div>
+                    </details>`;
+                // Same example in all three hints. A format that is shown but never explained
+                // is how people ended up pasting bare SteamID64s that matched nothing.
+                const idExample = 'One ID per line. For example <code>V_76561198012345678</code>.';
+                const idCount = (t) => String(t || '').split('\n').filter(l => l.trim() !== '').length;
                 const isVanilla = options.vanilla == 1;
                 const vanillaChecked = isVanilla ? 'checked' : '';
                 const crossplayChecked = options.crossplay == 1 ? 'checked' : '';
@@ -2937,67 +2954,64 @@ $totalCount = count($worlds);
                             <button class="action-btn success" onclick="saveAccessPublic()">Save Access</button>
                         </div>
                     </div>
-                    <div>
-                        <!-- The textarea stays in the DOM while hidden so both save paths
-                             round-trip the list instead of posting an empty one and wiping it. -->
-                        <div id="settingsCitizensBlock" style="display: ${citizens.public ? 'none' : 'block'};">
-                            <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
-                            <div style="margin-bottom: 1rem;">
-                                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                    Add player IDs to grant access (one per line):
-                                </p>
-                                ${idHelpHtml}
-                                <textarea id="settingsCitizensTextarea" class="form-control" style="min-height: 150px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${citizensText}</textarea>
-                            </div>
-                            <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
-                                <button type="button" class="action-btn" onclick="openSteamIdLookup()">
-                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                                    </svg>
-                                    Look Up SteamID
-                                </button>
-                            </div>
-                            <!-- INSIDE the block: this button only saves the Citizens list,
-                                 so it goes away with the editor it belongs to. -->
-                            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-                                <button class="action-btn success" onclick="saveSettingsCitizens()">Save Citizens</button>
-                            </div>
-                            <div id="settingsCitizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                    <!-- The one copy of the ID help, above all three lists. -->
+                    ${idHelpDisclosure}
+
+                    <!-- The textarea stays in the DOM while hidden so both save paths
+                         round-trip the list instead of posting an empty one and wiping it. -->
+                    <div class="pv-section" id="settingsCitizensBlock" style="display: ${citizens.public ? 'none' : 'block'};">
+                        <h6 class="pv-section-title">Citizens <span class="pv-count" id="citizensCount">${idCount(citizensText)}</span></h6>
+                        <p class="pv-field-hint" style="margin-bottom: 0.6rem;">Only these players may join this world. ${idExample}</p>
+                        <textarea id="settingsCitizensTextarea" class="form-control pv-list-area" style="min-height: 150px;" oninput="updateAccessCount('citizens')">${citizensText}</textarea>
+                        <!-- INSIDE the block: these belong to the Citizens editor and go
+                             away with it. A lone save button answering "Citizens saved."
+                             for a list that was no longer on screen is what this fixed. -->
+                        <div class="pv-list-actions">
+                            <button type="button" class="action-btn pv-list-lookup" onclick="openSteamIdLookup('settingsCitizensTextarea')">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                Look Up SteamID
+                            </button>
+                            <button class="action-btn success" onclick="saveSettingsCitizens()">Save Citizens</button>
                         </div>
+                        <div id="settingsCitizensSaveStatus" class="pv-list-status"></div>
                     </div>
-                    <div style="margin-top: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Admins</h6>
-                        <div style="margin-bottom: 1rem;">
-                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                Player IDs with in-game admin commands (one per line):
-                            </p>
-                            ${idHelpHtml}
-                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
-                                <em>Note: players already connected keep their previous admin status until they reconnect.</em>
-                            </p>
-                            <textarea id="settingsAdminsTextarea" class="form-control" style="min-height: 120px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${adminsText}</textarea>
-                        </div>
-                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+
+                    <div class="pv-section">
+                        <h6 class="pv-section-title">Admins <span class="pv-count" id="adminsCount">${idCount(adminsText)}</span></h6>
+                        <p class="pv-field-hint" style="margin-bottom: 0.6rem;">These players can use in-game admin commands. ${idExample}<br>Anyone already connected keeps their previous admin status until they reconnect.</p>
+                        <textarea id="settingsAdminsTextarea" class="form-control pv-list-area" oninput="updateAccessCount('admins')">${adminsText}</textarea>
+                        <div class="pv-list-actions">
+                            <button type="button" class="action-btn pv-list-lookup" onclick="openSteamIdLookup('settingsAdminsTextarea')">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                Look Up SteamID
+                            </button>
                             <button class="action-btn success" onclick="saveSettingsAdmins()">Save Admins</button>
                         </div>
-                        <div id="settingsAdminsSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                        <div id="settingsAdminsSaveStatus" class="pv-list-status"></div>
                     </div>
-                    <div style="margin-top: 1.5rem;">
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Banned</h6>
-                        <div style="margin-bottom: 1rem;">
-                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                Player IDs blocked from this world (one per line):
-                            </p>
-                            ${idHelpHtml}
-                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
-                                <em>Note: a ban applies even when the world is public, and takes effect without a restart.</em>
-                            </p>
-                            <textarea id="settingsBannedTextarea" class="form-control" style="min-height: 120px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${bannedText}</textarea>
-                        </div>
-                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+
+                    <div class="pv-section">
+                        <h6 class="pv-section-title">Banned <span class="pv-count" id="bannedCount">${idCount(bannedText)}</span></h6>
+                        <!-- The one list here that locks people out. It gets a warning line
+                             rather than a red panel -- tinting the whole section would
+                             compete with the danger save button for the same signal. -->
+                        <p class="pv-warn">A ban applies <strong>even when the access list is switched off</strong>, and takes effect without a restart.</p>
+                        <p class="pv-field-hint" style="margin-bottom: 0.6rem;">These players cannot join this world. ${idExample}</p>
+                        <textarea id="settingsBannedTextarea" class="form-control pv-list-area" oninput="updateAccessCount('banned')">${bannedText}</textarea>
+                        <div class="pv-list-actions">
+                            <button type="button" class="action-btn pv-list-lookup" onclick="openSteamIdLookup('settingsBannedTextarea')">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                Look Up SteamID
+                            </button>
                             <button class="action-btn danger" onclick="saveSettingsBanned()">Save Banned</button>
                         </div>
-                        <div id="settingsBannedSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
+                        <div id="settingsBannedSaveStatus" class="pv-list-status"></div>
                     </div>
                     </div>
 
@@ -3133,6 +3147,22 @@ $totalCount = count($worlds);
     function toggleAccessCitizens(useAccessList) {
         const block = document.getElementById('settingsCitizensBlock');
         if (block) block.style.display = useAccessList ? 'block' : 'none';
+    }
+
+    // Keeps the count in a list heading honest while the admin types. Blank lines do
+    // not count -- the engine ignores them, so counting them would overstate the list.
+    function updateAccessCount(which) {
+        const areas = {
+            citizens: ['settingsCitizensTextarea', 'citizensCount'],
+            admins:   ['settingsAdminsTextarea',   'adminsCount'],
+            banned:   ['settingsBannedTextarea',   'bannedCount']
+        };
+        const pair = areas[which];
+        if (!pair) return;
+        const ta = document.getElementById(pair[0]);
+        const badge = document.getElementById(pair[1]);
+        if (!ta || !badge) return;
+        badge.textContent = ta.value.split('\n').filter(l => l.trim() !== '').length;
     }
 
     async function saveWorldOptions() {
