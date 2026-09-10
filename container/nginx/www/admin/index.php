@@ -2826,44 +2826,56 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="pv-actions">
+                        <p class="pv-section-hint pv-actions-hint">Changes here need a world restart to take effect.</p>
                         <span class="pv-status" id="settingsOptionsSaveStatus"></span>
                         <button class="action-btn success" onclick="saveWorldOptions()">Save World Options</button>
                     </div>
-                    <p class="pv-section-hint" style="margin-top: 0.75rem;">Changes here need a world restart to take effect.</p>
                     </div>
 
                     <!-- Access Tab -->
                     <div class="settings-tab-pane" id="accessTab" style="display:none;">
-                    <div>
-                        <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
-                        <div style="margin-bottom: 1rem;">
-                            <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
-                                Add player IDs to grant access (one per line):
-                            </p>
-                            ${idHelpHtml}
-                            <p style="color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem;">
-                                <em>Note: player IDs are ignored when world is set to public.</em>
-                            </p>
-                            <textarea id="settingsCitizensTextarea" class="form-control" style="min-height: 150px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${citizensText}</textarea>
-                        </div>
-                        <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
-                            <button type="button" class="action-btn" onclick="openSteamIdLookup()">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                                </svg>
-                                Look Up SteamID
-                            </button>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-primary); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-                            <div>
-                                <span style="display: block; margin-bottom: 0.25rem;">Public World</span>
-                                <small style="color: var(--text-muted);">Allow all players to access this world.</small>
+                    <!-- Public World comes FIRST because it decides whether the Citizens
+                         list is consulted at all. Reading the list, then finding out
+                         underneath that it is switched off, was backwards. -->
+                    <div class="pv-section">
+                        <h6 class="pv-section-title">World Access</h6>
+                        <div class="pv-panel">
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Public World</span>
+                                    <span class="pv-row-desc">Allow all players to access this world. While this is on the Citizens list is not used, so it is hidden &mdash; it is kept, not cleared, and comes back when you switch this off.</span>
+                                </div>
+                                <label class="switch pv-row-control">
+                                    <input type="checkbox" id="settingsPublicToggle" ${isPublic} onchange="toggleAccessCitizens(this.checked)">
+                                    <span class="slider round"></span>
+                                </label>
                             </div>
-                            <label class="switch">
-                                <input type="checkbox" id="settingsPublicToggle" ${isPublic}>
-                                <span class="slider round"></span>
-                            </label>
                         </div>
+                    </div>
+                    <div>
+                        <!-- Only the EDITOR hides. The textarea stays in the DOM so
+                             saveSettingsCitizens() keeps round-tripping the list instead
+                             of posting an empty one and wiping it. -->
+                        <div id="settingsCitizensBlock" style="display: ${citizens.public ? 'none' : 'block'};">
+                            <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
+                            <div style="margin-bottom: 1rem;">
+                                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
+                                    Add player IDs to grant access (one per line):
+                                </p>
+                                ${idHelpHtml}
+                                <textarea id="settingsCitizensTextarea" class="form-control" style="min-height: 150px; font-family: var(--font-mono); font-size: 0.875rem; resize: vertical;" placeholder="Enter SteamIDs, one per line">${citizensText}</textarea>
+                            </div>
+                            <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
+                                <button type="button" class="action-btn" onclick="openSteamIdLookup()">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="margin-right: 0.375rem;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                    Look Up SteamID
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Outside the hidden block on purpose: this button also saves the
+                             Public World toggle, so it has to survive the editor hiding. -->
                         <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
                             <button class="action-btn success" onclick="saveSettingsCitizens()">Save Settings</button>
                         </div>
@@ -3026,6 +3038,15 @@ $totalCount = count($worlds);
     function toggleVanillaFields(checked) {
         const block = document.getElementById('vanillaOptionsBlock');
         if (block) block.style.display = checked ? 'block' : 'none';
+    }
+
+    // A public world does not consult permittedlist.txt at all, so showing an editor for
+    // it invites someone to curate a list that has no effect. Hide the EDITOR only --
+    // the textarea stays in the DOM, so saveSettingsCitizens() still posts the existing
+    // list back and the ids survive a trip through public and out again.
+    function toggleAccessCitizens(isPublic) {
+        const block = document.getElementById('settingsCitizensBlock');
+        if (block) block.style.display = isPublic ? 'none' : 'block';
     }
 
     async function saveWorldOptions() {

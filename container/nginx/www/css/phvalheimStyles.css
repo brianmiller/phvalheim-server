@@ -4452,6 +4452,25 @@ input:checked + .slider:before {
 	line-height: 1.45;
 	color: var(--text-muted);
 }
+/* The -0.4rem above is for a hint that sits under a section TITLE, where it should
+   read as part of the heading. A hint that FOLLOWS a panel is a different thing --
+   it comments on the group above it, and the negative margin jammed it against the
+   panel border. Give it real air instead. */
+.pv-panel + .pv-section-hint {
+	margin-top: 0.7rem;
+}
+/* A hint living INSIDE the actions bar sits on the same line as the button rather
+   than stranded below it. It takes the free space, so the status text no longer
+   needs to (two `margin-right: auto` in one flex row would split the gap and park
+   the status in the middle). */
+.pv-actions > .pv-actions-hint {
+	margin: 0 auto 0 0;
+	flex: 1 1 16rem;
+	text-align: left;
+}
+.pv-actions > .pv-actions-hint ~ .pv-status {
+	margin-right: 0;
+}
 
 /* Panel that groups rows. One border around a group beats one card per item --
    the old modal drew a full card for a single toggle, which is why everything
