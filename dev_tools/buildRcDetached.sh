@@ -109,6 +109,19 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   ae=$(grep -c "let everyone in rather than nobody" /opt/stateless/nginx/www/admin/adminAPI.php)
   echo "sentinel: shell=$aa (want 1)  php=$ab (want 1)"
   echo "create sets access model=$ac (want 1)  who-can-join radios=$ad (want 2)  stale wording=$ae (want 0)"
+  # A restricted world must demand a first player id, the player page must show the player
+  # their own id, and Settings must warn on an enforced-but-empty list. The id validation is
+  # checked SERVER side -- the form check alone would leave the endpoint open.
+  af=$(grep -c "A restricted world needs at least one player ID" /opt/stateless/nginx/www/admin/adminAPI.php)
+  ag=$(grep -c "accessFirstId" /opt/stateless/nginx/www/admin/new_world.php)
+  ah=$(grep -c "steamid-self" /opt/stateless/nginx/www/public/authenticated.php)
+  ai=$(grep -c "\.steamid-self" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  aj=$(grep -c "function writeToClipboard" /opt/stateless/nginx/www/public/authenticated.php)
+  ak=$(grep -c "emptyAccessListOverlay" /opt/stateless/nginx/www/admin/index.php)
+  al=$(grep -c "maybeWarnEmptyAccessList" /opt/stateless/nginx/www/admin/index.php)
+  echo "create demands id: server=$af (want 1)  form=$ag (want 10)"
+  echo "self steamid: markup=$ah (want 5)  css=$ai (want 4)  shared clipboard=$aj (want 1)"
+  echo "empty-list modal: overlay=$ak (want 3)  predicate=$al (want 2)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
@@ -117,6 +130,8 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$u" = "1" ] && [ "$v" = "1" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
     && [ "$y" = "1" ] && [ "$z" = "1" ] \
     && [ "$aa" = "1" ] && [ "$ab" = "1" ] && [ "$ac" = "1" ] && [ "$ad" = "2" ] && [ "$ae" = "0" ] \
+    && [ "$af" = "1" ] && [ "$ag" = "10" ] && [ "$ah" = "5" ] && [ "$ai" = "4" ] \
+    && [ "$aj" = "1" ] && [ "$ak" = "3" ] && [ "$al" = "2" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
