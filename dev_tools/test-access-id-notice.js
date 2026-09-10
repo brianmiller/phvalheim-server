@@ -30,6 +30,19 @@ const overlayVisible = `(() => {
              classes: el.className };
 })()`;
 
+// A freshly-upgraded server opens the Server Settings modal by itself (v2.31 behaviour
+// when no env vars were ever set), and it sits over everything. Close any such overlay
+// so we are testing OUR notice rather than modal stacking.
+async function clearBlockingOverlays(page) {
+    await page.evaluate(() => {
+        ['serverSettingsOverlay', 'migrationNoticeOverlay'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('show');
+        });
+    });
+    await page.waitForTimeout(150);
+}
+
 async function openAccessTab(page, world) {
     await page.evaluate((w) => showSettingsModal(w), world);
     await page.waitForSelector('#settingsPublicToggle', { state: 'attached', timeout: 15000 });
@@ -44,7 +57,8 @@ async function openAccessTab(page, world) {
     const errors = [];
     page.on('pageerror', e => errors.push(String(e)));
 
-    await page.goto(`${BASE}/index.php`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE}/index.php`, { waitUntil: "networkidle" });
+    await clearBlockingOverlays(page);
     const world = await page.evaluate(async () => {
         const d = await (await fetch('adminAPI.php?action=getWorlds')).json();
         const list = d.worlds || d;
@@ -86,6 +100,7 @@ async function openAccessTab(page, world) {
 
     console.log('\nCase 4: it does not come back on a fresh page load');
     await page.goto(`${BASE}/index.php`, { waitUntil: 'networkidle' });
+    await clearBlockingOverlays(page);
     await openAccessTab(page, world);
     const second = await page.evaluate(overlayVisible);
     // With the flag cleared PHP omits the markup entirely, so "not found" is the pass.
