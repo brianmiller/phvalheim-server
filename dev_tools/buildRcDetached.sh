@@ -38,8 +38,11 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # counting only the new id would pass on an image that still carried both.
   e=$(grep -c "settingsAccessListToggle" /opt/stateless/nginx/www/admin/index.php)
   f=$(grep -c "settingsPublicToggle" /opt/stateless/nginx/www/admin/index.php)
-  g=$(grep -c "Use Access List" /opt/stateless/nginx/www/admin/index.php)
-  h=$(grep -c "Public World" /opt/stateless/nginx/www/admin/index.php)
+  # Match the switch ROW LABEL, not the bare strings. The upgrade notice quotes the old
+  # name on purpose ("Public World is now Use Access List"), so a bare count of either
+  # string says nothing about what the switch is actually labelled.
+  g=$(grep -c "pv-row-label\">Use Access List" /opt/stateless/nginx/www/admin/index.php)
+  h=$(grep -c "pv-row-label\">Public World" /opt/stateless/nginx/www/admin/index.php)
   echo "modSelectionCard=$a (want 2)"
   echo "Clearing world md5sum=$b (want 1)"
   echo "modded-payload WARNING=$c (want 1)"
@@ -54,7 +57,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   k=$(grep -c "pv-list-lookup" /opt/stateless/nginx/www/admin/index.php)
   l=$(grep -c "\.pv-disclosure" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   echo "settingsAccessListToggle=$e (want 3)  settingsPublicToggle=$f (want 0)"
-  echo "\"Use Access List\"=$g (want 3)  \"Public World\"=$h (want 0)"
+  echo "switch labelled Use Access List=$g (want 1)  still labelled Public World=$h (want 0)"
   # The switch-inversion upgrade notice, and the engine no longer dying on one bad world.
   # The engine check is a NEGATIVE: `exit 1` must be GONE from the whole file. Checking only
   # that the new message is present would pass on an image that had both.
@@ -65,9 +68,12 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   echo "idHelpDisclosure=$i (want 2)  old banner=$j (want 0)"
   echo "pv-list-lookup=$k (want 3)  .pv-disclosure css rules=$l (want >0)"
   echo "accessSwitchNoticeShown ui=$m (want 2) migration=$n (want 4)"
-  echo "engine 'Marking it broken'=$o (want 2)  engine 'exit 1'=$p (want 0)"
+  # NO single quotes in these echoes -- the whole block is inside sh -c '...', so one
+  # apostrophe closes it early and the rest of the verify silently never runs. That is
+  # exactly how this script reported a clean build while skipping its last four checks.
+  echo "engine marks-broken=$o (want 2)  engine exit-1 count=$p (want 0)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
-    && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "3" ] && [ "$h" = "0" ] \
+    && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
