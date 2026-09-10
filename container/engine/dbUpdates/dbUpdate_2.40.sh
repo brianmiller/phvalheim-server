@@ -74,7 +74,29 @@ addColumn worlds banned        "TEXT DEFAULT NULL"
 #
 #addColumn worlds trophy<newboss> "BOOL DEFAULT 0"
 
+# --- settings table: one-time Access-tab notice ---
+#
+# DEFAULT 1 means "already seen", i.e. stay quiet. migrateAccessIds.php flips it to 0 only
+# when it actually converts something, so a fresh install never gets a notice about a
+# migration it never had, and a failed migration cannot produce a spurious one.
+addColumn settings accessIdNoticeShown "TINYINT DEFAULT 1"
+
 ## END UPDATE ##
+
+# --- Valheim 1.0 access-id format ---
+#
+# Valheim 1.0 matches permitted/admin/banned entries on the PlatformUserID DISPLAY form
+# (V_ for Steam), not the bare SteamID64 an operator types. syncAccessLists.sh already
+# canonicalises on the way out to the files, and upgrading restarts every world, so an
+# upgraded server is functionally correct before this runs.
+#
+# This normalises the DATABASE so the Access tab shows the same thing Valheim receives.
+# Idempotent, and it keeps anything it cannot parse rather than dropping it.
+if [ -x /usr/bin/php ]; then
+	/usr/bin/php /opt/stateless/engine/tools/migrateAccessIds.php
+else
+	echo "`date` [WARNING : phvalheim] php CLI missing -- skipped access id normalisation. Stored ids still work; only the Access tab display is affected."
+fi
 
 # Deliberately NO backfill.
 #

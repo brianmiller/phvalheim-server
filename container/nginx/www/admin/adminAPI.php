@@ -349,6 +349,14 @@ switch($action) {
         }
         break;
 
+    case 'dismissAccessIdNotice':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            dismissAccessIdNoticeJson($pdo);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
     case 'getBackupDiskStats':
         $mounted = isBackupPathMounted();
         $info = getBackupDiskInfo();
@@ -2237,6 +2245,22 @@ function dismissMigrationNoticeJson($pdo) {
     echo json_encode([
         'success' => $result ? true : false,
         'message' => $result ? 'Migration notice dismissed' : 'Failed to dismiss notice'
+    ]);
+}
+
+/**
+ * Dismiss the one-time "your ids were converted to V_ form" notice on the Access tab.
+ *
+ * Set by migrateAccessIds.php only on a server where ids were actually converted, so a
+ * fresh install never sees it.
+ */
+function dismissAccessIdNoticeJson($pdo) {
+    $stmt = $pdo->prepare("UPDATE settings SET accessIdNoticeShown = 1");
+    $result = $stmt->execute();
+
+    echo json_encode([
+        'success' => $result ? true : false,
+        'message' => $result ? 'Access id notice dismissed' : 'Failed to dismiss notice'
     ]);
 }
 

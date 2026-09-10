@@ -854,6 +854,49 @@ $totalCount = count($worlds);
         </div>
     </div>
 
+    <!-- Valheim 1.0 access-id notice. Rendered hidden and shown by the Access tab, not on
+         page load -- it is explaining the list the admin is about to look at. -->
+    <?php if ($accessIdNoticeShown == 0): ?>
+    <div class="mods-modal-overlay" id="accessIdNoticeOverlay">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 620px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Player IDs updated for Valheim 1.0
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    Valheim 1.0 stopped matching players on the bare SteamID64 and now uses a
+                    platform-prefixed form. A Steam id needs a <code style="color: var(--accent-primary);">V_</code>
+                    in front of it; a player whose id is missing the prefix is refused with a
+                    <strong>&ldquo;Banned&rdquo;</strong> message, even though nothing banned them.
+                </p>
+                <div class="pv-note" style="margin-bottom: 1rem;">
+                    <div style="font-family: var(--font-mono); font-size: 0.85rem;">
+                        <span style="color: var(--text-muted);">before</span>&nbsp;&nbsp;76561198012345678<br>
+                        <span style="color: var(--text-muted);">after</span>&nbsp;&nbsp;&nbsp;<span style="color: var(--accent-primary);">V_</span>76561198012345678
+                    </div>
+                </div>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    <strong>Your existing Citizens, Admins and Banned lists have already been
+                    converted</strong> &mdash; there is nothing for you to do. Entries that were
+                    already prefixed, and console ids, were left alone.
+                </p>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0;">
+                    You can still paste a plain SteamID64 into any of these lists. It gets the
+                    prefix added for you when you save.
+                </p>
+            </div>
+            <div style="display: flex; justify-content: center; padding: 1rem;">
+                <button class="action-btn success" onclick="dismissAccessIdNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Migration Notice Dialog -->
     <?php if ($setupComplete == 1 && $migrationNoticeShown == 0): ?>
     <div class="mods-modal-overlay show" id="migrationNoticeOverlay">
@@ -1845,6 +1888,35 @@ $totalCount = count($worlds);
         if (body) body.scrollTop = 0;
         if (tabId === 'backupsTab' && !document.getElementById('backupsTab').dataset.loaded) {
             loadWorldBackups(currentSettingsWorld);
+        }
+        if (tabId === 'accessTab') {
+            maybeShowAccessIdNotice();
+        }
+    }
+
+    // One-time explanation of the Valheim 1.0 id format change, fired the first time the
+    // admin opens the Access tab after upgrading. It is deliberately NOT a page-load modal:
+    // it only makes sense next to the list it is talking about.
+    //
+    // PHP seeds this from the settings row. Flipping it in JS before the request completes
+    // keeps a fast second click on another world from opening a second copy.
+    let accessIdNoticePending = <?php echo $accessIdNoticeShown === 0 ? 'true' : 'false'; ?>;
+
+    function maybeShowAccessIdNotice() {
+        if (!accessIdNoticePending) return;
+        accessIdNoticePending = false;
+        const overlay = document.getElementById('accessIdNoticeOverlay');
+        if (overlay) overlay.classList.add('show');
+    }
+
+    async function dismissAccessIdNotice() {
+        const overlay = document.getElementById('accessIdNoticeOverlay');
+        if (overlay) overlay.classList.remove('show');
+        try {
+            await fetch('adminAPI.php?action=dismissAccessIdNotice', { method: 'POST' });
+        } catch (e) {
+            // Losing the dismissal is harmless -- the notice reappears next time rather
+            // than the admin losing anything.
         }
     }
 
