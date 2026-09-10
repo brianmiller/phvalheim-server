@@ -1012,6 +1012,22 @@ function saveCitizensJson($pdo, $world, $citizens, $isPublic) {
     }
     $citizens = implode(' ', $valid);
 
+    # An ENFORCED but EMPTY list is not a restriction -- it is an open server wearing a lock.
+    # Valheim only applies permittedlist.txt when it has entries, so writing an empty one lets
+    # anyone in while the Access tab reads "Use Access List: on". Observed on production: a
+    # world with public=0 and no citizens, which a player joined without being on any list.
+    #
+    # Refused rather than silently corrected: the two sane intents ("let anyone in" and "let
+    # these people in") are both one click away, and guessing which one was meant is how a
+    # server ends up open when its owner believed otherwise.
+    if (!$isPublic && $citizens === '') {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'The access list is empty, so it would let everyone in rather than nobody. Add at least one player ID, or switch "Use Access List" off to open the world deliberately.'
+        ]);
+        return;
+    }
+
     setCitizens($pdo, $world, $citizens);
     setPublic($pdo, $world, $isPublic);
 
