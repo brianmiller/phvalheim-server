@@ -80,7 +80,18 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
                 echo "
                         <table width=100% height=100% border=0>
-                                <th class='google_header'><img src='$steamAvatarURL'></img></th>
+                                <th class='google_header'>
+                                        <img src='$steamAvatarURL'></img>
+                                        <!--
+                                                A player's own SteamID64, shown so they can hand it to a server
+                                                owner who needs to add them to an access list. Before this the
+                                                only way to find it was a third-party lookup site, which is why
+                                                the admin UI is full of \"easiest way to get an ID\" banners.
+                                        -->
+                                        <div class='steamid-self' data-steamid='$steamID' onclick='copySteamSelfId(this)' title='Click to copy your Steam ID'>
+                                                <span class='steamid-self-value'>$steamID</span>
+                                        </div>
+                                </th>
                                 <th class='header_right_section'><div class='header_right_inner'>
                                         <span class='client_download_button'>";
 				populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender);
@@ -490,35 +501,45 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                 // A crossplay world is joined by code, not by address, so the code needs the
                 // same one-click copy the password has. Shares the implementation rather than
                 // carrying a second copy of the insecure-context fallback below.
+                // The player's own Steam ID, under their avatar. Restores to the ID rather than
+                // to the word "copy", so the value stays readable once the flash clears.
+                function copySteamSelfId(el) {
+                    const id = el.dataset.steamid;
+                    const label = el && el.querySelector('.steamid-self-value');
+                    if (!id || !label) return;
+
+                    writeToClipboard(id, (ok) => {
+                        label.textContent = ok ? 'copied!' : 'copy failed';
+                        el.classList.add(ok ? 'steamid-self-copied' : 'steamid-self-failed');
+                        setTimeout(() => {
+                            label.textContent = id;
+                            el.classList.remove('steamid-self-copied', 'steamid-self-failed');
+                        }, 1500);
+                    });
+                }
+
                 function copyVanillaJoinCode(link) {
                     const wrap = link.closest('.vanilla-joincode');
                     if (!wrap) return;
                     copyCardValue(link, wrap.dataset.joincode);
                 }
 
-                function copyCardValue(link, password) {
-                    if (password === undefined || password === null) return;
-
-                    const done = (ok) => {
-                        link.textContent = ok ? 'copied!' : 'failed';
-                        link.classList.add(ok ? 'vanilla-password-copied' : 'vanilla-password-failed');
-                        setTimeout(() => {
-                            link.textContent = 'copy';
-                            link.classList.remove('vanilla-password-copied', 'vanilla-password-failed');
-                        }, 1500);
-                    };
-
+                // The clipboard write itself, split out so the Steam ID under the avatar and the
+                // password/join-code copy links share ONE implementation. They restore their
+                // label differently -- a copy link goes back to the word "copy", the Steam ID
+                // goes back to the ID -- and that difference is all that should differ.
+                function writeToClipboard(text, done) {
                     // navigator.clipboard needs a secure context. A self-hosted PhValheim is
                     // very often reached over plain http on a LAN, where it is simply
                     // undefined — so fall back rather than throwing and looking dead.
                     if (navigator.clipboard && window.isSecureContext) {
-                        navigator.clipboard.writeText(password).then(() => done(true), () => done(false));
+                        navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
                         return;
                     }
 
                     try {
                         const scratch = document.createElement('textarea');
-                        scratch.value = password;
+                        scratch.value = text;
                         scratch.setAttribute('readonly', '');
                         scratch.style.position = 'fixed';
                         scratch.style.opacity = '0';
@@ -530,6 +551,19 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                     } catch (e) {
                         done(false);
                     }
+                }
+
+                function copyCardValue(link, password) {
+                    if (password === undefined || password === null) return;
+
+                    writeToClipboard(password, (ok) => {
+                        link.textContent = ok ? 'copied!' : 'failed';
+                        link.classList.add(ok ? 'vanilla-password-copied' : 'vanilla-password-failed');
+                        setTimeout(() => {
+                            link.textContent = 'copy';
+                            link.classList.remove('vanilla-password-copied', 'vanilla-password-failed');
+                        }, 1500);
+                    });
                 }
 
                 function updateWorldCards(worlds) {

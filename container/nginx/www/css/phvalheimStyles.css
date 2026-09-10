@@ -590,6 +590,36 @@ p.client_download_tooltip_otherbuilds:hover a {
 	border-radius: 50%;
 }
 
+/* The player's own SteamID64, under their avatar. Server owners need it to add someone to an
+   access list, and until now the only way to find it was a third-party lookup site.
+   Width is pinned to the avatar so the "copied!" flash cannot reflow the header. */
+.steamid-self {
+	width: 75px;
+	margin-top: 4px;
+	font-size: 0.62rem;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	color: #ff4fd8;
+	cursor: pointer;
+	text-align: center;
+	line-height: 1.2;
+	word-break: break-all;
+	user-select: all;
+	transition: color 0.15s ease;
+}
+
+.steamid-self:hover {
+	color: #ff8ae6;
+	text-decoration: underline;
+}
+
+.steamid-self-copied {
+	color: #4ade80 !important;
+}
+
+.steamid-self-failed {
+	color: #f87171 !important;
+}
+
 /* World card grid */
 .outer {
 	height: 100%;

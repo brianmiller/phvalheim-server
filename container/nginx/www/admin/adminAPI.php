@@ -268,9 +268,24 @@ switch($action) {
             # The CITIZENS access flag, not Valheim's -public browser argument ('listed').
             # Absent means RESTRICTED: an older client, a script, or a replayed request must
             # never be able to create an open world by simply omitting the field.
-            $accessOpen = isset($input['accessOpen']) ? (int)$input['accessOpen'] : 0;
+            $accessOpen   = isset($input['accessOpen']) ? (int)$input['accessOpen'] : 0;
+            $accessFirstId = trim((string)($input['accessFirstId'] ?? ''));
+
+            # Validated HERE and not only in the browser. The form checks this too, for a fast
+            # message, but the endpoint is reachable directly -- and a restricted world with an
+            # empty list is precisely the state Valheim reads as "anyone may join".
+            if (!$accessOpen) {
+                if ($accessFirstId === '') {
+                    echo json_encode(['error' => 'A restricted world needs at least one player ID. An empty access list lets everyone in rather than nobody.']);
+                    break;
+                }
+                if (!preg_match('/^[0-9]{17}$/', $accessFirstId)) {
+                    echo json_encode(['error' => "Not a valid SteamID64 (17 digits): $accessFirstId"]);
+                    break;
+                }
+            }
             if ($world) {
-                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions, $accessOpen);
+                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions, $accessOpen, $accessFirstId);
             } else {
                 echo json_encode(['error' => 'World name required']);
             }
@@ -1493,7 +1508,7 @@ function saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $cl
 /**
  * Create a new world with optional mod selection
  */
-function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions = NULL, $accessOpen = 0) {
+function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions = NULL, $accessOpen = 0, $accessFirstId = '') {
     global $gameDNS, $defaultSeed;
 
     $isVanilla = !empty($vanillaOptions['vanilla']);
@@ -1551,6 +1566,20 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
         // open while its Access tab called it restricted. Writing the chosen value here means
         // the row says what the operator picked, not what the schema happened to default to.
         setPublic($pdo, $world, $accessOpen ? 1 : 0);
+
+        // Seed the access list with the first player, so a restricted world is restricted the
+        // moment it exists. Storing the bare SteamID64 matches what the operator typed and what
+        // the Access tab shows; the V_ prefix Valheim requires is applied when the file is
+        // rendered, by canonicalAccessId()/canonicalId().
+        if (!$accessOpen && $accessFirstId !== '') {
+            setCitizens($pdo, $world, $accessFirstId);
+            $seedResult = writeAccessList($world, 'citizens', $accessFirstId, true);
+            if (!$seedResult['ok']) {
+                // Not fatal: the world exists and the database is correct, and
+                // syncAccessLists.sh re-renders the file at every world start anyway.
+                error_log("createWorld: could not write permittedlist.txt for '$world': " . $seedResult['error']);
+            }
+        }
 
         if ($isVanilla) {
             // A vanilla world means ZERO mods -- ignore any mod selection outright

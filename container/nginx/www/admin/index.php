@@ -902,6 +902,44 @@ $totalCount = count($worlds);
          states the lists "have already been converted", which is only true for a server
          that actually had ids to convert. This one is true for every upgrader. When both
          are armed they are shown one after the other, see maybeShowAccessNotices(). -->
+    <!--
+        Shown when Settings is opened on a world whose access list is ON but empty. That state
+        is not merely untidy: Valheim enforces permittedlist.txt only when it has entries, so an
+        empty one restricts nobody. New worlds can no longer be created this way, but worlds
+        made before that check still exist, and this is where their owner will see it.
+
+        Not dismissible-forever on purpose -- it reflects a live condition, so it stops
+        appearing when the condition is fixed rather than when someone clicks "don't show me".
+    -->
+    <div class="mods-modal-overlay" id="emptyAccessListOverlay">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/>
+                    </svg>
+                    This world&rsquo;s access list is empty
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    <strong id="emptyAccessListWorld"></strong> has <strong>Use Access List</strong>
+                    switched on, but there is nobody on the list.
+                </p>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    Valheim only applies a permitted list when it has entries, so an empty list is
+                    not &ldquo;nobody may join&rdquo; &mdash; it is <strong>no restriction at
+                    all</strong>. Add at least one player, or switch the access list off if the
+                    world is meant to be open.
+                </p>
+            </div>
+            <div class="mods-modal-footer">
+                <button class="btn-modal btn-modal-secondary" onclick="dismissEmptyAccessList()">Later</button>
+                <button class="btn-modal btn-modal-primary" onclick="dismissEmptyAccessList(true)">Take me to Access</button>
+            </div>
+        </div>
+    </div>
+
     <?php if ($accessSwitchNoticeShown == 0): ?>
     <div class="mods-modal-overlay" id="accessSwitchNoticeOverlay">
         <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 620px;">
@@ -1935,6 +1973,27 @@ $totalCount = count($worlds);
 
     // Settings Modal (includes Citizens)
     let currentSettingsWorld = '';
+
+    // The enforced-but-empty heads-up. Driven by the citizens payload showSettingsModal()
+    // already fetches, so it costs no extra request and cannot disagree with what the Access
+    // tab is about to render.
+    function maybeWarnEmptyAccessList(worldName, citizens) {
+        // citizens.public is the CITIZENS access flag: 1 = list OFF (world deliberately open),
+        // 0 = list ENFORCED. Not Valheim's -public server browser argument.
+        const enforced = String(citizens.public) !== '1';
+        const empty = !citizens.citizens || citizens.citizens.trim() === '';
+        if (!enforced || !empty) return;
+
+        document.getElementById('emptyAccessListWorld').textContent = worldName;
+        document.getElementById('emptyAccessListOverlay').classList.add('show');
+    }
+
+    function dismissEmptyAccessList(goToAccess) {
+        document.getElementById('emptyAccessListOverlay').classList.remove('show');
+        if (!goToAccess) return;
+        const btn = document.querySelector('#settingsTabBar .backup-tab[data-tab="accessTab"]');
+        if (btn) switchSettingsTab('accessTab', btn);
+    }
 
     function switchSettingsTab(tabId, btn) {
         document.querySelectorAll('#settingsTabBar .backup-tab').forEach(t => t.classList.remove('active'));
@@ -3196,6 +3255,9 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                 `;
+
+                // After the body exists, so "Take me to Access" has a tab bar to switch to.
+                maybeWarnEmptyAccessList(worldName, citizens);
             } else {
                 document.getElementById('settingsModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading settings</div>';
             }

@@ -295,18 +295,32 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					<div class="col-12">
 						<label class="form-label alt-color"><strong>Who can join</strong></label>
 						<div class="form-check">
-							<input class="form-check-input" type="radio" name="accessModel" id="accessRestricted" value="restricted" checked>
+							<input class="form-check-input" type="radio" name="accessModel" id="accessRestricted" value="restricted" checked onchange="toggleAccessModel()">
 							<label class="form-check-label" for="accessRestricted">Only players on the access list</label>
 						</div>
 						<div class="form-check">
-							<input class="form-check-input" type="radio" name="accessModel" id="accessOpen" value="open">
+							<input class="form-check-input" type="radio" name="accessModel" id="accessOpen" value="open" onchange="toggleAccessModel()">
 							<label class="form-check-label" for="accessOpen">Anyone who can reach the server</label>
 						</div>
-						<div class="form-text text-secondary">
-							The access list starts empty, so a restricted world lets nobody in until you add
-							players in <em>Settings &rarr; Access</em>. It defaults to restricted deliberately:
-							a world that is accidentally locked is a nuisance, one that is accidentally open
-							is not.
+						<!--
+							A restricted world REQUIRES a first player. Without one the list is empty,
+							and Valheim enforces permittedlist.txt only when it has entries -- so an
+							empty list is not "nobody may join", it is no restriction at all. Asking
+							here is what stops a world being created restricted-but-open.
+						-->
+						<div id="accessFirstIdWrap" class="mt-2">
+							<label class="form-label alt-color" for="accessFirstId">First player's Steam ID</label>
+							<input type="text" class="form-control" id="accessFirstId" maxlength="20"
+							       placeholder="76561197960287930" inputmode="numeric" autocomplete="off">
+							<div class="form-text text-secondary">
+								A 17-digit SteamID64 &mdash; almost always your own, so you can get in.
+								Players can copy theirs from under their avatar on the player page.
+								Add more later in <em>Settings &rarr; Access</em>.
+							</div>
+							<div class="form-text text-warning" id="accessFirstIdError" style="display:none;"></div>
+						</div>
+						<div class="form-text text-secondary" id="accessOpenNote" style="display:none;">
+							Anyone who can reach the server may join, with no access list at all.
 						</div>
 					</div>
 					<div class="col-12">
@@ -972,6 +986,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			// Get all checked mod UUIDs (state-driven, no DOM dependency)
 			// A vanilla world has no mods and no custom seed, so hide both rather than
 			// letting someone pick mods that will be silently dropped at create time.
+			// Show the first-player field only for a restricted world. The field is REQUIRED
+			// when visible: a restricted world with an empty list is the exact state Valheim
+			// reads as "no restriction", so allowing it to be skipped would put the bug back.
+			function toggleAccessModel() {
+				var open = $('#accessOpen').is(':checked');
+				$('#accessFirstIdWrap').toggle(!open);
+				$('#accessOpenNote').toggle(open);
+				if (open) $('#accessFirstIdError').hide();
+			}
+
+			function showAccessIdError(msg) {
+				$('#accessFirstIdError').text(msg).show();
+				$('#accessFirstId').trigger('focus');
+			}
+
 			function toggleVanillaWorld(checked) {
 				$('#vanillaOptions').toggle(checked);
 				// Hide the WHOLE mod card, not just the tables inside it. Hiding only
@@ -1129,6 +1158,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					return;
 				}
 
+				// A restricted world must name at least one player. An empty access list is
+				// not "nobody may join" -- Valheim ignores it entirely and the world comes up
+				// open. Checked BEFORE the spinner so the form stays usable on rejection.
+				var firstId = $('#accessFirstId').val().trim();
+				if (!$('#accessOpen').is(':checked')) {
+					if (!firstId) {
+						showAccessIdError('Enter the first player’s Steam ID, or choose "Anyone who can reach the server".');
+						return;
+					}
+					if (!/^[0-9]{17}$/.test(firstId)) {
+						showAccessIdError('That is not a SteamID64. It must be exactly 17 digits.');
+						return;
+					}
+				}
+
 				submitting = true;
 				document.body.classList.add("noscroll");
 				document.getElementById("spinner").style.display = "flex";
@@ -1151,7 +1195,10 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					// Sent as the CITIZENS access flag (worlds.public), NOT Valheim's -public
 					// server browser argument -- that is `listed` above. Same names, opposite
 					// meanings; conflating them would publish every open world.
-					accessOpen: $('#accessOpen').is(':checked') ? 1 : 0
+					accessOpen: $('#accessOpen').is(':checked') ? 1 : 0,
+					// The first citizen, stored so the world is genuinely restricted the moment
+					// it exists rather than restricted-but-empty (which Valheim reads as open).
+					accessFirstId: $('#accessOpen').is(':checked') ? '' : firstId
 				};
 
 				// Add clone data if present
