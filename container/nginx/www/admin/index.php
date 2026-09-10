@@ -3491,8 +3491,15 @@ $totalCount = count($worlds);
     function updateWorldCharts(worldStats) {
         if (!worldStats) return;
 
+        // Which worlds this poll actually reported on. The API only returns worlds that
+        // are running, so anything MISSING here has stopped -- and nothing else will ever
+        // tell us that. Without the sweep below, a world that goes down (or into an
+        // update) keeps its last drawn memory bar on screen indefinitely.
+        const reported = new Set();
+
         worldStats.forEach(stat => {
             const worldName = stat.name;
+            reported.add(worldName);
             const charts = worldCharts[worldName];
             if (!charts) return;
 
@@ -3509,11 +3516,45 @@ $totalCount = count($worlds);
             }
 
         });
+
+        clearUnreportedWorlds(reported);
+    }
+
+    // Blank the resource readouts for every world the last poll did not report on.
+    // Shared by the stats and health pollers so a world cannot be cleared by one and
+    // left stale by the other.
+    function clearUnreportedWorlds(reported) {
+        document.querySelectorAll('.world-resources[data-world]').forEach(container => {
+            const worldName = container.dataset.world;
+            if (reported.has(worldName)) return;
+
+            const charts = worldCharts[worldName];
+            if (charts && charts.mem) {
+                charts.memData.length = 0;
+                charts.mem.data.datasets[0].data = [];
+                charts.mem.update('none');
+            }
+            const memValue = container.querySelector('.world-mem-value');
+            if (memValue) memValue.textContent = '—';
+        });
     }
 
     // Update world tick health indicators
     function updateWorldHealth(healthData) {
         if (!healthData) return;
+
+        // Same problem as the memory chart: getWorldHealth only reports worlds that are
+        // running AND whose tick_stats.json is under 30s old. A world that stops -- or
+        // whose plugin stops writing -- simply drops out of the payload, so its last
+        // tick reading sat there looking live. Blank those first, then draw the rest.
+        const reported = new Set(Object.keys(healthData));
+        document.querySelectorAll('.world-resources[data-world]').forEach(container => {
+            if (reported.has(container.dataset.world)) return;
+            const fill = container.querySelector('.world-load-fill');
+            const value = container.querySelector('.world-load-value');
+            if (fill) { fill.style.width = '0%'; fill.style.backgroundColor = ''; }
+            if (value) value.textContent = '—';
+        });
 
         Object.entries(healthData).forEach(([worldName, health]) => {
             const container = document.querySelector(`.world-resources[data-world="${worldName}"]`);
