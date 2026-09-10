@@ -66,6 +66,41 @@ const HEADER_BY_TEXT = `(() => {
               parseInt(document.querySelector('#availableModCount').textContent, 10) > 0,
         { timeout: 60000 }
     ).catch(() => console.log('  (note) mod list never populated -- widths case will be skipped'));
+    // The count badge updates BEFORE DataTables finishes drawing, so waiting on the badge
+    // alone measures an empty tbody and reports a bug that is not there. Wait for rows.
+    // Select the real table BY ID. DataTables inserts a header-clone <table> with no id
+    // and no rows as the first table in the pane, so `pane.querySelector('table')` finds
+    // the clone and reports 0 rows for a table that is fully populated.
+    await page.waitForFunction(() => {
+        const pane = Array.from(document.querySelectorAll('.mod-pane')).find(p => p.offsetParent !== null);
+        const t = pane && pane.querySelector('table[id^="modtable-"]');
+        return t && t.querySelectorAll('tbody tr').length > 1;
+    }, { timeout: 60000 }).catch(() => console.log('  (note) visible mod table never drew rows'));
+
+    // ---------------------------------------------------------------- case 0
+    // Converting the two stacked mod tables into tabs made this page open on "Selected",
+    // which on a world being created is empty BY DEFINITION -- it rendered "No data
+    // available in table" and hid all ~11,000 mods behind a tab. It reads as "the mod
+    // list is empty". Assert on the VISIBLE pane's real rows: a count badge or a hidden
+    // table would both pass while the operator sees nothing.
+    console.log('\nCase 0: on arrival, the catalogue is ON SCREEN without clicking anything');
+    const landing = await page.evaluate(`(() => {
+        const visiblePane = Array.from(document.querySelectorAll('.mod-pane'))
+            .find(p => p.offsetParent !== null);
+        if (!visiblePane) return { pane: null };
+        const table = visiblePane.querySelector('table[id^="modtable-"]');
+        const bodyText = table ? (table.querySelector('tbody') || {}).innerText || '' : '';
+        const activeTab = document.querySelector('#modTabBar .pv-tab.active');
+        return {
+            pane: visiblePane.id,
+            tab: activeTab ? activeTab.textContent.replace(/\\s+/g, ' ').trim() : null,
+            rows: table ? table.querySelectorAll('tbody tr').length : 0,
+            placeholder: /No data available|No matching records/i.test(bodyText)
+        };
+    })()`);
+    check('a mod pane is visible on arrival', !!landing.pane, JSON.stringify(landing));
+    check('it shows real mod rows, not the empty placeholder',
+        landing.rows > 1 && !landing.placeholder, JSON.stringify(landing));
 
     console.log('\nCase 1: MODDED (vanilla unchecked) -- mod selection is offered');
     let hdr = await page.evaluate(HEADER_BY_TEXT);
@@ -77,7 +112,7 @@ const HEADER_BY_TEXT = `(() => {
     check('vanilla no-mods notice hidden', !notice.visible, JSON.stringify(notice));
 
     const widthsBefore = await page.evaluate(() => {
-        const t = document.querySelector('#modtable-active');
+        const t = document.querySelector('#modtable-available');
         return t ? Math.round(t.getBoundingClientRect().width) : 0;
     });
 
@@ -108,7 +143,7 @@ const HEADER_BY_TEXT = `(() => {
     check('vanilla no-mods notice hidden again', !notice.visible, JSON.stringify(notice));
 
     const widthsAfter = await page.evaluate(() => {
-        const t = document.querySelector('#modtable-active');
+        const t = document.querySelector('#modtable-available');
         return t ? Math.round(t.getBoundingClientRect().width) : 0;
     });
     if (widthsBefore > 0) {

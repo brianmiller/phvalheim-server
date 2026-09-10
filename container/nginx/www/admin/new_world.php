@@ -355,22 +355,26 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				<!-- Two DataTables used to be stacked, each with its own Show/Search controls,
 				     so the page carried two sets of table chrome and ~9,000 available mods
 				     pushed the action buttons far below the fold. One at a time instead. -->
+				<!-- AVAILABLE is the landing tab HERE, unlike edit_world.php. A world being
+				     created has nothing selected yet, so opening on "Selected" showed
+				     "No data available in table" and hid the entire catalogue behind a tab
+				     nobody had a reason to click -- it read as "the mod list is empty". -->
 				<div class="pv-tabbar" id="modTabBar">
-					<button type="button" class="pv-tab active" data-modtab="modPaneSelected" onclick="switchModTab('modPaneSelected', this)">
+					<button type="button" class="pv-tab" data-modtab="modPaneSelected" onclick="switchModTab('modPaneSelected', this)">
 						Selected <span class="badge bg-info" id="activeModCount">0</span>
 					</button>
-					<button type="button" class="pv-tab" data-modtab="modPaneAvailable" onclick="switchModTab('modPaneAvailable', this)">
+					<button type="button" class="pv-tab active" data-modtab="modPaneAvailable" onclick="switchModTab('modPaneAvailable', this)">
 						Available <span class="badge bg-secondary" id="availableModCount">0</span>
 					</button>
 				</div>
 
-				<div class="mod-pane" id="modPaneSelected">
+				<div class="mod-pane" id="modPaneSelected" style="display:none;">
 					<div class="table-responsive">
 						<table id="modtable-active" class="table table-hover mb-0" style="width:100%;"></table>
 					</div>
 				</div>
 
-				<div class="mod-pane" id="modPaneAvailable" style="display:none;">
+				<div class="mod-pane" id="modPaneAvailable">
 					<div class="table-responsive">
 						<table id="modtable-available" class="table table-hover mb-0" style="width:100%;"></table>
 					</div>
