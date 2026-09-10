@@ -34,13 +34,23 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)
   d=$(grep -c "modSelectionArea" /opt/stateless/nginx/www/admin/new_world.php)
+  # The Access-tab rename. Check the NEW names are in and the OLD ones are gone --
+  # counting only the new id would pass on an image that still carried both.
+  e=$(grep -c "settingsAccessListToggle" /opt/stateless/nginx/www/admin/index.php)
+  f=$(grep -c "settingsPublicToggle" /opt/stateless/nginx/www/admin/index.php)
+  g=$(grep -c "Use Access List" /opt/stateless/nginx/www/admin/index.php)
+  h=$(grep -c "Public World" /opt/stateless/nginx/www/admin/index.php)
   echo "modSelectionCard=$a (want 2)"
   echo "Clearing world md5sum=$b (want 1)"
   echo "modded-payload WARNING=$c (want 1)"
   # 2 = the wrapper <div id="modSelectionArea"> + the comment explaining why the
   # toggle moved off it. A THIRD would mean a live $(...).toggle() came back.
   echo "modSelectionArea mentions=$d (want 2: the div + the comment)"
-  [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
+  echo "settingsAccessListToggle=$e (want 3)  settingsPublicToggle=$f (want 0)"
+  echo "\"Use Access List\"=$g (want 3)  \"Public World\"=$h (want 0)"
+  [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
+    && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "3" ] && [ "$h" = "0" ] \
+    && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
 echo "=== digest ==="
