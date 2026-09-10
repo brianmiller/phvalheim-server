@@ -159,10 +159,18 @@ const rectOfText = (selector, needle) => `(() => {
     const lookupAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Look Up SteamID'));
     const saveAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Settings'));
     const publicAfter = await page.evaluate(rectOfText('#accessTab span', 'Public World'));
+    const accessSaveAfter = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Access'));
     check('Citizens editor HIDDEN when public', !!editorAfter && !editorAfter.visible, JSON.stringify(editorAfter));
     check('Look Up SteamID hidden with it', !lookupAfter || !lookupAfter.visible, JSON.stringify(lookupAfter));
-    check('Save Settings STILL reachable', !!saveAfter && saveAfter.visible, JSON.stringify(saveAfter));
+    // The Citizens "Save Settings" belongs to the editor. Leaving it on screen gave a
+    // lone save button that answered "Citizens saved." with no list above it.
+    check('Citizens "Save Settings" hidden WITH the editor',
+        !saveAfter || !saveAfter.visible, JSON.stringify(saveAfter));
     check('Public World still on screen', !!publicAfter && publicAfter.visible, JSON.stringify(publicAfter));
+    // ...but the public flag must still be savable, or hiding the shared button would
+    // have stranded it.
+    check('"Save Access" still reachable to persist the flag',
+        !!accessSaveAfter && accessSaveAfter.visible, JSON.stringify(accessSaveAfter));
 
     // The list must survive the round trip -- hiding must not blank the value that
     // saveSettingsCitizens() posts back.
@@ -180,8 +188,10 @@ const rectOfText = (selector, needle) => `(() => {
     });
     await page.waitForTimeout(250);
     const editorBack = await page.evaluate(rectOf('#settingsCitizensTextarea'));
+    const saveBack = await page.evaluate(rectOfText('#accessTab .action-btn', 'Save Settings'));
     check('Citizens editor returns when public is switched off', !!editorBack && editorBack.visible,
         JSON.stringify(editorBack));
+    check('its Save Settings returns with it', !!saveBack && saveBack.visible, JSON.stringify(saveBack));
 
     // ---------------------------------------------------------------- case 4
     console.log('\nCase 4: no JS errors');

@@ -2851,11 +2851,18 @@ $totalCount = count($worlds);
                                 </label>
                             </div>
                         </div>
+                        <!-- Public World needs its OWN save. It used to share the Citizens
+                             one, which is why that button had to stay on screen after the
+                             editor hid -- a "Save Settings" with nothing above it that
+                             answered "Citizens saved." -->
+                        <div class="pv-actions">
+                            <span class="pv-status" id="settingsPublicSaveStatus"></span>
+                            <button class="action-btn success" onclick="saveAccessPublic()">Save Access</button>
+                        </div>
                     </div>
                     <div>
-                        <!-- Only the EDITOR hides. The textarea stays in the DOM so
-                             saveSettingsCitizens() keeps round-tripping the list instead
-                             of posting an empty one and wiping it. -->
+                        <!-- The textarea stays in the DOM while hidden so both save paths
+                             round-trip the list instead of posting an empty one and wiping it. -->
                         <div id="settingsCitizensBlock" style="display: ${citizens.public ? 'none' : 'block'};">
                             <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Citizens</h6>
                             <div style="margin-bottom: 1rem;">
@@ -2873,13 +2880,13 @@ $totalCount = count($worlds);
                                     Look Up SteamID
                                 </button>
                             </div>
+                            <!-- INSIDE the block: this button only saves the Citizens list,
+                                 so it goes away with the editor it belongs to. -->
+                            <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+                                <button class="action-btn success" onclick="saveSettingsCitizens()">Save Settings</button>
+                            </div>
+                            <div id="settingsCitizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
                         </div>
-                        <!-- Outside the hidden block on purpose: this button also saves the
-                             Public World toggle, so it has to survive the editor hiding. -->
-                        <div style="display: flex; gap: 0.75rem; justify-content: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-                            <button class="action-btn success" onclick="saveSettingsCitizens()">Save Settings</button>
-                        </div>
-                        <div id="settingsCitizensSaveStatus" style="text-align: center; margin-top: 0.75rem; font-size: 0.875rem;"></div>
                     </div>
                     <div style="margin-top: 1.5rem;">
                         <h6 style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">Admins</h6>
@@ -3162,6 +3169,39 @@ $totalCount = count($worlds);
             }
         } catch (error) {
             statusEl.innerHTML = '<span style="color: var(--danger);">Error saving citizens</span>';
+        }
+    }
+
+    // Saves the Public World flag on its own. It posts the citizens textarea UNCHANGED
+    // alongside it -- saveCitizens writes both columns, so sending an empty list here
+    // would wipe the ids the moment someone switched a world public.
+    async function saveAccessPublic() {
+        const ta = document.getElementById('settingsCitizensTextarea');
+        const isPublic = document.getElementById('settingsPublicToggle').checked ? 1 : 0;
+        const statusEl = document.getElementById('settingsPublicSaveStatus');
+
+        statusEl.innerHTML = '<span style="color: var(--text-secondary);">Saving...</span>';
+
+        try {
+            const response = await fetch('adminAPI.php?action=saveCitizens', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    world: currentSettingsWorld,
+                    citizens: ta ? ta.value : '',
+                    public: isPublic
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                statusEl.innerHTML = `<span style="color: var(--success);">${isPublic ? 'World is now public.' : 'World is now Citizens-only.'}</span>`;
+                setTimeout(() => { statusEl.innerHTML = ''; }, 4000);
+            } else {
+                statusEl.innerHTML = `<span style="color: var(--danger);">Error: ${data.error || 'Failed to save'}</span>`;
+            }
+        } catch (error) {
+            statusEl.innerHTML = '<span style="color: var(--danger);">Error saving world access</span>';
         }
     }
 
