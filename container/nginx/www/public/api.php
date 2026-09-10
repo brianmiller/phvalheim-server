@@ -146,10 +146,15 @@ if ($mode == "getMyWorldsStatus") {
                 // the check would put the password back in a JSON response the admin has
                 // explicitly said not to publish.
                 $showPassword = (getPasswordPublic($pdo, $myWorld) != 0);
-                # Resolved once: getWorldJoinCode() reads the world log, so calling it per
-                # array entry would re-read the file for every field that mentions it.
+                # Resolved once: these read the world log, so calling them per array entry
+                # would re-read the file for every field that mentions them.
+                #
+                # The join path follows the RUNNING backend, not the crossplay column --
+                # -crossplay only applies at launch, so the two disagree until a toggled world
+                # restarts, and in that window the column is wrong about how to reach it.
                 $isCrossplayWorld  = (getCrossplay($pdo, $myWorld) == 1);
-                $crossplayJoinCode = $isCrossplayWorld ? getWorldJoinCode($myWorld) : NULL;
+                $isPlayFabWorld    = (getWorldNetBackend($myWorld) === 'playfab');
+                $crossplayJoinCode = $isPlayFabWorld ? getWorldJoinCode($myWorld) : NULL;
                 $connection = [
                     'endpoint'       => $gameDNS . ':' . $worldPort,
                     'host'           => $gameDNS,
@@ -161,8 +166,9 @@ if ($mode == "getMyWorldsStatus") {
                     # A crossplay world is served over PlayFab and cannot be reached by IP, so
                     # it launches with -joincode rather than +connect. Handing back a +connect
                     # URL here would let the 5s refresh put the dead Launch button back.
-                    'joinCode'       => $isCrossplayWorld ? getWorldJoinCode($myWorld) : NULL,
-                    'steamUrl'       => $isCrossplayWorld
+                    'joinCode'       => $crossplayJoinCode,
+                    'playfab'        => $isPlayFabWorld,
+                    'steamUrl'       => $isPlayFabWorld
                                             ? ($crossplayJoinCode !== NULL
                                                 ? 'steam://run/892970//-joincode ' . $crossplayJoinCode
                                                 : NULL)

@@ -345,6 +345,51 @@ function getCrossplay($pdo,$world) {
         return $sth->fetchColumn();
 }
 
+# Which network backend the world is ACTUALLY running, as opposed to what the crossplay
+# column says it should be. Returns 'playfab', 'steam', or NULL if the log says neither.
+#
+# These disagree whenever the flag has been toggled without a restart, because -crossplay is
+# only applied at launch (startWorld.sh). Keying the join link off the COLUMN meant a world
+# with crossplay newly switched on -- but still running as a Steam server -- advertised a
+# join code that would never appear, and hid the +connect link that would have worked.
+#
+# The log states it plainly once per session:
+#   Opened PlayFab server   /   Opened Steam server
+# Whichever appears LAST is the current session's backend.
+function getWorldNetBackend($world) {
+        $tail = phvReadLogTail($world);
+        if ($tail === NULL) { return NULL; }
+
+        $playfab = strrpos($tail, 'Opened PlayFab server');
+        $steam   = strrpos($tail, 'Opened Steam server');
+
+        if ($playfab === false && $steam === false) { return NULL; }
+        if ($playfab === false) { return 'steam'; }
+        if ($steam === false)   { return 'playfab'; }
+        return $playfab > $steam ? 'playfab' : 'steam';
+}
+
+# Shared tail reader for the two log-derived getters below. World logs reach hundreds of MB
+# and everything we want is near the end.
+function phvReadLogTail($world, $window = 262144) {
+        $log = "/opt/stateful/logs/valheimworld_" . $world . ".log";
+        if (!is_readable($log)) { return NULL; }
+
+        $size = @filesize($log);
+        if ($size === false) { return NULL; }
+
+        $fh = @fopen($log, 'rb');
+        if (!$fh) { return NULL; }
+        if ($size > $window) { fseek($fh, -$window, SEEK_END); }
+        $tail = stream_get_contents($fh);
+        fclose($fh);
+        if ($tail === false) { return NULL; }
+
+        # World logs carry NUL bytes from torn writes. They break nothing here, but strip them
+        # so a match cannot be split across one.
+        return str_replace("\0", '', $tail);
+}
+
 # The PlayFab join code for a CROSSPLAY world.
 #
 # A crossplay server does not accept a direct IP connection at all: Valheim opens a PlayFab
@@ -361,23 +406,8 @@ function getCrossplay($pdo,$world) {
 # line is always near the end. The LAST match wins, because a restart appends a newer code
 # above nothing.
 function getWorldJoinCode($world) {
-        $log = "/opt/stateful/logs/valheimworld_" . $world . ".log";
-        if (!is_readable($log)) { return NULL; }
-
-        $size = @filesize($log);
-        if ($size === false) { return NULL; }
-
-        $fh = @fopen($log, 'rb');
-        if (!$fh) { return NULL; }
-        $window = 256 * 1024;
-        if ($size > $window) { fseek($fh, -$window, SEEK_END); }
-        $tail = stream_get_contents($fh);
-        fclose($fh);
-        if ($tail === false) { return NULL; }
-
-        # World logs can carry NUL bytes from torn writes; they break nothing here, but strip
-        # them so the match is not split across one.
-        $tail = str_replace("\0", '', $tail);
+        $tail = phvReadLogTail($world);
+        if ($tail === NULL) { return NULL; }
 
         if (preg_match_all('/registered with join code (\d{4,10})/', $tail, $m)) {
                 return end($m[1]);

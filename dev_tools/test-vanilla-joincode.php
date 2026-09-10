@@ -44,16 +44,21 @@ register_shutdown_function(function () use ($tmp) {
 # log directory the same way the function builds it. Simplest honest approach: copy the real
 # function body out and run it against a parameterised path.
 $src = file_get_contents("$root/container/nginx/www/includes/db_gets.php");
-if (!preg_match('/function getWorldJoinCode\(\$world\) \{.*?\n\}/s', $src, $m)) {
-    echo "could not extract getWorldJoinCode from db_gets.php\n"; exit(1);
+$fnSrc = '';
+foreach (['phvReadLogTail\(\$world, \$window = \d+\)', 'getWorldNetBackend\(\$world\)', 'getWorldJoinCode\(\$world\)'] as $sig) {
+    if (!preg_match('/function ' . $sig . ' \{.*?\n\}/s', $src, $m)) {
+        echo "could not extract /$sig/ from db_gets.php -- has it been renamed?\n"; exit(1);
+    }
+    $fnSrc .= $m[0] . "\n";
 }
+# Only phvReadLogTail touches the filesystem, so that is the only path to rebase.
 $fnSrc = str_replace(
     '$log = "/opt/stateful/logs/valheimworld_" . $world . ".log";',
     '$log = $GLOBALS["TESTLOGDIR"] . "/valheimworld_" . $world . ".log";',
-    $m[0]
+    $fnSrc
 );
 if (strpos($fnSrc, 'TESTLOGDIR') === false) {
-    echo "path rebase failed -- the function's log path line changed shape\n"; exit(1);
+    echo "path rebase failed -- the log path line changed shape\n"; exit(1);
 }
 eval($fnSrc);
 $GLOBALS['TESTLOGDIR'] = $tmp;
@@ -98,6 +103,24 @@ echo "\nCase 5: NUL bytes do not hide the code\n";
 writeLog('nul', "junk\0\0\0more junk\n" . 'Session "W" registered with join code 987654' . "\n\0trailing\0");
 check('still finds 987654', getWorldJoinCode('nul') === '987654', var_export(getWorldJoinCode('nul'), true));
 
+echo "\nCase 6a: the backend is read from the log, last session wins\n";
+# A world that was crossplay and has since been restarted without it must report 'steam',
+# not the PlayFab line still sitting in its history.
+writeLog('flipped', implode("\n", [
+    '09/09/2026 10:00:00: Opened PlayFab server',
+    '09/09/2026 10:00:02: Session "W" registered with join code 111111',
+    '09/10/2026 11:00:00: Opened Steam server',
+]));
+check('reports the LATEST backend', getWorldNetBackend('flipped') === 'steam',
+    var_export(getWorldNetBackend('flipped'), true));
+writeLog('flipped2', implode("\n", [
+    '09/09/2026 10:00:00: Opened Steam server',
+    '09/10/2026 11:00:00: Opened PlayFab server',
+]));
+check('and the other way round', getWorldNetBackend('flipped2') === 'playfab',
+    var_export(getWorldNetBackend('flipped2'), true));
+check('unknown when the log says neither', getWorldNetBackend('nosuchworld') === NULL);
+
 echo "\nCase 6: the code is found at the END of a very large log\n";
 # The reader only looks at the tail. A log bigger than that window must still work, because
 # every real log is bigger than the window.
@@ -121,9 +144,12 @@ if ($start === NULL || $end === NULL) {
 }
 $block = implode("\n", array_slice($lines, $start, $end - $start));
 
-function renderCard($block, $crossplay, $online, $code) {
-    # Stand in for the real lookup so the render cases are about the RENDER, not the parser.
+function renderCard($block, $crossplay, $online, $code, $backend = NULL) {
+    # Stand in for the real lookups so the render cases are about the RENDER, not the parsers.
+    # $backend defaults to matching the flag, which is the steady state; the mismatch cases
+    # pass it explicitly.
     $GLOBALS['STUB_CODE'] = $code;
+    $GLOBALS['STUB_BACKEND'] = $backend !== NULL ? $backend : ($crossplay ? 'playfab' : 'steam');
     $vanillaCrossplay = $crossplay;
     $isOnline = $online;
     $worldDimmed = $online ? '' : 'dimmed';
@@ -134,8 +160,10 @@ function renderCard($block, $crossplay, $online, $code) {
     return ['link' => $joinLink, 'row' => $joinCodeRow, 'hint' => $vanillaHint];
 }
 function getWorldJoinCodeStub($w) { return $GLOBALS['STUB_CODE']; }
-# The block calls getWorldJoinCode(); route it to the stub for these cases.
+function getWorldNetBackendStub($w) { return $GLOBALS['STUB_BACKEND']; }
+# The block calls both log-derived getters; route them to the stubs for these cases.
 $block = str_replace('getWorldJoinCode($myWorld)', 'getWorldJoinCodeStub($myWorld)', $block);
+$block = str_replace('getWorldNetBackend($myWorld)', 'getWorldNetBackendStub($myWorld)', $block);
 
 echo "\nCase 7: an ONLINE CROSSPLAY world launches with -joincode\n";
 # `-joincode` is a real Valheim launch argument -- it sits in the assembly's literal heap
@@ -176,6 +204,36 @@ echo "\nCase 10: an OFFLINE crossplay world\n";
 $r = renderCard($block, true, false, NULL);
 check('button reads offline', stripos($r['link'], 'offline') !== false, $r['link']);
 check('no stale code is shown', strpos($r['row'], '441944') === false, $r['row']);
+
+# ------------------------------------------------------- the flag/backend mismatch window
+# -crossplay is applied at LAUNCH, so toggling the column on a running world leaves the two
+# disagreeing until it restarts. The card has to follow what the server IS doing; following
+# the column strands a perfectly joinable world behind a link that cannot work, or a
+# "starting..." label that never resolves.
+
+echo "\nCase 11: crossplay switched ON, world NOT yet restarted (still a Steam server)\n";
+$r = renderCard($block, true, true, NULL, 'steam');
+check('offers the +connect link that actually works now',
+    strpos($r['link'], '+connect') !== false, $r['link']);
+check('does NOT show a join code row it can never fill',
+    $r['row'] === '', $r['row']);
+check('does NOT claim it cannot be joined by IP',
+    stripos($r['hint'], 'cannot be joined by IP') === false, $r['hint']);
+
+echo "\nCase 12: crossplay switched OFF, world NOT yet restarted (still PlayFab)\n";
+$r = renderCard($block, false, true, '778899', 'playfab');
+check('still launches by -joincode while it is still PlayFab',
+    strpos($r['link'], '-joincode 778899') !== false, $r['link']);
+check('does not offer +connect to a PlayFab server',
+    strpos($r['link'], '+connect') === false, $r['link']);
+
+echo "\nCase 13: CONTROL -- the backend, not the flag, is what moves the link\n";
+# Same crossplay flag in both, opposite backends. If the render keyed off the flag these
+# two would be identical, and cases 11 and 12 would be meaningless.
+$a = renderCard($block, true, true, '111111', 'playfab');
+$b = renderCard($block, true, true, NULL,     'steam');
+check('same flag + different backend => different link',
+    $a['link'] !== $b['link'], "playfab={$a['link']} steam={$b['link']}");
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

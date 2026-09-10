@@ -83,13 +83,17 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   v=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/public/api.php)
   echo "getWorldJoinCode=$q (want 1)  copyVanillaJoinCode=$r (want 3)  api joinCode=$s (want 1)"
   echo "clearUnreportedWorlds=$t (want 2)"
+  # The join path must follow the RUNNING backend, not the crossplay column.
+  w=$(grep -c "function getWorldNetBackend" /opt/stateless/nginx/www/includes/db_gets.php)
+  x=$(grep -c "connection.playfab" /opt/stateless/nginx/www/public/authenticated.php)
   echo "joincode launch url: card=$u (want 1)  api=$v (want 1)"
+  echo "getWorldNetBackend=$w (want 1)  poll keys off connection.playfab=$x (want 1)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
     && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
-    && [ "$u" = "1" ] && [ "$v" = "1" ] \
+    && [ "$u" = "1" ] && [ "$v" = "1" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

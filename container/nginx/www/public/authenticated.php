@@ -212,7 +212,13 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# asks for a direct connection that the server is not offering, so the button
 					# silently did nothing while the in-game browser worked fine. Show the code
 					# the player actually needs instead of a link that cannot work.
-					$vanillaJoinCode = $vanillaCrossplay && $isOnline ? getWorldJoinCode($myWorld) : NULL;
+					# Decide from what the server IS running, not from the column. -crossplay is
+					# applied at launch, so toggling the flag on a running world leaves the two
+					# disagreeing until it restarts -- and in that window the column is simply
+					# wrong about how players can reach it.
+					$vanillaBackend  = $isOnline ? getWorldNetBackend($myWorld) : NULL;
+					$vanillaIsPlayFab = ($vanillaBackend === 'playfab');
+					$vanillaJoinCode = $vanillaIsPlayFab ? getWorldJoinCode($myWorld) : NULL;
 
 					# Valheim takes the join code on the command line -- `-joincode` is a
 					# recognised launch argument, alongside -crossplay/-password/-port/-world.
@@ -228,7 +234,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# Keep the .launch-link class so the AJAX refresh finds and updates it.
 					if (!$isOnline) {
 						$joinLink = "<a class='$worldDimmed card_worldLaunch launch-link' href='#'>offline</a>";
-					} elseif ($vanillaCrossplay) {
+					} elseif ($vanillaIsPlayFab) {
 						# Launchable via -joincode once the lobby exists. Before that there is
 						# genuinely no code to pass, so the label goes static rather than
 						# offering a link with an empty argument.
@@ -242,14 +248,17 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# The instructions differ by networking mode, and the old text told every
 					# player to use "Join IP" with the address above -- which is precisely the
 					# thing that does not work on a crossplay world.
-					$vanillaHint = $vanillaCrossplay
+					# Follows the RUNNING backend, not the column, for the same reason the link
+					# does: telling a player "cannot be joined by IP" about a server that is
+					# currently accepting exactly that is worse than saying nothing.
+					$vanillaHint = $vanillaIsPlayFab
 						? "Crossplay world &mdash; use the Launch button, or enter the join code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP."
 						: "Join from Valheim's <em>Join IP</em> screen with the address above, or use the Launch button.";
 
 					# Only rendered for crossplay. A missing code means the world is up but has
 					# not registered its lobby yet -- say so rather than showing an empty row.
 					$joinCodeRow = "";
-					if ($vanillaCrossplay) {
+					if ($vanillaIsPlayFab) {
 						$codeCell = $vanillaJoinCode !== NULL
 							? "<span class='vanilla-joincode' data-joincode=\"" . htmlspecialchars($vanillaJoinCode) . "\">"
 								. "<code>" . htmlspecialchars($vanillaJoinCode) . "</code>"
@@ -541,7 +550,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                         // Update launch link
                         const launchLink = card.querySelector('.launch-link');
                         const launchTh = launchLink ? launchLink.parentElement : null;
-                        const isCrossplay = !!(world.vanilla && world.connection && world.connection.crossplay);
+                        // The RUNNING backend, not the crossplay setting -- see api.php. A world
+                        // whose flag was toggled but which has not restarted is still serving
+                        // the old way, and the card has to match reality, not intent.
+                        const isCrossplay = !!(world.vanilla && world.connection && world.connection.playfab);
                         if (launchLink) {
                             if (isOnline) {
                                 // A CROSSPLAY world has no launchable URL at all -- it is
