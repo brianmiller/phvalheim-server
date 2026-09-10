@@ -72,7 +72,9 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # apostrophe closes it early and the rest of the verify silently never runs. That is
   # exactly how this script reported a clean build while skipping its last four checks.
   # Crossplay join code, and the offline-world stats sweep.
-  q=$(grep -c "getWorldJoinCode" /opt/stateless/nginx/www/includes/db_gets.php)
+  # Count the DEFINITION, not every mention: getVanillaJoinInfo() now calls this too, so a bare
+  # string count went to 2 and failed the verify on an image that was perfectly correct.
+  q=$(grep -c "function getWorldJoinCode" /opt/stateless/nginx/www/includes/db_gets.php)
   r=$(grep -c "copyVanillaJoinCode" /opt/stateless/nginx/www/public/authenticated.php)
   s=$(grep -c "joinCode" /opt/stateless/nginx/www/public/api.php)
   t=$(grep -c "clearUnreportedWorlds" /opt/stateless/nginx/www/admin/index.php)
