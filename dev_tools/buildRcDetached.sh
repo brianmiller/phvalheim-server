@@ -152,12 +152,13 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   bg=$(grep -c "ORDER BY currentMemory" /opt/stateless/nginx/www/includes/db_gets.php)
   bh=$(grep -A6 "^\.steamid-self {" /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "display: block")
   echo "card order: sorter=$be (want 1)  caller=$bf (want 1)  stale ORDER BY=$bg (want 0)  id on own line=$bh (want 1)"
-  # Card tables must NOT be height=100%: a card stretches to its row, and a full-height table
-  # absorbs that slack by spreading its rows -- which is what pushed Launch! away from the name
-  # and clipped the vanilla hint. Only the page header table keeps the attribute, so the count
-  # across the whole file must be exactly 1.
+  # Card tables MUST stay height=100% -- that is what makes the cards roomy. Removing it
+  # collapsed every card to its content and the UI came out squashed. The name/Launch/hint rows
+  # are pinned in CSS instead, so they stop claiming a share of the slack. 3 = header + 2 cards.
   bi=$(grep -c "table width=100% height=100%" /opt/stateless/nginx/www/public/authenticated.php)
-  echo "card tables not full-height: height=100% tables=$bi (want 1, the page header only)"
+  bj=$(grep -c "catbox th.card_worldLaunch" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  bk=$(grep -c "vanilla-hint. colspan=2" /opt/stateless/nginx/www/public/authenticated.php)
+  echo "card layout: full-height tables=$bi (want 3)  header rows pinned=$bj (want 1)  hint in table=$bk (want 1)"
   # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
   # tolerated -- treating it as failure would mark every modded world broken.
   am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
@@ -190,7 +191,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$ap" = "1" ] && [ "$aq" = "3" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
     && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
     && [ "$ba" = "1" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "1" ] \
-    && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "1" ] \
+    && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

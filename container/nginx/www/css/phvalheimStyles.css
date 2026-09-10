@@ -4421,12 +4421,27 @@ input:checked + .slider:before {
 }
 
 .catbox-vanilla .vanilla-hint {
-	margin-top: 0.6rem;
-	padding: 0 0.5rem;
+	padding: 0.6rem 0.5rem 0;
 	font-size: 0.72rem;
 	line-height: 1.35;
 	text-align: center;
 	color: var(--text-muted, #888);
+}
+
+/* Pin the header rows to their natural height.
+   The card table is height:100% so its rows expand to fill the card -- that is what gives the
+   cards their roomy look, and it is deliberate. But the extra space was shared by EVERY row,
+   including the one between the world name and Launch!, so that gap grew to 51px on a short
+   card and shrank to 15px on a tall one.
+   height:1px is the standard way to say "take only what your content needs" in a table: it is
+   a minimum, not a maximum, so the cell still sizes to its text and simply stops claiming a
+   share of the slack. The info rows below keep expanding, exactly as before.
+   The hint is pinned for the same reason, and lives INSIDE the table now -- as a sibling div
+   after a 100%-height table it was laid out past the bottom of the card and clipped. */
+.catbox th.card_worldName,
+.catbox th.card_worldLaunch,
+.catbox td.vanilla-hint {
+	height: 1px;
 }
 
 /* An offline vanilla card must grey out exactly like an offline modded card.
