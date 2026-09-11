@@ -2,6 +2,14 @@
 
 ## v2.41 — Crossplay join codes, access-list safety, world card rework
 
+### The OPEN pill matches the others
+It was styled muted grey while every other access pill is accent-coloured, so it read as a
+different kind of thing on the same row and was hard to see against the card. It is a normal
+pill now; the tooltip still explains that "open" means no access list and no password.
+Measured across DPR 1/1.25/1.5/2 its text is the best-centred on the row (within 0.25px by both
+ink-bounding-box and ink-centroid). `access list` and `crossplay` remain 2-5 device px left of
+centre -- monospace glyph side bearing, not yet addressed.
+
 ### Crossplay: Launch! now explains how to join
 A crossplay world can no longer be launched from the public card, because it never really
 worked. Valheim's `-joincode` argument is real, so the button looked correct — but the client's

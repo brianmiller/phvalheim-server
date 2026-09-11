@@ -110,9 +110,13 @@ check('the tooltip is escaped for an attribute',
 echo "\nThe pill markup itself\n";
 $r = badge(0, 'V_1');
 check('carries the shared .vanilla-badge class', strpos($r['html'], 'vanilla-badge') !== false);
-check('"open" is muted, "access list" is not',
-    strpos(badge(1, '')['html'], 'vanilla-badge-muted') !== false &&
-    strpos(badge(0, 'V_1')['html'], 'vanilla-badge-muted') === false);
+# OPEN used to be styled quieter than the rest. It is a pill like any other now -- the grey
+# read as a different KIND of pill on the same row and was hard to see. Assert every pill on the
+# row shares one look, so a future "let us make this one special" is caught.
+check('no pill carries a special style -- they all look alike',
+    strpos(badge(1, '')['html'], 'vanilla-badge-muted') === false &&
+    strpos(badge(0, 'V_1')['html'], 'vanilla-badge-muted') === false &&
+    strpos(badge(1, '', true)['html'], 'vanilla-badge-muted') === false);
 
 echo "\nPUBLISHED and CROSSPLAY are appended, not gates\n";
 // They are added by the card, not by accessBadges(), precisely so they cannot suppress OPEN.

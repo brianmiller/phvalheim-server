@@ -4522,10 +4522,6 @@ input:checked + .slider:before {
 	color: #0b0b0b;
 }
 
-.catbox .vanilla-badge-muted {
-	background: var(--bg-tertiary, #333);
-	color: var(--text-secondary, #aaa);
-}
 
 .catbox-vanilla .world-endpoint code {
 	font-size: 0.85em;

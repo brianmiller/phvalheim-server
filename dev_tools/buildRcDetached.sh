@@ -109,6 +109,11 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   cr=$(grep -c "crossplayJoinModal.modal" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   echo "crossplay modal: opener=$cl (want 3)  markup=$cm (want 4)  css=$cn (want 1)  null href=$co (want 2)"
   echo "crossplay modal stacking override=$cr (want 1)"
+  # OPEN is a pill like every other one now. The muted STYLE is what made it look different, so
+  # check the css, not the php -- the php still mentions the old class name in a comment.
+  cs=$(grep -c "vanilla-badge-muted" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  ct=$(grep -c "accent-primary" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "pill styling: muted rule gone=$cs (want 0)  accent still used=$ct (want >0)"
   echo "getWorldNetBackend=$w (want 1)  poll keys off connection.playfab=$x (want 1)"
   # The empty-access-list work: the save-time refusal, and the start-time warning for worlds
   # that predate it. Match the WARNING text, not the word "empty" -- this file discusses empty
@@ -275,7 +280,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$cd" = "0" ] && [ "$ce" = "1" ] && [ "$cf" = "2" ] \
     && [ "$cg" = "3" ] && [ "$ch" = "1" ] && [ "$ci" = "3" ] && [ "$cj" = "0" ] && [ "$ck" = "2" ] \
     && [ "$cl" = "3" ] && [ "$cm" = "4" ] && [ "$cn" = "1" ] && [ "$co" = "2" ] && [ "$cq" = "0" ] \
-    && [ "$cr" = "1" ] \
+    && [ "$cr" = "1" ] && [ "$cs" = "0" ] && [ "$ct" -gt 0 ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

@@ -105,8 +105,11 @@ function accessBadges($pdo, $world, $dimClass, $hasPassword = false) {
 				? 'Anyone who can reach this server may join. No access list and no password.'
 				: 'The access list is switched on but has nobody on it. Valheim ignores an empty '
 				  . 'list, so anyone who can reach this server may join. Ask the server owner to '
-				  . 'add player IDs.',
-			'vanilla-badge-muted');
+				  . 'add player IDs.');
+		# OPEN used to carry vanilla-badge-muted, on the reasoning that "no gate" is the absence
+		# of a thing and should read quieter. In practice it just looked like a different kind of
+		# pill on the same row, and the low-contrast grey was hard to read. It is a pill like the
+		# rest now; the tooltip carries the nuance.
 	}
 	return implode(' ', $badges);
 }
