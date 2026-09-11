@@ -979,6 +979,17 @@ a.card_dimmed.card_worldLaunch:hover {
 	color: #A0A0A0 !important;
 }
 
+/* Collapsed borders on EVERY card, online or offline.
+   This used to be part of the offline-card rule below, so a live card kept the browser default
+   border-collapse: separate with its 2px border-spacing -- every row 2px further apart and the
+   whole card ~14px taller than the identical offline card sitting next to it. Row heights were
+   the same on both; it was the spacing between them that differed, which is why it looked like
+   the online cards had gaps. */
+body:has(.google_header) .catbox table {
+	border-spacing: 0 !important;
+	border-collapse: collapse !important;
+}
+
 /* Offline card - no borders on inner tables */
 .catbox.card_dimmed table,
 div.card_dimmed.catbox table,
@@ -1010,13 +1021,13 @@ body:has(.google_header) .catbox.card_dimmed td {
 .catbox {
 	background-color: #131729 !important;
 	border-radius: 6px !important;
-	padding: 15px !important;
+	padding: 12px !important;
 	/* Was 50px, and 50px of padding was the only thing keeping the boss trophies on the card:
 	   the trophy table is a SIBLING after a height:100% table, so it was being laid out past
 	   the bottom of the card and the padding merely hid that. Same fault the crossplay hint
 	   had. Stacking the card as a flex column (below) makes the trophy row a real part of the
 	   card's height, so the padding can go back to being padding. */
-	padding-bottom: 16px !important;
+	padding-bottom: 12px !important;
 	font-size: 125% !important;
 	outline: 2px solid #34e2e2 !important;
 	border: none !important;
@@ -4563,7 +4574,7 @@ body:has(.google_header) .catbox > table.trophy-table {
 	/* Separation from the last data row. It used to come free from the 50px padding-bottom
 	   that the trophies were overflowing into; now that they sit on the card properly it has
 	   to be asked for. */
-	margin-top: 12px !important;
+	margin-top: 8px !important;
 }
 
 .catbox td.card-slack {
@@ -4575,8 +4586,32 @@ body:has(.google_header) .catbox > table.trophy-table {
    `<td style='height: 12px;'</td>` -- a tag that never closes, so the parser read `</td` as an
    attribute name. Same gap, as a real cell. */
 .catbox td.card-gap {
-	height: 8px;
+	height: 6px;
 	padding: 0;
+}
+
+/* ---- Card height trim --------------------------------------------------------------------
+   The page sets line-height: 1.5 on everything. That is the right figure for BODY text and it
+   is what fixed the squashed look, but it is not meant for single-line headings or for a fixed
+   tabular row, and applying it everywhere was costing the card ~25px of pure leading.
+   The name and the Launch line are one line each: 1.2 is normal for a heading.
+   The data rows go to 20px -- still 1.43 on a 14px face, inside the 1.4-1.6 range for dense
+   rows, and a whole number so the rhythm stays on exact pixels. */
+body:has(.google_header) .catbox .card_worldName {
+	line-height: 1.2 !important;
+}
+
+body:has(.google_header) .catbox .card_worldLaunch {
+	line-height: 1.2 !important;
+}
+
+body:has(.google_header) .catbox td.card_worldInfo {
+	line-height: 20px !important;
+}
+
+/* The hint is real prose and keeps a readable figure, just not the full 1.5. */
+body:has(.google_header) .catbox td.vanilla-hint {
+	line-height: 1.4 !important;
 }
 
 /* Breathing room under the world name, and real padding on the hint.
@@ -4595,7 +4630,7 @@ body:has(.google_header) .catbox td.card_worldInfo:first-child {
 }
 
 body:has(.google_header) .catbox td.vanilla-hint {
-	padding: 0.75rem 0.5rem 0 !important;
+	padding: 0.5rem 0.5rem 0 !important;
 }
 
 /* An offline vanilla card must grey out exactly like an offline modded card.

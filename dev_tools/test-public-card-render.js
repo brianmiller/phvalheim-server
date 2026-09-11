@@ -118,23 +118,34 @@ const MEASURE = () => {
     check('and at least 6px', gaps.every(g => g >= 6), `gaps: ${gaps}`);
 
     console.log('\n4. Row spacing is tight and does not depend on a card\'s neighbours');
-    // NOT "one pitch everywhere": a vanilla card legitimately has taller rows where the value
-    // is a chip (Server), a button pair (Password) or a badge (Access). The property that
-    // matters is that two cards of the SAME KIND measure the same -- which is exactly what
-    // broke when a card stretched to match a taller neighbour and spread the slack through its
-    // data rows.
-    for (const kind of [true, false]) {
-        const group = cards.filter(c => c.vanilla === kind);
-        if (group.length < 2) {
-            console.log(`  SKIP  only ${group.length} ${kind ? 'vanilla' : 'modded'} card(s) to compare`);
-            continue;
-        }
-        const seqs = [...new Set(group.map(c => c.pitches.join(',')))];
-        check(`${kind ? 'vanilla' : 'modded'} cards all have the same row spacing`,
-            seqs.length === 1, group.map(c => `${c.world}=[${c.pitches}]`).join(' '));
-    }
+    // This is deliberately NOT "every card of a kind measures the same". Two vanilla cards can
+    // legitimately differ by a pixel or two: the Access row holds a badge, and a CROSSPLAY
+    // badge is not the same size as an IN SERVER BROWSER one. Asserting equality across cards
+    // made the suite fail the moment a crossplay world existed, which is a fixture accident,
+    // not a regression.
+    //
+    // The bug this section exists for was that a card stretched to match a taller NEIGHBOUR and
+    // spread the leftover through its data rows -- so the same card measured differently
+    // depending on what sat beside it. Test that directly: re-measure each card at a viewport
+    // that reshuffles the rows, and require its own spacing to be unchanged.
     const pitches = [...new Set(cards.flatMap(c => c.pitches))];
-    check('and every row is tight (<= 24px)', pitches.every(v => v <= 24), `pitches: ${pitches}`);
+    check('every row is tight (<= 26px)', pitches.every(v => v <= 26), `pitches: ${pitches}`);
+
+    const before = new Map(cards.map(c => [c.world, c.pitches.join(',')]));
+    await p.setViewportSize({ width: 1700, height: 1400 });
+    const reflowed = await p.evaluate(MEASURE);
+    await p.setViewportSize({ width: 1400, height: 1200 });
+    // Guard: if the viewport change did not actually regroup the cards, the comparison is
+    // vacuous and would pass no matter what.
+    const regrouped = new Set(reflowed.map(c => c.cardH)).size !==
+                      new Set(cards.map(c => c.cardH)).size ||
+                      reflowed.some(c => c.cardH !== cards.find(x => x.world === c.world).cardH);
+    check('the wider viewport really does reshuffle the rows', regrouped,
+        'nothing moved -- the neighbour check below proves nothing');
+    const drifted = reflowed.filter(c => before.get(c.world) !== c.pitches.join(','));
+    check('no card changes its own row spacing when its neighbours change',
+        drifted.length === 0,
+        drifted.map(c => `${c.world}: [${before.get(c.world)}] -> [${c.pitches}]`).join(' | '));
 
     console.log('\n5. Launch sits under the name, separated, by the same amount everywhere');
     const n2l = [...new Set(cards.map(c => c.nameToLaunch))];

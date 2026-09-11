@@ -292,8 +292,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# does: telling a player "cannot be joined by IP" about a server that is
 					# currently accepting exactly that is worse than saying nothing.
 					$vanillaHint = $vanillaIsPlayFab
-						? "Crossplay world &mdash; use the Launch button, or enter the join code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP."
-						: "Join from Valheim's <em>Join IP</em> screen with the address above, or use the Launch button.";
+						# Kept to two lines at the card's width. Each of these used to run to three,
+						# and the hint is the single tallest thing on a vanilla card -- it was
+						# what stopped the card getting any shorter. Both still name the exact
+						# Valheim screen, which is the part a player cannot guess.
+						? "Crossplay world &mdash; use Launch, or the join code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP."
+						: "Use Launch, or the address above in Valheim's <em>Join IP</em> screen.";
 
 					# The Server address is the thing you type into Valheim's "Join IP" screen.
 					# A crossplay world is a PlayFab server: it does not accept a direct IP
