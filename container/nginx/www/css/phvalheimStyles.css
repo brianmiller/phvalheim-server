@@ -1723,8 +1723,8 @@ table.table-hover tbody tr:hover {
 .switch {
 	position: relative;
 	display: inline-block;
-	width: 36px;
-	height: 20px;
+	width: 32px;
+	height: 18px;
 	vertical-align: middle;
 }
 
@@ -1748,12 +1748,25 @@ table.table-hover tbody tr:hover {
 .slider:before {
 	position: absolute;
 	content: "";
-	height: 14px;
-	width: 14px;
+	height: 12px;
+	width: 12px;
 	left: 3px;
 	bottom: 3px;
 	background-color: var(--text-secondary);
 	transition: 0.3s;
+}
+
+/* The pill shrank; the thing you have to hit did not.
+   A 32x18 switch is under the 24px minimum for a pointer target, so an invisible box is
+   extended past the pill to keep the clickable area 36x24. It sits inside the <label>, so it
+   toggles like the pill does -- this buys back the hit area without putting it back on screen. */
+.slider::after {
+	content: "";
+	position: absolute;
+	top: -3px;
+	bottom: -3px;
+	left: -2px;
+	right: -2px;
 }
 
 input:checked + .slider {
@@ -1765,7 +1778,7 @@ input:focus + .slider {
 }
 
 input:checked + .slider:before {
-	transform: translateX(16px);
+	transform: translateX(14px);
 	background-color: white;
 }
 
@@ -4910,24 +4923,13 @@ textarea.pv-input,
 }
 
 /* --- toggle switch ---------------------------------------------------
-   Was 36x20. 20px is under every published minimum for a toggle; this also
-   makes the knob travel readable at a glance. */
-.pv-panel .switch,
-.pv-row .switch {
-	width: 44px;
-	height: 24px;
-}
-.pv-panel .slider:before,
-.pv-row .slider:before {
-	height: 18px;
-	width: 18px;
-	left: 3px;
-	bottom: 3px;
-}
-.pv-panel input:checked + .slider:before,
-.pv-row input:checked + .slider:before {
-	transform: translateX(20px);
-}
+   REMOVED: this used to bump the settings-modal switches to 44x24 with an 18px knob, on the
+   grounds that the base 36x20 was under the published minimum for a toggle. The result was a
+   control noticeably larger than anything around it -- it read as the loudest thing in a panel
+   of quiet rows -- and a second switch size to keep in step with the first.
+   Every switch is now the one size defined by .switch (32x18). The hit-area argument was the
+   right one and is answered properly, by .slider::after extending the CLICKABLE box to 36x24
+   without extending the drawn pill. */
 
 /* --- action bar ------------------------------------------------------ */
 .pv-actions {
