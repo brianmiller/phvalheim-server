@@ -326,7 +326,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>
                                                         <th class='$worldDimmed card_worldLaunch' colspan=2>$joinLink</th>
                                                         <tr>
-                                                        <td style='height: 12px;'</td>
+                                                        <td class='card-gap' colspan=2></td>
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Type&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>unmodded</td>
@@ -363,7 +363,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
                                                         <tr>
 
-                                                        <td style='height: 12px;'</td>
+                                                        <td class='card-gap' colspan=2></td>
 
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Mods&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>

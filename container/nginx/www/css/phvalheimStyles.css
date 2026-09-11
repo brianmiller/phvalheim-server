@@ -1011,7 +1011,12 @@ body:has(.google_header) .catbox.card_dimmed td {
 	background-color: #131729 !important;
 	border-radius: 6px !important;
 	padding: 15px !important;
-	padding-bottom: 50px !important;
+	/* Was 50px, and 50px of padding was the only thing keeping the boss trophies on the card:
+	   the trophy table is a SIBLING after a height:100% table, so it was being laid out past
+	   the bottom of the card and the padding merely hid that. Same fault the crossplay hint
+	   had. Stacking the card as a flex column (below) makes the trophy row a real part of the
+	   card's height, so the padding can go back to being padding. */
+	padding-bottom: 16px !important;
 	font-size: 125% !important;
 	outline: 2px solid #34e2e2 !important;
 	border: none !important;
@@ -4538,8 +4543,39 @@ input:checked + .slider:before {
 	white-space: nowrap;
 }
 
+/* The card stacks its two tables -- the data table, then the boss trophies -- as flex items.
+   As plain blocks the data table's height:100% claimed the whole content box and the trophy
+   table was laid out below it, hanging off the bottom of the card; only an outsized
+   padding-bottom hid the overflow. As a flex column the data table takes the leftover
+   (flex: 1) and the trophy row contributes its own height, so the card is as tall as what is
+   actually in it. */
+body:has(.google_header) .catbox {
+	display: flex !important;
+	flex-direction: column !important;
+}
+
+body:has(.google_header) .catbox > table:first-of-type {
+	flex: 1 1 auto !important;
+}
+
+body:has(.google_header) .catbox > table.trophy-table {
+	flex: 0 0 auto !important;
+	/* Separation from the last data row. It used to come free from the 50px padding-bottom
+	   that the trophies were overflowing into; now that they sit on the card properly it has
+	   to be asked for. */
+	margin-top: 12px !important;
+}
+
 .catbox td.card-slack {
 	height: 100%;
+	padding: 0;
+}
+
+/* The breather between the Launch line and the first data row. It used to be
+   `<td style='height: 12px;'</td>` -- a tag that never closes, so the parser read `</td` as an
+   attribute name. Same gap, as a real cell. */
+.catbox td.card-gap {
+	height: 8px;
 	padding: 0;
 }
 

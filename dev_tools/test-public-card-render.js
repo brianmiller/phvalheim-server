@@ -60,6 +60,17 @@ const MEASURE = () => {
             pitches: tops.slice(1).map((v, i) => v - tops[i]),
             nameToLaunch: Math.round(link.getBoundingClientRect().top - textRect(name).bottom),
             cardH: Math.round(box.getBoundingClientRect().height),
+            // Anything hanging off the bottom of the card. Two separate bugs have been exactly
+            // this -- the crossplay hint, then the boss trophies -- because both were siblings
+            // after a height:100% table, which lays them out past the card. The trophies were
+            // hidden by an outsized padding-bottom for as long as that padding existed.
+            overflowing: [...box.querySelectorAll('table, img, div')]
+                .filter(el => el.getBoundingClientRect().height > 0 &&
+                              el.getBoundingClientRect().bottom >
+                              box.getBoundingClientRect().bottom + 0.5)
+                .map(el => `${el.tagName.toLowerCase()}.${el.className || '-'}` +
+                     `(+${Math.round(el.getBoundingClientRect().bottom -
+                                     box.getBoundingClientRect().bottom)}px)`),
             // Present on a vanilla card, absent on a modded one -- used to prove the page under
             // test actually contains both kinds.
             vanilla: box.classList.contains('catbox-vanilla'),
@@ -88,6 +99,11 @@ const MEASURE = () => {
     const clipped = cards.filter(c => c.collapsed.length);
     check('every value that has text has a box to draw it in', clipped.length === 0,
         clipped.map(c => `${c.world}: ${c.collapsed.join(', ')}`).join(' | '));
+
+    console.log('\n1b. Nothing hangs off the bottom of a card');
+    const over = cards.filter(c => c.overflowing.length);
+    check('every element is inside its card', over.length === 0,
+        over.map(c => `${c.world}: ${c.overflowing.join(', ')}`).join(' | '));
 
     console.log('\n2. The label column is identical on every card');
     const widths = [...new Set(cards.map(c => c.labelColW))];
@@ -125,6 +141,32 @@ const MEASURE = () => {
     check('the same on every card', n2l.length === 1,
         cards.map(c => `${c.world}=${c.nameToLaunch}`).join(' '));
     check('and visibly separated (10-20px)', n2l.every(v => v >= 10 && v <= 20), `${n2l}`);
+
+    console.log('\n6. Cards sharing a row are the same height');
+    // A modded card and a vanilla card have different content, and at the default viewport they
+    // never share a row -- so this has to be measured somewhere wide enough to mix them. The
+    // card is a flex item AND (since the trophy fix) a flex container; making it a container
+    // must not cost it its own align-self: stretch.
+    await p.setViewportSize({ width: 1700, height: 1200 });
+    const rows = await p.evaluate(() => {
+        const byTop = {};
+        for (const box of document.querySelectorAll('.catbox')) {
+            const r = box.getBoundingClientRect();
+            const k = Math.round(r.top);
+            (byTop[k] = byTop[k] || []).push({
+                world: box.dataset.world, vanilla: box.classList.contains('catbox-vanilla'),
+                h: Math.round(r.height) });
+        }
+        return Object.values(byTop);
+    });
+    const mixed = rows.filter(r => r.length > 1 && new Set(r.map(c => c.vanilla)).size > 1);
+    check('a row mixing modded and vanilla cards exists to check', mixed.length > 0,
+        'widen the viewport or add a world -- this check proved nothing');
+    for (const row of mixed) {
+        check(`row [${row.map(c => c.world).join(', ')}] is one height`,
+            new Set(row.map(c => c.h)).size === 1, row.map(c => `${c.world}=${c.h}`).join(' '));
+    }
+    await p.setViewportSize({ width: 1400, height: 1200 });
 
     console.log('\nCONTROL: these checks can fail');
     // Re-create the original fault: a pinned height is only harmless because those cells are

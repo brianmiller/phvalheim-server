@@ -122,9 +122,13 @@ const measure = (p) => p.evaluate(() => [...document.querySelectorAll('.catbox')
     const pitches = now.map(c => c.rowPitch);
     check('the same on all three cards', new Set(pitches).size === 1, `pitches: ${pitches}`);
     check('and tight (<= 24px)', pitches.every(p => p <= 24), `pitches: ${pitches}`);
-    // The cards must still FILL their row -- the slack moved to the bottom, it did not vanish.
-    check('cards still fill the available height', now.every(c => c.cardH >= 400),
-        `heights: ${now.map(c => c.cardH)}`);
+    // REMOVED: `cards still fill the available height (>= 400px)`.
+    // That was a proxy for "the slack moved to the bottom, it did not vanish", written when the
+    // cards happened to be ~400px tall. Card height is content-driven now and deliberately
+    // shorter, so the threshold only encoded the old sizes. The property it was reaching for --
+    // cards in one flex row ending up the same height -- cannot be modelled here anyway: this
+    // file's synthetic wrapper does not reproduce the real page's stretch. It is checked
+    // against the live page in test-public-card-render.js instead.
 
     console.log('\nCONTROL: without the slack row the spacing goes uneven again');
     // Proves .card-slack is what fixes it, not an accident of these three cards. Neutralising
