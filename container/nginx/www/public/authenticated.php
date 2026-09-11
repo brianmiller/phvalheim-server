@@ -470,6 +470,16 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
         </head>
         <body>
+<?php
+# Loud and unmissable, so a bypassed instance can never be mistaken for a real one. Fixed
+# position and pointer-events:none so it cannot disturb the layout being inspected.
+if (phvDevSteamID() !== NULL) {
+	echo "<div style='position:fixed;top:0;left:0;right:0;z-index:99999;pointer-events:none;"
+	   . "background:#b30000;color:#fff;font:bold 12px monospace;text-align:center;padding:3px'>"
+	   . "STEAM AUTH BYPASSED &mdash; phvalheimDevSteamID=" . htmlspecialchars(phvDevSteamID())
+	   . " &mdash; DEVELOPMENT ONLY</div>";
+}
+?>
 
         <script>
                 // Store steamID for AJAX polling
