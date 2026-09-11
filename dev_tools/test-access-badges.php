@@ -114,6 +114,34 @@ check('"open" is muted, "access list" is not',
     strpos(badge(1, '')['html'], 'vanilla-badge-muted') !== false &&
     strpos(badge(0, 'V_1')['html'], 'vanilla-badge-muted') === false);
 
+echo "\nPUBLISHED and CROSSPLAY are appended, not gates\n";
+// They are added by the card, not by accessBadges(), precisely so they cannot suppress OPEN.
+// A published world with no password and no list is still open to anyone -- being easy to find
+// is not the same as being hard to enter. If either were ever folded into the gate logic, an
+// open world would stop saying so.
+$cardSrc = $src;
+// $b[0] is the accessBadges() body captured at the top of this file. Search THAT, not the whole
+// page: a first attempt used /function accessBadges.*?published/s, which matches any "published"
+// anywhere after the function starts -- including the card code far below it. The pattern could
+// never fail, so it reported the opposite of the truth.
+$gateBody = $b[0];
+foreach (['published', 'crossplay'] as $extra) {
+    check("$extra is appended by the card, not decided inside accessBadges()",
+        strpos($cardSrc, "accessBadge('$extra'") !== false &&
+        strpos($gateBody, $extra) === false,
+        "found inside the gate helper -- it would suppress OPEN");
+}
+// The ordering the card builds: gates first, then how the world is found.
+check('published is appended after the gate badges',
+    strpos($cardSrc, '$badges = accessBadges(') < strpos($cardSrc, "accessBadge('published'"));
+// Tooltip = the third argument. Take the 200 chars after the call and require a quoted string
+// of real length in them.
+foreach (['published', 'crossplay'] as $extra) {
+    $at = strpos($cardSrc, "accessBadge('$extra'");
+    check("$extra carries a tooltip like every other pill",
+        $at !== false && preg_match("/'[^']{25,}/", substr($cardSrc, $at, 240)) === 1);
+}
+
 echo "\nThe card markup\n";
 check('the "in server browser" pill is gone',
     !preg_match("/>\s*in server browser\s*</", $src),

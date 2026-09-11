@@ -308,6 +308,15 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# was discovered is the operator's business, not theirs.
 					$badges = accessBadges($pdo, $myWorld, $badgeDim,
 						$vanillaPassword !== '' && $vanillaPassword !== NULL);
+					# These two are NOT gates, so they are appended rather than passed into
+					# accessBadges(): they must not suppress OPEN. A world can be published and
+					# still be open -- being easy to find is not the same as being hard to enter,
+					# and Valheim will not publish one without a password anyway.
+					if ($vanillaListed) {
+						$badges = trim($badges . " " . accessBadge('published', $badgeDim,
+							'Listed in Valheim\'s public server browser, so players can find this '
+							. 'world without being given its address.'));
+					}
 					if ($vanillaCrossplay) {
 						$badges = trim($badges . " " . accessBadge('crossplay', $badgeDim,
 							'Hosted on PlayFab so Xbox, PlayStation and Nintendo players can join. '
