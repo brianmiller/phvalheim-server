@@ -26,6 +26,10 @@
 //   instead of being spread through the data. The hint sits after that row, which puts it where
 //   the boss trophies sit on a modded card, and inside the table so it cannot be pushed out.
 //
+// NOTE: this file measures markup it builds ITSELF, which is why it agreed with all four wrong
+// attempts. dev_tools/test-public-card-render.js measures the real authenticated.php and is the
+// one to trust; this one is kept for the CSS properties it can exercise without a live server.
+//
 // Layout only, so it runs in real Chromium; jsdom does no layout and would pass on all of it.
 //
 // Usage -- mount the REPO ROOT, not just dev_tools (the source guards read authenticated.php):
@@ -125,7 +129,12 @@ const measure = (p) => p.evaluate(() => [...document.querySelectorAll('.catbox')
     console.log('\nCONTROL: without the slack row the spacing goes uneven again');
     // Proves .card-slack is what fixes it, not an accident of these three cards. Neutralising
     // it hands the leftover height back to the data rows.
-    await p.setContent(page('.catbox td.card-slack { height: 1px; } .catbox td.card_worldInfo { height: auto; }'),
+    // !important, not specificity: the real rule is now
+    // `.catbox td.card_worldInfo:not(.world-seed):not(.world-endpoint)`, and those :not()s
+    // out-specify a plain `.catbox td.card_worldInfo` -- so the control silently stopped
+    // neutralising anything and reported "pitch is uniform" as a failure of the CONTROL.
+    await p.setContent(page('.catbox td.card-slack { height: 1px !important; }' +
+        ' .catbox td.card_worldInfo { height: auto !important; }'),
         { waitUntil: 'networkidle' });
     const unpinned = await measure(p);
     const badPitch = unpinned.map(c => c.rowPitch);

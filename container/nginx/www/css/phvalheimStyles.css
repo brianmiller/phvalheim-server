@@ -4441,9 +4441,30 @@ input:checked + .slider:before {
    100%-height table it was laid out past the bottom of the card and clipped. */
 .catbox th.card_worldName,
 .catbox th.card_worldLaunch,
-.catbox td.card_worldInfo,
+.catbox td.card_worldInfo:not(.world-seed):not(.world-endpoint),
 .catbox td.vanilla-hint {
 	height: 1px;
+}
+
+/* Seed and Server are excluded above, and must be.
+   .world-seed and .world-endpoint are written for an inline element -- display:block /
+   inline-block plus overflow:hidden -- but on a world card those classes land on the <td>
+   ITSELF. That takes the cell out of table layout and makes it clip its own content. Pinning
+   its height to 1px then hid the value outright: every card rendered "Seed :" and "Server :"
+   with nothing after the colon, on a page where the other rows looked fine. Left to size
+   themselves they are ordinary 14px rows again. */
+
+/* The label column is the same width on every card.
+   The table is width:100%, so with auto layout the leftover width is handed to whichever
+   column can take it -- meaning a card whose values are short (an undeployed world with no
+   MD5, no date) gave its label column 226px while a card with a long MD5 hash gave it 95px.
+   The labels are identical text, so the distance from the colon to the value jumped around
+   from card to card. width:1px is a shrink-to-fit request, not a literal width: the cell
+   takes its content's width and no more. Every label is padded with &nbsp; to the same 11
+   monospace characters, so every card now lines up with every other one. */
+.catbox td.card_worldInfo:first-child {
+	width: 1px;
+	white-space: nowrap;
 }
 
 .catbox td.card-slack {
@@ -4457,7 +4478,13 @@ input:checked + .slider:before {
    specificity these selectors can reach. The hint's own padding rule further up has never
    applied for exactly that reason. Scoped the same way so it wins on equal terms. */
 body:has(.google_header) .catbox th.card_worldName {
-	padding-bottom: 0.5rem !important;
+	padding-bottom: 0.75rem !important;
+}
+
+/* Shrink-to-fit label cells sit flush against their value, because the gap used to be the
+   leftover width the column was absorbing. Same blanket-padding problem, same !important. */
+body:has(.google_header) .catbox td.card_worldInfo:first-child {
+	padding-right: 0.5rem !important;
 }
 
 body:has(.google_header) .catbox td.vanilla-hint {
