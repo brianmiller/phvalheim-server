@@ -4505,11 +4505,13 @@ input:checked + .slider:before {
 	line-height: 1;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
-	/* letter-spacing puts its gap AFTER every character, including the last one, so the text
-	   sat one whole gap left of centre inside the pill. text-indent puts some of it back at the
-	   start. HALF the tracking, not all of it: a full 0.04em simply moved the text the same
-	   distance the other way -- measured 6.4/6.8 before, 6.8/6.4 after. Half splits it. */
-	text-indent: 0.02em;
+	/* letter-spacing adds its gap AFTER every character, the last one included, so the text box
+	   is one tracking unit wider than the glyphs and centring the BOX does not centre the ink.
+	   Take that unit out of the right padding rather than shoving the text across with
+	   text-indent -- the trailing space is what is wrong, so remove it where it is.
+	   The previous text-indent value was tuned by measuring the text NODE, whose box contains
+	   the very space being compensated for; that measurement could not see its own error. */
+	padding-right: calc(0.4rem - 0.04em);
 	background: var(--accent-primary, #4a8);
 	color: #0b0b0b;
 }

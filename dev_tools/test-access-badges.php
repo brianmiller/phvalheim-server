@@ -45,20 +45,41 @@ $GLOBALS['CITIZENS'] = '';
 function getPublic($pdo, $w)   { return $GLOBALS['PUBLIC_FLAG']; }
 function getCitizens($pdo, $w) { return $GLOBALS['CITIZENS']; }
 
-function badge($public, $citizens) {
+function badge($public, $citizens, $hasPassword = false) {
     $GLOBALS['PUBLIC_FLAG'] = $public;
     $GLOBALS['CITIZENS'] = $citizens;
-    $html = accessBadges(NULL, 'w', '');
-    preg_match('/title="([^"]*)">([^<]+)</', $html, $m);
-    return ['label' => $m[2] ?? '', 'title' => html_entity_decode($m[1] ?? ''), 'html' => $html];
+    $html = accessBadges(NULL, 'w', '', $hasPassword);
+    preg_match_all('/title="([^"]*)">([^<]+)</', $html, $m, PREG_SET_ORDER);
+    return [
+        // Every pill on the row, in order, so a world with two gates can be asserted as such.
+        'labels' => array_map(function ($x) { return $x[2]; }, $m),
+        'label'  => $m[0][2] ?? '',
+        'title'  => html_entity_decode($m[0][1] ?? ''),
+        'html'   => $html,
+    ];
 }
 
-echo "\nThe four access states\n";
+echo "\nEach pill is one thing standing in a player's way\n";
+// OPEN is the absence of all of them, so it is only correct when nothing gates entry -- not
+// merely when the access list is off. A password gates entry just as much as a list does.
 $r = badge(1, 'V_76561198000000001');
 check('open world  -> "open"', $r['label'] === 'open', "got \"{$r['label']}\"");
 
 $r = badge(0, 'V_76561198000000001');
 check('restricted with ids -> "access list"', $r['label'] === 'access list', "got \"{$r['label']}\"");
+
+$r = badge(1, '', true);
+check('password, no list -> "password" and NOT "open"',
+    $r['labels'] === ['password'], 'got [' . implode(', ', $r['labels']) . ']');
+
+$r = badge(0, 'V_1', true);
+check('list AND password -> both pills, list first',
+    $r['labels'] === ['access list', 'password'], 'got [' . implode(', ', $r['labels']) . ']');
+
+// An enforced-but-empty list is no restriction, so the password is the only real gate here.
+$r = badge(0, '', true);
+check('empty list but a password -> "password", not "open"',
+    $r['labels'] === ['password'], 'got [' . implode(', ', $r['labels']) . ']');
 
 # THE ONE THAT MATTERS.
 $r = badge(0, '');

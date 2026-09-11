@@ -74,36 +74,41 @@ function accessBadge($label, $dimClass, $tooltip, $extraClass = '') {
 # used to tell -- describing the setting instead of the server. Nothing here fixes the state;
 # createWorld and saveCitizens refuse to create it, and startWorld logs a warning for any world
 # already in it. This just refuses to misreport it.
+# Each pill is one thing standing between a player and the world, so a world with two of them
+# shows two. OPEN is the absence of all of them, which is why it is decided last: it means
+# nothing is in the way, not merely that the access list is off.
 function accessBadges($pdo, $world, $dimClass, $hasPassword = false) {
 	$open = (getPublic($pdo, $world) == 1);
-	$citizens = trim((string)getCitizens($pdo, $world));
+	# Valheim applies permittedlist.txt only when it has ENTRIES. A list that is switched on and
+	# empty is not "nobody may join", it is no restriction at all, so it does not count as a gate
+	# here. Nothing in this function fixes that state -- createWorld and saveCitizens refuse to
+	# create it and startWorld warns about any world already in it -- it just will not claim a
+	# world is list-restricted when Valheim is ignoring the list.
+	$listInForce = !$open && trim((string)getCitizens($pdo, $world)) !== '';
 
-	if ($open) {
-		# A password-protected world is not OPEN, whatever the access-list flag says -- you
-		# still cannot walk in without the password. Vanilla worlds are the ones that have a
-		# password at all, so in practice this is the vanilla case; the Access row then carries
-		# only crossplay, and is dropped entirely if there is nothing left to say.
-		#
-		# Gated on the password ACTUALLY being set, not on the world being vanilla. A vanilla
-		# world may have no password -- validateWorldPassword() accepts an empty one, and only a
-		# world listed in the server browser is forced to have one -- and a vanilla world with
-		# no password and no access list is open in the plainest sense. Hiding the pill for the
-		# whole world type would quietly mislabel that.
-		if ($hasPassword) { return ''; }
+	$badges = [];
+	if ($listInForce) {
+		$badges[] = accessBadge('access list', $dimClass,
+			'Only the player IDs on this world\'s access list may join. Ask the server owner to add '
+			. 'yours -- it is the V_ id shown under your name at the top of this page.');
+	}
+	if ($hasPassword) {
+		$badges[] = accessBadge('password', $dimClass,
+			'This world needs a password to join. It is shown in the Password row above when the '
+			. 'server owner has chosen to publish it.');
+	}
 
-		return accessBadge('open', $dimClass,
-			'Anyone who can reach this server may join. No access list and no password.',
+	if (!$badges) {
+		# Nothing gates entry: no access list in force AND no password.
+		$badges[] = accessBadge('open', $dimClass,
+			$open
+				? 'Anyone who can reach this server may join. No access list and no password.'
+				: 'The access list is switched on but has nobody on it. Valheim ignores an empty '
+				  . 'list, so anyone who can reach this server may join. Ask the server owner to '
+				  . 'add player IDs.',
 			'vanilla-badge-muted');
 	}
-	if ($citizens === '') {
-		return accessBadge('open', $dimClass,
-			'The access list is switched on but has nobody on it. Valheim ignores an empty list, '
-			. 'so anyone who can reach this server may join. Ask the server owner to add player IDs.',
-			'vanilla-badge-muted');
-	}
-	return accessBadge('access list', $dimClass,
-		'Only the player IDs on this world\'s access list may join. Ask the server owner to add '
-		. 'yours -- it is the V_ id shown under your name at the top of this page.');
+	return implode(' ', $badges);
 }
 
 function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
