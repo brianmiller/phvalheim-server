@@ -2,6 +2,22 @@
 
 ## v2.41 — Crossplay join codes, access-list safety, world card rework
 
+### Analytics push no longer fails on larger servers
+`pushAnalytics.sh` built the worlds array in a shell variable and handed it to `jq` as
+`--argjson worlds "$worlds_json"`. Linux caps a **single** argv entry at 128 KiB
+(`MAX_ARG_STRLEN`), separately from the much larger total `ARG_MAX` — so once a server had enough
+worlds x mods to cross that line, `jq` never ran:
+
+```
+pushAnalytics.sh: line 146: /usr/bin/jq: Argument list too long
+[WARN : phvalheim] Failed to build analytics payload
+```
+
+Every push failed from then on, with that one WARN line as the only symptom. Worlds and mods are
+now accumulated in temp files and passed with `--slurpfile`, which has no such limit (measured
+in-container: `--argjson` accepts 129,025 bytes and fails at 201,601; the same data via
+`--slurpfile` is fine at 512 KB). Temp files are removed by an `EXIT` trap.
+
 ### The OPEN pill matches the others
 It was styled muted grey while every other access pill is accent-coloured, so it read as a
 different kind of thing on the same row and was hard to see against the card. It is a normal

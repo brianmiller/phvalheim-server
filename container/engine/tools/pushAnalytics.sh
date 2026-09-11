@@ -70,7 +70,23 @@ else
 fi
 
 # ── Worlds ────────────────────────────────────────────────────────
-worlds_json="[]"
+# Accumulated in FILES, never in shell variables passed on a command line.
+#
+# This used to build worlds_json in a variable and hand it to jq as
+# --argjson worlds "$worlds_json". Linux caps a SINGLE argv entry at 128 KiB
+# (MAX_ARG_STRLEN), independently of the much larger total ARG_MAX, so once a
+# server had enough worlds x mods the payload crossed that line and jq died with
+# "Argument list too long" -- every analytics push failed from then on, silently
+# apart from one WARN line. Measured in-container: --argjson accepts 129,025
+# bytes and fails at 201,601; the same data via --slurpfile is fine at 512 KB.
+# Keep large JSON off argv. Scalars below are safe; a world name cannot approach
+# 128 KiB.
+worlds_file=$(mktemp /tmp/phvalheim_analytics_worlds.XXXXXX)
+mods_file=$(mktemp /tmp/phvalheim_analytics_mods.XXXXXX)
+work_file=$(mktemp /tmp/phvalheim_analytics_work.XXXXXX)
+trap 'rm -f "$worlds_file" "$mods_file" "$work_file"' EXIT INT TERM
+echo "[]" > "$worlds_file"
+
 world_ids=$(SQL "SELECT id FROM worlds" 2>/dev/null)
 
 for wid in $world_ids; do
@@ -82,7 +98,7 @@ for wid in $world_ids; do
 	wmods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE id='$wid'" 2>/dev/null)
 
 	# Build mods array with jq for safe JSON encoding
-	mods_json="[]"
+	echo "[]" > "$mods_file"
 	for muuid in $wmods; do
 		[ -z "$muuid" ] && continue
 		mod_name=$(SQL    "SELECT name    FROM tsmods WHERE moduuid='$muuid' LIMIT 1" 2>/dev/null)
@@ -91,20 +107,31 @@ for wid in $world_ids; do
 		[ -z "$mod_name" ] && continue
 
 		ts_url="https://thunderstore.io/c/valheim/p/${mod_owner}/${mod_name}/"
-		mods_json=$(echo "$mods_json" | jq \
+		if jq \
 			--arg n "$mod_name" \
 			--arg v "${mod_version:-unknown}" \
 			--arg o "${mod_owner:-unknown}" \
 			--arg u "$ts_url" \
-			'. += [{"name":$n,"version":$v,"owner":$o,"thunderstore_url":$u}]')
+			'. += [{"name":$n,"version":$v,"owner":$o,"thunderstore_url":$u}]' \
+			"$mods_file" > "$work_file"; then
+			mv "$work_file" "$mods_file"
+		else
+			echo "$(date) [WARN : phvalheim] analytics: could not add mod $mod_name, skipping"
+		fi
 	done
 
-	worlds_json=$(echo "$worlds_json" | jq \
+	# $mods[0] because --slurpfile wraps the file's value in an array.
+	if jq \
 		--arg n "${wname:-unknown}" \
 		--arg m "${wmode:-unknown}" \
 		--arg u "${wupdated:-}" \
-		--argjson mods "$mods_json" \
-		'. += [{"name":$n,"mode":$m,"last_updated":$u,"mods":$mods}]')
+		--slurpfile mods "$mods_file" \
+		'. += [{"name":$n,"mode":$m,"last_updated":$u,"mods":$mods[0]}]' \
+		"$worlds_file" > "$work_file"; then
+		mv "$work_file" "$worlds_file"
+	else
+		echo "$(date) [WARN : phvalheim] analytics: could not add world ${wname:-unknown}, skipping"
+	fi
 done
 
 # ── Analytics disabled flag ───────────────────────────────────────
@@ -127,7 +154,7 @@ payload=$(jq -n \
 	--argjson disk_used          "$disk_used_gb" \
 	--argjson ai_enabled         "$ai_enabled" \
 	--argjson ai_providers       "$ai_providers" \
-	--argjson worlds             "$worlds_json" \
+	--slurpfile worlds           "$worlds_file" \
 	--argjson analytics_disabled "$analytics_disabled_val" \
 	'{
 		uuid:                $uuid,
@@ -141,7 +168,7 @@ payload=$(jq -n \
 		disk_used_gb:        $disk_used,
 		ai_enabled:          $ai_enabled,
 		ai_providers:        $ai_providers,
-		worlds:              $worlds,
+		worlds:              $worlds[0],
 		analytics_disabled:  $analytics_disabled
 	}')
 

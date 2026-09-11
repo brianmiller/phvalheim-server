@@ -114,6 +114,13 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   cs=$(grep -c "vanilla-badge-muted" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   ct=$(grep -c "accent-primary" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   echo "pill styling: muted rule gone=$cs (want 0)  accent still used=$ct (want >0)"
+  # Analytics payload must never be handed to jq on the command line: Linux caps one argv entry
+  # at 128 KiB, so a server with enough worlds x mods got "Argument list too long" and every
+  # push failed. Large JSON goes through files now.
+  cu=$(grep -c "slurpfile worlds" /opt/stateless/engine/tools/pushAnalytics.sh)
+  cv=$(grep -c "slurpfile mods" /opt/stateless/engine/tools/pushAnalytics.sh)
+  cw=$(grep -v "^#" /opt/stateless/engine/tools/pushAnalytics.sh | grep -c "argjson worlds")
+  echo "analytics payload by file: worlds=$cu (want 1)  mods=$cv (want 1)  stale argjson=$cw (want 0)"
   echo "getWorldNetBackend=$w (want 1)  poll keys off connection.playfab=$x (want 1)"
   # The empty-access-list work: the save-time refusal, and the start-time warning for worlds
   # that predate it. Match the WARNING text, not the word "empty" -- this file discusses empty
@@ -281,6 +288,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$cg" = "3" ] && [ "$ch" = "1" ] && [ "$ci" = "3" ] && [ "$cj" = "0" ] && [ "$ck" = "2" ] \
     && [ "$cl" = "3" ] && [ "$cm" = "4" ] && [ "$cn" = "1" ] && [ "$co" = "2" ] && [ "$cq" = "0" ] \
     && [ "$cr" = "1" ] && [ "$cs" = "0" ] && [ "$ct" -gt 0 ] \
+    && [ "$cu" = "1" ] && [ "$cv" = "1" ] && [ "$cw" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
