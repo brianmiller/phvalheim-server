@@ -5387,6 +5387,18 @@ body input[type="checkbox"]:not(.form-check-input):checked::after,
    public page; only the width and the step list are specific to it. Kept narrow -- it carries
    one code and three lines, and at the install modal's width the text ran to a single short
    line per row and read as an error dialog rather than an instruction. */
+/* This page carries a hand-rolled `.modal` rule from before Bootstrap: it makes .modal ITSELF
+   the dim overlay (dark background + blur) at z-index 1050. Bootstrap instead wants .modal
+   transparent and ABOVE its own .modal-backdrop (1055 vs 1050). With both at 1050 the backdrop
+   wins the tie on DOM order, so it paints OVER the dialog -- the modal looked dimmed AND every
+   click, including Close, landed on the backdrop instead of the button. Verified with
+   elementFromPoint over the Close button: it returned .modal-backdrop.
+   Same scoped fix #macInstallModal already uses: sit above the backdrop and bring our own dim. */
+#crossplayJoinModal.modal {
+	z-index: 9999;
+	background-color: rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(6px);
+}
 .crossplay-join-dialog {
 	max-width: 420px;
 }

@@ -43,25 +43,39 @@ const check = (name, ok, detail = '') => {
   // The public page can open a one-time notice modal on load; its backdrop swallows every
   // click and made the first attempt at this test time out after 62 retries. Close whatever is
   // open and wait for the backdrop to actually leave the DOM before touching the card.
+  // Close via bootstrap and WAIT FOR ITS OWN hidden event. An earlier version stripped the
+  // .show class directly as a fallback, which leaves bootstrap internal _isShown true -- the
+  // next show() then returns early as a no-op and the modal never reopens, which showed up as
+  // "element is not visible" on a later click. Never hand-edit bootstrap state.
   const closeModals = async () => {
     await page.evaluate(() => {
-      document.querySelectorAll('.modal.show').forEach(m => {
-        const inst = (typeof bootstrap !== 'undefined') && bootstrap.Modal.getInstance(m);
-        if (inst) inst.hide(); else m.classList.remove('show');
-      });
+      const open = [...document.querySelectorAll('.modal.show')];
+      if (!open.length) return Promise.resolve();
+      return Promise.all(open.map(m => new Promise(res => {
+        m.addEventListener('hidden.bs.modal', res, { once: true });
+        bootstrap.Modal.getOrCreateInstance(m).hide();
+        setTimeout(res, 2000);
+      })));
     });
-    // Wait for BOTH: bootstrap's hide() is animated, so the backdrop can be gone while the
-    // dialog still carries .show and keeps intercepting pointer events.
     await page.waitForFunction(
       () => !document.querySelector('.modal.show') && !document.querySelector('.modal-backdrop'),
       { timeout: 5000 }
-    ).catch(() => page.evaluate(() => {
-      document.querySelectorAll('.modal.show').forEach(m => { m.classList.remove('show'); m.style.display = 'none'; });
-      document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-      document.body.classList.remove('modal-open');
-    }));
+    ).catch(() => {});
   };
   await closeModals();
+
+  // Open by clicking Launch!, then wait for bootstrap shown.bs.modal -- NOT for the .show
+  // class. The class lands at the START of the fade, so waiting on it returned while the modal
+  // was still transitioning, and a hide() issued during a transition is ignored by bootstrap.
+  // That left the modal open and the next click landed on it instead of the card.
+  const openJoinModal = async () => {
+    await page.evaluate(() => {
+      window.__shown = new Promise(res => document.getElementById('crossplayJoinModal')
+        .addEventListener('shown.bs.modal', res, { once: true }));
+    });
+    await (await page.$('.launch-link')).click();
+    await page.evaluate(() => window.__shown).catch(() => {});
+  };
 
   console.log('\nNo crossplay launch URL may exist anywhere');
   const html = await page.content();
@@ -103,8 +117,7 @@ const check = (name, ok, detail = '') => {
     `href=${await link.getAttribute('href')}`);
 
   await closeModals();
-  await link.click();
-  await page.waitForSelector('#crossplayJoinModal.show', { timeout: 3000 }).catch(() => {});
+  await openJoinModal();
   check('clicking Launch! opens the join modal',
     await page.isVisible('#crossplayJoinModal.show'));
   check('modal shows the join code',
@@ -117,11 +130,66 @@ const check = (name, ok, detail = '') => {
   // load would keep handing out the dead one.
   await closeModals();
   await drive('654321');
-  await (await page.$('.launch-link')).click();
-  await page.waitForSelector('#crossplayJoinModal.show', { timeout: 3000 }).catch(() => {});
+  await openJoinModal();
   check('after the world restarts, the modal shows the NEW code',
     (await page.textContent('#crossplayJoinCode')).trim() === '654321',
     `got "${(await page.textContent('#crossplayJoinCode')).trim()}" -- a stale code cannot join`);
+  await closeModals();
+
+  // The modal must be REACHABLE and DISMISSABLE. This is the gap that let a broken modal ship:
+  // every earlier close went through closeModals(), which calls bootstrap hide() directly, so
+  // the suite never touched the Close button and never noticed the backdrop was painting over
+  // the whole dialog (equal z-index, backdrop later in DOM). Assert on hit-testing and on a
+  // real click.
+  console.log('\nThe modal is reachable and dismissable by clicking');
+  await drive('123456');
+  await openJoinModal();
+
+  const topmost = await page.evaluate(() => {
+    const m = document.getElementById('crossplayJoinModal');
+    const c = m.querySelector('.modal-content').getBoundingClientRect();
+    const overDialog = document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2);
+    const btn = m.querySelector('.btn-close');
+    const b = btn.getBoundingClientRect();
+    const overBtn = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return {
+      dialogCovered: !(overDialog && m.contains(overDialog)),
+      closeCovered: !(overBtn && (overBtn === btn || btn.contains(overBtn))),
+      covering: (overBtn && overBtn.className || '').toString(),
+      modalZ: getComputedStyle(m).zIndex,
+      backdropZ: (() => { const bd = document.querySelector('.modal-backdrop'); return bd ? getComputedStyle(bd).zIndex : 'none'; })(),
+    };
+  });
+  check('nothing covers the dialog', !topmost.dialogCovered,
+    `covered by ${topmost.covering}`);
+  check('nothing covers the Close button', !topmost.closeCovered,
+    `covered by ${topmost.covering} -- the modal cannot be dismissed`);
+  check('the modal sits above its backdrop',
+    parseInt(topmost.modalZ, 10) > parseInt(topmost.backdropZ === 'none' ? '0' : topmost.backdropZ, 10),
+    `modal z=${topmost.modalZ} backdrop z=${topmost.backdropZ}`);
+
+  // A real click, not hide().
+  await page.click('#crossplayJoinModal .btn-close');
+  await page.waitForTimeout(800);
+  check('clicking Close actually dismisses it',
+    !(await page.isVisible('#crossplayJoinModal.show')));
+  check('and the backdrop is cleaned up',
+    await page.evaluate(() => !document.querySelector('.modal-backdrop')));
+
+  // CONTROL for the three hit-tests above: put the z-index back to the broken value and confirm
+  // they turn red. Without this they could be asserting nothing.
+  await page.addStyleTag({ content: '#crossplayJoinModal.modal { z-index: 1050 !important; }' });
+  await drive('123456');
+  await openJoinModal();
+  const broken = await page.evaluate(() => {
+    const m = document.getElementById('crossplayJoinModal');
+    const btn = m.querySelector('.btn-close');
+    const b = btn.getBoundingClientRect();
+    const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return !(hit && (hit === btn || btn.contains(hit)));
+  });
+  check('CONTROL: at the old z-index the Close button IS covered', broken,
+    'the reachability checks cannot see the bug they guard');
   await closeModals();
 
   console.log('\nNo code yet, and the crossplay -> normal transition');

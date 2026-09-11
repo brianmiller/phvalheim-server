@@ -103,7 +103,12 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   co=$(grep -cE "href.+=> NULL," /opt/stateless/nginx/www/includes/db_gets.php)
   cq=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/includes/db_gets.php)
   echo "joincode launch url GONE: card=$u (want 0)  api=$v (want 0)  db_gets=$cq (want 0)"
+  # The modal MUST outrank the backdrop. The page carries a pre-bootstrap .modal rule at
+  # z-index 1050 that makes .modal itself the dim layer; with the backdrop also at 1050 the
+  # backdrop painted over the dialog, so it looked dimmed and Close could not be clicked.
+  cr=$(grep -c "crossplayJoinModal.modal" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   echo "crossplay modal: opener=$cl (want 3)  markup=$cm (want 4)  css=$cn (want 1)  null href=$co (want 2)"
+  echo "crossplay modal stacking override=$cr (want 1)"
   echo "getWorldNetBackend=$w (want 1)  poll keys off connection.playfab=$x (want 1)"
   # The empty-access-list work: the save-time refusal, and the start-time warning for worlds
   # that predate it. Match the WARNING text, not the word "empty" -- this file discusses empty
@@ -270,6 +275,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$cd" = "0" ] && [ "$ce" = "1" ] && [ "$cf" = "2" ] \
     && [ "$cg" = "3" ] && [ "$ch" = "1" ] && [ "$ci" = "3" ] && [ "$cj" = "0" ] && [ "$ck" = "2" ] \
     && [ "$cl" = "3" ] && [ "$cm" = "4" ] && [ "$cn" = "1" ] && [ "$co" = "2" ] && [ "$cq" = "0" ] \
+    && [ "$cr" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
