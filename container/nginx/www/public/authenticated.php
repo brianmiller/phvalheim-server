@@ -210,8 +210,15 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# not a row of grey trophies telling them nothing.
 					$vanillaPassword = getWorldPassword($pdo,$myWorld);
 					$vanillaPort = getPort($pdo,$myWorld);
-					$vanillaCrossplay = (getCrossplay($pdo,$myWorld) == 1);
-					$vanillaListed = (getListed($pdo,$myWorld) == 1);
+					# The RUNNING options for a live world, the saved ones for a stopped one --
+					# never the saved ones for a live world. Toggling crossplay on a running
+					# world used to light the CROSSPLAY pill immediately while the Launch link
+					# correctly stayed a direct-connect link, because the pill read the column
+					# and the link read the server. The pill advertised a crossplay world that
+					# Valheim was not serving, and would go on doing so until someone restarted.
+					$vanillaOpts = effectiveWorldOptions($pdo, $myWorld, $isOnline);
+					$vanillaCrossplay = ((int)$vanillaOpts['crossplay'] === 1);
+					$vanillaListed = ((int)$vanillaOpts['listed'] === 1);
 					$vanillaEndpoint = htmlspecialchars($gameDNS . ":" . $vanillaPort);
 					$vanillaSteamUrl = htmlspecialchars("steam://run/892970//+connect " . $gameDNS . ":" . $vanillaPort);
 
@@ -254,10 +261,17 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# applied at launch, so toggling the flag on a running world leaves the two
 					# disagreeing until it restarts -- and in that window the column is simply
 					# wrong about how players can reach it.
-					# Column-aware: the running session wins when it has logged a backend, and
-					# the column covers the ~30s of world-loading before it has. Without that a
-					# world restarted into crossplay spent that window offering a +connect link.
-					$vanillaIsPlayFab = $isOnline ? worldIsPlayFab($pdo, $myWorld) : false;
+					# The running session wins when it has logged a backend; for the ~30s of
+					# world-loading before it has, worldIsPlayFab() falls back to the options the
+					# world was STARTED with -- so the link is right from the first moment the
+					# world appears, not 30 seconds later.
+					# Offline, there is no session to ask, so the card describes what the world
+					# WILL start as -- which is what its pills already say. Answering `false`
+					# here used to give an offline crossplay world a CROSSPLAY pill and a
+					# "join by IP" hint on the same card.
+					$vanillaIsPlayFab = $isOnline
+						? worldIsPlayFab($pdo, $myWorld, $isOnline)
+						: $vanillaCrossplay;
 					$vanillaJoinCode = $vanillaIsPlayFab ? getWorldJoinCode($myWorld) : NULL;
 
 					# Valheim takes the join code on the command line -- `-joincode` is a
@@ -310,6 +324,11 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
 					# Only rendered for crossplay. A missing code means the world is up but has
 					# not registered its lobby yet -- say so rather than showing an empty row.
+					#
+					# The label is padded with &nbsp; to the same 11 monospace characters as every
+					# other label on the card. "Join code:" is one character shorter than the rest,
+					# and since the label column shrinks to fit its widest entry, that left the join
+					# code sitting 8px right of every other value in the column.
 					$joinCodeRow = "";
 					if ($vanillaIsPlayFab) {
 						$codeCell = $vanillaJoinCode !== NULL
@@ -318,7 +337,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 								. "<a href='#' class='vanilla-password-action' onclick='copyVanillaJoinCode(this); return false;'>copy</a></span>"
 							: ($isOnline ? "<em>starting&hellip;</em>" : "&mdash;");
 						$joinCodeRow = "
-                                                        <td class='$worldDimmed card_worldInfo'>Join&nbsp;code:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>Join&nbsp;code&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo world-joincode'>$codeCell</td>
                                                         <tr>";
 					}

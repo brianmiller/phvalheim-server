@@ -726,6 +726,10 @@ function getWorldsJson($pdo) {
             'launchHref' => $joinInfo['href'],
             'launchPlayfab' => $joinInfo['playfab'],
             'launchJoinCode' => $joinInfo['joinCode'],
+            // Same contract note as launchHref above: the dashboard renders this badge from PHP
+            // on load and from this payload on every poll. Saving an option has to light it
+            // within a poll, and restarting the world has to clear it.
+            'restartPending' => worldRestartPending($pdo, $row['name'], $isRunning),
             'dateUpdated' => $row['date_updated']
         ];
     }
@@ -1293,7 +1297,11 @@ function saveWorldOptionsJson($pdo, $world, $input) {
     // well as gating the UI -- otherwise the mods stay in the database, the Mods column
     // keeps showing them, and flipping back later silently resurrects a mod list the
     // operator thinks they removed.
-    $message = 'World options saved. Restart the world for this to take effect.';
+    // Says where the reminder now lives. The old wording told you a restart was needed and then
+    // vanished with the dialog, while the public card had already started advertising the new
+    // setting -- so the only lasting evidence pointed the wrong way.
+    $message = 'World options saved. They take effect when the world restarts; until then it is '
+             . 'marked "restart pending" in the Worlds table and players still see its current settings.';
     if ($vanilla && !$wasVanilla) {
         deleteAllWorldMods($pdo, $world);
         $message = 'World is now vanilla. Its mod selection has been cleared — run an Update to rebuild it without mods.';

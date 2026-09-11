@@ -111,6 +111,48 @@ fi
 
 set -- "$@" -savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim
 
+# Record what this start is ACTUALLY using, after the gates above have had their say.
+#
+# The database holds the operator's INTENT and can be edited while a world is running. This file
+# is what the running process was handed. Without it the UIs had two sources of truth for one
+# card: the public page drew its CROSSPLAY pill from the database (so it appeared the instant
+# the option was saved) while the Launch link followed the running server (so it stayed a
+# direct-connect link). The pill promised a crossplay world the server was not serving.
+#
+# Anything describing a LIVE world reads this; anything describing a stopped one reads the
+# database, because then there is nothing running to contradict it. A stale file from a previous
+# run is harmless for the same reason -- it is only consulted while the world is up.
+#
+# The password is stored as a hash. This file sits in the world directory and is easier to read
+# than the database row; a hash is enough to notice the password changed, which is all the
+# restart-pending check needs.
+runtimeOptions=/opt/stateful/games/valheim/worlds/$worldName/.running-options
+effectiveCrossplay=0
+effectiveListed=0
+effectivePasswordHash=""
+if [ "$isVanilla" = "1" ]; then
+	effectiveListed=$isListed
+	[ "$isCrossplay" = "1" ] && effectiveCrossplay=1
+	if [ -n "$worldPasswordDb" ]; then
+		effectivePasswordHash=$(printf '%s' "$worldPasswordDb" | sha256sum | cut -d' ' -f1)
+	fi
+fi
+# Written to a temp file and renamed so a reader never sees a half-written one.
+if {
+	echo "vanilla=$isVanilla"
+	echo "crossplay=$effectiveCrossplay"
+	echo "listed=$effectiveListed"
+	echo "passwordhash=$effectivePasswordHash"
+} > "$runtimeOptions.tmp"; then
+	mv -f "$runtimeOptions.tmp" "$runtimeOptions"
+	chown phvalheim:phvalheim "$runtimeOptions" 2>/dev/null
+else
+	# Not fatal -- the world still starts. Say so, because the UIs will fall back to the
+	# database and can then describe a live world by its pending settings.
+	echo "`date` [WARNING : phvalheim] Could not write $runtimeOptions -- the UI will describe '$worldName' by its SAVED options, which may not be what is running."
+	rm -f "$runtimeOptions.tmp"
+fi
+
 # Operator overrides, appended last so they win.
 #
 # Split on whitespace with globbing disabled. This is deliberately NOT eval: a value like

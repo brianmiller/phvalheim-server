@@ -167,11 +167,14 @@ function getWorldJoinCodeStub($w) { return $GLOBALS['STUB_CODE']; }
 function getWorldNetBackendStub($w) { return $GLOBALS['STUB_BACKEND']; }
 # worldIsPlayFab() prefers the running session and falls back to the crossplay column. These
 # cases are about the RENDER, so the stub just reports the backend the case set up.
-function worldIsPlayFabStub($pdo, $w) { return $GLOBALS['STUB_BACKEND'] === 'playfab'; }
+function worldIsPlayFabStub($pdo, $w, $online = true) { return $GLOBALS['STUB_BACKEND'] === 'playfab'; }
 # The block calls the log-derived getters; route them to the stubs for these cases.
 $block = str_replace('getWorldJoinCode($myWorld)', 'getWorldJoinCodeStub($myWorld)', $block);
 $block = str_replace('getWorldNetBackend($myWorld)', 'getWorldNetBackendStub($myWorld)', $block);
-$block = str_replace('worldIsPlayFab($pdo, $myWorld)', 'worldIsPlayFabStub($pdo, $myWorld)', $block);
+# Third argument added when worldIsPlayFab() learned to fall back to the options the world was
+# STARTED with rather than to the crossplay column.
+$block = str_replace('worldIsPlayFab($pdo, $myWorld, $isOnline)',
+                     'worldIsPlayFabStub($pdo, $myWorld, $isOnline)', $block);
 if (strpos($block, 'worldIsPlayFabStub') === false) {
     echo "\nthe card block no longer calls worldIsPlayFab() -- the stub rewrite is stale\n"; exit(1);
 }

@@ -2329,6 +2329,24 @@ input:checked + .slider:before {
 }
 
 /* Status Badge Styles */
+/* Saved world options that Valheim has not seen yet.
+   Amber rather than red: nothing is broken, the world is running exactly as it was started --
+   it is just no longer running what the settings page says. Sits next to the world name so the
+   Worlds table answers "why is this world not behaving like I configured it?" on sight. */
+.restart-pending-badge {
+	display: inline-flex;
+	align-items: center;
+	margin-left: 0.5rem;
+	padding: 0.125rem 0.5rem;
+	border-radius: 9999px;
+	font-size: 0.6875rem;
+	font-weight: 500;
+	white-space: nowrap;
+	background: rgba(251, 191, 36, 0.15);
+	color: #fbbf24;
+	cursor: help;
+}
+
 .status-badge {
 	display: inline-flex;
 	align-items: center;

@@ -436,10 +436,108 @@ function phvCurrentSessionTail($world) {
 #   up for a long time         -> the Opened line has scrolled out of the tail; the column is
 #                                 right, and before this the card silently fell back to
 #                                 +connect on a crossplay world.
-function worldIsPlayFab($pdo, $world) {
+function worldIsPlayFab($pdo, $world, $isOnline = true) {
         $backend = getWorldNetBackend($world);
         if ($backend !== NULL) { return $backend === 'playfab'; }
-        return (getCrossplay($pdo, $world) == 1);
+        # No backend line yet -- Valheim logs it about 30 seconds after the process starts.
+        # Fall back to what the world was STARTED with, not to the saved column: the column can
+        # have been changed since, and answering from it is how the Launch link came to offer a
+        # join code for a server that was still serving Steam.
+        $opts = effectiveWorldOptions($pdo, $world, $isOnline);
+        return ((int)$opts['crossplay'] === 1);
+}
+
+/* ---------------------------------------------------------------------------------------
+   Running options vs saved options.
+
+   The database holds the operator's INTENT. It can be edited while a world is up, and those
+   edits do not reach Valheim until the world restarts. startWorld.sh writes what it actually
+   launched with to <worldDir>/.running-options.
+
+   Describing a LIVE world reads the file; describing a stopped one reads the database, because
+   then there is nothing running to contradict it. That single rule is what keeps a card
+   self-consistent: before this, the public page drew its CROSSPLAY pill from the database (so
+   it appeared the moment the option was saved) while the Launch link followed the running
+   server (so it stayed a direct-connect link) -- a pill promising a crossplay world the server
+   was not serving.
+   --------------------------------------------------------------------------------------- */
+
+# What startWorld.sh recorded at launch, or NULL if it never got the chance.
+function runningWorldOptions($world) {
+        $path = "/opt/stateful/games/valheim/worlds/" . $world . "/.running-options";
+        if (!is_readable($path)) { return NULL; }
+        $raw = @file_get_contents($path);
+        if ($raw === false) { return NULL; }
+
+        $out = [];
+        foreach (explode("\n", $raw) as $line) {
+                $line = trim($line);
+                if ($line === '' || strpos($line, '=') === false) { continue; }
+                list($k, $v) = explode('=', $line, 2);
+                $out[trim($k)] = trim($v);
+        }
+        # A file missing the keys we rely on is worse than no file: it would silently report
+        # crossplay=0 for a world that is serving PlayFab. Treat it as absent.
+        foreach (['vanilla', 'crossplay', 'listed'] as $required) {
+                if (!array_key_exists($required, $out)) { return NULL; }
+        }
+        return [
+                'vanilla'      => (int)$out['vanilla'],
+                'crossplay'    => (int)$out['crossplay'],
+                'listed'       => (int)$out['listed'],
+                'passwordhash' => isset($out['passwordhash']) ? $out['passwordhash'] : '',
+        ];
+}
+
+# The same shape, built from the database: what the world would use if it started now.
+function savedWorldOptions($pdo, $world) {
+        $sth = $pdo->prepare("SELECT IFNULL(vanilla,0) AS vanilla, IFNULL(crossplay,0) AS crossplay,
+                                     IFNULL(listed,0) AS listed, IFNULL(password,'') AS password
+                              FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        $row = $sth->fetch(PDO::FETCH_ASSOC);
+        if (!$row) { return ['vanilla' => 0, 'crossplay' => 0, 'listed' => 0, 'passwordhash' => '']; }
+
+        # Mirror startWorld.sh's gates, or a modded world with a stale crossplay flag would read
+        # as "restart pending" forever: the flag is kept as a preference but never applied.
+        $vanilla = (int)$row['vanilla'];
+        return [
+                'vanilla'      => $vanilla,
+                'crossplay'    => ($vanilla === 1 && (int)$row['crossplay'] === 1) ? 1 : 0,
+                'listed'       => ($vanilla === 1) ? (int)$row['listed'] : 0,
+                'passwordhash' => ($vanilla === 1 && $row['password'] !== '')
+                                  ? hash('sha256', $row['password']) : '',
+        ];
+}
+
+# What to DESCRIBE the world as right now.
+function effectiveWorldOptions($pdo, $world, $isOnline) {
+        if ($isOnline) {
+                $running = runningWorldOptions($world);
+                if ($running !== NULL) { return $running; }
+        }
+        return savedWorldOptions($pdo, $world);
+}
+
+# Saved options that are waiting on a restart. Returns the list of changed keys, so the UI can
+# say WHICH setting is pending rather than just that something is.
+function worldRestartPending($pdo, $world, $isOnline) {
+        if (!$isOnline) { return []; }
+        $running = runningWorldOptions($world);
+        if ($running === NULL) { return []; }
+
+        $saved = savedWorldOptions($pdo, $world);
+        $labels = [
+                'vanilla'      => 'world type',
+                'crossplay'    => 'crossplay',
+                'listed'       => 'server browser listing',
+                'passwordhash' => 'password',
+        ];
+        $changed = [];
+        foreach ($labels as $key => $label) {
+                if ((string)$running[$key] !== (string)$saved[$key]) { $changed[] = $label; }
+        }
+        return $changed;
 }
 
 # Shared tail reader for the two log-derived getters below. World logs reach hundreds of MB
@@ -523,7 +621,7 @@ function getVanillaJoinInfo($pdo, $world, $gameDNS, $port, $isOnline) {
                 return ['href' => NULL, 'playfab' => false, 'joinCode' => NULL];
         }
 
-        if (!worldIsPlayFab($pdo, $world)) {
+        if (!worldIsPlayFab($pdo, $world, $isOnline)) {
                 return [
                         'href'     => 'steam://run/892970//+connect ' . $gameDNS . ':' . $port,
                         'playfab'  => false,

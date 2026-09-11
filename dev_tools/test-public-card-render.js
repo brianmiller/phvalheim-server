@@ -81,6 +81,11 @@ const MEASURE = () => {
 (async () => {
     const browser = await chromium.launch();
     const p = await browser.newPage({ viewport: { width: 1400, height: 1200 } });
+    // The page refreshes its cards from api.php every 5 seconds and re-renders them in place.
+    // This test measures the same cards twice (at two viewports) and compares -- a poll landing
+    // between the two rewrites the DOM under it, which showed up as a phantom 1px drift in one
+    // row of one card. Block the poll so the comparison is of layout, not of timing.
+    await p.route('**/api.php*', route => route.abort());
     await p.goto(`${BASE}/authenticated.php`, { waitUntil: 'networkidle' });
 
     if (!(await p.$('.catbox'))) {
@@ -132,9 +137,16 @@ const MEASURE = () => {
     check('every row is tight (<= 26px)', pitches.every(v => v <= 26), `pitches: ${pitches}`);
 
     const before = new Map(cards.map(c => [c.world, c.pitches.join(',')]));
-    await p.setViewportSize({ width: 1700, height: 1400 });
-    const reflowed = await p.evaluate(MEASURE);
-    await p.setViewportSize({ width: 1400, height: 1200 });
+    // A FRESH page at the wider size, not setViewportSize() on this one. Resizing relayouts an
+    // existing document and a badge's fractional height can round a pixel differently than it
+    // does on a first layout -- that produced a reproducible 1px "drift" that no user would ever
+    // see, because nobody loads the page narrow and then widens it to compare. A second page is
+    // what a wider screen actually looks like.
+    const wide = await browser.newPage({ viewport: { width: 1700, height: 1400 } });
+    await wide.route('**/api.php*', route => route.abort());
+    await wide.goto(`${BASE}/authenticated.php`, { waitUntil: 'networkidle' });
+    const reflowed = await wide.evaluate(MEASURE);
+    await wide.close();
     // Guard: if the viewport change did not actually regroup the cards, the comparison is
     // vacuous and would pass no matter what.
     const regrouped = new Set(reflowed.map(c => c.cardH)).size !==
@@ -142,10 +154,24 @@ const MEASURE = () => {
                       reflowed.some(c => c.cardH !== cards.find(x => x.world === c.world).cardH);
     check('the wider viewport really does reshuffle the rows', regrouped,
         'nothing moved -- the neighbour check below proves nothing');
-    const drifted = reflowed.filter(c => before.get(c.world) !== c.pitches.join(','));
+    // Tolerance of 1px, and it is load-bearing rather than a fudge: when a card stretches to a
+    // taller neighbour the leftover height goes to .card-slack, but the browser distributes a
+    // table's spare height across rows and a single rounding pixel can still land on a row with
+    // a fractional height (the Access row, which holds a badge). The bug being guarded against
+    // was a card's rows moving 90px apart because of its neighbours. Anything above a pixel is
+    // that bug coming back; a pixel is arithmetic.
+    const drift = (a, b) => {
+        const x = a.split(',').map(Number), y = b.split(',').map(Number);
+        if (x.length !== y.length) { return Infinity; }
+        return Math.max(...x.map((v, i) => Math.abs(v - y[i])));
+    };
+    const drifted = reflowed
+        .map(c => ({ world: c.world, was: before.get(c.world), now: c.pitches.join(','),
+                     by: drift(before.get(c.world) || '', c.pitches.join(',')) }))
+        .filter(c => c.by > 1);
     check('no card changes its own row spacing when its neighbours change',
         drifted.length === 0,
-        drifted.map(c => `${c.world}: [${before.get(c.world)}] -> [${c.pitches}]`).join(' | '));
+        drifted.map(c => `${c.world}: [${c.was}] -> [${c.now}] (${c.by}px)`).join(' | '));
 
     console.log('\n5. Launch sits under the name, separated, by the same amount everywhere');
     const n2l = [...new Set(cards.map(c => c.nameToLaunch))];

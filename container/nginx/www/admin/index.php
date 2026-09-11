@@ -121,6 +121,9 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
             'vanilla' => $vanilla,
             'launchString' => $launchString,
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
+            // Saved settings that Valheim will not see until the world restarts. Empty for a
+            // stopped world -- there is nothing running for them to be pending against.
+            'restartPending' => worldRestartPending($pdo, $row['name'], $isRunning),
             'dateUpdated' => $row['date_updated']
         ];
     }
@@ -460,6 +463,13 @@ $totalCount = count($worlds);
                                         </td>
                                         <td>
                                             <span class="world-name"><?php echo htmlspecialchars($world['name']); ?></span>
+                                            <?php // Saved settings Valheim has not seen yet. Named, not just flagged:
+                                                  // "restart pending" alone leaves you guessing which change is waiting. ?>
+                                            <?php if (!empty($world['restartPending'])): ?>
+                                            <span class="restart-pending-badge"
+                                                  title="Saved, but not applied until the world restarts: <?php echo htmlspecialchars(implode(', ', $world['restartPending'])); ?>">restart
+                                                pending</span>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <div class="action-group">
@@ -1575,8 +1585,48 @@ $totalCount = count($worlds);
             modCountBadge.textContent = world.modCount;
         }
 
+        updateRestartPendingBadge(row, world);
+
         // Update action buttons
         updateActionButtons(row, world);
+    }
+
+    // "restart pending" has to be ADDED and REMOVED here, not just added: the badge clears
+    // when the world restarts, and a poll that can only ever set it would leave the dashboard
+    // claiming a restart was still owed on a world that had just had one.
+    function updateRestartPendingBadge(row, world) {
+        const nameCell = row.querySelector('.world-name');
+        if (!nameCell) { return; }
+        const existing = nameCell.parentNode.querySelector('.restart-pending-badge');
+        const pending = Array.isArray(world.restartPending) ? world.restartPending : [];
+
+        if (!pending.length) {
+            if (existing) { existing.remove(); }
+            return;
+        }
+        const title = 'Saved, but not applied until the world restarts: ' + pending.join(', ');
+        if (existing) {
+            existing.title = title;
+            return;
+        }
+        const badge = document.createElement('span');
+        badge.className = 'restart-pending-badge';
+        badge.title = title;
+        badge.textContent = 'restart pending';
+        nameCell.insertAdjacentElement('afterend', badge);
+    }
+
+    // Used by the row builder below, which writes the whole <tr> at once rather than patching it.
+    function restartPendingBadgeHtml(world) {
+        const pending = Array.isArray(world.restartPending) ? world.restartPending : [];
+        if (!pending.length) { return ''; }
+        const title = escapeAttr('Saved, but not applied until the world restarts: ' + pending.join(', '));
+        return `<span class="restart-pending-badge" title="${title}">restart pending</span>`;
+    }
+
+    function escapeAttr(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     // The Launch button for a RUNNING world. launchHref is null when the world is a crossplay
@@ -1647,7 +1697,7 @@ $totalCount = count($worlds);
                 </span>
                 ${betaBadge}
             </td>
-            <td><span class="world-name">${world.name}</span></td>
+            <td><span class="world-name">${world.name}</span>${restartPendingBadgeHtml(world)}</td>
             <td><div class="action-group">${actionsHtml}</div></td>
             <td><div class="action-group">${configHtml}</div></td>
             <td>

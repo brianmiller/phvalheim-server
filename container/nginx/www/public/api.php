@@ -152,10 +152,18 @@ if ($mode == "getMyWorldsStatus") {
                 # The join path follows the RUNNING backend, not the crossplay column --
                 # -crossplay only applies at launch, so the two disagree until a toggled world
                 # restarts, and in that window the column is wrong about how to reach it.
-                $isCrossplayWorld  = (getCrossplay($pdo, $myWorld) == 1);
-                # Column-aware: the running session wins when it has logged a backend, and the
-                # column covers the ~30s of world-loading before it has.
-                $isPlayFabWorld    = worldIsPlayFab($pdo, $myWorld);
+                #
+                # The pills come from the same place, so the card cannot contradict itself:
+                # a live world is described by what it was STARTED with, a stopped one by what
+                # it will start with. Reading the column here made the CROSSPLAY pill appear the
+                # moment the option was saved, on a server still serving Steam.
+                $apiOpts           = effectiveWorldOptions($pdo, $myWorld, $isOnline);
+                $isCrossplayWorld  = ((int)$apiOpts['crossplay'] === 1);
+                # The running session wins once it has logged a backend; before that this falls
+                # back to the started-with options, so the link is right from the first refresh.
+                $isPlayFabWorld    = $isOnline
+                                        ? worldIsPlayFab($pdo, $myWorld, $isOnline)
+                                        : $isCrossplayWorld;
                 $crossplayJoinCode = $isPlayFabWorld ? getWorldJoinCode($myWorld) : NULL;
                 $connection = [
                     'endpoint'       => $gameDNS . ':' . $worldPort,
@@ -164,7 +172,7 @@ if ($mode == "getMyWorldsStatus") {
                     'password'       => $showPassword ? getWorldPassword($pdo, $myWorld) : NULL,
                     'passwordPublic' => $showPassword,
                     'crossplay'      => $isCrossplayWorld,
-                    'listed'         => (getListed($pdo, $myWorld) == 1),
+                    'listed'         => ((int)$apiOpts['listed'] === 1),
                     # A crossplay world is served over PlayFab and cannot be reached by IP, so
                     # it launches with -joincode rather than +connect. Handing back a +connect
                     # URL here would let the 5s refresh put the dead Launch button back.
