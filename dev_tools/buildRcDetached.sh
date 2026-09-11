@@ -159,6 +159,12 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   bj=$(grep -c "catbox th.card_worldLaunch" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   bk=$(grep -c "vanilla-hint. colspan=2" /opt/stateless/nginx/www/public/authenticated.php)
   echo "card layout: full-height tables=$bi (want 3)  header rows pinned=$bj (want 1)  hint in table=$bk (want 1)"
+  # Row spacing, session-scoped backend detection, and the dropped Server row.
+  bl=$(grep -c "card-slack" /opt/stateless/nginx/www/public/authenticated.php)
+  bm=$(grep -c "function phvCurrentSessionTail" /opt/stateless/nginx/www/includes/db_gets.php)
+  bn=$(grep -c "function worldIsPlayFab" /opt/stateless/nginx/www/includes/db_gets.php)
+  bo=$(grep -c "serverRow" /opt/stateless/nginx/www/public/authenticated.php)
+  echo "row slack rows=$bl (want 2)  session tail=$bm (want 1)  worldIsPlayFab=$bn (want 1)  serverRow=$bo (want 2)"
   # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
   # tolerated -- treating it as failure would mark every modded world broken.
   am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
@@ -192,6 +198,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
     && [ "$ba" = "1" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "1" ] \
     && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "1" ] \
+    && [ "$bl" = "2" ] && [ "$bm" = "1" ] && [ "$bn" = "1" ] && [ "$bo" = "2" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
