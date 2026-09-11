@@ -180,7 +180,7 @@ if ($mode == "getMyWorldsStatus") {
                     'playfab'        => $isPlayFabWorld,
                     # NULL for crossplay: -joincode joins without selecting a character and the
                     # client falls back to its "Odev (Developer)" profile. The card's Launch!
-                    # opens a how-to-join modal built from joinCode instead.
+                    # opens a how-to-join modal built from the code instead.
                     'steamUrl'       => $isPlayFabWorld
                                             ? NULL
                                             : 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort

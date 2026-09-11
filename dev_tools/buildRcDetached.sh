@@ -89,15 +89,21 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   w=$(grep -c "function getWorldNetBackend" /opt/stateless/nginx/www/includes/db_gets.php)
   x=$(grep -c "connection.playfab" /opt/stateless/nginx/www/public/authenticated.php)
   # DELIBERATELY 0 since the crossplay-join-modal change. -joincode joins Valheim with no
-  # character selected, so the client falls back to its "Odev (Developer)" profile; the card's
-  # Launch! now opens a how-to-join modal instead. If either of these goes back to 1 the dead
-  # launch URL has returned. Do NOT re-baseline them to whatever the image contains.
+  # character selected, so the client falls back to its Odev (Developer) profile, and the card
+  # now opens a how-to-join modal instead. If either goes back to 1 the dead launch URL has
+  # returned. Do NOT re-baseline them to whatever the image contains.
+  # NOTE: this whole verify body is inside sh -c SINGLE quotes. No apostrophes, no single
+  # quotes, not even in a comment -- one of either ends the block early, every later check is
+  # skipped, and the leftover greps run against the HOST where these paths do not exist.
   cl=$(grep -c "showCrossplayJoin" /opt/stateless/nginx/www/public/authenticated.php)
   cm=$(grep -c "crossplayJoinModal" /opt/stateless/nginx/www/public/authenticated.php)
   cn=$(grep -c "crossplay-join-dialog" /opt/stateless/nginx/www/css/phvalheimStyles.css)
-  co=$(grep -c "'href'     => NULL," /opt/stateless/nginx/www/includes/db_gets.php)
-  echo "joincode launch url GONE: card=$u (want 0)  api=$v (want 0)"
-  echo "crossplay modal: opener=$cl (want 3)  markup=$cm (want 4)  css=$cn (want 1)  null href=$co (want 1)"
+  # TWO href NULLs are correct: the offline-world early return and the crossplay return.
+  # If the crossplay launch URL is ever restored this drops to 1, so the count still catches it.
+  co=$(grep -cE "href.+=> NULL," /opt/stateless/nginx/www/includes/db_gets.php)
+  cq=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/includes/db_gets.php)
+  echo "joincode launch url GONE: card=$u (want 0)  api=$v (want 0)  db_gets=$cq (want 0)"
+  echo "crossplay modal: opener=$cl (want 3)  markup=$cm (want 4)  css=$cn (want 1)  null href=$co (want 2)"
   echo "getWorldNetBackend=$w (want 1)  poll keys off connection.playfab=$x (want 1)"
   # The empty-access-list work: the save-time refusal, and the start-time warning for worlds
   # that predate it. Match the WARNING text, not the word "empty" -- this file discusses empty
@@ -245,7 +251,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
     && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
-    && [ "$u" = "1" ] && [ "$v" = "1" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
+    && [ "$u" = "0" ] && [ "$v" = "0" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
     && [ "$y" = "1" ] && [ "$z" = "1" ] \
     && [ "$aa" = "0" ] && [ "$ab" = "0" ] && [ "$ac" = "1" ] && [ "$ad" = "2" ] && [ "$ae" = "0" ] \
     && [ "$af" = "1" ] && [ "$ag" = "10" ] && [ "$ah" = "5" ] && [ "$ai" = "4" ] \
@@ -263,6 +269,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$bz" = "1" ] && [ "$ca" = "1" ] && [ "$cb" = "1" ] && [ "$cc" = "0" ] \
     && [ "$cd" = "0" ] && [ "$ce" = "1" ] && [ "$cf" = "2" ] \
     && [ "$cg" = "3" ] && [ "$ch" = "1" ] && [ "$ci" = "3" ] && [ "$cj" = "0" ] && [ "$ck" = "2" ] \
+    && [ "$cl" = "3" ] && [ "$cm" = "4" ] && [ "$cn" = "1" ] && [ "$co" = "2" ] && [ "$cq" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
