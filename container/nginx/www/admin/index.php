@@ -1616,6 +1616,34 @@ $totalCount = count($worlds);
         nameCell.insertAdjacentElement('afterend', badge);
     }
 
+    // A vanilla world may run with no password at all -- verified against the game: with
+    // `-public 0` and no `-password` it reports "Opened Steam server / Game server connected"
+    // and serves normally. What it will NOT do is start LISTED without one; `-public 1` with an
+    // empty password dies on "Error bad password: The password is too short".
+    //
+    // So the listing toggle is the thing that depends on the password, not the other way round.
+    // Rather than let someone switch listing on and meet that error at boot -- or a save that
+    // bounces off the endpoint -- the toggle is disabled and says why while the field is empty.
+    // The server re-checks regardless: saveWorldOptions() and createWorld() both refuse
+    // listed=1 with no password.
+    function syncListedAvailability() {
+        const pw = document.getElementById('settingsWorldPassword');
+        const listed = document.getElementById('settingsListedToggle');
+        const note = document.getElementById('settingsListedBlocked');
+        if (!pw || !listed) { return; }
+
+        const blocked = pw.value.trim() === '';
+        listed.disabled = blocked;
+        if (note) { note.style.display = blocked ? '' : 'none'; }
+        const row = document.getElementById('settingsListedRow');
+        if (row) { row.style.opacity = blocked ? '0.6' : ''; }
+
+        // Untick on the way out, don't just grey it. A disabled-but-ticked box still posts
+        // listed:1 from a form that is telling the operator it cannot be listed, and the save
+        // would then fail with an error the UI had already claimed to prevent.
+        if (blocked && listed.checked) { listed.checked = false; }
+    }
+
     // Used by the row builder below, which writes the whole <tr> at once rather than patching it.
     function restartPendingBadgeHtml(world) {
         const pending = Array.isArray(world.restartPending) ? world.restartPending : [];
@@ -3103,10 +3131,10 @@ $totalCount = count($worlds);
                             <div class="pv-row pv-row-stack">
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">Server Password</span>
-                                    <span class="pv-row-desc">Minimum 5 characters, and it cannot appear inside the world name.</span>
+                                    <span class="pv-row-desc">Optional. Leave it blank and anyone who can reach the server may join &mdash; but a world with no password cannot be listed in the server browser. At least 5 characters, and it cannot appear inside the world name.</span>
                                 </div>
                                 <div class="pv-row-control" style="width: 100%;">
-                                    <input type="text" id="settingsWorldPassword" class="form-control pv-input" style="font-family: var(--font-mono);" value="${worldPassword.replace(/"/g, '&quot;')}" placeholder="(no password)">
+                                    <input type="text" id="settingsWorldPassword" class="form-control pv-input" style="font-family: var(--font-mono);" value="${worldPassword.replace(/"/g, '&quot;')}" placeholder="(no password)" oninput="syncListedAvailability()">
                                 </div>
                             </div>
                             <div class="pv-row">
@@ -3119,10 +3147,11 @@ $totalCount = count($worlds);
                                     <span class="slider round"></span>
                                 </label>
                             </div>
-                            <div class="pv-row">
+                            <div class="pv-row" id="settingsListedRow">
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">List in server browser</span>
-                                    <span class="pv-row-desc">Publish to the public Valheim community server list. Valheim requires a password for this.</span>
+                                    <span class="pv-row-desc">Publish to the public Valheim community server list.</span>
+                                    <span class="pv-row-desc" id="settingsListedBlocked" style="display:none; color: var(--warning, #fbbf24);">Unavailable without a password &mdash; Valheim refuses to start a listed server that has none (&ldquo;bad password: the password is too short&rdquo;). Set one above to enable this.</span>
                                 </div>
                                 <label class="switch pv-row-control">
                                     <input type="checkbox" id="settingsListedToggle" ${listedChecked}>
@@ -3344,6 +3373,10 @@ $totalCount = count($worlds);
 
                 // After the body exists, so "Take me to Access" has a tab bar to switch to.
                 maybeWarnEmptyAccessList(worldName, citizens);
+                // And so the listing toggle reflects the password the world ALREADY has, not
+                // just what gets typed afterwards. Opening the modal on a passwordless world
+                // has to show the toggle blocked straight away.
+                syncListedAvailability();
             } else {
                 document.getElementById('settingsModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading settings</div>';
             }

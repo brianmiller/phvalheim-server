@@ -4466,12 +4466,30 @@ input:checked + .slider:before {
    explicitly because the page's 1.5 was being inherited straight into the pill's height.
    The tracking stays: it is uppercase, which is the one place tracking earns its keep. */
 .catbox .vanilla-badge {
-	display: inline-block;
+	/* inline-FLEX with a fixed height, not inline-block.
+	   As an inline-block the pill's height came from line-height and the text landed wherever
+	   the font's metrics put it inside that box -- measured flush against the top with 1.4px
+	   spare underneath. Flex centring puts the text in the middle of the box by construction
+	   instead of by arithmetic that has to be redone every time the size changes. */
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 14px;
+	/* baseline alignment sat the pill 2.2px below the centre of the label text next to it --
+	   an inline-block aligns its own baseline to the row's, which for a bordered box means it
+	   hangs. `middle` lines its centre up with the text it sits beside. */
+	vertical-align: middle;
+	/* `middle` gets it most of the way (2.20px low -> 1.16px); the rest is that it aligns to the
+	   parent's baseline plus half its x-height, which is not the same point as the optical
+	   centre of the label text beside it. Measured, not guessed -- see test-access-badges.php,
+	   which fails if either offset drifts past half a pixel. */
+	position: relative;
+	top: -1px;
 	padding: 0 0.4rem;
 	margin-right: 0.25rem;
 	border-radius: 0.625rem;
 	font-size: 0.6rem;
-	line-height: 1.5;
+	line-height: 1;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	/* letter-spacing puts its gap AFTER every character, including the last one, so the text

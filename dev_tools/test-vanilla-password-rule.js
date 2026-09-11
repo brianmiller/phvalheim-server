@@ -61,9 +61,23 @@ async function state(p, { world, password, vanilla = true, listed = false }) {
     s = await state(p, { world: 'someworld', password: 'abc' });
     check('under 5 characters is refused', s.shown && /5 characters/i.test(s.text), `got "${s.text}"`);
 
+    // SUPERSEDED, and by something stronger. This used to assert an error message for
+    // "listed with no password". That combination can no longer be expressed in the form: a
+    // passwordless vanilla world is now a legitimate configuration (verified against the game
+    // -- `-public 0` with no password runs fine), so the LISTING box is what gets gated, and it
+    // is disabled and unticked while the password is empty. There is no error to produce
+    // because there is no way to ask for it. Asserting the old message would mean the gate had
+    // stopped working. See test-passwordless-vanilla.js.
     s = await state(p, { world: 'someworld', password: '', listed: true });
-    check('listing with no password is refused', s.shown && /server browser/i.test(s.text),
-        `got "${s.text}"`);
+    const listedState = await p.evaluate(() => ({
+        disabled: document.querySelector('#vanillaListed').disabled,
+        checked: document.querySelector('#vanillaListed').checked,
+    }));
+    check('listing with no password is made impossible rather than rejected',
+        listedState.disabled && !listedState.checked,
+        `disabled=${listedState.disabled} checked=${listedState.checked}`);
+    check('and no password on its own is not an error',
+        !s.shown, `got "${s.text}"`);
 
     console.log('\nAnd it gets out of the way when it should');
     s = await state(p, { world: 'someworld', password: 'hunter55' });

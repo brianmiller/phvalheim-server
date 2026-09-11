@@ -74,13 +74,25 @@ function accessBadge($label, $dimClass, $tooltip, $extraClass = '') {
 # used to tell -- describing the setting instead of the server. Nothing here fixes the state;
 # createWorld and saveCitizens refuse to create it, and startWorld logs a warning for any world
 # already in it. This just refuses to misreport it.
-function accessBadges($pdo, $world, $dimClass) {
+function accessBadges($pdo, $world, $dimClass, $hasPassword = false) {
 	$open = (getPublic($pdo, $world) == 1);
 	$citizens = trim((string)getCitizens($pdo, $world));
 
 	if ($open) {
+		# A password-protected world is not OPEN, whatever the access-list flag says -- you
+		# still cannot walk in without the password. Vanilla worlds are the ones that have a
+		# password at all, so in practice this is the vanilla case; the Access row then carries
+		# only crossplay, and is dropped entirely if there is nothing left to say.
+		#
+		# Gated on the password ACTUALLY being set, not on the world being vanilla. A vanilla
+		# world may have no password -- validateWorldPassword() accepts an empty one, and only a
+		# world listed in the server browser is forced to have one -- and a vanilla world with
+		# no password and no access list is open in the plainest sense. Hiding the pill for the
+		# whole world type would quietly mislabel that.
+		if ($hasPassword) { return ''; }
+
 		return accessBadge('open', $dimClass,
-			'Anyone who can reach this server may join. No access list is applied.',
+			'Anyone who can reach this server may join. No access list and no password.',
 			'vanilla-badge-muted');
 	}
 	if ($citizens === '') {
@@ -289,11 +301,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# The "in server browser" pill is deliberately gone. It answered a question
 					# no player has -- they are already looking at the world's card, so how it
 					# was discovered is the operator's business, not theirs.
-					$badges = accessBadges($pdo, $myWorld, $badgeDim);
+					$badges = accessBadges($pdo, $myWorld, $badgeDim,
+						$vanillaPassword !== '' && $vanillaPassword !== NULL);
 					if ($vanillaCrossplay) {
-						$badges .= " " . accessBadge('crossplay', $badgeDim,
+						$badges = trim($badges . " " . accessBadge('crossplay', $badgeDim,
 							'Hosted on PlayFab so Xbox, PlayStation and Nintendo players can join. '
-							. 'Join with the code above -- a crossplay world cannot be joined by IP.');
+							. 'Join with the code above -- a crossplay world cannot be joined by IP.'));
 					}
 
 					# A CROSSPLAY world cannot be joined by IP at all. Valheim opens a PlayFab
@@ -386,6 +399,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>";
 					}
 
+					# A password-protected, non-crossplay world has nothing to put on this row --
+					# the Password row above already says how you get in. Drop the row rather than
+					# render a label with nothing after the colon, which reads as a missing value.
+					$accessRow = $badges === "" ? "" : "
+                                                        <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$badges</td>
+                                                        <tr>";
+
 					echo "
                                         <div class=\"$worldDimmed catbox catbox-vanilla\" data-world=\"$myWorld\" data-vanilla=\"1\">
                                                 <table width=100% height=100% border=0>
@@ -401,9 +422,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         $serverRow
                                                         $joinCodeRow
                                                         $passwordRow
-                                                        <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo'>$badges</td>
-                                                        <tr>
+                                                        $accessRow
                                                         <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo world-seed'>$seed</td>
                                                         <tr>

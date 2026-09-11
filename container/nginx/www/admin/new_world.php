@@ -355,8 +355,10 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 									<label class="form-label alt-color" for="vanillaPassword">Server Password</label>
 									<input type="text" class="form-control" id="vanillaPassword" maxlength="64" placeholder="(no password)" oninput="validateVanillaPassword()">
 									<div class="form-text text-secondary">
-										At least 5 characters. Valheim also refuses to start if the password appears
-										anywhere inside the world name &mdash; that is the game's own rule, not ours.
+										Optional &mdash; leave it blank and anyone who can reach the server may join.
+										At least 5 characters if you set one, and Valheim refuses to start if the
+										password appears anywhere inside the world name; that is the game's own rule,
+										not ours.
 									</div>
 									<div class="form-text text-warning" id="vanillaPasswordError" style="display:none;"></div>
 								</div>
@@ -365,8 +367,12 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 										<input class="form-check-input" type="checkbox" id="vanillaListed" onchange="validateVanillaPassword()">
 										<label class="form-check-label" for="vanillaListed">List in the public server browser</label>
 									</div>
-									<div class="form-text text-secondary">
+									<div class="form-text text-secondary" id="vanillaListedNote">
 										Valheim requires a password before a world can be listed.
+									</div>
+									<div class="form-text text-warning" id="vanillaListedBlocked" style="display:none;">
+										Unavailable without a password &mdash; Valheim refuses to start a listed
+										server that has none.
 									</div>
 								</div>
 							</div>
@@ -1048,7 +1054,25 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				return null;
 			}
 
+			// A vanilla world may run with NO password -- verified against the game: `-public 0`
+			// with no `-password` reports "Opened Steam server / Game server connected". What it
+			// will not do is start LISTED without one: `-public 1` and an empty password dies on
+			// "Error bad password: The password is too short".
+			//
+			// So the listing box is what depends on the password. Disabled and explained while
+			// the field is empty, and UNTICKED on the way out -- a disabled-but-ticked box still
+			// posts listed:1 from a form saying it cannot be listed, and the create would then
+			// fail on a rule the UI claimed to be enforcing.
+			function syncListedAvailability() {
+				var blocked = $('#vanillaPassword').val().trim() === '';
+				$('#vanillaListed').prop('disabled', blocked);
+				if (blocked) { $('#vanillaListed').prop('checked', false); }
+				$('#vanillaListedBlocked').toggle(blocked);
+				$('#vanillaListedNote').toggle(!blocked);
+			}
+
 			function validateVanillaPassword() {
+				syncListedAvailability();
 				var msg = vanillaPasswordProblem();
 				if (msg) { $('#vanillaPasswordError').text(msg).show(); }
 				else { $('#vanillaPasswordError').hide(); }
