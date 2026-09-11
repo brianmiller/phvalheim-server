@@ -51,7 +51,10 @@ ck "edit_world.php guard"           "$(grep -c 'getVanilla' $E)" 1
 ck "mods purged on switch"          "$(grep -c "deleteAllWorldMods(\$pdo, \$world);" $M)" 2
 
 echo "5/6. Offline dim + copy"
-ck "badge dim emitted"              "$(grep -c 'vanilla-badge-dimmed' $A)" 1
+# 2, not 1: the modded card gained its own Access row, so both card kinds now build badges and
+# both have to carry the dimmed class when the world is offline. A modded card that kept a
+# coloured pill on an otherwise grey card is exactly what this count is here to catch.
+ck "badge dim emitted (both card kinds)" "$(grep -c 'vanilla-badge-dimmed' $A)" 2
 ck "badge dim styled"               "$(grep -c 'vanilla-badge-dimmed' $C)" 1
 ck "copy handler"                   "$(grep -c 'function copyVanillaPassword' $A)" 1
 ck "copy link rendered"             "$(grep -c 'copyVanillaPassword' $A)" 2

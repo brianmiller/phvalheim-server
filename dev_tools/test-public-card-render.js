@@ -177,7 +177,11 @@ const MEASURE = () => {
     const n2l = [...new Set(cards.map(c => c.nameToLaunch))];
     check('the same on every card', n2l.length === 1,
         cards.map(c => `${c.world}=${c.nameToLaunch}`).join(' '));
-    check('and visibly separated (10-20px)', n2l.every(v => v >= 10 && v <= 20), `${n2l}`);
+    // 6-14px. The band is there to catch the two ways this has actually gone wrong: rows
+    // absorbing slack and pushing Launch tens of pixels below the name, and the opposite --
+    // 2px, which read as one wrapped line rather than a name and its status. 7px is the
+    // deliberate value; the name and Launch are a heading and its subtitle, not two entries.
+    check('and visibly separated (6-14px)', n2l.every(v => v >= 6 && v <= 14), `${n2l}`);
 
     console.log('\n6. Cards sharing a row are the same height');
     // A modded card and a vanilla card have different content, and at the default viewport they

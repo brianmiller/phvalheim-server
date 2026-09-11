@@ -4459,19 +4459,31 @@ input:checked + .slider:before {
    A vanilla world has no mods, no client payload and no boss progression, so its
    card shows connection details instead of a trophy row. It shares .catbox so it
    reads as a peer of the modded cards, not a stripped-down version of one. */
-.catbox-vanilla .vanilla-badge {
+/* Small enough to read as a marker on a row, not as the row's content.
+   At 0.7rem with 1.6px/8px padding these came out 23px tall against 20px data rows -- so the
+   Access row was the tallest on the card -- and "IN SERVER BROWSER" ran 143px wide, over a
+   third of the card and half again the width of the label column. The line-height is set
+   explicitly because the page's 1.5 was being inherited straight into the pill's height.
+   The tracking stays: it is uppercase, which is the one place tracking earns its keep. */
+.catbox .vanilla-badge {
 	display: inline-block;
-	padding: 0.1rem 0.5rem;
+	padding: 0 0.4rem;
 	margin-right: 0.25rem;
-	border-radius: 0.75rem;
-	font-size: 0.7rem;
+	border-radius: 0.625rem;
+	font-size: 0.6rem;
+	line-height: 1.5;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
+	/* letter-spacing puts its gap AFTER every character, including the last one, so the text
+	   sat one whole gap left of centre inside the pill. text-indent puts some of it back at the
+	   start. HALF the tracking, not all of it: a full 0.04em simply moved the text the same
+	   distance the other way -- measured 6.4/6.8 before, 6.8/6.4 after. Half splits it. */
+	text-indent: 0.02em;
 	background: var(--accent-primary, #4a8);
 	color: #0b0b0b;
 }
 
-.catbox-vanilla .vanilla-badge-muted {
+.catbox .vanilla-badge-muted {
 	background: var(--bg-tertiary, #333);
 	color: var(--text-secondary, #aaa);
 }
@@ -4638,7 +4650,10 @@ body:has(.google_header) .catbox td.vanilla-hint {
    specificity these selectors can reach. The hint's own padding rule further up has never
    applied for exactly that reason. Scoped the same way so it wins on equal terms. */
 body:has(.google_header) .catbox th.card_worldName {
-	padding-bottom: 0.75rem !important;
+	/* 0.75rem (an 11px gap) read as two unrelated lines rather than a heading and its
+	   subtitle. 0.5rem gives 7px: still clearly two lines, but they belong together.
+	   0.375rem was tried first and closed it to 5px, which is too tight to be deliberate. */
+	padding-bottom: 0.5rem !important;
 }
 
 /* Shrink-to-fit label cells sit flush against their value, because the gap used to be the
@@ -4654,8 +4669,8 @@ body:has(.google_header) .catbox td.vanilla-hint {
 /* An offline vanilla card must grey out exactly like an offline modded card.
    The badges set their own background, so opacity alone would still leave a tinted
    pill sitting on an otherwise grey card — the colour has to be replaced, not faded. */
-.catbox-vanilla .vanilla-badge-dimmed,
-.catbox-vanilla.card_dimmed .vanilla-badge {
+.catbox .vanilla-badge-dimmed,
+.catbox.card_dimmed .vanilla-badge {
 	background: var(--bg-tertiary, #333) !important;
 	color: var(--text-muted, #888) !important;
 	opacity: 0.6;

@@ -55,6 +55,45 @@ function isWorldRunning($worldName) {
 	return (!empty(trim($output)));
 }
 
+# One pill. Every pill on a card carries a title, because "CROSSPLAY" and "ACCESS LIST" are
+# server-operator words and the people reading this page are players.
+function accessBadge($label, $dimClass, $tooltip, $extraClass = '') {
+	return "<span class='vanilla-badge $extraClass $dimClass' title=\""
+		. htmlspecialchars($tooltip, ENT_QUOTES) . "\">"
+		. htmlspecialchars($label) . "</span>";
+}
+
+# How players get in, for BOTH kinds of world. Modded and vanilla worlds are gated the same way
+# -- worlds.public is the CITIZENS access-control flag in both cases -- so they say it the same
+# way rather than the modded card leaving it unsaid.
+#
+# The empty-list case is called what it IS, not what it was set to. Valheim applies
+# permittedlist.txt only when it has entries: an access list that is switched on and empty is
+# not "nobody may join", it is no restriction at all, and a world in that state is open to
+# anyone who can reach it. Labelling it ACCESS LIST would be the same lie the CROSSPLAY pill
+# used to tell -- describing the setting instead of the server. Nothing here fixes the state;
+# createWorld and saveCitizens refuse to create it, and startWorld logs a warning for any world
+# already in it. This just refuses to misreport it.
+function accessBadges($pdo, $world, $dimClass) {
+	$open = (getPublic($pdo, $world) == 1);
+	$citizens = trim((string)getCitizens($pdo, $world));
+
+	if ($open) {
+		return accessBadge('open', $dimClass,
+			'Anyone who can reach this server may join. No access list is applied.',
+			'vanilla-badge-muted');
+	}
+	if ($citizens === '') {
+		return accessBadge('open', $dimClass,
+			'The access list is switched on but has nobody on it. Valheim ignores an empty list, '
+			. 'so anyone who can reach this server may join. Ask the server owner to add player IDs.',
+			'vanilla-badge-muted');
+	}
+	return accessBadge('access list', $dimClass,
+		'Only the player IDs on this world\'s access list may join. Ask the server owner to add '
+		. 'yours -- it is the V_ id shown under your name at the top of this page.');
+}
+
 function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
 		# steam
@@ -247,10 +286,15 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# class onto the badges themselves -- they set their own background colour,
 					# so opacity alone still leaves a tinted pill on an otherwise grey card.
 					$badgeDim = $worldDimmed ? "vanilla-badge-dimmed" : "";
-					$badges = "";
-					if ($vanillaCrossplay) { $badges .= "<span class='vanilla-badge $badgeDim'>crossplay</span> "; }
-					if ($vanillaListed)    { $badges .= "<span class='vanilla-badge $badgeDim'>in server browser</span> "; }
-					if ($badges == "")     { $badges = "<span class='vanilla-badge vanilla-badge-muted $badgeDim'>invite only</span>"; }
+					# The "in server browser" pill is deliberately gone. It answered a question
+					# no player has -- they are already looking at the world's card, so how it
+					# was discovered is the operator's business, not theirs.
+					$badges = accessBadges($pdo, $myWorld, $badgeDim);
+					if ($vanillaCrossplay) {
+						$badges .= " " . accessBadge('crossplay', $badgeDim,
+							'Hosted on PlayFab so Xbox, PlayStation and Nintendo players can join. '
+							. 'Join with the code above -- a crossplay world cannot be joined by IP.');
+					}
 
 					# A CROSSPLAY world cannot be joined by IP at all. Valheim opens a PlayFab
 					# server rather than a Steam one and hands out a join code; steam:// +connect
@@ -377,6 +421,11 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                         </div>
                                 ";
 				} else {
+				# Modded worlds are gated by the same CITIZENS list as vanilla ones, so they say
+				# so on the card too. Leaving it off the modded card meant the one kind of world
+				# that is ALWAYS access-controlled was the one that never mentioned it.
+				$moddedBadges = accessBadges($pdo, $myWorld,
+					$worldDimmed ? "vanilla-badge-dimmed" : "");
 				echo "
                                         <div class=\"$worldDimmed catbox\" data-world=\"$myWorld\">
                                                 <table width=100% height=100% border=0>
@@ -395,6 +444,9 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>MD5 Sum&nbsp;&nbsp;&nbsp;:</td>
 							<td class='$worldDimmed card_worldInfo world-md5'>$md5</td>
 							<tr>
+                                                        <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo'>$moddedBadges</td>
+                                                        <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
 							<td class='$worldDimmed card_worldInfo world-seed'>$seed</td>
                                                         <tr>
