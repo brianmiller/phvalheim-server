@@ -244,7 +244,9 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				<div class="row g-3">
 					<div class="col-12 col-md-6">
 						<label for="world" class="form-label alt-color">World Name</label>
-						<input type="text" class="form-control" maxlength="30" name="world" id="world" required placeholder="Enter world name">
+						<!-- oninput: the password rule is about this field too, so renaming the world
+						     has to re-run the check rather than leave a stale message. -->
+						<input type="text" class="form-control" maxlength="30" name="world" id="world" required placeholder="Enter world name" oninput="validateVanillaPassword()">
 						<div class="form-text text-secondary">Alphanumeric characters only, max 30 characters</div>
 					</div>
 					<div class="col-12 col-md-6" id="seedField">
@@ -351,19 +353,20 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 							<div class="row g-3">
 								<div class="col-12 col-md-6">
 									<label class="form-label alt-color" for="vanillaPassword">Server Password</label>
-									<input type="text" class="form-control" id="vanillaPassword" maxlength="64" placeholder="(no password)">
-									<div class="form-text text-secondary">Minimum 5 characters, and cannot appear inside the world name.</div>
+									<input type="text" class="form-control" id="vanillaPassword" maxlength="64" placeholder="(no password)" oninput="validateVanillaPassword()">
+									<div class="form-text text-secondary">
+										At least 5 characters. Valheim also refuses to start if the password appears
+										anywhere inside the world name &mdash; that is the game's own rule, not ours.
+									</div>
+									<div class="form-text text-warning" id="vanillaPasswordError" style="display:none;"></div>
 								</div>
 								<div class="col-12 col-md-6 d-flex flex-column justify-content-center">
 									<div class="form-check">
-										<input class="form-check-input" type="checkbox" id="vanillaListed">
+										<input class="form-check-input" type="checkbox" id="vanillaListed" onchange="validateVanillaPassword()">
 										<label class="form-check-label" for="vanillaListed">List in the public server browser</label>
 									</div>
-								</div>
-								<div class="col-12">
-									<div class="form-text text-warning">
-										Note: a custom seed needs a mod, so a vanilla world always generates a random one.
-										Valheim also requires a password before a world can be listed in the server browser.
+									<div class="form-text text-secondary">
+										Valheim requires a password before a world can be listed.
 									</div>
 								</div>
 							</div>
@@ -1014,6 +1017,44 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				$('#accessFirstId').trigger('focus');
 			}
 
+			// The same three rules the server applies, checked as you type and shown against
+			// the password field itself.
+			//
+			// These were previously only enforced server-side, so the form accepted the entry,
+			// spun, and came back with a message in a box at the other end of a long page --
+			// next to a note that opened by talking about custom seed mods. Creating
+			// "test123132131" with the password "test123" therefore looked like it was being
+			// blocked over seeds, when the real reason is that Valheim will not start a world
+			// whose password appears inside its name.
+			//
+			// Returns the message so the submit path can reuse it; the server re-checks
+			// regardless, since the endpoint is reachable directly.
+			function vanillaPasswordProblem() {
+				if (!$('#vanillaWorld').is(':checked')) { return null; }
+				var pw   = $('#vanillaPassword').val().trim();
+				var name = $('#world').val().trim();
+				if (pw === '') {
+					return $('#vanillaListed').is(':checked')
+						? 'Valheim will not list a world in the server browser without a password.'
+						: null;
+				}
+				if (pw.length < 5) {
+					return 'Password must be at least 5 characters.';
+				}
+				if (name !== '' && name.toLowerCase().indexOf(pw.toLowerCase()) !== -1) {
+					return 'Valheim refuses to start when the password appears inside the world '
+						+ 'name. "' + name + '" contains "' + pw + '" — change one of them.';
+				}
+				return null;
+			}
+
+			function validateVanillaPassword() {
+				var msg = vanillaPasswordProblem();
+				if (msg) { $('#vanillaPasswordError').text(msg).show(); }
+				else { $('#vanillaPasswordError').hide(); }
+				return msg;
+			}
+
 			function toggleVanillaWorld(checked) {
 				$('#vanillaOptions').toggle(checked);
 
@@ -1035,6 +1076,11 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				// silently does nothing.
 				$('#seedField').toggle(!checked);
 				$('#vanillaSeedNotice').toggle(checked);
+
+				// The password rules only apply to a vanilla world, so re-run (or clear) them
+				// as the world changes kind -- otherwise a message stays on screen for a field
+				// that is no longer shown.
+				validateVanillaPassword();
 				if (checked) {
 					$('#seedTypeRandom').prop('checked', true);
 					toggleSeedMode('random');
@@ -1194,6 +1240,14 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						showAccessIdError('That is not a player ID. Use the V_ form (V_76561197960287930) or a bare 17-digit SteamID64.');
 						return;
 					}
+				}
+
+				// Also BEFORE the spinner. The server enforces these too, but bouncing off the
+				// endpoint put the reason in a message box far from the field that caused it.
+				var pwMsg = validateVanillaPassword();
+				if (pwMsg) {
+					$('#vanillaPassword').trigger('focus');
+					return;
 				}
 
 				submitting = true;
