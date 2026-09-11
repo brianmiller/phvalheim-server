@@ -183,6 +183,54 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   at=$(grep -hcE "^[[:space:]]*\? .steam://run/892970//\+connect ." /opt/stateless/nginx/www/admin/index.php /opt/stateless/nginx/www/admin/adminAPI.php | paste -sd+ | bc)
   echo "shared join helper=$ap (want 1)  admin render=$aq (want 3)  admin poll=$ar (want 2)"
   echo "js null-href guard=$as (want 1)  stale unconditional +connect=$at (want 0)"
+
+  # ---- 2.41 ----------------------------------------------------------------------------
+  # Still NO APOSTROPHES below, comments included. The whole block is inside sh -c and one
+  # quote ends it early, silently skipping every later check.
+  # The Dockerfile is not copied into the image, so read the ENV it set. This is the value
+  # dbUpdater and the admin UI actually see.
+  ver=0; [ "${phvalheimVersion:-}" = "2.41" ] && ver=1
+  # A live world is described by what it was STARTED with, not by the saved columns. The
+  # snapshot writer and all four readers have to ship together -- the readers alone would fall
+  # back to the database for every world and the bug would look fixed while being present.
+  bp=$(grep -c "running-options" /opt/stateless/games/valheim/scripts/startWorld.sh)
+  bq=$(grep -c "function runningWorldOptions" /opt/stateless/nginx/www/includes/db_gets.php)
+  br=$(grep -c "function savedWorldOptions" /opt/stateless/nginx/www/includes/db_gets.php)
+  bs=$(grep -c "function effectiveWorldOptions" /opt/stateless/nginx/www/includes/db_gets.php)
+  bt=$(grep -c "function worldRestartPending" /opt/stateless/nginx/www/includes/db_gets.php)
+  bu=$(grep -c "restartPending" /opt/stateless/nginx/www/admin/index.php)
+  bv=$(grep -c "restartPending" /opt/stateless/nginx/www/admin/adminAPI.php)
+  bw=$(grep -c "restart-pending-badge" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "version=$ver (want 1)"
+  echo "runtime snapshot: writer=$bp (want 1)  readers=$bq/$br/$bs/$bt (want 1 each)"
+  echo "restart pending: ui=$bu (want 7)  poll=$bv (want 1)  css=$bw (want 1)"
+  # A vanilla world may run with no password; what it cannot do is run LISTED without one.
+  # Both surfaces gate the listing control.
+  bx=$(grep -c "syncListedAvailability" /opt/stateless/nginx/www/admin/index.php)
+  by=$(grep -c "syncListedAvailability" /opt/stateless/nginx/www/admin/new_world.php)
+  echo "listing gated: settings=$bx (want 3)  create=$by (want 2)"
+  # Access pills. The removed one is a NEGATIVE: counting only the new pills would pass on an
+  # image that still carried the old IN SERVER BROWSER pill alongside them.
+  bz=$(grep -c "function accessBadges" /opt/stateless/nginx/www/public/authenticated.php)
+  ca=$(grep -c "accessBadge(.published." /opt/stateless/nginx/www/public/authenticated.php)
+  cb=$(grep -c "accessBadge(.password." /opt/stateless/nginx/www/public/authenticated.php)
+  cc=$(grep -c ">in server browser<" /opt/stateless/nginx/www/public/authenticated.php)
+  echo "access pills: helper=$bz (want 1)  published=$ca (want 1)  password=$cb (want 1)  stale listed pill=$cc (want 0)"
+  # One switch size everywhere. The override being GONE is the check that matters -- the base
+  # rule shrinking while a 44x24 override survived is exactly the bug being fixed.
+  cd=$(grep -c "pv-panel .switch" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  ce=$(grep -A5 "^\.switch {" /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "width: 32px")
+  cf=$(grep -c "slider::after" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "switches: stale override=$cd (want 0)  base 32px=$ce (want 1)  hit-area pseudo=$cf (want 2)"
+  # The self-hosted font. OFL.txt is a LICENCE CONDITION, not tidiness -- it must ship with
+  # the files. The malformed spacer td that never closed its tag is a negative.
+  cg=$(ls /opt/stateless/nginx/www/css/fonts/*.woff2 2>/dev/null | wc -l)
+  ch=$(ls /opt/stateless/nginx/www/css/fonts/OFL.txt 2>/dev/null | wc -l)
+  ci=$(grep -c "JetBrainsMono-" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  cj=$(grep -c "td style=.height: 12px;." /opt/stateless/nginx/www/public/authenticated.php)
+  ck=$(grep -c "card-gap" /opt/stateless/nginx/www/public/authenticated.php)
+  echo "font: woff2=$cg (want 3)  OFL=$ch (want 1)  face rules=$ci (want 3)"
+  echo "spacer: malformed td=$cj (want 0)  card-gap cell=$ck (want 2)"
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
@@ -199,6 +247,13 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$ba" = "1" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "1" ] \
     && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "1" ] \
     && [ "$bl" = "2" ] && [ "$bm" = "1" ] && [ "$bn" = "1" ] && [ "$bo" = "2" ] \
+    && [ "$ver" = "1" ] \
+    && [ "$bp" = "1" ] && [ "$bq" = "1" ] && [ "$br" = "1" ] && [ "$bs" = "1" ] && [ "$bt" = "1" ] \
+    && [ "$bu" = "7" ] && [ "$bv" = "1" ] && [ "$bw" = "1" ] \
+    && [ "$bx" = "3" ] && [ "$by" = "2" ] \
+    && [ "$bz" = "1" ] && [ "$ca" = "1" ] && [ "$cb" = "1" ] && [ "$cc" = "0" ] \
+    && [ "$cd" = "0" ] && [ "$ce" = "1" ] && [ "$cf" = "2" ] \
+    && [ "$cg" = "3" ] && [ "$ch" = "1" ] && [ "$ci" = "3" ] && [ "$cj" = "0" ] && [ "$ck" = "2" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

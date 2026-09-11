@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.40.1 — Crossplay join codes, access-list safety, dashboard fixes
+## v2.41 — Crossplay join codes, access-list safety, world card rework
 
 - **Crossplay is a vanilla-only option again, for now.** Enabling it makes Valheim open a PlayFab server, which is reached by join code and has no host:port — but the PhValheim client reaches a modded world through QuickConnect, which connects by host and port. A modded crossplay world therefore starts normally and simply cannot be joined by the client. The option is hidden for modded worlds and enforced at world start, so a world whose flag was already set stops opening a PlayFab server on its next restart. This will be revisited once the client can launch with a join code.
 - **A crossplay world now shows its join code instead of a Launch button that cannot work.** Enabling crossplay makes Valheim open a *PlayFab* server rather than a Steam one; the world is reached by join code and cannot be joined by IP at all. The card offered `steam://…+connect <host>:<port>` regardless, which asks for a direct connection the server is not serving — so it failed silently while the in-game browser worked fine. Crossplay cards now show the code with a copy button, and the hint no longer tells players to use *Join IP*. Non-crossplay vanilla worlds keep their Launch button. The code is read from the world log at render time rather than stored: it is reissued on every restart, so a cached one would keep advertising a code that no longer works.
