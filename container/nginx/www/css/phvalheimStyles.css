@@ -1,3 +1,38 @@
+/* ============================================================================
+   JetBrains Mono, served from the container.
+   The UI asked for Lucida Console, then Courier New, then monospace. Lucida Console exists only on
+   Windows and is a bitmap-era face with a small x-height; everywhere else the stack fell
+   through to Courier New -- or, on Linux, to Liberation Mono, its metric-compatible clone.
+   Those are the widest, thinnest, smallest-on-the-body monospace faces in common use, which is
+   why the cards read as tiny and squished no matter what size they were set at.
+   Self-hosted rather than pulled from Google Fonts: a game server may have no outbound
+   internet, and a webfont request would leak every player's visit to a third party.
+   JetBrains Mono is SIL OFL 1.1 -- see css/fonts/OFL.txt, which must ship with the files.
+   ============================================================================ */
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("fonts/JetBrainsMono-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("fonts/JetBrainsMono-Bold.woff2") format("woff2");
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("fonts/JetBrainsMono-Italic.woff2") format("woff2");
+	font-weight: 400;
+	font-style: italic;
+	font-display: swap;
+}
+
 /* Remove white focus rings but preserve element styling */
 *:focus {
 	outline: none !important;
@@ -70,6 +105,10 @@ html:focus-visible,
 	/* Fonts - modern system UI stack */
 	--font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 	--font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+	/* The terminal face the whole player UI is set in. The fallbacks are only for the moment
+	   before the woff2 lands, and deliberately exclude Courier New / Liberation Mono. */
+	--font-mono-ui: "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Mono",
+		"Segoe UI Mono", Consolas, "DejaVu Sans Mono", monospace;
 }
 
 /* Global scrollbar styling */
@@ -522,7 +561,7 @@ body:has(.google_header) .popover-body a:hover,
 
 /* Override button font for authenticated page */
 body:has(.google_header) .client_download_button_font {
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	font-weight: normal !important;
 	font-size: 100% !important;
 }
@@ -725,9 +764,12 @@ a.card_worldLaunch:hover {
 
 /* Body styles for authenticated page only */
 body:has(.google_header) {
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	font-size: 16px !important;
-	line-height: normal !important;
+	/* `normal` is roughly 1.17 for these faces, which is what made the cards read as squished.
+	   1.5 is the standard body figure and the usual 1.4-1.6 range for dense rows; unitless so
+	   it scales with whatever size each element ends up at. */
+	line-height: 1.5 !important;
 	margin: 10px !important;
 	padding: 5px 30px 0 30px !important;
 }
@@ -754,7 +796,7 @@ body:has(.google_header) th,
 body:has(.google_header) td {
 	padding: 0 !important;
 	font-weight: normal !important;
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	border: none !important;
 	outline: none !important;
 }
@@ -813,7 +855,7 @@ body:has(.google_header) .client_download_button {
 	text-align: right !important;
 	padding-top: 0 !important;
 	padding-right: 0 !important;
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	font-size: 100% !important;
 }
 
@@ -864,7 +906,7 @@ body:has(.google_header) .name_header {
 	padding-top: 8px !important;
 	font-weight: bold !important;
 	font-size: 16px !important;
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 }
 
 /* Card grid container */
@@ -981,7 +1023,7 @@ body:has(.google_header) .catbox.card_dimmed td {
 /* Card world name - centered and bold */
 .card_worldName {
 	color: #32afff !important;
-	font-size: 18px !important;
+	font-size: 20px !important;
 	outline: none !important;
 	text-align: center !important;
 	font-weight: bold !important;
@@ -1009,13 +1051,28 @@ a.card_worldLaunch:hover {
 	color: palegreen !important;
 }
 
-/* Card info rows */
+/* Card info rows.
+   14px, not 12: 12px is under every readability guideline for body text (16px is the web
+   baseline, and secondary/tabular text is not meant to go below ~13-14px). JetBrains Mono has a
+   noticeably taller x-height than the Courier-family face this used to fall back to, so it
+   reads larger again on top of that.
+   14 also lands the rhythm on whole pixels -- 14 x 1.5 = 21 exactly. At 13px the 19.5px rows
+   rounded to 19 or 20 depending on where the card happened to start, so two identical cards
+   measured differently. */
 .card_worldInfo {
 	color: #d3d7cf !important;
-	font-size: 12px !important;
+	font-size: 14px !important;
 	outline: none !important;
 	font-weight: normal !important;
 	text-align: left !important;
+}
+
+/* Hierarchy without changing a single size: the LABEL is the repeated, skippable half of the
+   row and the VALUE is what the player came for. They were the same colour, so every row had
+   two equally loud halves. Guidance for dense tables is to reserve the brighter colour for the
+   data and mute the supporting label. */
+.catbox td.card_worldInfo:first-child {
+	color: #8b93a7 !important;
 }
 
 /* Trophy icons */
@@ -1051,7 +1108,7 @@ body:has(.google_header) .popover {
 	background: #131729 !important;
 	border: 2px solid #34e2e2 !important;
 	border-radius: 6px !important;
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	overflow: visible !important;
 }
 
@@ -1130,7 +1187,7 @@ body:has(.google_header) .bs-popover-bottom > .popover-arrow::before,
 }
 
 .client_download_tooltip {
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	font-weight: normal !important;
 	font-size: 100% !important;
 	background-color: #131729 !important;
@@ -1151,7 +1208,7 @@ body:has(.google_header) .bs-popover-bottom > .popover-arrow::before,
 }
 
 p.client_download_tooltip_otherbuilds {
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	font-weight: normal !important;
 	font-size: 65% !important;
 	padding-top: 0px !important;
@@ -1314,7 +1371,7 @@ table.table-hover tbody tr:hover {
 	border: 1px solid #34e2e2 !important;
 	border-bottom: 3px solid #1a8a8a !important;
 	background: linear-gradient(to bottom, #1e2d4a, #162038) !important;
-	font-family: "Lucida Console", "Courier New", monospace !important;
+	font-family: var(--font-mono-ui) !important;
 	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(52, 226, 226, 0.1) !important;
 	transition: all 0.15s ease !important;
 }
@@ -1370,7 +1427,7 @@ table.table-hover tbody tr:hover {
 	border: 1px solid #34e2e2;
 	border-radius: 12px;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(52, 226, 226, 0.08);
-	font-family: "Lucida Console", "Courier New", monospace;
+	font-family: var(--font-mono-ui);
 	padding: 0;
 	margin: 0;
 	width: 100%;
@@ -4045,7 +4102,7 @@ input:checked + .slider:before {
 	border-radius: 0.75rem;
 	padding: 1.25rem;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 15px rgba(52, 226, 226, 0.08);
-	font-family: "Lucida Console", "Courier New", monospace;
+	font-family: var(--font-mono-ui);
 }
 
 .cookie-consent-header {
@@ -4081,7 +4138,7 @@ input:checked + .slider:before {
 	flex: 1;
 	padding: 0.5rem 1rem;
 	border-radius: 0.375rem;
-	font-family: "Lucida Console", "Courier New", monospace;
+	font-family: var(--font-mono-ui);
 	font-size: 0.85rem;
 	font-weight: bold;
 	cursor: pointer;
@@ -4441,18 +4498,32 @@ input:checked + .slider:before {
    100%-height table it was laid out past the bottom of the card and clipped. */
 .catbox th.card_worldName,
 .catbox th.card_worldLaunch,
-.catbox td.card_worldInfo:not(.world-seed):not(.world-endpoint),
+.catbox td.card_worldInfo,
 .catbox td.vanilla-hint {
 	height: 1px;
 }
 
-/* Seed and Server are excluded above, and must be.
+/* ...and they are made real table cells again.
+   display:block / inline-block on a <td> takes it out of table layout, so the Server row was
+   laid out as an inline box in the row's anonymous block and came out 30px tall against a 21px
+   rhythm -- one row visibly bulging in an otherwise even column. As a table cell it sits on the
+   rhythm like everything else, and overflow:visible stops it clipping its own text. */
+.catbox td.world-seed,
+.catbox td.world-endpoint {
+	display: table-cell !important;
+	overflow: visible !important;
+	background: transparent !important;
+}
+
+/* Why that rule above needs this one.
    .world-seed and .world-endpoint are written for an inline element -- display:block /
    inline-block plus overflow:hidden -- but on a world card those classes land on the <td>
-   ITSELF. That takes the cell out of table layout and makes it clip its own content. Pinning
-   its height to 1px then hid the value outright: every card rendered "Seed :" and "Server :"
-   with nothing after the colon, on a page where the other rows looked fine. Left to size
-   themselves they are ordinary 14px rows again. */
+   ITSELF. A cell that is not display:table-cell clips its own content, and a pinned
+   height:1px then hid the value outright: every card rendered "Seed :" and "Server :" with
+   nothing after the colon while every other row looked fine.
+   The first fix excluded those two cells from the height pin. Restoring display:table-cell is
+   the better one: height on a real table cell is a MINIMUM, so the pin cannot squash them and
+   the exclusion is no longer needed. */
 
 /* The label column is the same width on every card.
    The table is width:100%, so with auto layout the leftover width is handed to whichever

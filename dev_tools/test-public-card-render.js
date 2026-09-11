@@ -127,11 +127,14 @@ const MEASURE = () => {
     check('and visibly separated (10-20px)', n2l.every(v => v >= 10 && v <= 20), `${n2l}`);
 
     console.log('\nCONTROL: these checks can fail');
-    // Re-apply the exact rule that hid Seed and Server. If the page still measures clean after
-    // this, the test is not looking at what it thinks it is.
+    // Re-create the original fault: a pinned height is only harmless because those cells are
+    // real table cells, where height is a minimum. Take display:table-cell away and the same
+    // pin collapses them again, which is exactly what shipped. Pinning height ALONE no longer
+    // does anything -- that is the point of the fix, and why this control has to remove the
+    // display too or it would pass for the wrong reason.
     await p.addStyleTag({ content:
-        '.catbox td.card_worldInfo.world-seed, .catbox td.card_worldInfo.world-endpoint' +
-        ' { height: 1px !important; }' });
+        '.catbox td.world-seed, .catbox td.world-endpoint' +
+        ' { display: block !important; overflow: hidden !important; height: 1px !important; }' });
     const broken = await p.evaluate(MEASURE);
     check('re-pinning seed/endpoint height collapses them again',
         broken.some(c => c.collapsed.length > 0),
