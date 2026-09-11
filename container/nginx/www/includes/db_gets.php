@@ -389,7 +389,7 @@ function getCrossplay($pdo,$world) {
 #   Opened PlayFab server   /   Opened Steam server
 # Whichever appears LAST is the current session's backend.
 function getWorldNetBackend($world) {
-        $tail = phvReadLogTail($world);
+        $tail = phvCurrentSessionTail($world);
         if ($tail === NULL) { return NULL; }
 
         $playfab = strrpos($tail, 'Opened PlayFab server');
@@ -399,6 +399,47 @@ function getWorldNetBackend($world) {
         if ($playfab === false) { return 'steam'; }
         if ($steam === false)   { return 'playfab'; }
         return $playfab > $steam ? 'playfab' : 'steam';
+}
+
+# Everything the CURRENT session has logged.
+#
+# Valheim takes ~30 seconds from process start to "Opened <backend> server" -- it loads the
+# world first. Searching the whole tail in that window finds the PREVIOUS session's line, so a
+# world restarted into crossplay kept reporting `steam` and the card kept offering a +connect
+# link that could not work. Same hazard for the join code: a restarted world would advertise
+# the code from its last session, which is already dead.
+#
+# The session boundary is Valheim's own scene load, logged once per start:
+#   09/10/2026 16:52:01: Loading: Starting to load scene: start.unity (...)
+#
+# If the marker is not in the window the world has been up a long time, and any Opened line
+# still visible must belong to the current session anyway -- so the whole tail is the right
+# answer there, not an error.
+function phvCurrentSessionTail($world) {
+        $tail = phvReadLogTail($world);
+        if ($tail === NULL) { return NULL; }
+
+        $pos = strrpos($tail, 'Starting to load scene: start.unity');
+        return $pos === false ? $tail : substr($tail, $pos);
+}
+
+# Is this world REACHED by join code right now?
+#
+# Prefers what the running session actually logged; falls back to the crossplay column when the
+# session has not said yet. That fallback is what makes a restart look instant instead of
+# spending ~30 seconds advertising the wrong join method:
+#
+#   toggled but NOT restarted  -> the running session logged its backend; that wins, and it is
+#                                 correctly the OLD one, because that is what is serving.
+#   restarted, still loading   -> nothing logged yet; the column is the best available answer
+#                                 and it is the one the world is about to come up as.
+#   up for a long time         -> the Opened line has scrolled out of the tail; the column is
+#                                 right, and before this the card silently fell back to
+#                                 +connect on a crossplay world.
+function worldIsPlayFab($pdo, $world) {
+        $backend = getWorldNetBackend($world);
+        if ($backend !== NULL) { return $backend === 'playfab'; }
+        return (getCrossplay($pdo, $world) == 1);
 }
 
 # Shared tail reader for the two log-derived getters below. World logs reach hundreds of MB
@@ -438,7 +479,10 @@ function phvReadLogTail($world, $window = 262144) {
 # line is always near the end. The LAST match wins, because a restart appends a newer code
 # above nothing.
 function getWorldJoinCode($world) {
-        $tail = phvReadLogTail($world);
+        # CURRENT session only. The code is reissued on every restart, so the last match in the
+        # whole tail can be the previous session's -- a code that no longer works, handed out
+        # with no indication it is stale.
+        $tail = phvCurrentSessionTail($world);
         if ($tail === NULL) { return NULL; }
 
         if (preg_match_all('/registered with join code (\d{4,10})/', $tail, $m)) {
@@ -474,12 +518,12 @@ function getWorldJoinCode($world) {
 # href is NULL when the world is offline, or when it is a crossplay world whose lobby has not
 # registered a code yet -- callers should show a non-link state rather than a link with an
 # empty argument.
-function getVanillaJoinInfo($world, $gameDNS, $port, $isOnline) {
+function getVanillaJoinInfo($pdo, $world, $gameDNS, $port, $isOnline) {
         if (!$isOnline) {
                 return ['href' => NULL, 'playfab' => false, 'joinCode' => NULL];
         }
 
-        if (getWorldNetBackend($world) !== 'playfab') {
+        if (!worldIsPlayFab($pdo, $world)) {
                 return [
                         'href'     => 'steam://run/892970//+connect ' . $gameDNS . ':' . $port,
                         'playfab'  => false,

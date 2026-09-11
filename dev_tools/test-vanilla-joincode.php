@@ -45,12 +45,14 @@ register_shutdown_function(function () use ($tmp) {
 # function body out and run it against a parameterised path.
 $src = file_get_contents("$root/container/nginx/www/includes/db_gets.php");
 $fnSrc = '';
-foreach (['phvReadLogTail\(\$world, \$window = \d+\)', 'getWorldNetBackend\(\$world\)', 'getWorldJoinCode\(\$world\)'] as $sig) {
+foreach (['phvReadLogTail\(\$world, \$window = \d+\)', 'phvCurrentSessionTail\(\$world\)', 'getWorldNetBackend\(\$world\)', 'getWorldJoinCode\(\$world\)'] as $sig) {
     if (!preg_match('/function ' . $sig . ' \{.*?\n\}/s', $src, $m)) {
         echo "could not extract /$sig/ from db_gets.php -- has it been renamed?\n"; exit(1);
     }
     $fnSrc .= $m[0] . "\n";
 }
+# phvCurrentSessionTail() is extracted too: getWorldNetBackend() and getWorldJoinCode() both
+# delegate to it now, so leaving it out makes the eval'd copies call an undefined function.
 # Only phvReadLogTail touches the filesystem, so that is the only path to rebase.
 $fnSrc = str_replace(
     '$log = "/opt/stateful/logs/valheimworld_" . $world . ".log";',
@@ -155,15 +157,24 @@ function renderCard($block, $crossplay, $online, $code, $backend = NULL) {
     $worldDimmed = $online ? '' : 'dimmed';
     $vanillaSteamUrl = 'steam://run/892970//+connect example.com:27058';
     $myWorld = 'W';
-    $joinLink = $joinCodeRow = $vanillaHint = '';
+    $vanillaEndpoint = 'example.com:27058';
+    $pdo = NULL;   # only reaches the stubbed lookups
+    $joinLink = $joinCodeRow = $vanillaHint = $serverRow = '';
     eval($block);
-    return ['link' => $joinLink, 'row' => $joinCodeRow, 'hint' => $vanillaHint];
+    return ['link' => $joinLink, 'row' => $joinCodeRow, 'hint' => $vanillaHint, 'server' => $serverRow];
 }
 function getWorldJoinCodeStub($w) { return $GLOBALS['STUB_CODE']; }
 function getWorldNetBackendStub($w) { return $GLOBALS['STUB_BACKEND']; }
-# The block calls both log-derived getters; route them to the stubs for these cases.
+# worldIsPlayFab() prefers the running session and falls back to the crossplay column. These
+# cases are about the RENDER, so the stub just reports the backend the case set up.
+function worldIsPlayFabStub($pdo, $w) { return $GLOBALS['STUB_BACKEND'] === 'playfab'; }
+# The block calls the log-derived getters; route them to the stubs for these cases.
 $block = str_replace('getWorldJoinCode($myWorld)', 'getWorldJoinCodeStub($myWorld)', $block);
 $block = str_replace('getWorldNetBackend($myWorld)', 'getWorldNetBackendStub($myWorld)', $block);
+$block = str_replace('worldIsPlayFab($pdo, $myWorld)', 'worldIsPlayFabStub($pdo, $myWorld)', $block);
+if (strpos($block, 'worldIsPlayFabStub') === false) {
+    echo "\nthe card block no longer calls worldIsPlayFab() -- the stub rewrite is stale\n"; exit(1);
+}
 
 echo "\nCase 7: an ONLINE CROSSPLAY world launches with -joincode\n";
 # `-joincode` is a real Valheim launch argument -- it sits in the assembly's literal heap
@@ -234,6 +245,16 @@ $a = renderCard($block, true, true, '111111', 'playfab');
 $b = renderCard($block, true, true, NULL,     'steam');
 check('same flag + different backend => different link',
     $a['link'] !== $b['link'], "playfab={$a['link']} steam={$b['link']}");
+
+echo "\nCase 14: a crossplay world does not show a Server address\n";
+# "Server:" is the value you type into Valheim's Join IP screen. A PlayFab server does not
+# accept a direct IP connection at all, so printing an address there invites players to try the
+# one thing that cannot work.
+$cross = renderCard($block, true, true, '441944');
+$steam = renderCard($block, false, true, NULL);
+check('crossplay card omits the Server row', trim($cross['server']) === '', $cross['server']);
+# THE CONTROL: a non-crossplay world must still show it, or this "fix" just deleted the row.
+check('a non-crossplay card still shows it', strpos($steam['server'], 'Server') !== false, $steam['server']);
 
 echo "\n$pass passed, $fail failed\n";
 exit($fail === 0 ? 0 : 1);

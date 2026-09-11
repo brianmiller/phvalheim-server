@@ -4428,20 +4428,40 @@ input:checked + .slider:before {
 	color: var(--text-muted, #888);
 }
 
-/* Pin the header rows to their natural height.
-   The card table is height:100% so its rows expand to fill the card -- that is what gives the
-   cards their roomy look, and it is deliberate. But the extra space was shared by EVERY row,
-   including the one between the world name and Launch!, so that gap grew to 51px on a short
-   card and shrank to 15px on a tall one.
-   height:1px is the standard way to say "take only what your content needs" in a table: it is
-   a minimum, not a maximum, so the cell still sizes to its text and simply stops claiming a
-   share of the slack. The info rows below keep expanding, exactly as before.
-   The hint is pinned for the same reason, and lives INSIDE the table now -- as a sibling div
-   after a 100%-height table it was laid out past the bottom of the card and clipped. */
+/* Card rows take their NATURAL height; one empty row soaks up whatever is left over.
+   The card table is height:100%, which keeps the table filling the card. Without somewhere for
+   the extra height to go, it was shared across every row -- so an online modded card sharing a
+   flex row with a taller vanilla card had its rows pushed 112px apart while the offline cards
+   next to it sat at 16px. Same card, different neighbours, different spacing.
+   height:1px on a table cell is a MINIMUM, not a maximum: the cell still sizes to its text and
+   simply stops claiming a share of the slack. .card-slack is the opposite -- it asks for all of
+   it, so the leftover collects in one empty row instead of being spread through the data.
+   The hint sits AFTER that row, which puts it at the bottom of the card, the same place the
+   boss trophies sit on a modded card. It is inside the table too: as a sibling div after a
+   100%-height table it was laid out past the bottom of the card and clipped. */
 .catbox th.card_worldName,
 .catbox th.card_worldLaunch,
+.catbox td.card_worldInfo,
 .catbox td.vanilla-hint {
 	height: 1px;
+}
+
+.catbox td.card-slack {
+	height: 100%;
+	padding: 0;
+}
+
+/* Breathing room under the world name, and real padding on the hint.
+   Both need !important, and not for style: the authenticated page carries a blanket
+   `body:has(.google_header) th, td { padding: 0 !important }`, which silently beats any
+   specificity these selectors can reach. The hint's own padding rule further up has never
+   applied for exactly that reason. Scoped the same way so it wins on equal terms. */
+body:has(.google_header) .catbox th.card_worldName {
+	padding-bottom: 0.5rem !important;
+}
+
+body:has(.google_header) .catbox td.vanilla-hint {
+	padding: 0.75rem 0.5rem 0 !important;
 }
 
 /* An offline vanilla card must grey out exactly like an offline modded card.

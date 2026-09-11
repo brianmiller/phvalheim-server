@@ -704,7 +704,7 @@ function getWorldsJson($pdo) {
         // gets -joincode rather than a +connect that can never reach a PlayFab server.
         $isRunning = ($row['mode'] === 'running');
         $joinInfo = $vanilla
-            ? getVanillaJoinInfo($row['name'], $gameDNS, $row['port'], $isRunning)
+            ? getVanillaJoinInfo($pdo, $row['name'], $gameDNS, $row['port'], $isRunning)
             : ['href' => 'phvalheim://?' . $launchString, 'playfab' => false, 'joinCode' => NULL];
 
         $worlds[] = [

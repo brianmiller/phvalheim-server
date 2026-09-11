@@ -254,8 +254,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					# applied at launch, so toggling the flag on a running world leaves the two
 					# disagreeing until it restarts -- and in that window the column is simply
 					# wrong about how players can reach it.
-					$vanillaBackend  = $isOnline ? getWorldNetBackend($myWorld) : NULL;
-					$vanillaIsPlayFab = ($vanillaBackend === 'playfab');
+					# Column-aware: the running session wins when it has logged a backend, and
+					# the column covers the ~30s of world-loading before it has. Without that a
+					# world restarted into crossplay spent that window offering a +connect link.
+					$vanillaIsPlayFab = $isOnline ? worldIsPlayFab($pdo, $myWorld) : false;
 					$vanillaJoinCode = $vanillaIsPlayFab ? getWorldJoinCode($myWorld) : NULL;
 
 					# Valheim takes the join code on the command line -- `-joincode` is a
@@ -293,6 +295,15 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 						? "Crossplay world &mdash; use the Launch button, or enter the join code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP."
 						: "Join from Valheim's <em>Join IP</em> screen with the address above, or use the Launch button.";
 
+					# The Server address is the thing you type into Valheim's "Join IP" screen.
+					# A crossplay world is a PlayFab server: it does not accept a direct IP
+					# connection at all, so the address is not just unhelpful, it is an invitation
+					# to try the one thing that cannot work. Dropped entirely for crossplay.
+					$serverRow = $vanillaIsPlayFab ? "" : "
+                                                        <td class='$worldDimmed card_worldInfo'>Server&nbsp;&nbsp;&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-endpoint'><code>$vanillaEndpoint</code></td>
+                                                        <tr>";
+
 					# Only rendered for crossplay. A missing code means the world is up but has
 					# not registered its lobby yet -- say so rather than showing an empty row.
 					$joinCodeRow = "";
@@ -320,9 +331,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>Type&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>unmodded</td>
                                                         <tr>
-                                                        <td class='$worldDimmed card_worldInfo'>Server&nbsp;&nbsp;&nbsp;&nbsp;:</td>
-                                                        <td class='$worldDimmed card_worldInfo world-endpoint'><code>$vanillaEndpoint</code></td>
-                                                        <tr>
+                                                        $serverRow
                                                         $joinCodeRow
                                                         $passwordRow
                                                         <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
@@ -337,6 +346,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo world-memory'>$worldMemory</td>
                                                         <tr>
+                                                        <td colspan=2 class='card-slack'></td>
                                                         <tr>
                                                         <td class='$worldDimmed vanilla-hint' colspan=2>$vanillaHint</td>
                                                         <tr>
@@ -373,6 +383,8 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>
                                                         <td class='$worldDimmed card_worldInfo'>Memory&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo world-memory'>$worldMemory</td>
+                                                        <tr>
+                                                        <td colspan=2 class='card-slack'></td>
                                                         <tr>
                                                 </table>
 						<table border=0 class='trophy-table'>

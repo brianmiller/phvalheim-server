@@ -1,26 +1,30 @@
 // Oracle test: world card layout.
 //
-// Three properties, and they pull against each other -- which is why this file exists:
+// Three properties:
 //
-//   1. Launch! sits directly under the world name, by the same amount on every card.
+//   1. Launch! sits under the world name, visibly separated, by the same amount on every card.
 //   2. The vanilla hint is fully inside the card, not clipped off the bottom.
-//   3. The info rows still EXPAND to fill the card. This is deliberate: the cards are meant to
-//      look roomy, and the row spacing is what does it.
+//   3. Row spacing is tight and IDENTICAL on every card, whatever its height.
 //
-// HISTORY, because I broke (3) while fixing (1) and (2):
+// HISTORY -- this took four attempts, and each wrong one measured clean:
 //
-//   The card tables are `<table width=100% height=100%>`, so their rows expand to fill the
-//   card. That is the roomy look. But the slack was shared by EVERY row including the one
-//   between the name and Launch!, so that gap was 51px on a short card and 15px on a tall one.
-//   The hint, a sibling div after a 100%-height table, was laid out past the bottom and clipped.
+//   The card tables are `<table width=100% height=100%>`, so the table fills the card. A card is
+//   a flex item and stretches to the tallest card in its row, and that leftover height was
+//   shared by EVERY row. Three consequences: the name-to-Launch gap varied with card height
+//   (51px / 44px / 15px), the hint (a sibling div after the table) was pushed past the bottom
+//   and clipped, and an online modded card next to a taller vanilla one had its rows 112px
+//   apart while identical offline cards beside it sat at 16px.
 //
-//   My first fix removed height=100% entirely. That fixed 1 and 2 and destroyed 3: every card
-//   collapsed to its content (row pitch 97px -> 16px) and the UI came out visibly squashed.
+//   Attempt 1 removed height=100%. Fixed the gap and the hint; every card then collapsed to its
+//   content and the UI came out squashed.
+//   Attempt 2 restored it and pinned only the name/Launch/hint rows. Fixed those two, left the
+//   data rows spreading -- which is the uneven spacing above.
+//   Attempt 3 was a broken scripted revert that left comment prose rendering on every card.
 //
-//   The real fix keeps height=100% and pins ONLY the name, Launch and hint rows to
-//   height:1px -- a minimum in table layout, so those cells still size to their text but stop
-//   claiming a share of the slack. The info rows expand exactly as before. The hint moved
-//   INSIDE the table so it cannot be pushed out of the card.
+//   Now: height=100% stays, EVERY data row is pinned to its natural height, and one empty
+//   .card-slack row asks for all the leftover. The slack collects in one place at the bottom
+//   instead of being spread through the data. The hint sits after that row, which puts it where
+//   the boss trophies sit on a modded card, and inside the table so it cannot be pushed out.
 //
 // Layout only, so it runs in real Chromium; jsdom does no layout and would pass on all of it.
 //
@@ -53,8 +57,8 @@ const card = (rows, vanilla) => `<div class="catbox ${vanilla ? 'catbox-vanilla'
 <th class='card_worldName' colspan=2>World${rows}</th>
 <tr><th class='card_worldLaunch' colspan=2><a class='card_worldLaunch launch-link' href='#'>Launch!</a></th>
 <tr><td style='height: 12px;'</td>
-<tr>${infoRows(rows)}
-${vanilla ? `<tr><td class='vanilla-hint' colspan=2>${HINT}</td><tr>` : ''}
+<tr>${infoRows(rows)}<td colspan=2 class='card-slack'></td><tr>
+${vanilla ? `<td class='vanilla-hint' colspan=2>${HINT}</td><tr>` : ''}
 </table>${vanilla ? '' : "<table border=0 class='trophy-table'><tr><td class='trophy_icon'><img src='data:image/gif;base64,R0lGODlhAQABAAAAACw=' style='height:36px'></td></tr></table>"}</div>`;
 
 // extraCss lets the control restore the OLD behaviour without rebuilding the markup.
@@ -64,7 +68,10 @@ const page = (extraCss = '') => `<html><head><link rel="stylesheet" href="${BASE
 ${card(4, true)}${card(5, false)}${card(13, false)}</div></div></div></body></html>`;
 
 const measure = (p) => p.evaluate(() => [...document.querySelectorAll('.catbox')].map(box => {
-    const name = box.querySelector('.card_worldName').getBoundingClientRect();
+    const th = box.querySelector('.card_worldName');
+    const range = document.createRange();
+    range.setStart(th.firstChild, 0); range.setEnd(th.firstChild, th.firstChild.length);
+    const name = range.getBoundingClientRect();
     const link = box.querySelector('a.card_worldLaunch').getBoundingClientRect();
     const cardBox = box.getBoundingClientRect();
     const infos = [...box.querySelectorAll('.card_worldInfo')];
@@ -93,7 +100,9 @@ const measure = (p) => p.evaluate(() => [...document.querySelectorAll('.catbox')
     const gaps = now.map(c => c.gap);
     check('the gap is the same on all three cards', new Set(gaps).size === 1, `gaps: ${gaps}`);
     // Equal-but-huge would satisfy the above while looking exactly like the bug.
-    check('and it is tight (<= 12px)', gaps.every(g => g <= 12), `gaps: ${gaps}`);
+    // Text-to-text, and >= 8px: they were 2px apart once the rows stopped absorbing slack,
+    // which is correct spacing-wise but reads as one block.
+    check('and visibly separated (8-20px)', gaps.every(g => g >= 8 && g <= 20), `gaps: ${gaps}`);
 
     console.log('\n2. The vanilla hint is inside the card');
     const van = now.find(c => c.vanilla);
@@ -101,22 +110,26 @@ const measure = (p) => p.evaluate(() => [...document.querySelectorAll('.catbox')
     // A clipped-to-zero hint would also be "not clipped". It is three lines of text.
     check('and is actually rendered (multi-line)', van.hintH >= 30, `height ${van.hintH}px`);
 
-    console.log('\n3. The cards are still roomy -- rows expand to fill');
-    // THE REGRESSION I SHIPPED. Removing height=100% fixed 1 and 2 and collapsed every card to
-    // its content: row pitch fell from ~97px to 16px. Without this assertion that fix looked
-    // perfect and the UI was visibly squashed.
-    check('info rows expand well beyond their natural height',
-        now.every(c => c.rowPitch >= 30), `pitches: ${now.map(c => c.rowPitch)}`);
-    check('cards fill the available height', now.every(c => c.cardH >= 400),
+    console.log('\n3. Row spacing is tight and IDENTICAL on every card');
+    // Superseded: rows used to expand to fill, which meant an online modded card sharing a row
+    // with a taller vanilla card had its rows 112px apart while the offline cards beside it sat
+    // at 16px -- same card, different neighbours, different spacing. A single empty .card-slack
+    // row now takes the leftover instead, so the data rows are unaffected by card height.
+    const pitches = now.map(c => c.rowPitch);
+    check('the same on all three cards', new Set(pitches).size === 1, `pitches: ${pitches}`);
+    check('and tight (<= 24px)', pitches.every(p => p <= 24), `pitches: ${pitches}`);
+    // The cards must still FILL their row -- the slack moved to the bottom, it did not vanish.
+    check('cards still fill the available height', now.every(c => c.cardH >= 400),
         `heights: ${now.map(c => c.cardH)}`);
 
-    console.log('\nCONTROL: un-pinning the header rows brings the fault back');
-    // Proves the pinning is what fixes it, not some accident of these three cards.
-    await p.setContent(page('.catbox th.card_worldName, .catbox th.card_worldLaunch { height: auto; }'),
+    console.log('\nCONTROL: without the slack row the spacing goes uneven again');
+    // Proves .card-slack is what fixes it, not an accident of these three cards. Neutralising
+    // it hands the leftover height back to the data rows.
+    await p.setContent(page('.catbox td.card-slack { height: 1px; } .catbox td.card_worldInfo { height: auto; }'),
         { waitUntil: 'networkidle' });
     const unpinned = await measure(p);
-    const badGaps = unpinned.map(c => c.gap);
-    check('gaps differ between cards without the pin', new Set(badGaps).size > 1, `gaps: ${badGaps}`);
+    const badPitch = unpinned.map(c => c.rowPitch);
+    check('row pitch differs between cards without it', new Set(badPitch).size > 1, `pitches: ${badPitch}`);
 
     console.log('\nGUARDS: the markup this file mirrors');
     const src = fs.readFileSync(path.join(__dirname, '../container/nginx/www/public/authenticated.php'), 'utf8');
@@ -129,6 +142,8 @@ const measure = (p) => p.evaluate(() => [...document.querySelectorAll('.catbox')
         /<td class='\$worldDimmed vanilla-hint' colspan=2>/.test(src));
     check('and is no longer a sibling div',
         !/<div class='vanilla-hint'>/.test(src));
+    check('both card tables carry a .card-slack row',
+        (src.split("class='card-slack'").length - 1) === 2);
 
     await browser.close();
     console.log(`\n${pass} passed, ${fail} failed`);

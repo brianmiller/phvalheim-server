@@ -101,7 +101,7 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
         // the public card, so the two can no longer disagree.
         $isRunning = ($row['mode'] === 'running');
         $joinInfo = $vanilla
-            ? getVanillaJoinInfo($row['name'], $gameDNS, $row['port'], $isRunning)
+            ? getVanillaJoinInfo($pdo, $row['name'], $gameDNS, $row['port'], $isRunning)
             : ['href' => 'phvalheim://?' . $launchString, 'playfab' => false, 'joinCode' => NULL];
 
         $worlds[] = [

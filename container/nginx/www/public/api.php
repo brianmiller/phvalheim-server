@@ -153,7 +153,9 @@ if ($mode == "getMyWorldsStatus") {
                 # -crossplay only applies at launch, so the two disagree until a toggled world
                 # restarts, and in that window the column is wrong about how to reach it.
                 $isCrossplayWorld  = (getCrossplay($pdo, $myWorld) == 1);
-                $isPlayFabWorld    = (getWorldNetBackend($myWorld) === 'playfab');
+                # Column-aware: the running session wins when it has logged a backend, and the
+                # column covers the ~30s of world-loading before it has.
+                $isPlayFabWorld    = worldIsPlayFab($pdo, $myWorld);
                 $crossplayJoinCode = $isPlayFabWorld ? getWorldJoinCode($myWorld) : NULL;
                 $connection = [
                     'endpoint'       => $gameDNS . ':' . $worldPort,

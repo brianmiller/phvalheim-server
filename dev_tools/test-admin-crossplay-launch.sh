@@ -102,7 +102,7 @@ adminH=$(adminHref)
 publicH=$(docker exec "$CONTAINER" php -r '
     chdir("/opt/stateless/nginx/www/public");
     require_once "/opt/stateless/nginx/www/includes/db_gets.php";
-    $i = getVanillaJoinInfo($argv[1], "valheim.example.com", 25001, true);
+    $i = getVanillaJoinInfo($pdo, $argv[1], "valheim.example.com", 25001, true);
     echo $i["href"] === null ? "NULL" : $i["href"];
 ' -- "$WORLD" 2>/dev/null)
 check 'both resolve to the same -joincode link' \
