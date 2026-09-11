@@ -178,10 +178,11 @@ if ($mode == "getMyWorldsStatus") {
                     # URL here would let the 5s refresh put the dead Launch button back.
                     'joinCode'       => $crossplayJoinCode,
                     'playfab'        => $isPlayFabWorld,
+                    # NULL for crossplay: -joincode joins without selecting a character and the
+                    # client falls back to its "Odev (Developer)" profile. The card's Launch!
+                    # opens a how-to-join modal built from joinCode instead.
                     'steamUrl'       => $isPlayFabWorld
-                                            ? ($crossplayJoinCode !== NULL
-                                                ? 'steam://run/892970//-joincode ' . $crossplayJoinCode
-                                                : NULL)
+                                            ? NULL
                                             : 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
                 ];
             }

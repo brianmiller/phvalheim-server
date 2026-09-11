@@ -345,13 +345,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 						: $vanillaCrossplay;
 					$vanillaJoinCode = $vanillaIsPlayFab ? getWorldJoinCode($myWorld) : NULL;
 
-					# Valheim takes the join code on the command line -- `-joincode` is a
-					# recognised launch argument, alongside -crossplay/-password/-port/-world.
-					# So a crossplay world IS launchable; it just cannot use +connect, which
-					# asks for a direct IP connection that a PlayFab-hosted server never offers.
-					$vanillaJoinUrl = $vanillaJoinCode !== NULL
-						? htmlspecialchars("steam://run/892970//-joincode " . $vanillaJoinCode)
-						: NULL;
+						# There is deliberately NO crossplay launch URL. `-joincode` is a real Valheim
+						# argument -- which is why this looked correct for so long -- but FejdStartup calls
+						# AutoJoinServer() -> JoinServer() and never SelectCharacter(). The client then joins
+						# with no character chosen and falls back to its built-in developer profile, so
+						# players arrived as "Odev (Developer)" and gained a character they never made.
+						# Launch! opens a how-to-join modal instead; the code is all the player needs.
 
 					# Same label as a modded world -- a vanilla world is a peer, not a
 					# different kind of thing. Only the scheme differs: steam:// +connect
@@ -360,11 +359,23 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					if (!$isOnline) {
 						$joinLink = "<a class='$worldDimmed card_worldLaunch launch-link' href='#'>offline</a>";
 					} elseif ($vanillaIsPlayFab) {
-						# Launchable via -joincode once the lobby exists. Before that there is
-						# genuinely no code to pass, so the label goes static rather than
-						# offering a link with an empty argument.
-						$joinLink = $vanillaJoinUrl !== NULL
-							? "<a class='card_worldLaunch launch-link' href='$vanillaJoinUrl'>Launch!</a>"
+						# A crossplay world is NOT launched from here. Valheim's -joincode
+						# argument works, but it calls JoinServer() immediately without ever
+						# calling SelectCharacter(), so the client joins with no character
+						# selected and falls back to creating its built-in developer profile
+						# -- players arrived in the world as "Odev (Developer)" and a stray
+						# character appeared in their list. Decompiled from FejdStartup:
+						# -joincode registers AutoJoinServer(), which resolves the code and
+						# joins. There is no flag that stops at character selection, and
+						# -joinserverwithcharacter cannot help because it builds a DEDICATED
+						# server address, while crossplay needs a PlayFab user.
+						# So Launch! explains how to join instead of launching. The player
+						# starts Valheim normally, picks their own character, and pastes the
+						# code into Join by code.
+						$joinLink = $vanillaJoinCode !== NULL
+							? "<a class='card_worldLaunch launch-link' href='#'"
+								. " data-joincode=\"" . htmlspecialchars($vanillaJoinCode, ENT_QUOTES) . "\""
+								. " onclick='showCrossplayJoin(this); return false;'>Launch!</a>"
 							: "<span class='card_worldLaunch launch-link launch-link-static'>starting&hellip;</span>";
 					} else {
 						$joinLink = "<a class='card_worldLaunch launch-link' href='$vanillaSteamUrl'>Launch!</a>";
@@ -381,7 +392,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 						# and the hint is the single tallest thing on a vanilla card -- it was
 						# what stopped the card getting any shorter. Both still name the exact
 						# Valheim screen, which is the part a player cannot guess.
-						? "Crossplay world &mdash; use Launch, or the join code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP."
+						? "Crossplay world &mdash; join with the code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP."
 						: "Use Launch, or the address above in Valheim's <em>Join IP</em> screen.";
 
 					# The Server address is the thing you type into Valheim's "Join IP" screen.
@@ -725,6 +736,35 @@ if (phvDevSteamID() !== NULL) {
                     });
                 }
 
+                // Launch! on a crossplay card explains how to join rather than launching --
+                // Valheim's -joincode joins with no character selected (see the PHP comment on
+                // $joinLink), so a real launch would drop the player into the world as the
+                // game's own "Odev (Developer)" profile.
+                function showCrossplayJoin(link) {
+                    const code = link.dataset.joincode || '';
+                    const slot = document.getElementById('crossplayJoinCode');
+                    // Read the code off the link at CLICK time, not at page load: the 5s poll
+                    // rewrites it when the world restarts and reissues a code, and a modal
+                    // populated once at load would hand out a dead one.
+                    if (slot) slot.textContent = code || '—';
+                    const el = document.getElementById('crossplayJoinModal');
+                    if (!el || typeof bootstrap === 'undefined') return;
+                    bootstrap.Modal.getOrCreateInstance(el).show();
+                }
+
+                function copyCrossplayCode() {
+                    const slot = document.getElementById('crossplayJoinCode');
+                    if (!slot) return;
+                    const code = slot.textContent.trim();
+                    if (!code || code === '—') return;
+                    writeToClipboard(code, (ok) => {
+                        const btn = document.querySelector('#crossplayJoinModal .mac-install-copy-btn');
+                        if (!btn) return;
+                        btn.classList.add(ok ? 'vanilla-password-copied' : 'vanilla-password-failed');
+                        setTimeout(() => btn.classList.remove('vanilla-password-copied', 'vanilla-password-failed'), 1500);
+                    });
+                }
+
                 function updateWorldCards(worlds) {
                     worlds.forEach(world => {
                         const card = document.querySelector(`.catbox[data-world="${world.name}"]`);
@@ -755,18 +795,31 @@ if (phvDevSteamID() !== NULL) {
                                 // "Launch!" with a null href a few seconds after page load,
                                 // which is exactly how the dead button survived being noticed.
                                 if (isCrossplay) {
-                                    // A crossplay world launches with -joincode, but only once
-                                    // the lobby exists. Until then there is no code to pass, so
-                                    // do not offer a link with an empty argument.
-                                    if (world.connection.steamUrl) {
+                                    // Crossplay cannot be launched from here at all: -joincode
+                                    // joins without ever selecting a character, so the client
+                                    // falls back to its built-in "Odev (Developer)" profile.
+                                    // Launch! opens the how-to-join modal instead. Keep the
+                                    // code on the element so the modal always shows the CURRENT
+                                    // one -- it is reissued on every world restart.
+                                    const code = world.connection.joinCode;
+                                    if (code) {
                                         launchLink.textContent = 'Launch!';
-                                        launchLink.href = world.connection.steamUrl;
+                                        launchLink.href = '#';
+                                        launchLink.dataset.joincode = code;
+                                        launchLink.onclick = function () { showCrossplayJoin(this); return false; };
                                     } else {
                                         launchLink.textContent = 'starting…';
                                         launchLink.removeAttribute('href');
+                                        launchLink.removeAttribute('data-joincode');
+                                        launchLink.onclick = null;
                                     }
                                 } else {
                                     launchLink.textContent = 'Launch!';
+                                    // A world that was crossplay a moment ago still carries the
+                                    // modal handler; leaving it attached would swallow the click
+                                    // and the real launch link would silently do nothing.
+                                    launchLink.onclick = null;
+                                    launchLink.removeAttribute('data-joincode');
                                     // A vanilla world has no client payload and no quickconnect
                                     // mod, so phvalheim:// is meaningless for it -- it is joined
                                     // with Valheim's own +connect via steam://. This runs every
@@ -918,6 +971,37 @@ if (phvDevSteamID() !== NULL) {
                         <a href="https://discord.gg/8RMMrJVQgy" target="_blank" rel="noopener" class="social-link" title="Join our Discord">
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
                         </a>
+                </div>
+
+                <!-- Crossplay join modal. Opened by the Launch! link on a crossplay card,
+                     which cannot launch the game directly -- see the comment on $joinLink. -->
+                <div class="modal fade" id="crossplayJoinModal" tabindex="-1" aria-labelledby="crossplayJoinModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered crossplay-join-dialog">
+                                <div class="modal-content mac-install-modal">
+                                        <div class="modal-header mac-install-header">
+                                                <h5 class="modal-title" id="crossplayJoinModalLabel">Join this crossplay world</h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body mac-install-body">
+                                                <p>A crossplay world is joined with a <strong>join code</strong>, not an address &mdash; so it cannot be started from this page.</p>
+                                                <div class="mac-install-command-wrap">
+                                                        <code class="mac-install-command" id="crossplayJoinCode">&nbsp;</code>
+                                                        <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyCrossplayCode()" title="Copy join code">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                                        </button>
+                                                </div>
+                                                <ol class="crossplay-join-steps">
+                                                        <li>Start Valheim and <strong>pick your character</strong> as usual.</li>
+                                                        <li>On the world screen choose <strong>Join by code</strong>.</li>
+                                                        <li>Paste the code above and join.</li>
+                                                </ol>
+                                                <p class="mac-install-note">The code changes every time the world restarts &mdash; come back here for the current one.</p>
+                                        </div>
+                                        <div class="modal-footer mac-install-footer">
+                                                <button type="button" class="btn btn-sm btn-outline-download" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                </div>
+                        </div>
                 </div>
 
                 <!-- macOS Install Modal -->

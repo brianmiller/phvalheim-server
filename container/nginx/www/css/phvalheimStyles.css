@@ -4498,20 +4498,26 @@ input:checked + .slider:before {
 	   which fails if either offset drifts past half a pixel. */
 	position: relative;
 	top: -1px;
-	padding: 0 0.4rem;
+	/* INTEGER px, not rem/em. Every value here used to be fractional -- padding 0.4rem = 6.4px,
+	   font-size 0.6rem = 9.6px, letter-spacing 0.04em = 0.384px -- and a fractional box cannot
+	   land on the pixel grid the same way on both sides. Measured with
+	   dev_tools/measure-pill-centering.js, the old rule put the ink dead centre at DPR 1 and 1
+	   to 2 device px LEFT of centre at DPR 1.25/1.5/2, which is 125%/150% display scaling: the
+	   common case, and the reason this pill kept being reported as off-centre while measuring
+	   as centred. Integer values halve the worst case and are exact at DPR 1, 1.25 and 2.
+	   The residual 1px at DPR 1.5 is glyph side bearing, which no padding rule can remove. */
+	padding: 0 6px;
 	margin-right: 0.25rem;
 	border-radius: 0.625rem;
-	font-size: 0.6rem;
+	font-size: 10px;
 	line-height: 1;
 	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	/* letter-spacing adds its gap AFTER every character, the last one included, so the text box
-	   is one tracking unit wider than the glyphs and centring the BOX does not centre the ink.
-	   Take that unit out of the right padding rather than shoving the text across with
-	   text-indent -- the trailing space is what is wrong, so remove it where it is.
-	   The previous text-indent value was tuned by measuring the text NODE, whose box contains
-	   the very space being compensated for; that measurement could not see its own error. */
-	padding-right: calc(0.4rem - 0.04em);
+	/* letter-spacing adds its gap AFTER the last character too, so the text box is one tracking
+	   unit wider than the ink. The previous rule subtracted that unit from padding-right;
+	   measured across five DPRs that compensation changed nothing (candidates E and F scored
+	   identically), because 0.5px cannot survive pixel snapping either. Symmetric padding is
+	   simpler and measures the same, so the compensation is gone rather than kept as decoration. */
+	letter-spacing: 0.5px;
 	background: var(--accent-primary, #4a8);
 	color: #0b0b0b;
 }
@@ -5375,4 +5381,27 @@ body input[type="checkbox"]:not(.form-check-input):checked::after,
 	background: var(--bg-secondary);
 	border-top: 1px solid var(--accent-primary);
 	box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* Crossplay join modal. Reuses the macOS-install modal skin so there is one modal look on the
+   public page; only the width and the step list are specific to it. Kept narrow -- it carries
+   one code and three lines, and at the install modal's width the text ran to a single short
+   line per row and read as an error dialog rather than an instruction. */
+.crossplay-join-dialog {
+	max-width: 420px;
+}
+.crossplay-join-steps {
+	margin: 0.9rem 0 0.6rem;
+	padding-left: 1.2rem;
+	font-size: 0.85rem;
+	line-height: 1.6;
+	color: var(--text-secondary, #aaa);
+}
+.crossplay-join-steps li + li {
+	margin-top: 0.2rem;
+}
+/* The join code is the point of the dialog, so it gets the emphasis the install command has. */
+#crossplayJoinCode {
+	letter-spacing: 0.08em;
+	font-size: 1.05rem;
 }

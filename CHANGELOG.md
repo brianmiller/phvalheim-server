@@ -2,6 +2,18 @@
 
 ## v2.41 — Crossplay join codes, access-list safety, world card rework
 
+### Crossplay: Launch! now explains how to join
+A crossplay world can no longer be launched from the public card, because it never really
+worked. Valheim's `-joincode` argument is real, so the button looked correct — but the client's
+handler resolves the code and joins immediately without ever selecting a character. Players
+arrived in the world as Valheim's built-in `Odev (Developer)` profile and found a character in
+their list they had not created.
+
+Clicking **Launch!** on a crossplay world now opens a short modal with the current join code and
+three steps: start Valheim, pick your character, use *Join by code*. The code is read at click
+time, so a world that restarts and is reissued a code never hands out a stale one. Non-crossplay
+vanilla worlds (`+connect`) and modded worlds (`phvalheim://`) are unchanged.
+
 - **Crossplay is a vanilla-only option again, for now.** Enabling it makes Valheim open a PlayFab server, which is reached by join code and has no host:port — but the PhValheim client reaches a modded world through QuickConnect, which connects by host and port. A modded crossplay world therefore starts normally and simply cannot be joined by the client. The option is hidden for modded worlds and enforced at world start, so a world whose flag was already set stops opening a PlayFab server on its next restart. This will be revisited once the client can launch with a join code.
 - **A crossplay world now shows its join code instead of a Launch button that cannot work.** Enabling crossplay makes Valheim open a *PlayFab* server rather than a Steam one; the world is reached by join code and cannot be joined by IP at all. The card offered `steam://…+connect <host>:<port>` regardless, which asks for a direct connection the server is not serving — so it failed silently while the in-game browser worked fine. Crossplay cards now show the code with a copy button, and the hint no longer tells players to use *Join IP*. Non-crossplay vanilla worlds keep their Launch button. The code is read from the world log at render time rather than stored: it is reissued on every restart, so a cached one would keep advertising a code that no longer works.
 - **The admin dashboard's Launch button now respects a crossplay join link too.** The public card was fixed for this, but the admin one still offered `+connect <host>:<port>` for every vanilla world — which a PlayFab-hosted crossplay server never accepts, so it failed silently. Both of the dashboard's launch paths (the PHP render on load, and the poll payload that re-renders it seconds later) now share one helper with the public card. A crossplay world that is up but has not registered its join code yet shows a disabled "starting…" rather than a link with nothing to pass.

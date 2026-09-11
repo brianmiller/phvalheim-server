@@ -629,11 +629,17 @@ function getVanillaJoinInfo($pdo, $world, $gameDNS, $port, $isOnline) {
                 ];
         }
 
-        # -joincode IS a real Valheim launch argument, alongside -crossplay/-password/-port.
-        # So a crossplay world is launchable; it just cannot use +connect.
+        # A crossplay world has NO launch URL. -joincode is a real Valheim argument, but
+        # decompiling FejdStartup shows it registers AutoJoinServer(), which resolves the code
+        # and calls JoinServer() directly -- it never calls SelectCharacter(). The client then
+        # joins with no character selected and falls back to its built-in developer profile, so
+        # players landed in the world as "Odev (Developer)" and gained a character they never
+        # made. There is no argument that stops at character selection, and
+        # -joinserverwithcharacter takes a DEDICATED server address, which a PlayFab-hosted
+        # world does not have. Hand back the code only; the UI explains how to use it.
         $code = getWorldJoinCode($world);
         return [
-                'href'     => $code !== NULL ? 'steam://run/892970//-joincode ' . $code : NULL,
+                'href'     => NULL,
                 'playfab'  => true,
                 'joinCode' => $code,
         ];

@@ -88,7 +88,16 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # The join path must follow the RUNNING backend, not the crossplay column.
   w=$(grep -c "function getWorldNetBackend" /opt/stateless/nginx/www/includes/db_gets.php)
   x=$(grep -c "connection.playfab" /opt/stateless/nginx/www/public/authenticated.php)
-  echo "joincode launch url: card=$u (want 1)  api=$v (want 1)"
+  # DELIBERATELY 0 since the crossplay-join-modal change. -joincode joins Valheim with no
+  # character selected, so the client falls back to its "Odev (Developer)" profile; the card's
+  # Launch! now opens a how-to-join modal instead. If either of these goes back to 1 the dead
+  # launch URL has returned. Do NOT re-baseline them to whatever the image contains.
+  cl=$(grep -c "showCrossplayJoin" /opt/stateless/nginx/www/public/authenticated.php)
+  cm=$(grep -c "crossplayJoinModal" /opt/stateless/nginx/www/public/authenticated.php)
+  cn=$(grep -c "crossplay-join-dialog" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  co=$(grep -c "'href'     => NULL," /opt/stateless/nginx/www/includes/db_gets.php)
+  echo "joincode launch url GONE: card=$u (want 0)  api=$v (want 0)"
+  echo "crossplay modal: opener=$cl (want 3)  markup=$cm (want 4)  css=$cn (want 1)  null href=$co (want 1)"
   echo "getWorldNetBackend=$w (want 1)  poll keys off connection.playfab=$x (want 1)"
   # The empty-access-list work: the save-time refusal, and the start-time warning for worlds
   # that predate it. Match the WARNING text, not the word "empty" -- this file discusses empty
