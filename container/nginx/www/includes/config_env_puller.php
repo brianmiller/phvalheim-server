@@ -42,6 +42,9 @@ $migrationNoticeShown = (int)($_settingsRow['migrationNoticeShown'] ?? 0);
 # that never ran the 2.40 migration cannot be told its ids were converted.
 $accessIdNoticeShown = (int)($_settingsRow['accessIdNoticeShown'] ?? 1);
 $accessSwitchNoticeShown = (int)($_settingsRow['accessSwitchNoticeShown'] ?? 1);
+# Version whose release notes were last dismissed. '' = never shown. Compared against
+# $phvalheimVersion to decide whether the one-shot "What's New" modal appears.
+$whatsNewShownVersion = (string)($_settingsRow['whatsNewShownVersion'] ?? '');
 $timezone = $_settingsRow['timezone'] ?? 'Etc/UTC';
 date_default_timezone_set($timezone);
 

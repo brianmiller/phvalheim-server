@@ -1,5 +1,53 @@
 # Changelog
 
+## v2.42
+
+### "What's New" modal after every upgrade
+The admin UI now shows a one-shot modal listing what changed, the first time it is opened
+after an upgrade. Dismissing it records the running version; it stays gone until the next
+upgrade. Skipping a release does not skip its notes — upgrading 2.42 → 2.44 shows both.
+
+Fresh installs do not see it (there is no "before" to describe), and it queues behind the
+setup wizard and the settings-migration notice rather than stacking on them.
+
+Release notes live in `container/nginx/www/includes/whatsnew.php`, one entry per version.
+**Every release must add one**: `dev_tools/check-whatsnew.sh` fails if the version in the
+Dockerfile has no entry, because a missing entry is invisible at runtime — the modal just
+silently shows nothing.
+
+The stored state is a version string rather than a "shown" boolean deliberately. Every
+script in `dbUpdates/` runs on every boot, so a boolean would need re-arming each upgrade
+and an unconditional `UPDATE` would re-raise the modal after every restart. Comparing
+stored version against running version is self-arming and needs no migration for 2.43+.
+
+### Automatic backups stayed disabled on Unraid despite a dedicated backup volume
+The admin UI reported `✓ dedicated volume` and manual backups worked, but `backups.log`
+repeated every scheduled run:
+
+```
+[WARN : phvalheim] Backup path (/opt/stateful/backups) is on the same volume as
+/opt/stateful — no dedicated backup volume mounted. Automatic backups disabled.
+```
+
+The UI and the scheduler were asking two different questions. `isBackupPathMounted()`
+(admin UI) asks the **mount table** — is `/opt/stateful/backups` a mount point? The
+scheduler in `worldBackup` instead compared **device identity**, the source column of
+`df` for the backup path and for `/opt/stateful`.
+
+Device identity cannot see a bind mount. On Unraid every `/mnt/user/<share>` is served by
+one FUSE mount, so `df` reports the source as the literal string `shfs` for *all* of them
+while each share still reports its own size. A user mapping `/mnt/user/appdata/...` to
+`/opt/stateful` and an 11T `/mnt/user/backups/...` to `/opt/stateful/backups` got
+`shfs == shfs` — read as "same volume", so automatic backups disabled themselves at every
+run while the UI correctly showed two volumes of different sizes. This affected every
+Unraid install using the standard `/mnt/user` share layout.
+
+Both callers now use one shared oracle that reads the mount table (`mountpoint`, falling
+back to `/proc/self/mountinfo`), so the admin UI and the backup scheduler can no longer
+reach opposite verdicts. Covered by `dev_tools/test-backup-volume-detection.sh`, which
+reproduces the failing condition with a real bind mount whose `df` source is identical to
+its parent's.
+
 ## v2.41 — Crossplay join codes, access-list safety, world card rework
 
 ### Analytics push no longer fails on larger servers

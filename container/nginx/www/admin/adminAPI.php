@@ -375,6 +375,14 @@ switch($action) {
         }
         break;
 
+    case 'dismissWhatsNew':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            dismissWhatsNewJson($pdo, $phvalheimVersion);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
     case 'dismissAccessIdNotice':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dismissAccessIdNoticeJson($pdo);
@@ -2339,6 +2347,29 @@ function saveServerSettingsJson_internal($pdo, $input) {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
     }
+}
+
+/**
+ * Dismiss the one-shot "What's New" modal.
+ *
+ * Records the RUNNING version as seen, so the modal stays gone until the next upgrade
+ * changes what it is compared against. Refuses an empty version rather than writing '',
+ * which would mean "never shown" and re-raise the modal on every page load.
+ */
+function dismissWhatsNewJson($pdo, $currentVersion) {
+    $currentVersion = trim((string)$currentVersion);
+    if ($currentVersion === '') {
+        echo json_encode(['success' => false, 'error' => 'Running version unknown']);
+        return;
+    }
+
+    $stmt = $pdo->prepare("UPDATE settings SET whatsNewShownVersion = ?");
+    $result = $stmt->execute([$currentVersion]);
+
+    echo json_encode([
+        'success' => $result ? true : false,
+        'message' => $result ? "Release notes for v$currentVersion dismissed" : 'Failed to dismiss release notes'
+    ]);
 }
 
 /**

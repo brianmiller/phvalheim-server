@@ -3,6 +3,8 @@ include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
 include '../includes/db_gets.php';
+# Absolute + require_once: a relative include would redeclare its functions fatally.
+require_once '/opt/stateless/nginx/www/includes/whatsnew.php';
 
 // Redirect to setup wizard if fresh install (but not for upgrades)
 if ($setupComplete === 0) {
@@ -1041,6 +1043,45 @@ $totalCount = count($worlds);
 
                 <div style="text-align: center;">
                     <button class="action-btn success" onclick="dismissMigrationNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- What's New Dialog (one shot, after every upgrade) -->
+    <?php
+    // Gated on setupComplete == 2 so it queues BEHIND the setup wizard and the migration
+    // notice rather than stacking on top of them -- dismissing those is what sets 2.
+    $whatsNew = ($setupComplete == 2)
+        ? whatsNewSince($whatsNewShownVersion, $phvalheimVersion)
+        : [];
+    ?>
+    <?php if (!empty($whatsNew)): ?>
+    <div class="mods-modal-overlay show" id="whatsNewOverlay">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 560px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    What's New in v<?php echo htmlspecialchars($phvalheimVersion); ?>
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <?php foreach ($whatsNew as $version => $items): ?>
+                <?php if (count($whatsNew) > 1): ?>
+                <h6 style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">v<?php echo htmlspecialchars($version); ?></h6>
+                <?php endif; ?>
+                <ul style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.25rem; padding-left: 1.1rem;">
+                    <?php foreach ($items as $item): ?>
+                    <li style="margin-bottom: 0.5rem;"><?php echo $item; ?></li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php endforeach; ?>
+
+                <div style="text-align: center;">
+                    <button class="action-btn success" onclick="dismissWhatsNew()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
                 </div>
             </div>
         </div>
@@ -3876,6 +3917,17 @@ $totalCount = count($worlds);
             await fetch('adminAPI.php?action=dismissMigrationNotice', { method: 'POST' });
             document.getElementById('migrationNoticeOverlay').classList.remove('show');
         } catch(e) { console.error('Failed to dismiss notice:', e); }
+    }
+
+    // Only closes the modal once the server has recorded the dismissal -- closing first
+    // would look dismissed but reappear on the next page load.
+    async function dismissWhatsNew() {
+        try {
+            const res = await fetch('adminAPI.php?action=dismissWhatsNew', { method: 'POST' });
+            const data = await res.json();
+            if (!data.success) { console.error('Failed to dismiss release notes:', data.error); return; }
+            document.getElementById('whatsNewOverlay').classList.remove('show');
+        } catch(e) { console.error('Failed to dismiss release notes:', e); }
     }
 
     // ===== Server Settings Modal =====

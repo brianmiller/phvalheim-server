@@ -922,10 +922,27 @@ function getTotalBackupSize($pdo) {
 }
 
 function isBackupPathMounted() {
-        // Check if /opt/stateful/backups is a separate mount point (bind mount or distinct volume)
+        // Is /opt/stateful/backups a separate mount point (bind mount or distinct volume)?
+        //
+        // Ask the mount table, never device identity: on Unraid every /mnt/user share
+        // is the same FUSE 'shfs' device, so comparing devices marks a properly
+        // mounted backup volume as shared.
+        //
+        // Must agree with isBackupPathMounted() in engine/includes/phvalheim-static.conf —
+        // the admin UI and the backup scheduler have to reach the same verdict.
+        $out = [];
         $ret = 0;
         exec("mountpoint -q /opt/stateful/backups 2>/dev/null", $out, $ret);
-        return $ret === 0;
+        if ($ret === 0) return true;
+
+        // mountpoint missing (exit 127) — read the mount table directly
+        if ($ret === 127) {
+            foreach (@file('/proc/self/mountinfo', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+                $f = explode(' ', $line);
+                if (isset($f[4]) && $f[4] === '/opt/stateful/backups') return true;
+            }
+        }
+        return false;
 }
 
 function getBackupDiskInfo() {

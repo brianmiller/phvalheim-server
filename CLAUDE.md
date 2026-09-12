@@ -77,6 +77,14 @@ docker create --name phvalheim \
 ./saveGit.sh             # Git operations
 ```
 
+## Releasing
+
+Every release must add an entry to `container/nginx/www/includes/whatsnew.php` describing
+its new features and bug fixes — that file feeds the admin UI's one-shot "What's New"
+modal, which is how operators find out anything changed. Run `dev_tools/check-whatsnew.sh`
+before building; it fails when the Dockerfile version has no entry. A missing entry is
+invisible at runtime (the modal shows nothing), so the gate is the only thing that catches it.
+
 ## Database Schema Updates
 
 To add a database field, create `/container/engine/dbUpdates/dbUpdate_X.X.sh` and update the version in the Dockerfile. The engine runs `dbUpdater.sh` on startup which applies pending migrations.

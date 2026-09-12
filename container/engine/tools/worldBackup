@@ -330,11 +330,9 @@ fi
 
 # --- Scheduled backup mode ---
 
-# check if backup path has a dedicated mount (different device than /opt/stateful)
-backupDevice=$(df "$backupDir" 2>/dev/null | tail -1 | tr -s ' ' | cut -d' ' -f1)
-statefulDevice=$(df /opt/stateful 2>/dev/null | tail -1 | tr -s ' ' | cut -d' ' -f1)
-if [ "$backupDevice" = "$statefulDevice" ]; then
-	echo "`date` [WARN : phvalheim] Backup path ($backupDir) is on the same volume as /opt/stateful — no dedicated backup volume mounted. Automatic backups disabled."
+# automatic backups require a dedicated backup volume (same check the admin UI reports)
+if ! isBackupPathMounted "$backupDir"; then
+	echo "`date` [WARN : phvalheim] Backup path ($backupDir) is not a separate mount — no dedicated backup volume mounted. Automatic backups disabled."
 	SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
 	exit 0
 fi
