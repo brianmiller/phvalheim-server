@@ -392,7 +392,10 @@ function downloadAndInstallTsModsForWorld() {
                 mkdir /tmp/BepInEx_tmp
                 unzip -o $tsModsDir/$modFileConstructed BepInExPack_Valheim/* -d /tmp/BepInEx_tmp/ > /dev/null 2>&1
                 RESULT=$?
-                if [ $RESULT = 0 ]; then
+                #-le 1 for the same reason as the plugin unzip below: 1 means "extracted, with
+                #warnings". A backslash-packed BepInEx pack returned 1 and this silently skipped
+                #copying the loader into the world.
+                if [ $RESULT -le 1 ]; then
                         cp -prfv /tmp/BepInEx_tmp/BepInExPack_Valheim/* $worldsDirectoryRoot/$worldName/game/. > /dev/null 2>&1
                         rm -rf /tmp/BepInEx_tmp
                 fi
@@ -419,7 +422,21 @@ function downloadAndInstallTsModsForWorld() {
                 #11 is "no matching files" and is CORRECT here -- the BepInEx pack contains only
                 #BepInExPack_Valheim/*, which this command excludes, so it legitimately extracts
                 #nothing. Treating 11 as failure would mark every modded world broken.
-                if [ $unzipResult -ne 0 ] && [ $unzipResult -ne 11 ]; then
+                #
+                #1 is ALSO a success code: "one or more warning errors, but processing completed
+                #successfully anyway". A mod zipped on Windows stores its entries with backslash
+                #separators (PONEIS/SmartContainers does: `plugins\SmartContainers.dll`); unzip
+                #extracts them correctly, warns, and returns 1.
+                #
+                #Treating that as fatal did far more than print a wrong log line. It incremented
+                #modInstallFailures, so downloadAndInstallTsModsForWorld returned 1, so the engine
+                #skipped BOTH packageClient and generateModViewerJson and stopped the world. The
+                #operator's mod-list edit was saved to world_mods but never reached the client
+                #payload or the mod viewer -- which reads as "changing my mod list does nothing".
+                #One cosmetic warning from one mod froze the whole world's mod list.
+                #
+                #So: fail only on 2..10 and 12+, which are real format/IO errors.
+                if [ $unzipResult -gt 1 ] && [ $unzipResult -ne 11 ]; then
                         echo "`date` [ERROR : phvalheim]   #### PLUGIN INSTALL FAILED for $modName (unzip exit $unzipResult) -- it will be MISSING from '$worldName' ####"
                         modInstallFailures=$((modInstallFailures+1))
                 fi
@@ -798,7 +815,17 @@ function syncWorldSeedFromSave () {
 
 #$1=world. Used to generate the mod viewer dropdown in the admin ui
 function generateModViewerJson () {
-        echo "`date` [NOTICE : phvalheim] Generating mod viewer json payload..."
+        #Takes the world as $1 like every other function here. It previously read a LEAKED
+        #global $worldName set by whatever ran before it -- which happened to be the right
+        #world only because the main loop and the preceding calls all assign that same
+        #global. One reordering, or one call from anywhere else, and it would write one
+        #world's mod list onto another.
+        worldName="$1"
+        if [ -z "$worldName" ]; then
+                echo "`date` [ERROR : phvalheim] generateModViewerJson called with no world; refusing to guess."
+                return 1
+        fi
+        echo "`date` [NOTICE : phvalheim] Generating mod viewer json payload for '$worldName'..."
 
         #Was hand-assembled JSON built with two `mysql` processes PER MOD and a regex to
         #strip the trailing comma, which also meant a mod name containing a quote produced

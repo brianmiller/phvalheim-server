@@ -90,12 +90,37 @@ function catalogStats($pdo)
  * that something they already depend on has been deprecated, and hiding it would make a
  * previously-working selection look like it had vanished.
  */
+/**
+ * SQL fragment matching the BepInEx mod loader, which is NOT a mod the operator picks.
+ *
+ * Every modded world gets the loader from InstallAndUpdateBepInEx() at engine start --
+ * unconditionally, latest, straight from Thunderstore's experimental API, before any mod is
+ * installed. Selecting it, deselecting it, or pinning a version has never had any effect.
+ *
+ * But the catalogue carries three rows for it (BepInEx/BepInExPack_Valheim 5.4.801,
+ * denikson/BepInExPack_Valheim on Thunderstore, and the same on Hexium), and every mod
+ * declares a dependency on one of them. So the picker showed the loader three times, and any
+ * Hexium mod's dependency resolved to Hexium's copy and hung a yellow
+ * "dependency (deselected)" badge on it -- which reads as "something required is missing"
+ * when nothing is. That is what confused operators in 2.43.
+ *
+ * Excluded everywhere rather than styled differently: a read-only row still invites "why
+ * can't I pin this?", and the honest answer is that pinning it does nothing.
+ *
+ * Matched on NAME only, not owner: all three rows share the name and a fourth republish
+ * under yet another owner would otherwise reappear in the picker.
+ */
+function loaderExclusionSql($alias = 'm')
+{
+    return "$alias.name NOT LIKE 'BepInExPack%'";
+}
+
 function catalogMods($pdo, $sources = null)
 {
-    $where = '';
+    $where = 'WHERE ' . loaderExclusionSql('m');
     $params = [];
     if ($sources) {
-        $where = "WHERE m.source IN (" . implode(',', array_fill(0, count($sources), '?')) . ")";
+        $where .= " AND m.source IN (" . implode(',', array_fill(0, count($sources), '?')) . ")";
         $params = array_values($sources);
     }
 
@@ -141,12 +166,17 @@ function catalogMods($pdo, $sources = null)
  */
 function catalogDeps($pdo)
 {
+    // Loader edges are dropped too, not just the loader rows. Leaving them in would have the
+    // picker computing neededDeps for an id it never received, so the dependency counts and
+    // tooltips would describe a mod the operator cannot see.
     $sth = $pdo->query(
         "SELECT v.mod_id, d.dep_mod_id
            FROM mod_deps d
            JOIN mod_versions v ON v.id = d.version_id
+           JOIN mods dm ON dm.id = d.dep_mod_id
           WHERE d.dep_mod_id IS NOT NULL
-            AND v.source_rank = 0"
+            AND v.source_rank = 0
+            AND " . loaderExclusionSql('dm')
     );
     $deps = [];
     foreach ($sth as $r) {
@@ -314,6 +344,17 @@ function saveWorldModSelection($pdo, $world, $mods)
         foreach (array_diff($ids, $real) as $gone) {
             $rejected[] = "mod id $gone is not in the catalogue";
             unset($wanted[$gone]);
+        }
+
+        // The loader is never a selection. catalogMods() no longer offers it, but a browser
+        // tab opened before the upgrade still holds the old list and would post it back --
+        // silently re-creating exactly the row this release removes. Dropped without a
+        // warning: the operator did not meaningfully choose it, so there is nothing to report.
+        $sth = $pdo->prepare(
+            "SELECT id FROM mods WHERE id IN ($in) AND NOT (" . loaderExclusionSql('mods') . ")");
+        $sth->execute($ids);
+        foreach ($sth->fetchAll(PDO::FETCH_COLUMN) as $loaderId) {
+            unset($wanted[(int)$loaderId]);
         }
     }
 

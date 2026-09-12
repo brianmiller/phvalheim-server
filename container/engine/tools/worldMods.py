@@ -64,6 +64,21 @@ def chosen(wid):
 SOURCE_ORDER = {"thunderstore": 0, "hexium": 1}
 
 
+def is_loader(name):
+    """The BepInEx mod loader, which a world never installs as a mod.
+
+    InstallAndUpdateBepInEx() puts the loader in place at engine start, unconditionally and
+    always latest, before downloadAndInstallTsModsForWorld runs. So a loader row in a world's
+    closure downloads and unzips a second copy of something already installed -- and every mod
+    in the catalogue depends on one, which is how it got there.
+
+    Kept out of the closure rather than filtered later, so world_mods, the install plan and
+    the mod viewer all agree that it is not part of the selection. Mirrors
+    loaderExclusionSql() in includes/modcatalog.php -- change both together.
+    """
+    return str(name or "").lower().startswith("bepinexpack")
+
+
 def version_key(version):
     """Sortable key for a version string; a prerelease ranks below its own release.
 
@@ -190,6 +205,18 @@ def resolve(name, quiet=False):
     # unzip into game/BepInEx, so installing both is wasted work whose surviving version
     # depends on unzip order, and the mod viewer lists the plugin twice.
     meta = mod_meta(set(picks) | deps)
+
+    # The loader is provided by the engine, not by the selection. Dropped here, before the
+    # duplicate-plugin collapse, so it never becomes an is_dep row -- otherwise every world
+    # carries one and the picker hangs a "dependency (deselected)" badge on a row the
+    # operator cannot act on.
+    loader_deps = {d for d in deps if d in meta and is_loader(meta[d][2])}
+    if loader_deps and not quiet:
+        for d in sorted(loader_deps):
+            print(f"[worldmods] '{name}': {meta[d][0]}/{meta[d][1]}/{meta[d][2]} is the mod "
+                  f"loader; installed by the engine, not added as a dependency")
+    deps -= loader_deps
+
     picked_plugins = {meta[m][1:] for m in picks if m in meta}
     collapsed = set()
     for key, group in by_plugin(wid, deps, meta).items():
@@ -239,6 +266,11 @@ def install_rows(wid, warn=None):
             f"       COALESCE(m.package_url,'') "
             f"FROM world_mods wm JOIN mods m ON m.id = wm.mod_id "
             f"WHERE wm.world_id={wid};"):
+        # Loader rows are skipped rather than installed. resolve() already keeps them out of
+        # the closure, but a world migrated from 2.43 or earlier may still carry one, and
+        # installing it would unzip a second loader over the one the engine just placed.
+        if is_loader(mname):
+            continue
         all_rows[mod_id] = (is_dep, source, owner, mname, page)
 
     meta = {mid: (r[1], r[2], r[3]) for mid, r in all_rows.items()}

@@ -11,6 +11,11 @@
  */
 function whatsNewNotes() {
     return [
+        '2.44' => [
+            'Fixed: a single mod could freeze a whole world\'s mod list. Mods packaged on Windows store their files with backslash separators &mdash; <code>SmartContainers</code> is one &mdash; and <code>unzip</code> extracts them correctly but emits a warning. That warning was being read as an install failure, which stopped the world, <b>left the client download and the mod list frozen at their previous contents</b>, and logged that the mod was missing when it was installed fine. If editing your mod list appeared to do nothing, this was why.',
+            'Fixed: the <b>BepInEx mod loader no longer appears in the mod list</b>. It was listed up to three times &mdash; once per catalogue that publishes it &mdash; and one copy carried a yellow "dependency (deselected)" badge suggesting something required was missing. Nothing was: the loader is installed automatically on every modded world, always at the latest version, whatever you select. Selecting or pinning it never had any effect, so it is no longer offered. Existing worlds have the stray entry removed on first start.',
+            'Fixed: the engine log no longer fills with <code>UDP_PORT_25000-25100: command not found</code>. Port variables named after a range are not valid shell identifiers, and one was being logged every two seconds &mdash; tens of thousands of lines a day in the log you send us when something is genuinely wrong.',
+        ],
         '2.43' => [
             'New: mods can now come from <b>Hexium</b> as well as Thunderstore, and a world may use both at once. Search results carry a coloured pill showing which catalogue each mod came from &mdash; Thunderstore blue, Hexium purple &mdash; and the buttons above the mod list let you show or hide a catalogue.',
             'New: you can <b>pin a mod to any previously published version</b> instead of always tracking the latest. Select a mod, then pick a version from the dropdown in its row; "Latest (auto)" keeps following new releases. Pinned versions are kept even if the source stops listing them.',

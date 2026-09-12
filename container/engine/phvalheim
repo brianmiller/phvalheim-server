@@ -105,7 +105,14 @@ TZ_OFFSET=$(date +%:z)
 SQL "SET GLOBAL time_zone = '$TZ_OFFSET'"
 
 # set environment
-/usr/bin/printenv |grep -v "HOME="|grep -v "PWD=" > /etc/environment
+#Filtered to VALID SHELL IDENTIFIERS. /etc/environment is sourced by the main loop below
+#(every 2 seconds) and by bash.bashrc, so any line bash cannot parse as an assignment is
+#run as a command instead. Unraid templates name port variables after the range they map
+#-- UDP_PORT_25000-25100=25000-25100 -- and a hyphen is not legal in an identifier, so
+#every tick logged "UDP_PORT_25000-25100=25000-25100: command not found". That is ~30
+#lines a minute forever, in the log operators send us when something is actually wrong.
+#Nothing needed those variables; they were only ever collateral from dumping printenv.
+/usr/bin/printenv | grep -E '^[A-Za-z_][A-Za-z0-9_]*=' | grep -v "^HOME=" | grep -v "^PWD=" > /etc/environment
 cat /etc/bash.bashrc|grep "source /etc/environment" > /dev/null 2>&1
 if [ ! $? = 0 ]; then
         echo "source /etc/environment" >> /etc/bash.bashrc

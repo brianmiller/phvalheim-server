@@ -458,6 +458,28 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # only in capitalisation, silently dropping a mod the operator legitimately chose.
   fx=$(grep -c "strtolower" /opt/stateless/nginx/www/includes/modcatalog.php)
   echo "2.43 dup-plugin save guard=$fu msg=$fv rank=$fw (want >0)  strtolower=$fx (want 0)"
+
+  # ---- 2.44 ----
+  # unzip exit 1 is a SUCCESS code. NEGATIVE markers: the old fatal tests must be gone, or a
+  # backslash-packed mod still freezes the world.
+  ga=$(grep -c "unzipResult -gt 1" /opt/stateless/engine/includes/0-functions.sh)
+  gb=$(grep -c "unzipResult -ne 0" /opt/stateless/engine/includes/0-functions.sh)
+  gc=$(grep -c "RESULT -le 1" /opt/stateless/engine/includes/0-functions.sh)
+  gd=$(grep -c "RESULT = 0" /opt/stateless/engine/includes/0-functions.sh)
+  # the loader is not a mod
+  ge=$(grep -c "function loaderExclusionSql" /opt/stateless/nginx/www/includes/modcatalog.php)
+  gf=$(grep -c "def is_loader" /opt/stateless/engine/tools/worldMods.py)
+  gg=$(ls /opt/stateless/engine/dbUpdates/dbUpdate_2.44.sh 2>/dev/null | wc -l)
+  # generateModViewerJson must take its world as an argument, not a leaked global
+  gh=$(grep -c "refusing to guess" /opt/stateless/engine/includes/0-functions.sh)
+  # printenv filtered to valid shell identifiers
+  gi=$(grep -c "A-Za-z_" /opt/stateless/engine/phvalheim)
+  gj=$(echo "$phvalheimVersion")
+  echo "2.44 unzip guard fixed=$ga (want 1)  old fatal test gone=$gb (want 0)"
+  echo "2.44 bepinex guard fixed=$gc (want 1)  old test gone=$gd (want 0)"
+  echo "2.44 loader excl php=$ge py=$gf migration=$gg (want 1/1/1)"
+  echo "2.44 viewer arg guard=$gh (want 1)  printenv filter=$gi (want >0)"
+  echo "2.44 image version=$gj (want 2.44)"
   echo "2.43 log api=$ey lib=$ez pane=$fa css=$fb follows-new-run=$fc (want >0 each)"
 
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
@@ -508,6 +530,9 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$fp" = "1" ] && [ "$fq" = "1" ] && [ "$fr" = "0" ] && [ "$fs" = "0" ] \
     && [ "$ft" -gt 0 ] \
     && [ "$fu" -gt 0 ] && [ "$fv" -gt 0 ] && [ "$fw" -gt 0 ] && [ "$fx" = "0" ] \
+    && [ "$ga" = "1" ] && [ "$gb" = "0" ] && [ "$gc" = "1" ] && [ "$gd" = "0" ] \
+    && [ "$ge" = "1" ] && [ "$gf" = "1" ] && [ "$gg" = "1" ] \
+    && [ "$gh" = "1" ] && [ "$gi" -gt 0 ] && [ "$gj" = "2.44" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

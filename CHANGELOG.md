@@ -1,5 +1,43 @@
 # Changelog
 
+## v2.44
+
+### One mod could freeze a world's entire mod list (issue #82)
+`unzip` exit code **1 means "extracted, with warnings"** — not failure. A mod packaged on
+Windows stores its entries with backslash separators (`PONEIS/SmartContainers` ships
+`plugins\SmartContainers.dll`); unzip converts them, warns, and returns 1.
+
+`0-functions.sh:422` treated that as fatal, which did far more than log a wrong line:
+`modInstallFailures` incremented → `downloadAndInstallTsModsForWorld` returned 1 →
+`phvalheim:403` skipped **both** `packageClient` and `generateModViewerJson` and set the world
+`stopped`/`failed`. So the operator's mod-list edit was saved to `world_mods` but never reached
+the client payload or the mod viewer — which reads as "changing my mod list does nothing".
+
+Now fails only on 2–10 and 12+, the real format and I/O errors; 11 ("nothing matched") stays
+exempt. The same flaw in the BepInEx check at line 395 is fixed too — a backslash-packed loader
+pack would have silently skipped installing the loader.
+
+### The mod loader is no longer a mod
+`InstallAndUpdateBepInEx()` installs BepInEx on every modded world at engine start,
+unconditionally and always latest, before any mod. Selecting it, deselecting it or pinning a
+version never had any effect.
+
+But the catalogue carries three loader rows and every mod declares a dependency on one, so
+2.43's resolution added a loader row to every modded world — and because Hexium mods resolve to
+Hexium's copy, the picker hung a yellow "dependency (deselected)" badge on a row nobody could
+act on. The loader is now excluded from the catalogue, the dependency graph, the closure, the
+install plan and the viewer; `dbUpdate_2.44.sh` clears the rows already written and names the
+worlds it changed.
+
+### Fixed
+- The engine log no longer fills with `UDP_PORT_25000-25100: command not found`. `/etc/environment`
+  is sourced by the main loop every two seconds, and Unraid templates name port variables after
+  the range they map — a hyphen is not a legal shell identifier, so each tick logged a command-not-found.
+  `printenv` is now filtered to valid identifiers.
+- `generateModViewerJson` took its world from a leaked global instead of `$1`. Correct only
+  because the main loop happened to assign that same global first; one reordering would have
+  written one world's mod list onto another.
+
 ## v2.43
 
 ### Mods can come from Hexium as well as Thunderstore
