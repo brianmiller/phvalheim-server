@@ -4,7 +4,7 @@ if [ ! "$1" ]; then
 	echo "ERROR: SQL statement missing."
 	echo " Example: sql worlds"
 	echo " Example: sql systemstats"
-	echo " Example: sql tsmods"
+	echo " Example: sql mods"
 	echo " Example: sql \"SELECT * FROM worlds;\""
 	exit 1
 fi
@@ -19,7 +19,11 @@ if [ "$1" = "worlds" ]; then
 elif [ "$1" = "systemstats" ]; then
         /usr/bin/mysql --database=phvalheim -e "SELECT * FROM systemstats;"
 elif [ "$1" = "mods" ]; then
-	/usr/bin/mysql --database=phvalheim -e "SELECT * FROM tsmods;"
+	# The catalogue is 11k+ mods across two sources, so show the summary rather than
+	# dumping every row the way the old `SELECT * FROM tsmods` did.
+	/usr/bin/mysql --database=phvalheim -e "SELECT source, COUNT(DISTINCT id) AS mods, MAX(last_seen) AS last_seen FROM mods GROUP BY source;"
+elif [ "$1" = "modsync" ]; then
+	/usr/bin/mysql --database=phvalheim -e "SELECT id,source,status,phase,pkgs_seen,vers_seen,mods_added,vers_added,duration_ms,started FROM mod_sync_runs ORDER BY id DESC LIMIT 10;"
 else
 	/usr/bin/mysql --skip-column-names --database=phvalheim -e "$1"
 fi

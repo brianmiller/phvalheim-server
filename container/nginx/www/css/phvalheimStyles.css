@@ -5413,3 +5413,399 @@ body input[type="checkbox"]:not(.form-check-input):checked::after,
 	letter-spacing: 0.08em;
 	font-size: 1.05rem;
 }
+
+/* ==========================================================================
+   2.43 -- multi-source mod catalogue: source pills, filter bar, version pins
+   ========================================================================== */
+
+/* The pill colour IS the source marker, so the two are fixed and deliberately
+   far apart in hue: Thunderstore blue, Hexium purple. Anything that renders a
+   mod row must use these, or the pill stops meaning anything. */
+.src-pill {
+	display: inline-block;
+	padding: 0.1rem 0.45rem;
+	border-radius: 10px;
+	font-size: 0.68rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	vertical-align: middle;
+	white-space: nowrap;
+	border: 1px solid transparent;
+}
+.src-pill.src-ts {
+	background: rgba(56, 189, 248, 0.16);
+	color: var(--info);
+	border-color: rgba(56, 189, 248, 0.45);
+}
+.src-pill.src-hex {
+	background: rgba(167, 139, 250, 0.16);
+	color: var(--accent-secondary);
+	border-color: rgba(167, 139, 250, 0.45);
+}
+
+/* Catalogue filter bar, directly under the Selected/All tabs. */
+.mod-source-filter {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	padding: 0.6rem 0.25rem 0.5rem;
+	border-bottom: 1px solid var(--border-light);
+	margin-bottom: 0.5rem;
+}
+.mod-source-filter .msf-label {
+	font-size: 0.78rem;
+	color: var(--text-secondary);
+	font-weight: 600;
+}
+.mod-source-filter .msf-btn {
+	background: transparent;
+	border: 1px solid var(--border-color);
+	color: var(--text-muted);
+	border-radius: 12px;
+	padding: 0.15rem 0.6rem;
+	font-size: 0.72rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	/* base.css-style global button min-heights have bitten this project before, so the
+	   height is pinned here rather than left to inherit something taller. */
+	min-height: 0;
+	line-height: 1.5;
+	cursor: pointer;
+	transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.mod-source-filter .msf-btn:hover {
+	color: var(--text-primary);
+	border-color: var(--text-muted);
+}
+/* An inactive catalogue button is visibly OFF rather than merely a different shade --
+   a filter you cannot tell is applied is how an operator concludes mods have vanished. */
+.mod-source-filter .msf-btn.active.src-ts {
+	background: rgba(56, 189, 248, 0.18);
+	color: var(--info);
+	border-color: var(--info);
+}
+.mod-source-filter .msf-btn.active.src-hex {
+	background: rgba(167, 139, 250, 0.18);
+	color: var(--accent-secondary);
+	border-color: var(--accent-secondary);
+}
+.mod-source-filter .msf-btn:not(.active) {
+	opacity: 0.5;
+	text-decoration: line-through;
+}
+.mod-source-filter .msf-count {
+	font-weight: 400;
+	opacity: 0.75;
+}
+.mod-source-filter .msf-hint {
+	font-size: 0.72rem;
+	color: var(--text-muted);
+	margin-left: auto;
+}
+
+/* Version selector in the mod table. */
+select.mod-version {
+	background: var(--bg-input);
+	color: var(--text-primary);
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	font-size: 0.76rem;
+	padding: 0.1rem 1.4rem 0.1rem 0.4rem;
+	min-height: 0;
+	height: auto;
+	max-width: 150px;
+}
+select.mod-version:focus {
+	border-color: var(--accent-primary);
+	box-shadow: none;
+}
+/* A pinned mod is frozen on a version while everything around it tracks latest, so the
+   cell says so without needing the dropdown opened. */
+select.mod-version.is-pinned {
+	border-color: var(--warning);
+	color: var(--warning);
+}
+.ver-plain {
+	font-size: 0.8rem;
+	color: var(--text-secondary);
+}
+
+/* --- 2.43 catalogue sync panel ------------------------------------------------- */
+.mod-sync-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	margin-bottom: 0.75rem;
+}
+.ms-src {
+	border: 1px solid var(--border-light);
+	border-radius: 5px;
+	padding: 0.55rem 0.7rem;
+	background: rgba(0, 0, 0, 0.15);
+}
+.ms-src-live { border-color: var(--accent-primary); }
+.ms-src-off  { opacity: 0.6; }
+.ms-head {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	flex-wrap: wrap;
+}
+.ms-state {
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+.ms-ok   { color: var(--success); }
+.ms-idle { color: var(--text-muted); }
+.ms-run  { color: var(--accent-primary); }
+.ms-err  { color: var(--danger); }
+.ms-warn { color: var(--warning); }
+.ms-trigger {
+	font-size: 0.66rem;
+	color: var(--text-muted);
+	text-transform: uppercase;
+}
+.ms-sync-one {
+	margin-left: auto;
+	font-size: 0.7rem;
+	color: var(--accent-primary);
+	text-decoration: none;
+	border: 1px solid var(--border-color);
+	border-radius: 10px;
+	padding: 0.05rem 0.5rem;
+}
+.ms-sync-one:hover {
+	color: var(--accent-hover);
+	border-color: var(--accent-primary);
+}
+.ms-totals {
+	font-size: 0.74rem;
+	color: var(--text-secondary);
+	margin-top: 0.25rem;
+}
+.ms-when, .ms-note, .ms-prev {
+	font-size: 0.68rem;
+	color: var(--text-muted);
+}
+.ms-note { margin-top: 0.3rem; line-height: 1.5; }
+.ms-prev { margin-left: 0.3rem; }
+
+/* Two columns: label then value. Monospaced values so the numbers line up between one
+   run and the next -- which is the point of showing the previous run alongside. */
+.ms-grid {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.1rem 0.6rem;
+	margin-top: 0.35rem;
+	font-size: 0.72rem;
+}
+.ms-grid span { color: var(--text-muted); }
+.ms-grid b {
+	color: var(--text-primary);
+	font-family: var(--font-mono, monospace);
+	font-weight: 500;
+}
+.ms-up   { color: var(--success); }
+.ms-down { color: var(--text-muted); }
+
+.ms-bar {
+	height: 4px;
+	background: var(--bg-tertiary);
+	border-radius: 2px;
+	overflow: hidden;
+	margin-top: 0.4rem;
+}
+.ms-bar-fill {
+	height: 100%;
+	background: var(--accent-primary);
+	transition: width 0.4s ease;
+}
+.ms-err-box {
+	margin-top: 0.35rem;
+	padding: 0.35rem 0.5rem;
+	background: rgba(248, 113, 113, 0.1);
+	border-left: 2px solid var(--danger);
+	border-radius: 3px;
+	font-size: 0.7rem;
+	color: var(--danger);
+	font-family: var(--font-mono, monospace);
+	word-break: break-word;
+	max-height: 6rem;
+	overflow-y: auto;
+}
+.ms-cache {
+	font-size: 0.72rem;
+	color: var(--text-secondary);
+	padding-top: 0.4rem;
+	border-top: 1px solid var(--border-light);
+}
+
+/* --- 2.43 per-catalogue live sync log ------------------------------------------- */
+.ms-log-wrap {
+	margin-top: 0.45rem;
+	border-top: 1px solid var(--border-light);
+	padding-top: 0.35rem;
+}
+.ms-log-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	flex-wrap: wrap;
+}
+.ms-log-toggle {
+	background: transparent;
+	border: none;
+	color: var(--text-secondary);
+	font-size: 0.7rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	padding: 0.1rem 0;
+	min-height: 0;
+	line-height: 1.4;
+	cursor: pointer;
+}
+.ms-log-toggle:hover { color: var(--text-primary); }
+.ms-log-caret { display: inline-block; width: 0.8em; }
+.ms-log-count { font-weight: 400; opacity: 0.7; text-transform: none; }
+.ms-log-detail {
+	font-size: 0.68rem;
+	color: var(--text-muted);
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	margin: 0;
+	cursor: pointer;
+}
+.ms-log-detail input { margin: 0; }
+
+/* A tail, so it scrolls rather than growing the card. max-height is in rem so it holds
+   roughly 16 lines whatever the base font size. */
+pre.ms-log {
+	margin: 0.35rem 0 0;
+	max-height: 16rem;
+	overflow-y: auto;
+	overflow-x: hidden;
+	background: rgba(0, 0, 0, 0.35);
+	border: 1px solid var(--border-light);
+	border-radius: 4px;
+	padding: 0.4rem 0.5rem;
+	font-family: var(--font-mono, monospace);
+	font-size: 0.68rem;
+	line-height: 1.55;
+	color: var(--text-secondary);
+	white-space: pre-wrap;
+	word-break: break-word;
+	scrollbar-width: thin;
+	scrollbar-color: var(--border-color) transparent;
+}
+/* NOTE: setting scrollbar-width above makes Chromium discard every ::-webkit-scrollbar
+   rule on this element, so do not add one expecting it to apply. The standard properties
+   are the ones doing the work here. */
+.msl { display: block; }
+.msl-t {
+	color: var(--text-muted);
+	margin-right: 0.5rem;
+	opacity: 0.8;
+}
+.msl-warn  { color: var(--warning); }
+.msl-error { color: var(--danger); }
+/* Per-mod lines are indented and dimmed: they are the bulk of a big sync, and at equal
+   weight they bury the phase lines that say whether it worked. */
+.msl-detail {
+	color: var(--text-muted);
+	padding-left: 0.6rem;
+}
+
+/* Phase timing bars. */
+.ms-timings {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem;
+	margin-top: 0.4rem;
+}
+.ms-timing {
+	position: relative;
+	font-size: 0.65rem;
+	color: var(--text-muted);
+	background: var(--bg-tertiary);
+	border-radius: 3px;
+	padding: 0.05rem 0.35rem;
+	overflow: hidden;
+	white-space: nowrap;
+}
+.ms-timing i {
+	position: absolute;
+	left: 0; top: 0; bottom: 0;
+	background: rgba(34, 211, 238, 0.22);
+	display: block;
+}
+
+/* ============================================================================
+   Mod picker checkboxes
+   ============================================================================
+   Scoped to .mod-checkbox deliberately. The global .form-check-input box is
+   17px, which is right for a settings form but heavy when it is repeated down
+   a dense table of 11,600+ mods -- the column reads as a wall of boxes. Only
+   the picker is changed here; the clone options and settings modals keep the
+   larger, easier target.
+
+   !important throughout because the global rules above use it, and the tick is
+   centred with translate(-50%,-50%) rather than hardcoded offsets so the box
+   size can change without re-deriving the checkmark geometry by hand. */
+.mod-checkbox[type="checkbox"] {
+	width: 14px !important;
+	height: 14px !important;
+	min-width: 14px !important;
+	min-height: 14px !important;
+	max-width: 14px !important;
+	max-height: 14px !important;
+	border-radius: 3px !important;
+	border: 1px solid var(--border-color, #475569) !important;
+	background-color: transparent !important;
+	vertical-align: -2px;
+	transition: background-color 0.12s ease, border-color 0.12s ease,
+	            box-shadow 0.12s ease;
+}
+.mod-checkbox[type="checkbox"]:hover {
+	border-color: var(--accent-primary) !important;
+	background-color: rgba(34, 211, 238, 0.08) !important;
+}
+.mod-checkbox[type="checkbox"]:checked {
+	background-color: var(--accent-primary) !important;
+	border-color: var(--accent-primary) !important;
+}
+.mod-checkbox[type="checkbox"]:focus-visible {
+	outline: 2px solid var(--accent-primary);
+	outline-offset: 1px;
+}
+/* Thinner stroke than the 17px box uses -- a 2px tick in a 14px box looks
+   blunt. Centred by transform, with the optical lift a checkmark needs. */
+.mod-checkbox[type="checkbox"]:checked::after {
+	content: "";
+	position: absolute;
+	left: 50% !important;
+	top: 45% !important;
+	width: 3px !important;
+	height: 6px !important;
+	border: solid var(--bg-primary, #0f172a) !important;
+	border-width: 0 1.5px 1.5px 0 !important;
+	transform: translate(-50%, -50%) rotate(45deg);
+}
+
+/* The cell was sized for the bigger box. Tightening it removes the gutter that
+   made the column look bulkier than the control itself. */
+#modtable-active td:first-child,
+#modtable-all td:first-child,
+#modtable-active th:first-child,
+#modtable-all th:first-child {
+	width: 34px;
+	padding-left: 10px;
+	padding-right: 0;
+	text-align: center;
+}

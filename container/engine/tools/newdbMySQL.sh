@@ -47,21 +47,12 @@ SQL "
 "
 
 
-SQL "
-        create table tsmods (\
-        id INTEGER PRIMARY KEY NOT NULL AUTO_INCREMENT,\
-        owner TEXT,\
-        name TEXT,\
-        url TEXT,\
-        created DATETIME,\
-        updated DATETIME,\
-	moduuid TEXT,\
-	versionuuid TEXT,\
-	version TEXT,\
-	deps TEXT,\
-	version_date_created DATETIME\
-        );
-"
+# The `tsmods` table is NOT created here any more.
+#
+# A fresh install has no Thunderstore-only history to migrate, and the mod catalogue lives in
+# `mods` / `mod_versions` / `mod_deps`, created by dbUpdates/dbUpdate_2.43.sh (which skips its
+# migration step when tsmods is absent). Creating an empty legacy table on a new install would
+# only invite something to read it.
 
 SQL "
 	CREATE USER 'phvalheim_user'@'localhost' IDENTIFIED BY 'phvalheim_secretpassword';
@@ -73,24 +64,18 @@ SQL "
 }
 
 
-function tsSeeder () {
-	echo "`date` [NOTICE : phvalheim] Downloading latest Thunderstore database seed from GitHub..."
-	/usr/bin/wget -q https://github.com/brianmiller/phvalheim-server/raw/master/container/mysql/tsmods_seed.sql -O /opt/stateful/.tsmods_update.sql
-	/usr/bin/chown phvalheim:phvalheim /opt/stateful/.tsmods_update.sql
-	downloadedSize=$(/usr/bin/stat -c %s /opt/stateful/.tsmods_update.sql)
-	if [ $downloadedSize -lt 30000 ]; then
-		echo "`date` [ERROR : phvalheim] Could not download remote database seed, using packaged seed..."
-		/usr/bin/mysql phvalheim < /etc/mysql/tsmods_seed.sql
-	else
-		/usr/bin/mysql phvalheim < /opt/stateful/.tsmods_update.sql
-	fi
-
-	/opt/stateless/engine/tools/sql "INSERT INTO systemstats SET tsUpdated=NOW();"
-}
+# tsSeeder() is gone. It downloaded a 14 MB tsmods_seed.sql dump from GitHub (falling back to
+# a copy baked into the image) because the old sync took hours and a fresh install could not
+# wait for it.
+#
+# It is not needed: a cold build of both catalogues from the live APIs takes about half a
+# minute. The engine fires that sync on first boot when the catalogue is empty -- see
+# pruneOrphanedWorldMods/seedModCatalogue in the engine entrypoint -- so a new install has
+# mods a few seconds after it comes up, and they are current rather than as old as the dump.
+#
+# This also removes a supply-chain surface: the seed was fetched over the network from a
+# GitHub raw URL and piped straight into `mysql` with no integrity check at all.
 
 
 echo "`date` [NOTICE : mysqld] Creating PhValheim database..."
 newDB
-
-echo "`date` [NOTICE : phvalheim] Seeding database with Thunderstore stuff..."
-tsSeeder

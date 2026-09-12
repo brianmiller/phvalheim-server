@@ -13,6 +13,9 @@ include '../includes/db_gets.php';
 # Owns the permittedlist/adminlist/bannedlist files. Absolute path to match db_sets.php's
 # include of bosses.php -- a relative include here would redeclare its functions fatally.
 require_once '/opt/stateless/nginx/www/includes/accesslists.php';
+# The 2.43 multi-source catalogue (mods / mod_versions / world_mods). Absolute +
+# require_once for the same reason as accesslists.php above.
+require_once '/opt/stateless/nginx/www/includes/modcatalog.php';
 
 header('Content-Type: application/json');
 
@@ -47,10 +50,6 @@ switch($action) {
         } else {
             echo json_encode(['error' => 'World name required']);
         }
-        break;
-
-    case 'stopTsSync':
-        stopTsSyncJson();
         break;
 
     case 'getWorldStats':
@@ -240,14 +239,54 @@ switch($action) {
             $cloneSource = $input['cloneSourceWorld'] ?? '';
             $cloneConfigs = isset($input['cloneConfigs']) ? (bool)$input['cloneConfigs'] : false;
             $clonePlugins = isset($input['clonePlugins']) ? (bool)$input['clonePlugins'] : false;
+            $modSources = isset($input['modSources']) && is_array($input['modSources'])
+                ? $input['modSources'] : null;
             if ($world) {
-                saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $clonePlugins);
+                saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs,
+                                  $clonePlugins, $modSources);
             } else {
                 echo json_encode(['error' => 'World name required']);
             }
         } else {
             echo json_encode(['error' => 'POST method required']);
         }
+        break;
+
+    case 'getModVersions':
+        $modId = (int)($_GET['modId'] ?? 0);
+        if ($modId > 0) {
+            getModVersionsJson($pdo, $modId);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'modId required']);
+        }
+        break;
+
+    case 'getModSyncLog':
+        $logSource = $_GET['source'] ?? '';
+        if (!array_key_exists($logSource, catalogSources($pdo))) {
+            echo json_encode(['success' => false, 'error' => 'unknown source']);
+            break;
+        }
+        echo json_encode(array_merge(
+            ['success' => true, 'source' => $logSource],
+            modSyncLog(
+                $pdo,
+                $logSource,
+                (int)($_GET['afterId'] ?? 0),
+                ($_GET['detail'] ?? '1') !== '0',
+                isset($_GET['runId']) && $_GET['runId'] !== '' ? (int)$_GET['runId'] : null
+            )
+        ));
+        break;
+
+    case 'getModSyncStatus':
+        echo json_encode([
+            'success' => true,
+            'sources' => array_values(catalogSources($pdo)),
+            'stats'   => catalogStats($pdo),
+            'runs'    => modSyncStatus($pdo),
+            'cache'   => modCacheStats()
+        ]);
         break;
 
     case 'createWorld':
@@ -291,8 +330,10 @@ switch($action) {
                 # Store the canonical form, matching what partitionSteamIds() stores.
                 $accessFirstId = $canonicalFirstId;
             }
+            $modSources = isset($input['modSources']) && is_array($input['modSources'])
+                ? $input['modSources'] : null;
             if ($world) {
-                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions, $accessOpen, $accessFirstId);
+                createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions, $accessOpen, $accessFirstId, $modSources);
             } else {
                 echo json_encode(['error' => 'World name required']);
             }
@@ -861,20 +902,16 @@ function getWorldSettingsJson($pdo, $world) {
 /**
  * Returns sync and maintenance status
  */
+/**
+ * Sync and maintenance status for the non-catalogue jobs.
+ *
+ * The `thunderstore` block is gone: it read systemstats columns the pre-2.43 bash sync
+ * wrote, which nothing updates any more, so it reported a frozen timestamp and a permanent
+ * "idle" forever. Catalogue state comes from `getModSyncStatus` (mod_sync_runs) instead.
+ */
 function getSyncStatusJson($pdo) {
     echo json_encode([
         'success' => true,
-        'thunderstore' => [
-            'lastSync' => getLastTsUpdated($pdo),
-            'localDiff' => [
-                'time' => getLastTsLocalDiffExecTime($pdo),
-                'status' => getLastTsSyncLocalExecStatus($pdo)
-            ],
-            'remoteDiff' => [
-                'time' => getLastTsRemoteDiffExecTime($pdo),
-                'status' => getLastTsSyncRemoteExecStatus($pdo)
-            ]
-        ],
         'worldBackup' => [
             'time' => getLastWorldBackupExecTime($pdo),
             'status' => getLastWorldBackupExecStatus($pdo)
@@ -890,30 +927,6 @@ function getSyncStatusJson($pdo) {
         'timestamp' => date('Y-m-d H:i:s')
     ]);
 }
-
-/**
- * Stop Thunderstore sync process
- */
-function stopTsSyncJson() {
-    global $pdo;
-
-    // Kill any running tsSyncLocalParseMultithreaded.sh processes
-    exec("pkill -f tsSyncLocalParseMultithreaded.sh 2>/dev/null");
-    exec("pkill -f tsSyncRemoteCheckMultithreaded.sh 2>/dev/null");
-
-    // Clean up orphan pid files
-    exec("rm -f /tmp/ts_*.pid 2>/dev/null");
-
-    // Reset database status to idle
-    $stmt = $pdo->prepare("UPDATE systemstats SET tsSyncLocalLastExecStatus='idle'");
-    $stmt->execute();
-
-    echo json_encode([
-        'success' => true,
-        'message' => 'Thunderstore sync stopped'
-    ]);
-}
-
 /**
  * Returns resource stats for each running world
  */
@@ -1470,28 +1483,50 @@ function getWorldFolderContentsJson($world) {
 /**
  * Returns all latest-version mods with resolved dependency UUIDs
  */
+/**
+ * The picker's catalogue: every mod from every enabled source, with its resolved
+ * dependencies and source marker.
+ *
+ * Mods are identified by `mods.id`, not by the source's uuid. Hexium mirrors Thunderstore
+ * packages carrying their original uuid4 -- 600 collide -- so a uuid cannot tell the two
+ * catalogues' copies apart, which is exactly the conflation the old `moduuid` key would
+ * have produced here.
+ */
 function getAllModsWithDepsJson($pdo) {
-    $allMods = getAllModsLatestVersion($pdo);
-    $ownerNameLookup = buildOwnerNameLookup($allMods);
+    $sources = catalogSources($pdo);
+    $enabled = array_keys(array_filter($sources, fn($s) => $s['enabled']));
 
-    $modList = [];
-    foreach ($allMods as $mod) {
-        $depUuids = resolveModDeps($mod['deps'] ?? '', $ownerNameLookup);
-        $modList[] = [
-            'moduuid' => $mod['moduuid'],
-            'name' => $mod['name'],
-            'owner' => $mod['owner'],
-            'url' => $mod['url'],
-            'version' => str_replace('"', '', $mod['version']),
-            'version_date_created' => $mod['version_date_created'],
-            'deps' => $depUuids
-        ];
+    $mods = catalogMods($pdo, $enabled ?: null);
+    $deps = catalogDeps($pdo);
+    $missing = catalogMissingDeps($pdo);
+
+    foreach ($mods as &$m) {
+        $m['deps'] = $deps[$m['id']] ?? [];
+        $m['missing_deps'] = $missing[$m['id']] ?? [];
     }
+    unset($m);
 
     echo json_encode([
         'success' => true,
-        'mods' => $modList,
-        'count' => count($modList)
+        'mods' => $mods,
+        'count' => count($mods),
+        'sources' => array_values($sources),
+        'stats' => catalogStats($pdo)
+    ]);
+}
+
+/** Every published version of one mod, for the version selector. */
+function getModVersionsJson($pdo, $modId) {
+    $versions = modVersions($pdo, $modId);
+    if (!$versions) {
+        echo json_encode(['success' => false, 'error' => 'no versions for that mod']);
+        return;
+    }
+    echo json_encode([
+        'success' => true,
+        'modId' => (int)$modId,
+        'versions' => $versions,
+        'count' => count($versions)
     ]);
 }
 
@@ -1499,37 +1534,43 @@ function getAllModsWithDepsJson($pdo) {
  * Returns the selected and dependency mod UUIDs for a world
  */
 function getWorldModSelectionJson($pdo, $world) {
-    $selected = getWorldSelectedMods($pdo, $world);
-    $deps = getWorldDepMods($pdo, $world);
+    $sel = worldModSelection($pdo, $world);
 
     echo json_encode([
         'success' => true,
         'world' => $world,
-        'selected' => $selected,
-        'deps' => $deps
+        'selected' => $sel['selected'],
+        'deps' => $sel['deps'],
+        // Empty means "every source the server has enabled" -- which is what every
+        // pre-2.43 world wants, so it stays the default rather than an empty filter that
+        // would show nothing.
+        'modSources' => $sel['sources'] === '' ? [] : explode(',', $sel['sources'])
     ]);
 }
 
 /**
  * Save mod selection for an existing world (edit)
  */
-function saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $clonePlugins) {
+function saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $clonePlugins,
+                          $modSources = null) {
     // Handle clone folder operations if requested
     if (!empty($cloneSource)) {
         handleCloneFolders($cloneSource, $world, $cloneConfigs, $clonePlugins);
     }
 
-    // Clear existing mods
-    deleteAllWorldMods($pdo, $world);
+    if (is_array($modSources)) {
+        saveWorldModSources($pdo, $world, $modSources);
+    }
 
-    // Add each selected mod
-    if (is_array($mods)) {
-        foreach ($mods as $mod) {
-            $mod = trim($mod);
-            if (!empty($mod)) {
-                addModToWorld($pdo, $world, $mod);
-            }
-        }
+    // Writes only the operator's own picks. The dependency rows are rebuilt by
+    // `worldMods.py --resolve` during the engine's update, because resolution must follow
+    // the version that will actually be installed -- the pin, where there is one -- and
+    // not whatever happens to be newest.
+    $res = saveWorldModSelection($pdo, $world, $mods);
+    if (!$res['ok']) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => $res['error']]);
+        return;
     }
 
     // Set world to update mode to trigger engine processing
@@ -1537,14 +1578,22 @@ function saveWorldModsJson($pdo, $world, $mods, $cloneSource, $cloneConfigs, $cl
 
     echo json_encode([
         'success' => true,
-        'message' => 'Mods saved successfully'
+        'count' => $res['count'],
+        // Surfaced, not swallowed: a rejected pin means the world is about to run a
+        // different version from the one the operator asked for, and the old code's
+        // silence about a mod it could not store is how a world ends up missing a plugin
+        // with nothing in the UI to explain it.
+        'warnings' => $res['warnings'],
+        'message' => $res['warnings']
+            ? 'Mods saved with warnings'
+            : 'Mods saved successfully'
     ]);
 }
 
 /**
  * Create a new world with optional mod selection
  */
-function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions = NULL, $accessOpen = 0, $accessFirstId = '') {
+function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs, $clonePlugins, $vanillaOptions = NULL, $accessOpen = 0, $accessFirstId = '', $modSources = NULL) {
     global $gameDNS, $defaultSeed;
 
     $isVanilla = !empty($vanillaOptions['vanilla']);
@@ -1628,18 +1677,30 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
             $mods = [];
         }
 
-        // Add mods if any selected
+        // Add mods if any selected. Goes through the same validated path as an edit, so a
+        // pin that does not belong to its mod is rejected at create time too rather than
+        // only when the world is later edited.
+        $modWarnings = [];
         if (is_array($mods) && !empty($mods)) {
-            foreach ($mods as $mod) {
-                $mod = trim($mod);
-                if (!empty($mod)) {
-                    addModToWorld($pdo, $world, $mod);
-                }
+            $saved = saveWorldModSelection($pdo, $world, $mods);
+            if (!$saved['ok']) {
+                echo json_encode([
+                    'success' => false,
+                    'error' => "World '$world' was created but its mods could not be saved: "
+                               . $saved['error']
+                ]);
+                return;
             }
+            $modWarnings = $saved['warnings'];
+        }
+
+        if (is_array($modSources)) {
+            saveWorldModSources($pdo, $world, $modSources);
         }
 
         echo json_encode([
             'success' => true,
+            'warnings' => $modWarnings,
             'message' => "World '$world' created"
         ]);
     } elseif ($result === 2) {
@@ -1879,7 +1940,10 @@ function buildAiSystemPrompt($context, $world, $pdo = null) {
     } else {
         switch ($context) {
             case 'engine':  $logFile = '/opt/stateful/logs/phvalheim.log'; break;
-            case 'ts':      $logFile = '/opt/stateful/logs/tsSync.log'; break;
+            // 'ts' is retained as the key so old bookmarks still resolve, but it points
+            // at modSync.log -- tsSync.log is only written by pre-2.43 installs.
+            case 'ts':
+            case 'modsync': $logFile = '/opt/stateful/logs/modSync.log'; break;
             case 'backup':  $logFile = '/opt/stateful/logs/worldBackups.log'; break;
         }
     }
@@ -2136,8 +2200,6 @@ function getServerSettingsJson($pdo) {
             'maxLogSize' => (int)$settings['maxLogSize'],
             'sessionTimeout' => (int)$settings['sessionTimeout'],
             'timezone' => $settings['timezone'] ?? 'Etc/UTC',
-            'thunderstore_local_sync' => (int)$settings['thunderstore_local_sync'],
-            'thunderstore_chunk_size' => (int)$settings['thunderstore_chunk_size'],
             'openaiApiKey' => $settings['openaiApiKey'] ?? '',
             'geminiApiKey' => $settings['geminiApiKey'] ?? '',
             'claudeApiKey' => $settings['claudeApiKey'] ?? '',
@@ -2145,6 +2207,17 @@ function getServerSettingsJson($pdo) {
             'setupComplete' => (int)$settings['setupComplete'],
             'migrationNoticeShown' => (int)$settings['migrationNoticeShown'],
             'analyticsEnabled' => (int)($settings['analyticsEnabled'] ?? 1),
+            // Mod catalogues (2.43). NEITHER key is required: both
+            // thunderstore.io/c/valheim/api/v1/package/ and
+            // valheim.hexium.gg/api/v1/package/ are public and unauthenticated. The fields
+            // exist so an operator CAN supply one if a source starts demanding or
+            // rate-limiting it, and the UI says as much rather than implying setup is
+            // incomplete without them.
+            'thunderstoreApiKey' => $settings['thunderstoreApiKey'] ?? '',
+            'hexiumApiKey' => $settings['hexiumApiKey'] ?? '',
+            'thunderstoreEnabled' => (int)($settings['thunderstoreEnabled'] ?? 1),
+            'hexiumEnabled' => (int)($settings['hexiumEnabled'] ?? 1),
+            'modSyncIntervalHours' => (int)($settings['modSyncIntervalHours'] ?? 6),
             'backupIntervalMinutes' => (int)($settings['backupIntervalMinutes'] ?? 30),
             'backupRequireActivity' => (int)($settings['backupRequireActivity'] ?? 1),
             'backupCompression' => $settings['backupCompression'] ?? 'none',
@@ -2183,13 +2256,17 @@ function saveServerSettingsJson($pdo, $input) {
         'maxLogSize' => 'int',
         'sessionTimeout' => 'int',
         'timezone' => 'string',
-        'thunderstore_local_sync' => 'int',
-        'thunderstore_chunk_size' => 'int',
         'openaiApiKey' => 'string',
         'geminiApiKey' => 'string',
         'claudeApiKey' => 'string',
         'ollamaUrl' => 'string',
         'analyticsEnabled' => 'int',
+        // Mod catalogues (2.43)
+        'thunderstoreApiKey' => 'string',
+        'hexiumApiKey' => 'string',
+        'thunderstoreEnabled' => 'int',
+        'hexiumEnabled' => 'int',
+        'modSyncIntervalHours' => 'int',
         'backupIntervalMinutes' => 'int',
         'backupRequireActivity' => 'int',
         'backupCompression' => 'string',

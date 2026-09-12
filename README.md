@@ -25,7 +25,7 @@ Modding Valheim is easy. Keeping mods perfectly in sync across your server and e
 
 ## The Solution
 
-PhValheim is a two-part system (server + client) that locks server and client mod configurations together. Deploy worlds with any combination of Thunderstore mods, and every player automatically gets the exact same files when they connect. No more "which version do you have?" conversations.
+PhValheim is a two-part system (server + client) that locks server and client mod configurations together. Deploy worlds with any combination of Thunderstore and Hexium mods, and every player automatically gets the exact same files when they connect. No more "which version do you have?" conversations.
 
 Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — stock Valheim, zero mods, joined with the ordinary Valheim client — so you can run plain servers alongside your modded ones without managing a second stack.
 
@@ -35,7 +35,7 @@ Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — 
 
 | | |
 |---|---|
-| **One-Click Worlds** | Deploy unique Valheim worlds with any combination of Thunderstore mods at the click of a button. |
+| **One-Click Worlds** | Deploy unique Valheim worlds with any combination of Thunderstore and Hexium mods at the click of a button. |
 | **Vanilla Servers** | Run stock, zero-mod worlds alongside your modded ones. Password protected and optionally listed in the public Valheim server browser. Players join with the ordinary Valheim client — no PhValheim client needed. |
 | **Crossplay** | Let Xbox / Microsoft Store players join. Available on every world, modded or unmodded. |
 | **Automatic Mod Sync** | Server and client mods stay in lock-step. Players always have the right files. |
@@ -43,7 +43,7 @@ Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — 
 | **Steam Authentication** | Players log in with their Steam account. Per-world access control lists manage who can see and join each world. |
 | **Citizens, Admins & Banned** | Per-world allow list, admin list granting in-game admin commands, and ban list — all rendered from the database at every world start. |
 | **Custom Launch Parameters** | Append your own arguments to any world's Valheim server command line. |
-| **Thunderstore Integration** | Full Thunderstore mod catalog synced every 12 hours. Search, select, and deploy mods with dependency resolution built in. |
+| **Multi-Catalogue Mods** | Thunderstore **and** Hexium, usable together in one world. Search across both, see which catalogue each mod came from, pin any previous version, and get dependency resolution across sources. |
 | **Backup System** | Activity-aware scheduled backups with compression (gzip/zstd), tiered retention, one-click restore, and per-world overrides. Supports separate backup volumes. |
 | **Live Monitoring** | Real-time CPU, memory, and load metrics for every running world, visible in both the admin and public UIs. |
 | **AI Helper** | Built-in AI-powered log analysis (OpenAI, Gemini, Claude, or self-hosted Ollama). Identifies mod errors, missing dependencies, and server health issues. |
@@ -249,40 +249,75 @@ Orphaned records are shown in the dashboard Storage card and in the per-world ba
 
 ---
 
-### Performance Tuning
+### Mod Catalogues
+
+PhValheim reads mods from **Thunderstore** and **Hexium**. Both are enabled by default and a
+world can use either or both; search results show a coloured pill for each mod's origin
+(Thunderstore blue, Hexium purple).
 
 | Setting | Default | Description |
 |---|---|---|
-| **Thunderstore Chunk Size** | `1000` | Number of mods processed per batch during Thunderstore sync. |
+| **Thunderstore** / **Hexium** | Enabled | Whether that catalogue is synced and offered in the mod picker. |
+| **Thunderstore API Key** / **Hexium API Key** | *(empty)* | **Not required.** Both catalogues are public and unauthenticated. Supply a key only if a source starts demanding one; it is sent as a bearer token. |
+| **Catalogue Sync Interval** | `6` hours | How often the catalogues are checked for changes. Does not apply to the start-up sync, which always runs. |
 
-The Thunderstore sync runs every 12 hours and processes the full Valheim mod catalog using parallel worker threads — one thread per chunk. The chunk size directly controls the parallelism:
+Disabling a catalogue hides its mods from the picker but does **not** remove mods a world
+has already selected.
 
-- **Lower value** → more chunks → more parallel threads → higher CPU and MariaDB load, but faster sync on multi-core hosts.
-- **Higher value** → fewer chunks → fewer threads → lower CPU pressure, more memory per thread.
+**Version pinning.** Every published version of every mod is stored, not just the newest.
+Select a mod and pick a version from the dropdown in its row to freeze it there; `Latest
+(auto)` keeps following new releases. A pinned version is kept in the database even if the
+source later delists it, so a pinned world does not silently move.
 
-**Thread count math** (based on ~9,400 mods in the Thunderstore Valheim catalog as of early 2026):
+#### When the catalogues are synced
 
-| Goal | Chunk Size | Threads spawned |
-|---|---|---|
-| 1 thread | `9400` | `9400 / 9400 = 1` |
-| 2 threads | `4700` | `9400 / 4700 = 2` |
-| 5 threads | `1880` | `9400 / 1880 = 5` |
-| 10 threads | `940` | `9400 / 940 = 10` |
-| Default | `1000` | `9400 / 1000 ≈ 10` |
+Both catalogues are checked **every time the server starts**, and on the configured interval
+after that. So a container you have just restarted comes back with a current mod list rather
+than whatever the last scheduled check left behind — the start-up sync ignores the interval
+deliberately, and costs about a second when nothing has changed.
 
-The default of `1000` spawns roughly 10 parallel threads. On low-resource hosts (shared VMs, small cloud instances), raising the chunk size to `4700`–`9400` reduces the sync to 1–2 threads and keeps the host responsive during the sync window.
+It runs in the background, so a slow or unreachable catalogue never delays your worlds
+starting.
 
-> **Note:** Running at a single thread (chunk size `9400`) serializes all mod processing through one worker. Depending on the single-core clock speed of your CPU, a full sync at this setting could take several hours to complete. A chunk size in the `2000`–`5000` range is generally a better balance for resource-constrained hosts — enough parallelism to finish in a reasonable time without saturating the CPU.
+#### How the sync performs
 
-If you see this warning in `tsSync.log`, your chunk size is too aggressive for the host — increase the value:
+There is nothing to tune. The sync is designed so that the common case does almost no work:
 
-```
-WARNING: a previous thunderstore sync process is still running. This could mean
-your thunderstore chunk size is too aggressive for your system. Consider
-increasing the 'thunderstore_chunk_size' database value.
-```
+- **Thunderstore** sends a `Last-Modified` header, so PhValheim makes a conditional request
+  and normally gets a bodiless `304 Not Modified` back in about a tenth of a second.
+- **Hexium** sends no validator, so its (much smaller) response body is hashed and compared
+  against the previous run.
+- Every stored row carries a content hash, so even when a catalogue *has* changed only the
+  rows that genuinely differ are rewritten.
 
-Adjust **Thunderstore Chunk Size** in the Admin UI under **Server Settings**.
+Measured on a normal host, against the live catalogues:
+
+| | Time |
+|---|---|
+| Routine check, nothing changed (both catalogues) | ~1–2 seconds |
+| Full cold build from empty — 11,600+ mods, 91,000+ versions, all history | ~30 seconds |
+
+The **Sync & Maintenance** card shows a live panel per catalogue: current phase, packages and
+versions seen, how many mods and versions were added, changed or removed, how long it took,
+and how that compares with the previous run. Progress is in
+`/opt/stateful/logs/modSync.log`.
+
+Each catalogue's panel has its own **live sync log** — expand it to watch a sync happen: the
+endpoint used, how change detection decided to fetch or skip, what was added, updated or
+delisted **by name**, which dependencies could not be resolved, and a per-phase timing
+breakdown. A **per-mod detail** toggle hides the individual mod lines when you only want the
+summary.
+
+To force a sync immediately, use the per-catalogue `sync` link in the Sync & Maintenance
+panel. A forced sync ignores change detection and rebuilds the dependency graph, so it takes
+considerably longer than a routine check.
+
+> **Upgrading from 2.42 or earlier:** existing mod selections are migrated automatically on
+> first start and the old Thunderstore tables are left untouched, so nothing is discarded.
+> The `Thunderstore Local Sync` and `Thunderstore Chunk Size` settings have been removed —
+> they configured the old parallel-worker sync, which no longer exists. The sidebar's
+> **Thunderstore Sync** button is gone too; syncing is automatic, and the Sync &
+> Maintenance panel has a per-catalogue `sync` link if you want to force one.
 
 ---
 

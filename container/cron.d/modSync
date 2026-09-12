@@ -1,0 +1,12 @@
+# Catalogue sync for every enabled mod source (Thunderstore, Hexium).
+#
+# Hourly, where the old Thunderstore sync ran every 12 hours, because a sync of an
+# unchanged catalogue is now nearly free: Thunderstore answers a conditional
+# If-Modified-Since with a bodiless 304 (~0.1s), and Hexium -- which sends no validator at
+# all -- is short-circuited on a hash of its 2.2 MB body. A routine tick that finds
+# nothing changed costs about 2 seconds for both sources.
+#
+# Replaces cron.d/tsSyncLocalParse (12-hourly full re-parse) and cron.d/tsSyncRemoteParse
+# (15-minutely GitHub seed check). The GitHub seed no longer exists as a sync path: the
+# catalogue is read from the sources themselves.
+17 * * * * phvalheim /opt/stateless/engine/tools/modSync.py --source all --trigger cron >> /opt/stateful/logs/modSync.log 2>&1

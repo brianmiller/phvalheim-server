@@ -48,7 +48,16 @@ ck "vanilla in index.php data"      "$(grep -c "'vanilla' => " $I)" 1
 ck "vanilla in adminAPI data"       "$(grep -c "'vanilla' => " $M)" 2
 ck "PHP offline row gated"          "$(grep -c 'is a vanilla world . it runs no mods' $I)" 3
 ck "edit_world.php guard"           "$(grep -c 'getVanilla' $E)" 1
-ck "mods purged on switch"          "$(grep -c "deleteAllWorldMods(\$pdo, \$world);" $M)" 2
+# Was a count of deleteAllWorldMods() call sites, which 2.43 legitimately changed: the mod
+# SAVE path now writes through saveWorldModSelection(). A call-site count cannot tell those
+# two cases apart, so assert the two things that actually matter instead.
+#
+# 1. the vanilla switch still purges
+ck "vanilla switch purges mods"     "$(grep -c "deleteAllWorldMods(\$pdo, \$world);" $M)" 1
+# 2. and the purge reaches world_mods -- which is what the engine installs from since 2.43.
+#    Clearing only the legacy thunderstore_mods columns reports success and then builds the
+#    world with its full mod list anyway.
+ck "purge clears world_mods"        "$(grep -c 'DELETE wm FROM world_mods' container/nginx/www/includes/db_sets.php)" 1
 
 echo "5/6. Offline dim + copy"
 # 2, not 1: the modded card gained its own Access row, so both card kinds now build badges and

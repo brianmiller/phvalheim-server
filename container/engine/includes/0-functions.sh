@@ -210,18 +210,110 @@ function purgeWorldModsConfigsPatchers() {
 }
 
 #$1=world name
+#
+#Clears a world's mod selection. Called just BEFORE the worlds row is deleted, because
+#world_mods is keyed on worlds.id and once that row is gone there is no way left to
+#resolve which rows belonged to it.
+function deleteWorldModRows() {
+        worldName="$1"
+        [ -z "$worldName" ] && return 0
+
+        #Joined rather than done as two statements: a separate "SELECT id" then
+        #"DELETE WHERE world_id=$id" deletes EVERY row if the select came back empty and
+        #the variable expanded to nothing.
+        SQL "DELETE wm FROM world_mods wm JOIN worlds w ON w.id = wm.world_id WHERE w.name='$worldName';"
+
+        echo "`date` [NOTICE : phvalheim] Cleared mod selection rows for world '$worldName'."
+}
+
+#Syncs BOTH mod catalogues on every engine start.
+#
+#Replaces tsSeeder(), which downloaded a 14MB SQL dump from GitHub because the old sync took
+#hours. A cold build of both catalogues from the live APIs is ~30s, so there is no reason to
+#ship a stale dump -- and no reason to only do it once.
+#
+#Unconditional, NOT guarded on the catalogue being empty. An operator restarting the
+#container expects the mod list to be current when it comes back; waiting up to the cron
+#interval for that is the kind of staleness nobody thinks to suspect. The old empty-only
+#guard existed because the previous sync was expensive; this one is not.
+#
+#Deliberately WITHOUT --force, so change detection still does its job: Thunderstore answers
+#the conditional request with a bodiless 304 and Hexium's body is hashed and compared, so a
+#restart with nothing new costs ~2s and zero writes. --force here would turn every container
+#restart into a full refetch and a dependency-graph rebuild (~45s of mostly pointless work).
+#
+#`--trigger boot` matters: the configured modSyncIntervalHours is enforced for trigger=cron
+#only (modSync.py), so a boot sync runs even if cron synced minutes ago. That is the point.
+#
+#Backgrounded so a slow or unreachable catalogue cannot stop worlds from starting -- the
+#engine's job is to run Valheim, and cron retries hourly regardless.
+function syncModCatalogue() {
+        modCount=$(SQL "SELECT COUNT(*) FROM mods;" 2>/dev/null)
+        case "$modCount" in
+                ''|*[!0-9]*) modCount=0 ;;
+        esac
+
+        if [ "$modCount" -eq 0 ]; then
+                echo "`date` [NOTICE : phvalheim] Mod catalogue is empty; building it in the background (about 30 seconds)."
+        else
+                echo "`date` [NOTICE : phvalheim] Refreshing both mod catalogues in the background ($modCount mods known)."
+        fi
+        echo "`date` [NOTICE : phvalheim] Progress: /opt/stateful/logs/modSync.log"
+        setsid /opt/stateless/engine/tools/modSync.py --source all --trigger boot \
+                >> /opt/stateful/logs/modSync.log 2>&1 &
+}
+
+#Removes world_mods rows whose world no longer exists. Runs at engine start to sweep up
+#anything left by a pre-2.43 delete path or an interrupted one.
+function pruneOrphanedWorldMods() {
+        orphans=$(SQL "SELECT COUNT(*) FROM world_mods wm LEFT JOIN worlds w ON w.id = wm.world_id WHERE w.id IS NULL;")
+        case "$orphans" in
+                ''|*[!0-9]*) orphans=0 ;;
+        esac
+
+        if [ "$orphans" -gt 0 ]; then
+                echo "`date` [NOTICE : phvalheim] Pruning $orphans orphaned world_mods row(s) whose world no longer exists."
+                SQL "DELETE wm FROM world_mods wm LEFT JOIN worlds w ON w.id = wm.world_id WHERE w.id IS NULL;"
+        fi
+}
+
+#$1=world name
+#
+#Ensures PhValheim's own required mods are part of the world's selection. They are
+#recorded as normal is_dep=0 picks so the operator can see them in the mod list rather
+#than wondering where three unrequested plugins came from.
 function mergeRequiredTsMods() {
         worldName="$1"
 
-        #update thunderstore_mods (not _all)
-        currentMods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
+        worldId=$(SQL "SELECT id FROM worlds WHERE name='$worldName' LIMIT 1;")
+        if [ -z "$worldId" ]; then
+                echo "`date` [ERROR : phvalheim] mergeRequiredTsMods: world '$worldName' not found."
+                return 1
+        fi
 
-        updatedModList=$(echo "$requiredTsMods" "$currentMods"|xargs -n 1|sort|uniq)
-        updatedModList=$(echo $updatedModList|xargs -d $'\n')
+        for requiredMod in $requiredMods; do
+                reqSource=$(echo "$requiredMod"|cut -d '|' -f1)
+                reqOwner=$(echo "$requiredMod"|cut -d '|' -f2)
+                reqName=$(echo "$requiredMod"|cut -d '|' -f3)
 
-        #update database
-        echo "`date` [NOTICE : phvalheim] Updating database..."
-        updateWorldTSMods=$(SQL "UPDATE worlds SET thunderstore_mods='$updatedModList' WHERE name='$worldName';")
+                reqModId=$(SQL "SELECT id FROM mods WHERE source='$reqSource' AND owner='$reqOwner' AND name='$reqName' LIMIT 1;")
+
+                #A required mod that is not in the catalogue is not a cosmetic problem:
+                #without QuickConnect a modded world cannot be joined, and without the
+                #Companion the web UI has no server-side half. The old code could not
+                #detect this at all -- it pasted uuids into a text column and only found
+                #out at download time, by which point the log said "complete".
+                if [ -z "$reqModId" ]; then
+                        echo "`date` [WARN : phvalheim] Required mod $reqSource/$reqOwner/$reqName is NOT in the catalogue. World '$worldName' will be built WITHOUT it. Run a catalogue sync (admin UI -> Sync) and update the world."
+                        continue
+                fi
+
+                #IGNORE, not REPLACE: if the operator has pinned a version of one of these
+                #we must not silently reset them to latest.
+                SQL "INSERT IGNORE INTO world_mods (world_id, mod_id, is_dep) VALUES ($worldId, $reqModId, 0);"
+        done
+
+        echo "`date` [NOTICE : phvalheim] Required mods merged for '$worldName'."
 }
 
 #$1=world name
@@ -232,44 +324,54 @@ function downloadAndInstallTsModsForWorld() {
         #previous world would otherwise condemn the next one.
         modInstallFailures=0
 
-        #Ensure we know about all dependencies for every mod selected
-        /opt/stateless/engine/tools/tsModDepGetter.sh "$worldName"
+        #Expand dependencies. The graph is precomputed into mod_deps by modSync.py using
+        #longest-prefix matching, so this is an indexed walk rather than the old
+        #per-dependency `mysql` process against an unindexed table. It also walks the
+        #version the world will ACTUALLY install -- the pinned one if pinned -- not
+        #whatever happens to be newest.
+        /opt/stateless/engine/tools/worldMods.py --world "$worldName" --resolve
 
-        selectedMods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
-        depMods=$(SQL "SELECT thunderstore_mods_deps FROM worlds WHERE name='$worldName'")
+        #The install plan is one tab-separated line per mod:
+        #  source  owner  name  version  download_url  filename  pinned|latest  is_dep
+        #
+        #download_url comes from the CATALOGUE, not a template. The old code built
+        #"$tsModDownloadUrl/$owner/$name/$version", which only ever works for
+        #Thunderstore -- Hexium serves from cdn.hexium.gg behind an opaque numeric path
+        #(cdn.hexium.gg/upload/1036/1.4.9.zip) that cannot be derived from owner/name/version.
+        modPlan=$(/opt/stateless/engine/tools/worldMods.py --world "$worldName" --plan)
 
-        worldMods="$selectedMods $depMods"
+        #A read failure here must not look like "this world has no mods". Without this,
+        #a database hiccup would silently produce an empty plan, install nothing, and the
+        #only signal would be the plugins-empty check far below.
+        if [ $? -ne 0 ]; then
+                echo "`date` [ERROR : phvalheim] Could not build the mod install plan for '$worldName'. Refusing to continue."
+                return 1
+        fi
 
-        for worldMod in $worldMods; do
+        #A literal tab, so read -r splits on tabs ONLY. Mod names and versions are safe
+        #but owners are not guaranteed to be, and the default IFS would split any field
+        #containing a space into the wrong column.
+        origIFS="$IFS"
+        while IFS=$'\t' read -r modSource modAuthor modName modVersion modDownloadUrl modFileConstructed modPinKind modIsDep; do
 
-                if [ "$worldMod" = "placeholder" ]; then
-                        continue
-                fi
+                [ -z "$modSource" ] && continue
 
-                if [ "$worldMod" = "NULL" ]; then
-                        continue
-                fi
-
-                modAuthor=$(SQL "SELECT owner FROM tsmods WHERE moduuid='$worldMod' LIMIT 1;")
-                modName=$(SQL "SELECT name FROM tsmods WHERE moduuid='$worldMod' LIMIT 1;")
-                modVersionLatest=$(SQL "SELECT version FROM tsmods WHERE moduuid='$worldMod' ORDER BY version_date_created DESC LIMIT 1;"|sed 's/"//g')
-
-                #echo
                 echo "`date` [phvalheim] World '$worldName' wants this mod: "
                 echo "`date` [phvalheim]  Name: $modName"
                 echo "`date` [phvalheim]  Author: $modAuthor"
-                echo "`date` [phvalheim]  UUID: $worldMod"
-                echo "`date` [phvalheim]  Latest Version: $modVersionLatest"
-
-                modDownloadUrl="$tsModDownloadUrl/$modAuthor/$modName/$modVersionLatest"
+                echo "`date` [phvalheim]  Source: $modSource"
+                if [ "$modPinKind" = "pinned" ]; then
+                        echo "`date` [phvalheim]  Version: $modVersion (PINNED by the operator)"
+                else
+                        echo "`date` [phvalheim]  Version: $modVersion (latest)"
+                fi
                 echo "`date` [phvalheim]  Download URL: $modDownloadUrl"
 
-                modFileConstructed="$modAuthor-$modName-$modVersionLatest.zip"
                 if [ ! -f $tsModsDir/$modFileConstructed ]; then
-                        echo "`date` [phvalheim]   #### Downloading $modFileConstructed from Thunderstore... ####"
-                        wget -q --show-progress -O $tsModsDir/$modFileConstructed $modDownloadUrl
+                        echo "`date` [phvalheim]   #### Downloading $modFileConstructed from $modSource... ####"
+                        wget -q --show-progress -O $tsModsDir/$modFileConstructed "$modDownloadUrl"
                         #wget's exit code was discarded here. A 404 (catalogue naming a version
-                        #Thunderstore no longer serves), a DNS blip or a full disk all left an
+                        #the source no longer serves), a DNS blip or a full disk all left an
                         #empty or absent file, and the loop carried on to "Installing..." as if
                         #nothing had happened -- which is how a world reaches its first start
                         #with no plugins at all while every log line reads like success.
@@ -333,7 +435,8 @@ function downloadAndInstallTsModsForWorld() {
 
                 #Patchers
                 unzip -j -o $tsModsDir/$modFileConstructed patchers/* -d $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/$modName/ > /dev/null 2>&1
-        done 
+        done <<< "$modPlan"
+        IFS="$origIFS"
 
         #echo
         echo "`date` [NOTICE : phvalheim] Mods download and installation sequence complete. Note: This does NOT indicate success."
@@ -696,37 +799,12 @@ function syncWorldSeedFromSave () {
 #$1=world. Used to generate the mod viewer dropdown in the admin ui
 function generateModViewerJson () {
         echo "`date` [NOTICE : phvalheim] Generating mod viewer json payload..."
-        selected=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT thunderstore_mods FROM worlds WHERE name='$worldName'")
-        deps=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT thunderstore_mods_deps FROM worlds WHERE name='$worldName'")
-        all=$(echo $selected $deps|tr -s " " "\n"|sort|uniq)
-   
-        function generateJson() {
 
-                firstRun="{"
-                echo -n "["
-
-                for mod in $all; do
-
-                        name=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT name FROM tsmods WHERE moduuid='$mod' LIMIT 1")
-                        url=$(/usr/bin/mysql --skip-column-names --database=phvalheim -e "SELECT url FROM tsmods WHERE moduuid='$mod' LIMIT 1")
-
-                        echo "$firstRun"
-                        echo "          \"name\": \"$name\","      
-                        echo "          \"uuid\": \"$mod\","
-                        echo "          \"url\": \"$url\""
-                        echo "  },"
-
-
-                        firstRun="      {"
-                done
-
-                echo "]"
-        }
-
-        jsonOutput=$(generateJson|sed -zr 's/,([^,]*$)/\1/')
-
-        SQL "UPDATE worlds SET modsViewer='$jsonOutput' WHERE name='$worldName'"
-
+        #Was hand-assembled JSON built with two `mysql` processes PER MOD and a regex to
+        #strip the trailing comma, which also meant a mod name containing a quote produced
+        #invalid JSON. worldMods.py builds it with a real JSON encoder from the unified
+        #catalogue, and carries the source and pinned version the viewer now shows.
+        /opt/stateless/engine/tools/worldMods.py --world "$worldName" --viewer-json
 }
 
 # no input required, sets world engine modes to 'start' on engine start if autostart flag is set

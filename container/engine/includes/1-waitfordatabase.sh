@@ -56,8 +56,9 @@ done
 
 # set all background process status indicators to 'idle' on new PhValheim start
 echo "`date` [phvalheim] Setting initial background process indicators to 'idle'..."
-SQL "UPDATE systemstats SET tsSyncLocalLastExecStatus='idle';"
-SQL "UPDATE systemstats SET tsSyncRemoteLastExecStatus='idle';"
+# tsSyncLocal/RemoteLastExecStatus are no longer reset: nothing writes or reads them
+# since 2.43. Catalogue sync state lives in mod_sync_runs, which reaps its own stale
+# rows by checking whether the recorded pid is still alive.
 SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
 SQL "UPDATE systemstats SET logRotateLastExecStatus='idle';"
 SQL "UPDATE systemstats SET utilizationMonitorLastExecStatus='idle';"

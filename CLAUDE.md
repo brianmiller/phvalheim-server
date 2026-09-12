@@ -22,7 +22,7 @@ PhValheim Server is a Docker-based Valheim game server manager that synchronizes
 │      ↓                                                      │
 │  Supervisor → manages MariaDB, NGINX, PHP-FPM, world procs  │
 │      ↓                                                      │
-│  MariaDB (worlds, tsmods, settings tables)                  │
+│  MariaDB (worlds, mods, mod_versions, world_mods, settings)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -94,9 +94,82 @@ To add a database field, create `/container/engine/dbUpdates/dbUpdate_X.X.sh` an
 **World lifecycle** (in `0-functions.sh`):
 - `InstallAndUpdateValheim()` - Downloads/updates game via SteamCMD
 - `InstallAndUpdateBepInEx()` - Updates mod loader
-- `downloadAndInstallTsModsForWorld()` - Fetches mods from Thunder Store
+- `downloadAndInstallTsModsForWorld()` - Installs a world's mods from any catalogue
 - `packageClient()` - Creates client payload ZIP
 - `createSupervisorWorldConfig()` - Generates supervisor config
+
+## Mods: the multi-source catalogue (2.43+)
+
+Mods come from **more than one catalogue** — Thunderstore and Hexium — and a world may use
+both. Read `dev_tools/DESIGN-2.43-multisource-mods.md` before changing anything here; it
+records the four traps that were found by measuring the real feeds.
+
+**Identity is `(source, owner, name)` — never the source's uuid.** Hexium mirrors
+Thunderstore packages *carrying their original `uuid4`*: 600 package UUIDs exist in both
+catalogues. `mods.source_uuid` is metadata, never a key. Anything that looks a mod up by a
+bare UUID is wrong.
+
+`mods.owner`, `mods.name` and `mod_versions.version` are `COLLATE utf8mb4_0900_as_cs` —
+**case sensitive, and load-bearing.** Under MySQL's default `ai_ci`,
+`IronTeam/Iron_ModPack` and `IronTeam/Iron_Modpack` are the same row and overwrite each
+other on every sync; 22 such pairs exist on Thunderstore. Any new table joining these
+columns needs the same collation or the join fails on a mixed-collation error.
+
+**Tables:** `mods` (one row per source+owner+name, newest version denormalised onto it),
+`mod_versions` (every published version, each with the source's own `download_url` —
+Hexium's CDN path cannot be templated), `mod_deps` (resolved dependency edges, cross-source),
+`world_mods` (a world's picks, `pin_version_id` NULL = follow latest), `mod_sync_runs`
+(per-run progress and counts).
+
+`tsmods` is **dead**, and so are `worlds.thunderstore_mods` / `thunderstore_mods_deps` —
+kept only as a rollback record of what 2.43 migrated from. Nothing reads or writes them, and
+a fresh install does not even create the table. If you find code touching either, it is a
+bug: it will silently report zero mods, which is exactly how the world-card mod counts broke.
+
+The whole pre-2.43 sync is gone: `tsSync*.sh`, `tsPrune.sh`, `tsModDepGetter.sh`,
+`modLookup.sh`, `exportTsModsSeed.sh`, the `ts_wip` scratch dir, the 14 MB `tsmods_seed.sql`
+GitHub seed and `tsSeeder()`. The catalogue is filled from the live APIs instead of a dump.
+
+`syncModCatalogue` runs at **every** engine start, for both catalogues, backgrounded — not
+just when the catalogue is empty. A fresh install builds in ~30s; a restart with nothing new
+costs ~1s because Thunderstore answers 304 and Hexium's body hash matches. It passes
+`--trigger boot` deliberately: `modSyncIntervalHours` is enforced for `trigger=cron` only, so
+a boot sync runs even if cron ran minutes ago. It must never pass `--force` — that would turn
+every container restart into a full refetch plus dependency rebuild.
+
+There is no manual sync button and no stop endpoint. Syncing needs no supervision; the
+Sync & Maintenance panel's per-catalogue link forces one.
+
+**Sync:** `engine/tools/modSync.py`, hourly via `cron.d/modSync`, interval enforced from
+`settings.modSyncIntervalHours` inside the script (cron cannot read the database). Change
+detection short-circuits the common case: Thunderstore answers a conditional
+`If-Modified-Since` with a bodiless 304, Hexium sends no validator so its body is hashed.
+Each row carries a `content_hash` so only genuinely changed rows are written. A full cold
+build of both catalogues is ~30s; a routine no-change tick is ~2s. Neither catalogue needs
+an API key — both are public.
+
+**A world's mods:** `engine/tools/worldMods.py --resolve | --plan | --viewer-json`.
+`--plan` emits the install plan the engine loops over. Dependency resolution follows the
+version that will *actually* be installed (the pin, if pinned), and dependency strings are
+matched by **longest known `owner-name` prefix** — not by splitting on `-`, since owners
+(`LVH-IT`, `sinai-dev`) and versions (`2.0.6-beta.1`) both contain hyphens.
+
+**A world installs one copy per `(owner, name)`, not per mod id.** Both catalogues carry
+`denikson/BepInExPack_Valheim` as separate `mods` rows, and modSync resolves each mod's
+dependency to its *own* catalogue's copy — so a single Hexium pick in a world that also has
+the three standard Thunderstore mods pulls in two BepInEx. They unzip into the same
+`game/BepInEx` tree, so the surviving version depended on unzip order. `by_plugin()` collapses
+them: an explicit pick beats a dependency, else newest version, else Thunderstore (canonical
+upstream). `resolve()` applies it to the closure and `install_rows()` is the single source for
+both `--plan` and `--viewer-json`, so the plan and the viewer can never disagree. Guarded by
+`dev_tools/test-duplicate-plugin.sh`.
+
+`world_mods` is keyed on `worlds.id`, so it **must** be cleared before a world's row is
+deleted (`deleteWorldModRows`). InnoDB recomputes `AUTO_INCREMENT` as `MAX(id)+1` on
+restart, so a leftover row can be inherited by a new world. `pruneOrphanedWorldMods` sweeps
+at engine start.
+
+PHP reads the catalogue through `includes/modcatalog.php`, never with ad-hoc SQL.
 
 **Database queries**:
 - `db_gets.php` - SELECT queries (getAllMods, getMyWorlds, etc.)
@@ -108,7 +181,7 @@ To add a database field, create `/container/engine/dbUpdates/dbUpdate_X.X.sh` an
 
 - Engine: `/opt/stateful/logs/phvalheim.log`
 - Worlds: `/opt/stateful/logs/valheimworld_<name>.log`
-- Thunder Store sync: `/opt/stateful/logs/tsSync.log`
+- Mod catalogue sync: `/opt/stateful/logs/modSync.log` (pre-2.43: `tsSync.log`)
 - Backups: `/opt/stateful/logs/backups.log`
 
 ## Supervisor Commands
@@ -142,7 +215,8 @@ supervisorctl start valheimworld_myworld # Start world
   **Never write an entry the operator did not supply**; if you are tempted to, read
   `dev_tools/test-create-access-guards.sh` first.
 - Admin interface (8081) should never be exposed publicly
-- Thunder Store mod metadata syncs every 12 hours via cron
+- Mod catalogues (Thunderstore + Hexium) sync hourly via cron; the effective interval is
+  `settings.modSyncIntervalHours` (default 6h), enforced inside `modSync.py`
 - World backups run every 30 minutes
 
 # context-mode — MANDATORY routing rules

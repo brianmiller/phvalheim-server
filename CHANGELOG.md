@@ -1,5 +1,68 @@
 # Changelog
 
+## v2.43
+
+### Mods can come from Hexium as well as Thunderstore
+A world may draw on either catalogue or both. Search results carry a coloured pill showing
+each mod's origin (Thunderstore blue, Hexium purple), and buttons above the list show or hide
+a catalogue. Dependencies resolve **across** sources, so a Hexium mod needing a
+Thunderstore-only dependency now works.
+
+Identity is `(source, owner, name)` — never the source's UUID. Hexium mirrors Thunderstore
+packages carrying their original `uuid4`, so 600 package UUIDs exist in both catalogues and a
+UUID can never identify a mod.
+
+### Version pinning
+Every published version of every mod is stored, not just the newest — each with its own
+download URL, file size and release date. Pick a version from the dropdown in a mod's row to
+freeze it there; "Latest (auto)" keeps following new releases. A pinned version is kept in the
+database even if the source delists it.
+
+### The catalogue sync was rebuilt
+A full cold build of both catalogues — 11,600+ mods and 91,000+ versions including all
+history — takes about 30 seconds instead of hours. A routine check that finds nothing changed
+takes about a second: Thunderstore answers a conditional request with a bodiless `304`,
+Hexium's body is hashed and compared, and every row carries a content hash so only genuinely
+changed rows are written.
+
+Both catalogues are synced at **every server start** as well as on the configured interval, so
+a restarted server comes back current rather than waiting up to six hours.
+
+Sync & Maintenance shows a live panel per catalogue — phase, packages and versions seen, what
+was added/changed/removed, timing, and a comparison with the previous run — plus a per-catalogue
+**live sync log** naming what moved, and a per-mod detail toggle.
+
+Server Settings → Mod Catalogues enables/disables each catalogue, sets the interval, and
+accepts an API key. **Neither catalogue needs one** — both are public.
+
+### Removed
+The sidebar's **Thunderstore Sync** button, its confirm dialog and stop endpoint; the
+**Thunderstore Local Sync** and **Thunderstore Chunk Size** settings; the whole pre-2.43 sync
+(`tsSync*.sh`, `tsPrune.sh`, `tsModDepGetter.sh`, `modLookup.sh`) and the 14 MB
+`tsmods_seed.sql` GitHub seed. A fresh install now builds the catalogue from the live APIs.
+
+### Fixed
+- Two mods whose names differed only in capitalisation (`Iron_ModPack` vs `Iron_Modpack`) were
+  treated as one and overwrote each other on every sync. 22 such pairs exist on Thunderstore;
+  all are now stored separately.
+- Dependency strings containing hyphens in the author or version (`LVH-IT`, `sinai-dev`,
+  `2.0.6-beta.1`) matched the wrong package or none. Resolution is by longest known
+  `owner-name` prefix.
+- A world drawing on both catalogues installed **two copies of the same mod** — usually
+  BepInEx, which both catalogues publish. Only one was ever installed, but the mod list showed
+  it twice and the count was one too high. One copy per `(owner, name)` is now selected,
+  installed and displayed, and the UI says which copy it kept.
+- World cards and the mod editor reported **0 mods** for every world; they read the pre-2.43
+  columns the new catalogue no longer writes. Backup manifests recorded empty mod lists for the
+  same reason.
+- In the mod picker, ticking a checkbox sent the list back to page 1 — every time. The redraw
+  now holds the current page and scroll position. Checkboxes are smaller.
+
+### Upgrading
+Existing mod selections migrate automatically on first start. The previous Thunderstore tables
+are left untouched, so nothing is discarded. If a world had selected a mod since delisted, the
+engine names that world at startup.
+
 ## v2.42
 
 ### "What's New" modal after every upgrade

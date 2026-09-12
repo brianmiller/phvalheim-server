@@ -60,10 +60,14 @@ if (!empty($_GET['update_world'])) {
     exit;
 }
 
-if (!empty($_GET['manual_ts_sync_start'])) {
-    $manual_ts_sync_start = $_GET['manual_ts_sync_start'];
-    if ($manual_ts_sync_start == "go") {
-        exec("/opt/stateless/engine/tools/tsSyncLocalParseMultithreaded.sh >> /opt/stateful/logs/tsSync.log &");
+
+// Per-source manual sync, from the Sync panel's individual buttons.
+if (!empty($_GET['manual_mod_sync'])) {
+    $syncSource = $_GET['manual_mod_sync'];
+    if (in_array($syncSource, ['all', 'thunderstore', 'hexium'], true)) {
+        exec("/opt/stateless/engine/tools/modSync.py --source "
+            . escapeshellarg($syncSource)
+            . " --trigger manual --force >> /opt/stateful/logs/modSync.log 2>&1 &");
         header('Location: /');
         exit;
     }
@@ -79,7 +83,6 @@ if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROT
 // Time now with server timezone
 $timeNow = date("Y-m-d H:i:s T");
 $serverTimezone = date_default_timezone_get();
-$tsSyncLocalStatus = getLastTsSyncLocalExecStatus($pdo);
 
 // Get initial world data for page load
 function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
@@ -190,11 +193,13 @@ $totalCount = count($worlds);
                         </svg>
                         Database
                     </a>
-                    <a href="readLog.php?logfile=tsSync.log#bottom" target="_blank" class="nav-item">
+                    <!-- modSync.log, not tsSync.log: the log covers every catalogue now, not
+                         just Thunderstore, so the label would have been wrong either way. -->
+                    <a href="readLog.php?logfile=modSync.log#bottom" target="_blank" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Thunderstore
+                        Mod Catalogues
                     </a>
                     <a href="readLog.php?logfile=worldBackups.log#bottom" target="_blank" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,17 +236,22 @@ $totalCount = count($worlds);
                         </svg>
                         Server Settings
                     </a>
-                    <a href="#" onclick="return confirmThunderstoreSync()" class="nav-item ts-sync-tool" id="tsSyncTool" style="background: rgba(251, 191, 36, 0.1); border-left: 3px solid var(--warning);">
-                        <svg class="nav-icon ts-sync-icon" id="tsSyncIcon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                        <span class="ts-sync-label">Thunderstore Sync</span>
-                        <button class="ts-sync-stop" id="tsSyncStop" onclick="event.preventDefault(); event.stopPropagation(); stopThunderstoreSync();" title="Stop Sync" style="display: none;">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-                                <rect x="6" y="6" width="12" height="12" rx="1"/>
-                            </svg>
-                        </button>
-                    </a>
+<?php
+                    # The manual catalogue-sync nav item lived here until 2.43: a
+                    # warning-coloured button with a confirm dialog, a spinner and a stop
+                    # button, because the old sync was a 12-hourly job that ran for hours and
+                    # could be left half-finished.
+                    #
+                    # None of that holds now. A sync of an unchanged catalogue is about two
+                    # seconds, it runs hourly on its own, and Sync & Maintenance shows live
+                    # per-catalogue state with its own per-source sync link. A prominent
+                    # manual trigger for a job needing no intervention was an invitation to
+                    # interrupt something harmless.
+                    #
+                    # PHP comment, not HTML: an HTML comment would ship this to every page
+                    # load, and the removed identifiers would keep turning up in the served
+                    # markup for anyone grepping to check they were gone.
+?>
                 </div>
             </nav>
 
@@ -660,25 +670,14 @@ $totalCount = count($worlds);
                         </h2>
                     </div>
                     <div class="card-body">
+                        <!-- Mod catalogues (2.43). One block per source, filled in by
+                             refreshModSyncPanel() from mod_sync_runs. Replaces the three
+                             Thunderstore-only rows that could only ever say "idle" and a
+                             timestamp -- they had no counts, no phase, and no way to
+                             describe a second catalogue. -->
+                        <div id="modSyncPanel" class="mod-sync-panel"></div>
+
                         <ul class="status-info-list" id="syncStatusList">
-                            <li class="status-info-item">
-                                <span class="status-info-label">Last Thunderstore Sync</span>
-                                <span class="status-info-value" id="syncLastTs"><?php echo getLastTsUpdated($pdo); ?></span>
-                            </li>
-                            <li class="status-info-item">
-                                <span class="status-info-label">Last Local Diff Check</span>
-                                <span class="status-info-value">
-                                    <span id="syncLocalTime"><?php echo getLastTsLocalDiffExecTime($pdo); ?></span>
-                                    <span class="status-ok" id="syncLocalStatus"><?php echo getLastTsSyncLocalExecStatus($pdo); ?></span>
-                                </span>
-                            </li>
-                            <li class="status-info-item">
-                                <span class="status-info-label">Last Remote Diff Check</span>
-                                <span class="status-info-value">
-                                    <span id="syncRemoteTime"><?php echo getLastTsRemoteDiffExecTime($pdo); ?></span>
-                                    <span class="status-ok" id="syncRemoteStatus"><?php echo getLastTsSyncRemoteExecStatus($pdo); ?></span>
-                                </span>
-                            </li>
                             <li class="status-info-item">
                                 <span class="status-info-label">Last World Backup</span>
                                 <span class="status-info-value">
@@ -1190,7 +1189,6 @@ $totalCount = count($worlds);
         startStatsPolling();
         updateTime();
         setInterval(updateTime, 1000);
-        updateTsSyncStatus('<?php echo $tsSyncLocalStatus; ?>');
 
     });
 
@@ -2077,45 +2075,9 @@ $totalCount = count($worlds);
         }
     }
 
-    // Confirmation for Thunderstore Sync
-    function confirmThunderstoreSync() {
-        if (confirm('Are you sure you want to manually sync with Thunderstore?\n\nThis will fetch the latest mod metadata and may take a few minutes.')) {
-            window.location.href = '?manual_ts_sync_start=go';
-            return true;
-        }
-        return false;
-    }
-
-    // Stop Thunderstore Sync
-    function stopThunderstoreSync() {
-        if (confirm('Are you sure you want to stop the Thunderstore sync process?')) {
-            fetch('adminAPI.php?action=stopTsSync')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateTsSyncStatus('stopped');
-                    }
-                })
-                .catch(error => console.error('Failed to stop TS sync:', error));
-        }
-    }
-
-    // Update TS Sync status indicator
-    function updateTsSyncStatus(status) {
-        const icon = document.getElementById('tsSyncIcon');
-        const stopBtn = document.getElementById('tsSyncStop');
-        const tool = document.getElementById('tsSyncTool');
-
-        if (status && status.toLowerCase() === 'running') {
-            icon.classList.add('spinning');
-            stopBtn.style.display = 'flex';
-            tool.classList.add('syncing');
-        } else {
-            icon.classList.remove('spinning');
-            stopBtn.style.display = 'none';
-            tool.classList.remove('syncing');
-        }
-    }
+    // The three sidebar catalogue-sync helpers were removed in 2.43 along with the nav item
+    // they drove. The Sync & Maintenance panel owns catalogue state now, and its
+    // per-catalogue link is the manual trigger.
 
     // Settings Modal (includes Citizens)
     let currentSettingsWorld = '';
@@ -3650,21 +3612,312 @@ $totalCount = count($worlds);
             const data = await response.json();
 
             if (data.success) {
-                document.getElementById('syncLastTs').textContent = data.thunderstore.lastSync;
-                document.getElementById('syncLocalTime').textContent = data.thunderstore.localDiff.time;
-                document.getElementById('syncLocalStatus').textContent = data.thunderstore.localDiff.status;
-                document.getElementById('syncRemoteTime').textContent = data.thunderstore.remoteDiff.time;
-                document.getElementById('syncRemoteStatus').textContent = data.thunderstore.remoteDiff.status;
-                document.getElementById('syncBackupTime').textContent = data.worldBackup.time;
-                document.getElementById('syncBackupStatus').textContent = data.worldBackup.status;
-                document.getElementById('syncLogRotateTime').textContent = data.logRotate.time;
-                document.getElementById('syncLogRotateStatus').textContent = data.logRotate.status;
-
-                // Update TS sync tool status
-                updateTsSyncStatus(data.thunderstore.localDiff.status);
+                // Tolerant of a missing element: the three Thunderstore rows this used to
+                // write into were replaced by #modSyncPanel in 2.43, and an unguarded
+                // .textContent on null throws -- which would take the backup and
+                // log-rotation rows down with it, since they are set after.
+                const setText = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = val;
+                };
+                setText('syncBackupTime', data.worldBackup.time);
+                setText('syncBackupStatus', data.worldBackup.status);
+                setText('syncLogRotateTime', data.logRotate.time);
+                setText('syncLogRotateStatus', data.logRotate.status);
             }
         } catch (error) {
             console.error('Failed to fetch sync status:', error);
+        }
+    }
+
+    // ---------------------------------------------------------------- mod catalogue sync
+    //
+    // Two cadences on purpose. An idle catalogue changes at most hourly, so polling it
+    // every two seconds would be the same defeated-throttle request storm that made
+    // /api/state cost 474ms in 2.36. While a sync is actually RUNNING the phase and
+    // counts move, so the panel tightens to 2s and drops back the moment it finishes.
+    const MODSYNC_IDLE_POLL = 30000;
+    const MODSYNC_ACTIVE_POLL = 2000;
+    let modSyncTimer = null;
+    let modSyncPollMs = MODSYNC_IDLE_POLL;
+
+    function fmtBytesMS(n) {
+        n = parseInt(n, 10) || 0;
+        if (!n) return '0 B';
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
+        if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+        return (n / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function fmtDuration(ms) {
+        ms = parseInt(ms, 10) || 0;
+        if (ms < 1000) return ms + ' ms';
+        if (ms < 60000) return (ms / 1000).toFixed(1) + ' s';
+        return Math.floor(ms / 60000) + 'm ' + Math.round((ms % 60000) / 1000) + 's';
+    }
+
+    // A delta is only meaningful next to the run it is being compared with, so the
+    // previous run's number is shown rather than just an arrow.
+    function deltaSpan(now, before) {
+        const a = parseInt(now, 10) || 0, b = parseInt(before, 10) || 0;
+        if (a === b) return '';
+        const d = a - b;
+        const cls = d > 0 ? 'ms-up' : 'ms-down';
+        return ` <span class="${cls}">${d > 0 ? '+' : ''}${d}</span>`;
+    }
+
+    const MODSYNC_STATUS_CLASS = {
+        ok: 'ms-ok', unchanged: 'ms-idle', running: 'ms-run',
+        error: 'ms-err', stopped: 'ms-warn', stale: 'ms-warn', disabled: 'ms-idle'
+    };
+
+    function renderModSyncSource(src, def, stats, runs, cache) {
+        const r = runs || {};
+        const live = r.running;
+        const last = r.last;
+        const prev = r.previous;
+        const st = stats || { mods: 0, versions: 0 };
+
+        const pill = `<span class="src-pill src-${def.colour}">${def.label}</span>`;
+
+        if (!def.enabled) {
+            return `<div class="ms-src ms-src-off">
+                <div class="ms-head">${pill}
+                    <span class="ms-state ms-idle">disabled</span></div>
+                <div class="ms-note">Not synced. Its mods are hidden from the picker;
+                    worlds that already selected them keep them.</div>
+            </div>`;
+        }
+
+        // Running: phase + progress. The bar is driven by the engine's own phase_pct
+        // rather than a spinner, so a stuck phase is visible as a stuck number.
+        if (live) {
+            const pct = parseInt(live.phase_pct, 10) || 0;
+            return `<div class="ms-src ms-src-live">
+                <div class="ms-head">${pill}
+                    <span class="ms-state ms-run">${live.phase || 'running'}</span>
+                    <span class="ms-trigger">${live.trigger_kind || ''}</span></div>
+                <div class="ms-bar"><div class="ms-bar-fill" style="width:${pct}%"></div></div>
+                <div class="ms-grid">
+                    <span>packages</span><b>${(+live.pkgs_seen || 0).toLocaleString()}</b>
+                    <span>versions</span><b>${(+live.vers_seen || 0).toLocaleString()}</b>
+                    <span>fetched</span><b>${fmtBytesMS(live.bytes_fetched)}</b>
+                    <span>started</span><b>${live.started || ''}</b>
+                </div>
+            </div>`;
+        }
+
+        const cls = MODSYNC_STATUS_CLASS[last ? last.status : 'idle'] || 'ms-idle';
+        const label = last ? last.status : 'never run';
+
+        let body;
+        if (!last) {
+            body = `<div class="ms-note">No sync has run yet. Use
+                    <b>Sync Catalogues</b> to fetch this catalogue now.</div>`;
+        } else if (last.status === 'error') {
+            // The error text is shown, not hidden behind a log file. A sync that failed
+            // silently is a catalogue quietly going stale.
+            body = `<div class="ms-err-box">${(last.error || 'unknown error')
+                        .replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div>`;
+        } else if (last.status === 'unchanged') {
+            body = `<div class="ms-note">Catalogue unchanged
+                    (HTTP ${last.http_status || '—'}, ${fmtDuration(last.duration_ms)}).
+                    Nothing needed rewriting.</div>`;
+        } else {
+            body = `<div class="ms-grid">
+                <span>mods</span><b>+${+last.mods_added || 0} ~${+last.mods_updated || 0} −${+last.mods_removed || 0}${prev ? deltaSpan(last.mods_added, prev.mods_added) : ''}</b>
+                <span>versions</span><b>+${+last.vers_added || 0} ~${+last.vers_updated || 0} −${+last.vers_removed || 0}</b>
+                <span>fetched</span><b>${fmtBytesMS(last.bytes_fetched)}</b>
+                <span>took</span><b>${fmtDuration(last.duration_ms)}${prev ? ' <span class="ms-prev">was ' + fmtDuration(prev.duration_ms) + '</span>' : ''}</b>
+                <span>deps</span><b>${(+last.deps_resolved || 0).toLocaleString()} resolved${(+last.deps_unresolved) ? ', <span class="ms-warn">' + last.deps_unresolved + ' unresolved</span>' : ''}</b>
+            </div>`;
+        }
+
+        return `<div class="ms-src">
+            <div class="ms-head">${pill}
+                <span class="ms-state ${cls}">${label}</span>
+                <span class="ms-trigger">${last ? (last.trigger_kind || '') : ''}</span>
+                <a class="ms-sync-one" href="?manual_mod_sync=${src}"
+                   title="Force a sync of this catalogue now">sync</a></div>
+            <div class="ms-totals">${st.mods.toLocaleString()} mods ·
+                 ${st.versions.toLocaleString()} versions on disk</div>
+            <div class="ms-when">${last ? ('finished ' + (last.finished || '')) : ''}</div>
+            ${body}
+            ${timingsHtml(last)}
+            ${logPaneHtml(src)}
+        </div>`;
+    }
+
+    // Where a slow sync spent its time. From the run's own phase_timings, so it does not
+    // have to be inferred by subtracting log timestamps.
+    function timingsHtml(last) {
+        if (!last || !last.phase_timings) return '';
+        let t;
+        try { t = JSON.parse(last.phase_timings); } catch (e) { return ''; }
+        const parts = Object.entries(t).filter(([, v]) => v >= 0.01);
+        if (!parts.length) return '';
+        const total = parts.reduce((a, [, v]) => a + v, 0) || 1;
+        return '<div class="ms-timings">'
+            + parts.map(([k, v]) =>
+                `<span class="ms-timing" title="${k}: ${v.toFixed(2)}s">`
+                + `<i style="width:${Math.max(2, (v / total) * 100).toFixed(1)}%"></i>`
+                + `${k} ${v.toFixed(2)}s</span>`).join('')
+            + '</div>';
+    }
+
+    // The log pane is rendered EMPTY here and filled by pollModSyncLog(). renderModSyncSource()
+    // runs on every status refresh, so building the lines here would discard the operator's
+    // scroll position and their show-detail choice every couple of seconds.
+    function logPaneHtml(src) {
+        const st = modSyncLogState[src] || (modSyncLogState[src] = {
+            open: false, afterId: 0, runId: null, detail: true, lines: []
+        });
+        return `<div class="ms-log-wrap">
+            <div class="ms-log-bar">
+                <button type="button" class="ms-log-toggle" data-source="${src}">
+                    <span class="ms-log-caret">${st.open ? '▾' : '▸'}</span> sync log
+                    <span class="ms-log-count" id="ms-log-count-${src}"></span>
+                </button>
+                <label class="ms-log-detail" style="${st.open ? '' : 'display:none'}">
+                    <input type="checkbox" class="ms-log-detail-cb" data-source="${src}"
+                           ${st.detail ? 'checked' : ''}> per-mod detail
+                </label>
+            </div>
+            <pre class="ms-log" id="ms-log-${src}" style="${st.open ? '' : 'display:none'}"></pre>
+        </div>`;
+    }
+
+    const modSyncLogState = {};
+
+    function renderModSyncLogLines(src) {
+        const st = modSyncLogState[src];
+        const el = document.getElementById('ms-log-' + src);
+        if (!st || !el) return;
+        const shown = st.detail ? st.lines : st.lines.filter(l => !l.detail);
+        // Pinned to the bottom unless the operator has scrolled up to read something.
+        const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+        el.innerHTML = shown.length
+            ? shown.map(l =>
+                `<span class="msl msl-${l.level}${l.detail ? ' msl-detail' : ''}">`
+                + `<span class="msl-t">${l.at}</span>`
+                + escapeHtmlMs(l.message) + '</span>').join('\n')
+            : '<span class="msl msl-info">no log lines for this run</span>';
+        if (atBottom) el.scrollTop = el.scrollHeight;
+        const c = document.getElementById('ms-log-count-' + src);
+        if (c) c.textContent = shown.length ? `(${shown.length})` : '';
+    }
+
+    function escapeHtmlMs(s) {
+        return String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    }
+
+    async function pollModSyncLog(src) {
+        const st = modSyncLogState[src];
+        if (!st || !st.open) return false;
+        try {
+            // Deliberately WITHOUT runId: the server decides which run the panel should be
+            // showing (the one in flight, else the newest finished one). Pinning the request
+            // to the run we already know -- which the first version of this did -- means the
+            // pane latches onto whatever run it saw first and never follows a later sync. The
+            // symptom is a log that looks fine and quietly describes the wrong run.
+            const r = await fetch('adminAPI.php?action=getModSyncLog&source='
+                + encodeURIComponent(src) + '&afterId=' + (st.runId ? st.afterId : 0));
+            const d = await r.json();
+            if (!d.success) return false;
+
+            if (st.runId !== d.runId) {
+                // A different run: start its log from scratch. Appending would splice two
+                // syncs into one impossibly long one.
+                st.runId = d.runId;
+                st.lines = [];
+                st.afterId = 0;
+                const again = await fetch('adminAPI.php?action=getModSyncLog&source='
+                    + encodeURIComponent(src) + '&afterId=0&runId=' + d.runId);
+                const d2 = await again.json();
+                if (d2.success) { st.lines = d2.lines; st.afterId = d2.lastId; }
+            } else if (d.lines.length) {
+                st.lines = st.lines.concat(d.lines);
+                st.afterId = d.lastId;
+            }
+            renderModSyncLogLines(src);
+            return !!d.running;
+        } catch (e) {
+            console.error('mod sync log', e);
+            return false;
+        }
+    }
+
+    // Delegated: the panel is re-rendered on every status refresh, so handlers bound to the
+    // buttons themselves would be lost on the first repaint.
+    document.addEventListener('click', function (ev) {
+        const btn = ev.target.closest && ev.target.closest('.ms-log-toggle');
+        if (!btn) return;
+        ev.preventDefault();
+        const src = btn.dataset.source;
+        const st = modSyncLogState[src] || (modSyncLogState[src] = {
+            open: false, afterId: 0, runId: null, detail: true, lines: []
+        });
+        st.open = !st.open;
+        const pane = document.getElementById('ms-log-' + src);
+        const caret = btn.querySelector('.ms-log-caret');
+        const detailLbl = btn.parentElement.querySelector('.ms-log-detail');
+        if (pane) pane.style.display = st.open ? '' : 'none';
+        if (caret) caret.textContent = st.open ? '▾' : '▸';
+        if (detailLbl) detailLbl.style.display = st.open ? '' : 'none';
+        if (st.open) pollModSyncLog(src).then(() => renderModSyncLogLines(src));
+    });
+
+    document.addEventListener('change', function (ev) {
+        if (!ev.target.classList || !ev.target.classList.contains('ms-log-detail-cb')) return;
+        const src = ev.target.dataset.source;
+        if (modSyncLogState[src]) {
+            modSyncLogState[src].detail = ev.target.checked;
+            renderModSyncLogLines(src);
+        }
+    });
+
+    async function refreshModSyncPanel() {
+        const el = document.getElementById('modSyncPanel');
+        if (!el) return;
+        let anyRunning = false;
+        try {
+            const res = await fetch('adminAPI.php?action=getModSyncStatus');
+            const d = await res.json();
+            if (!d.success) return;
+
+            let html = '';
+            (d.sources || []).forEach(def => {
+                const runs = (d.runs || {})[def.key] || {};
+                if (runs.running) anyRunning = true;
+                html += renderModSyncSource(def.key, def,
+                    (d.stats || {})[def.key], runs, d.cache);
+            });
+
+            const c = d.cache || { files: 0, bytes: 0 };
+            html += `<div class="ms-cache">Local mod cache:
+                <b>${c.files}</b> archive${c.files === 1 ? '' : 's'},
+                <b>${fmtBytesMS(c.bytes)}</b>
+                <span class="ms-prev">${c.dir || ''}</span></div>`;
+            el.innerHTML = html;
+
+            // Pull each open log pane forward in the same cycle. Only open panes are
+            // fetched, so a collapsed one costs nothing.
+            (d.sources || []).forEach(def => {
+                const st = modSyncLogState[def.key];
+                if (st && st.open) pollModSyncLog(def.key);
+            });
+        } catch (e) {
+            // Leave the last good render in place; blanking the panel on a transient
+            // fetch failure reads as "the sync data is gone".
+            console.error('mod sync status', e);
+        }
+
+        const want = anyRunning ? MODSYNC_ACTIVE_POLL : MODSYNC_IDLE_POLL;
+        if (want !== modSyncPollMs || modSyncTimer === null) {
+            modSyncPollMs = want;
+            if (modSyncTimer) clearInterval(modSyncTimer);
+            modSyncTimer = setInterval(refreshModSyncPanel, modSyncPollMs);
         }
     }
 
@@ -3674,6 +3927,7 @@ $totalCount = count($worlds);
     // Fetch sync status on page load and then every 30 seconds
     document.addEventListener('DOMContentLoaded', function() {
         fetchSyncStatus();
+        refreshModSyncPanel();
     });
     setInterval(fetchSyncStatus, SYNC_POLL_INTERVAL);
 
@@ -4188,20 +4442,58 @@ $totalCount = count($worlds);
                     </div>
                 </div>
 
+                <!-- The "Advanced" section held Thunderstore Local Sync and Thunderstore
+                     Chunk Size. Both described the pre-2.43 sync: chunk size set how many
+                     parallel bash worker threads to fork, and local sync toggled the
+                     12-hourly job. The sync is one process with nothing to tune now, and
+                     enabling/disabling a catalogue lives under Mod Catalogues above.
+                     Leaving a setting on screen that no longer changes anything is worse
+                     than not having it. -->
+
                 <div style="margin-bottom: 1.5rem;">
-                    ${sectionHead('Advanced', 'var(--text-secondary)')}
+                    ${sectionHead('Mod Catalogues', 'var(--accent-secondary)')}
+                    <div style="margin-bottom:0.6rem;font-size:0.72rem;color:var(--text-muted);line-height:1.5;">
+                        Mods are read from these catalogues. <b>Neither needs an API key</b> — both
+                        are public and unauthenticated. Fill a key in only if a source starts
+                        requiring one; it is then sent as a bearer token.
+                    </div>
                     <div class="row mb-2">
-                        <div class="col-6">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('When enabled, Thunderstore mod metadata is cached locally for faster browsing')}>Thunderstore Local Sync</label>
-                            <select class="form-control form-control-sm" id="ss-thunderstore_local_sync" ${tip('Syncs mod metadata every 12 hours. Disable if you have limited disk space.')}>
-                                <option value="1" ${s.thunderstore_local_sync == 1 ? 'selected' : ''}>Enabled</option>
-                                <option value="0" ${s.thunderstore_local_sync == 0 ? 'selected' : ''}>Disabled</option>
+                        <div class="col-md-6">
+                            <label style="font-size:0.8rem;color:var(--info)">Thunderstore</label>
+                            <select class="form-control form-control-sm" id="ss-thunderstoreEnabled">
+                                <option value="1" ${s.thunderstoreEnabled == 1 ? 'selected' : ''}>Enabled</option>
+                                <option value="0" ${s.thunderstoreEnabled == 0 ? 'selected' : ''}>Disabled</option>
                             </select>
+                            <div style="margin-top:0.3rem;">
+                                ${keyField('ss-thunderstoreApiKey', s.thunderstoreApiKey)}
+                            </div>
+                            <div style="margin-top:0.25rem;font-size:0.68rem;color:var(--text-muted)">
+                                API key — optional
+                            </div>
                         </div>
-                        <div class="col-6">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('Number of mods processed per batch during Thunderstore sync')}>Thunderstore Chunk Size</label>
-                            <input type="number" class="form-control form-control-sm" id="ss-thunderstore_chunk_size" value="${s.thunderstore_chunk_size}" style="font-family:var(--font-mono)" ${tip('Lower values spawn more threads and increase CPU demand. Higher values use fewer threads but more memory per thread. Default: 1000.')}>
+                        <div class="col-md-6">
+                            <label style="font-size:0.8rem;color:var(--accent-secondary)">Hexium</label>
+                            <select class="form-control form-control-sm" id="ss-hexiumEnabled">
+                                <option value="1" ${s.hexiumEnabled == 1 ? 'selected' : ''}>Enabled</option>
+                                <option value="0" ${s.hexiumEnabled == 0 ? 'selected' : ''}>Disabled</option>
+                            </select>
+                            <div style="margin-top:0.3rem;">
+                                ${keyField('ss-hexiumApiKey', s.hexiumApiKey)}
+                            </div>
+                            <div style="margin-top:0.25rem;font-size:0.68rem;color:var(--text-muted)">
+                                API key — optional
+                            </div>
                         </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <label style="font-size:0.8rem;color:orchid">Catalogue Sync Interval (hours)</label>
+                            <input type="number" min="1" max="168" class="form-control form-control-sm" id="ss-modSyncIntervalHours" value="${s.modSyncIntervalHours}" style="font-family:var(--font-mono)" ${tip('How often the catalogues are checked for changes. A check that finds nothing changed costs about two seconds, so a short interval is cheap. Default: 6.')}>
+                        </div>
+                    </div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);line-height:1.5;">
+                        Disabling a catalogue stops syncing it and hides its mods from the picker.
+                        Mods already selected by a world are <b>not</b> removed.
                     </div>
                 </div>
 
@@ -4271,9 +4563,12 @@ $totalCount = count($worlds);
             claudeApiKey: document.getElementById('ss-claudeApiKey').value.trim(),
             geminiApiKey: document.getElementById('ss-geminiApiKey').value.trim(),
             ollamaUrl: document.getElementById('ss-ollamaUrl').value.trim(),
-            thunderstore_local_sync: parseInt(document.getElementById('ss-thunderstore_local_sync').value),
-            thunderstore_chunk_size: parseInt(document.getElementById('ss-thunderstore_chunk_size').value) || 1000,
             analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),
+            thunderstoreApiKey: document.getElementById('ss-thunderstoreApiKey').value.trim(),
+            hexiumApiKey: document.getElementById('ss-hexiumApiKey').value.trim(),
+            thunderstoreEnabled: parseInt(document.getElementById('ss-thunderstoreEnabled').value),
+            hexiumEnabled: parseInt(document.getElementById('ss-hexiumEnabled').value),
+            modSyncIntervalHours: parseInt(document.getElementById('ss-modSyncIntervalHours').value) || 6,
             backupIntervalMinutes: parseInt(document.getElementById('ss-backupIntervalMinutes').value) || 30,
             backupRequireActivity: parseInt(document.getElementById('ss-backupRequireActivity').value),
             backupCompression: document.getElementById('ss-backupCompression').value,

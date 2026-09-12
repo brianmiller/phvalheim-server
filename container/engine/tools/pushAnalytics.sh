@@ -95,30 +95,43 @@ for wid in $world_ids; do
 	wname=$(SQL "SELECT name FROM worlds WHERE id='$wid'"  2>/dev/null)
 	wmode=$(SQL "SELECT mode FROM worlds WHERE id='$wid'"  2>/dev/null)
 	wupdated=$(SQL "SELECT updated FROM worlds WHERE id='$wid'" 2>/dev/null || echo "")
-	wmods=$(SQL "SELECT thunderstore_mods FROM worlds WHERE id='$wid'" 2>/dev/null)
+	# One query instead of three per mod against an unindexed table, and it reports the
+	# version the world will actually run (the pin if pinned, else newest) rather than
+	# assuming latest. `source` is new in 2.43 -- a world's mods can now come from more
+	# than one catalogue, and analytics that said "thunderstore" for all of them would be
+	# reporting something untrue.
+	#
+	# Tab-separated and read with IFS set to a literal tab: the default IFS would split an
+	# owner containing a space into the wrong field.
+	wmodrows=$(SQL "SELECT m.source, m.owner, m.name,
+	                       COALESCE(pin.version, latest.version, 'unknown'),
+	                       COALESCE(m.package_url, '')
+	                  FROM world_mods wm
+	                  JOIN mods m ON m.id = wm.mod_id
+	                  LEFT JOIN mod_versions pin ON pin.id = wm.pin_version_id
+	                  LEFT JOIN mod_versions latest ON latest.mod_id = m.id
+	                                              AND latest.source_rank = 0
+	                 WHERE wm.world_id='$wid'" 2>/dev/null)
 
 	# Build mods array with jq for safe JSON encoding
 	echo "[]" > "$mods_file"
-	for muuid in $wmods; do
-		[ -z "$muuid" ] && continue
-		mod_name=$(SQL    "SELECT name    FROM tsmods WHERE moduuid='$muuid' LIMIT 1" 2>/dev/null)
-		mod_version=$(SQL "SELECT REPLACE(version, '\"', '') FROM tsmods WHERE moduuid='$muuid' LIMIT 1" 2>/dev/null)
-		mod_owner=$(SQL   "SELECT owner   FROM tsmods WHERE moduuid='$muuid' LIMIT 1" 2>/dev/null)
+	while IFS=$'\t' read -r mod_source mod_owner mod_name mod_version mod_url; do
 		[ -z "$mod_name" ] && continue
+		[ -z "$mod_url" ] && mod_url="https://thunderstore.io/c/valheim/p/${mod_owner}/${mod_name}/"
 
-		ts_url="https://thunderstore.io/c/valheim/p/${mod_owner}/${mod_name}/"
 		if jq \
 			--arg n "$mod_name" \
 			--arg v "${mod_version:-unknown}" \
 			--arg o "${mod_owner:-unknown}" \
-			--arg u "$ts_url" \
-			'. += [{"name":$n,"version":$v,"owner":$o,"thunderstore_url":$u}]' \
+			--arg s "${mod_source:-unknown}" \
+			--arg u "$mod_url" \
+			'. += [{"name":$n,"version":$v,"owner":$o,"source":$s,"thunderstore_url":$u}]' \
 			"$mods_file" > "$work_file"; then
 			mv "$work_file" "$mods_file"
 		else
 			echo "$(date) [WARN : phvalheim] analytics: could not add mod $mod_name, skipping"
 		fi
-	done
+	done <<< "$wmodrows"
 
 	# $mods[0] because --slurpfile wraps the file's value in an array.
 	if jq \

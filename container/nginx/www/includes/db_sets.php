@@ -25,56 +25,22 @@ function addWorld($pdo,$new_world,$external_endpoint,$seed){
 
 
 function deleteAllWorldMods($pdo,$world) {
-	$sql = "UPDATE worlds SET thunderstore_mods='' WHERE name='$world';";
-        if ($pdo->query($sql)) {
-                $msg = "Purging mods for world '$world'...";
-        } else {
-                $msg = "ERROR: Could not purge mods for '$world'...";
-        }
-
-        $sql = "UPDATE worlds SET thunderstore_mods_deps='' WHERE name='$world';";
-        if ($pdo->query($sql)) {
-                $msg = "Purging dependency mods for world '$world'...";
-        } else {
-                $msg = "ERROR: Could not purge dependency mods for '$world'...";
-        }
-
-}
-
-
-function addModToWorld($pdo,$world,$mods) {
-	$sql = "SELECT thunderstore_mods FROM worlds WHERE name='$world'";
-        $result = $pdo->query($sql);
-        $row = $result->fetch(PDO::FETCH_ASSOC);
-        $previous_mods = $row['thunderstore_mods'] ?? 'placeholder';
-
-	if (strpos($previous_mods, $mods) !== false) {
-		$msg = "Mod already exists in '$world', skipping...";
-	} else {
-		$mods = "$previous_mods $mods";
-	        $update = $pdo->exec( "UPDATE worlds SET thunderstore_mods='$mods' WHERE name='$world'" );
-                if ($pdo->query($sql)) {
-                        $msg = "Adding mod '$mods' to world $world...";
-                } else {
-                        $msg = "ERROR: Could not add '$mods' to '$world'...";
-                }
-	}
-}
-
-
-function deleteModFromWorld($pdo,$world,$mod) {
-        $sql = "SELECT thunderstore_mods FROM worlds WHERE name='$world'";
-        $result = $pdo->query($sql);
-        $row = $result->fetch(PDO::FETCH_ASSOC);
-        $worldMods = $row['thunderstore_mods'] ?? 'default_value';
-	$updatedWorldMods = str_replace($mod,'',$worldMods);
-
-	$sql = "UPDATE worlds SET thunderstore_mods='$updatedWorldMods' WHERE name='$world'";
-        if ($pdo->query($sql)) {
-        	$msg = "Updating mods for world '$world'...";
-        } else {
-                $msg = "ERROR: Could not update mods for '$world'...";
-        }
+	# world_mods FIRST, because since 2.43 that table -- not these two columns -- is what
+	# the engine actually installs from. Clearing only the legacy columns (which is all
+	# this did) would leave every world_mods row in place, so switching a world to vanilla
+	# would report "mods purged" and then build it with its full mod list anyway.
+	#
+	# Both is_dep=0 and is_dep=1 go: a dependency with nothing left depending on it is not
+	# something to keep installed.
+	# The legacy worlds.thunderstore_mods / _deps columns are deliberately NOT touched.
+	# They are a frozen record of what dbUpdate_2.43.sh migrated from, kept for rollback;
+	# nothing reads or writes them any more, and clearing them here would destroy the only
+	# copy of a pre-2.43 selection.
+	$sth = $pdo->prepare(
+		"DELETE wm FROM world_mods wm
+		   JOIN worlds w ON w.id = wm.world_id
+		  WHERE w.name = ?");
+	$sth->execute([$world]);
 }
 
 

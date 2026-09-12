@@ -2,233 +2,80 @@
 
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
-
-
-function getAllModUUIDs($pdo) {
-	$sth = $pdo->query("SELECT moduuid FROM tsmods;");
-	$result = $sth->fetchAll(PDO::FETCH_COLUMN);
-	$result = array_unique($result);
-	return $result;
-}
-
-function getAllModVersionUUIDs($pdo) {
-        $sth = $pdo->query("SELECT versionuuid FROM tsmods;");
-        $result = $sth->fetchAll(PDO::FETCH_COLUMN);
-        $result = array_unique($result);
-        return $result;
-}
-
-function getAllMods($pdo) {
-        $sth = $pdo->query("SELECT DISTINCT(name),moduuid,owner,url FROM tsmods ORDER BY name");
-        $result = $sth->fetchAll(PDO::FETCH_ASSOC);
-        return $result;
-}
-
 function getModViewerJsonForWorld($pdo,$world) {
         $sth = $pdo->prepare("SELECT modsViewer FROM worlds WHERE name='$world'");
         $sth->execute();
         $result = $sth->fetchColumn();
         return $result;
 }
-
-function getAllModsLatestVersion($pdo) {
-        $sth = $pdo->query("
-		SELECT t1.name,t1.version,t1.moduuid,t1.owner,t1.url,t1.version_date_created,t1.deps
-			FROM tsmods AS t1
-			LEFT OUTER JOIN tsmods AS t2
-			  ON t1.moduuid = t2.moduuid
-			        AND (t1.version_date_created < t2.version_date_created
-			         OR (t1.version_date_created = t2.version_date_created
-			        AND t1.Id < t2.Id))
-			WHERE t2.moduuid IS NULL ORDER BY name
-		");
-
-        $result = $sth->fetchAll(PDO::FETCH_ASSOC);
-        return $result;
-}
-
-function resolveDepStringToUuid($depString, $ownerNameLookup) {
-        // Parse "Owner-Name-Version" -> owner, name
-        // Format: "Owner/Name-Version" e.g. "BepInEx/BepInExPack_Valheim-5.4.2200"
-        // But some use "Owner-Name-Version" without slash
-        if (strpos($depString, '/') !== false) {
-                // Standard format: Owner/Name-Version
-                $parts = explode('/', $depString, 2);
-                $owner = $parts[0];
-                $rest = $parts[1];
-                // Name is everything before the last dash (version)
-                $lastDash = strrpos($rest, '-');
-                if ($lastDash !== false) {
-                        $name = substr($rest, 0, $lastDash);
-                } else {
-                        $name = $rest;
-                }
-        } else {
-                // Fallback: Owner-Name-Version (older format)
-                $parts = explode('-', $depString);
-                if (count($parts) >= 3) {
-                        $owner = $parts[0];
-                        $name = $parts[1];
-                } else {
-                        return null;
-                }
-        }
-
-        $key = strtolower($owner . '/' . $name);
-        return $ownerNameLookup[$key] ?? null;
-}
-
-function buildOwnerNameLookup($allMods) {
-        $lookup = [];
-        foreach ($allMods as $mod) {
-                $key = strtolower($mod['owner'] . '/' . $mod['name']);
-                $lookup[$key] = $mod['moduuid'];
-        }
-        return $lookup;
-}
-
-function resolveModDeps($depsRaw, $ownerNameLookup) {
-        if (empty($depsRaw)) return [];
-
-        // Clean up the deps JSON string
-        $depsRaw = trim($depsRaw);
-        $deps = json_decode($depsRaw, true);
-        if (!is_array($deps)) {
-                // Try manual parsing for non-standard format
-                $depsRaw = str_replace(['"', '[', ']', "\n"], '', $depsRaw);
-                $deps = array_filter(array_map('trim', explode(',', $depsRaw)));
-        }
-
-        $resolvedUuids = [];
-        foreach ($deps as $depString) {
-                $depString = trim($depString);
-                if (empty($depString)) continue;
-                $uuid = resolveDepStringToUuid($depString, $ownerNameLookup);
-                if ($uuid) {
-                        $resolvedUuids[] = $uuid;
-                }
-        }
-        return $resolvedUuids;
-}
-
-function getWorldSelectedMods($pdo, $world) {
-        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-        if (empty($result)) return [];
-        $mods = array_filter(explode(' ', $result), function($m) {
-                return !empty($m) && $m !== 'placeholder';
-        });
-        return array_values($mods);
-}
-
-function getWorldDepMods($pdo, $world) {
-        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world'");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-        if (empty($result)) return [];
-        $mods = array_filter(explode(' ', $result), function($m) {
-                return !empty($m) && $m !== 'placeholder';
-        });
-        return array_values($mods);
-}
-
+/**
+ * Mod display name by `mods.id`.
+ *
+ * The parameter is a mods.id, NOT a source uuid. It was a `tsmods.moduuid` lookup until
+ * 2.43; a uuid cannot identify a mod once there is more than one catalogue, because Hexium
+ * mirrors Thunderstore packages carrying their original uuid4 and 600 of them collide.
+ *
+ * Prefixed with the owner, since two catalogues can both carry a mod called `Jotunn` by
+ * different owners and a bare name would be ambiguous in a list.
+ */
 function getModNameByUuid($pdo,$modUUID) {
-        $sth = $pdo->query("SELECT name FROM tsmods WHERE moduuid='$modUUID'");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT name FROM mods WHERE id = ?");
+        $sth->execute([(int)$modUUID]);
         $result = $sth->fetchColumn();
-        return $result;
+        return $result === false ? null : $result;
 }
-
-function getModUrlByUuid($pdo,$modUUID) {
-        $sth = $pdo->query("SELECT url FROM tsmods WHERE moduuid='$modUUID'");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-        return $result;
-}
-
-function modSelectedCheck($pdo,$world,$modUUID) {
-        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world' AND thunderstore_mods_deps LIKE '%$modUUID%'");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-        if ($result) {
-                return false;
-        }
-
-	$sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world' AND thunderstore_mods LIKE '%$modUUID%'");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-        if ($result) {
-                return true;
-	} else {
-		return false;
-	}
-}
-
-function modIsDep($pdo,$world,$modUUID) {
-        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world' AND thunderstore_mods_deps LIKE '%$modUUID%'");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-	if ($result) {
-		return true;
-	} else {
-		return false;
-	}
-
-}
-
+/**
+ * Every mod a world runs — the operator's picks AND their resolved dependencies.
+ *
+ * Returns `mods.id` values. Read `world_mods`, not the legacy space-separated
+ * `thunderstore_mods` / `thunderstore_mods_deps` columns: since 2.43 nothing writes those,
+ * so this returned an empty list for every world while looking like it worked.
+ */
 function getAllWorldMods($pdo,$world) {
-        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
-        $sth->execute();
-        $selected = $sth->fetchColumn();
-
-        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world'");
-        $sth->execute();
-        $deps = $sth->fetchColumn();
-
-        $all = $selected . ' ' . $deps;
-	$all = explode(' ', $all);
-
-        return $all;
+        $sth = $pdo->prepare(
+            "SELECT wm.mod_id
+               FROM world_mods wm
+               JOIN worlds w ON w.id = wm.world_id
+              WHERE w.name = ?
+              ORDER BY wm.is_dep, wm.mod_id");
+        $sth->execute([$world]);
+        return array_map('strval', $sth->fetchAll(PDO::FETCH_COLUMN));
 }
 
+/**
+ * Mods the operator explicitly chose (is_dep=0).
+ *
+ * No placeholder filtering needed any more: `world_mods` holds one row per real mod, where
+ * the legacy column was a space-separated string that could contain the literal
+ * 'placeholder' and empty segments.
+ */
 function getSelectedModCountOfWorld($pdo,$world) {
-        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
-	$sth->execute();
-	$result = $sth->fetchColumn();
-
-	// Filter out placeholder entries
-	$mods = explode(' ', $result);
-	$mods = array_filter($mods, function($mod) {
-		return !empty($mod) && $mod !== 'placeholder';
-	});
-
-	$modCount = count($mods);
-	return $modCount;
+        $sth = $pdo->prepare(
+            "SELECT COUNT(*)
+               FROM world_mods wm
+               JOIN worlds w ON w.id = wm.world_id
+              WHERE w.name = ? AND wm.is_dep = 0");
+        $sth->execute([$world]);
+        return (int)$sth->fetchColumn();
 }
 
+/**
+ * Every mod a world will actually install — picks plus dependencies.
+ *
+ * This is the number on the world cards ("Mods Running"). It read the legacy
+ * space-separated columns, which nothing has written since 2.43, so every world's card
+ * showed 0. Deduplication is now free: `world_mods` is keyed on (world_id, mod_id), so a
+ * mod that is both chosen and a dependency of something else is one row, not two strings
+ * needing array_unique().
+ */
 function getTotalModCountOfWorld($pdo,$world) {
-        $sth = $pdo->query("SELECT thunderstore_mods FROM worlds WHERE name='$world'");
-        $sth->execute();
-	$selected = $sth->fetchColumn();
-
-        $sth = $pdo->query("SELECT thunderstore_mods_deps FROM worlds WHERE name='$world'");
-        $sth->execute();
-        $deps = $sth->fetchColumn();
-
-	$all = $selected . ' ' . $deps;
-
-	// Filter out placeholder entries and count valid mods
-	$mods = explode(' ', $all);
-	$mods = array_filter($mods, function($mod) {
-		return !empty($mod) && $mod !== 'placeholder';
-	});
-
-	// Remove duplicates (deps may overlap with selected)
-	$mods = array_unique($mods);
-
-	$modCount = count($mods);
-        return $modCount;
+        $sth = $pdo->prepare(
+            "SELECT COUNT(*)
+               FROM world_mods wm
+               JOIN worlds w ON w.id = wm.world_id
+              WHERE w.name = ?");
+        $sth->execute([$world]);
+        return (int)$sth->fetchColumn();
 }
 
 function getSeed($pdo,$world) {
@@ -310,14 +157,6 @@ function getDateUpdated($pdo,$world) {
         $result = $sth->fetchColumn();
         return $result;
 }
-
-function modExistCheck($pdo,$world,$modUUID) {
-	$sth = $pdo->prepare("SELECT thunderstore_mods FROM worlds WHERE thunderstore_mods_all LIKE '%$modUUID%' AND name='$world';");
-	$sth->execute();
-	$result = $sth->fetchColumn();
-	return $result;
-}
-
 # Launch string field order is POSITIONAL and parsed by index in the client's
 # Arguments.cs. Only ever APPEND fields -- an older client ignores trailing fields it
 # does not know about, but reordering silently breaks every installed client.
@@ -702,53 +541,6 @@ function getCpuModel($pdo) {
                 return "—";
         }
 }
-
-function getLastTsUpdated($pdo) {
-        $sth = $pdo->prepare("SELECT tsUpdated FROM systemstats LIMIT 1;");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-
-	$timezone = date('T');
-
-        if(!empty($result)) {
-                $result = "$result $timezone";
-                return $result;
-	} else {
-		return "pending first execution...";
-        }
-}
-
-
-function getLastTsLocalDiffExecTime($pdo) {
-        $sth = $pdo->prepare("SELECT tsSyncLocalLastRun FROM systemstats LIMIT 1;");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-
-        $timezone = date('T');
-
-	if(!empty($result)) {
-		$result = "$result $timezone";
-                return $result;		
-        } else {
-                return "pending first execution...";
-	}
-}
-
-function getLastTsRemoteDiffExecTime($pdo) {
-        $sth = $pdo->prepare("SELECT tsSyncRemoteLastRun FROM systemstats LIMIT 1;");
-        $sth->execute();
-	$result = $sth->fetchColumn();
-
-        $timezone = date('T');
-
-        if(!empty($result)) {
-		$result = "$result $timezone";
-                return $result;		
-        } else {
-                return "pending first execution...";
-        }
-}
-
 function getLastWorldBackupExecTime($pdo) {
         $sth = $pdo->prepare("SELECT worldBackupLastRun FROM systemstats LIMIT 1;");
         $sth->execute();
@@ -793,38 +585,6 @@ function getLastUtilizationMonitorExecTime($pdo) {
                 return "pending first execution...";
         }
 }
-
-function getLastTsSyncLocalExecStatus($pdo) {
-        $sth = $pdo->prepare("SELECT tsSyncLocalLastExecStatus FROM systemstats LIMIT 1;");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-
-        // If status is 'running', verify the process is actually running
-        if (strtolower($result) === 'running') {
-                // Check if tsSyncLocalParseMultithreaded.sh is actually running
-                $processCheck = trim(exec("pgrep -f tsSyncLocalParseMultithreaded.sh 2>/dev/null"));
-                $pidFileCheck = trim(exec("ls /tmp/ts_*.pid 2>/dev/null | head -1"));
-
-                // If no process running and no pid files, the status is stale
-                if (empty($processCheck) && empty($pidFileCheck)) {
-                        // Clean up orphan pid files and reset status
-                        exec("rm -f /tmp/ts_*.pid 2>/dev/null");
-                        $updateStmt = $pdo->prepare("UPDATE systemstats SET tsSyncLocalLastExecStatus='idle'");
-                        $updateStmt->execute();
-                        return 'idle';
-                }
-        }
-
-        return $result;
-}
-
-function getLastTsSyncRemoteExecStatus($pdo) {
-        $sth = $pdo->prepare("SELECT tsSyncRemoteLastExecStatus FROM systemstats LIMIT 1;");
-        $sth->execute();
-        $result = $sth->fetchColumn();
-        return $result;
-}
-
 function getLastWorldBackupExecStatus($pdo) {
         $sth = $pdo->prepare("SELECT worldBackupLastExecStatus FROM systemstats LIMIT 1;");
         $sth->execute();

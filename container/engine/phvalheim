@@ -23,6 +23,17 @@ source /opt/stateless/engine/includes/0-functions.sh
 # reconcile backup records with files on disk
 /opt/stateless/engine/tools/worldBackupReconcile
 
+# sweep up mod selection rows whose world no longer exists. Runs after dbUpdater.sh so the
+# table is guaranteed to exist, and before the main loop so a world created this boot cannot
+# be handed a recycled id that still carries a deleted world's mods.
+pruneOrphanedWorldMods
+
+# Sync both mod catalogues, every boot -- a restarted server should come back with a current
+# mod list rather than waiting up to the cron interval. Builds from scratch if this server has
+# none yet (fresh install, or a volume restored from before 2.43); otherwise change detection
+# makes it a ~2s no-op. Replaces the old GitHub seed download.
+syncModCatalogue
+
 # migrate environment variables to database (one-time, for upgrades from pre-2.31)
 setupComplete=$(SQL "SELECT setupComplete FROM settings")
 if [ "$setupComplete" = "0" ]; then
@@ -233,6 +244,8 @@ while [ true ]; do
 
 			else
 				echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
+				#world_mods FIRST, while the worlds row still exists to resolve the id from.
+				deleteWorldModRows "$worldName"
 				SQL "DELETE FROM worlds WHERE name='$worldName'"
 				rm -rf /opt/stateful/games/valheim/worlds/$worldName
 			fi
@@ -252,6 +265,16 @@ while [ true ]; do
 			        
 				#delete supervisor config file for this world
                                 deleteSupervisorWorldConfig "$worldName"
+
+				#world_mods is keyed on worlds.id, so it MUST be cleared before the
+				#worlds row goes -- afterwards there is nothing left to resolve the id
+				#from and the rows are unreachable garbage.
+				#
+				#Not merely untidy: InnoDB recomputes AUTO_INCREMENT as MAX(id)+1 on
+				#restart, so after deleting the highest-numbered world the next world
+				#created can be handed the same id and would inherit the deleted
+				#world's entire mod selection.
+				deleteWorldModRows "$worldName"
 
 				SQL "DELETE FROM worlds WHERE name='$worldName'"
 			fi

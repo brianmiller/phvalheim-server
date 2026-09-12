@@ -421,7 +421,11 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			var allModsData = [];
 			var depMap = {};           // moduuid -> [dep uuids]
 			var reverseDepMap = {};    // moduuid -> [mods that depend on it]
-			var checkedSet = {};       // moduuid -> true for ALL checked mods
+			var checkedSet = {};       // mods.id -> true for ALL checked mods
+			var pinSet = {};           // mods.id -> mod_versions.id, when a version is PINNED
+			var versionCache = {};     // mods.id -> full version list, fetched on demand
+			var activeSources = {};    // source key -> true when that catalogue is shown
+			var catalogSourceDefs = [];
 			var activeTable = null;    // DataTable for selected mods (top)
 			var allTable = null; // DataTable for available mods (bottom)
 			var pendingCloneData = null;
@@ -450,10 +454,15 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				depMap = {};
 				reverseDepMap = {};
 				mods.forEach(function(mod) {
-					depMap[mod.moduuid] = mod.deps || [];
-					(mod.deps || []).forEach(function(depUuid) {
-						if (!reverseDepMap[depUuid]) reverseDepMap[depUuid] = [];
-						reverseDepMap[depUuid].push(mod.moduuid);
+					// Keyed on mods.id, NOT the source's uuid. Hexium mirrors Thunderstore
+					// packages carrying their ORIGINAL uuid4, so 600 package uuids exist in
+					// both catalogues -- keying on one would collapse two different mods into
+					// a single checkbox and install whichever the lookup happened to find.
+					var mid = String(mod.id);
+					depMap[mid] = (mod.deps || []).map(String);
+					depMap[mid].forEach(function(depId) {
+						if (!reverseDepMap[depId]) reverseDepMap[depId] = [];
+						reverseDepMap[depId].push(mid);
 					});
 				});
 			}
@@ -710,7 +719,14 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			function buildModInfoMap() {
 				modInfoMap = {};
 				allModsData.forEach(function(mod) {
-					modInfoMap[mod.moduuid] = { name: mod.name, url: mod.url };
+					modInfoMap[String(mod.id)] = {
+						name: mod.name,
+						url: mod.url,
+						source: mod.source,
+						owner: mod.owner,
+						version: mod.version,
+						versions: mod.versions
+					};
 				});
 			}
 
@@ -725,6 +741,33 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					return '<a href="' + info.url + '" target="_blank">' + escapeHtml(name) + '</a>';
 				}).filter(function(l) { return l !== ''; });
 				return '<span class="dep-tooltip">Required by:<br>' + lines.join('<br>') + '</span>';
+			}
+
+			// Redraw a table's rows WITHOUT moving the operator.
+			//
+			// Every checkbox toggle rebuilds both tables from checkedSet, because a selection
+			// changes the badges and ordering of other rows. That rebuild must not also throw
+			// away where the operator was: with 11,600+ mods, being sent back to the top of
+			// the list after every click makes selecting several mods genuinely painful.
+			//
+			// Two separate things have to be preserved, and each is lost by a different
+			// mechanism:
+			//   - draw(false) keeps the current PAGE. A bare draw() is draw(true), which
+			//     resets paging to page 1 -- that is what sent the list back to the start.
+			//   - scrollTop of the scroll body is reset by replacing the rows even when the
+			//     page is retained, because DataTables rebuilds the tbody. So it is captured
+			//     and restored around the draw.
+			function redrawInPlace(table, rows) {
+				var body = $(table.table().container()).find('.dataTables_scrollBody');
+				var scrollTop = body.scrollTop();
+				table.clear().rows.add(rows).draw(false);
+				// Restored TWICE, and the second one is not redundant. DataTables adjusts the
+				// scroll body itself after the draw returns (_fnScrollDraw re-measures the
+				// header/body widths), which clobbers a purely synchronous restore and leaves
+				// the list at the top even though the page was held. The rAF pass lands after
+				// that adjustment.
+				body.scrollTop(scrollTop);
+				window.requestAnimationFrame(function() { body.scrollTop(scrollTop); });
 			}
 
 			// Rebuild both tables from checkedSet state
@@ -759,9 +802,28 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				var allOtherRows = [];
 
 				allModsData.forEach(function(mod) {
-					var uuid = mod.moduuid;
+					var uuid = String(mod.id);
+
+					// A source the operator has filtered out is hidden unless it is already
+					// part of the selection -- silently dropping a selected mod from the list
+					// would read as the selection having been lost.
+					if (!activeSources[mod.source] && !checkedSet[uuid]) return;
+
 					var modName = mod.name.length > 64 ? mod.name.substring(0, 64) + '...' : mod.name;
 					var nameHtml = '<a target="_blank" href="' + mod.url + '">' + escapeHtml(modName) + '</a>';
+					nameHtml += ' ' + sourcePill(mod.source);
+					if (mod.deprecated) {
+						nameHtml += ' <span class="badge bg-danger dep-badge">deprecated</span>';
+					}
+					// An unresolvable dependency means the mod will install but not work. It is
+					// shown here because the alternative is finding out from a silent
+					// zero-plugins world at first start.
+					if (mod.missing_deps && mod.missing_deps.length) {
+						nameHtml += ' <span class="badge bg-warning text-dark dep-badge">missing dep'
+						          + (mod.missing_deps.length > 1 ? 's' : '')
+						          + '<span class="dep-tooltip">Not in any enabled catalogue:<br>'
+						          + mod.missing_deps.map(escapeHtml).join('<br>') + '</span></span>';
+					}
 
 					// Badge logic with hover tooltip
 					if (!checkedSet[uuid] && neededDeps[uuid]) {
@@ -773,7 +835,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					var isChecked = !!checkedSet[uuid];
 					var checkbox = '<input type="checkbox" class="form-check-input mod-checkbox" value="' + uuid + '" data-uuid="' + uuid + '"' + (isChecked ? ' checked' : '') + '>';
 
-					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.version_date_created, mod.version];
+					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.updated || '',
+					           versionCell(mod, isChecked)];
 
 					if (isChecked || neededDeps[uuid]) {
 						activeRows.push(row);
@@ -789,8 +852,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 
 				if (activeTable && allTable) {
 					// Reuse existing DataTables — avoids expensive destroy/recreate
-					activeTable.clear().rows.add(activeRows).draw();
-					allTable.clear().rows.add(allRows).draw();
+					redrawInPlace(activeTable, activeRows);
+					redrawInPlace(allTable, allRows);
 				} else {
 					// First call: create tables
 					var tableConfig = {
@@ -808,7 +871,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 							{ title: 'Name', className: 'alt-color' },
 							{ title: 'Author', className: 'alt-color' },
 							{ title: 'Last Updated', className: 'alt-color' },
-							{ title: 'Version', className: 'alt-color' }
+							{ title: 'Version', className: 'alt-color', width: '150px' }
 						],
 						rowCallback: function(row, data, index) {
 							$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
@@ -833,6 +896,13 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				$('#activeModCount').text(Object.keys(checkedSet).length);
 				$('#allModCount').text(allRows.length);
 
+				// Per-catalogue counts, so the operator can see what each source contributes
+				catalogSourceDefs.forEach(function(s) {
+					var n = 0;
+					allModsData.forEach(function(m) { if (m.source === s.key) n++; });
+					$('#msf-count-' + s.key).text(n ? '(' + n + ')' : '');
+				});
+
 				// Update World Information card counts
 				var checkedCount = Object.keys(checkedSet).length;
 				$('#selectedModCount').text(checkedCount);
@@ -846,7 +916,171 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 
 			// Get all checked mod UUIDs (state-driven, no DOM dependency)
 			function getSelectedMods() {
-				return Object.keys(checkedSet);
+				// Objects, not bare ids: the server needs the pin alongside the mod, and a
+				// null pin explicitly means "follow latest".
+				return Object.keys(checkedSet).map(function(id) {
+					return { id: parseInt(id, 10), pin: pinSet[id] || null };
+				});
+			}
+
+			// Thunderstore is blue, Hexium is purple -- fixed, because the pill colour IS how
+			// you tell at a glance which catalogue a mod came from.
+			function sourcePill(source) {
+				var def = null;
+				for (var i = 0; i < catalogSourceDefs.length; i++) {
+					if (catalogSourceDefs[i].key === source) { def = catalogSourceDefs[i]; break; }
+				}
+				var label = def ? def.label : source;
+				var cls = def ? def.colour : 'ts';
+				return '<span class="src-pill src-' + cls + '">' + escapeHtml(label) + '</span>';
+			}
+
+			function fmtBytes(n) {
+				if (!n) return '';
+				if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
+				return (n / 1048576).toFixed(1) + ' MB';
+			}
+
+			// The version selector. Only a SELECTED mod gets one -- offering to pin a version
+			// of a mod that is not in the world is noise.
+			//
+			// Options are filled in lazily. Shipping all 91,701 versions to the browser to
+			// populate dropdowns nobody opens would be a multi-megabyte payload; one mod here
+			// has 131 published versions on its own.
+			function versionCell(mod, isChecked) {
+				var uuid = String(mod.id);
+				if (!isChecked) {
+					return '<span class="ver-plain">' + escapeHtml(mod.version || '') + '</span>';
+				}
+				if (mod.versions <= 1) {
+					return '<span class="ver-plain">' + escapeHtml(mod.version || '') + '</span>';
+				}
+
+				var pin = pinSet[uuid] || '';
+				var cached = versionCache[uuid];
+				var opts = '';
+
+				if (cached) {
+					cached.forEach(function(v) {
+						var sel = (String(pin) === String(v.id)) ? ' selected' : '';
+						var lbl = v.version + (v.latest ? ' (latest)' : '');
+						opts += '<option value="' + v.id + '"' + sel + ' title="' + fmtBytes(v.size) + '">'
+						      + escapeHtml(lbl) + '</option>';
+					});
+					// "Follow latest" is a distinct choice from "pin the version that is
+					// currently latest": the first keeps tracking, the second freezes.
+					opts = '<option value=""' + (pin ? '' : ' selected') + '>Latest (auto)</option>' + opts;
+				} else if (pin) {
+					// Pinned but not yet expanded: show the pin so the cell never misrepresents
+					// what the world will install.
+					opts = '<option value="' + pin + '" selected>'
+					     + escapeHtml(pinVersionLabel[uuid] || 'pinned') + '</option>'
+					     + '<option value="__load">Show all ' + mod.versions + ' versions...</option>';
+				} else {
+					opts = '<option value="" selected>Latest (' + escapeHtml(mod.version || '') + ')</option>'
+					     + '<option value="__load">Show all ' + mod.versions + ' versions...</option>';
+				}
+
+				// is-pinned is what makes a frozen version visible without opening the
+				// dropdown; a pin that looks identical to "follow latest" is a pin nobody
+				// remembers setting.
+				var pinCls = pin ? ' is-pinned' : '';
+				return '<select class="form-select form-select-sm mod-version' + pinCls + '" data-mid="' + uuid + '">'
+				     + opts + '</select>';
+			}
+
+			var pinVersionLabel = {};   // mods.id -> version string of the current pin
+
+			// Fetch one mod's versions, then redraw so the select shows the full list.
+			function loadVersionsFor(mid, cb) {
+				if (versionCache[mid]) { if (cb) cb(); return; }
+				$.ajax({
+					url: 'adminAPI.php?action=getModVersions&modId=' + encodeURIComponent(mid),
+					method: 'GET', dataType: 'json'
+				}).done(function(d) {
+					if (d.success) versionCache[mid] = d.versions;
+					if (cb) cb();
+				}).fail(function() {
+					if (cb) cb();
+				});
+			}
+
+			// Build the catalogue-source filter bar.
+			function buildSourceFilter() {
+				if (!catalogSourceDefs.length || $('#modSourceFilter').length) return;
+				var html = '<div id="modSourceFilter" class="mod-source-filter">'
+				         + '<span class="msf-label">Catalogues:</span>';
+				catalogSourceDefs.forEach(function(s) {
+					if (!s.enabled) return;
+					html += '<button type="button" class="msf-btn src-' + s.colour + ' active" '
+					      + 'data-source="' + s.key + '">' + escapeHtml(s.label)
+					      + ' <span class="msf-count" id="msf-count-' + s.key + '"></span></button>';
+				});
+				html += '<span class="msf-hint">A disabled catalogue is hidden from the list. '
+				      + 'Mods already selected stay visible.</span></div>';
+				$('#modTabBar').after(html);
+
+				$('#modSourceFilter').on('click', '.msf-btn', function() {
+					var key = $(this).data('source');
+					// Never allow every catalogue off at once -- that empties the picker and
+					// looks like the mod database has gone missing.
+					var on = Object.keys(activeSources).filter(function(k) { return activeSources[k]; });
+					if (activeSources[key] && on.length === 1) return;
+					activeSources[key] = !activeSources[key];
+					$(this).toggleClass('active', !!activeSources[key]);
+					rebuildTables();
+				});
+			}
+
+
+			// Delegated so it survives every DataTables redraw -- the selects are re-rendered
+			// from pinSet on each rebuildTables(), so a handler bound to the element itself
+			// would be lost on the first repaint.
+			function bindVersionSelector() {
+				if (window.__phvVersionSelectorBound) return;
+				window.__phvVersionSelectorBound = true;
+
+				$(document).on('change', '.mod-version', function() {
+					var mid = String($(this).data('mid'));
+					var val = $(this).val();
+
+					// The "show all versions" sentinel is not a version -- fetch the list and
+					// redraw so the operator gets the real dropdown.
+					if (val === '__load') {
+						loadVersionsFor(mid, function() { rebuildTables(); });
+						return;
+					}
+
+					if (val === '' || val === null) {
+						delete pinSet[mid];
+						delete pinVersionLabel[mid];
+					} else {
+						pinSet[mid] = parseInt(val, 10);
+						var list = versionCache[mid] || [];
+						for (var i = 0; i < list.length; i++) {
+							if (String(list[i].id) === String(val)) {
+								pinVersionLabel[mid] = list[i].version;
+								break;
+							}
+						}
+					}
+					markChanged();
+					rebuildTables();
+				});
+
+				// Opening the dropdown loads the real list, so the operator does not have to
+				// select a placeholder option to discover the versions.
+				$(document).on('mousedown', '.mod-version', function() {
+					var mid = String($(this).data('mid'));
+					if (!versionCache[mid]) {
+						loadVersionsFor(mid, function() { rebuildTables(); });
+					}
+				});
+			}
+
+			// The enabled catalogues, saved with the world so its picker opens the same way.
+			function getModSources() {
+				return Object.keys(activeSources).filter(function(k) { return activeSources[k]; });
 			}
 
 			// Load mod table and world selection via AJAX
@@ -875,13 +1109,57 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					}
 
 					allModsData = modsData.mods;
+					catalogSourceDefs = modsData.sources || [];
+					// The world's own source filter if it has one, otherwise every catalogue
+					// the server has enabled -- which is what every pre-2.43 world wants.
+					activeSources = {};
+					var worldSources = selData.modSources || [];
+					catalogSourceDefs.forEach(function(s) {
+						if (!s.enabled) return;
+						activeSources[s.key] = worldSources.length
+							? worldSources.indexOf(s.key) !== -1
+							: true;
+					});
+					// A world whose saved filter names only disabled catalogues would render an
+					// empty picker; fall back to showing everything rather than nothing.
+					if (!Object.keys(activeSources).some(function(k) { return activeSources[k]; })) {
+						catalogSourceDefs.forEach(function(s) { if (s.enabled) activeSources[s.key] = true; });
+					}
 					buildDepMaps(allModsData);
 					buildModInfoMap();
+					buildSourceFilter();
+					bindVersionSelector();
 
-					// Initialize checkedSet from both selected and dep lists
+					// Initialize checkedSet and the pins from the world's selection.
+					// Entries are objects now, not bare uuids: each carries the pinned version
+					// (null meaning "follow latest").
 					checkedSet = {};
-					(selData.selected || []).forEach(function(uuid) { checkedSet[uuid] = true; });
-					(selData.deps || []).forEach(function(uuid) { checkedSet[uuid] = true; });
+					pinSet = {};
+					pinVersionLabel = {};
+					function adoptSelection(list) {
+						(list || []).forEach(function(entry) {
+							var id = String(typeof entry === 'object' ? entry.id : entry);
+							checkedSet[id] = true;
+							if (typeof entry === 'object' && entry.pin) {
+								pinSet[id] = entry.pin;
+								pinVersionLabel[id] = entry.pin_version || 'pinned';
+								// A pin whose version row is gone means the world would quietly
+								// move to a different version. modSync keeps pinned versions
+								// alive even when a source delists them, so this is rare -- but
+								// silence here is exactly the failure that matters.
+								if (entry.pin_missing) {
+									console.warn('pinned version missing for mod ' + id);
+									$('#formMsg').append(
+										"<div class='text-warning'>Pinned version for <b>"
+										+ escapeHtml(entry.name || id)
+										+ "</b> is no longer in the catalogue. It will fall back to "
+										+ "the latest version unless you pick another.</div>").show();
+								}
+							}
+						});
+					}
+					adoptSelection(selData.selected);
+					adoptSelection(selData.deps);
 
 					// Build and display both tables
 					rebuildTables();
@@ -993,7 +1271,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 
 				var payload = {
 					world: worldName,
-					mods: selectedMods
+					mods: selectedMods,
+					modSources: getModSources()
 				};
 
 				// Add clone data if present

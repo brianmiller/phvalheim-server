@@ -452,8 +452,8 @@ function getFormattedLogContent($logFile, $logExclusions, $highlightExclusions, 
 			if (logFile === 'phvalheim.log') {
 				context = 'engine';
 				worldLabel = 'PhValheim Engine';
-			} else if (logFile === 'tsSync.log') {
-				context = 'ts';
+			} else if (logFile === 'modSync.log' || logFile === 'tsSync.log') {
+				context = 'modsync';
 				worldLabel = 'ThunderStore Sync';
 			} else if (logFile === 'worldBackups.log') {
 				context = 'backup';

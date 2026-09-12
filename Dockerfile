@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.42
+ENV phvalheimVersion=2.43
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -18,6 +18,13 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip un
 RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql php-curl cron inetutils-ping time
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client zstd
+# python3 is REQUIRED, not optional: the mod catalogue sync (engine/tools/modSync.py) and a
+# world's mod resolution (engine/tools/worldMods.py) are Python. It was previously present
+# only as a transitive dependency of software-properties-common, which would have made the
+# entire mod system vanish the day that package stopped pulling it in.
+# Standard library only -- the image has no pip and no Python MySQL driver, and modSync.py
+# talks to the database through the mysql client on purpose.
+RUN apt-get install --no-install-recommends --no-install-suggests -y python3-minimal python3
 
 # github cli
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg

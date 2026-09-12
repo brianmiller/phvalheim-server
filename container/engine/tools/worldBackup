@@ -94,15 +94,16 @@ function buildMetadata() {
 	# get top-level directory names
 	local topDirs=$(ls -1d "$worldDir"/*/ 2>/dev/null | xargs -I{} basename {} | tr '\n' ',' | sed 's/,$//')
 
-	# get mod names from thunderstore_mods UUIDs
+	# Mod names for the backup manifest, from world_mods -- ONE query instead of one per
+	# mod against an unindexed table. The legacy thunderstore_mods column it used to read
+	# has not been written since 2.43, so every manifest recorded an empty mod list.
 	local modNames=""
-	local modUuids=$(SQL "SELECT thunderstore_mods FROM worlds WHERE name='$worldName';")
-	if [ -n "$modUuids" ]; then
-		for uuid in $modUuids; do
-			[ "$uuid" = "placeholder" ] && continue
-			local modName=$(SQL "SELECT name FROM tsmods WHERE moduuid='$uuid' LIMIT 1;")
-			[ -n "$modName" ] && modNames="${modNames}${modNames:+,}\"$modName\""
-		done
+	local modRows=$(SQL "SELECT m.name FROM world_mods wm JOIN mods m ON m.id = wm.mod_id JOIN worlds w ON w.id = wm.world_id WHERE w.name='$worldName' ORDER BY m.name;")
+	if [ -n "$modRows" ]; then
+		while IFS= read -r modName; do
+			[ -z "$modName" ] && continue
+			modNames="${modNames}${modNames:+,}\"$modName\""
+		done <<< "$modRows"
 	fi
 
 	echo "{$worldData,\"file_count\":$fileCount,\"dir_count\":$dirCount,\"has_game\":$hasGame,\"has_custom_configs\":$hasCustomConfigs,\"has_mods\":$hasMods,\"top_dirs\":\"$topDirs\",\"mod_names\":[$modNames]}"

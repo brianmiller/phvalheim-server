@@ -12,10 +12,8 @@ if [ ! -d "$tsModsDir" ]; then
         mkdir -p $tsModsDir
 fi
 
-if [ ! -d "$tsWIP" ]; then
-	#echo " Thunderstore WIP directory missing, creating...", this will always display, tsWIP runs on stateless storage
-	mkdir -p $tsWIP
-fi
+# The tsWIP scratch directory was created here. It held the old sync's JSON chunks;
+# modSync.py streams in memory and writes no intermediate files.
 
 if [ ! -d "$backupDir" ]; then
 	echo "`date` [NOTICE : phvalheim] Backup directory missing, creating..".
@@ -36,6 +34,5 @@ chown -R phvalheim: /opt/stateful/games
 chown -R phvalheim: /opt/stateful/logs
 chown -R mysql:mysql /opt/stateful/mysql
 chown -R phvalheim: /tmp/dumps
-chown -R phvalheim: $tsWIP
 chown -R phvalheim: $backupDir
 chmod 600 /etc/cron.d/*
