@@ -29,7 +29,9 @@ docker push "$IMAGE" || { echo "PUSH FAILED"; echo "=== done FAILED ==="; exit 1
 
 echo "=== verifying the fixes are INSIDE the pushed image ==="
 # Trust bytes in the image, not the build output.
-docker run --rm --entrypoint sh "$IMAGE" -c '
+EXPECT_VER=$(sed -n 's/^ENV phvalheimVersion=//p' Dockerfile | head -1)
+echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
+docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   a=$(grep -c "modSelectionCard" /opt/stateless/nginx/www/admin/new_world.php)
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)
@@ -221,7 +223,10 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   # quote ends it early, silently skipping every later check.
   # The Dockerfile is not copied into the image, so read the ENV it set. This is the value
   # dbUpdater and the admin UI actually see.
-  ver=0; [ "${phvalheimVersion:-}" = "2.43" ] && ver=1
+  # Compared against EXPECT_VER passed in from the Dockerfile, NOT a literal. This was
+  # pinned to 2.43 and duly failed the 2.44 build on an image that was correct -- a marker
+  # that has to be hand-edited every release is a marker that cries wolf every release.
+  ver=0; [ "${phvalheimVersion:-}" = "${EXPECT_VER:-}" ] && ver=1
   # A live world is described by what it was STARTED with, not by the saved columns. The
   # snapshot writer and all four readers have to ship together -- the readers alone would fall
   # back to the database for every world and the bug would look fixed while being present.
@@ -233,7 +238,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   bu=$(grep -c "restartPending" /opt/stateless/nginx/www/admin/index.php)
   bv=$(grep -c "restartPending" /opt/stateless/nginx/www/admin/adminAPI.php)
   bw=$(grep -c "restart-pending-badge" /opt/stateless/nginx/www/css/phvalheimStyles.css)
-  echo "version=$ver (want 1)"
+  echo "version=$phvalheimVersion matches Dockerfile=$EXPECT_VER -> $ver (want 1)"
   echo "runtime snapshot: writer=$bp (want 1)  readers=$bq/$br/$bs/$bt (want 1 each)"
   echo "restart pending: ui=$bu (want 7)  poll=$bv (want 1)  css=$bw (want 1)"
   # A vanilla world may run with no password; what it cannot do is run LISTED without one.
@@ -478,12 +483,10 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   gh=$(grep -c "refusing to guess" /opt/stateless/engine/includes/0-functions.sh)
   # printenv filtered to valid shell identifiers
   gi=$(grep -c "A-Za-z_" /opt/stateless/engine/phvalheim)
-  gj=$(echo "$phvalheimVersion")
   echo "2.44 unzip guard fixed=$ga (want 1)  old fatal test gone=$gb (want 0)"
   echo "2.44 bepinex guard fixed=$gc (want 1)  old test gone=$gd (want 0)"
   echo "2.44 loader excl php=$ge py=$gf migration=$gg (want 1/1/1)"
   echo "2.44 viewer arg guard=$gh (want 1)  printenv filter=$gi (want >0)"
-  echo "2.44 image version=$gj (want 2.44)"
   echo "2.43 log api=$ey lib=$ez pane=$fa css=$fb follows-new-run=$fc (want >0 each)"
 
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
@@ -536,7 +539,7 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
     && [ "$fu" -gt 0 ] && [ "$fv" -gt 0 ] && [ "$fw" -gt 0 ] && [ "$fx" = "0" ] \
     && [ "$ga" = "1" ] && [ "$gb" = "0" ] && [ "$gc" = "1" ] && [ "$gd" = "0" ] \
     && [ "$ge" = "1" ] && [ "$gf" = "1" ] && [ "$gg" = "1" ] \
-    && [ "$gh" = "1" ] && [ "$gi" -gt 0 ] && [ "$gj" = "2.44" ] \
+    && [ "$gh" = "1" ] && [ "$gi" -gt 0 ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
