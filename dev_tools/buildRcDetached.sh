@@ -465,7 +465,11 @@ docker run --rm --entrypoint sh "$IMAGE" -c '
   ga=$(grep -c "unzipResult -gt 1" /opt/stateless/engine/includes/0-functions.sh)
   gb=$(grep -c "unzipResult -ne 0" /opt/stateless/engine/includes/0-functions.sh)
   gc=$(grep -c "RESULT -le 1" /opt/stateless/engine/includes/0-functions.sh)
-  gd=$(grep -c "RESULT = 0" /opt/stateless/engine/includes/0-functions.sh)
+  # Anchored to "if", and the dollar is a wildcard dot: a bare RESULT = 0 also matches the
+  # SteamCMD retry loop (while [ $RESULT = 0 ]) at the top of this file, which is unrelated
+  # and correct -- that made this marker fail on a perfectly good image. A literal dollar
+  # would also be expanded by the inner sh, which has no RESULT set.
+  gd=$(grep -cE "if \[ .RESULT = 0 \]" /opt/stateless/engine/includes/0-functions.sh)
   # the loader is not a mod
   ge=$(grep -c "function loaderExclusionSql" /opt/stateless/nginx/www/includes/modcatalog.php)
   gf=$(grep -c "def is_loader" /opt/stateless/engine/tools/worldMods.py)
