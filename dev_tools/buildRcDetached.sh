@@ -17,6 +17,18 @@ LOG=/tmp/phvalheim-rc-build.log
 REPO=/mnt/wopr/development/brian/phvalheim-server
 IMAGE=theoriginalbrian/phvalheim-server:rc
 
+# Release promotion. Set to the extra tags this build should ALSO become, e.g.
+#
+#   EXTRA_TAGS="2.45 latest" setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &
+#
+# They are pushed only after the in-image verify prints IMAGE VERIFY OK, and the verify
+# is what decides -- not the build exit status, because the verify deliberately reports
+# failure with an echo rather than a non-zero exit so the log always shows every marker.
+# Promoting by rebuilding rather than `docker tag`-ing a previous :rc is deliberate too:
+# a retag would ship whatever :rc happened to contain, which is not necessarily this
+# commit. Same source, same image, all three tags.
+EXTRA_TAGS="${EXTRA_TAGS:-}"
+
 exec > "$LOG" 2>&1
 echo "=== started $(date -u) ==="
 cd "$REPO" || exit 1
@@ -706,11 +718,13 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # set but is MODDED", which is what a reader scanning a modded world log took away --
   # reported as "the world log says crossplay is enabled".
   kw=$(grep -c "crossplay is OFF" /opt/stateless/games/valheim/scripts/startWorld.sh)
+  # ...and the operator has to be TOLD, or the fix is invisible to the person who reported it.
+  ky=$(grep -c "crossplay is OFF" /opt/stateless/nginx/www/includes/whatsnew.php)
   # Anchored on echo, NOT the bare phrase: the comment above the fix QUOTES the old wording
   # to explain why it changed, so a bare count is 1 on correct source. This script has been
   # tripped by markers counting their own prose before.
   kx=$(grep -c "echo.*has crossplay set" /opt/stateless/games/valheim/scripts/startWorld.sh)
-  echo "crossplay line: leads-with-outcome=$kw (want 1)  old-misleading-wording=$kx (want 0)"
+  echo "crossplay line: leads-with-outcome=$kw (want 1)  old-misleading-wording=$kx (want 0)  whatsnew=$ky (want 1)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
   echo "2.45 wizard: kind-change=$jd/$je presets=$jf/$jg (want >0 each)"
   echo "2.45 ollama removal: kind=$jh adapter=$ji (want 0/0)  migration: convert=$jj legacy=$jk (want >0/1)"
@@ -799,10 +813,31 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$km" -gt 0 ] && [ "$kn" -gt 0 ] && [ "$ko" -gt 0 ] && [ "$kp" -gt 0 ] \
     && [ "$kq" -gt 0 ] && [ "$kr" -gt 0 ] && [ "$ks" -gt 0 ] && [ "$kt" -gt 0 ] \
     && [ "$ku" -gt 0 ] && [ "$kv" -gt 0 ] \
-    && [ "$kw" = "1" ] && [ "$kx" = "0" ] \
+    && [ "$kw" = "1" ] && [ "$kx" = "0" ] && [ "$ky" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
 echo "=== digest ==="
 docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE"
+
+# Promote, but only on a verified image.
+#
+# The verify above reports its result with an echo, not an exit status, so the ONLY honest
+# signal is the marker in this log. Grepping for it means a build whose verify failed --
+# or whose verify was truncated and never ran -- cannot become :latest.
+if [ -n "$EXTRA_TAGS" ]; then
+	if grep -q "IMAGE VERIFY OK" "$LOG"; then
+		for t in $EXTRA_TAGS; do
+			dst="${IMAGE%:*}:$t"
+			echo "=== promoting -> $dst ==="
+			docker tag "$IMAGE" "$dst"    || { echo "TAG FAILED $dst"; echo "=== done FAILED ==="; exit 1; }
+			docker push "$dst"            || { echo "PUSH FAILED $dst"; echo "=== done FAILED ==="; exit 1; }
+			docker inspect --format "{{index .RepoDigests 0}}" "$dst"
+		done
+	else
+		echo "NOT PROMOTING: the image did not verify, so $EXTRA_TAGS were left alone."
+		echo "=== done FAILED ==="
+		exit 1
+	fi
+fi
 echo "=== done $(date -u) ==="
