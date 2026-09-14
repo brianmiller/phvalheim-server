@@ -46,7 +46,8 @@ Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — 
 | **Multi-Catalogue Mods** | Thunderstore **and** Hexium, usable together in one world. Search across both, see which catalogue each mod came from, pin any previous version, and get dependency resolution across sources. |
 | **Backup System** | Activity-aware scheduled backups with compression (gzip/zstd), tiered retention, one-click restore, and per-world overrides. Supports separate backup volumes. |
 | **Live Monitoring** | Real-time CPU, memory, and load metrics for every running world, visible in both the admin and public UIs. |
-| **AI Helper** | Built-in AI-powered log analysis (OpenAI, Gemini, Claude, or self-hosted Ollama). Identifies mod errors, missing dependencies, and server health issues. |
+| **Hugin, the AI Helper** | Bring your own model &mdash; any OpenAI-compatible endpoint, Anthropic, Gemini, or a self-hosted box. Hugin reads your logs and settings to diagnose mod errors, missing dependencies and server health, and can **carry out changes** &mdash; start or back up a world, edit settings, access lists, backup schedules or mods &mdash; showing you exactly what will change before anything happens. |
+| **Health Scan** | Runs the moment you open the AI panel and needs **no AI provider at all**. Flags mod load failures, missing dependencies, permission errors, port conflicts, restart loops, overdue backups, low disk and more &mdash; each with the log lines that triggered it. |
 | **Custom Configs** | Push custom configuration files to clients, or keep server-only configs that persist across updates. |
 | **Single Container** | Everything runs in one Docker container — NGINX, PHP, MariaDB, Supervisor, and the PhValheim engine. |
 
@@ -321,16 +322,46 @@ considerably longer than a routine check.
 
 ---
 
-### AI Helper (Optional)
+### Hugin, the AI Helper (Optional)
 
-Configure one or more AI providers in Server Settings to enable the built-in log analysis assistant.
+Add one or more providers under **Server Settings → AI Setup**. A five-step wizard tests the
+endpoint, the credential and the model separately, so a failure tells you which of the three
+is wrong instead of surfacing later as a chat error.
 
-| Provider | What you need |
+| Provider type | What you need |
 |---|---|
-| **OpenAI** | API key — enables GPT-4o models |
-| **Google Gemini** | API key — enables Gemini 2.0 Flash and Gemini 1.5 Pro |
-| **Anthropic Claude** | API key — enables Claude Haiku 4.5 and Claude Sonnet 4.5 |
-| **Ollama** | URL of your self-hosted instance — models detected automatically |
+| **OpenAI-compatible** | Endpoint URL + API key. One-click presets for OpenAI, Ollama, vLLM, LM Studio, llama.cpp, OpenRouter, Groq, Together, DeepSeek, Mistral and xAI — or type any endpoint of your own. |
+| **Anthropic** | API key |
+| **Google Gemini** | API key |
+
+**PhValheim has no built-in list of models.** Every provider publishes its own catalogue over
+HTTP, so the model dropdown is fetched live from *your* endpoint and cached briefly. When a
+vendor retires a model it simply stops appearing, and a model we have never heard of is sent
+**exactly as you entered it** — never silently substituted. Configure as many providers as you
+like, including several of the same type, and switch between them from the panel header.
+
+#### What Hugin can do
+
+Hugin reads logs, world settings, the resolved mod list, catalogue sync state, backups and host
+health on its own, and shows which of them it consulted in every reply. It can also **act**:
+start, stop, restart, update or delete a world, take or restore a backup, and change world
+options, access lists, backup policy, mods or server settings.
+
+Nothing that matters happens without your say-so. Anything that stops a service, changes
+configuration or destroys data is shown first as a card listing every change, old value to new,
+with **Apply** and **Dismiss**. That card is built on the server from the validated change — not
+from Hugin's description of it — works once, expires after fifteen minutes, and is re-checked at
+the moment you click. Deleting a world and restoring a backup additionally require you to type
+the world's name.
+
+Hugin refuses changes that would quietly break something: an access list that would be enforced
+but empty (which opens a world to everyone), listing a vanilla world with no password (Valheim
+will not start), and crossplay or a password on a modded world (where they do nothing). The
+**"What can Hugin do for me?"** button lists every capability and every refusal, generated from
+the live capability list, and works with no provider configured.
+
+If your model cannot call tools — some smaller self-hosted models cannot — Hugin answers anyway
+and tells you it could not inspect anything and cannot make changes.
 
 ---
 

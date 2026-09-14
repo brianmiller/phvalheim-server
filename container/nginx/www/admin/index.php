@@ -5,6 +5,7 @@ include '../includes/db_sets.php';
 include '../includes/db_gets.php';
 # Absolute + require_once: a relative include would redeclare its functions fatally.
 require_once '/opt/stateless/nginx/www/includes/whatsnew.php';
+require_once '/opt/stateless/nginx/www/includes/hugin.php';
 
 // Redirect to setup wizard if fresh install (but not for upgrades)
 if ($setupComplete === 0) {
@@ -288,11 +289,16 @@ $totalCount = count($worlds);
                 </button>
                 <h1>PhValheim Administrator Interface</h1>
                 <div class="header-actions">
-                    <button class="ai-helper-btn" id="aiHelperBtn" onclick="toggleAiPanel()" title="AI Helper" style="display:none">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                        </svg>
-                        AI Helper
+<?php
+                    // 2.45: no longer hidden until a credential exists. The panel's
+                    // health scan is deterministic PHP and needs no provider at all, so
+                    // hiding the entry point meant the one operator who most needed the
+                    // diagnostics -- the one who had configured nothing -- could not
+                    // reach them.
+                    ?>
+                    <button class="ai-helper-btn" id="aiHelperBtn" onclick="toggleAiPanel()" title="Ask Hugin — the AI Helper">
+                        <?php echo huginSvg('idle ai-btn-hugin', 20); ?>
+                        Ask Hugin
                     </button>
                     <span class="live-indicator">
                         <span class="live-indicator-dot"></span>
@@ -1048,6 +1054,137 @@ $totalCount = count($worlds);
     </div>
     <?php endif; ?>
 
+    <!-- Ollama provider conversion (one shot, only when the migration actually converted
+         something). z-index 1070: this must sit ABOVE the What's New dialog below, because
+         both can fire on the same boot and this one describes a change to the operator's
+         own configuration rather than a list of features. -->
+    <!-- Meet Hugin (one shot) ------------------------------------------------------
+         z-index 1075 puts him ABOVE the Ollama notice (1070) and What's New, so on an
+         upgrade the operator is introduced to the bird first and the technical notes
+         follow underneath as each is dismissed. Gated on setupComplete == 2 so a fresh
+         install meets him after the setup wizard rather than on top of it. -->
+    <?php // ?? 1 is load-bearing: an UNDEFINED $huginNoticeShown is null, and null == 0 is
+      // TRUE in PHP -- so a missing variable would show this dialog on every single page
+      // load forever. Defaulting to 1 means "already seen" when we cannot tell.
+      if ($setupComplete == 2 && ($huginNoticeShown ?? 1) == 0): ?>
+    <div class="mods-modal-overlay show" id="huginNoticeOverlay" style="z-index:1075;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 560px;">
+            <div class="mods-modal-body" style="padding-top: 1.75rem;">
+
+                <div style="text-align: center; margin-bottom: 1.25rem;">
+                    <?php echo huginSvg('idle hugin-hello', 92); ?>
+                    <h3 style="margin: 0.75rem 0 0.25rem; font-size: 1.35rem; color: var(--text-primary);">
+                        Hello, I&rsquo;m Hugin.
+                    </h3>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">
+                        Odin had two ravens. You get one, and he watches your server.
+                    </p>
+                </div>
+
+                <div style="background: var(--bg-primary); border-radius: 8px; padding: 1rem 1.15rem; margin-bottom: 1.1rem;">
+                    <p style="margin: 0 0 0.7rem; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.55;">
+                        <strong style="color: var(--text-primary);">Ask me anything about your worlds.</strong>
+                        I can read your logs, work out why a world will not start, check who is
+                        allowed to join, and tell you what needs attention &mdash; in plain words,
+                        no log-diving required.
+                    </p>
+                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.55;">
+                        <strong style="color: var(--text-primary);">I can do things too.</strong>
+                        Start a world, take a backup, change settings, fix an access list. Anything
+                        with consequences I hand you a card first &mdash; <em>you</em> press Apply.
+                        I never change your server behind your back.
+                    </p>
+                </div>
+
+                <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.55; margin-bottom: 1.25rem; text-align: center;">
+                    I need a brain to borrow &mdash; bring your own AI provider (OpenAI, Anthropic,
+                    Gemini, or your own local model).<br>
+                    Set one up in <strong style="color: var(--text-secondary);">Server Settings &rarr; AI Helper</strong>,
+                    or press <strong style="color: var(--text-secondary);">Ask Hugin</strong> and
+                    click <strong style="color: var(--text-secondary);">+ Provider</strong>.
+                </p>
+
+                <p style="color: var(--text-muted); font-size: 0.78rem; text-align: center; margin-bottom: 1.25rem;">
+                    No provider yet? I still run a health check on your server for free.
+                </p>
+
+                <div style="text-align: center; display: flex; gap: 0.6rem; justify-content: center;">
+                    <button class="action-btn success" onclick="dismissHuginNotice(true)"
+                            style="padding: 0.5rem 1.5rem; font-size: 0.9rem;">Set up an AI provider</button>
+                    <button class="action-btn" onclick="dismissHuginNotice(false)"
+                            style="padding: 0.5rem 1.5rem; font-size: 0.9rem;">Maybe later</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    async function dismissHuginNotice(openSettings) {
+        const el = document.getElementById('huginNoticeOverlay');
+        if (el) el.classList.remove('show');
+        // Fire and forget, but close regardless: the operator has read it, and a dialog that
+        // will not go away is worse than a flag that clears on the next page load.
+        try { await fetch('adminAPI.php?action=dismissHuginNotice', { method: 'POST' }); }
+        catch (e) { /* dismissed visually either way */ }
+
+        // Take them straight there rather than making them hunt for it.
+        //
+        // showServerSettingsModal, NOT openServerSettings -- the latter does not exist. A
+        // `typeof x === "function"` guard around a name that is never defined is silently
+        // dead code that reads as working, and the only symptom would be a button in the
+        // welcome dialog that quietly does nothing.
+        if (openSettings) showServerSettingsModal();
+    }
+    </script>
+    <?php endif; ?>
+
+    <?php if ($aiOllamaNotice > 0): ?>
+    <div class="mods-modal-overlay show" id="aiOllamaNoticeOverlay" style="z-index:1070;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 620px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.5 0L3.2 16.25A2 2 0 005 19z"/>
+                    </svg>
+                    <?php echo $aiOllamaNotice === 1 ? 'Your Ollama provider was updated' : 'Your Ollama providers were updated'; ?>
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    PhValheim no longer has a separate <strong>Ollama</strong> provider type. Ollama serves an
+                    OpenAI-compatible API, so it is now one of the endpoint presets on the
+                    <strong>OpenAI-compatible</strong> type &mdash; one adapter instead of two.
+                </p>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    <?php echo $aiOllamaNotice === 1 ? 'One existing provider was' : $aiOllamaNotice . ' existing providers were'; ?>
+                    converted automatically. Because the two APIs live at different paths, the base URL changed:
+                </p>
+                <div style="background: var(--bg-primary); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);">
+                    http://your-host:11434 &nbsp;&rarr;&nbsp; http://your-host:11434<span style="color: var(--accent-secondary);">/v1</span>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+                    Nothing else changed &mdash; same host, same models, no API key needed. Check it under
+                    <strong>Server Settings &rarr; AI Helper</strong>, or open Hugin and use
+                    <strong>Refresh models</strong>. If the model list comes back empty, confirm the
+                    <code>/v1</code> path is reachable from this container.
+                </p>
+                <div style="text-align: center;">
+                    <button class="action-btn success" onclick="dismissAiOllamaNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    async function dismissAiOllamaNotice() {
+        const el = document.getElementById('aiOllamaNoticeOverlay');
+        if (el) el.classList.remove('show');
+        // Fire and forget, but never leave the modal up if the POST fails: the operator has
+        // read it, and a dialog that will not close is worse than a flag cleared next boot.
+        try { await fetch('adminAPI.php?action=dismissAiOllamaNotice', { method: 'POST' }); }
+        catch (e) { /* cleared visually either way */ }
+    }
+    </script>
+    <?php endif; ?>
+
     <!-- What's New Dialog (one shot, after every upgrade) -->
     <?php
     // Gated on setupComplete == 2 so it queues BEHIND the setup wizard and the migration
@@ -1458,68 +1595,16 @@ $totalCount = count($worlds);
         }
     }
 
-    // Populate world logs in the AI context dropdown
-    let aiContextWorldsPopulated = false;
+    // Worlds the AI Helper's "About" picker can offer.
+    //
+    // 2.45: this used to build an <optgroup> of "world:<name>" context values, one per
+    // world log, and it ran only ONCE (a `populated` latch) -- so a world created after
+    // the page loaded never appeared. It is now just a name list, re-rendered on every
+    // poll, because the panel's picker is a hint about what the operator is asking about
+    // rather than a selector for which log gets pasted into the prompt.
     function updateAiContextWorlds(worlds) {
-        if (aiContextWorldsPopulated) return; // only populate once
-        const group = document.getElementById('aiContextWorldGroup');
-        if (!group) return;
-        group.innerHTML = '';
-        worlds.forEach(w => {
-            const opt = document.createElement('option');
-            opt.value = 'world:' + w.name;
-            opt.textContent = w.name;
-            group.appendChild(opt);
-        });
-        aiContextWorldsPopulated = true;
-        // Restore saved context (might be a world log)
-        const savedContext = getCookie('aiContext');
-        if (savedContext) {
-            const sel = document.getElementById('aiContextSelect');
-            for (let i = 0; i < sel.options.length; i++) {
-                if (sel.options[i].value === savedContext) {
-                    sel.value = savedContext;
-                    break;
-                }
-            }
-        }
-    }
-
-    // Called from log viewer windows via window.opener
-    function openAiHelperWithContext(contextValue, prompt, displayLabel) {
-        // Ensure worlds are in the dropdown
-        const sel = document.getElementById('aiContextSelect');
-        // Set the context value (may need to add it if world logs aren't populated yet)
-        let found = false;
-        for (let i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].value === contextValue) {
-                sel.value = contextValue;
-                found = true;
-                break;
-            }
-        }
-        if (!found && contextValue.startsWith('world:')) {
-            // Add it dynamically
-            const group = document.getElementById('aiContextWorldGroup');
-            const opt = document.createElement('option');
-            opt.value = contextValue;
-            opt.textContent = contextValue.replace('world:', '');
-            group.appendChild(opt);
-            sel.value = contextValue;
-        }
-        setCookie('aiContext', contextValue, 365);
-        // Open the panel
-        const panel = document.getElementById('aiPanel');
-        if (!panel.classList.contains('open')) {
-            toggleAiPanel();
-        }
-        // Pre-fill and auto-send prompt if provided
-        if (prompt) {
-            document.getElementById('aiInput').value = prompt;
-            sendAiMessage(displayLabel || null);
-        } else {
-            document.getElementById('aiInput').focus();
-        }
+        aiKnownWorlds = (worlds || []).map(function (w) { return w.name; });
+        if (typeof aiRenderContextOptions === 'function') aiRenderContextOptions();
     }
 
     // Convert mode to display text (e.g., "create" -> "Creating")
@@ -4419,27 +4504,13 @@ $totalCount = count($worlds);
 
                 <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('AI Helper', 'var(--warning)')}
-                    <div style="margin-bottom:0.75rem;font-size:0.75rem;color:var(--text-muted)">Optional. Configure one or more providers for the AI log analysis feature.</div>
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('API key from platform.openai.com for GPT-based log analysis')}>OpenAI API Key</label>
-                            ${keyField('ss-openaiApiKey', s.openaiApiKey)}
-                        </div>
-                        <div class="col-6">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('API key from console.anthropic.com for Claude-based log analysis')}>Claude API Key</label>
-                            ${keyField('ss-claudeApiKey', s.claudeApiKey)}
-                        </div>
+                    <div style="margin-bottom:0.75rem;font-size:0.75rem;color:var(--text-muted);line-height:1.5;">
+                        Add as many providers as you like &mdash; cloud or self-hosted, several of the same kind.
+                        Models are discovered live from each endpoint, so PhValheim never holds a built-in model
+                        list that can go stale.
                     </div>
-                    <div class="row mb-2">
-                        <div class="col-6">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('API key from aistudio.google.com for Gemini-based log analysis')}>Gemini API Key</label>
-                            ${keyField('ss-geminiApiKey', s.geminiApiKey)}
-                        </div>
-                        <div class="col-6">
-                            <label style="font-size:0.8rem;color:orchid" ${tip('URL of your local Ollama instance (e.g. http://host:11434)')}>Ollama URL</label>
-                            <input type="text" class="form-control form-control-sm" id="ss-ollamaUrl" value="${s.ollamaUrl || ''}" style="font-family:var(--font-mono)" ${tip('Full URL including port for a local Ollama server. No API key needed.')}>
-                        </div>
-                    </div>
+                    <div id="ss-aiProviderList" class="ai-prov-list"></div>
+                    <button type="button" class="action-btn" style="margin-top:0.6rem;" onclick="aiWizOpen()">+ Add AI provider</button>
                 </div>
 
                 <!-- The "Advanced" section held Thunderstore Local Sync and Thunderstore
@@ -4518,6 +4589,10 @@ $totalCount = count($worlds);
                     <div id="ssStatus" style="margin-top:0.75rem;font-size:0.85rem;"></div>
                 </div>
             `;
+            // The AI section is rendered from the live provider registry rather than
+            // from the settings payload -- providers are rows in ai_providers now, not
+            // four fixed columns in `settings`.
+            aiRenderProviderList();
             // Highlight empty required fields with red border
             ['ss-gameDNS', 'ss-basePort', 'ss-steamAPIKey', 'ss-phvalheimClientURL'].forEach(id => {
                 const el = document.getElementById(id);
@@ -4559,10 +4634,6 @@ $totalCount = count($worlds);
             phvalheimClientURL: document.getElementById('ss-phvalheimClientURL').value.trim(),
             timezone: document.getElementById('ss-timezone').value.trim() || 'Etc/UTC',
             steamAPIKey: document.getElementById('ss-steamAPIKey').value.trim(),
-            openaiApiKey: document.getElementById('ss-openaiApiKey').value.trim(),
-            claudeApiKey: document.getElementById('ss-claudeApiKey').value.trim(),
-            geminiApiKey: document.getElementById('ss-geminiApiKey').value.trim(),
-            ollamaUrl: document.getElementById('ss-ollamaUrl').value.trim(),
             analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),
             thunderstoreApiKey: document.getElementById('ss-thunderstoreApiKey').value.trim(),
             hexiumApiKey: document.getElementById('ss-hexiumApiKey').value.trim(),
@@ -4623,394 +4694,1397 @@ $totalCount = count($worlds);
     });
     </script>
 
-    <!-- AI Helper Panel -->
+    <!-- ================================================================================
+         AI Helper (2.45)
+
+         The 2.44 panel had a "Context" dropdown whose whole job was choosing WHICH single
+         log got pasted into the system prompt. That choice is gone: the model has tools
+         and fetches what it needs, so the only context that remains is "which world am I
+         asking about", which is a hint rather than a hard scope.
+         ================================================================================ -->
     <div class="ai-panel" id="aiPanel">
         <div class="ai-panel-header">
             <span class="ai-panel-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                </svg>
-                AI Helper
+                <!-- Hugin. Rendered server-side so he is present before any JS runs, and
+                     restyled by class as the stream progresses -- the header copy is the
+                     busy tell that stays visible when the transcript is scrolled away.
+                     It is also the ORIGINAL that aiHuginNode() clones, so there is exactly
+                     one drawing of this bird in the product. -->
+                <?php echo huginSvg('idle ai-panel-hugin', 24); ?>
+                Hugin <span style="opacity:.55;font-weight:400;">· AI Helper</span>
             </span>
             <button class="ai-panel-close" onclick="toggleAiPanel()" title="Close">&times;</button>
             <div class="ai-panel-selectors">
                 <div class="ai-selector-group">
                     <label class="ai-selector-label">Model</label>
-                    <select id="aiModelSelect" class="ai-context-select" onchange="onAiModelChange()"></select>
+                    <!-- The <select> stays and remains the single source of truth: every
+                         reader (aiCurrentSelection, the cookie, aiRenderModelSelect) keeps
+                         working untouched. The combobox in front of it is a VIEW of its
+                         options. A native select is unusable at 130 models -- OpenAI alone
+                         returns that many -- because it has no way to type past the first
+                         letter. -->
+                    <select id="aiModelSelect" class="ai-context-select" onchange="aiOnModelChange()" style="display:none;"></select>
+                    <div class="ai-modelpick" id="aiModelPick">
+                        <button type="button" class="ai-modelpick-btn" id="aiModelBtn" onclick="aiModelPickToggle(event)">
+                            <span id="aiModelBtnLabel">No provider configured</span>
+                            <span class="ai-modelpick-caret">&#9662;</span>
+                        </button>
+                        <div class="ai-modelpick-pop" id="aiModelPop">
+                            <input type="text" id="aiModelFilter" class="form-control form-control-sm"
+                                   placeholder="Search models&hellip;" autocomplete="off"
+                                   oninput="aiModelPickRender()" onkeydown="aiModelPickKey(event)">
+                            <div class="ai-modelpick-list" id="aiModelList"></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="ai-selector-group">
-                    <label class="ai-selector-label">Context</label>
-                    <select id="aiContextSelect" class="ai-context-select" onchange="onAiContextChange()">
-                        <option value="none">No log context</option>
-                        <option value="engine">Engine log</option>
-                        <option value="ts">Thunderstore log</option>
-                        <option value="backup">Backup log</option>
-                        <optgroup label="World Logs" id="aiContextWorldGroup"></optgroup>
+                    <label class="ai-selector-label">About</label>
+                    <select id="aiWorldSelect" class="ai-context-select" onchange="aiOnWorldChange()">
+                        <option value="">Whole server</option>
                     </select>
                 </div>
             </div>
-        </div>
-        <div class="ai-panel-messages" id="aiMessages">
-            <div class="ai-message assistant">
-                <div class="ai-message-content">Hello! I can help you troubleshoot server issues, understand logs, and manage mods. Select a log context above for log-aware answers.</div>
+            <div class="ai-panel-toolbar">
+                <button class="ai-chip-btn" onclick="aiLoadDiagnostics(true)" title="Re-run the deterministic scan">&#8635; Rescan</button>
+                <button class="ai-chip-btn" onclick="aiRefreshAllModels()" title="Re-query every provider for its current model list">&#10227; Refresh models</button>
+                <button class="ai-chip-btn" onclick="aiNewChat()" title="Clear the conversation">&#9998; New chat</button>
+                <button class="ai-chip-btn" onclick="aiWizOpen()" title="Add an AI provider">+ Provider</button>
             </div>
-            <div class="ai-quick-prompts" id="aiQuickPrompts"></div>
         </div>
+
+        <div class="ai-panel-body">
+            <div class="ai-diagnostics" id="aiDiagnostics"></div>
+            <div class="ai-panel-messages" id="aiMessages"></div>
+        </div>
+
         <div class="ai-panel-input">
-            <textarea id="aiInput" placeholder="Ask about logs, mods, errors..." rows="2"></textarea>
-            <button onclick="sendAiMessage()" id="aiSendBtn" class="ai-send-btn" title="Send (Ctrl+Enter)">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-            </button>
+            <div class="ai-quick-prompts" id="aiQuickPrompts"></div>
+            <div class="ai-composer">
+                <textarea id="aiInput" placeholder="Ask about a world, a log, mods, backups&hellip;" rows="2"></textarea>
+                <button onclick="aiSend()" id="aiSendBtn" class="ai-send-btn" title="Send (Enter)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="ai-footer" id="aiFooter"></div>
         </div>
     </div>
     <div class="ai-panel-overlay" id="aiOverlay" onclick="toggleAiPanel()"></div>
 
+    <!-- Add-AI-provider wizard.
+         z-index 1060 deliberately: this opens from the Server Settings modal, and the
+         shared .mods-modal-overlay sits at the same level as that one. A stacked overlay
+         left at the base z-index renders behind its own dim layer and cannot be dismissed. -->
+    <div class="mods-modal-overlay" id="aiWizardOverlay" style="z-index:1060;" onclick="aiWizClose(event)">
+        <div class="mods-modal" style="max-width:640px;" onclick="event.stopPropagation()">
+            <div class="mods-modal-header">
+                <h3 id="aiWizTitle">Add an AI provider</h3>
+                <button class="mods-modal-close" onclick="aiWizClose()">&times;</button>
+            </div>
+            <div class="ai-wiz-steps" id="aiWizSteps"></div>
+            <div class="mods-modal-body" id="aiWizBody" style="min-height:260px;"></div>
+            <div class="mods-modal-footer" style="display:flex;justify-content:space-between;gap:0.5rem;">
+                <button class="action-btn" id="aiWizBack" onclick="aiWizGo(-1)">Back</button>
+                <div id="aiWizStatus" style="flex:1;font-size:0.8rem;align-self:center;"></div>
+                <button class="action-btn success" id="aiWizNext" onclick="aiWizGo(1)">Next</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-    // AI Helper Chat — Multi-provider support
-    let aiChatHistory = [];
-    let aiProviders = {};
+    /* ================================================================================
+     * AI Helper client
+     *
+     * Talks to three endpoints:
+     *   adminAPI.php?action=getAiProviders   registry + live-discovered models
+     *   adminAPI.php?action=aiDiagnostics    the deterministic scan (no model involved)
+     *   aiStream.php                         SSE chat
+     *
+     * The model list is never hardcoded here either. If a provider stops offering a
+     * model, it stops appearing - that is the entire fix for issue #83, and it only
+     * holds if the client also refuses to keep its own copy.
+     * ================================================================================ */
+
+    let aiProviders   = [];     // [{id, label, kind, model, models:[...], ...}]
+    let aiKinds       = {};
+    let aiHistory     = [];     // [{role, content}] - plain turns only
+    let aiKnownWorlds = [];
+    let aiBusy        = false;
     const AI_MAX_HISTORY = 20;
 
-    // Cookie helpers
-    function setCookie(name, value, days) {
-        const d = new Date();
-        d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-        document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+    /* ---- tiny Markdown renderer -------------------------------------------------
+     * Deliberately small and escape-first: every model output is untrusted text, and
+     * 2.44 asked the model for raw HTML and injected it. Fenced code is extracted
+     * before anything else so that markup inside a code block is shown, not applied. */
+    function aiEsc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-    function getCookie(name) {
-        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-        return match ? decodeURIComponent(match[2]) : '';
+    function aiMd(src) {
+        const blocks = [];
+        let s = String(src || '').replace(/\r\n/g, '\n');
+
+        s = s.replace(/```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```/g, function (_, lang, code) {
+            blocks.push('<pre><code class="lang-' + aiEsc(lang) + '">' + aiEsc(code.replace(/\n$/, '')) + '</code></pre>');
+            return '@@AIBLOCK' + (blocks.length - 1) + '@@';
+        });
+
+        s = aiEsc(s);
+        s = s.replace(/`([^`\n]+)`/g, function (_, c) { return '<code>' + c + '</code>'; });
+        s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+        s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+        s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+        s = s.replace(/^#{1,6}\s+(.+)$/gm, '<strong class="ai-h">$1</strong>');
+
+        const out = [];
+        let list = null;
+        s.split('\n').forEach(function (line) {
+            const ul = line.match(/^\s*[-*]\s+(.*)$/);
+            const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+            const want = ul ? 'ul' : (ol ? 'ol' : null);
+            if (want) {
+                if (list !== want) { if (list) out.push('</' + list + '>'); out.push('<' + want + '>'); list = want; }
+                out.push('<li>' + (ul ? ul[1] : ol[1]) + '</li>');
+            } else {
+                if (list) { out.push('</' + list + '>'); list = null; }
+                out.push(line.trim() === '' ? '' : '<div>' + line + '</div>');
+            }
+        });
+        if (list) out.push('</' + list + '>');
+
+        return out.join('\n').replace(/@@AIBLOCK(\d+)@@/g, function (_, i) { return blocks[+i]; });
     }
 
-    // Load available providers from backend
-    async function loadAiProviders() {
+    /* ---- registry ---------------------------------------------------------------- */
+
+    async function aiLoadProviders(refreshId, announce) {
         try {
-            const res = await fetch('adminAPI.php?action=getAiProviders');
+            const url = 'adminAPI.php?action=getAiProviders' + (refreshId ? '&refresh=' + refreshId : '');
+            const res = await fetch(url);
             const data = await res.json();
             if (!data.success) return;
-            aiProviders = data.providers;
-
-            const keys = Object.keys(aiProviders);
-
-            populateModelSelect();
-
-            // Restore context cookie
-            const savedContext = getCookie('aiContext');
-            if (savedContext) {
-                document.getElementById('aiContextSelect').value = savedContext;
-            }
-
-            // Update quick prompts to reflect initial context
-            updateAiQuickPrompts();
-
-            // Show AI Helper button only if providers exist
-            document.getElementById('aiHelperBtn').style.display = keys.length === 0 ? 'none' : 'inline-flex';
-        } catch(e) {
-            console.error('Failed to load AI providers:', e);
+            aiProviders = data.providers || [];
+            aiKinds     = data.kinds || {};
+            aiRenderModelSelect();
+            aiRenderQuickPrompts();
+            if (announce) aiFoot('Model lists refreshed.');
+        } catch (e) {
+            console.error('AI provider load failed', e);
         }
     }
 
-    function populateModelSelect() {
-        const modelSel = document.getElementById('aiModelSelect');
-        modelSel.innerHTML = '';
+    /** Refresh every provider's catalogue, not just one. */
+    async function aiRefreshAllModels() {
+        aiFoot('Refreshing model lists...');
+        for (const p of aiProviders) await aiLoadProviders(p.id, false);
+        aiRenderProviderList();
+        aiFoot('Model lists refreshed from every provider.');
+    }
 
-        // Build flat list of all provider:model combinations
-        const allModels = [];
-        Object.keys(aiProviders).forEach(provider => {
-            aiProviders[provider].models.forEach(m => {
-                allModels.push({
-                    provider: provider,
-                    providerId: provider,
-                    providerLabel: aiProviders[provider].label,
-                    modelId: m.id,
-                    modelLabel: m.label,
-                    value: provider + ':' + m.id,
-                    text: aiProviders[provider].label + ' - ' + m.label
+    function aiRenderModelSelect() {
+        const sel = document.getElementById('aiModelSelect');
+        if (!sel) return;
+        const prev = sel.value || getCookie('aiModel');
+        sel.innerHTML = '';
+
+        const usable = aiProviders.filter(function (p) { return p.enabled; });
+        if (!usable.length) {
+            sel.innerHTML = '<option value="">No provider configured</option>';
+            aiModelPickSync();
+            return;
+        }
+
+        usable.forEach(function (p) {
+            const g = document.createElement('optgroup');
+            g.label = p.label;
+
+            // A provider whose discovery failed still has to be usable: its pinned model
+            // goes in the list on its own. Hiding it because api.openai.com had a bad
+            // minute would make a transient outage look like a broken install.
+            let models = p.models || [];
+            if (!models.length && p.model) models = [{ id: p.model, label: p.model + ' (pinned)' }];
+
+            models.forEach(function (m) {
+                const o = document.createElement('option');
+                o.value = p.id + ' ' + m.id;
+                o.textContent = (m.label || m.id) + (m.context ? '  · ' + Math.round(m.context / 1000) + 'k' : '');
+                g.appendChild(o);
+            });
+
+            if (!models.length) {
+                const o = document.createElement('option');
+                o.value = p.id + ' ';
+                o.textContent = p.models_error ? ('unavailable - ' + p.models_error) : 'no models';
+                o.disabled = true;
+                g.appendChild(o);
+            }
+            sel.appendChild(g);
+        });
+
+        // Restore the previous choice; otherwise the default provider's pinned model.
+        if (prev && Array.prototype.some.call(sel.options, function (o) { return o.value === prev; })) {
+            sel.value = prev;
+        } else {
+            const def = usable.find(function (p) { return p.is_default; }) || usable[0];
+            const want = def.id + ' ' + (def.model || (def.models[0] || {}).id || '');
+            if (Array.prototype.some.call(sel.options, function (o) { return o.value === want; })) sel.value = want;
+        }
+        aiModelPickSync();   // the button is the only visible part; it must follow the select
+    }
+
+    function aiCurrentSelection() {
+        const v = (document.getElementById('aiModelSelect') || {}).value || '';
+        const i = v.indexOf(' ');
+        if (i < 0) return { providerId: 0, model: '' };
+        return { providerId: parseInt(v.slice(0, i), 10) || 0, model: v.slice(i + 1) };
+    }
+
+    function aiOnModelChange() {
+        setCookie('aiModel', document.getElementById('aiModelSelect').value);
+        aiModelPickSync();
+    }
+
+    /* ---- searchable model picker -----------------------------------------------------
+     *
+     * A thin view over #aiModelSelect. It never holds state of its own: picking a row sets
+     * the select's value and fires its change handler, so the cookie, aiCurrentSelection()
+     * and every other reader stay authoritative and unaware this exists.
+     */
+    function aiModelPickSync() {
+        const sel = document.getElementById('aiModelSelect');
+        const lab = document.getElementById('aiModelBtnLabel');
+        if (!sel || !lab) return;
+        const opt = sel.options[sel.selectedIndex];
+        lab.textContent = opt ? opt.textContent.trim() : 'No provider configured';
+        lab.title = lab.textContent;
+    }
+
+    function aiModelPickToggle(e) {
+        if (e) e.stopPropagation();
+        const pop = document.getElementById('aiModelPop');
+        const open = pop.classList.toggle('open');
+        if (open) {
+            const f = document.getElementById('aiModelFilter');
+            f.value = '';
+            aiModelPickRender();
+            f.focus();
+        }
+    }
+
+    /* Starred models.
+     *
+     * Kept in a cookie, like aiModel and aiWorld beside it, rather than a new settings
+     * column: this is a per-operator view preference, it needs no migration, and it works
+     * on an already-running install the moment the image is pulled. Losing it to a cleared
+     * cookie costs one click per model to rebuild.
+     *
+     * Capped, because a cookie is sent on EVERY request to this origin — an unbounded
+     * favourites list would quietly add weight to every page load and API call in the admin.
+     */
+    const AI_FAV_MAX = 24;
+
+    function aiFavList() {
+        try {
+            const v = JSON.parse(getCookie('aiFavModels') || '[]');
+            return Array.isArray(v) ? v : [];
+        } catch (e) { return []; }
+    }
+
+    function aiFavToggle(value) {
+        let f = aiFavList();
+        f = f.indexOf(value) >= 0 ? f.filter(function (x) { return x !== value; })
+                                  : [value].concat(f).slice(0, AI_FAV_MAX);
+        setCookie('aiFavModels', JSON.stringify(f));
+        aiModelPickRender();
+    }
+
+    function aiModelPickRender() {
+        const sel  = document.getElementById('aiModelSelect');
+        const list = document.getElementById('aiModelList');
+        const q    = (document.getElementById('aiModelFilter').value || '').toLowerCase().trim();
+        if (!sel || !list) return;
+
+        const fav     = aiFavList();
+        const matches = function (o) {
+            return !o.disabled && (!q || (o.textContent + ' ' + o.value).toLowerCase().indexOf(q) >= 0);
+        };
+        const row = function (o, providerLabel) {
+            const starred = fav.indexOf(o.value) >= 0;
+            return '<div class="ai-modelpick-item' + (o.value === sel.value ? ' sel' : '') + '">'
+                 +   '<button type="button" class="ai-modelpick-star' + (starred ? ' on' : '') + '"'
+                 +     ' data-star="' + aiEsc(o.value) + '"'
+                 +     ' title="' + (starred ? 'Unpin' : 'Pin to the top') + '">'
+                 +     (starred ? '★' : '☆')
+                 +   '</button>'
+                 +   '<button type="button" class="ai-modelpick-row" data-v="' + aiEsc(o.value) + '">'
+                 +     aiEsc(o.textContent.trim())
+                 +     (providerLabel ? '<span class="ai-modelpick-prov">' + aiEsc(providerLabel) + '</span>' : '')
+                 +   '</button>'
+                 + '</div>';
+        };
+
+        let html = '';
+
+        // Starred first, in the order they were starred. Rendered from the LIVE options, so
+        // a model that has since been retired upstream simply stops appearing — the cookie
+        // keeps it in case a transient discovery failure brings it back.
+        const all = [...sel.querySelectorAll('option')];
+        const favRows = fav
+            .map(function (v) { return all.find(function (o) { return o.value === v; }); })
+            .filter(function (o) { return o && matches(o); });
+        if (favRows.length) {
+            html += '<div class="ai-modelpick-group">★ Pinned</div>';
+            favRows.forEach(function (o) {
+                const grp = o.closest('optgroup');
+                html += row(o, grp ? grp.label : '');
+            });
+        }
+
+        // Then every provider, with its own heading. Headings survive filtering because with
+        // two providers configured "gpt" and "claude" are different answers to one query.
+        for (const grp of sel.querySelectorAll('optgroup')) {
+            const rows = [...grp.querySelectorAll('option')].filter(matches);
+            if (!rows.length) continue;
+            html += '<div class="ai-modelpick-group">' + aiEsc(grp.label) + '</div>';
+            rows.forEach(function (o) { html += row(o, ''); });
+        }
+
+        list.innerHTML = html || '<div class="ai-modelpick-empty">No model matches &ldquo;' + aiEsc(q) + '&rdquo;.</div>';
+
+        list.querySelectorAll('.ai-modelpick-row').forEach(function (b) {
+            b.addEventListener('click', function () {
+                sel.value = b.getAttribute('data-v');
+                aiOnModelChange();
+                document.getElementById('aiModelPop').classList.remove('open');
+            });
+        });
+        list.querySelectorAll('.ai-modelpick-star').forEach(function (b) {
+            b.addEventListener('click', function (e) {
+                // Without this the star's click bubbles to the row and selects the model,
+                // closing the popup — pinning something would silently switch to it.
+                e.stopPropagation();
+                aiFavToggle(b.getAttribute('data-star'));
+            });
+        });
+    }
+
+    function aiModelPickKey(e) {
+        if (e.key === 'Escape') { document.getElementById('aiModelPop').classList.remove('open'); return; }
+        if (e.key !== 'Enter') return;
+        // Enter takes the first match, which is the whole point of typing three letters.
+        const first = document.querySelector('#aiModelList .ai-modelpick-row');
+        if (first) first.click();
+    }
+
+    // Click-away. Registered once, not per-open, so repeated opening cannot stack handlers.
+    document.addEventListener('click', function (e) {
+        const pick = document.getElementById('aiModelPick');
+        if (pick && !pick.contains(e.target)) {
+            const pop = document.getElementById('aiModelPop');
+            if (pop) pop.classList.remove('open');
+        }
+    });
+
+    function aiOnWorldChange() {
+        setCookie('aiWorld', document.getElementById('aiWorldSelect').value);
+        aiLoadDiagnostics(false);
+        aiRenderQuickPrompts();
+    }
+
+    function aiRenderContextOptions() {
+        const sel = document.getElementById('aiWorldSelect');
+        if (!sel) return;
+        const prev = sel.value || getCookie('aiWorld') || '';
+        sel.innerHTML = '<option value="">Whole server</option>';
+        aiKnownWorlds.forEach(function (n) {
+            const o = document.createElement('option');
+            o.value = n; o.textContent = n;
+            sel.appendChild(o);
+        });
+        if (prev && aiKnownWorlds.indexOf(prev) >= 0) sel.value = prev;
+    }
+
+    /* ---- diagnostics (no model involved) ------------------------------------------ */
+
+    async function aiLoadDiagnostics(force) {
+        const box = document.getElementById('aiDiagnostics');
+        if (!box) return;
+        const world = (document.getElementById('aiWorldSelect') || {}).value || '';
+        box.innerHTML = '<div class="ai-diag-loading">Scanning logs, mods, backups and services&hellip;</div>';
+        try {
+            const res  = await fetch('adminAPI.php?action=aiDiagnostics&world=' + encodeURIComponent(world));
+            const data = await res.json();
+            aiRenderDiagnostics(data.findings || []);
+        } catch (e) {
+            box.innerHTML = '<div class="ai-diag-loading">Scan failed: ' + aiEsc(e.message) + '</div>';
+        }
+    }
+
+    function aiRenderDiagnostics(findings) {
+        const box = document.getElementById('aiDiagnostics');
+        if (!box) return;
+        if (!findings.length) { box.innerHTML = ''; return; }
+
+        const icon = { critical: '✕', warning: '!', info: 'i' };
+        box.innerHTML = findings.map(function (f, i) {
+            const ev = (f.evidence || []).length
+                ? '<pre class="ai-diag-evidence">' + aiEsc(f.evidence.slice(0, 12).join('\n')) + '</pre>'
+                : '';
+            return '<div class="ai-diag ai-diag-' + aiEsc(f.severity) + '">'
+                 +   '<div class="ai-diag-head">'
+                 +     '<span class="ai-diag-badge">' + (icon[f.severity] || '?') + '</span>'
+                 +     '<span class="ai-diag-title">' + aiEsc(f.title) + '</span>'
+                 +   '</div>'
+                 +   '<div class="ai-diag-detail">' + aiEsc(f.detail) + '</div>'
+                 +   ev
+                 +   (f.ask ? '<button class="ai-diag-ask" data-i="' + i + '">Ask AI about this &rarr;</button>' : '')
+                 + '</div>';
+        }).join('');
+
+        box.querySelectorAll('.ai-diag-ask').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const f = findings[parseInt(btn.getAttribute('data-i'), 10)];
+                if (f && f.world) {
+                    const sel = document.getElementById('aiWorldSelect');
+                    if (sel && aiKnownWorlds.indexOf(f.world) >= 0) sel.value = f.world;
+                }
+                aiSend(f.ask);
+            });
+        });
+    }
+
+    function aiRenderNoProviderNotice() {
+        const box = document.getElementById('aiMessages');
+        if (!box || box.querySelector('.ai-message')) return;
+        if (aiProviders.filter(function (p) { return p.enabled; }).length) return;
+        aiAppend('assistant',
+            'No AI provider is configured yet, so I cannot answer questions.\n\n'
+          + 'The health scan above still runs - it is plain pattern matching and needs no model at all.\n\n'
+          + 'Add a provider with **+ Provider** above. OpenAI, Anthropic and Gemini take an API key; '
+          + 'Ollama, vLLM, LM Studio and llama.cpp just need a URL.');
+    }
+
+    /* ---- quick prompts ------------------------------------------------------------ */
+
+    function aiRenderQuickPrompts() {
+        const box = document.getElementById('aiQuickPrompts');
+        if (!box) return;
+        const world = (document.getElementById('aiWorldSelect') || {}).value || '';
+
+        const prompts = world ? [
+            ["Why won't it start?",  "World '" + world + "' is not starting correctly. Read its log since the most recent server start and tell me the cause."],
+            ['Check its mods',       "Compare the mods configured for world '" + world + "' against what BepInEx actually loaded, and list anything missing or failing."],
+            ['Backups OK?',          "Is world '" + world + "' backing up on schedule? Check the backup log if it is not."],
+            ['Who can join?',        "Explain exactly who can currently join world '" + world + "' and whether that matches how it is configured."]
+        ] : [
+            ['Full health check',    'Run a full health check of this server and tell me what needs my attention, most urgent first.'],
+            ['Any world broken?',    'Check every world and tell me if any of them are failing to start or run correctly.'],
+            ['Mod catalogue status', 'Is the mod catalogue syncing correctly? When did each source last update?'],
+            ['Disk and memory',      'How is this host doing on disk, memory and CPU, and is anything at risk?']
+        ];
+
+        box.innerHTML =
+            '<button class="ai-quick-prompt ai-quick-prompt-meta" data-local="capabilities">'
+          + 'What can Hugin do for me?</button>'
+          + prompts.map(function (p) {
+                return '<button class="ai-quick-prompt" data-q="' + aiEsc(p[1]) + '">' + aiEsc(p[0]) + '</button>';
+            }).join('');
+
+        box.querySelectorAll('.ai-quick-prompt').forEach(function (b) {
+            b.addEventListener('click', function () {
+                // The capability answer is rendered server-side from the action catalogue
+                // and never goes near the model. Asked of an LLM, "what can you do" is an
+                // invitation to invent: it would cheerfully offer to restore a backup,
+                // because that is what a server manager plausibly does. This is the one
+                // answer that has to be exactly right, so it is generated from the same
+                // catalogue that decides what actually runs -- and it still works when the
+                // operator's model cannot call tools at all.
+                if (b.getAttribute('data-local') === 'capabilities') { aiShowCapabilities(); return; }
+                aiSend(b.getAttribute('data-q'));
+            });
+        });
+    }
+
+    /* A reply produced WITHOUT tools must say so, once per conversation.
+     *
+     * The endpoint refused the tools parameter, so Hugin answered from the live-state
+     * summary in its prompt and general knowledge alone — it could not read a log, check a
+     * world, or change anything. An answer like that is often still useful and is always
+     * indistinguishable from a real investigation unless we label it. */
+    let aiDegradedShown = false;
+    function aiDegradedNotice(kind) {
+        if (aiDegradedShown) return;
+        aiDegradedShown = true;
+        const box = document.getElementById('aiMessages');
+        const el  = document.createElement('div');
+        el.className = 'ai-degraded';
+        el.innerHTML =
+            '<strong>&#9888; This model can\'t use tools.</strong> '
+          + 'Hugin answered from the server summary and general knowledge only — it did not '
+          + 'read any log, inspect any world, or change anything, and it cannot propose '
+          + 'changes. Pick a model that supports function calling for the full assistant.';
+        box.appendChild(el);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    /* ---- confirm cards -------------------------------------------------------------
+     *
+     * Hugin proposes; the operator decides. The card is built from the SERVER's summary,
+     * never from the model's description of what it is doing -- when those two disagree,
+     * this is the moment that matters, and the operator should see the truth rather than
+     * the claim.
+     *
+     * The browser holds nothing but an opaque token. It cannot alter what will run.
+     */
+    function aiRenderProposals(list) {
+        if (!list || !list.length) return;
+        const box = document.getElementById('aiMessages');
+
+        list.forEach(function (p) {
+            const card = document.createElement('div');
+            card.className = 'ai-proposal' + (p.typed ? ' danger' : '');
+
+            const mins = Math.max(1, Math.round((p.expires || 900) / 60));
+            let html =
+                '<div class="ai-proposal-head">'
+              +   '<span class="ai-proposal-icon">' + (p.typed ? '&#9888;' : '&#10003;') + '</span>'
+              +   '<span class="ai-proposal-title">' + (p.typed ? 'Confirm — this cannot be undone' : 'Waiting for your confirmation') + '</span>'
+              + '</div>'
+              + '<div class="ai-proposal-body">' + aiEsc(p.summary) + '</div>';
+
+            if (p.typed) {
+                html += '<div class="ai-proposal-typed">'
+                     +    '<label>Type <strong>' + aiEsc(p.typed) + '</strong> to confirm</label>'
+                     +    '<input type="text" class="form-control pv-input ai-proposal-name" '
+                     +         'autocomplete="off" spellcheck="false" placeholder="' + aiEsc(p.typed) + '">'
+                     +  '</div>';
+            }
+
+            html += '<div class="ai-proposal-actions">'
+                 +    '<button class="ai-proposal-apply">Apply</button>'
+                 +    '<button class="ai-proposal-dismiss">Dismiss</button>'
+                 +    '<span class="ai-proposal-note">expires in ' + mins + ' min</span>'
+                 +  '</div>';
+
+            card.innerHTML = html;
+            box.appendChild(card);
+
+            const applyBtn = card.querySelector('.ai-proposal-apply');
+            const dropBtn  = card.querySelector('.ai-proposal-dismiss');
+            const nameIn   = card.querySelector('.ai-proposal-name');
+            const note     = card.querySelector('.ai-proposal-note');
+
+            function settle(cls, msg) {
+                card.classList.add(cls);
+                applyBtn.remove(); dropBtn.remove();
+                if (nameIn) nameIn.closest('.ai-proposal-typed').remove();
+                note.textContent = msg;
+            }
+
+            applyBtn.addEventListener('click', async function () {
+                applyBtn.disabled = true; dropBtn.disabled = true;
+                note.textContent = 'Applying…';
+                try {
+                    const r = await fetch('adminAPI.php?action=applyAiProposal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: p.token, typed: nameIn ? nameIn.value : '' })
+                    });
+                    const d = await r.json();
+                    if (d.success) {
+                        settle('applied', d.message || 'Done.');
+                        // Lifecycle actions move worlds.mode; the engine picks that up on
+                        // its next two-second tick. The worlds table already self-polls,
+                        // but nudge it so the result is visible now rather than up to
+                        // POLL_INTERVAL later.
+                        //
+                        // fetchWorldStatus, NOT refreshWorlds -- the latter does not exist,
+                        // and a `typeof x === 'function'` guard around a name that is never
+                        // defined is silently dead code that reads as working.
+                        setTimeout(fetchWorldStatus, 2500);
+                    } else {
+                        // NOT settled: a refusal is usually recoverable (wrong name typed,
+                        // state moved on). Leave the buttons so the operator can retry.
+                        applyBtn.disabled = false; dropBtn.disabled = false;
+                        note.textContent = d.error || 'That could not be applied.';
+                        card.classList.add('refused');
+                    }
+                } catch (e) {
+                    applyBtn.disabled = false; dropBtn.disabled = false;
+                    note.textContent = 'Could not reach the server: ' + e.message;
+                }
+            });
+
+            dropBtn.addEventListener('click', async function () {
+                try {
+                    await fetch('adminAPI.php?action=dismissAiProposal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: p.token })
+                    });
+                } catch (e) { /* the row expires on its own; nothing to recover */ }
+                settle('dismissed', 'Dismissed.');
+            });
+
+            if (nameIn) nameIn.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); applyBtn.click(); }
+            });
+        });
+
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function aiShowCapabilities() {
+        if (aiBusy) return;
+        aiAppend('user', 'What can Hugin do for me?');
+        const bubble = aiAppend('assistant', '_Reading my own catalogue&hellip;_');
+        try {
+            const r = await fetch('adminAPI.php?action=aiCapabilities');
+            const d = await r.json();
+            if (!d.success) throw new Error(d.error || 'Could not read the catalogue.');
+            bubble.querySelector('.ai-message-content').innerHTML = aiMd(d.markdown);
+        } catch (e) {
+            bubble.classList.add('error');
+            bubble.querySelector('.ai-message-content').textContent =
+                'Could not list my capabilities: ' + e.message;
+        }
+        // Kept out of aiHistory on purpose: it is a UI affordance, not part of the
+        // conversation, and feeding a long capability dump back as context on every
+        // subsequent turn would cost tokens for no benefit.
+        document.getElementById('aiMessages').scrollTop = 1e9;
+    }
+
+    /* ---- Hugin ---------------------------------------------------------------------
+     *
+     * Inline SVG rather than a file: the admin UI ships as PHP + CSS with no image
+     * pipeline, and a <img> here would be one more 404 to get wrong on a subpath install.
+     * Every state he can be in corresponds to an actual SSE event, so he is a progress
+     * indicator that cannot lie about whether work is happening.
+     */
+    /* Clone the raven already in the panel header rather than describing him a second time.
+     * The artwork is authored once, in includes/hugin.php; a JS string copy would be a
+     * second drawing that silently stops matching the first the moment either is edited. */
+    function aiHuginNode(state, size) {
+        const src = document.querySelector('.ai-panel-hugin');
+        if (!src) return null;
+        const el = src.cloneNode(true);
+        el.setAttribute('class', 'ai-hugin ' + (state || 'idle'));
+        el.setAttribute('width',  size || 36);
+        el.setAttribute('height', size || 36);
+        return el;
+    }
+
+    /* What Hugin says he is doing. Keyed on the tool the model actually called, so the
+     * line is never a generic "Thinking..." when the truth is available. */
+    const AI_TOOL_PHRASE = {
+        get_diagnostics:     'Scanning for faults',
+        list_worlds:         'Taking stock of the worlds',
+        get_world:           'Looking up the world settings',
+        list_logs:           'Finding the right log',
+        read_log:            'Reading the log',
+        search_log:          'Searching the log',
+        get_world_mods:      'Checking which mods should be installed',
+        get_mod_sync_status: 'Checking the mod catalogues',
+        get_backup_status:   'Checking the backups',
+        get_system_health:   'Checking the host'
+    };
+
+    function aiToolPhrase(name, args) {
+        const base = AI_TOOL_PHRASE[name] || ('Running ' + name);
+        const a    = args || {};
+        if (a.file)    return base + ' — ' + a.file;
+        if (a.world)   return base + ' — ' + a.world;
+        if (a.pattern) return base + ' for "' + a.pattern + '"';
+        return base;
+    }
+
+    /* ---- chat --------------------------------------------------------------------- */
+
+    function aiAppend(role, text) {
+        const box = document.getElementById('aiMessages');
+        const el  = document.createElement('div');
+        el.className = 'ai-message ' + role;
+        el.innerHTML = '<div class="ai-message-content">' + (role === 'user' ? aiEsc(text) : aiMd(text)) + '</div>';
+        box.appendChild(el);
+        box.scrollTop = box.scrollHeight;
+        return el;
+    }
+
+    function aiFoot(msg) {
+        const f = document.getElementById('aiFooter');
+        if (f) f.textContent = msg || '';
+    }
+
+    function aiNewChat() {
+        aiHistory = [];
+        document.getElementById('aiMessages').innerHTML = '';
+        aiFoot('');
+        aiRenderNoProviderNotice();
+    }
+
+    async function aiSend(preset) {
+        if (aiBusy) return;
+        const input = document.getElementById('aiInput');
+        const text  = (preset !== undefined ? preset : input.value).trim();
+        if (!text) return;
+
+        const panel = document.getElementById('aiPanel');
+        if (!panel.classList.contains('open')) toggleAiPanel();
+
+        const sel = aiCurrentSelection();
+        if (!sel.providerId || !sel.model) {
+            aiAppend('error', 'Pick a provider and model first, or add one with **+ Provider**.');
+            return;
+        }
+
+        if (preset === undefined) input.value = '';
+        aiAppend('user', text);
+        aiHistory.push({ role: 'user', content: text });
+        if (aiHistory.length > AI_MAX_HISTORY) aiHistory = aiHistory.slice(-AI_MAX_HISTORY);
+
+        aiBusy = true;
+        document.getElementById('aiSendBtn').disabled = true;
+
+        const bubble  = aiAppend('assistant', '');
+        const content = bubble.querySelector('.ai-message-content');
+        const trace   = document.createElement('div');
+        trace.className = 'ai-trace';
+        bubble.insertBefore(trace, content);
+        content.innerHTML = '<span class="ai-cursor"></span>';
+
+        const started = Date.now();
+        let acc = '';
+
+        // ---- the working strip -------------------------------------------------------
+        // Before this, a 17-second tool-calling answer showed a blinking caret and nothing
+        // else. There was no way to tell thinking from hung, and no sign that the helper
+        // was reading anything at all until the finished answer landed all at once.
+        const work = document.createElement('div');
+        work.className = 'ai-working';
+        work.innerHTML = '<div class="ai-working-text"><span>Thinking</span>'
+                       +   '<div class="ai-working-sub"></div></div>'
+                       + '<div class="ai-working-timer">0.0s</div>';
+        const cloned = aiHuginNode('thinking');
+        if (cloned) work.insertBefore(cloned, work.firstChild);
+        bubble.insertBefore(work, trace);
+
+        const raven   = work.querySelector('.ai-hugin');
+        const workTxt = work.querySelector('.ai-working-text');
+        const workSub = work.querySelector('.ai-working-sub');
+        const header  = document.querySelector('.ai-panel-hugin');
+        let   toolCount = 0, lastRow = null;
+
+        const setState = function (st) {
+            raven.className = 'ai-hugin ' + st;
+            if (header) header.className = 'ai-hugin ai-panel-hugin ' + st;
+        };
+        // Re-creating the <span> is what replays the crossfade animation.
+        const say = function (msg, sub) {
+            workTxt.firstChild.replaceWith(Object.assign(document.createElement('span'), { textContent: msg }));
+            if (sub !== undefined) workSub.textContent = sub;
+        };
+        const timer = setInterval(function () {
+            work.querySelector('.ai-working-timer').textContent =
+                ((Date.now() - started) / 1000).toFixed(1) + 's';
+        }, 100);
+        // Marks the previous tool row finished: the stream tells us a tool STARTED, and the
+        // next event is proof the one before it returned.
+        const settleLastRow = function () {
+            if (!lastRow) return;
+            lastRow.classList.remove('running');
+            lastRow.classList.add('done');
+            lastRow.querySelector('.ai-trace-mark').textContent = '✓';
+            lastRow = null;
+        };
+        let finished = false;
+        const finish = function (st, msg) {
+            if (finished) return;               // called from the done branch AND the tail
+            finished = true;
+            clearInterval(timer);
+            settleLastRow();
+            setState(st);
+            if (msg) aiFoot(msg);
+            // Let the cheer (or the slump) actually play before the strip goes. Removing it
+            // in the same tick as setting the state means the animation is authored, applied
+            // and destroyed within one frame, and nobody ever sees it.
+            if (st === 'done' || st === 'error') {
+                say(st === 'done' ? 'Done' : 'Gave up', '');
+                setTimeout(function () { work.remove(); }, 780);
+            }
+            if (header) setTimeout(function () { header.className = 'ai-hugin ai-panel-hugin idle'; }, 820);
+        };
+
+        try {
+            const res = await fetch('aiStream.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message:     text,
+                    history:     aiHistory.slice(0, -1),
+                    world:       (document.getElementById('aiWorldSelect') || {}).value || '',
+                    provider_id: sel.providerId,
+                    model:       sel.model
+                })
+            });
+
+            if (!res.ok || !res.body) throw new Error('HTTP ' + res.status);
+
+            const reader  = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+
+            for (;;) {
+                const chunk = await reader.read();
+                if (chunk.done) break;
+                buf += decoder.decode(chunk.value, { stream: true });
+
+                // SSE framing: events are separated by a blank line.
+                let sep;
+                while ((sep = buf.indexOf('\n\n')) >= 0) {
+                    const block = buf.slice(0, sep);
+                    buf = buf.slice(sep + 2);
+                    const line = block.split('\n').find(function (l) { return l.indexOf('data:') === 0; });
+                    if (!line) continue;
+
+                    let ev;
+                    try { ev = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+
+                    if (ev.type === 'delta') {
+                        if (acc === '') {
+                            // First character of the answer: the investigation is over.
+                            settleLastRow();
+                            setState('speaking');
+                            say('Writing it up', '');
+                        }
+                        acc += ev.text;
+                        content.innerHTML = aiMd(acc) + '<span class="ai-cursor"></span>';
+                        document.getElementById('aiMessages').scrollTop = 1e9;
+                    } else if (ev.type === 'tool') {
+                        // Show what the model actually looked at. This is the difference
+                        // between "trust me" and a citation the operator can check.
+                        settleLastRow();
+                        toolCount++;
+                        setState('working');
+                        say(aiToolPhrase(ev.name, ev.args),
+                            toolCount + (toolCount === 1 ? ' source consulted' : ' sources consulted'));
+
+                        const row = document.createElement('div');
+                        row.className = 'ai-trace-row running';
+                        const args = Object.keys(ev.args || {}).map(function (k) {
+                            return k + '=' + JSON.stringify(ev.args[k]);
+                        }).join(', ');
+                        row.innerHTML = '<span class="ai-trace-mark">⚙</span> '
+                                      + aiEsc(ev.name + '(' + args + ')');
+                        trace.appendChild(row);
+                        lastRow = row;
+                    } else if (ev.type === 'error') {
+                        finish('error');
+                        bubble.className = 'ai-message error';
+                        content.innerHTML = aiMd('**' + ev.error + '**');
+                        acc = '';
+                        // A proposal written before the turn died is still valid, and the
+                        // card describes itself. Showing it beats an error plus a silent
+                        // pending change the operator never saw.
+                        aiRenderProposals(ev.proposals);
+                    } else if (ev.type === 'done') {
+                        finish('done');
+                        aiRenderProposals(ev.proposals);
+                        if (ev.degraded) aiDegradedNotice(ev.degraded);
+                        if (ev.content && ev.content.length > acc.length) acc = ev.content;
+                        content.innerHTML = aiMd(acc);
+                        const secs = ((Date.now() - started) / 1000).toFixed(1);
+                        const u = ev.usage || {};
+                        const tok = u.total_tokens || u.totalTokenCount
+                                 || ((u.input_tokens || 0) + (u.output_tokens || 0)) || 0;
+                        aiFoot(ev.model + ' · ' + secs + 's' + (tok ? ' · ' + tok + ' tokens' : ''));
+                    }
+                }
+            }
+
+            if (acc) {
+                content.innerHTML = aiMd(acc);
+                aiHistory.push({ role: 'assistant', content: acc });
+            } else if (bubble.className.indexOf('error') < 0) {
+                // The stream opened, said `start`, and then stopped without a single delta,
+                // tool or done event. Previously this left an EMPTY GREY BUBBLE and nothing
+                // else -- no text, no error, no clue. It is what a server-side fatal looks
+                // like from the browser (a undefined-function fatal in the prompt builder
+                // produced exactly this), and an operator cannot be expected to go reading
+                // php.log to discover that their question was never answered.
+                bubble.className = 'ai-message error';
+                content.innerHTML = aiMd(
+                    '**The reply ended before it began.** The connection opened but no answer '
+                  + 'followed, which usually means the request failed server-side. Check '
+                  + '`/opt/stateful/logs/php.log` and `ai.log` for the reason.'
+                );
+            }
+        } catch (e) {
+            // A stream that never opened is usually a proxy that will not pass
+            // text/event-stream. The non-streaming endpoint is the same conversation
+            // without the typing effect, so fall back rather than fail.
+            //
+            // Hugin keeps working through it: the request is still in flight, and killing
+            // the indicator here would show a frozen panel for the whole fallback call.
+            setState('working');
+            say('Stream refused — asking again the plain way', '');
+            try {
+                const res = await fetch('adminAPI.php?action=aiHelper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: text, history: aiHistory.slice(0, -1),
+                        world: (document.getElementById('aiWorldSelect') || {}).value || '',
+                        provider_id: sel.providerId, model: sel.model
+                    })
                 });
-            });
-        });
-
-        // Group models by provider using optgroups
-        const groupedByProvider = {};
-        allModels.forEach(m => {
-            if (!groupedByProvider[m.provider]) {
-                groupedByProvider[m.provider] = [];
+                const d = await res.json();
+                if (d.success) {
+                    content.innerHTML = aiMd(d.reply);
+                    aiHistory.push({ role: 'assistant', content: d.reply });
+                    aiFoot((d.model || '') + ' · non-streaming fallback');
+                } else {
+                    bubble.className = 'ai-message error';
+                    content.innerHTML = aiMd('**' + (d.error || 'Request failed') + '**');
+                }
+            } catch (e2) {
+                bubble.className = 'ai-message error';
+                content.innerHTML = aiMd('**' + e2.message + '**');
             }
-            groupedByProvider[m.provider].push(m);
-        });
-
-        // Add optgroups with provider labels
-        Object.keys(groupedByProvider).forEach(provider => {
-            const group = document.createElement('optgroup');
-            group.label = aiProviders[provider]?.label || provider;
-            group.className = 'ai-model-optgroup';
-            // Style optgroup label with data attribute for provider color
-            group.setAttribute('data-provider', provider);
-            groupedByProvider[provider].forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m.value;
-                opt.textContent = m.modelLabel;
-                opt.className = 'ai-model-option';
-                group.appendChild(opt);
-            });
-            modelSel.appendChild(group);
-        });
-
-        // Restore from cookie if it exists
-        const savedModel = getCookie('aiModel');
-        if (savedModel && allModels.some(m => m.value === savedModel)) {
-            modelSel.value = savedModel;
-        } else if (allModels.length > 0) {
-            modelSel.value = allModels[0].value;
         }
-    }
 
+        // Unconditional: clearInterval here or a failed request leaves a timer ticking in
+        // the background for the life of the page, and the strip stranded mid-animation.
+        finish(bubble.className.indexOf('error') >= 0 ? 'error' : 'done');
 
-
-    function onAiModelChange() {
-        setCookie('aiModel', document.getElementById('aiModelSelect').value, 365);
-    }
-
-    function onAiContextChange() {
-        setCookie('aiContext', document.getElementById('aiContextSelect').value, 365);
-        updateAiQuickPrompts();
-    }
-
-    function updateAiQuickPrompts() {
-        const contextSelect = document.getElementById('aiContextSelect');
-        const contextValue = contextSelect.value;
-        const quickPromptsContainer = document.getElementById('aiQuickPrompts');
-        quickPromptsContainer.innerHTML = '';
-
-        // Show quick prompts only if a world context is selected
-        if (contextValue && contextValue.startsWith('world:')) {
-            const worldName = contextValue.substring(6);
-
-            // "Analyze world logs" button
-            const analyzeBtn = document.createElement('div');
-            analyzeBtn.className = 'ai-quick-prompt';
-            analyzeBtn.textContent = "Analyze world logs for '" + worldName + "'?";
-            analyzeBtn.onclick = function() { clickQuickPrompt('analyze-world'); };
-            quickPromptsContainer.appendChild(analyzeBtn);
-
-            // "Is world healthy" button
-            const healthBtn = document.createElement('div');
-            healthBtn.className = 'ai-quick-prompt';
-            healthBtn.textContent = "Is '" + worldName + "' healthy?";
-            healthBtn.onclick = function() { clickQuickPrompt('world-health'); };
-            quickPromptsContainer.appendChild(healthBtn);
-        }
-    }
-
-    function clickQuickPrompt(promptType) {
-        if (promptType === 'analyze-world') {
-            const contextSelect = document.getElementById('aiContextSelect');
-            const contextValue = contextSelect.value;
-
-            if (!contextValue.startsWith('world:')) {
-                alert('Please select a world context first.');
-                return;
-            }
-
-            const worldName = contextValue.substring(6);
-
-            // Pre-fill the prompt
-            const displayLabel = "Analyzing world '" + worldName + "'...";
-            const prompt = 'You are a Valheim server log analyzer. Your task is to identify mod-related errors that occur after the most recent server start.\n\nFOCUS ONLY ON:\n- Mod loading failures\n- Missing dependencies\n- NullReferenceException in mod code\n- Assembly loading errors\n- Mod configuration errors\n- Errors that prevent the world from starting\n\nCOMPLETELY IGNORE:\n- Graphics, shaders, rendering, cameras, depth, textures, fonts, UI\n- The createDirectory /root/.config error\n- ZoneSystem, DungeonDB, RPC registration messages\n- Audio warnings\n- Any warning that does not affect mod loading or server startup\n\nINSTRUCTIONS:\n1. Read the entire log\n2. Find the most recent server start marker\n3. Only analyze entries after that point\n4. List mod errors in the order they appear\n5. If a mod fails early in startup, mark it: PRIMARY INVESTIGATION AREA - MAY PREVENT WORLD START\n6. Output as HTML bullet points\n7. End with one sentence stating whether critical mod errors exist\n\nOUTPUT FORMAT:\n<ul>\n<li><strong>ModName</strong> - Brief error description</li>\n</ul>\n<p><strong>Overall Health:</strong> One sentence summary</p>\n\nKeep responses concise and focused only on actionable mod issues.';
-
-            openAiHelperWithContext(contextValue, prompt, displayLabel);
-        } else if (promptType === 'world-health') {
-            const contextSelect = document.getElementById('aiContextSelect');
-            const contextValue = contextSelect.value;
-
-            if (!contextValue.startsWith('world:')) {
-                alert('Please select a world context first.');
-                return;
-            }
-
-            const worldName = contextValue.substring(6);
-
-            // Pre-fill the prompt
-            const displayLabel = "Checking health of '" + worldName + "'...";
-            const prompt = 'Based on the log provided, assess the overall health and stability of this Valheim world. Consider:\n\n- Mod loading status and any critical failures\n- Server performance indicators (TPS, memory, etc.)\n- Player activity and connectivity issues\n- Any errors that could impact gameplay\n\nProvide a brief, actionable health assessment in HTML format.';
-
-            openAiHelperWithContext(contextValue, prompt, displayLabel);
-        }
+        aiBusy = false;
+        document.getElementById('aiSendBtn').disabled = false;
     }
 
     function toggleAiPanel() {
-        const panel = document.getElementById('aiPanel');
+        const panel   = document.getElementById('aiPanel');
         const overlay = document.getElementById('aiOverlay');
-        const open = panel.classList.toggle('open');
-        overlay.classList.toggle('open', open);
+        const open    = panel.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('open', open);
         if (open) {
-            // Auto-select last world context if available
-            if (window.lastSelectedWorld) {
-                const contextSelect = document.getElementById('aiContextSelect');
-                const worldContextValue = 'world:' + window.lastSelectedWorld;
-                let found = false;
-                for (let i = 0; i < contextSelect.options.length; i++) {
-                    if (contextSelect.options[i].value === worldContextValue) {
-                        contextSelect.value = worldContextValue;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    const group = document.getElementById('aiContextWorldGroup');
-                    const opt = document.createElement('option');
-                    opt.value = worldContextValue;
-                    opt.textContent = window.lastSelectedWorld;
-                    group.appendChild(opt);
-                    contextSelect.value = worldContextValue;
-                }
-            }
-            // Always update quick prompts when opening the panel
-            updateAiQuickPrompts();
+            aiRenderContextOptions();
+            aiRenderQuickPrompts();
+            aiLoadDiagnostics(false);
+            aiRenderNoProviderNotice();
             document.getElementById('aiInput').focus();
         }
     }
 
-    async function sendAiMessage(displayLabel) {
-        const input = document.getElementById('aiInput');
-        const msg = input.value.trim();
-        if (!msg) return;
-        input.value = '';
-        appendAiMessage('user', displayLabel || msg);
+    /* Called from log-viewer windows via window.opener, and from the ?aiWorld=/?aiAsk=
+     * deep link when the opener is gone. */
+    function openAiHelperWithContext(world, question) {
+        const panel = document.getElementById('aiPanel');
+        if (!panel.classList.contains('open')) toggleAiPanel();
 
-        // Parse provider:model format from consolidated dropdown
-        // Split only on first ':' to handle ollama models with colons (e.g. ollama:llama2:7b)
-        const modelSelect = document.getElementById('aiModelSelect');
-        const modelValue = modelSelect.value;
-        const colonIdx = modelValue.indexOf(':');
-        const provider = modelValue.substring(0, colonIdx);
-        const model = modelValue.substring(colonIdx + 1);
-        const context = document.getElementById('aiContextSelect').value;
+        if (world) {
+            const sel = document.getElementById('aiWorldSelect');
+            if (sel && aiKnownWorlds.indexOf(world) < 0) {
+                // The world poll may not have run yet in a freshly opened tab. Add the
+                // option rather than silently dropping the context the caller asked for.
+                aiKnownWorlds.push(world);
+                aiRenderContextOptions();
+            }
+            if (sel) { sel.value = world; setCookie('aiWorld', world); }
+            aiRenderQuickPrompts();
+            aiLoadDiagnostics(false);
+        }
 
-        aiChatHistory.push({ role: 'user', content: msg });
-        if (aiChatHistory.length > AI_MAX_HISTORY) aiChatHistory = aiChatHistory.slice(-AI_MAX_HISTORY);
+        if (question) aiSend(question);
+        else document.getElementById('aiInput').focus();
+    }
 
-        const typingId = appendAiTyping();
-        document.getElementById('aiSendBtn').disabled = true;
+    /* ---- the Add-provider wizard --------------------------------------------------- */
 
+    // Model BEFORE Test, deliberately. The other order forces the round-trip step to invent
+    // a model to probe with, and the only thing it can invent is "whichever the provider
+    // listed first" -- which on a live Gemini account is an internal preview that refuses
+    // system instructions. A good key then fails the wizard with an error about a model the
+    // operator never chose. Pick first, then test what was picked.
+    const AI_WIZ_STEPS = ['Type', 'Endpoint', 'Credentials', 'Model', 'Test'];
+    const AI_WIZ_MODEL = 3, AI_WIZ_TEST = 4;
+    let aiWiz = null;
+
+    function aiWizOpen(providerId) {
+        const existing = providerId ? aiProviders.find(function (p) { return p.id === providerId; }) : null;
+        aiWiz = {
+            step: existing ? 1 : 0,
+            id: existing ? existing.id : 0,
+            kind: existing ? existing.kind : '',
+            label: existing ? existing.label : '',
+            base_url: existing ? existing.base_url : '',
+            api_key: '',
+            has_key: existing ? existing.has_key : false,
+            model: existing ? existing.model : '',
+            models: existing ? (existing.models || []) : [],
+            enabled: existing ? !!existing.enabled : true,
+            extra_headers: existing ? (existing.extra_headers || {}) : {}
+        };
+        document.getElementById('aiWizTitle').textContent = existing ? ('Edit ' + existing.label) : 'Add an AI provider';
+        document.getElementById('aiWizardOverlay').classList.add('show');
+        aiWizRender();
+    }
+
+    function aiWizClose(e) {
+        if (e && e.target !== document.getElementById('aiWizardOverlay')) return;
+        document.getElementById('aiWizardOverlay').classList.remove('show');
+        aiWiz = null;
+    }
+
+    function aiWizStatus(msg, cls) {
+        const el = document.getElementById('aiWizStatus');
+        el.textContent = msg || '';
+        el.style.color = cls === 'bad' ? 'var(--danger)' : (cls === 'good' ? 'var(--success)' : 'var(--text-muted)');
+    }
+
+    function aiWizRender() {
+        const w = aiWiz;
+        if (!w) return;
+
+        document.getElementById('aiWizSteps').innerHTML = AI_WIZ_STEPS.map(function (s, i) {
+            return '<span class="ai-wiz-step' + (i === w.step ? ' active' : (i < w.step ? ' done' : '')) + '">'
+                 + (i + 1) + '. ' + s + '</span>';
+        }).join('');
+
+        const body = document.getElementById('aiWizBody');
+        const kind = aiKinds[w.kind] || {};
+        aiWizStatus('');
+
+        if (w.step === 0) {
+            body.innerHTML = '<div class="ai-wiz-kinds">' + Object.keys(aiKinds).map(function (k) {
+                const d = aiKinds[k];
+                return '<button class="ai-wiz-kind' + (w.kind === k ? ' sel' : '') + '" data-k="' + k + '">'
+                     +   '<span class="ai-wiz-kind-name">' + aiEsc(d.label) + '</span>'
+                     +   '<span class="ai-wiz-kind-blurb">' + aiEsc(d.blurb) + '</span>'
+                     + '</button>';
+            }).join('') + '</div>';
+            body.querySelectorAll('.ai-wiz-kind').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    const next = b.getAttribute('data-k');
+                    if (next === w.kind) return;
+                    const prev = aiKinds[w.kind] || {};
+
+                    // Carry the defaults across ONLY if the operator has not edited them.
+                    //
+                    // The old test was `if (!w.label)` — blank-or-not. Once the first pick
+                    // had filled them in they were never blank again, so going Back and
+                    // choosing a different type left the PREVIOUS type's name and base URL
+                    // sitting in the form, and the wizard went on to talk to the wrong
+                    // endpoint entirely. Comparing against the outgoing kind's defaults
+                    // distinguishes "untouched" from "deliberately typed", which is the
+                    // distinction that was actually wanted.
+                    if (!w.label    || w.label    === prev.label)    w.label    = aiKinds[next].label;
+                    if (!w.base_url || w.base_url === prev.base_url) w.base_url = aiKinds[next].base_url;
+
+                    w.kind   = next;
+                    w.models = [];          // a different endpoint has a different catalogue
+                    w.model  = '';
+                    aiWizRender();
+                });
+            });
+
+        } else if (w.step === 1) {
+            // Presets for the catch-all kind. They are a typing aid only: everything here
+            // speaks the same protocol, which is exactly why they are presets and not
+            // eleven more provider types with eleven more adapters to keep working.
+            const presets = (kind.presets || []).map(function (pr, i) {
+                return '<button type="button" class="ai-wiz-preset" data-p="' + i + '">' + aiEsc(pr.label) + '</button>';
+            }).join('');
+
+            body.innerHTML =
+                (presets
+                    ? '<label class="ai-wiz-label">Start from</label>'
+                      + '<div class="ai-wiz-presets">' + presets + '</div>'
+                      + '<div class="ai-wiz-hint" id="aiWizPresetHint">All of these serve the same '
+                      + '<code>/chat/completions</code> API — a preset only fills in the URL below.</div>'
+                      + '<div style="height:1rem;"></div>'
+                    : '')
+              + '<label class="ai-wiz-label">Name</label>'
+              + '<input class="form-control form-control-sm" id="aiWizLabel" value="' + aiEsc(w.label) + '">'
+              + '<div class="ai-wiz-hint">Shown in the model picker. Give two endpoints of the same type different names.</div>'
+              + '<label class="ai-wiz-label" style="margin-top:1rem;">Base URL</label>'
+              + '<input class="form-control form-control-sm" id="aiWizBase" style="font-family:var(--font-mono)" value="' + aiEsc(w.base_url) + '">'
+              + '<div class="ai-wiz-hint">' + aiEsc(kind.base_hint || '') + '</div>';
+
+            body.querySelectorAll('.ai-wiz-preset').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    const pr = kind.presets[parseInt(b.getAttribute('data-p'), 10)];
+                    document.getElementById('aiWizBase').value = pr.base_url;
+                    // Update the STATE too, not just the input.
+                    //
+                    // Setting only the DOM left w.base_url on the previous value -- after
+                    // clicking vLLM the field read http://127.0.0.1:8000/v1 while the wizard
+                    // still believed https://api.openai.com/v1. Anything that re-rendered
+                    // this step from state (Back, or a cleared field) silently put the
+                    // OpenAI URL back in front of the operator.
+                    w.base_url = pr.base_url;
+                    // Only rename if the name is still a default — never overwrite a name
+                    // the operator chose, same rule as switching provider type.
+                    const nameEl = document.getElementById('aiWizLabel');
+                    const isDefault = !nameEl.value || nameEl.value === kind.label
+                                   || (kind.presets || []).some(function (x) { return x.label === nameEl.value; });
+                    if (isDefault) nameEl.value = pr.label;
+                    w.models = [];
+                    body.querySelectorAll('.ai-wiz-preset').forEach(function (o) { o.classList.remove('sel'); });
+                    b.classList.add('sel');
+                    const hint = document.getElementById('aiWizPresetHint');
+                    if (hint && pr.hint) hint.textContent = pr.hint;
+                });
+            });
+
+        } else if (w.step === 2) {
+            body.innerHTML =
+                '<label class="ai-wiz-label">' + aiEsc(kind.key_label || 'API key') + '</label>'
+              + '<input class="form-control form-control-sm" type="password" id="aiWizKey" autocomplete="new-password"'
+              +   ' placeholder="' + (w.has_key ? 'stored - leave blank to keep it' : '') + '" value="">'
+              + '<div class="ai-wiz-hint">' + aiEsc(kind.key_hint || '') + '</div>'
+              + '<label class="ai-wiz-label" style="margin-top:1rem;">Extra headers <span style="font-weight:normal;color:var(--text-muted)">(optional JSON)</span></label>'
+              + '<input class="form-control form-control-sm" id="aiWizHeaders" style="font-family:var(--font-mono)"'
+              +   ' value="' + aiEsc(Object.keys(w.extra_headers).length ? JSON.stringify(w.extra_headers) : '') + '"'
+              +   ' placeholder="{&quot;HTTP-Referer&quot;: &quot;https://example.org&quot;}">'
+              + '<div class="ai-wiz-hint">Only needed by gateways that require them, such as OpenRouter attribution headers.</div>';
+
+        } else if (w.step === AI_WIZ_TEST) {
+            body.innerHTML = '<div id="aiWizTestOut" class="ai-wiz-test">Testing&hellip;</div>';
+            aiWizRunTest();
+
+        } else if (!w.models.length) {
+            // Discovery has not run for this draft yet. Ask, then re-render into the picker.
+            body.innerHTML = '<div class="ai-wiz-hint">Asking the endpoint what it can run&hellip;</div>';
+            aiWizDiscover();
+
+        } else {
+            const list = w.models.length ? w.models : (w.model ? [{ id: w.model, label: w.model }] : []);
+            body.innerHTML =
+                '<label class="ai-wiz-label">Model</label>'
+              + '<input class="form-control form-control-sm" id="aiWizFilter" placeholder="Filter&hellip;" style="margin-bottom:0.5rem;">'
+              + '<div class="ai-wiz-models" id="aiWizModels"></div>'
+              + '<div class="ai-wiz-hint" style="margin-top:0.75rem;">'
+              +   list.length + ' model(s) reported by this endpoint just now. PhValheim keeps no built-in list, '
+              +   'so anything retired upstream is simply absent here.'
+              + '</div>';
+
+            const render = function () {
+                const q = (document.getElementById('aiWizFilter').value || '').toLowerCase();
+                document.getElementById('aiWizModels').innerHTML = list
+                    .filter(function (m) { return !q || m.id.toLowerCase().indexOf(q) >= 0; })
+                    .map(function (m) {
+                        return '<button class="ai-wiz-model' + (w.model === m.id ? ' sel' : '') + '" data-m="' + aiEsc(m.id) + '">'
+                             +   '<span>' + aiEsc(m.label || m.id) + '</span>'
+                             +   (m.context ? '<span class="ai-wiz-ctx">' + Math.round(m.context / 1000) + 'k</span>' : '')
+                             + '</button>';
+                    }).join('') || '<div class="ai-wiz-hint">No match.</div>';
+                document.getElementById('aiWizModels').querySelectorAll('.ai-wiz-model').forEach(function (b) {
+                    b.addEventListener('click', function () { w.model = b.getAttribute('data-m'); render(); });
+                });
+            };
+            render();
+            document.getElementById('aiWizFilter').addEventListener('input', render);
+        }
+
+        document.getElementById('aiWizBack').style.visibility = w.step === 0 ? 'hidden' : 'visible';
+        document.getElementById('aiWizNext').textContent = w.step === AI_WIZ_STEPS.length - 1 ? 'Save' : 'Next';
+    }
+
+    function aiWizCollect() {
+        const w = aiWiz;
+        if (w.step === 1) {
+            w.label = (document.getElementById('aiWizLabel') || {}).value || w.label;
+            // `?? w.base_url`, NOT `|| w.base_url`.
+            //
+            // With `||`, clearing the field to retype it read as "no value" and fell back to
+            // whatever the state held — so an empty box silently kept the old URL, and the
+            // "A base URL is required" check below could never fire. An empty string is a
+            // deliberate act by the operator; only a MISSING element should fall back.
+            const el   = document.getElementById('aiWizBase');
+            const base = el ? el.value : w.base_url;
+            // A different endpoint has a different catalogue. Dropping the cached list forces
+            // rediscovery instead of offering models the new URL may not serve.
+            if (base !== w.base_url) w.models = [];
+            w.base_url = base;
+        } else if (w.step === 2) {
+            const k = (document.getElementById('aiWizKey') || {}).value || '';
+            if (k && k !== w.api_key) { w.api_key = k; w.models = []; }
+            const h = ((document.getElementById('aiWizHeaders') || {}).value || '').trim();
+            if (h) {
+                try { w.extra_headers = JSON.parse(h); }
+                catch (e) { return 'Extra headers must be valid JSON.'; }
+            } else {
+                w.extra_headers = {};
+            }
+        }
+        return null;
+    }
+
+    async function aiWizDiscover() {
+        const w = aiWiz;
         try {
-            const res = await fetch('adminAPI.php?action=aiHelper', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch('adminAPI.php?action=discoverAiModels', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: msg,
-                    history: aiChatHistory.slice(0, -1),
-                    context: context,
-                    provider: provider,
-                    model: model
+                    id: w.id, kind: w.kind, label: w.label, base_url: w.base_url,
+                    api_key: w.api_key, extra_headers: w.extra_headers
                 })
             });
-            const data = await res.json();
-            removeAiTyping(typingId);
-            if (data.success) {
-                // Strip ```html and ``` code blocks from response
-                let reply = data.reply;
-                reply = reply.replace(/^```html\n/gm, '');
-                reply = reply.replace(/\n```$/gm, '');
-                reply = reply.replace(/```html/g, '');
-                reply = reply.replace(/```/g, '');
-
-                // Build provider info string from selected option text
-                const modelLabel = modelSelect.selectedOptions[0]?.text || (provider + ' - ' + model);
-                appendAiMessage('assistant', reply, modelLabel);
-                aiChatHistory.push({ role: 'assistant', content: data.reply });
-                if (aiChatHistory.length > AI_MAX_HISTORY) aiChatHistory = aiChatHistory.slice(-AI_MAX_HISTORY);
+            const d = await res.json();
+            if (!aiWiz || aiWiz !== w) return;               // wizard closed while in flight
+            if (d.success && (d.models || []).length) {
+                w.models = d.models;
+                aiWizRender();
             } else {
-                appendAiMessage('error', data.error || 'Error reaching AI');
+                // A discovery failure here is almost always the key or the URL, and both are
+                // one step back. Say which, rather than dropping the operator into an empty list.
+                document.getElementById('aiWizBody').innerHTML =
+                    '<div class="ai-wiz-test-row bad"><span>✕</span><b>Model discovery</b><span>'
+                  + aiEsc(d.error || 'the endpoint listed no models') + '</span></div>';
+                aiWizStatus('Go Back and check the base URL and credentials.', 'bad');
             }
-        } catch(e) {
-            removeAiTyping(typingId);
-            appendAiMessage('error', 'Network error: ' + e.message);
+        } catch (e) {
+            if (!aiWiz || aiWiz !== w) return;
+            document.getElementById('aiWizBody').innerHTML =
+                '<div class="ai-wiz-test-row bad"><span>✕</span><b>Model discovery</b><span>' + aiEsc(e.message) + '</span></div>';
+            aiWizStatus('Discovery failed.', 'bad');
         }
-        document.getElementById('aiSendBtn').disabled = false;
     }
 
-    function appendAiMessage(role, text, providerInfo) {
-        const container = document.getElementById('aiMessages');
-        const wrapper = document.createElement('div');
-        wrapper.className = 'ai-message-wrapper';
-        const div = document.createElement('div');
-        div.className = 'ai-message ' + role;
-        const content = document.createElement('div');
-        content.className = 'ai-message-content';
-        // If response contains HTML tags, render directly; otherwise do markdown-like formatting
-        if (role === 'assistant' && /<[a-z][\s\S]*>/i.test(text)) {
-            content.innerHTML = text;
+    async function aiWizRunTest() {
+        const w   = aiWiz;
+        const out = document.getElementById('aiWizTestOut');
+        try {
+            const res = await fetch('adminAPI.php?action=testAiProvider', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: w.id, kind: w.kind, label: w.label, base_url: w.base_url,
+                    api_key: w.api_key, model: w.model, extra_headers: w.extra_headers
+                })
+            });
+            const d = await res.json();
+            if (d.models) w.models = d.models;
+
+            out.innerHTML = (d.steps || [{ name: 'Test', ok: false, detail: d.error || 'failed' }]).map(function (s) {
+                const cls = s.ok ? (s.warn ? 'warn' : 'ok') : 'bad';
+                const gly = s.ok ? (s.warn ? '!' : '✓') : '✕';
+                return '<div class="ai-wiz-test-row ' + cls + '"><span>' + gly + '</span>'
+                     + '<b>' + aiEsc(s.name) + '</b><span>' + aiEsc(s.detail) + '</span></div>';
+            }).join('');
+
+            aiWizStatus(d.success ? 'Connection verified.' : 'Fix the failures above, or go Back and correct the settings.',
+                        d.success ? 'good' : 'bad');
+        } catch (e) {
+            out.innerHTML = '<div class="ai-wiz-test-row bad"><span>✕</span><b>Test</b><span>' + aiEsc(e.message) + '</span></div>';
+            aiWizStatus('Test failed.', 'bad');
+        }
+    }
+
+    async function aiWizGo(dir) {
+        const w = aiWiz;
+        if (!w) return;
+
+        if (dir > 0) {
+            const err = aiWizCollect();
+            if (err) { aiWizStatus(err, 'bad'); return; }
+            if (w.step === 0 && !w.kind)     { aiWizStatus('Pick a provider type.', 'bad'); return; }
+            if (w.step === 1 && !w.base_url) { aiWizStatus('A base URL is required.', 'bad'); return; }
+            // Enforced on the way OUT of the model step, so the test that follows always has
+            // a real, operator-chosen model to exercise.
+            if (w.step === AI_WIZ_MODEL && !w.model) { aiWizStatus('Choose a model.', 'bad'); return; }
+
+            if (w.step === AI_WIZ_STEPS.length - 1) {
+                if (!w.model) { aiWizStatus('Choose a model.', 'bad'); return; }
+                aiWizStatus('Saving...');
+                const res = await fetch('adminAPI.php?action=saveAiProvider', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: w.id, kind: w.kind, label: w.label, base_url: w.base_url,
+                        api_key: w.api_key, model: w.model, enabled: w.enabled ? 1 : 0,
+                        extra_headers: w.extra_headers
+                    })
+                });
+                const d = await res.json();
+                if (!d.success) { aiWizStatus(d.error || 'Save failed', 'bad'); return; }
+                aiWizClose();
+                await aiLoadProviders(0, false);
+                aiRenderProviderList();
+                aiFoot('Provider saved.');
+                return;
+            }
+            w.step++;
         } else {
-            let html = text
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                .replace(/\n/g, '<br>');
-            content.innerHTML = html;
+            aiWizCollect();
+            w.step = Math.max(0, w.step - 1);
         }
-        div.appendChild(content);
-        wrapper.appendChild(div);
-
-        // Add provider info footer for assistant messages
-        if (role === 'assistant' && providerInfo) {
-            const footer = document.createElement('div');
-            footer.className = 'ai-message-footer';
-            footer.textContent = 'generated by ' + providerInfo;
-            wrapper.appendChild(footer);
-        }
-
-        container.appendChild(wrapper);
-        container.scrollTop = container.scrollHeight;
+        aiWizRender();
     }
 
-    let aiTypingCounter = 0;
-    function appendAiTyping() {
-        const container = document.getElementById('aiMessages');
-        const id = 'ai-typing-' + (++aiTypingCounter);
-        const div = document.createElement('div');
-        div.className = 'ai-message assistant ai-typing';
-        div.id = id;
-        div.innerHTML = '<div class="ai-message-content"><span class="ai-typing-dots"><span>.</span><span>.</span><span>.</span></span></div>';
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-        return id;
-    }
+    /* ---- provider list inside Server Settings --------------------------------------- */
 
-    function removeAiTyping(id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-    }
-
-    document.getElementById('aiInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendAiMessage();
+    function aiRenderProviderList() {
+        const box = document.getElementById('ss-aiProviderList');
+        if (!box) return;
+        if (!aiProviders.length) {
+            box.innerHTML = '<div class="ai-wiz-hint">No providers yet.</div>';
+            return;
         }
+        box.innerHTML = aiProviders.map(function (p) {
+            const models = (p.models || []).length;
+            const state  = p.models_error
+                ? '<span style="color:var(--danger)">' + aiEsc(p.models_error) + '</span>'
+                : models + ' models available';
+            return '<div class="ai-prov">'
+                 +   '<div class="ai-prov-main">'
+                 +     '<b>' + aiEsc(p.label) + '</b>'
+                 +     (p.is_default ? '<span class="ai-prov-tag">default</span>' : '')
+                 +     (p.enabled ? '' : '<span class="ai-prov-tag off">disabled</span>')
+                 +     '<div class="ai-prov-sub">' + aiEsc(p.base_url) + '</div>'
+                 +     '<div class="ai-prov-sub">' + aiEsc(p.model || 'no model pinned') + ' · ' + state + '</div>'
+                 +   '</div>'
+                 +   '<div class="ai-prov-actions">'
+                 +     '<button class="ai-chip-btn" data-edit="' + p.id + '">Edit</button>'
+                 +     '<button class="ai-chip-btn" data-del="' + p.id + '">Delete</button>'
+                 +   '</div>'
+                 + '</div>';
+        }).join('');
+
+        box.querySelectorAll('[data-edit]').forEach(function (b) {
+            b.addEventListener('click', function () { aiWizOpen(parseInt(b.getAttribute('data-edit'), 10)); });
+        });
+        box.querySelectorAll('[data-del]').forEach(function (b) {
+            b.addEventListener('click', async function () {
+                if (!confirm('Delete this AI provider?')) return;
+                await fetch('adminAPI.php?action=deleteAiProvider', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: parseInt(b.getAttribute('data-del'), 10) })
+                });
+                await aiLoadProviders(0, false);
+                aiRenderProviderList();
+            });
+        });
+    }
+
+    /* ---- wiring -------------------------------------------------------------------- */
+
+    document.getElementById('aiInput').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiSend(); }
     });
 
-    // Initialize providers on load
-    loadAiProviders();
-
-    // Track last selected world when clicking on world rows
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         const row = e.target.closest('tr[data-world]');
-        if (row) {
-            window.lastSelectedWorld = row.getAttribute('data-world');
-        }
+        if (row) window.lastSelectedWorld = row.getAttribute('data-world');
     });
 
-    // Handle ?aiContext= and ?aiPrompt= URL params (from log viewer fallback)
-    (function() {
+    aiLoadProviders(0, false);
+
+    // Deep link from a log-viewer window that lost its opener.
+    (function () {
         const params = new URLSearchParams(window.location.search);
-        const aiCtx = params.get('aiContext');
-        const aiPrompt = params.get('aiPrompt');
-        const aiLabel = params.get('aiLabel');
-        if (aiCtx) {
-            setTimeout(function() { openAiHelperWithContext(aiCtx, aiPrompt || '', aiLabel || null); }, 1500);
+        const w = params.get('aiWorld');
+        const q = params.get('aiAsk');
+        if (w !== null || q) {
+            setTimeout(function () { openAiHelperWithContext(w || '', q || ''); }, 1200);
             window.history.replaceState({}, '', window.location.pathname);
         }
     })();

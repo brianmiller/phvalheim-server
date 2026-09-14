@@ -50,16 +50,22 @@ disk_used_gb=$(echo "$disk_row"  | awk '{gsub(/G/,"",$3); print int($3+0)}')
 [ -z "$disk_used_gb"  ] && disk_used_gb=0
 
 # ── AI providers ──────────────────────────────────────────────────
-openaiKey=$(SQL "SELECT openaiApiKey FROM settings" 2>/dev/null)
-geminiKey=$(SQL "SELECT geminiApiKey FROM settings" 2>/dev/null)
-claudeKey=$(SQL "SELECT claudeApiKey FROM settings" 2>/dev/null)
-ollamaUrl=$(SQL "SELECT ollamaUrl    FROM settings" 2>/dev/null)
-
+#
+# 2.45: read the ai_providers TABLE, not the four legacy settings columns.
+#
+# Those columns still exist (dbUpdate_2.45.sh keeps them as a rollback record) and still
+# hold whatever an upgrader had configured before 2.45 -- so the old query kept returning
+# a plausible answer forever while describing a configuration the AI Helper no longer
+# uses. Silent wrongness, not an error, which is exactly how the world-card mod counts
+# broke in 2.43.
+#
+# Only the KIND is reported, never the label, endpoint or key: a self-hosted operator's
+# base URL is an internal hostname and none of our business.
 provider_csv=""
-[ -n "$openaiKey" ] && provider_csv="${provider_csv}\"openai\","
-[ -n "$geminiKey" ] && provider_csv="${provider_csv}\"gemini\","
-[ -n "$claudeKey" ] && provider_csv="${provider_csv}\"claude\","
-[ -n "$ollamaUrl" ] && provider_csv="${provider_csv}\"ollama\","
+while IFS= read -r kind; do
+	[ -z "$kind" ] && continue
+	provider_csv="${provider_csv}\"${kind}\","
+done <<< "$(SQL "SELECT DISTINCT kind FROM ai_providers WHERE enabled = 1" 2>/dev/null)"
 
 if [ -n "$provider_csv" ]; then
 	ai_enabled="true"
@@ -68,6 +74,59 @@ else
 	ai_enabled="false"
 	ai_providers="[]"
 fi
+
+# ── Hugin usage ───────────────────────────────────────────────────
+#
+# COUNTERS ONLY. Never a prompt, a reply, a world name, a mod name, a model id, an
+# endpoint or a key.
+#
+# The counters come from the ai_usage table, which is already shaped to make leaking hard:
+# a row is (metric, subkey, day) where subkey is a tool name or an error CLASS. There is
+# nowhere to put free text even by accident, and day granularity means an operator's usage
+# pattern cannot be reconstructed from what is meant to be an anonymous total.
+#
+# Model ids are deliberately EXCLUDED even though they would be the single most useful
+# field, because on a self-hosted endpoint a model id is often an internal deployment name.
+# ai_capability answers the same question -- can the field actually drive tools? -- without
+# naming anything private.
+#
+# Window: the last two days' rows, summed. The push runs daily, so this overlaps rather
+# than risking a gap when a run is late or a container restarts.
+ai_window="day >= DATE_SUB(CURDATE(), INTERVAL 1 DAY)"
+
+aiCount() { SQL "SELECT IFNULL(SUM(count),0) FROM ai_usage WHERE metric='$1' AND $ai_window" 2>/dev/null | tail -n1; }
+
+ai_chats=$(aiCount chats)
+ai_tool_calls=$(aiCount tool)
+ai_proposed=$(aiCount action_proposed)
+ai_applied=$(aiCount action_applied)
+ai_rejected=$(aiCount action_rejected)
+ai_dismissed=$(aiCount action_dismissed)
+ai_expired=$(aiCount action_expired)
+for v in ai_chats ai_tool_calls ai_proposed ai_applied ai_rejected ai_dismissed ai_expired; do
+	eval "[ -z \"\$$v\" ] && $v=0"
+done
+
+# Per-tool tallies and error classes as small JSON objects. Assembled through jq so a
+# subkey can never break the payload's syntax, and defaulted to {} so a server that has
+# never used Hugin still sends well-formed JSON rather than an empty field.
+ai_tools_used=$(SQL "SELECT CONCAT('{\"k\":\"', subkey, '\",\"v\":', SUM(count), '}')
+                     FROM ai_usage WHERE metric='tool' AND subkey<>'' AND $ai_window
+                     GROUP BY subkey" 2>/dev/null | grep '^{' | jq -s 'reduce .[] as $r ({}; .[$r.k] = $r.v)' 2>/dev/null)
+[ -z "$ai_tools_used" ] && ai_tools_used='{}'
+
+ai_errors=$(SQL "SELECT CONCAT('{\"k\":\"', subkey, '\",\"v\":', SUM(count), '}')
+                 FROM ai_usage WHERE metric='error' AND subkey<>'' AND $ai_window
+                 GROUP BY subkey" 2>/dev/null | grep '^{' | jq -s 'reduce .[] as $r ({}; .[$r.k] = $r.v)' 2>/dev/null)
+[ -z "$ai_errors" ] && ai_errors='{}'
+
+# Whether the operator's endpoints can actually drive tools. This is the number that says
+# how far the agentic feature can go for the real BYO-LLM field, as opposed to for the two
+# vendors we happen to test against.
+ai_capability=$(SQL "SELECT CONCAT('{\"k\":\"', IF(tool_capability='', 'unknown', tool_capability), '\",\"v\":', COUNT(*), '}')
+                     FROM ai_providers WHERE enabled = 1
+                     GROUP BY tool_capability" 2>/dev/null | grep '^{' | jq -s 'reduce .[] as $r ({}; .[$r.k] = $r.v)' 2>/dev/null)
+[ -z "$ai_capability" ] && ai_capability='{}'
 
 # ── Worlds ────────────────────────────────────────────────────────
 # Accumulated in FILES, never in shell variables passed on a command line.
@@ -167,6 +226,16 @@ payload=$(jq -n \
 	--argjson disk_used          "$disk_used_gb" \
 	--argjson ai_enabled         "$ai_enabled" \
 	--argjson ai_providers       "$ai_providers" \
+	--argjson ai_chats           "$ai_chats" \
+	--argjson ai_tool_calls      "$ai_tool_calls" \
+	--argjson ai_proposed        "$ai_proposed" \
+	--argjson ai_applied         "$ai_applied" \
+	--argjson ai_rejected        "$ai_rejected" \
+	--argjson ai_dismissed       "$ai_dismissed" \
+	--argjson ai_expired         "$ai_expired" \
+	--argjson ai_tools_used      "$ai_tools_used" \
+	--argjson ai_errors          "$ai_errors" \
+	--argjson ai_capability      "$ai_capability" \
 	--slurpfile worlds           "$worlds_file" \
 	--argjson analytics_disabled "$analytics_disabled_val" \
 	'{
@@ -181,6 +250,16 @@ payload=$(jq -n \
 		disk_used_gb:        $disk_used,
 		ai_enabled:          $ai_enabled,
 		ai_providers:        $ai_providers,
+		ai_chats:            $ai_chats,
+		ai_tool_calls:       $ai_tool_calls,
+		ai_actions_proposed: $ai_proposed,
+		ai_actions_applied:  $ai_applied,
+		ai_actions_rejected: $ai_rejected,
+		ai_actions_dismissed: $ai_dismissed,
+		ai_actions_expired:  $ai_expired,
+		ai_tools_used:       $ai_tools_used,
+		ai_errors:           $ai_errors,
+		ai_capability:       $ai_capability,
 		worlds:              $worlds[0],
 		analytics_disabled:  $analytics_disabled
 	}')

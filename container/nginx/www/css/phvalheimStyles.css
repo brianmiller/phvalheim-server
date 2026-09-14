@@ -3492,6 +3492,171 @@ input:checked + .slider:before {
 	word-wrap: break-word;
 }
 
+/* Hugin says hello.
+ *
+ * He lands, then settles into the same idle breathing the panel bird uses, so the
+ * introduction and the thing being introduced are visibly the same character. */
+.ai-hugin.hugin-hello {
+	/* .ai-hugin pins width/height/flex to 34px, and a CSS rule beats the width= attribute
+	 * huginSvg() writes -- so asking for size 92 silently produced a 34px bird.
+	 *
+	 * TWO classes, not one: .ai-hugin is defined ~3000 lines further down this file, so a
+	 * bare .hugin-hello loses on source order even though it is written first. */
+	width: 92px;
+	height: 92px;
+	flex: 0 0 92px;
+	animation: huginLand 0.75s cubic-bezier(0.22, 1.2, 0.36, 1) both,
+	           hgBreathe 3.6s ease-in-out 0.75s infinite;
+	transform-origin: 50% 85%;
+}
+
+@keyframes huginLand {
+	0%   { opacity: 0; transform: translateY(-26px) rotate(-9deg) scale(0.86); }
+	55%  { opacity: 1; transform: translateY(3px)   rotate(2deg)  scale(1.04); }
+	75%  {             transform: translateY(-2px)  rotate(-1deg) scale(0.99); }
+	100% { opacity: 1; transform: translateY(0)     rotate(0)     scale(1); }
+}
+
+/* Anyone who has asked not to be animated gets him sitting still rather than not at all. */
+@media (prefers-reduced-motion: reduce) {
+	.ai-hugin.hugin-hello { animation: none; opacity: 1; transform: none; }
+}
+
+/* A degraded answer is labelled, never silently identical to a real one. */
+.ai-degraded {
+	margin: 0.5rem 1rem;
+	padding: 0.6rem 0.8rem;
+	border: 1px dashed rgba(251, 191, 36, 0.55);
+	border-radius: 0.5rem;
+	background: rgba(251, 191, 36, 0.07);
+	color: var(--text-secondary);
+	font-size: 0.73rem;
+	line-height: 1.5;
+}
+.ai-degraded strong { color: #fbbf24; }
+
+/* ---- confirm cards --------------------------------------------------------------
+ *
+ * Deliberately NOT styled like a chat bubble. A bubble is something Hugin said; this is a
+ * decision the operator has to make, and it must not be skimmed past as more prose.
+ */
+.ai-proposal {
+	margin: 0.75rem 1rem;
+	padding: 0.75rem 0.9rem;
+	border: 1px solid rgba(34, 211, 238, 0.45);
+	border-left-width: 3px;
+	border-radius: 0.5rem;
+	background: rgba(34, 211, 238, 0.07);
+	font-size: 0.78rem;
+}
+
+/* Irreversible actions get warning colour, not the accent. */
+.ai-proposal.danger {
+	border-color: rgba(248, 113, 113, 0.55);
+	background: rgba(248, 113, 113, 0.07);
+}
+
+.ai-proposal-head {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-weight: 600;
+	color: var(--accent-primary);
+	margin-bottom: 0.4rem;
+}
+
+.ai-proposal.danger .ai-proposal-head { color: #f87171; }
+
+.ai-proposal-body {
+	color: var(--text-primary);
+	line-height: 1.45;
+	white-space: pre-wrap;
+	/* The summary carries a from -> to diff and world names; long values must wrap rather
+	 * than stretch the panel. break-word, never break-all: break-all shredded the tool
+	 * trace into a one-character vertical ribbon in 2.45. */
+	word-break: break-word;
+}
+
+.ai-proposal-typed { margin-top: 0.6rem; }
+.ai-proposal-typed label {
+	display: block;
+	margin-bottom: 0.25rem;
+	color: var(--text-secondary);
+	font-size: 0.72rem;
+}
+.ai-proposal-name { font-family: var(--font-mono); font-size: 0.78rem; }
+
+.ai-proposal-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.7rem;
+}
+
+.ai-proposal-apply,
+.ai-proposal-dismiss {
+	padding: 0.35rem 0.8rem;
+	border-radius: 0.4rem;
+	font-size: 0.74rem;
+	cursor: pointer;
+	border: 1px solid transparent;
+	transition: all 0.15s ease;
+}
+
+.ai-proposal-apply {
+	background: var(--accent-primary);
+	color: #06202a;
+	font-weight: 600;
+}
+.ai-proposal.danger .ai-proposal-apply { background: #f87171; color: #2b0b0b; }
+.ai-proposal-apply:hover:not(:disabled) { filter: brightness(1.12); }
+.ai-proposal-apply:disabled,
+.ai-proposal-dismiss:disabled { opacity: 0.5; cursor: default; }
+
+.ai-proposal-dismiss {
+	background: transparent;
+	border-color: var(--border-color);
+	color: var(--text-secondary);
+}
+.ai-proposal-dismiss:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-secondary); }
+
+.ai-proposal-note {
+	color: var(--text-secondary);
+	font-size: 0.7rem;
+	margin-left: auto;
+	text-align: right;
+}
+
+/* Settled states: the card stays in the transcript as a record of what was decided. */
+.ai-proposal.applied {
+	border-color: rgba(74, 222, 128, 0.5);
+	background: rgba(74, 222, 128, 0.07);
+}
+.ai-proposal.applied .ai-proposal-head { color: #4ade80; }
+.ai-proposal.dismissed {
+	border-color: var(--border-color);
+	background: transparent;
+	opacity: 0.65;
+}
+.ai-proposal.dismissed .ai-proposal-head { color: var(--text-secondary); }
+.ai-proposal.refused .ai-proposal-note { color: #fbbf24; }
+
+/* "What can Hugin do for me?" is a different KIND of thing from the other chips: the rest
+ * send a question to the model, this one asks the panel about itself and is answered
+ * locally. Styling it the same would promise a conversation it does not start. */
+.ai-quick-prompt-meta {
+	background: transparent;
+	border-style: dashed;
+	border-color: var(--border-color);
+	color: var(--text-secondary);
+}
+
+.ai-quick-prompt-meta:hover {
+	background: rgba(34, 211, 238, 0.08);
+	border-color: rgba(34, 211, 238, 0.4);
+	color: var(--accent-primary);
+}
+
 .ai-quick-prompt:hover {
 	background: rgba(34, 211, 238, 0.25);
 	border-color: rgba(34, 211, 238, 0.5);
@@ -3509,6 +3674,17 @@ input:checked + .slider:before {
 .ai-message.assistant,
 .ai-message.error {
 	align-self: flex-start;
+	/* COLUMN, not the inherited row.
+	 *
+	 * The tool trace is a sibling of .ai-message-content inside this flex box. In a row
+	 * the bubble took all the width and the trace -- which carries word-break:break-all --
+	 * was free to collapse to the width of a single character, so it rendered as a
+	 * ~20px vertical ribbon spelling "g e t _ s y s t e m _ h e a l t h ( )" one letter
+	 * per line down the left of every answer. It was legible only because the eye is
+	 * good at that; it looked like a rendering fault, because it was one. */
+	flex-direction: column;
+	align-items: stretch;
+	width: 100%;
 }
 
 .ai-message-content {
@@ -5808,4 +5984,721 @@ pre.ms-log {
 	padding-left: 10px;
 	padding-right: 0;
 	text-align: center;
+}
+
+/* ====================================================================================
+ * AI Helper 2.45
+ *
+ * The panel gained a diagnostics strip above the transcript, a tool-call trace inside
+ * assistant bubbles, a streaming cursor, a provider list in Server Settings, and the
+ * add-provider wizard. Rules here that restate a property set earlier in this file are
+ * deliberate overrides for the restructured markup, not duplication -- notably
+ * .ai-panel-input, which was a single flex row and is now a stacked column.
+ * ==================================================================================== */
+
+/* One scroll container, not two.
+ *
+ * Diagnostics and the transcript share .ai-panel-body and it owns the scrolling.
+ * min-height:0 is load-bearing: a flex child defaults to min-height:auto, which refuses
+ * to shrink below its content, so without it the body grows past the panel and the
+ * composer is pushed off the bottom of the screen instead of the transcript scrolling. */
+.ai-panel-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	background: linear-gradient(180deg, var(--bg-secondary), rgba(15, 23, 42, 0.95));
+	scrollbar-gutter: stable;
+}
+
+.ai-panel-body .ai-panel-messages {
+	flex: 0 0 auto;
+	overflow: visible;
+	background: none;
+}
+
+.ai-panel-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.3rem;
+	width: 100%;
+}
+
+.ai-chip-btn {
+	padding: 0.25rem 0.55rem;
+	background: rgba(167, 139, 250, 0.12);
+	border: 1px solid rgba(167, 139, 250, 0.28);
+	border-radius: 999px;
+	color: var(--accent-secondary);
+	font-size: 0.68rem;
+	line-height: 1.4;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	white-space: nowrap;
+}
+
+.ai-chip-btn:hover {
+	background: rgba(167, 139, 250, 0.24);
+	border-color: rgba(167, 139, 250, 0.5);
+}
+
+/* ---- diagnostics strip ------------------------------------------------------------ */
+
+.ai-diagnostics {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 0.75rem 1rem 0;
+}
+
+.ai-diag-loading {
+	font-size: 0.72rem;
+	color: var(--text-muted);
+	padding: 0.4rem 0;
+}
+
+.ai-diag {
+	border-radius: 0.5rem;
+	padding: 0.6rem 0.7rem;
+	border: 1px solid var(--border-color);
+	border-left-width: 3px;
+	background: rgba(15, 23, 42, 0.55);
+}
+
+.ai-diag-critical { border-left-color: var(--danger);  }
+.ai-diag-warning  { border-left-color: var(--warning); }
+.ai-diag-info     { border-left-color: var(--text-muted); }
+
+.ai-diag-head {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+}
+
+.ai-diag-badge {
+	flex: 0 0 auto;
+	width: 1.1rem;
+	height: 1.1rem;
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.65rem;
+	font-weight: 700;
+	color: var(--bg-primary);
+	background: var(--text-muted);
+}
+
+.ai-diag-critical .ai-diag-badge { background: var(--danger);  }
+.ai-diag-warning  .ai-diag-badge { background: var(--warning); }
+
+.ai-diag-title {
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.ai-diag-detail {
+	margin-top: 0.3rem;
+	font-size: 0.71rem;
+	line-height: 1.5;
+	color: var(--text-secondary);
+}
+
+.ai-diag-evidence {
+	margin: 0.45rem 0 0;
+	padding: 0.4rem 0.5rem;
+	max-height: 9rem;
+	overflow: auto;
+	background: rgba(0, 0, 0, 0.35);
+	border-radius: 0.3rem;
+	font-family: var(--font-mono);
+	font-size: 0.64rem;
+	line-height: 1.45;
+	color: var(--text-muted);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.ai-diag-ask {
+	margin-top: 0.45rem;
+	padding: 0.25rem 0.55rem;
+	background: transparent;
+	border: 1px solid rgba(34, 211, 238, 0.35);
+	border-radius: 0.35rem;
+	color: var(--accent-primary);
+	font-size: 0.67rem;
+	cursor: pointer;
+}
+
+.ai-diag-ask:hover {
+	background: rgba(34, 211, 238, 0.15);
+}
+
+/* ---- tool-call trace --------------------------------------------------------------- */
+
+.ai-trace {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	margin-bottom: 0.35rem;
+}
+
+.ai-trace-row {
+	font-family: var(--font-mono);
+	font-size: 0.63rem;
+	color: var(--text-muted);
+	background: rgba(167, 139, 250, 0.07);
+	border-left: 2px solid rgba(167, 139, 250, 0.35);
+	padding: 0.15rem 0.4rem;
+	border-radius: 0 0.25rem 0.25rem 0;
+	/* break-word, NOT break-all: break-all permits a break between any two characters,
+	 * which is what let this collapse to one character wide when it was a row flex item. */
+	word-break: break-word;
+	overflow-wrap: anywhere;
+}
+
+/* Streaming caret. Purely decorative, so it is an inline-block rather than a
+ * pseudo-element on the bubble -- the bubble's innerHTML is rewritten on every delta. */
+.ai-cursor {
+	display: inline-block;
+	width: 0.45rem;
+	height: 0.9rem;
+	margin-left: 1px;
+	vertical-align: text-bottom;
+	background: var(--accent-primary);
+	animation: aiBlink 1s steps(2, start) infinite;
+}
+
+@keyframes aiBlink { to { visibility: hidden; } }
+
+.ai-message-content .ai-h {
+	display: block;
+	margin: 0.4rem 0 0.2rem;
+	color: var(--accent-secondary);
+}
+
+/* ---- composer ---------------------------------------------------------------------- */
+
+/* Was a single flex row; now stacks quick prompts, the composer and the footer. */
+.ai-panel-input {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.5rem;
+}
+
+.ai-composer {
+	display: flex;
+	gap: 0.5rem;
+	align-items: flex-end;
+}
+
+/* Chips read better in a wrapped row than in the old right-aligned column. */
+.ai-panel-input .ai-quick-prompts {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	padding: 0;
+	gap: 0.3rem;
+}
+
+.ai-footer {
+	font-size: 0.66rem;
+	color: var(--text-muted);
+	font-family: var(--font-mono);
+	min-height: 0.9rem;
+}
+
+/* ---- provider list (Server Settings) ------------------------------------------------ */
+
+.ai-prov-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.ai-prov {
+	display: flex;
+	gap: 0.5rem;
+	align-items: flex-start;
+	padding: 0.55rem 0.65rem;
+	border: 1px solid var(--border-color);
+	border-radius: 0.4rem;
+	background: rgba(15, 23, 42, 0.5);
+}
+
+.ai-prov-main { flex: 1; min-width: 0; }
+
+.ai-prov-sub {
+	font-size: 0.68rem;
+	color: var(--text-muted);
+	font-family: var(--font-mono);
+	word-break: break-all;
+}
+
+.ai-prov-tag {
+	margin-left: 0.4rem;
+	padding: 0.05rem 0.35rem;
+	border-radius: 999px;
+	font-size: 0.6rem;
+	background: rgba(34, 211, 238, 0.18);
+	color: var(--accent-primary);
+}
+
+.ai-prov-tag.off {
+	background: rgba(148, 163, 184, 0.18);
+	color: var(--text-muted);
+}
+
+.ai-prov-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+/* ---- wizard -------------------------------------------------------------------------- */
+
+.ai-wiz-steps {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	padding: 0.6rem 1rem 0;
+}
+
+.ai-wiz-step {
+	font-size: 0.66rem;
+	padding: 0.18rem 0.5rem;
+	border-radius: 999px;
+	border: 1px solid var(--border-color);
+	color: var(--text-muted);
+}
+
+.ai-wiz-step.active {
+	border-color: var(--accent-primary);
+	color: var(--accent-primary);
+	background: rgba(34, 211, 238, 0.12);
+}
+
+.ai-wiz-step.done {
+	border-color: rgba(74, 222, 128, 0.4);
+	color: var(--success);
+}
+
+.ai-wiz-label {
+	display: block;
+	font-size: 0.75rem;
+	font-weight: 600;
+	color: orchid;
+	margin-bottom: 0.25rem;
+}
+
+.ai-wiz-hint {
+	margin-top: 0.3rem;
+	font-size: 0.68rem;
+	line-height: 1.5;
+	color: var(--text-muted);
+}
+
+.ai-wiz-kinds {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+
+.ai-wiz-kind {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	text-align: left;
+	padding: 0.6rem 0.7rem;
+	border: 1px solid var(--border-color);
+	border-radius: 0.4rem;
+	background: rgba(15, 23, 42, 0.5);
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.ai-wiz-kind:hover { border-color: rgba(34, 211, 238, 0.45); }
+
+.ai-wiz-kind.sel {
+	border-color: var(--accent-primary);
+	background: rgba(34, 211, 238, 0.12);
+}
+
+.ai-wiz-kind-name {
+	font-size: 0.82rem;
+	font-weight: 600;
+	color: var(--text-primary);
+}
+
+.ai-wiz-kind-blurb {
+	font-size: 0.68rem;
+	line-height: 1.45;
+	color: var(--text-muted);
+}
+
+.ai-wiz-test { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.ai-wiz-test-row {
+	display: grid;
+	grid-template-columns: 1.2rem 9rem 1fr;
+	gap: 0.5rem;
+	align-items: baseline;
+	font-size: 0.73rem;
+	padding: 0.4rem 0.5rem;
+	border-radius: 0.35rem;
+	background: rgba(15, 23, 42, 0.5);
+	border-left: 3px solid var(--text-muted);
+}
+
+.ai-wiz-test-row span:last-child { word-break: break-word; color: var(--text-secondary); }
+.ai-wiz-test-row.ok   { border-left-color: var(--success); }
+.ai-wiz-test-row.warn { border-left-color: var(--warning); }
+.ai-wiz-test-row.bad  { border-left-color: var(--danger);  }
+.ai-wiz-test-row.ok   span:first-child { color: var(--success); }
+.ai-wiz-test-row.warn span:first-child { color: var(--warning); }
+.ai-wiz-test-row.bad  span:first-child { color: var(--danger);  }
+
+.ai-wiz-models {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	max-height: 16rem;
+	overflow-y: auto;
+}
+
+.ai-wiz-model {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.5rem;
+	align-items: center;
+	text-align: left;
+	padding: 0.35rem 0.55rem;
+	border: 1px solid transparent;
+	border-radius: 0.3rem;
+	background: rgba(15, 23, 42, 0.5);
+	color: var(--text-secondary);
+	font-family: var(--font-mono);
+	font-size: 0.72rem;
+	cursor: pointer;
+}
+
+.ai-wiz-model:hover { background: rgba(34, 211, 238, 0.1); }
+
+.ai-wiz-model.sel {
+	border-color: var(--accent-primary);
+	background: rgba(34, 211, 238, 0.16);
+	color: var(--text-primary);
+}
+
+.ai-wiz-ctx {
+	flex: 0 0 auto;
+	font-size: 0.64rem;
+	color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+	.ai-panel { width: 100vw; }
+	.ai-wiz-test-row { grid-template-columns: 1.2rem 1fr; }
+	.ai-wiz-test-row b { grid-column: 2; }
+	.ai-wiz-test-row span:last-child { grid-column: 2; }
+}
+
+/* ==================================================================================== */
+/* Hugin — the AI Helper's raven                                                        */
+/*                                                                                      */
+/* Valheim's own hint-giver is a raven, so the helper has one too. He is not decoration: */
+/* he is the progress indicator. A tool-calling answer takes 15-40 seconds, and before   */
+/* this the panel showed a blinking caret and nothing else for the whole of it — the     */
+/* operator could not tell thinking from hung. Every state below maps to a real event on */
+/* the SSE stream, so if Hugin is animating, something is genuinely happening.           */
+/* ==================================================================================== */
+
+.ai-hugin {
+	width: 34px;
+	height: 34px;
+	flex: 0 0 34px;
+	overflow: visible;                 /* the hop and the tuft both leave the viewBox */
+}
+
+/* transform-origin sits at his FEET, not his centre. Scaling about the middle makes a
+ * squash look like the whole bird inflating; about the feet it looks like weight. */
+.ai-hugin .hg-all   { transform-origin: 50% 92%; transform-box: fill-box; }
+.ai-hugin .hg-wing  { transform-origin: 18% 30%; transform-box: fill-box; }
+.ai-hugin .hg-tuft  { transform-origin: 50% 100%; transform-box: fill-box; }
+.ai-hugin .hg-tail  { transform-origin: 0% 50%;  transform-box: fill-box; }
+.ai-hugin .hg-eye   { transform-origin: center;  transform-box: fill-box; }
+.ai-hugin .hg-beak  { transform-origin: 100% 50%; transform-box: fill-box; }
+
+.ai-hugin .hg-body  { fill: #222a40; stroke: rgba(167, 139, 250, 0.55); stroke-width: 1.1; }
+.ai-hugin .hg-tail,
+.ai-hugin .hg-tuft  { fill: #222a40; stroke: rgba(167, 139, 250, 0.45); stroke-width: 1; }
+.ai-hugin .hg-wing  { fill: #171d2e; stroke: rgba(167, 139, 250, 0.5); stroke-width: 1; }
+.ai-hugin .hg-beak  { fill: var(--accent-warning, #fbbf24); }
+.ai-hugin .hg-eye   { fill: var(--accent-secondary, #a78bfa); }
+.ai-hugin .hg-glint { fill: #fff; }                 /* the whole difference between alive and taxidermy */
+.ai-hugin .hg-feet  { stroke: var(--accent-warning, #fbbf24); stroke-width: 1.6; stroke-linecap: round; }
+
+/* --- idle: a soft breath, a tail sway, and a blink ---------------------------------- */
+.ai-hugin.idle .hg-all  { animation: hgBreathe 3.4s ease-in-out infinite; }
+.ai-hugin.idle .hg-tail { animation: hgSway 3.4s ease-in-out infinite; }
+.ai-hugin.idle .hg-eye  { animation: hgBlink 4.6s ease-in-out infinite; }
+.ai-hugin.idle .hg-tuft { animation: hgTuft 3.4s ease-in-out infinite; }
+
+/* --- thinking: the head-tilt. Nothing reads as "considering" like a tilted head. ----- */
+.ai-hugin.thinking .hg-all   { animation: hgTilt 1.9s ease-in-out infinite; }
+.ai-hugin.thinking .hg-tuft  { animation: hgTuftFast 0.95s ease-in-out infinite; }
+.ai-hugin.thinking .hg-eye   { animation: hgBlink 2.6s ease-in-out infinite; }
+
+/* --- working: hop with real squash-and-stretch, wings going ------------------------- */
+.ai-hugin.working .hg-all  { animation: hgHop 0.62s cubic-bezier(0.3, 0, 0.4, 1) infinite; }
+.ai-hugin.working .hg-wing { animation: hgFlap 0.31s ease-in-out infinite; }
+.ai-hugin.working .hg-tuft { animation: hgTuftFast 0.31s ease-in-out infinite; }
+.ai-hugin.working .hg-eye  { fill: var(--accent-warning, #fbbf24); }
+
+/* --- speaking: a nod, and the beak opens on the beat -------------------------------- */
+.ai-hugin.speaking .hg-all  { animation: hgNod 1.25s ease-in-out infinite; }
+.ai-hugin.speaking .hg-beak { animation: hgChirp 0.62s ease-in-out infinite; }
+
+/* --- done: one pleased little bounce, then still ------------------------------------ */
+.ai-hugin.done .hg-all   { animation: hgCheer 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) 1; }
+.ai-hugin.done .hg-eye   { fill: var(--accent-success, #34d399); }
+.ai-hugin.done .hg-glint { animation: hgSparkle 0.75s ease-out 1; }
+
+/* --- error: droops, wing sags, eye goes red ----------------------------------------- */
+.ai-hugin.error .hg-all  { animation: hgSlump 0.5s ease-out 1 forwards; }
+.ai-hugin.error .hg-eye  { fill: var(--danger, #f87171); }
+.ai-hugin.error .hg-wing { transform: rotate(16deg); }
+
+@keyframes hgBreathe  { 0%,100% { transform: scale(1, 1); }
+                        50%     { transform: scale(0.985, 1.035); } }
+@keyframes hgSway     { 0%,100% { transform: rotate(0deg); }   50% { transform: rotate(7deg); } }
+@keyframes hgTuft     { 0%,100% { transform: rotate(-4deg); }  50% { transform: rotate(8deg); } }
+@keyframes hgTuftFast { 0%,100% { transform: rotate(-12deg); } 50% { transform: rotate(14deg); } }
+@keyframes hgTilt     { 0%,100% { transform: rotate(-9deg); }  50% { transform: rotate(9deg); } }
+@keyframes hgNod      { 0%,100% { transform: rotate(0deg)   translateY(0); }
+                        50%     { transform: rotate(-6deg)  translateY(-1.5px); } }
+/* Anticipation (squash) -> launch (stretch) -> float -> landing squash. Skipping the
+ * squash frames is what makes a bouncing sprite look like a lift rather than a hop. */
+@keyframes hgHop      { 0%   { transform: translateY(0)     scale(1, 1); }
+                        18%  { transform: translateY(1px)   scale(1.08, 0.9); }
+                        42%  { transform: translateY(-7px)  scale(0.93, 1.09); }
+                        62%  { transform: translateY(-8px)  scale(1, 1); }
+                        86%  { transform: translateY(1.5px) scale(1.1, 0.88); }
+                        100% { transform: translateY(0)     scale(1, 1); } }
+@keyframes hgFlap     { 0%,100% { transform: rotate(2deg); }  50% { transform: rotate(-44deg); } }
+@keyframes hgChirp    { 0%,100% { transform: scaleY(1); }     50% { transform: scaleY(1.6); } }
+@keyframes hgCheer    { 0%   { transform: translateY(0) scale(1, 1); }
+                        35%  { transform: translateY(-9px) scale(0.94, 1.1); }
+                        70%  { transform: translateY(1px) scale(1.09, 0.92); }
+                        100% { transform: translateY(0) scale(1, 1); } }
+@keyframes hgSparkle  { 0% { transform: scale(1); opacity: 1; }
+                        45% { transform: scale(2.6); opacity: 1; }
+                        100% { transform: scale(1); opacity: 1; } }
+@keyframes hgSlump    { to { transform: rotate(7deg) translateY(2px) scale(1.03, 0.94); } }
+@keyframes hgBlink    { 0%, 88%, 100% { transform: scaleY(1); }
+                        93%           { transform: scaleY(0.08); } }
+
+/* Anyone who has asked the OS to calm down gets a still raven. */
+@media (prefers-reduced-motion: reduce) {
+	.ai-hugin, .ai-hugin * { animation: none !important; }
+}
+
+/* He also lives on the sidebar button, where he idles quietly and perks up on hover. */
+.ai-btn-hugin { flex: 0 0 20px; width: 20px; height: 20px; }
+.ai-helper-btn:hover .ai-btn-hugin .hg-all  { animation: hgHop 0.62s cubic-bezier(0.3,0,0.4,1) infinite; }
+.ai-helper-btn:hover .ai-btn-hugin .hg-wing { animation: hgFlap 0.31s ease-in-out infinite; }
+
+/* ---- the working strip ------------------------------------------------------------- */
+
+.ai-working {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.5rem 0.7rem;
+	margin-bottom: 0.4rem;
+	background: linear-gradient(135deg, rgba(167, 139, 250, 0.09), rgba(34, 211, 238, 0.05));
+	border: 1px solid rgba(167, 139, 250, 0.22);
+	border-radius: 0.6rem;
+}
+
+.ai-working-text {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: 0.78rem;
+	color: var(--text-secondary, #cbd5e1);
+}
+
+/* Phrase swaps are a crossfade, not a jump -- a hard cut reads as a glitch. */
+.ai-working-text span { display: block; animation: hgFade 0.28s ease-out; }
+@keyframes hgFade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+.ai-working-sub {
+	font-family: var(--font-mono);
+	font-size: 0.63rem;
+	color: var(--text-muted, #94a3b8);
+	margin-top: 0.1rem;
+}
+
+.ai-working-timer {
+	flex: 0 0 auto;
+	font-family: var(--font-mono);
+	font-size: 0.68rem;
+	color: var(--text-muted, #94a3b8);
+	font-variant-numeric: tabular-nums;   /* so the seconds do not jitter the layout */
+}
+
+/* ---- per-tool state: running vs finished ------------------------------------------- */
+
+.ai-trace-row.running {
+	color: var(--text-secondary, #cbd5e1);
+	border-left-color: var(--accent-warning, #fbbf24);
+	background: rgba(251, 191, 36, 0.08);
+}
+.ai-trace-row.running .ai-trace-mark { animation: hgSpin 0.9s linear infinite; display: inline-block; }
+.ai-trace-row.done    { opacity: 0.75; border-left-color: rgba(52, 211, 153, 0.5); }
+
+@keyframes hgSpin { to { transform: rotate(360deg); } }
+
+/* Hugin in the panel header: identity, and a live "I am busy" tell even when the
+ * message list is scrolled away from the working strip. */
+.ai-panel-hugin { margin-right: 0.4rem; vertical-align: middle; }
+
+/* ---- searchable model picker -------------------------------------------------------
+ *
+ * A native <select> cannot be typed into past the first letter, and OpenAI's /models
+ * returns ~130 entries, so choosing a model meant scrolling a 130-row popup. The real
+ * <select> is still there (hidden) and still owns the value; this is a view over it.
+ */
+.ai-modelpick { position: relative; display: inline-block; min-width: 200px; }
+
+.ai-modelpick-btn {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	padding: 0.25rem 0.5rem;
+	background: var(--bg-tertiary);
+	border: 1px solid var(--border-color);
+	border-radius: 0.375rem;
+	color: var(--accent-secondary);
+	font-size: 0.75rem;
+	font-family: var(--font-mono);
+	cursor: pointer;
+	text-align: left;
+}
+.ai-modelpick-btn:hover { border-color: var(--accent-secondary); }
+.ai-modelpick-btn > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-modelpick-caret { flex: 0 0 auto; opacity: 0.6; }
+
+.ai-modelpick-pop {
+	display: none;
+	position: absolute;
+	top: calc(100% + 0.25rem);
+	left: 0;
+	/* Wider than the button: model ids are long and truncating them in the PICKER would
+	 * defeat the purpose of having one. */
+	min-width: max(320px, 100%);
+	background: var(--bg-secondary);
+	border: 1px solid var(--border-color);
+	border-radius: 0.5rem;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+	padding: 0.4rem;
+	/* Above the panel header and its sibling controls, but below the wizard overlay. */
+	z-index: 40;
+}
+.ai-modelpick-pop.open { display: block; }
+
+.ai-modelpick-list { max-height: 320px; overflow-y: auto; margin-top: 0.4rem; }
+
+.ai-modelpick-group {
+	font-size: 0.6rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-muted);
+	padding: 0.4rem 0.35rem 0.2rem;
+}
+
+.ai-modelpick-row {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: 0.3rem 0.45rem;
+	background: none;
+	border: none;
+	border-radius: 0.3rem;
+	color: var(--text-secondary);
+	font-family: var(--font-mono);
+	font-size: 0.7rem;
+	cursor: pointer;
+	/* base.css gives buttons a min-height; a 130-row list cannot afford 44px each. */
+	min-height: 0;
+}
+.ai-modelpick-row:hover { background: rgba(167, 139, 250, 0.14); color: var(--text-primary); }
+
+/* A row is now a star + the label, so hover and selection belong to the WRAPPER —
+ * highlighting only the label would leave the star sitting on unlit background. */
+.ai-modelpick-item {
+	display: flex;
+	align-items: stretch;
+	gap: 0.15rem;
+	border-radius: 0.3rem;
+}
+.ai-modelpick-item:hover { background: rgba(167, 139, 250, 0.14); }
+.ai-modelpick-item:hover .ai-modelpick-row { color: var(--text-primary); }
+.ai-modelpick-item.sel { background: rgba(167, 139, 250, 0.22); }
+.ai-modelpick-item.sel .ai-modelpick-row { color: var(--text-primary); }
+.ai-modelpick-item .ai-modelpick-row { flex: 1 1 auto; min-width: 0; background: none; }
+.ai-modelpick-item .ai-modelpick-row:hover { background: none; }
+
+.ai-modelpick-star {
+	flex: 0 0 auto;
+	padding: 0 0.35rem;
+	background: none;
+	border: none;
+	border-radius: 0.3rem;
+	cursor: pointer;
+	font-size: 0.82rem;
+	line-height: 1;
+	min-height: 0;                       /* base.css button floor again */
+	color: var(--text-muted);
+	opacity: 0.45;
+	transition: opacity 0.12s, color 0.12s, transform 0.12s;
+}
+.ai-modelpick-item:hover .ai-modelpick-star { opacity: 0.9; }
+.ai-modelpick-star:hover  { transform: scale(1.25); color: var(--accent-warning, #fbbf24); opacity: 1; }
+.ai-modelpick-star.on     { color: var(--accent-warning, #fbbf24); opacity: 1; }
+
+/* Which provider a pinned model came from — the ★ Pinned group mixes them together, so
+ * without this two identically-named models from two endpoints are indistinguishable. */
+.ai-modelpick-prov {
+	margin-left: 0.4rem;
+	font-size: 0.58rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--text-muted);
+}
+
+.ai-modelpick-empty { padding: 0.6rem 0.45rem; font-size: 0.72rem; color: var(--text-muted); }
+
+/* ---- provider presets (wizard, Endpoint step) --------------------------------------- */
+.ai-wiz-presets { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.4rem; }
+
+.ai-wiz-preset {
+	padding: 0.25rem 0.6rem;
+	background: var(--bg-tertiary);
+	border: 1px solid var(--border-color);
+	border-radius: 999px;
+	color: var(--text-secondary);
+	font-size: 0.7rem;
+	cursor: pointer;
+	min-height: 0;
+}
+.ai-wiz-preset:hover { border-color: var(--accent-secondary); color: var(--text-primary); }
+.ai-wiz-preset.sel {
+	border-color: var(--accent-secondary);
+	background: rgba(167, 139, 250, 0.18);
+	color: var(--text-primary);
 }

@@ -16,6 +16,10 @@ require_once '/opt/stateless/nginx/www/includes/accesslists.php';
 # The 2.43 multi-source catalogue (mods / mod_versions / world_mods). Absolute +
 # require_once for the same reason as accesslists.php above.
 require_once '/opt/stateless/nginx/www/includes/modcatalog.php';
+# The 2.45 AI Helper: provider registry + live model discovery + the read-only tool
+# surface. Absolute + require_once for the same reason as the two includes above.
+require_once '/opt/stateless/nginx/www/includes/aiproviders.php';
+require_once '/opt/stateless/nginx/www/includes/aicontext.php';
 
 header('Content-Type: application/json');
 
@@ -342,23 +346,94 @@ switch($action) {
         }
         break;
 
+    // --- AI Helper (2.45) ---------------------------------------------------------
+    // Streaming chat lives in aiStream.php, not here: this file sets a JSON content
+    // type for every action and a stream needs text/event-stream plus incremental
+    // flushing.
     case 'getAiProviders':
-        getAiProvidersJson($aiKeys);
+        getAiProvidersJson($pdo, (int)($_GET['refresh'] ?? 0));
+        break;
+
+    case 'saveAiProvider':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            aiSaveProviderJson($pdo, json_decode(file_get_contents('php://input'), true) ?: []);
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    case 'deleteAiProvider':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true) ?: [];
+            aiDeleteProviderJson($pdo, $input['id'] ?? 0);
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    case 'testAiProvider':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            aiTestProviderJson($pdo, json_decode(file_get_contents('php://input'), true) ?: []);
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    // Discovery ONLY, for an unsaved draft. The wizard asks the operator to choose a model
+    // before it runs the chat round trip, so it needs the catalogue one step earlier than
+    // testAiProvider can supply it.
+    case 'discoverAiModels':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            aiDiscoverModelsJson($pdo, json_decode(file_get_contents('php://input'), true) ?: []);
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    // No provider needed — this is the deterministic scan.
+    case 'aiDiagnostics':
+        aiDiagnosticsJson($pdo, $_GET['world'] ?? '');
         break;
 
     case 'aiHelper':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $input = json_decode(file_get_contents('php://input'), true);
-            $message  = trim($input['message'] ?? '');
-            $history  = $input['history'] ?? [];
-            $context  = $input['context'] ?? 'none';
-            $world    = $input['world'] ?? '';
-            $provider = $input['provider'] ?? '';
-            $model    = $input['model'] ?? '';
-            if (!$message) { echo json_encode(['success'=>false,'error'=>'No message']); break; }
-            aiHelperDispatch($aiKeys, $provider, $model, $message, $history, $context, $world);
+            aiHelperJson($pdo, json_decode(file_get_contents('php://input'), true) ?: []);
         } else {
             echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
+    // "What can Hugin do for me?" -- answered from the catalogue, not by the model.
+    // No provider, no key, no tokens, and it still works when the operator's endpoint
+    // cannot do tool calling at all.
+    case 'aiCapabilities':
+        require_once __DIR__ . '/../includes/aiactions.php';
+        echo json_encode(['success' => true, 'markdown' => aiCapabilityCard($pdo)]);
+        break;
+
+    // Confirm or dismiss one of Hugin's proposed changes.
+    //
+    // The body carries a TOKEN and nothing else that decides what runs. The parameters
+    // were validated and stored server-side when the proposal was written, so a crafted
+    // request cannot substitute a different world or a different action -- the worst it
+    // can do is confirm a change the operator can already see on screen.
+    case 'applyAiProposal':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            require_once __DIR__ . '/../includes/aiactions.php';
+            $input = json_decode(file_get_contents('php://input'), true) ?: [];
+            echo json_encode(aiActionApply($pdo, $input['token'] ?? '', $input['typed'] ?? ''));
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'dismissAiProposal':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            require_once __DIR__ . '/../includes/aiactions.php';
+            $input = json_decode(file_get_contents('php://input'), true) ?: [];
+            echo json_encode(aiActionDismiss($pdo, $input['token'] ?? ''));
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
         }
         break;
 
@@ -403,6 +478,23 @@ switch($action) {
             } else {
                 echo json_encode(['success' => false, 'error' => 'Invalid JSON input']);
             }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'dismissHuginNotice':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $stmt = $pdo->prepare("UPDATE settings SET huginNoticeShown = 1");
+            echo json_encode(['success' => (bool)$stmt->execute()]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'dismissAiOllamaNotice':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            dismissAiOllamaNoticeJson($pdo);
         } else {
             echo json_encode(['success' => false, 'error' => 'POST method required']);
         }
@@ -506,24 +598,7 @@ switch($action) {
     case 'createManualBackup':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $input = json_decode(file_get_contents('php://input'), true);
-            $world = $input['world'] ?? '';
-            $compression = $input['compression'] ?? '';
-            if (!in_array($compression, ['none', 'gzip', 'zstd'])) $compression = '';
-            if ($world) {
-                // Launch backup in background, write progress to temp file for polling
-                $jobId = bin2hex(random_bytes(8));
-                $progressFile = "/tmp/phv_job_{$jobId}.log";
-                $doneFile = "/tmp/phv_job_{$jobId}.done";
-                touch($progressFile);
-                $compArg = $compression ? ' ' . escapeshellarg($compression) : '';
-                $cmd = "/opt/stateless/engine/tools/worldBackup " . escapeshellarg($world) . " manual" . $compArg;
-                // Run fully detached: redirect all FDs so PHP doesn't wait
-                $shell = "nohup bash -c '($cmd) > " . escapeshellarg($progressFile) . " 2>&1; echo \$? > " . escapeshellarg($doneFile) . "' > /dev/null 2>&1 < /dev/null &";
-                exec($shell);
-                echo json_encode(['success' => true, 'jobId' => $jobId]);
-            } else {
-                echo json_encode(['success' => false, 'error' => 'World name required']);
-            }
+            echo json_encode(startManualBackupJob($input['world'] ?? '', $input['compression'] ?? ''));
         } else {
             echo json_encode(['success' => false, 'error' => 'POST method required']);
         }
@@ -532,21 +607,7 @@ switch($action) {
     case 'restoreBackup':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $input = json_decode(file_get_contents('php://input'), true);
-            $backupId = (int)($input['backupId'] ?? 0);
-            if ($backupId > 0) {
-                // Launch restore in background, write progress to temp file for polling
-                $jobId = bin2hex(random_bytes(8));
-                $progressFile = "/tmp/phv_job_{$jobId}.log";
-                $doneFile = "/tmp/phv_job_{$jobId}.done";
-                touch($progressFile);
-                $cmd = "/opt/stateless/engine/tools/worldRestore " . escapeshellarg($backupId);
-                // Run fully detached: redirect all FDs so PHP doesn't wait
-                $shell = "nohup bash -c '($cmd) > " . escapeshellarg($progressFile) . " 2>&1; echo \$? > " . escapeshellarg($doneFile) . "' > /dev/null 2>&1 < /dev/null &";
-                exec($shell);
-                echo json_encode(['success' => true, 'jobId' => $jobId]);
-            } else {
-                echo json_encode(['success' => false, 'error' => 'Valid backup ID required']);
-            }
+            echo json_encode(startRestoreBackupJob((int)($input['backupId'] ?? 0)));
         } else {
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'error' => 'POST method required']);
@@ -1821,359 +1882,169 @@ function cloneWorldFoldersJson($sourceWorld, $targetWorld, $cloneConfigs, $clone
     ]);
 }
 
+/* ====================================================================================
+ * AI Helper (2.45)
+ *
+ * Everything here delegates to includes/aiproviders.php and includes/aicontext.php.
+ * The 2.44 implementation that lived at these lines -- getAiProvidersJson() with its
+ * hardcoded model tables, aiHelperDispatch() with a second copy of those tables used to
+ * silently rewrite the operator's chosen model, and four near-identical curl functions --
+ * is gone. Issue #83 was a retired Gemini id in one of those tables; the fix is that no
+ * table exists to go stale.
+ * ==================================================================================== */
+
 /**
- * Returns available AI providers and their models
+ * Providers, their live-discovered models, and the kind metadata the wizard needs.
+ *
+ * Discovery is cached (6h) and a failure is reported per-provider rather than failing
+ * the whole response: one unreachable Ollama box must not blank out a working OpenAI
+ * provider, which is exactly what 2.44's inline getOllamaModels() call did.
  */
-function getAiProvidersJson($aiKeys) {
-    $providerDefs = [
-        'openai' => [
-            'label' => 'OpenAI',
-            'models' => [
-                ['id' => 'gpt-4o-mini', 'label' => 'GPT-4o Mini'],
-                ['id' => 'gpt-4o', 'label' => 'GPT-4o'],
-            ]
-        ],
-        'gemini' => [
-            'label' => 'Google Gemini',
-            'models' => [
-                ['id' => 'gemini-2.0-flash', 'label' => 'Gemini 2.0 Flash'],
-                ['id' => 'gemini-2.0-flash-lite', 'label' => 'Gemini 2.0 Flash Lite'],
-                ['id' => 'gemini-1.5-pro', 'label' => 'Gemini 1.5 Pro'],
-            ]
-        ],
-        'claude' => [
-            'label' => 'Anthropic Claude',
-            'models' => [
-                ['id' => 'claude-haiku-4-5-20251001', 'label' => 'Haiku 4.5'],
-                ['id' => 'claude-sonnet-4-5-20250929', 'label' => 'Sonnet 4.5'],
-            ]
-        ],
+function getAiProvidersJson($pdo, $refreshId = 0) {
+    $out = [];
+    foreach (aiProviders($pdo, false) as $p) {
+        $models = aiCachedModels($pdo, $p, $refreshId && (int)$refreshId === $p['id']);
+        $out[] = [
+            'id'           => $p['id'],
+            'kind'         => $p['kind'],
+            'label'        => $p['label'],
+            'base_url'     => $p['base_url'],
+            // Presence only. The secret itself never crosses back to the browser.
+            'has_key'      => ($p['api_key'] ?? '') !== '',
+            'model'        => $p['model'],
+            'enabled'      => $p['enabled'],
+            'is_default'   => $p['is_default'],
+            'extra_headers'=> $p['headers'],
+            'models'       => $models['models'],
+            'models_error' => $models['error'],
+            'models_cached'=> !empty($models['cached']),
+        ];
+    }
+
+    echo json_encode([
+        'success'   => true,
+        'providers' => $out,
+        'kinds'     => aiProviderKinds(),
+    ]);
+}
+
+function aiSaveProviderJson($pdo, $input) {
+    echo json_encode(aiSaveProvider($pdo, $input));
+}
+
+function aiDeleteProviderJson($pdo, $id) {
+    echo json_encode(aiDeleteProvider($pdo, (int)$id));
+}
+
+/**
+ * Wizard step 4 and the settings "Test" button.
+ *
+ * Accepts an unsaved draft so the operator finds out the key is wrong BEFORE committing
+ * it, rather than discovering it as a chat error three screens later. When `id` is given
+ * and `api_key` is blank, the stored key is used -- that is how "test an existing
+ * provider" works without the UI ever holding the secret.
+ */
+// Shared by the test and discovery endpoints so the two can never disagree about which
+// endpoint, key or headers a half-filled wizard is actually talking to. Returns a string
+// on refusal, the draft array otherwise.
+function aiDraftFromInput($pdo, $input) {
+    $draft = [
+        'id'       => (int)($input['id'] ?? 0),
+        'kind'     => $input['kind'] ?? '',
+        'label'    => $input['label'] ?? '',
+        'base_url' => rtrim(trim($input['base_url'] ?? ''), '/'),
+        'api_key'  => (string)($input['api_key'] ?? ''),
+        'model'    => trim($input['model'] ?? ''),
+        'headers'  => aiDecodeHeaders(json_encode($input['extra_headers'] ?? [])),
     ];
 
-    $providers = [];
-    foreach ($providerDefs as $key => $def) {
-        if (!empty($aiKeys[$key])) {
-            $providers[$key] = $def;
-        }
+    if ($draft['id'] && $draft['api_key'] === '') {
+        $existing = aiProvider($pdo, $draft['id']);
+        if ($existing) $draft['api_key'] = $existing['api_key'];
     }
 
-    // Ollama: dynamically fetch models from the server
-    if (!empty($aiKeys['ollama'])) {
-        $ollamaModels = getOllamaModels($aiKeys['ollama']);
-        if (!empty($ollamaModels)) {
-            $providers['ollama'] = [
-                'label' => 'Ollama',
-                'models' => $ollamaModels
-            ];
-        }
-    }
+    if (!aiKnownKind($draft['kind'])) return 'Choose a provider type first.';
 
-    echo json_encode(['success' => true, 'providers' => $providers]);
+    if ($draft['base_url'] === '') {
+        $draft['base_url'] = rtrim(aiProviderKinds()[$draft['kind']]['base_url'], '/');
+    }
+    return $draft;
+}
+
+function aiTestProviderJson($pdo, $input) {
+    $draft = aiDraftFromInput($pdo, $input);
+    if (is_string($draft)) { echo json_encode(['success' => false, 'error' => $draft]); return; }
+    echo json_encode(aiTestProvider($draft));
+}
+
+function aiDiscoverModelsJson($pdo, $input) {
+    $draft = aiDraftFromInput($pdo, $input);
+    if (is_string($draft)) { echo json_encode(['success' => false, 'error' => $draft]); return; }
+    $disc = aiDiscoverModels($draft);
+    aiLog($disc['success'] ? 'NOTICE' : 'ERROR', sprintf(
+        'Model discovery: %s at %s — %s',
+        $draft['kind'], $draft['base_url'],
+        $disc['success'] ? count($disc['models']) . ' models' : 'FAILED: ' . $disc['error']
+    ));
+    echo json_encode($disc);
+}
+
+/** The deterministic scan. Deliberately usable with no provider configured at all. */
+function aiDiagnosticsJson($pdo, $world = '') {
+    require_once '/opt/stateless/nginx/www/includes/aidiagnose.php';
+    echo json_encode(['success' => true, 'findings' => aiDiagnose($pdo, $world)]);
 }
 
 /**
- * Dispatch AI Helper request to the correct provider
+ * Non-streaming chat.
+ *
+ * aiStream.php is the path the UI uses. This exists for clients that cannot consume a
+ * streamed body, and as the fallback when the stream fails to open.
  */
-function aiHelperDispatch($aiKeys, $provider, $model, $message, $history, $context, $world) {
-    $allowedModels = [
-        'openai' => ['gpt-4o-mini', 'gpt-4o'],
-        'gemini' => ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro'],
-        'claude' => ['claude-haiku-4-5-20251001', 'claude-sonnet-4-5-20250929'],
-    ];
-    $validProviders = ['openai', 'gemini', 'claude', 'ollama'];
-
-    // Validate provider
-    if (!in_array($provider, $validProviders) || empty($aiKeys[$provider])) {
-        echo json_encode(['success' => false, 'error' => "Provider '$provider' not available"]);
+function aiHelperJson($pdo, $input) {
+    $message = trim((string)($input['message'] ?? ''));
+    if ($message === '') {
+        echo json_encode(['success' => false, 'error' => 'No message']);
         return;
     }
 
-    // Validate model (skip for ollama — models are dynamic)
-    if ($provider !== 'ollama' && isset($allowedModels[$provider])) {
-        if (!in_array($model, $allowedModels[$provider])) {
-            $model = $allowedModels[$provider][0];
-        }
-    }
-
-    $apiKey = $aiKeys[$provider];
-    $systemPrompt = buildAiSystemPrompt($context, $world, $GLOBALS['pdo'] ?? null);
-
-    // Trim history
-    $trimmedHistory = [];
-    if (is_array($history)) {
-        $history = array_slice($history, -20);
-        foreach ($history as $h) {
-            if (isset($h['role']) && isset($h['content']) && in_array($h['role'], ['user', 'assistant'])) {
-                $trimmedHistory[] = $h;
-            }
-        }
-    }
-
-    switch ($provider) {
-        case 'openai':  aiHelperOpenAI($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
-        case 'gemini':  aiHelperGemini($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
-        case 'claude':  aiHelperClaude($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
-        case 'ollama':  aiHelperOllama($apiKey, $model, $systemPrompt, $trimmedHistory, $message); break;
-    }
-}
-
-/**
- * Build the system prompt with optional log context
- */
-function buildAiSystemPrompt($context, $world, $pdo = null) {
-    $systemPrompt = "You are PhValheim AI Helper, a concise technical assistant for the PhValheim Valheim server manager. "
-        . "You help admins troubleshoot server issues, understand logs, and manage mods. "
-        . "Keep answers short and actionable. Use bullet points for lists. "
-        . "If you see errors in logs, explain the likely cause and suggest a fix. "
-        . "CRITICAL: This is a HEADLESS dedicated server. Never mention or report on anything related to fonts, UI, shaders, graphics, rendering, DepthOfField, textures, cameras, screen resolution, visual effects, materials, meshes, sprites, or any graphical/visual warnings — they are completely irrelevant on a headless server. "
-        . "Also ignore mod RPC errors — these are normal networked mod communication and not actionable.";
-
-    $logFile = null;
-    $contextLabel = $context;
-    $safeWorld = null;
-    if (strpos($context, 'world:') === 0) {
-        // World-specific log: context = "world:WorldName"
-        $worldName = substr($context, 6);
-        $safeWorld = preg_replace('/[^a-zA-Z0-9_-]/', '', $worldName);
-        $logFile = "/opt/stateful/logs/valheimworld_{$safeWorld}.log";
-        $contextLabel = "world '$safeWorld'";
-    } else {
-        switch ($context) {
-            case 'engine':  $logFile = '/opt/stateful/logs/phvalheim.log'; break;
-            // 'ts' is retained as the key so old bookmarks still resolve, but it points
-            // at modSync.log -- tsSync.log is only written by pre-2.43 installs.
-            case 'ts':
-            case 'modsync': $logFile = '/opt/stateful/logs/modSync.log'; break;
-            case 'backup':  $logFile = '/opt/stateful/logs/worldBackups.log'; break;
-        }
-    }
-
-    // If world context and we have a database connection, inject expected mod list
-    if ($safeWorld && $pdo) {
-        try {
-            $modUuids = getAllWorldMods($pdo, $safeWorld);
-            $modNames = [];
-            foreach ($modUuids as $uuid) {
-                $uuid = trim($uuid);
-                if (empty($uuid)) continue;
-                $name = getModNameByUuid($pdo, $uuid);
-                if ($name) {
-                    $modNames[] = $name;
-                }
-            }
-            if (!empty($modNames)) {
-                $systemPrompt .= "\n\nExpected mods configured in the database for this world:\n";
-                foreach ($modNames as $modName) {
-                    $systemPrompt .= "- {$modName}\n";
-                }
-                $systemPrompt .= "\nCompare this list against [BepInEx] Loading lines in the log to identify any mods that are expected but not loaded. Do not report on unexpected mods loaded.";
-            }
-        } catch (Exception $e) {
-            // Silently skip mod list if query fails
-        }
-    }
-
-    if ($logFile && file_exists($logFile)) {
-        $lines = [];
-        $fp = @fopen($logFile, 'r');
-        if ($fp) {
-            while (($line = fgets($fp)) !== false) {
-                $lines[] = $line;
-                if (count($lines) > 200) {
-                    array_shift($lines);
-                }
-            }
-            fclose($fp);
-        }
-        if (!empty($lines)) {
-            $logContent = implode('', $lines);
-            $systemPrompt .= "\n\nHere are the last " . count($lines) . " lines from the {$contextLabel} log:\n```\n{$logContent}\n```";
-        }
-    }
-
-    return $systemPrompt;
-}
-
-/**
- * OpenAI Chat Completions API
- */
-function aiHelperOpenAI($apiKey, $model, $systemPrompt, $history, $message) {
-    $messages = [['role' => 'system', 'content' => $systemPrompt]];
-    foreach ($history as $h) {
-        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
-    }
-    $messages[] = ['role' => 'user', 'content' => $message];
-
-    $payload = json_encode([
-        'model' => $model,
-        'messages' => $messages,
-        'max_tokens' => 1024,
-        'temperature' => 0.7
-    ]);
-
-    $ch = curl_init('https://api.openai.com/v1/chat/completions');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'Authorization: Bearer ' . $apiKey
-    ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    if ($curlError) {
-        echo json_encode(['success' => false, 'error' => 'OpenAI error: ' . $curlError]);
+    $providerId = (int)($input['provider_id'] ?? 0);
+    $provider   = $providerId ? aiProvider($pdo, $providerId) : aiDefaultProvider($pdo);
+    if (!$provider) {
+        echo json_encode(['success' => false, 'error' => 'No AI provider is configured. Add one from Server Settings.']);
         return;
     }
 
-    $data = json_decode($response, true);
+    $modelOver = trim((string)($input['model'] ?? ''));
+    if ($modelOver !== '') $provider['model'] = $modelOver;
 
-    if ($httpCode !== 200 || !isset($data['choices'][0]['message']['content'])) {
-        $errMsg = $data['error']['message'] ?? "HTTP {$httpCode} from OpenAI";
-        echo json_encode(['success' => false, 'error' => $errMsg]);
+    if (trim($provider['model']) === '') {
+        echo json_encode(['success' => false, 'error' => "No model selected for '{$provider['label']}'."]);
         return;
     }
 
-    echo json_encode(['success' => true, 'reply' => $data['choices'][0]['message']['content']]);
-}
-
-/**
- * Google Gemini generateContent API
- */
-function aiHelperGemini($apiKey, $model, $systemPrompt, $history, $message) {
-    $contents = [];
-    foreach ($history as $h) {
-        $geminiRole = ($h['role'] === 'assistant') ? 'model' : 'user';
-        $contents[] = ['role' => $geminiRole, 'parts' => [['text' => $h['content']]]];
-    }
-    $contents[] = ['role' => 'user', 'parts' => [['text' => $message]]];
-
-    $payload = json_encode([
-        'system_instruction' => ['parts' => [['text' => $systemPrompt]]],
-        'contents' => $contents,
-        'generationConfig' => [
-            'maxOutputTokens' => 1024,
-            'temperature' => 0.7
-        ]
-    ]);
-
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . urlencode($model) . ':generateContent?key=' . urlencode($apiKey);
-
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    if ($curlError) {
-        echo json_encode(['success' => false, 'error' => 'Gemini error: ' . $curlError]);
-        return;
-    }
-
-    $data = json_decode($response, true);
-
-    if ($httpCode !== 200 || !isset($data['candidates'][0]['content']['parts'][0]['text'])) {
-        $errMsg = $data['error']['message'] ?? "HTTP {$httpCode} from Gemini";
-        echo json_encode(['success' => false, 'error' => $errMsg]);
-        return;
-    }
-
-    echo json_encode(['success' => true, 'reply' => $data['candidates'][0]['content']['parts'][0]['text']]);
-}
-
-/**
- * Anthropic Claude Messages API
- */
-function aiHelperClaude($apiKey, $model, $systemPrompt, $history, $message) {
+    // Same rule as the streaming path: only plain turns are trusted from the browser.
+    // Tool calls and results are produced server-side so a crafted history cannot feed
+    // the model a fabricated log excerpt.
     $messages = [];
-    foreach ($history as $h) {
-        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+    foreach (array_slice((array)($input['history'] ?? []), -20) as $h) {
+        $role = $h['role'] ?? '';
+        $text = trim((string)($h['content'] ?? ''));
+        if ($text === '' || !in_array($role, ['user', 'assistant'], true)) continue;
+        $messages[] = ['role' => $role, 'content' => $text];
     }
     $messages[] = ['role' => 'user', 'content' => $message];
 
-    $payload = json_encode([
-        'model' => $model,
-        'system' => $systemPrompt,
-        'messages' => $messages,
-        'max_tokens' => 1024
+    $res = aiConverse($pdo, $provider, $messages, (string)($input['world'] ?? ''));
+
+    echo json_encode([
+        'success' => $res['success'],
+        'reply'   => $res['content'] ?? '',
+        'error'   => $res['error'] ?? '',
+        'trace'   => $res['trace'] ?? [],
+        'usage'   => $res['usage'] ?? null,
+        'model'   => $res['model'] ?? $provider['model'],
     ]);
-
-    $ch = curl_init('https://api.anthropic.com/v1/messages');
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        'x-api-key: ' . $apiKey,
-        'anthropic-version: 2023-06-01'
-    ]);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    if ($curlError) {
-        echo json_encode(['success' => false, 'error' => 'Claude error: ' . $curlError]);
-        return;
-    }
-
-    $data = json_decode($response, true);
-
-    if ($httpCode !== 200 || !isset($data['content'][0]['text'])) {
-        $errMsg = $data['error']['message'] ?? "HTTP {$httpCode} from Claude";
-        echo json_encode(['success' => false, 'error' => $errMsg]);
-        return;
-    }
-
-    echo json_encode(['success' => true, 'reply' => $data['content'][0]['text']]);
-}
-
-/**
- * Fetch available models from Ollama server
- */
-function getOllamaModels($ollamaUrl) {
-    $url = rtrim($ollamaUrl, '/') . '/api/tags';
-
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($httpCode !== 200 || !$response) return [];
-
-    $data = json_decode($response, true);
-    if (!isset($data['models']) || !is_array($data['models'])) return [];
-
-    $models = [];
-    foreach ($data['models'] as $m) {
-        $name = $m['name'] ?? '';
-        if (empty($name)) continue;
-        // Use the model name as both id and label, clean up the label
-        $label = explode(':', $name)[0]; // strip :latest tag for display
-        $models[] = ['id' => $name, 'label' => $label];
-    }
-
-    return $models;
 }
 
 /**
@@ -2200,10 +2071,6 @@ function getServerSettingsJson($pdo) {
             'maxLogSize' => (int)$settings['maxLogSize'],
             'sessionTimeout' => (int)$settings['sessionTimeout'],
             'timezone' => $settings['timezone'] ?? 'Etc/UTC',
-            'openaiApiKey' => $settings['openaiApiKey'] ?? '',
-            'geminiApiKey' => $settings['geminiApiKey'] ?? '',
-            'claudeApiKey' => $settings['claudeApiKey'] ?? '',
-            'ollamaUrl' => $settings['ollamaUrl'] ?? '',
             'setupComplete' => (int)$settings['setupComplete'],
             'migrationNoticeShown' => (int)$settings['migrationNoticeShown'],
             'analyticsEnabled' => (int)($settings['analyticsEnabled'] ?? 1),
@@ -2256,10 +2123,6 @@ function saveServerSettingsJson($pdo, $input) {
         'maxLogSize' => 'int',
         'sessionTimeout' => 'int',
         'timezone' => 'string',
-        'openaiApiKey' => 'string',
-        'geminiApiKey' => 'string',
-        'claudeApiKey' => 'string',
-        'ollamaUrl' => 'string',
         'analyticsEnabled' => 'int',
         // Mod catalogues (2.43)
         'thunderstoreApiKey' => 'string',
@@ -2397,10 +2260,6 @@ function saveServerSettingsJson_internal($pdo, $input) {
         'maxLogSize' => 'int',
         'sessionTimeout' => 'int',
         'timezone' => 'string',
-        'openaiApiKey' => 'string',
-        'geminiApiKey' => 'string',
-        'claudeApiKey' => 'string',
-        'ollamaUrl' => 'string',
     ];
 
     $columnMap = ['steamAPIKey' => 'steamApiKey'];
@@ -2452,6 +2311,19 @@ function dismissWhatsNewJson($pdo, $currentVersion) {
 /**
  * Dismiss the one-time migration notice
  */
+// Clears the Ollama-conversion notice. Separate from the 2.31 settings notice on purpose:
+// they fire on different upgrades and an operator can hit both on the same boot.
+function dismissAiOllamaNoticeJson($pdo) {
+    try {
+        $pdo->prepare("UPDATE settings SET aiOllamaNotice = 0")->execute();
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        // Column absent means the 2.45 migration has not run, so there is no notice to
+        // clear and nothing is wrong. Do not turn that into a red error in the console.
+        echo json_encode(['success' => true, 'note' => 'nothing to dismiss']);
+    }
+}
+
 function dismissMigrationNoticeJson($pdo) {
     $stmt = $pdo->prepare("UPDATE settings SET migrationNoticeShown = 1, setupComplete = 2");
     $result = $stmt->execute();
@@ -2478,6 +2350,52 @@ function dismissAccessIdNoticeJson($pdo) {
     ]);
 }
 
+/* ====================================================================================
+ * Backup jobs
+ *
+ * Extracted from the switch above so BOTH the admin UI and Hugin's action executor run the
+ * same code. A second implementation for the assistant would be a second place for the
+ * quoting, the detachment and the job-id contract to drift -- and the one that drifts is
+ * always the one nobody is looking at.
+ * ==================================================================================== */
+
+/**
+ * Launch a long job fully detached and return its id for polling.
+ *
+ * Every FD is redirected because PHP-FPM will otherwise hold the request open until the
+ * child closes stdout, which for a multi-gigabyte backup means an admin page that appears
+ * to hang for minutes.
+ */
+function startDetachedJob($cmd) {
+    $jobId        = bin2hex(random_bytes(8));
+    $progressFile = "/tmp/phv_job_{$jobId}.log";
+    $doneFile     = "/tmp/phv_job_{$jobId}.done";
+    touch($progressFile);
+
+    $shell = "nohup bash -c '($cmd) > " . escapeshellarg($progressFile)
+           . " 2>&1; echo \$? > " . escapeshellarg($doneFile) . "' > /dev/null 2>&1 < /dev/null &";
+    exec($shell);
+
+    return ['success' => true, 'jobId' => $jobId];
+}
+
+function startManualBackupJob($world, $compression = '') {
+    if (!$world) return ['success' => false, 'error' => 'World name required'];
+    // Anything not in the known set is dropped rather than passed through: this string
+    // reaches a shell.
+    if (!in_array($compression, ['none', 'gzip', 'zstd'], true)) $compression = '';
+
+    $compArg = $compression ? ' ' . escapeshellarg($compression) : '';
+    return startDetachedJob(
+        "/opt/stateless/engine/tools/worldBackup " . escapeshellarg($world) . " manual" . $compArg);
+}
+
+function startRestoreBackupJob($backupId) {
+    $backupId = (int)$backupId;
+    if ($backupId <= 0) return ['success' => false, 'error' => 'Valid backup ID required'];
+    return startDetachedJob("/opt/stateless/engine/tools/worldRestore " . escapeshellarg($backupId));
+}
+
 function dismissAccessSwitchNoticeJson($pdo) {
     $stmt = $pdo->prepare("UPDATE settings SET accessSwitchNoticeShown = 1");
     $result = $stmt->execute();
@@ -2486,53 +2404,6 @@ function dismissAccessSwitchNoticeJson($pdo) {
         'success' => $result ? true : false,
         'message' => $result ? 'Access switch notice dismissed' : 'Failed to dismiss notice'
     ]);
-}
-
-/**
- * Ollama Chat API
- */
-function aiHelperOllama($ollamaUrl, $model, $systemPrompt, $history, $message) {
-    $messages = [['role' => 'system', 'content' => $systemPrompt]];
-    foreach ($history as $h) {
-        $messages[] = ['role' => $h['role'], 'content' => $h['content']];
-    }
-    $messages[] = ['role' => 'user', 'content' => $message];
-
-    $payload = json_encode([
-        'model' => $model,
-        'messages' => $messages,
-        'stream' => false
-    ]);
-
-    $url = rtrim($ollamaUrl, '/') . '/api/chat';
-
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlError = curl_error($ch);
-    curl_close($ch);
-
-    if ($curlError) {
-        echo json_encode(['success' => false, 'error' => 'Ollama error: ' . $curlError]);
-        return;
-    }
-
-    $data = json_decode($response, true);
-
-    if ($httpCode !== 200 || !isset($data['message']['content'])) {
-        $errMsg = $data['error'] ?? "HTTP {$httpCode} from Ollama";
-        echo json_encode(['success' => false, 'error' => $errMsg]);
-        return;
-    }
-
-    echo json_encode(['success' => true, 'reply' => $data['message']['content']]);
 }
 
 ?>

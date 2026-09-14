@@ -38,6 +38,14 @@ $backupsToKeep = $_settingsRow['backupsToKeep'] ?? 24;
 $sessionTimeout = $_settingsRow['sessionTimeout'] ?? 2592000;
 $setupComplete = (int)($_settingsRow['setupComplete'] ?? 0);
 $migrationNoticeShown = (int)($_settingsRow['migrationNoticeShown'] ?? 0);
+# How many Ollama providers dbUpdate_2.45.sh converted to openai_compatible, 0 = nothing to
+# say. Non-zero raises a one-shot notice: the conversion rewrote a base URL the operator
+# typed, and a change nobody was told about is discovered weeks later as "why is this
+# pointing there". Defaults to 0 so a database predating the column stays quiet.
+$aiOllamaNotice = (int)($_settingsRow['aiOllamaNotice'] ?? 0);
+// Defaults to 1 (already shown) when the column is missing, so a server whose migration has
+// not run yet does not flash an introduction for a feature it does not have.
+$huginNoticeShown = (int)($_settingsRow['huginNoticeShown'] ?? 1);
 # 1 = stay quiet. Defaults to 1 for a database that predates the column, so an install
 # that never ran the 2.40 migration cannot be told its ids were converted.
 $accessIdNoticeShown = (int)($_settingsRow['accessIdNoticeShown'] ?? 1);
@@ -48,12 +56,18 @@ $whatsNewShownVersion = (string)($_settingsRow['whatsNewShownVersion'] ?? '');
 $timezone = $_settingsRow['timezone'] ?? 'Etc/UTC';
 date_default_timezone_set($timezone);
 
-$aiKeys = [
-    'openai'  => $_settingsRow['openaiApiKey'] ?? '',
-    'gemini'  => $_settingsRow['geminiApiKey'] ?? '',
-    'claude'  => $_settingsRow['claudeApiKey'] ?? '',
-    'ollama'  => $_settingsRow['ollamaUrl'] ?? '',
-];
+# $aiKeys is GONE as of 2.45.
+#
+# AI providers are rows in `ai_providers`, not four fixed columns in `settings`, because
+# the old shape could hold exactly one OpenAI key, one Claude key, one Gemini key and one
+# keyless Ollama URL -- no second endpoint of the same kind, and no way at all to reach a
+# self-hosted vLLM or LM Studio behind --api-key.
+#
+# Read providers with aiProviders($pdo) / aiDefaultProvider($pdo) from
+# includes/aiproviders.php. The settings columns openaiApiKey, geminiApiKey,
+# claudeApiKey and ollamaUrl still exist as a rollback record for dbUpdate_2.45.sh and
+# are NOT read by anything: code found reading them is looking at a value the AI Helper
+# stopped using, which is the same class of bug as the pre-2.43 mod columns.
 
 unset($_settingsPdo, $_settingsRow);
 ?>

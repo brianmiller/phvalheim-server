@@ -21,6 +21,29 @@ exec > "$LOG" 2>&1
 echo "=== started $(date -u) ==="
 cd "$REPO" || exit 1
 
+# Self-check before anything expensive.
+#
+# The image verify at the bottom is one giant `sh -c '...'` argument. A single apostrophe
+# anywhere inside it -- INCLUDING in a comment -- closes the string early; the shell then
+# reinterprets the remainder and the rest of the verify silently never runs. This script
+# has already reported a clean build while skipping its last four checks that way, and
+# `bash -n` cannot catch it because the result is still valid shell.
+#
+# Counting them here turns an invisible failure into a refusal to build.
+# Anchored on the docker-run line itself, NOT on the substring "--entrypoint sh": this
+# check's own source line contains that substring, so a looser pattern matches HERE and
+# counts the wrong region -- which it did on the first attempt, reporting 4 apostrophes
+# in a payload that had none.
+apos=$(awk '/^docker run --rm -e EXPECT_VER=/{f=1} f&&/^.$/{exit} f' "$0" | tr -cd "'" | wc -c)
+# 1 = the opening quote on the docker-run line. Anything more is inside the payload.
+if [ "$apos" -ne 1 ]; then
+	echo "REFUSING TO BUILD: the sh -c verify payload contains $((apos - 1)) apostrophe(s)."
+	echo "One apostrophe truncates the verify silently. Remove them, including in comments."
+	echo "=== done FAILED ==="
+	exit 1
+fi
+echo "=== verify payload apostrophe check: clean ==="
+
 echo "=== building $IMAGE ==="
 docker buildx build --network=host -t "$IMAGE" . || { echo "BUILD FAILED"; echo "=== done FAILED ==="; exit 1; }
 
@@ -70,7 +93,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "idHelpDisclosure=$i (want 2)  old banner=$j (want 0)"
   echo "pv-list-lookup=$k (want 3)  .pv-disclosure css rules=$l (want >0)"
   echo "accessSwitchNoticeShown ui=$m (want 2) migration=$n (want 4)"
-  # NO single quotes in these echoes -- the whole block is inside sh -c '...', so one
+  # NO single quotes in these echoes -- the whole block is inside sh -c QUOTES, so one
   # apostrophe closes it early and the rest of the verify silently never runs. That is
   # exactly how this script reported a clean build while skipping its last four checks.
   # Crossplay join code, and the offline-world stats sweep.
@@ -400,7 +423,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.43 log table=$es timings col=$et (want >0)  record fn=$eu insert=$ev reset=$ew prune=$ex"
 
   # The API and the pane.
-  # No apostrophes: this whole block is inside sh -c SINGLE quotes, so "case 'getModSyncLog'"
+  # No apostrophes: this whole block is inside sh -c SINGLE quotes, so a quoted case label
   # closes it early and the grep matches nothing. That is the trap called out at the top of
   # this file, and it caught this line on its first run -- reporting a perfectly good image
   # as broken.
@@ -489,6 +512,224 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.44 viewer arg guard=$gh (want 1)  printenv filter=$gi (want >0)"
   echo "2.43 log api=$ey lib=$ez pane=$fa css=$fb follows-new-run=$fc (want >0 each)"
 
+  # ---- 2.45: the provider-agnostic AI Helper (issue #83) -------------------------
+  #
+  # NO APOSTROPHES anywhere below. The whole verify is inside sh -c ...  and one
+  # apostrophe closes it early, silently skipping every check after it. That is how this
+  # script once reported a clean build while running none of its last four markers.
+  #
+  # The headline markers are NEGATIVE. 2.44 held three hardcoded model tables and a
+  # validator that silently rewrote an unrecognised model; an image that still carried
+  # them would pass any count of the new files alone.
+  ha=$(ls /opt/stateless/nginx/www/includes/aiproviders.php /opt/stateless/nginx/www/includes/aicontext.php /opt/stateless/nginx/www/includes/aidiagnose.php /opt/stateless/nginx/www/admin/aiStream.php 2>/dev/null | wc -l)
+  # Existence is NOT enough. The first 2.45 RC shipped this file mode 660; dbUpdater.sh
+  # ran it as a bare path, got exit 126, logged nothing because it matches neither of its
+  # two branches, and the tables were silently never created. Test that it is EXECUTABLE.
+  hb=$(test -x /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh && echo 1 || echo 0)
+  # And that dbUpdater can no longer swallow a non-0/1 exit code from any migration.
+  hv=$(grep -c "could not be run" /opt/stateless/engine/tools/dbUpdater.sh)
+  hw=$(grep -c "bash \"\$dbUpdateScript\"" /opt/stateless/engine/tools/dbUpdater.sh)
+  # The 2.44 dispatcher and its model tables must be GONE from adminAPI.php.
+  # Match the DEFINITION. The 2.45 header comment in adminAPI.php names both of these dead
+  # functions deliberately, so a bare string count says they are still there when they are not.
+  hc=$(grep -c "function aiHelperDispatch" /opt/stateless/nginx/www/admin/adminAPI.php)
+  hd=$(grep -c "allowedModels" /opt/stateless/nginx/www/admin/adminAPI.php)
+  he=$(grep -c "function getOllamaModels" /opt/stateless/nginx/www/admin/adminAPI.php)
+  # No model identifier may appear ANYWHERE in the AI sources, comments included. The
+  # shipped image has no PHP tokenizer handy, so this is the blunt version of the guard
+  # in dev_tools/test-ai-helper.sh -- which is why the comments in those files are
+  # written to discuss the bug without ever naming a model.
+  hf=$(cat /opt/stateless/nginx/www/includes/aiproviders.php /opt/stateless/nginx/www/includes/aicontext.php /opt/stateless/nginx/www/includes/aidiagnose.php /opt/stateless/nginx/www/admin/aiStream.php | grep -vE "^[[:space:]]*(\*|//|#)" | grep -cEi "gpt-[0-9o]|claude-(opus|sonnet|haiku)|gemini-[0-9]|llama-?[0-9]")
+  # Live discovery per kind: the four endpoints must all be reachable in the code.
+  # /api/tags is the NATIVE Ollama discovery endpoint. The dedicated kind is gone, so this
+  # must now be ABSENT -- a leftover would mean the native adapter came back.
+  hg=$(grep -c "api/tags" /opt/stateless/nginx/www/includes/aiproviders.php)
+  hh=$(grep -c "v1beta/models" /opt/stateless/nginx/www/includes/aiproviders.php)
+  hi=$(grep -c "generateContent" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # adminAPI must actually pull the new libraries in, or every AI action fatals.
+  # Anchor on require_once: the header comment cites both paths in prose as well.
+  hj=$(grep -c "require_once .*includes/aiproviders.php" /opt/stateless/nginx/www/admin/adminAPI.php)
+  hk=$(grep -c "require_once .*includes/aicontext.php" /opt/stateless/nginx/www/admin/adminAPI.php)
+  # The legacy settings columns must have no live readers left. A migration that changes
+  # no read sites is how the 2.43 world-card mod counts broke: the columns still hold
+  # plausible values, so a leftover reader returns a believable wrong answer.
+  hl=$(grep -c "openaiApiKey" /opt/stateless/engine/tools/pushAnalytics.sh)
+  hm=$(grep -c "ai_providers" /opt/stateless/engine/tools/pushAnalytics.sh)
+  hn=$(grep -c "setup-openaiApiKey" /opt/stateless/nginx/www/admin/setup.php)
+  # config_env_puller must no longer BUILD the aiKeys array. Counting the string alone
+  # would pass on the comment that explains why it is gone, so match the assignment.
+  ho=$(grep -c "aiKeys = \[" /opt/stateless/nginx/www/includes/config_env_puller.php)
+  # The UI half: panel, wizard and diagnostics styling all have to ship together. The
+  # markup alone renders an unstyled panel, which reads as nothing having been done.
+  hp=$(grep -c "aiStream.php" /opt/stateless/nginx/www/admin/index.php)
+  hq=$(grep -c "aiWizardOverlay" /opt/stateless/nginx/www/admin/index.php)
+  hr=$(grep -c "ai-diag-evidence" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  hs=$(grep -c "ai-wiz-step" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # The wizard opens from Server Settings, so it must stack above it. At the base
+  # z-index it renders behind its own dim layer and cannot be dismissed.
+  ht=$(grep -c "aiWizardOverlay\" style=\"z-index:1060" /opt/stateless/nginx/www/admin/index.php)
+  hu=$(grep -c "2.45" /opt/stateless/nginx/www/includes/whatsnew.php)
+  # The wizard must ask for a model BEFORE it tests one, and nothing may select a model
+  # out of the discovered list. Test-before-Model forces the round trip to invent a probe
+  # target, and the only thing it can invent is models[0] -- which on a live Gemini account
+  # is a preview tier that refuses systemInstruction, failing a good key over a model the
+  # operator never chose. Both halves ship or neither does.
+  #
+  # NOTE: every quote below is written as a dot. This whole verify payload is carried
+  # inside a single-quoted sh -c string, so ONE literal apostrophe -- even in a comment --
+  # closes it and silently skips every remaining check. bash -n cannot see it.
+  hx=$(grep -c "Credentials., .Model., .Test." /opt/stateless/nginx/www/admin/index.php)
+  hy=$(grep -vE "^[[:space:]]*(\*|//|#)" /opt/stateless/nginx/www/includes/aiproviders.php | grep -cE "models.{0,3}\[0\]")
+  hz=$(grep -c "case .discoverAiModels." /opt/stateless/nginx/www/admin/adminAPI.php)
+  # And the helper must leave a trace on disk when it fails. Anchor on the definition.
+  ia=$(grep -c "function aiLog" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # A stopped world is not a broken one: the scan must consult world status, and the
+  # persona must say so. Without both, eleven deliberately-stopped test worlds read as an
+  # outage. Quotes as dots -- see the note above.
+  ib=$(grep -c "running = aiTruthy" /opt/stateless/nginx/www/includes/aidiagnose.php)
+  ic=$(grep -c "running && count(.starts)" /opt/stateless/nginx/www/includes/aidiagnose.php)
+  id=$(grep -c "A STOPPED WORLD IS NOT A BROKEN WORLD" /opt/stateless/nginx/www/includes/aicontext.php)
+  ie=$(grep -c "LIVE STATE" /opt/stateless/nginx/www/includes/aicontext.php)
+  # And the tool trace must stack, not collapse into a one-character ribbon.
+  # Scoped to the .ai-trace-row rule ONLY. Counting break-all across the whole stylesheet
+  # caught six unrelated rules and failed a clean build -- the marker was wrong, not the code.
+  if_=$(grep -c "flex-direction: column" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # Match the DECLARATION, not the word. The rule carries a comment explaining why break-all
+  # was wrong, and a bare "break-all" search counted that comment -- prose failing a clean
+  # build for the second time today.
+  ig=$(awk "/^\.ai-trace-row/,/^}/" /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "word-break: break-all")
+  # Hugin. The mascot is the progress indicator, so the SVG, the states and the working
+  # strip all have to ship together -- any one missing leaves a blinking caret and a
+  # 17-second silence, which is the thing being fixed.
+  # Newer OpenAI models reject max_tokens; the adapter must be able to ask the other way.
+  is=$(grep -c "max_completion_tokens" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # A no-argument tool call must replay as {} -- json_encode of an empty PHP array is "[]",
+  # a JSON list, and a strict gateway rejects it. All three adapters need the object cast.
+  jp=$(grep -c "json_encode((object).c..arguments..)" /opt/stateless/nginx/www/includes/aiproviders.php)
+  jq=$(grep -cE "input. => .object..c..arguments" /opt/stateless/nginx/www/includes/aiproviders.php)
+  jr=$(grep -cE "args. => .object..c..arguments" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # Capability negotiation: the loop plus both known quirks must ship together.
+  ja=$(grep -c "reasoning_effort" /opt/stateless/nginx/www/includes/aiproviders.php)
+  jb=$(grep -c "function (\$res) {" /opt/stateless/nginx/www/includes/aiproviders.php)
+  jc=$(grep -c "try <= count(\$quirks)" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # A streamed error body must be captured, or every streaming failure is a bare status code
+  # and neither adapter retry can ever fire. Anchor on the buffer, not the prose.
+  it=$(grep -c "errBody .= .chunk" /opt/stateless/nginx/www/includes/aiproviders.php)
+  iu=$(grep -c "onChunk ? .errBody" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # Searchable model picker: 130 models do not fit a native select.
+  iv=$(grep -c "aiModelPickRender" /opt/stateless/nginx/www/admin/index.php)
+  # Switching provider type must re-apply the new type defaults, not keep the first pick.
+  jd=$(grep -c "next === w.kind" /opt/stateless/nginx/www/admin/index.php)
+  je=$(grep -c "w.label    === prev.label" /opt/stateless/nginx/www/admin/index.php)
+  # Presets for the openai_compatible catch-all (vLLM, LM Studio, Ollama /v1 ...).
+  jf=$(grep -c "ai-wiz-preset" /opt/stateless/nginx/www/admin/index.php)
+  jg=$(grep -c "presets" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # The dedicated ollama kind must be GONE (it is a preset now), the native adapter with
+  # it, and dbUpdate_2.45.sh must carry the one-shot conversion for rows that already
+  # exist. All three ship together or an upgraded install keeps a provider nothing can
+  # dispatch -- the 2.43 world-card regression in a new costume.
+  jh=$(grep -c "ollama. => \[" /opt/stateless/nginx/www/includes/aiproviders.php)
+  ji=$(grep -c "function aiChatOllama" /opt/stateless/nginx/www/includes/aiproviders.php)
+  jj=$(grep -c "kind = .ollama." /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh)
+  jk=$(grep -c "addProvider openai_compatible .Ollama." /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh)
+  # A silent rewrite of a URL the operator typed is how "why is this pointing there" starts
+  # weeks later, so the conversion raises a one-shot notice. Flag, reader, modal and the
+  # dismiss endpoint all ship together or the dialog is unclosable / never appears.
+  jl=$(grep -c "aiOllamaNotice" /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh)
+  jm=$(grep -c "aiOllamaNotice" /opt/stateless/nginx/www/includes/config_env_puller.php)
+  jn=$(grep -c "aiOllamaNoticeOverlay" /opt/stateless/nginx/www/admin/index.php)
+  jo=$(grep -c "function dismissAiOllamaNoticeJson" /opt/stateless/nginx/www/admin/adminAPI.php)
+  # Starred models pin to the top. The star must also stop its click bubbling to the row,
+  # or pinning a model silently selects it and closes the popup.
+  ix=$(grep -c "function aiFavToggle" /opt/stateless/nginx/www/admin/index.php)
+  iy=$(grep -c "ai-modelpick-star" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  iz=$(grep -c "e.stopPropagation" /opt/stateless/nginx/www/admin/index.php)
+  iw=$(grep -c "ai-modelpick-row" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  ih=$(grep -c "function aiHuginNode" /opt/stateless/nginx/www/admin/index.php)
+  # One drawing only: the helper that renders it, and no JS re-description of the paths.
+  ip=$(grep -c "function huginSvg" /opt/stateless/nginx/www/includes/hugin.php)
+  iq=$(grep -c "Ask Hugin" /opt/stateless/nginx/www/admin/index.php)
+  ir=$(grep -c "hg-glint" /opt/stateless/nginx/www/admin/index.php)
+  ii=$(grep -c "ai-working" /opt/stateless/nginx/www/admin/index.php)
+  ij=$(grep -c "AI_TOOL_PHRASE" /opt/stateless/nginx/www/admin/index.php)
+  ik=$(grep -c "ai-panel-hugin" /opt/stateless/nginx/www/admin/index.php)
+  il=$(grep -cE "^\.ai-hugin" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  im=$(grep -c "hgFlap" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # Reduced motion must be honoured, and the timer must be cleared on every exit path.
+  in_=$(grep -c "prefers-reduced-motion" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  io=$(grep -c "clearInterval(timer)" /opt/stateless/nginx/www/admin/index.php)
+  echo "2.45 tool args as objects: openai=$jp anthropic=$jq gemini=$jr (want 1 each)"
+
+  # Hugin acts. The action layer, its schema, the confirm card and the telemetry all have to
+  # be present TOGETHER -- any one of them missing produces a half-working assistant that
+  # still looks fine until an operator tries to change something.
+  ka=$(grep -c "..tier.. *=>" /opt/stateless/nginx/www/includes/aiactions.php)
+  kb=$(grep -c "ai_proposals" /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh)
+  kc=$(grep -c "ai_usage" /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh)
+  kd=$(grep -c "tool_capability" /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh)
+  # The card, its styling, and the endpoint that applies it.
+  ke=$(grep -c "aiRenderProposals" /opt/stateless/nginx/www/admin/index.php)
+  kf=$(grep -c "ai-proposal-apply" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  kg=$(grep -c "applyAiProposal" /opt/stateless/nginx/www/admin/adminAPI.php)
+  # A NEGATIVE: the token must never be handed to the model. If this is not zero, a
+  # confirmation token can end up quoted into the chat transcript.
+  kh=$(grep -c "token. => .token" /opt/stateless/nginx/www/includes/aiactions.php)
+  # Degradation, playbooks, and the UTF-8 carry that stops streamed text vanishing.
+  ki=$(grep -c "no_tools" /opt/stateless/nginx/www/includes/aiproviders.php)
+  kj=$(grep -c "aiDegradedNotice" /opt/stateless/nginx/www/admin/index.php)
+  kk=$(grep -c "OPERATING PROCEDURES" /opt/stateless/nginx/www/includes/aicontext.php)
+  kl=$(grep -c "aiUtf8Carry" /opt/stateless/nginx/www/admin/aiStream.php)
+  # Telemetry, and the capability card that is generated rather than written down.
+  km=$(grep -c "ai_tools_used" /opt/stateless/engine/tools/pushAnalytics.sh)
+  kn=$(grep -c "ai_capability" /opt/stateless/engine/tools/pushAnalytics.sh)
+  ko=$(grep -c "aiCapabilityCard" /opt/stateless/nginx/www/includes/aiactions.php)
+  kp=$(grep -c "aiShowCapabilities" /opt/stateless/nginx/www/admin/index.php)
+  echo "actions=$ka (want 12)  schema: proposals=$kb usage=$kc capability=$kd"
+  echo "card: render=$ke css=$kf endpoint=$kg  token-leaked-to-model=$kh (want 0)"
+  echo "degrade: no_tools=$ki notice=$kj playbooks=$kk utf8carry=$kl"
+  echo "telemetry: tools_used=$km capability=$kn  capcard: php=$ko js=$kp"
+
+  # The meet-Hugin one-shot. All four pieces or none: the column, the variable that reads
+  # it, the markup, and the endpoint that clears it. A missing config_env_puller line leaves
+  # the variable UNDEFINED, and PHP compares null == 0 as true -- so the dialog would greet
+  # the operator on every single page load forever.
+  kq=$(grep -c "huginNoticeShown" /opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh)
+  kr=$(grep -c "huginNoticeShown" /opt/stateless/nginx/www/includes/config_env_puller.php)
+  ks=$(grep -c "huginNoticeOverlay" /opt/stateless/nginx/www/admin/index.php)
+  kt=$(grep -c "dismissHuginNotice" /opt/stateless/nginx/www/admin/adminAPI.php)
+  # The null-safe read, and the raven sized for the dialog rather than the 34px default.
+  ku=$(grep -c "huginNoticeShown ?? 1" /opt/stateless/nginx/www/admin/index.php)
+  kv=$(grep -c "ai-hugin.hugin-hello" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "meet-hugin: column=$kq var=$kr markup=$ks endpoint=$kt nullsafe=$ku css=$kv"
+
+  # The crossplay log line must LEAD with the outcome. It previously opened "has crossplay
+  # set but is MODDED", which is what a reader scanning a modded world log took away --
+  # reported as "the world log says crossplay is enabled".
+  kw=$(grep -c "crossplay is OFF" /opt/stateless/games/valheim/scripts/startWorld.sh)
+  # Anchored on echo, NOT the bare phrase: the comment above the fix QUOTES the old wording
+  # to explain why it changed, so a bare count is 1 on correct source. This script has been
+  # tripped by markers counting their own prose before.
+  kx=$(grep -c "echo.*has crossplay set" /opt/stateless/games/valheim/scripts/startWorld.sh)
+  echo "crossplay line: leads-with-outcome=$kw (want 1)  old-misleading-wording=$kx (want 0)"
+  echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
+  echo "2.45 wizard: kind-change=$jd/$je presets=$jf/$jg (want >0 each)"
+  echo "2.45 ollama removal: kind=$jh adapter=$ji (want 0/0)  migration: convert=$jj legacy=$jk (want >0/1)"
+  echo "2.45 ollama notice: migration=$jl reader=$jm modal=$jn dismiss=$jo (want >0 each)"
+  echo "2.45 model picker: js=$iv css=$iw  stars: toggle=$ix css=$iy stopProp=$iz (want >0 each)"
+  echo "2.45 hugin: node=$ih partial=$ip ask-btn=$iq no-js-artwork=$ir strip=$ii phrases=$ij header=$ik css rules=$il flap=$im reduced-motion=$in_ timer-clear=$io"
+  echo "2.45 stopped-world: scan status=$ib restart scoped=$ic persona=$id live state=$ie (want 1 each)"
+  echo "2.45 trace layout: column rules=$if_ (want >0)  break-all left=$ig (want 0)"
+  echo "2.45 wizard model-before-test=$hx (want 1)  auto-picks=$hy (want 0)  discovery endpoint=$hz (want 1)  aiLog=$ia (want 1)"
+  echo "2.45 new files=$ha (want 4)  migration executable=$hb (want 1)"
+  echo "2.45 dbUpdater reports unrunnable=$hv (want 1)  invokes via bash=$hw (want 1)"
+  echo "2.45 old dispatcher gone=$hc (want 0)  model tables gone=$hd (want 0)  ollama fn gone=$he (want 0)"
+  echo "2.45 model ids in AI sources=$hf (want 0)"
+  echo "2.45 discovery: native ollama=$hg (want 0)  gemini=$hh generateContent filter=$hi (want >0)"
+  echo "2.45 adminAPI includes: providers=$hj context=$hk (want 1 each)"
+  echo "2.45 legacy readers: analytics old=$hl (want 0) new=$hm (want >0)  setup fields gone=$hn (want 0)  aiKeys array gone=$ho (want 0)"
+  echo "2.45 ui: stream=$hp wizard=$hq diag css=$hr wiz css=$hs zindex=$ht (want >0 each)"
+  echo "2.45 whatsnew entry=$hu (want >0)"
+
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
@@ -540,6 +781,25 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$ga" = "1" ] && [ "$gb" = "0" ] && [ "$gc" = "1" ] && [ "$gd" = "0" ] \
     && [ "$ge" = "1" ] && [ "$gf" = "1" ] && [ "$gg" = "1" ] \
     && [ "$gh" = "1" ] && [ "$gi" -gt 0 ] \
+    && [ "$ha" = "4" ] && [ "$hb" = "1" ] && [ "$hv" = "1" ] && [ "$hw" = "1" ] \
+    && [ "$hc" = "0" ] && [ "$hd" = "0" ] && [ "$he" = "0" ] && [ "$hf" = "0" ] \
+    && [ "$hg" = "0" ] && [ "$hh" -gt 0 ] && [ "$hi" -gt 0 ] \
+    && [ "$hj" = "1" ] && [ "$hk" = "1" ] \
+    && [ "$hl" = "0" ] && [ "$hm" -gt 0 ] && [ "$hn" = "0" ] && [ "$ho" = "0" ] \
+    && [ "$hp" -gt 0 ] && [ "$hq" -gt 0 ] && [ "$hr" -gt 0 ] && [ "$hs" -gt 0 ] && [ "$ht" -gt 0 ] \
+    && [ "$hu" -gt 0 ] \
+    && [ "$hx" = "1" ] && [ "$hy" = "0" ] && [ "$hz" = "1" ] && [ "$ia" = "1" ] \
+    && [ "$is" -gt 0 ] && [ "$jp" = "1" ] && [ "$jq" = "1" ] && [ "$jr" = "1" ] && [ "$ja" -gt 0 ] && [ "$jc" = "2" ] && [ "$it" = "1" ] && [ "$iu" = "1" ] && [ "$iv" -gt 0 ] && [ "$iw" -gt 0 ] \
+    && [ "$jd" = "1" ] && [ "$je" = "1" ] && [ "$jf" -gt 0 ] && [ "$jg" -gt 0 ] && [ "$jh" = "0" ] && [ "$ji" = "0" ] && [ "$jj" -gt 0 ] && [ "$jk" = "1" ] \
+    && [ "$jl" -gt 0 ] && [ "$jm" -gt 0 ] && [ "$jn" -gt 0 ] && [ "$jo" = "1" ] && [ "$ix" = "1" ] && [ "$iy" -gt 0 ] && [ "$iz" -gt 0 ] && [ "$ih" = "1" ] && [ "$ip" = "1" ] && [ "$iq" -gt 0 ] && [ "$ir" = "0" ] && [ "$ii" -gt 0 ] && [ "$ij" -gt 0 ] && [ "$ik" -gt 0 ] && [ "$il" -gt 0 ] && [ "$im" -gt 0 ] && [ "$in_" -gt 0 ] && [ "$io" -gt 0 ] \
+    && [ "$ib" = "1" ] && [ "$ic" = "1" ] && [ "$id" = "1" ] && [ "$ie" = "1" ] && [ "$if_" -gt 0 ] && [ "$ig" = "0" ] \
+    && [ "$ka" = "12" ] && [ "$kb" -gt 0 ] && [ "$kc" -gt 0 ] && [ "$kd" -gt 0 ] \
+    && [ "$ke" -gt 0 ] && [ "$kf" -gt 0 ] && [ "$kg" -gt 0 ] && [ "$kh" = "0" ] \
+    && [ "$ki" -gt 0 ] && [ "$kj" -gt 0 ] && [ "$kk" -gt 0 ] && [ "$kl" -gt 0 ] \
+    && [ "$km" -gt 0 ] && [ "$kn" -gt 0 ] && [ "$ko" -gt 0 ] && [ "$kp" -gt 0 ] \
+    && [ "$kq" -gt 0 ] && [ "$kr" -gt 0 ] && [ "$ks" -gt 0 ] && [ "$kt" -gt 0 ] \
+    && [ "$ku" -gt 0 ] && [ "$kv" -gt 0 ] \
+    && [ "$kw" = "1" ] && [ "$kx" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

@@ -103,10 +103,21 @@ fi
 # preference, and it becomes live again the moment the world is switched to vanilla.
 #
 # Revisit when the client can launch with -joincode; see docs and the 2.0.13 client work.
+# The message below LEADS WITH THE OUTCOME, deliberately.
+#
+# It used to open "World 'X' has crossplay set but is MODDED", and that is what an operator
+# scanning a log actually takes away: crossplay is on. It was reported as "the world log for
+# a modded world says crossplay is enabled", and the reader was right to read it that way --
+# the first thing the sentence asserts is that crossplay is set. Whether the rest of the
+# line then walks it back is not how anyone reads a log.
+#
+# State the effective setting first, then explain the stored one. Same facts, opposite
+# first impression, and the first impression is the one that sticks.
 if [ "$isCrossplay" = "1" ] && [ "$isVanilla" = "1" ]; then
 	set -- "$@" -crossplay
+	echo "`date` [NOTICE : phvalheim] World '$worldName': crossplay is ON."
 elif [ "$isCrossplay" = "1" ]; then
-	echo "`date` [NOTICE : phvalheim] World '$worldName' has crossplay set but is MODDED -- starting without -crossplay. The PhValheim client cannot join a modded crossplay world."
+	echo "`date` [NOTICE : phvalheim] World '$worldName': crossplay is OFF -- it is saved as enabled, but crossplay applies to VANILLA worlds only. A modded world runs as a Steam server so the PhValheim client can reach it; crossplay would make it a PlayFab server with no host:port, which the client cannot join. Switch the world to vanilla if you need crossplay."
 fi
 
 set -- "$@" -savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim

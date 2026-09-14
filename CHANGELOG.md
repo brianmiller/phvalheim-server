@@ -1,5 +1,346 @@
 # Changelog
 
+## v2.45
+
+### The AI Helper stops holding opinions about which models exist (issue #83)
+
+Reported as "Gemini models are retired/deprecated": `models/gemini-2.0-flash` was gone and
+the helper still asked for it. Bumping the string would have been a fix with a shelf life
+of weeks. The defect is that a model id was a constant in our source at all.
+
+2.44 carried **three** hardcoded model tables. `getAiProvidersJson()` held one for the
+picker, `aiHelperDispatch()` held a second for validation, and the validator did this:
+
+```php
+if (!in_array($model, $allowedModels[$provider])) {
+    $model = $allowedModels[$provider][0];      // operator asked for X, silently got Y
+}
+```
+
+So the failure was not only "our default is stale" but "a *correct* model the operator
+typed gets replaced by a stale one, with no error". Both tables are gone. Every supported
+provider publishes its catalogue over HTTP — `GET /models` (OpenAI-compatible),
+`GET /v1/models` (Anthropic), `GET /v1beta/models` (Gemini), `GET /api/tags` (Ollama) —
+so we ask, cache for 6h, and send whatever the operator picked **verbatim**. A model that
+discovery has never heard of is used as entered, with a warning, never a substitution.
+
+`dev_tools/test-ai-helper.sh` token-strips the AI sources and fails the build if a
+model-id shape reappears in live code. Verified by mutation: reintroducing the 2.44
+constant, the silent rewrite, the swallowed error text, a weakened path check and a
+mutating tool are each caught.
+
+### A provider is a row, not a hardcoded case
+
+`settings` held exactly four AI columns: one OpenAI key, one Claude key, one Gemini key,
+and `ollamaUrl` — which had **no key field at all**, so a self-hosted vLLM or LM Studio
+behind `--api-key` was unusable. Providers now live in `ai_providers`, so an operator can
+configure any number of them, several of the same kind, each with its own endpoint,
+credential, extra headers and pinned model. `openai_compatible` covers vLLM, LM Studio,
+llama.cpp, OpenRouter, Groq, Together, DeepSeek, Mistral and xAI with one adapter.
+
+`dbUpdate_2.45.sh` migrates the four columns into rows and deliberately does **not**
+carry the model across — the only ids 2.44 could have stored are from its own stale
+tables, `gemini-2.0-flash` among them. Leaving it empty forces live resolution on first
+use, which fixes #83 for upgrades and not just fresh installs. The legacy columns are
+kept as a rollback record; `pushAnalytics.sh` was the one live reader left and now reads
+`ai_providers` instead. A migration that changes no read sites is how the 2.43 world-card
+mod counts broke, so the test suite greps for stragglers.
+
+### The assistant can look things up instead of being handed one log
+
+Context was `tail -200` of a single file pasted into the system prompt. It could not
+follow a lead, compare two worlds, check whether the thing it was blaming was even
+configured, or see further back than 200 lines — so the most common real answer, *"the
+failure is above the window you were given"*, was unreachable by construction.
+
+There are now ten read-only tools: list/search/read any log (whole file, not just the
+tail; `since_last_start` for a world), world config, the resolved mod install plan,
+catalogue sync state, backups, host health, and the diagnostics below. Log paths resolve
+through `realpath()` containment inside `/opt/stateful/logs` — `basename()` alone stops
+traversal but not a planted symlink. Nothing mutates: a wrong answer should waste the
+operator's time, never their world. Each reply shows which tools it called.
+
+### A health scan that needs no model at all
+
+`aidiagnose.php` is pure PHP pattern matching over the logs and database, run before any
+LLM call. It reports mod load failures, missing dependencies, mods configured but never
+loaded, the 2.39 permission class, Steam download storms, port conflicts, restart loops,
+overdue backups, failed syncs, low disk and stopped services — each with the lines that
+triggered it.
+
+Three reasons it exists: the helper is useful with nothing configured; a small local
+model handed evidence does well where the same model handed 200 raw lines hallucinates;
+and the expensive model reasons about findings rather than scrollback.
+
+It also flags a world whose `permittedlist.txt` is **enforced but empty** — Valheim only
+enforces that list when it has entries, so an empty one is a wide-open server whose
+Access tab says otherwise.
+
+### What a real Gemini key found that a mock could not
+
+Tested against the live API. Discovery returned 40 models and `gemini-2.0-flash` — the
+model 2.44 hardcoded and issue #83 reported — is **absent**. The current generation is
+`gemini-3.8-flash`; the fix the issue itself suggested (`3.6-flash`) would already be one
+behind. Three defects surfaced that an OpenAI-shaped mock is structurally unable to show:
+
+**Tool calling was broken on every current Gemini model.** Gemini 3 attaches a
+`thoughtSignature` to parts and *requires* it back on `functionCall` parts. The adapter
+rebuilt each part from name+args, dropping it, so the second round trip died with
+*"Function call is missing a thought_signature in functionCall parts"*. Plain chat worked,
+which is why nothing looked wrong. The model turn is now replayed verbatim — Google's own
+guidance — via an opaque `provider_raw` that `aiConverse` passes through untouched and
+other adapters ignore.
+
+**An empty `args` object became a JSON list.** `json_decode($body, true)` turns `{}` into
+an empty PHP array, indistinguishable from `[]`, and `json_encode` emits `[]`. Every
+no-argument tool call replayed as `"args": []` and was rejected: *"Proto field is not
+repeating, cannot start list."* The replay copy is now decoded as `stdClass`, which
+round-trips exactly.
+
+**The wizard's connection probe asked for 16 output tokens.** On a reasoning model that
+budget is consumed by thinking before any visible character, so the step passed while
+rendering `Replied:` and nothing — measured at ~150 thinking tokens for a one-word
+question. Raised to 512, and an empty-but-successful reply is now reported as a warning
+explaining why rather than as a blank pass.
+
+Also worth knowing: **discovery listing a model does not mean the key can use it.**
+`gemini-2.5-flash` is still advertised by `/v1beta/models` but returns *"no longer
+available to new users"* on `generateContent`. The wizard's separate chat round trip is
+what catches this, at setup time, instead of it becoming a confusing chat error later.
+
+### Three more found by pointing a real model at a real server
+
+A live Gemini key against a booted container, asked open questions about the engine log
+and two broken worlds.
+
+**The tool loop gave up while it was winning.** `aiConverse` capped at 6 rounds, and the
+model investigates in *parallel* — an open "full health check" produced twelve tool calls,
+two per round, hit the cap, and returned an error blaming the model (*"try a stronger
+model"*). The work was done; only the answer was missing. The cap is now 10, and on
+exhausting it the loop makes one final call **with no tools**, forcing an answer from what
+was already gathered. The system prompt also tells the model to answer as soon as it can
+support an answer rather than gathering everything that might be relevant.
+
+**`get_world_mods` had never worked.** It selected `m.version`; the newest version is
+denormalised onto `mods` as `latest_version`, so the tool returned *"Column not found:
+1054 Unknown column 'm.version'"* every single time. The mock provider only ever called
+`get_diagnostics`, so nine of the ten tools had no coverage at all. The e2e now executes
+every tool directly and fails on error-shaped output.
+
+**The new dbUpdater error line was itself the bug.** Treating every non-0/1 exit as a
+failure printed 13 ERROR lines on every boot of a *healthy* server, because the older
+migrations end with a deliberate `exit 2` meaning "already applied". The AI Helper then
+read them, believed its own instructions, and reported *"CRITICAL: Engine Database Update
+Failures"* advising the operator to hand-edit the database. Noise that looks like a fault
+is a fault. `2` is silent again; `126`/`127` — a script that genuinely cannot run — stay
+loud, which is the case that mattered.
+
+### A migration that could not run, and said nothing
+
+Found by booting the first 2.45 RC rather than by reading it. `dbUpdate_2.45.sh` was
+committed mode `660`; `dbUpdater.sh` invoked each migration as a bare path, which needs
+the execute bit, so it exited **126**. That matched neither of the two branches in the
+loop — `0` and `1` — so nothing was logged, the engine continued as though the schema were
+current, and the only symptom was the AI Helper reporting no providers configured. The
+image verified clean: the marker checked that the file *existed*.
+
+Three changes, because any one alone leaves the trap set:
+
+- `dbUpdater.sh` now runs each migration with `bash "$dbUpdateScript"`, removing the
+  dependency on a file mode that no reviewer sees in a diff.
+- Any exit code that is not 0 or 1 is now logged as an ERROR naming the script. Silence
+  was the actual defect; a migration that cannot run must never look like one that did.
+- The build verify tests `test -x` rather than existence, and asserts both of the above.
+
+`dev_tools/test-ai-e2e.sh` is new and is what caught it: it boots the image, waits for the
+engine to migrate *on its own*, then drives the admin API through the provider wizard,
+live model discovery, the diagnostics scan, the tool-calling loop and the SSE stream
+against a mock provider served inside the container — no API key, no network egress.
+Deliberately never runs the migration by hand, since that would hide this exact class of
+bug.
+
+### Issue #83 grew back inside the wizard that was meant to fix it
+
+Found on a live paid Gemini account, on the production upgrade, by setting up a provider
+the ordinary way.
+
+The wizard ran **Test before Model**. A connectivity round trip needs a model, and at that
+point none had been chosen — so `aiTestProvider()` reached for
+`$disc['models'][0]['id']`, "whatever the provider listed first". Google's
+`/v1beta/models` is not ordered by preference: the first of the 40 models returned was
+`antigravity-preview-05-2026`, an internal preview that rejects `systemInstruction`
+outright. A perfectly good API key therefore failed the wizard with
+
+    ✕ Chat round trip — Developer instruction is not enabled for
+                        models/antigravity-preview-05-2026
+
+naming a model the operator had never selected and could not see.
+
+This is #83's actual defect — *code choosing a model on the operator's behalf* — in a new
+costume, which is why the existing guards missed it: no model id is hardcoded anywhere.
+It is **selected**, at runtime, from a list. The guard now forbids indexing into the
+discovered list at all, and pins the step order; both were proven by mutation.
+
+The fix is structural rather than a better guess. Steps are now
+**Type → Endpoint → Credentials → Model → Test**: discovery runs on entry to the Model
+step via a new `discoverAiModels` endpoint, the operator picks, and the round trip tests
+*that* model. Reaching the test step with no model is now a plain "go Back and choose
+one", not an invented probe. Changing the base URL or the key discards the cached list so
+a different endpoint cannot be offered another's catalogue.
+
+Separately, `aiChatGemini()` now retries once with the system prompt folded into the first
+user turn when a model refuses `systemInstruction` — tried only *after* the proper field
+has been refused, never speculatively. Without it the grounding prompt, which is the only
+reason this helper is worth anything, takes the whole request down on those models.
+
+### The AI Helper was the one subsystem that logged nothing
+
+Diagnosing the above needed a screenshot, because the server had nothing to say. Every AI
+failure — bad key, refused model, discovery error — was returned as JSON to the browser
+and left no trace. The three POSTs in `php.log` were all **HTTP 200**, since a rejection
+is a successful request carrying `success:false`.
+
+`aiLog()` now appends to `/opt/stateful/logs/ai.log` (picked up by the existing `*.log`
+rotation, and readable by the helper's own `read_log` tool): discovery results, provider
+test outcomes, and every upstream chat failure, through a single choke point in `aiChat()`
+so no adapter can fail quietly. Keys, endpoint credentials and conversation content are
+never written.
+
+### Ollama is a preset, not a provider kind
+
+The dedicated `ollama` kind carried its own ~70-line adapter and its own `/api/tags`
+discovery branch. Ollama also serves an OpenAI-compatible API at `/v1`, so all of that was
+duplicating `aiChatOpenAI()` to save the operator typing three characters. It is now one of
+eleven presets on the OpenAI-compatible type, beside vLLM, LM Studio, llama.cpp, OpenRouter,
+Groq, Together, DeepSeek, Mistral and xAI — presets only prefill the form, and nothing
+downstream branches on which one was used.
+
+Removing a kind is not a code-only change, because **rows in the database point at it**.
+Two upgrade paths exist and `dbUpdate_2.45.sh` handles both:
+
+- **From 2.44**, `settings.ollamaUrl` is a bare `host:port` (2.44 spoke the native API). The
+  import now appends `/v1` and creates the row as `openai_compatible`.
+- **From an earlier 2.45 RC**, rows with `kind='ollama'` already exist. A second block,
+  deliberately outside the "registry is empty" guard because this repairs rows a previous
+  revision of this same script created, rewrites the URL and then the kind. It is idempotent
+  by construction — after the kind is rewritten nothing matches — and the URL is fixed
+  first, while the rows are still identifiable. `TRIM(TRAILING '/')` keeps
+  `host:11434/` from becoming `host:11434//v1`.
+
+The provider's cached model list is dropped at the same time: it was fetched from
+`/api/tags` in the native shape, and keeping it would show stale, wrongly-parsed ids until
+the 6h cache expired.
+
+Leaving those rows behind would have been the 2.43 world-card regression in a new costume —
+code deleted, live readers left pointing at it, failing plausibly rather than loudly.
+
+### UI
+
+Replies stream (SSE, `X-Accel-Buffering: no`, with a non-streaming fallback for proxies
+that will not pass `text/event-stream`) and render as Markdown — escape-first, because
+2.44 asked the model for raw HTML and injected it. The "Context" dropdown that chose
+which log to attach is replaced by a world hint. A five-step **Add AI provider** wizard
+tests endpoint, credential and model separately, so a failure names which of the three is
+wrong instead of surfacing as a chat error later. The AI button is no longer hidden until
+a key exists — that hid the diagnostics from the operator most likely to need them. The
+wizard overlay sits at `z-index:1060`: it opens from Server Settings, and a stacked
+overlay left at the base level renders behind its own dim layer and cannot be dismissed.
+
+`setup.php` now collects nothing for AI. Four bare key fields cannot express a provider,
+and a key typed there would have landed in the legacy columns the migration reads *from* —
+already run by the time the wizard is on screen, so the credential would have sat in a
+dead column while the helper reported nothing configured.
+
+### Hugin can act, and every act is the server's, not the model's
+
+The assistant is named **Hugin** and has twelve actions: `start_world`, `stop_world`,
+`restart_world`, `update_world`, `delete_world`, `set_world_options`, `set_world_access`,
+`create_backup`, `restore_backup`, `set_world_backup_policy`, `set_world_mods` and
+`set_server_settings`.
+
+The design rule is **propose → confirm → execute**, and the load-bearing detail is *where
+the confirmation comes from*. A card built from the model's description of a change is a
+card that can describe a change other than the one that will happen. So the plan is
+authored server-side in `ai_proposals` from the **validated** arguments; the browser gets
+an opaque single-use token and never the plan. It expires in 15 minutes and is
+re-validated at apply time, so a world that moved on in the meantime stops the apply
+rather than acting on stale state.
+
+The executor owns no SQL. It calls the admin UI's own `*Json()` handlers and captures
+their output with `ob_start()`/`ob_get_clean()`, which means every guard those handlers
+already have applies to Hugin for free and cannot drift from what the UI does.
+`startDetachedJob()`, `startManualBackupJob()` and `startRestoreBackupJob()` were lifted
+out of the `adminAPI.php` switch so both callers share one implementation.
+
+Tiers: `create_backup` and `start_world` execute immediately (neither can lose anything);
+the rest render a confirm card; `delete_world` and `restore_backup` additionally require
+the world's name typed.
+
+**`saveWorldOptionsJson` is a full replace, not a patch.** Sending only the changed field
+would have blanked the password, dropped the launch parameters, unlisted the world and set
+`vanilla=0` — quietly converting a vanilla world to modded. The action now prefills every
+key from the current row. Refusals are enforced at *propose* time, so the card never shows
+a `0 → 1` that the launch path would ignore: crossplay or a password on a modded world, a
+listed vanilla world with no password, an enforced-but-empty access list, and a restore
+whose backup belongs to a different world.
+
+Eight operating procedures were added to the system prompt — diagnose before acting, a mod
+change is not live until the world is rebuilt, never invent a player ID, `worlds.public` is
+not `-public`, stopping disconnects players, prefer the narrow tool, proposing is not
+doing, and if a tool refuses, believe it.
+
+### A model that cannot call tools now answers anyway
+
+Tool support is **negotiated from the endpoint's refusal**, never from a model allowlist —
+the same law that produced the discovery work above. `aiproviders.php` classifies a
+tool-parameter rejection as the `no_tools` quirk, records it on
+`ai_providers.tool_capability`, and retries without tools. Hugin then answers plainly and
+says it could not inspect anything and cannot make changes. Previously such an endpoint
+errored on every single message.
+
+### A streamed reply could silently delete its own words
+
+`json_encode()` returns **`false`** on invalid UTF-8, and a provider may split a multi-byte
+character across two chunks. The SSE frame then went out as `data: ` with no payload and
+the browser dropped it — text vanished mid-sentence with no error anywhere. `aiUtf8Carry()`
+now holds an incomplete trailing sequence until its continuation arrives, and `sse()` falls
+back to `JSON_INVALID_UTF8_SUBSTITUTE` rather than emitting nothing.
+
+### A modded world's log said crossplay was enabled
+
+Nothing in the launch path was wrong: `startWorld.sh` has never passed `-crossplay` to a
+modded world. The bug was one sentence, which opened `World 'X' has crossplay set but is
+MODDED` — and the first six words are what an operator scanning a log takes away. It now
+leads with the outcome (`crossplay is OFF -- it is saved as enabled, but ...`) and names
+the remedy.
+
+Proving it was ours took two greps: every occurrence of `crossplay` in
+`assembly_valheim.dll` and `Splatform.dll` is a .NET **identifier**, which lives in
+metadata as UTF-8, not a user string literal, which would be UTF-16. `strings` found
+nothing while `grep -a` matched — and that difference is the whole answer. Valheim never
+prints the word. Guarded by `dev_tools/test-crossplay-logline.sh`, which extracts the real
+block and runs all four vanilla/crossplay combinations.
+
+### Telemetry, and a migration rule that stops version churn
+
+`pushAnalytics.sh` gained `ai_chats`, `ai_tool_calls`, `ai_actions_{proposed,applied,rejected,dismissed,expired}`,
+`ai_tools_used`, `ai_errors` and `ai_capability`, all **counts** over a one-day window. No
+prompt, reply, world name, mod name, model name, endpoint or key is ever sent. The
+analytics service stores them in a new `ai_hugin` column, bounded to 64 keys of 64 chars.
+
+All 2.45 schema is **appended to `dbUpdate_2.45.sh`** rather than opening a 2.46. Migrations
+from 2.40 on are object-by-object idempotent and re-run safely on every boot, so a later
+revision of the same script is the correct place for late schema —
+`exit 2` gating is legacy (2.7–2.38). `dev_tools/test-migration-append-safe.sh` fails the
+build if a migration exists for a version newer than the Dockerfile.
+
+### Meeting Hugin
+
+A one-shot `huginNoticeShown` dialog introduces the raven on first login after upgrade and
+points at AI Setup. Its default is `?? 1`, not `?? 0`: an undefined variable is `null`, and
+**`null == 0` is true in PHP** — so a missing setting would have shown the dialog on every
+page load forever. Defaulting to "already seen" fails closed.
+
 ## v2.44
 
 ### One mod could freeze a world's entire mod list (issue #82)

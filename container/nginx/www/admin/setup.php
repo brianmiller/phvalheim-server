@@ -350,29 +350,39 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
                 </div>
             </div>
 
-            <!-- Step 4: AI Helper (Optional) -->
+            <!--
+                Step 4: AI Helper.
+
+                2.45 deliberately collects NOTHING here. Four bare key fields could not
+                express what a provider now is (endpoint + credential + a model picked
+                from that endpoint's live catalogue), and a key typed here would have
+                landed in the legacy `settings` columns that dbUpdate_2.45.sh migrates
+                FROM -- on a fresh install that migration has already run by the time the
+                wizard is on screen, so the credential would have sat in a dead column
+                and the AI Helper would have reported no provider configured.
+
+                Adding a provider needs a live round trip to list its models, which is
+                the admin UI's job, not a setup form's.
+            -->
             <div class="setup-step" data-step="4">
                 <div class="setup-step-title">AI Helper</div>
-                <div class="setup-step-desc">Optional. Configure AI-powered log analysis. You can skip this and set it up later.</div>
+                <div class="setup-step-desc">Optional, and set up after this wizard.</div>
 
-                <div class="setup-field">
-                    <label>OpenAI API Key</label>
-                    <input type="password" id="setup-openaiApiKey" placeholder="sk-...">
-                </div>
+                <div style="line-height:1.65;font-size:0.9rem;">
+                    <p>PhValheim includes an AI assistant that can read your world logs, engine log,
+                    mod state and backups to help you diagnose problems.</p>
 
-                <div class="setup-field">
-                    <label>Anthropic Claude API Key</label>
-                    <input type="password" id="setup-claudeApiKey" placeholder="sk-ant-...">
-                </div>
+                    <p>It works with <b>OpenAI</b>, <b>Anthropic Claude</b>, <b>Google Gemini</b>,
+                    <b>Ollama</b>, and any OpenAI-compatible endpoint including
+                    <b>vLLM</b>, <b>LM Studio</b>, <b>llama.cpp</b> and <b>OpenRouter</b> &mdash; self-hosted
+                    ones with or without an API key. Add as many as you like.</p>
 
-                <div class="setup-field">
-                    <label>Google Gemini API Key</label>
-                    <input type="password" id="setup-geminiApiKey" placeholder="AI...">
-                </div>
+                    <p>Set it up after finishing here: open <b>Server Settings</b> (the gear icon) and
+                    choose <b>Add AI provider</b>. The wizard tests the connection and then lists the
+                    models your endpoint currently offers, so you pick from what actually exists.</p>
 
-                <div class="setup-field">
-                    <label>Ollama URL</label>
-                    <input type="text" id="setup-ollamaUrl" placeholder="http://192.168.1.100:11434">
+                    <p style="color:var(--text-muted);font-size:0.85rem;">The assistant's health scan
+                    works with no provider configured at all &mdash; that part is plain pattern matching.</p>
                 </div>
 
                 <div class="setup-actions">
@@ -450,10 +460,8 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             backupsToKeep: parseInt(document.getElementById('setup-backupsToKeep').value) || 24,
             phvalheimClientURL: document.getElementById('setup-phvalheimClientURL').value.trim(),
             timezone: document.getElementById('setup-timezone').value.trim() || 'Etc/UTC',
-            openaiApiKey: document.getElementById('setup-openaiApiKey').value.trim(),
-            claudeApiKey: document.getElementById('setup-claudeApiKey').value.trim(),
-            geminiApiKey: document.getElementById('setup-geminiApiKey').value.trim(),
-            ollamaUrl: document.getElementById('setup-ollamaUrl').value.trim(),
+            // No AI fields: providers are rows in ai_providers as of 2.45 and are added
+            // from Server Settings, not here. See the comment on step 4.
         };
     }
 
@@ -466,10 +474,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             ['Backups to Keep', s.backupsToKeep],
             ['Client Download URL', s.phvalheimClientURL ? (s.phvalheimClientURL.length > 50 ? s.phvalheimClientURL.substring(0, 50) + '...' : s.phvalheimClientURL) : '(not set)'],
             ['Timezone', s.timezone || 'Etc/UTC'],
-            ['OpenAI', s.openaiApiKey ? 'Configured' : 'Not set'],
-            ['Claude', s.claudeApiKey ? 'Configured' : 'Not set'],
-            ['Gemini', s.geminiApiKey ? 'Configured' : 'Not set'],
-            ['Ollama', s.ollamaUrl || 'Not set'],
+            ['AI Helper', 'Add providers from Server Settings after setup'],
         ];
 
         const tbody = document.querySelector('#reviewTable tbody');
