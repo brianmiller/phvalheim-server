@@ -763,6 +763,78 @@ switch($action) {
         }
         break;
 
+    case 'getWorldAutoUpdateSettings':
+        $world = $_GET['world'] ?? '';
+        if ($world) {
+            $settings = getWorldAutoUpdateSettings($pdo, $world);
+            if ($settings) {
+                echo json_encode([
+                    'success'  => true,
+                    'settings' => $settings,
+                    'mods'     => getWorldModPinState($pdo, $world),
+                ]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'World not found']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'World name required']);
+        }
+        break;
+
+    case 'saveWorldAutoUpdateSettings':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            $settings = $input['settings'] ?? [];
+            if ($world && !empty($settings)) {
+                $result = saveWorldAutoUpdateSettings($pdo, $world, $settings);
+                echo json_encode(['success' => $result ? true : false]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'World name and settings required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'checkForUpdates':
+        // Re-run the version check for one world on demand, so the Updates tab can answer
+        // "is this current?" without waiting for the next scheduled sweep.
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            if ($world) {
+                $safe = escapeshellarg($world);
+                exec("/opt/stateless/engine/tools/updateChecker.py --world $safe >> /opt/stateful/logs/phvalheim.log 2>&1");
+                echo json_encode(['success' => true, 'settings' => getWorldAutoUpdateSettings($pdo, $world)]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
+    case 'updateWorldNow':
+        // The operator has decided, so this skips the idle and window gates -- but NOT the
+        // backup. Backgrounded because the game download can run for minutes and the
+        // request would otherwise time out mid-update, leaving the world stopped with
+        // nothing watching it.
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            if ($world) {
+                $safe = escapeshellarg($world);
+                exec("setsid nohup /opt/stateless/engine/tools/updateApplier $safe now >> /opt/stateful/logs/phvalheim.log 2>&1 &");
+                echo json_encode(['success' => true]);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'World name required']);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
     case 'reconcileBackups':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $output = trim(shell_exec('/opt/stateless/engine/tools/worldBackupReconcile --json 2>&1'));
@@ -809,7 +881,10 @@ function getWorldsJson($pdo) {
         $httpScheme = "http";
     }
 
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password FROM worlds ORDER BY name");
+    // Must stay in step with getWorldsData() in admin/index.php: the page renders the table
+    // once from that, then this endpoint redraws it every 5 seconds. A column present in
+    // only one of them shows up on load and disappears on the first poll.
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
@@ -836,6 +911,12 @@ function getWorldsJson($pdo) {
             'autostart' => (int)$row['autostart'],
             'beta' => (int)$row['beta'],
             'vanilla' => $vanilla,
+            'player_count' => (int)$row['player_count'],
+            'player_count_at' => $row['player_count_at'],
+            'player_count_source' => $row['player_count_source'],
+            'update_available_game' => (int)$row['update_available_game'],
+            'update_available_mods' => (int)$row['update_available_mods'],
+            'update_state' => $row['update_state'],
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
             'launchString' => $launchString,
             // MUST stay in step with getWorldsData() in index.php: the dashboard renders
@@ -2105,6 +2186,17 @@ function getServerSettingsJson($pdo) {
             'backupCpuPriority' => (int)($settings['backupCpuPriority'] ?? 10),
             'backupIoPriority' => $settings['backupIoPriority'] ?? 'low',
             'backupCompressionLevel' => (int)($settings['backupCompressionLevel'] ?? 0),
+            // Automatic updates (2.47, issue #87). autoUpdateMode defaults to 0 so an
+            // upgrade never starts restarting worlds on its own.
+            'autoUpdateMode' => (int)($settings['autoUpdateMode'] ?? 0),
+            'autoUpdateScope' => $settings['autoUpdateScope'] ?? 'both',
+            'autoUpdateCheckIntervalHours' => (int)($settings['autoUpdateCheckIntervalHours'] ?? 6),
+            'autoUpdateIdleMinutes' => (int)($settings['autoUpdateIdleMinutes'] ?? 30),
+            'autoUpdateMaxWaitHours' => (int)($settings['autoUpdateMaxWaitHours'] ?? 24),
+            'autoUpdateOnTimeout' => $settings['autoUpdateOnTimeout'] ?? 'wait',
+            'autoUpdateBackupFirst' => (int)($settings['autoUpdateBackupFirst'] ?? 1),
+            'autoUpdateWindowStart' => (int)($settings['autoUpdateWindowStart'] ?? -1),
+            'autoUpdateWindowHours' => (int)($settings['autoUpdateWindowHours'] ?? 0),
             // Backup disk info
             'backupPath' => '/opt/stateful/backups',
             'backupPathMounted' => isBackupPathMounted(),
@@ -2150,7 +2242,30 @@ function saveServerSettingsJson($pdo, $input) {
         'backupCpuPriority' => 'int',
         'backupIoPriority' => 'string',
         'backupCompressionLevel' => 'int',
+        // Automatic updates (2.47, issue #87)
+        'autoUpdateMode' => 'int',
+        'autoUpdateScope' => 'string',
+        'autoUpdateCheckIntervalHours' => 'int',
+        'autoUpdateIdleMinutes' => 'int',
+        'autoUpdateMaxWaitHours' => 'int',
+        'autoUpdateOnTimeout' => 'string',
+        'autoUpdateBackupFirst' => 'int',
+        'autoUpdateWindowStart' => 'int',
+        'autoUpdateWindowHours' => 'int',
     ];
+
+    // The two auto-update string settings are enums in all but column type. A value outside
+    // the set saves cleanly and then matches nothing in updateApplier, which presents as
+    // "automatic updates silently never run" -- so reject it here instead.
+    $enumFields = [
+        'autoUpdateScope' => ['game', 'mods', 'both'],
+        'autoUpdateOnTimeout' => ['wait', 'force'],
+    ];
+    foreach ($enumFields as $field => $valid) {
+        if (isset($input[$field]) && !in_array((string)$input[$field], $valid, true)) {
+            unset($input[$field]);
+        }
+    }
 
     // Map input field names to actual DB column names where they differ
     $columnMap = ['steamAPIKey' => 'steamApiKey'];

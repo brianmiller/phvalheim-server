@@ -163,6 +163,47 @@ function saveWorldBackupSettings($pdo, $worldName, $settings) {
         return $stmt->execute($params);
 }
 
+function saveWorldAutoUpdateSettings($pdo, $worldName, $settings) {
+        // Allow-list, same shape as saveWorldBackupSettings: anything not named here is
+        // dropped rather than written, so a stray key from the client cannot reach a column.
+        $allowedFields = [
+                'autoupdate_use_global' => 'int',
+                'autoupdate_mode' => 'int',
+                'autoupdate_scope' => 'string',
+                'autoupdate_idle_minutes' => 'int',
+                'autoupdate_max_wait_hours' => 'int',
+                'autoupdate_on_timeout' => 'string',
+                'autoupdate_backup_first' => 'int',
+                'autoupdate_window_start' => 'int',
+                'autoupdate_window_hours' => 'int',
+                'show_players_public' => 'int',
+        ];
+
+        // The two string columns are enums in everything but the column type. A value
+        // outside the set would be stored happily and then silently fail every comparison
+        // in updateApplier, which reads as "auto-update just does not run on this world".
+        $enums = [
+                'autoupdate_scope' => ['game', 'mods', 'both'],
+                'autoupdate_on_timeout' => ['wait', 'force'],
+        ];
+
+        $updates = [];
+        $params = [];
+        foreach ($settings as $key => $value) {
+                if (!isset($allowedFields[$key])) continue;
+                if (isset($enums[$key]) && !in_array((string)$value, $enums[$key], true)) continue;
+                $updates[] = "$key = ?";
+                $params[] = $allowedFields[$key] === 'string' ? (string)$value : (int)$value;
+        }
+
+        if (empty($updates)) return false;
+
+        $params[] = $worldName;
+        $sql = "UPDATE worlds SET " . implode(', ', $updates) . " WHERE name = ?";
+        $stmt = $pdo->prepare($sql);
+        return $stmt->execute($params);
+}
+
 function deleteBackupRecord($pdo, $backupId) {
         $stmt = $pdo->prepare("DELETE FROM backups WHERE id = ?");
         return $stmt->execute([$backupId]);

@@ -1,0 +1,227 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+# 0-functions.sh too, for InstallAndUpdateValheim(). Without it the game branch silently
+# does nothing and the world is restarted on its old build while the UI reports success.
+source /opt/stateless/engine/includes/0-functions.sh
+
+# Apply pending game / mod updates to a world once it looks idle. Issue #87.
+#
+# This is the only thing in PhValheim that stops a server nobody asked it to stop, so it is
+# deliberately reluctant: every gate has to say yes, and anything it cannot establish counts
+# as a no. updateChecker decides WHAT is available; this decides only WHEN.
+#
+# Usage:
+#   updateApplier                 scheduled sweep over every eligible world
+#   updateApplier <world> now     apply immediately, skipping the idle and window gates
+#                                 (the admin UI's "Update now" button -- an operator
+#                                 pressing it has decided already)
+
+lockFile="/tmp/.updateApplier.lock"
+exec 9>"$lockFile"
+flock -n 9 || exit 0
+
+targetWorld="${1:-}"
+forceNow="${2:-}"
+
+# Effective setting: per-world override or global, exactly like worldBackup's. A world with
+# autoupdate_use_global=1 takes the global value; anything else means its own columns win.
+# A global "on for all worlds" does NOT reach into a world that has opted out through its
+# own override block -- that is the semantics operators already know from backups.
+getEffective() {
+	local worldName="$1" worldCol="$2" globalCol="$3"
+
+	local globalValue=$(SQL "SELECT IFNULL($globalCol,'') FROM settings LIMIT 1;")
+	local useGlobal=$(SQL "SELECT autoupdate_use_global FROM worlds WHERE name='$worldName';")
+
+	if [ "$useGlobal" = "1" ] || [ -z "$useGlobal" ]; then
+		echo "$globalValue"
+	else
+		local worldValue=$(SQL "SELECT IFNULL($worldCol,'') FROM worlds WHERE name='$worldName';")
+		if [ -n "$worldValue" ]; then echo "$worldValue"; else echo "$globalValue"; fi
+	fi
+}
+
+# Is the world quiet enough to touch?
+#
+# TWO conditions, and the second is the one that is easy to forget. A count of zero is idle.
+# A NONZERO count is also idle if the observation behind it is older than the threshold,
+# because a count can stick in the log after everyone has left -- observed on a production
+# world that reported one player and then logged nothing for 39 minutes while empty. Without
+# the staleness arm, one bad teardown parks a world in "waiting" forever and it is never
+# updated again.
+#
+# A world with no observation at all (player_count_at IS NULL) is NOT idle. That is the
+# unknown case, and unknown must never authorise a restart.
+isIdle() {
+	local worldName="$1" idleMinutes="$2"
+
+	local count=$(SQL "SELECT IFNULL(player_count,0) FROM worlds WHERE name='$worldName';")
+	local haveObs=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName' AND player_count_at IS NOT NULL;")
+
+	[ "$haveObs" = "1" ] || return 1
+
+	if [ "$count" = "0" ]; then
+		# Zero, but only if the zero itself is not ancient -- a world whose log stopped
+		# being written is not something we know anything current about.
+		local fresh=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName' \
+			AND player_count_at > DATE_SUB(NOW(), INTERVAL $((idleMinutes * 3)) MINUTE);")
+		[ "$fresh" = "1" ] && return 0
+		return 1
+	fi
+
+	# Nonzero: idle only if the observation has gone stale.
+	local stale=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName' \
+		AND player_count_at < DATE_SUB(NOW(), INTERVAL $idleMinutes MINUTE);")
+	[ "$stale" = "1" ] && return 0
+	return 1
+}
+
+# Is now inside the maintenance window? Start of -1 (or no length) means "any time".
+inWindow() {
+	local start="$1" hours="$2"
+
+	# Each guard on its own line. Chaining these as `[ a ] || [ b ] && return 0` binds
+	# as `([ a ] || [ b ]) && return 0` in bash, which is not what it reads like and
+	# would open the window whenever the start hour was empty.
+	[ -z "$start" ] && return 0
+	[ "$start" = "-1" ] && return 0
+	[ -z "$hours" ] && return 0
+	[ "$hours" = "0" ] && return 0
+
+	local nowHour=$(date +%-H)
+	local endHour=$(( (start + hours) % 24 ))
+
+	if [ "$start" -lt "$endHour" ]; then
+		if [ "$nowHour" -ge "$start" ] && [ "$nowHour" -lt "$endHour" ]; then return 0; fi
+	else
+		# Window wraps past midnight, e.g. start 23 for 4 hours -> 23,0,1,2.
+		if [ "$nowHour" -ge "$start" ]; then return 0; fi
+		if [ "$nowHour" -lt "$endHour" ]; then return 0; fi
+	fi
+	return 1
+}
+
+applyUpdate() {
+	local worldName="$1" scope="$2" backupFirst="$3"
+
+	echo "`date` [NOTICE : phvalheim] Auto-update starting for '$worldName' (scope=$scope, backup=$backupFirst)"
+	SQL "UPDATE worlds SET update_state='updating' WHERE name='$worldName';"
+
+	if [ "$backupFirst" = "1" ]; then
+		echo "`date` [NOTICE : phvalheim] Auto-update: backing up '$worldName' first"
+		/opt/stateless/engine/tools/worldBackup "$worldName" manual
+		if [ $? -ne 0 ]; then
+			# A failed backup stops the whole thing. The point of taking one is to have
+			# a way back; updating anyway would throw that away precisely when it is
+			# most likely to be needed.
+			echo "`date` [ERROR : phvalheim] Auto-update: backup failed for '$worldName' -- not updating"
+			SQL "UPDATE worlds SET update_state='failed', \
+				update_last_result='Backup failed before update; nothing was changed.' \
+				WHERE name='$worldName';"
+			return 1
+		fi
+	fi
+
+	/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
+
+	local result=""
+
+	if [ "$scope" = "game" ] || [ "$scope" = "both" ]; then
+		InstallAndUpdateValheim "$worldName"
+		if [ $? -ne 0 ]; then
+			echo "`date` [ERROR : phvalheim] Auto-update: game update failed for '$worldName'"
+			SQL "UPDATE worlds SET update_state='failed', \
+				update_last_result='Valheim server update failed. The world was left stopped.' \
+				WHERE name='$worldName';"
+			return 1
+		fi
+		result="game updated"
+	fi
+
+	if [ "$scope" = "mods" ] || [ "$scope" = "both" ]; then
+		# Hand the world to the engine's own update path rather than reimplementing mod
+		# installation here. mode='update' rebuilds BepInEx, the mod set and the client
+		# payload, and it already knows how to refuse to publish a modded world whose
+		# mods failed to install.
+		SQL "UPDATE worlds SET mode='update' WHERE name='$worldName';"
+		[ -n "$result" ] && result="$result, mods rebuilt" || result="mods rebuilt"
+	else
+		/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
+	fi
+
+	# $(date), not backticks: this SQL is inside DOUBLE quotes, so a backtick would be
+	# command substitution in a string that already contains SQL quoting -- one of the
+	# easier ways to write a statement that runs fine until a value contains a quote.
+	local stamp=$(date "+%Y-%m-%d %H:%M")
+
+	# update_available_* is cleared optimistically; the next updateChecker run is what
+	# actually re-establishes it. If this update did not take, the flag comes straight
+	# back rather than staying wrongly clear.
+	SQL "UPDATE worlds SET update_state='idle', update_pending_since=NULL, \
+		update_available_game=0, update_available_mods=0, \
+		update_last_result='Updated $stamp: $result.' \
+		WHERE name='$worldName';"
+
+	echo "`date` [NOTICE : phvalheim] Auto-update complete for '$worldName': $result"
+	return 0
+}
+
+
+# --- manual path: the admin UI's "Update now" ----------------------------------------
+if [ -n "$targetWorld" ] && [ "$forceNow" = "now" ]; then
+	scope=$(getEffective "$targetWorld" autoupdate_scope autoUpdateScope)
+	[ -z "$scope" ] && scope="both"
+	backupFirst=$(getEffective "$targetWorld" autoupdate_backup_first autoUpdateBackupFirst)
+	[ -z "$backupFirst" ] && backupFirst="1"
+
+	applyUpdate "$targetWorld" "$scope" "$backupFirst"
+	exit $?
+fi
+
+
+# --- scheduled sweep ------------------------------------------------------------------
+#
+# Only worlds that are RUNNING, have something to update, and are not already mid-update.
+# Offline worlds are deliberately untouched: they pick updates up when they next start.
+candidates=$(SQL "SELECT name FROM worlds WHERE mode='running' \
+	AND (update_available_game=1 OR update_available_mods>0) \
+	AND update_state IN ('idle','pending');")
+
+[ -z "$candidates" ] && exit 0
+
+for worldName in $candidates; do
+	mode=$(getEffective "$worldName" autoupdate_mode autoUpdateMode)
+	[ "$mode" = "1" ] || continue
+
+	idleMinutes=$(getEffective "$worldName" autoupdate_idle_minutes autoUpdateIdleMinutes)
+	[ -z "$idleMinutes" ] && idleMinutes=30
+	maxWait=$(getEffective "$worldName" autoupdate_max_wait_hours autoUpdateMaxWaitHours)
+	[ -z "$maxWait" ] && maxWait=24
+	onTimeout=$(getEffective "$worldName" autoupdate_on_timeout autoUpdateOnTimeout)
+	[ -z "$onTimeout" ] && onTimeout="wait"
+	scope=$(getEffective "$worldName" autoupdate_scope autoUpdateScope)
+	[ -z "$scope" ] && scope="both"
+	backupFirst=$(getEffective "$worldName" autoupdate_backup_first autoUpdateBackupFirst)
+	[ -z "$backupFirst" ] && backupFirst="1"
+	windowStart=$(getEffective "$worldName" autoupdate_window_start autoUpdateWindowStart)
+	windowHours=$(getEffective "$worldName" autoupdate_window_hours autoUpdateWindowHours)
+
+	SQL "UPDATE worlds SET update_state='pending' \
+		WHERE name='$worldName' AND update_state='idle';"
+
+	# Has the world been waiting longer than the operator is willing to wait?
+	expired=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName' \
+		AND update_pending_since IS NOT NULL \
+		AND update_pending_since < DATE_SUB(NOW(), INTERVAL $maxWait HOUR);")
+
+	if [ "$expired" = "1" ] && [ "$onTimeout" = "force" ]; then
+		echo "`date` [NOTICE : phvalheim] Auto-update: '$worldName' passed its ${maxWait}h wait; updating regardless of players"
+		applyUpdate "$worldName" "$scope" "$backupFirst"
+		continue
+	fi
+
+	isIdle "$worldName" "$idleMinutes" || continue
+	inWindow "$windowStart" "$windowHours" || continue
+
+	applyUpdate "$worldName" "$scope" "$backupFirst"
+done

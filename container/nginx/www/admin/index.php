@@ -87,7 +87,10 @@ $serverTimezone = date_default_timezone_get();
 
 // Get initial world data for page load
 function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password FROM worlds ORDER BY name");
+    // player_count / update_* travel with the world row because BOTH the server-rendered
+    // table and the 5-second poll's JS template draw them. Adding them to only one reader
+    // means the count appears on load and vanishes at the first refresh.
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
@@ -537,6 +540,25 @@ $totalCount = count($worlds);
                                                     <span class="resource-value world-load-value">—</span>
                                                 </div>
                                                 <?php endif; ?>
+                                                <?php
+                                                // Approximate by construction: read from the world log, so it can lag
+                                                // a disconnect. The title says so rather than the row implying a live
+                                                // figure, and an unobserved world shows a dash instead of a confident 0.
+                                                $pcAt = $world['player_count_at'] ?? null;
+                                                $pcTitle = $pcAt
+                                                    ? 'Approximate. Last seen ' . htmlspecialchars($pcAt) . ' (source: ' . htmlspecialchars($world['player_count_source'] ?? 'none') . '). Valheim provides no live player count, so this is read from the world log and can lag a disconnect by up to ten minutes.'
+                                                    : 'No player count observed yet for this world.';
+                                                ?>
+                                                <div class="world-resource-item">
+                                                    <span class="resource-label">PLAYERS</span>
+                                                    <span class="resource-value world-players-value" title="<?php echo $pcTitle; ?>"><?php echo $pcAt ? (int)$world['player_count'] : '—'; ?></span>
+                                                </div>
+                                                <?php if (!empty($world['update_available_game']) || !empty($world['update_available_mods'])): ?>
+                                                <div class="world-resource-item">
+                                                    <span class="resource-label">UPDATE</span>
+                                                    <span class="resource-value" style="color:var(--warning)" title="An update is available. Open Settings &rarr; Updates for this world."><?php echo $world['update_state'] === 'pending' ? 'pending' : 'available'; ?></span>
+                                                </div>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
                                     </tr>
@@ -773,6 +795,7 @@ $totalCount = count($worlds);
                 <button class="backup-tab" data-tab="optionsTab" onclick="switchSettingsTab('optionsTab', this)">Options</button>
                 <button class="backup-tab" data-tab="accessTab" onclick="switchSettingsTab('accessTab', this)">Access</button>
                 <button class="backup-tab" data-tab="backupsTab" onclick="switchSettingsTab('backupsTab', this)">Backups</button>
+                <button class="backup-tab" data-tab="updatesTab" onclick="switchSettingsTab('updatesTab', this)">Updates</button>
             </div>
             <div class="mods-modal-body" id="settingsModalBody">
                 <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
@@ -1867,6 +1890,17 @@ $totalCount = count($worlds);
                         </div>
                         <span class="resource-value world-load-value">—</span>
                     </div>`}
+                    <div class="world-resource-item">
+                        <span class="resource-label">PLAYERS</span>
+                        <span class="resource-value world-players-value" title="${world.player_count_at
+                            ? `Approximate. Last seen ${world.player_count_at} (source: ${world.player_count_source}). Valheim provides no live player count, so this is read from the world log and can lag a disconnect by up to ten minutes.`
+                            : 'No player count observed yet for this world.'}">${world.player_count_at ? world.player_count : '—'}</span>
+                    </div>
+                    ${(world.update_available_game || world.update_available_mods) ? `
+                    <div class="world-resource-item">
+                        <span class="resource-label">UPDATE</span>
+                        <span class="resource-value" style="color:var(--warning)" title="An update is available. Open Settings &rarr; Updates for this world.">${world.update_state === 'pending' ? 'pending' : 'available'}</span>
+                    </div>` : ''}
                 </div>
             </td>`;
 
@@ -2203,6 +2237,207 @@ $totalCount = count($worlds);
         if (tabId === 'accessTab') {
             maybeShowAccessNotices();
         }
+        if (tabId === 'updatesTab') {
+            // Reloaded on every visit rather than cached behind a dataset.loaded flag like
+            // the Backups tab: this pane shows live state (pending / updating / failed) that
+            // changes underneath the operator, and a stale "Update pending" is exactly the
+            // thing they opened the tab to check.
+            loadWorldUpdateSettings(currentSettingsWorld);
+        }
+    }
+
+    // ---- Updates tab (2.47, issue #87) ----------------------------------------------
+
+    function escapeHtmlBasic(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        })[c]);
+    }
+
+    function renderUpdateStatus(s, mods) {
+        const el = document.getElementById('au-status');
+        if (!el) return;
+
+        const rows = [];
+
+        // Player count. Deliberately never says "empty" -- the count is parsed out of the
+        // world log and can lag a disconnect, so the honest phrasing is what was last seen
+        // and when. Saying "empty" would be a claim the data cannot support.
+        let players;
+        if (!s.player_count_at) {
+            players = '<span style="color:var(--text-muted)">not yet observed</span>';
+        } else {
+            const n = parseInt(s.player_count, 10) || 0;
+            players = `<b>${n}</b> at last check (${escapeHtmlBasic(s.player_count_at)})`
+                    + `<span style="color:var(--text-muted)"> &middot; from ${escapeHtmlBasic(s.player_count_source || 'none')}</span>`;
+        }
+        rows.push(['Players', players + ' <span style="color:var(--text-muted)">&middot; approximate</span>']);
+
+        const gameAvail = parseInt(s.update_available_game, 10) === 1;
+        rows.push(['Valheim server', gameAvail
+            ? `<span style="color:var(--warning)">update available</span> <span style="color:var(--text-muted)">(installed build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`
+            : `<span style="color:var(--success)">up to date</span> <span style="color:var(--text-muted)">(build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`]);
+
+        const modCount = parseInt(s.update_available_mods, 10) || 0;
+        rows.push(['Mods', modCount > 0
+            ? `<span style="color:var(--warning)">${modCount} can be updated</span>`
+            : '<span style="color:var(--success)">up to date</span>']);
+
+        // Pinned mods get their own line, always -- including when the count above is zero.
+        // "3 mods can be updated" otherwise reads as "all my mods", and an operator who
+        // pinned a version deserves to see that the pin is being honoured.
+        const pinned = (mods && mods.pinned) || [];
+        if (pinned.length) {
+            rows.push(['Pinned (never updated)',
+                `<span style="color:var(--text-muted)">${pinned.map(escapeHtmlBasic).join(', ')}</span>`]);
+        }
+
+        let stateText;
+        switch (s.update_state) {
+            case 'pending':
+                stateText = s.update_pending_since
+                    ? `<span style="color:var(--warning)">waiting for the world to go quiet</span> <span style="color:var(--text-muted)">(since ${escapeHtmlBasic(s.update_pending_since)})</span>`
+                    : '<span style="color:var(--warning)">waiting for the world to go quiet</span>';
+                break;
+            case 'updating': stateText = '<span style="color:var(--warning)">updating now</span>'; break;
+            case 'failed':   stateText = '<span style="color:var(--danger)">last attempt failed</span>'; break;
+            default:         stateText = '<span style="color:var(--text-muted)">idle</span>';
+        }
+        rows.push(['State', stateText]);
+
+        if (s.update_last_result) {
+            rows.push(['Last result', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_last_result)}</span>`]);
+        }
+        if (s.update_checked_at) {
+            rows.push(['Last checked', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_checked_at)}</span>`]);
+        }
+
+        el.innerHTML = rows.map(([k, v]) =>
+            `<div style="display:flex;gap:0.75rem;padding:0.15rem 0;">
+                <div style="min-width:11rem;color:var(--text-secondary);">${k}</div>
+                <div>${v}</div>
+             </div>`).join('');
+    }
+
+    async function loadWorldUpdateSettings(worldName) {
+        if (!worldName) return;
+        try {
+            const r = await fetch(`adminAPI.php?action=getWorldAutoUpdateSettings&world=${encodeURIComponent(worldName)}`);
+            const d = await r.json();
+            if (!d.success) return;
+
+            const s = d.settings;
+            renderUpdateStatus(s, d.mods);
+
+            const useGlobal = parseInt(s.autoupdate_use_global, 10) === 1;
+            document.getElementById('au-useGlobal').checked = useGlobal;
+            document.getElementById('au-overrideFields').style.display = useGlobal ? 'none' : 'block';
+
+            document.getElementById('au-mode').value = String(parseInt(s.autoupdate_mode, 10) || 0);
+            document.getElementById('au-scope').value = s.autoupdate_scope || 'both';
+            document.getElementById('au-idleMinutes').value = s.autoupdate_idle_minutes ?? 30;
+            document.getElementById('au-maxWaitHours').value = s.autoupdate_max_wait_hours ?? 24;
+            document.getElementById('au-onTimeout').value = s.autoupdate_on_timeout || 'wait';
+            document.getElementById('au-backupFirst').value = String(parseInt(s.autoupdate_backup_first, 10) === 0 ? 0 : 1);
+            document.getElementById('au-windowStart').value = s.autoupdate_window_start ?? -1;
+            document.getElementById('au-windowHours').value = s.autoupdate_window_hours ?? 0;
+
+            const pub = document.getElementById('opt-showPlayersPublic');
+            if (pub) pub.checked = parseInt(s.show_players_public, 10) === 1;
+        } catch (e) {
+            const el = document.getElementById('au-status');
+            if (el) el.innerHTML = '<div style="color:var(--danger)">Could not load update status.</div>';
+        }
+    }
+
+    async function saveWorldUpdateSettings(worldName) {
+        const status = document.getElementById('auSettingsStatus');
+        const settings = {
+            autoupdate_use_global:    document.getElementById('au-useGlobal').checked ? 1 : 0,
+            autoupdate_mode:          parseInt(document.getElementById('au-mode').value, 10) || 0,
+            autoupdate_scope:         document.getElementById('au-scope').value,
+            autoupdate_idle_minutes:  parseInt(document.getElementById('au-idleMinutes').value, 10) || 30,
+            autoupdate_max_wait_hours: parseInt(document.getElementById('au-maxWaitHours').value, 10) || 24,
+            autoupdate_on_timeout:    document.getElementById('au-onTimeout').value,
+            autoupdate_backup_first:  parseInt(document.getElementById('au-backupFirst').value, 10) || 0,
+            autoupdate_window_start:  parseInt(document.getElementById('au-windowStart').value, 10),
+            autoupdate_window_hours:  parseInt(document.getElementById('au-windowHours').value, 10) || 0,
+        };
+        // parseInt of "-1" is fine, but an empty box gives NaN, which JSON-encodes to null
+        // and would be written as 0 -- turning "any time of day" into a window starting at
+        // midnight. Fall back explicitly.
+        if (Number.isNaN(settings.autoupdate_window_start)) settings.autoupdate_window_start = -1;
+
+        try {
+            const r = await fetch('adminAPI.php?action=saveWorldAutoUpdateSettings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ world: worldName, settings })
+            });
+            const d = await r.json();
+            status.textContent = d.success ? 'Saved.' : ('Save failed: ' + (d.error || 'unknown error'));
+            status.style.color = d.success ? 'var(--success)' : 'var(--danger)';
+        } catch (e) {
+            status.textContent = 'Save failed.';
+            status.style.color = 'var(--danger)';
+        }
+        setTimeout(() => { status.textContent = ''; }, 4000);
+    }
+
+    async function checkWorldUpdates(worldName) {
+        const status = document.getElementById('updateActionStatus');
+        status.textContent = 'Checking…';
+        status.style.color = 'var(--text-muted)';
+        try {
+            const r = await fetch('adminAPI.php?action=checkForUpdates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ world: worldName })
+            });
+            const d = await r.json();
+            if (d.success) {
+                await loadWorldUpdateSettings(worldName);
+                status.textContent = 'Checked.';
+                status.style.color = 'var(--success)';
+            } else {
+                status.textContent = 'Check failed.';
+                status.style.color = 'var(--danger)';
+            }
+        } catch (e) {
+            status.textContent = 'Check failed.';
+            status.style.color = 'var(--danger)';
+        }
+        setTimeout(() => { status.textContent = ''; }, 4000);
+    }
+
+    function confirmUpdateNow(worldName) {
+        // Spell out that this ignores the quiet check. Update Now is the one path that will
+        // stop a world with players on it, and the button sits next to settings whose whole
+        // purpose is to avoid exactly that.
+        if (!confirm(`Update "${worldName}" now?\n\nThe world will be stopped, updated and restarted immediately, whether or not anyone is playing on it. A backup is taken first unless you have turned that off.`)) return;
+
+        const status = document.getElementById('updateActionStatus');
+        status.textContent = 'Update started…';
+        status.style.color = 'var(--warning)';
+
+        fetch('adminAPI.php?action=updateWorldNow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ world: worldName })
+        }).then(r => r.json()).then(d => {
+            if (!d.success) {
+                status.textContent = 'Could not start the update.';
+                status.style.color = 'var(--danger)';
+                return;
+            }
+            // The applier runs detached and takes minutes, so poll the status block rather
+            // than leaving the operator looking at a message that never changes.
+            setTimeout(() => loadWorldUpdateSettings(worldName), 3000);
+            setTimeout(() => loadWorldUpdateSettings(worldName), 15000);
+        }).catch(() => {
+            status.textContent = 'Could not start the update.';
+            status.style.color = 'var(--danger)';
+        });
     }
 
     // One-time explanation of the Valheim 1.0 id format change, fired the first time the
@@ -3249,6 +3484,22 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="pv-section">
+                        <h6 class="pv-section-title">Player Count</h6>
+                        <div class="pv-panel">
+                            <div class="pv-row">
+                                <div class="pv-row-text">
+                                    <span class="pv-row-label">Show players on the public page</span>
+                                    <span class="pv-row-desc">Display how many people are on this world to anyone who can see its card. The admin UI always shows the count regardless of this setting.</span>
+                                    <span class="pv-row-desc">The number is read from the world&rsquo;s log on a best-effort basis &mdash; Valheim provides no live count &mdash; so it can lag a disconnect by up to ten minutes and is labelled approximate.</span>
+                                </div>
+                                <label class="switch pv-row-control">
+                                    <input type="checkbox" id="opt-showPlayersPublic">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pv-section">
                         <h6 class="pv-section-title">Custom Launch Parameters</h6>
                         <div class="pv-panel" style="padding: 0.9rem;">
                             <label class="pv-field-label" for="settingsLaunchParams">Appended to the Valheim server command line, after everything PhValheim generates.</label>
@@ -3350,6 +3601,93 @@ $totalCount = count($worlds);
                         </div>
                         <div id="settingsBannedSaveStatus" class="pv-list-status"></div>
                     </div>
+                    </div>
+
+                    <!-- Updates Tab (2.47, issue #87) -->
+                    <div class="settings-tab-pane" id="updatesTab" style="display:none;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                            <div style="display:flex;gap:0.5rem;">
+                                <button class="action-btn" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="checkWorldUpdates('${worldName}')">Check Now</button>
+                                <button class="action-btn success" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="confirmUpdateNow('${worldName}')">Update Now</button>
+                            </div>
+                            <div id="updateActionStatus" style="font-size:0.8rem;"></div>
+                        </div>
+
+                        <div id="au-status" style="background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.85rem;">
+                            <div style="color:var(--text-muted);">Loading&hellip;</div>
+                        </div>
+
+                        <details style="margin-bottom:1rem;background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem 1rem;">
+                            <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-secondary);user-select:none;">Per-World Update Settings</summary>
+                            <div style="margin-top:0.75rem;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+                                    <div>
+                                        <span style="font-size:0.85rem;">Use Global Defaults</span>
+                                        <small style="display:block;color:var(--text-muted);font-size:0.7rem;">When enabled, this world uses the server-wide update settings.</small>
+                                    </div>
+                                    <label class="switch"><input type="checkbox" id="au-useGlobal" checked onchange="document.getElementById('au-overrideFields').style.display=this.checked?'none':'block'"><span class="slider round"></span></label>
+                                </div>
+                                <div id="au-overrideFields" style="display:none;">
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Automatic Updates <span class="backup-info-icon" data-tip="When on, this world is updated on its own once it looks quiet. When off, nothing is applied automatically and you can still use Update Now.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="au-mode">
+                                                <option value="0">Off</option>
+                                                <option value="1">On</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">What To Update <span class="backup-info-icon" data-tip="Pinned mods are never updated, whichever option you choose.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="au-scope">
+                                                <option value="both">Game and mods</option>
+                                                <option value="game">Game only</option>
+                                                <option value="mods">Mods only</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Quiet For (min) <span class="backup-info-icon" data-tip="How long a world must show no players before it is updated. Player counts are best-effort and can lag a disconnect by up to ten minutes, so short values are unreliable.">&#9432;</span></label>
+                                            <input type="number" min="5" max="1440" class="form-control form-control-sm" id="au-idleMinutes" value="30" style="font-family:var(--font-mono)">
+                                        </div>
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Max Wait (hours) <span class="backup-info-icon" data-tip="How long to keep waiting for a world to go quiet before falling back to the choice below.">&#9432;</span></label>
+                                            <input type="number" min="1" max="720" class="form-control form-control-sm" id="au-maxWaitHours" value="24" style="font-family:var(--font-mono)">
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">After Max Wait <span class="backup-info-icon" data-tip="Keep waiting never interrupts anyone: a world that is always busy is simply never updated. Update anyway will restart the world with players connected.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="au-onTimeout">
+                                                <option value="wait">Keep waiting</option>
+                                                <option value="force">Update anyway</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Back Up First <span class="backup-info-icon" data-tip="Take a backup before stopping the world. If the backup fails the update is abandoned and nothing is changed.">&#9432;</span></label>
+                                            <select class="form-control form-control-sm" id="au-backupFirst">
+                                                <option value="1">Yes</option>
+                                                <option value="0">No</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-2">
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Window Start (hour) <span class="backup-info-icon" data-tip="Server-local hour, 0-23. Leave at -1 to allow updates at any time of day.">&#9432;</span></label>
+                                            <input type="number" min="-1" max="23" class="form-control form-control-sm" id="au-windowStart" value="-1" style="font-family:var(--font-mono)">
+                                        </div>
+                                        <div class="col-6">
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Window Length (hours) <span class="backup-info-icon" data-tip="How many hours the window lasts. 0 means no window.">&#9432;</span></label>
+                                            <input type="number" min="0" max="24" class="form-control form-control-sm" id="au-windowHours" value="0" style="font-family:var(--font-mono)">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.75rem;">
+                                    <div id="auSettingsStatus" style="font-size:0.8rem;"></div>
+                                    <button class="action-btn success" style="padding:0.3rem 1rem;font-size:0.8rem" onclick="saveWorldUpdateSettings('${worldName}')">Save</button>
+                                </div>
+                            </div>
+                        </details>
                     </div>
 
                     <!-- Backups Tab -->
@@ -3465,6 +3803,9 @@ $totalCount = count($worlds);
                 // just what gets typed afterwards. Opening the modal on a passwordless world
                 // has to show the toggle blocked straight away.
                 syncListedAvailability();
+                // Same reason: the Options tab's "show players publicly" switch and the
+                // Updates tab's fields only exist once the body above has been written.
+                loadWorldUpdateSettings(worldName);
             } else {
                 document.getElementById('settingsModalBody').innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger);">Error loading settings</div>';
             }
@@ -3533,6 +3874,21 @@ $totalCount = count($worlds);
                 })
             });
             const data = await response.json();
+
+            // show_players_public lives on the auto-update settings endpoint, which is where
+            // its column is allow-listed. Saved alongside rather than inside saveWorldOptions
+            // so there is exactly one writer for that column.
+            const pub = document.getElementById('opt-showPlayersPublic');
+            if (pub) {
+                await fetch('adminAPI.php?action=saveWorldAutoUpdateSettings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        world: currentSettingsWorld,
+                        settings: { show_players_public: pub.checked ? 1 : 0 }
+                    })
+                });
+            }
 
             if (data.success) {
                 statusEl.innerHTML = `<span style="color: var(--success);">${data.message || 'Saved successfully!'}</span>`;
@@ -4569,6 +4925,72 @@ $totalCount = count($worlds);
                 </div>
 
                 <div style="margin-bottom: 1.5rem;">
+                    ${sectionHead('Automatic Updates', 'var(--text-muted)')}
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <label style="font-size:0.8rem;color:orchid">Automatic Updates</label>
+                            <select class="form-control form-control-sm" id="ss-autoUpdateMode" ${tip('Off: nothing is ever updated automatically. Per-world: each world decides for itself. On for all worlds: the default for every world that has not set its own override.')}>
+                                <option value="0" ${s.autoUpdateMode == 0 ? 'selected' : ''}>Off</option>
+                                <option value="1" ${s.autoUpdateMode == 1 ? 'selected' : ''}>On for all worlds</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label style="font-size:0.8rem;color:orchid">What To Update</label>
+                            <select class="form-control form-control-sm" id="ss-autoUpdateScope" ${tip('Pinned mods are never updated, whichever option is chosen.')}>
+                                <option value="both" ${s.autoUpdateScope === 'both' ? 'selected' : ''}>Game and mods</option>
+                                <option value="game" ${s.autoUpdateScope === 'game' ? 'selected' : ''}>Game only</option>
+                                <option value="mods" ${s.autoUpdateScope === 'mods' ? 'selected' : ''}>Mods only</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid">Check Interval (hours)</label>
+                            <input type="number" min="1" max="168" class="form-control form-control-sm" id="ss-autoUpdateCheckIntervalHours" value="${s.autoUpdateCheckIntervalHours}" style="font-family:var(--font-mono)" ${tip('How often to look for a new Valheim build and newer mod versions. One check covers every world. Default: 6.')}>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid">Quiet For (min)</label>
+                            <input type="number" min="5" max="1440" class="form-control form-control-sm" id="ss-autoUpdateIdleMinutes" value="${s.autoUpdateIdleMinutes}" style="font-family:var(--font-mono)" ${tip('How long a world must show no players before it is updated. Default: 30.')}>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid">Max Wait (hours)</label>
+                            <input type="number" min="1" max="720" class="form-control form-control-sm" id="ss-autoUpdateMaxWaitHours" value="${s.autoUpdateMaxWaitHours}" style="font-family:var(--font-mono)" ${tip('How long to keep waiting for a world to go quiet. Default: 24.')}>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid">After Max Wait</label>
+                            <select class="form-control form-control-sm" id="ss-autoUpdateOnTimeout" ${tip('Keep waiting never interrupts anyone: a world that is always busy is simply never updated. Update anyway restarts it with players connected.')}>
+                                <option value="wait" ${s.autoUpdateOnTimeout === 'wait' ? 'selected' : ''}>Keep waiting</option>
+                                <option value="force" ${s.autoUpdateOnTimeout === 'force' ? 'selected' : ''}>Update anyway</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid">Back Up First</label>
+                            <select class="form-control form-control-sm" id="ss-autoUpdateBackupFirst" ${tip('Take a backup before stopping a world. If the backup fails the update is abandoned and nothing changes.')}>
+                                <option value="1" ${s.autoUpdateBackupFirst == 1 ? 'selected' : ''}>Yes</option>
+                                <option value="0" ${s.autoUpdateBackupFirst == 0 ? 'selected' : ''}>No</option>
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label style="font-size:0.8rem;color:orchid">Window (start / hours)</label>
+                            <div style="display:flex;gap:0.35rem;">
+                                <input type="number" min="-1" max="23" class="form-control form-control-sm" id="ss-autoUpdateWindowStart" value="${s.autoUpdateWindowStart}" style="font-family:var(--font-mono)" ${tip('Server-local hour, 0-23. Leave at -1 to allow updates at any time of day.')}>
+                                <input type="number" min="0" max="24" class="form-control form-control-sm" id="ss-autoUpdateWindowHours" value="${s.autoUpdateWindowHours}" style="font-family:var(--font-mono)" ${tip('How many hours the window lasts. 0 means no window.')}>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="font-size:0.7rem;color:var(--text-muted);line-height:1.5;">
+                        Player counts are read from each world&rsquo;s server log on a best-effort basis.
+                        Valheim provides no reliable live count, so the number can lag a disconnect by up
+                        to ten minutes. Set <b>Quiet For</b> high enough to absorb that.
+                        A world with its own override under <b>Settings &rarr; Updates</b> keeps that
+                        override &mdash; turning this on for all worlds does not overrule it.
+                        <b>Pinned mods are never updated.</b>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('Analytics', 'var(--text-muted)')}
                     <div class="row mb-2">
                         <div class="col-12">
@@ -4640,6 +5062,18 @@ $totalCount = count($worlds);
             thunderstoreEnabled: parseInt(document.getElementById('ss-thunderstoreEnabled').value),
             hexiumEnabled: parseInt(document.getElementById('ss-hexiumEnabled').value),
             modSyncIntervalHours: parseInt(document.getElementById('ss-modSyncIntervalHours').value) || 6,
+            // Automatic updates (2.47). autoUpdateWindowStart uses ?? rather than || so an
+            // explicit 0 (midnight) survives -- `|| -1` would turn a window starting at
+            // midnight into "any time of day", which is not what was configured.
+            autoUpdateMode: parseInt(document.getElementById('ss-autoUpdateMode').value) || 0,
+            autoUpdateScope: document.getElementById('ss-autoUpdateScope').value,
+            autoUpdateCheckIntervalHours: parseInt(document.getElementById('ss-autoUpdateCheckIntervalHours').value) || 6,
+            autoUpdateIdleMinutes: parseInt(document.getElementById('ss-autoUpdateIdleMinutes').value) || 30,
+            autoUpdateMaxWaitHours: parseInt(document.getElementById('ss-autoUpdateMaxWaitHours').value) || 24,
+            autoUpdateOnTimeout: document.getElementById('ss-autoUpdateOnTimeout').value,
+            autoUpdateBackupFirst: parseInt(document.getElementById('ss-autoUpdateBackupFirst').value),
+            autoUpdateWindowStart: (v => Number.isNaN(v) ? -1 : v)(parseInt(document.getElementById('ss-autoUpdateWindowStart').value)),
+            autoUpdateWindowHours: parseInt(document.getElementById('ss-autoUpdateWindowHours').value) || 0,
             backupIntervalMinutes: parseInt(document.getElementById('ss-backupIntervalMinutes').value) || 30,
             backupRequireActivity: parseInt(document.getElementById('ss-backupRequireActivity').value),
             backupCompression: document.getElementById('ss-backupCompression').value,

@@ -1,5 +1,69 @@
 # Changelog
 
+## v2.47
+
+### Player counts
+
+Valheim gives a dedicated server no reliable live player count, and three of the four
+obvious ways to get one do not work here:
+
+- **Socket enumeration** — the server serves every peer from one unconnected UDP socket,
+  so there is nothing per-peer to enumerate.
+- **conntrack** — `/proc/net/nf_conntrack` is absent (netlink only), the `conntrack` CLI
+  ships in neither the host nor the image, and a *bridged* container's conntrack table does
+  not contain the host's DNAT entries. Reading them needs host netns or `NET_ADMIN`, which
+  cannot be required of an image other people run on Unraid, K8s and plain Docker.
+- **The TickMonitor plugin** — already computes a correct count via `ZNet.GetNrOfPlayers()`
+  and already writes it to `tick_stats.json`, but it is a BepInEx plugin and vanilla worlds
+  have no BepInEx to load it.
+
+What does work splits by the world's `crossplay` flag, and the split is not cosmetic. A
+crossplay world logs an absolute count on every join and leave (`… now N player(s)`). A
+non-crossplay world logs `Connections N` every ten minutes, with `Got connection SteamID` /
+`Closing socket` filling the gaps. `Connections N` reads **0 on a crossplay world with a
+player connected** — verified against a real session — so using it everywhere would have
+reported every crossplay world as permanently empty and restarted servers out from under
+players.
+
+Two traps are guarded in code and pinned by tests:
+
+- `Closing socket` is logged **twice** per departure, the copies differing only in the run
+  of spaces after the timestamp. Measured on a real log: 24 lines, 12 departures. Stripping
+  leading whitespace does nothing — the difference is mid-line.
+- `player_count_at` stores the **log line's** timestamp, never the scan time. A nonzero
+  count can stick after everyone leaves (observed: 39 minutes). A scan-time column would
+  refresh every two minutes, never look stale, and make auto-update wait forever on an
+  empty world.
+
+Counts appear on the admin world rows always, and on the public page per world by opt-in.
+Both say *approximate*, and nothing anywhere claims a world is "empty".
+
+### Automatic game and mod updates (#87)
+
+Off by default; upgrading changes no behaviour until it is switched on.
+
+`updateChecker.py` records what is available and never applies anything. The published
+Valheim buildid is fetched **once per run** with `app_info_print` and compared against each
+world's own `appmanifest_896660.acf`, so N worlds cost one steamcmd call rather than N
+downloads. Mod updates come from comparing `worlds.modsViewer` — the record of what was
+last installed — against the catalogue's current `latest_version`. **Pinned mods are
+excluded entirely**: not counted, not reported, never updated.
+
+`updateApplier` decides only *when*. Every gate must say yes and anything unestablished
+counts as no: a world with no player observation at all is never considered idle. A backup
+is taken first by default, and a failed backup abandons the update rather than proceeding
+without a way back. Stopped worlds are untouched — they update on next start, as before.
+
+Per-world overrides mirror the backup system exactly, including that a global "on for all
+worlds" does not overrule a world explicitly set to off.
+
+### Tests
+
+`dev_tools/test-playerMonitor.sh` (9), `test-updateApplier.sh` (16),
+`test-updateChecker.py` (5). Each case is one where a plausible wrong implementation gives a
+different answer than the right one — the doubled-disconnect and depot-`public` cases were
+both written after the real bug, and verified to fail against the broken code.
+
 ## v2.46
 
 ### What Hugin is told about passwords

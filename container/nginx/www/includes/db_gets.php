@@ -123,6 +123,27 @@ function getMyWorlds($pdo,$citizen) {
         return $result;
 }
 
+/**
+ * The public player count for a world, or NULL when it should not be shown.
+ *
+ * NULL covers three separate cases on purpose, and all three must render as nothing rather
+ * than as a zero: the operator has not opted this world in, the world is not running, or no
+ * count has ever been observed. A confident "0 players online" on a world we know nothing
+ * about is worse than showing no line at all.
+ */
+function getPublicPlayerCount($pdo,$world) {
+        $sth = $pdo->prepare("SELECT IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(show_players_public,0) AS show_players_public, mode FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
+        $row = $sth->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) return NULL;
+        if ((int)$row['show_players_public'] !== 1) return NULL;
+        if ($row['mode'] !== 'running') return NULL;
+        if (empty($row['player_count_at'])) return NULL;
+
+        return (int)$row['player_count'];
+}
+
 function getHideSeed($pdo,$world) {
         $sth = $pdo->prepare("SELECT hideseed FROM worlds WHERE name='$world'");
         $sth->execute();
@@ -657,6 +678,43 @@ function getWorldBackupSettings($pdo, $worldName) {
         $stmt = $pdo->prepare("SELECT backup_use_global, backup_interval_minutes, backup_require_activity, backup_retain_all_hours, backup_retain_daily_days, backup_retain_weekly_days, backup_retain_monthly_months, backup_compression, backup_compression_hour, backup_cpu_priority, backup_io_priority, backup_compression_level, last_player_activity, last_backup_time FROM worlds WHERE name = ?");
         $stmt->execute([$worldName]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+function getWorldAutoUpdateSettings($pdo, $worldName) {
+        $stmt = $pdo->prepare("SELECT autoupdate_use_global, autoupdate_mode, autoupdate_scope, autoupdate_idle_minutes, autoupdate_max_wait_hours, autoupdate_on_timeout, autoupdate_backup_first, autoupdate_window_start, autoupdate_window_hours, update_available_game, update_available_mods, update_checked_at, update_pending_since, update_state, update_last_result, installed_buildid, player_count, player_count_at, player_count_source, show_players_public, crossplay FROM worlds WHERE name = ?");
+        $stmt->execute([$worldName]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Which of a world's mods are pinned, and which are following latest.
+ *
+ * The Updates tab has to show pinned mods SEPARATELY and label them held, or an operator
+ * reasonably reads "3 mods can be updated" as "all my mods will be updated" and finds out
+ * otherwise. Read from the same cached snapshot the mod viewer uses, so the two can never
+ * disagree about what is installed.
+ */
+function getWorldModPinState($pdo, $worldName) {
+        $stmt = $pdo->prepare("SELECT IFNULL(modsViewer,'') FROM worlds WHERE name = ?");
+        $stmt->execute([$worldName]);
+        $raw = $stmt->fetchColumn();
+
+        $out = ['pinned' => [], 'following' => []];
+        if (!$raw) return $out;
+
+        $items = json_decode($raw, true);
+        if (!is_array($items)) return $out;
+
+        foreach ($items as $item) {
+                if (!is_array($item) || empty($item['name'])) continue;
+                $label = $item['name'] . (isset($item['version']) && $item['version'] !== '' ? ' ' . $item['version'] : '');
+                if (!empty($item['pinned'])) {
+                        $out['pinned'][] = $label;
+                } else {
+                        $out['following'][] = $label;
+                }
+        }
+        return $out;
 }
 
 function getWorldBackupCount($pdo, $worldName) {
