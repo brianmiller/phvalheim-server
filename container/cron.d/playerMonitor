@@ -1,0 +1,1 @@
+*/2 * * * * phvalheim /opt/stateless/engine/tools/playerMonitor >> /opt/stateful/logs/phvalheim.log 2>&1

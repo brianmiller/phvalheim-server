@@ -1,0 +1,134 @@
+#!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf
+
+# Best-effort player counts, parsed out of each running world's log.
+#
+# Valheim exposes no reliable live player count. Everything here was verified against real
+# players on production on 2026-09-15; see docs/RELEASE-2.47-DESIGN.md for what was ruled
+# out and why (socket enumeration, conntrack, and the TickMonitor plugin all fail, the last
+# one because vanilla worlds have no BepInEx to load it).
+#
+# Two signals, chosen by the world's crossplay flag:
+#
+#   crossplay=1  "Player joined/connection lost server ... now N player(s)"
+#                PlayFab emits an absolute count on every join and every leave. Only
+#                crossplay worlds emit it -- across every production log, every world
+#                carrying this line has crossplay=1.
+#
+#   crossplay=0  "  Connections N ZDOS:... sent:... recv:..."
+#                The server's own heartbeat, every 10 minutes. Verified: a non-crossplay world read
+#                Connections 0 while empty, a Steam-direct player joined at 15:50:14, and
+#                the 15:58:09 heartbeat read Connections 1.
+#
+# The heartbeat is 10 minutes apart, so for non-crossplay worlds we also apply socket
+# events newer than the last heartbeat to fill the gap.
+#
+# DO NOT use "Connections N" on a crossplay world. It reads 0 with a player connected --
+# verified, a player joined at 14:51:40 and the 15:00:37 heartbeat still said 0. Using it
+# as a universal signal would have reported every crossplay world as permanently empty.
+
+logDir="/opt/stateful/logs"
+
+# Turn a Valheim log timestamp (MM/DD/YYYY HH:MM:SS) into a MySQL DATETIME.
+logTimeToSql() {
+	local stamp="$1"
+	[ -z "$stamp" ] && return 1
+	date -d "$stamp" "+%Y-%m-%d %H:%M:%S" 2>/dev/null
+}
+
+# Pull the timestamp out of a log line. Most lines start with it, but some are wrapped by
+# BepInEx ("Console: [Info : Unity Log] 01/26/2025 15:06:39: ..."), so match it anywhere.
+lineStamp() {
+	echo "$1" | grep -oE '[0-9]{2}/[0-9]{2}/[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}' | head -1
+}
+
+worldRows=$(SQL "SELECT name, IFNULL(crossplay,0) FROM worlds WHERE mode='running';")
+
+[ -z "$worldRows" ] && exit 0
+
+while IFS=$'\t' read -r worldName isCrossplay; do
+	[ -z "$worldName" ] && continue
+
+	logFile="$logDir/valheimworld_${worldName}.log"
+	[ -f "$logFile" ] || continue
+
+	count=""
+	source="none"
+	stamp=""
+
+	if [ "$isCrossplay" = "1" ]; then
+		# Absolute count, emitted on join AND leave. Take the most recent one.
+		line=$(grep -ha "now [0-9]\+ player" "$logFile" | tail -1)
+		if [ -n "$line" ]; then
+			count=$(echo "$line" | grep -oE 'now [0-9]+ player' | grep -oE '[0-9]+')
+			stamp=$(lineStamp "$line")
+			source="playfab"
+		fi
+	else
+		# The 10-minute heartbeat. Two shapes carry the same number: the usual
+		# "  Connections N ZDOS:..." and a rarer bare " Connections N" with no ZDOS
+		# tail. Match both and just take N.
+		line=$(grep -ha "Connections [0-9]" "$logFile" | tail -1)
+		if [ -n "$line" ]; then
+			count=$(echo "$line" | grep -oE 'Connections [0-9]+' | grep -oE '[0-9]+')
+			stamp=$(lineStamp "$line")
+			source="heartbeat"
+
+			# Fill the gap since that heartbeat with socket events. Steam-direct
+			# peers log an arrival and a departure immediately, so between
+			# heartbeats these are the only live signal.
+			#
+			# "Closing socket" is logged TWICE for one departure. The two copies
+			# are identical EXCEPT for the run of spaces after the timestamp:
+			#
+			#   08/12/2023 20:46:22:   Closing socket 12345
+			#   08/12/2023 20:46:22: Closing socket 12345
+			#
+			# so they must be squeezed before deduping. Stripping LEADING whitespace
+			# does nothing here -- the difference is mid-line. Measured on a real
+			# world log holding 12 departures: `sed 's/^ +//' | sort -u` returns 24
+			# and would double-decrement every single one, while `tr -s ' ' | sort -u`
+			# returns 12.
+			hbLine=$(grep -han "Connections [0-9]" "$logFile" | tail -1 | cut -d: -f1)
+			if [ -n "$hbLine" ]; then
+				tailPart=$(tail -n "+$((hbLine + 1))" "$logFile")
+
+				arrivals=$(echo "$tailPart" | grep -ha "Got connection SteamID" | tr -s ' ' | sort -u | grep -c .)
+				departures=$(echo "$tailPart" | grep -ha "Closing socket" | tr -s ' ' | sort -u | grep -c .)
+
+				if [ "$arrivals" -gt 0 ] || [ "$departures" -gt 0 ]; then
+					count=$((count + arrivals - departures))
+					[ "$count" -lt 0 ] && count=0
+
+					lastEvent=$(echo "$tailPart" | grep -haE "Got connection SteamID|Closing socket" | tail -1)
+					s=$(lineStamp "$lastEvent")
+					[ -n "$s" ] && stamp="$s"
+					source="socket"
+				fi
+			fi
+		fi
+	fi
+
+	if [ -z "$count" ]; then
+		# No count line at all -- a world that has only just started, or a log that
+		# was rotated out from under us. Report nothing rather than guessing zero
+		# with a fresh timestamp, which would look like a confident observation.
+		SQL "UPDATE worlds SET player_count=0, player_count_source='none' WHERE name='$worldName';"
+		continue
+	fi
+
+	sqlStamp=$(logTimeToSql "$stamp")
+
+	# player_count_at is the timestamp of the LOG LINE, never the time of this scan.
+	#
+	# This is the whole staleness mechanism and it is easy to get wrong. A nonzero count
+	# can stick in the log after everyone has left -- verified on production, where a
+	# world logged "now 1 player(s)" and then nothing for 39 minutes while empty. If this
+	# column held the scan time it would be refreshed every two minutes, the count would
+	# never look stale, and auto-update would wait forever on an empty world.
+	if [ -n "$sqlStamp" ]; then
+		SQL "UPDATE worlds SET player_count=$count, player_count_at='$sqlStamp', player_count_source='$source' WHERE name='$worldName';"
+	else
+		SQL "UPDATE worlds SET player_count=$count, player_count_source='$source' WHERE name='$worldName';"
+	fi
+done <<< "$worldRows"

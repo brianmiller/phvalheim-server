@@ -11,6 +11,10 @@
  */
 function whatsNewNotes() {
     return [
+        '2.47' => [
+            'New: <b>PhValheim now tracks how many players are on each world.</b> Valheim gives a dedicated server no reliable live player count, so this is read out of each world&rsquo;s own log on a best-effort basis &mdash; it can lag a disconnect by up to ten minutes on a non-crossplay world, and it is labelled as approximate everywhere it appears. It is the groundwork for automatic updates, which need to know when a world is quiet.',
+            'Crossplay and non-crossplay worlds are counted <b>differently, on purpose</b>. A crossplay world reports its own count on every join and leave; a non-crossplay world reports one every ten minutes, and arrivals and departures in between are followed as they happen. The single method that looked like it would cover both reports zero on a crossplay world while someone is playing on it, so it is not used there.',
+        ],
         '2.46' => [
             'Fixed: Hugin could describe a world&rsquo;s password wrongly. A world has two password-related columns &mdash; the password itself, and a setting controlling whether it is shown on the public world card &mdash; and Hugin was handed the second one as if it were a <b>second password</b>. It reported that one as "set" whichever way it was switched, and went on to describe it to operators as a separate password for the public view. No such password exists. Hugin is now told what that setting actually is.',
             'Fixed: Hugin now knows that <b>a password only applies to a vanilla world</b>. A modded world is started with no password at all &mdash; who may join is decided by its CITIZENS list &mdash; but the password you set is still stored and shown, so Hugin could tell you a modded world was password protected when nothing was checking it. It now reports both facts: whether a password is set, and whether it is actually in effect.',
