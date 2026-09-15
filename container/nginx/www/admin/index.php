@@ -4784,9 +4784,11 @@ $totalCount = count($worlds);
             </div>
             <div class="ai-wiz-steps" id="aiWizSteps"></div>
             <div class="mods-modal-body" id="aiWizBody" style="min-height:260px;"></div>
-            <div class="mods-modal-footer" style="display:flex;justify-content:space-between;gap:0.5rem;">
+            <!-- Layout lives in .mods-modal-footer now; the inline flex here predated it and
+                 set no padding, which is why Back and Next sat in the dialog corners. -->
+            <div class="mods-modal-footer">
                 <button class="action-btn" id="aiWizBack" onclick="aiWizGo(-1)">Back</button>
-                <div id="aiWizStatus" style="flex:1;font-size:0.8rem;align-self:center;"></div>
+                <div id="aiWizStatus" style="flex:1;font-size:0.8rem;text-align:center;"></div>
                 <button class="action-btn success" id="aiWizNext" onclick="aiWizGo(1)">Next</button>
             </div>
         </div>
@@ -4821,13 +4823,34 @@ $totalCount = count($worlds);
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
+    /* Markdown -> HTML for an answer bubble.
+     *
+     * Deliberately a small hand-rolled subset, not a library: this runs on every streaming
+     * delta, so it has to be cheap, and it must never emit unescaped model output.
+     *
+     * Scope was set by reading what a SMALL model actually writes. Measured against
+     * DeepSeek v4 Flash, the tables, rules and blockquotes below are all things it emits
+     * routinely and 2.45 rendered as literal pipes and dashes -- which is most of what
+     * made its answers look unformatted. Everything here is a construct that was observed,
+     * not a guess at the CommonMark spec.
+     */
     function aiMd(src) {
         const blocks = [];
         let s = String(src || '').replace(/\r\n/g, '\n');
 
-        s = s.replace(/```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```/g, function (_, lang, code) {
-            blocks.push('<pre><code class="lang-' + aiEsc(lang) + '">' + aiEsc(code.replace(/\n$/, '')) + '</code></pre>');
+        const stash = function (lang, code) {
+            blocks.push('<pre><code class="lang-' + aiEsc(lang) + '">'
+                      + aiEsc(code.replace(/\n$/, '')) + '</code></pre>');
             return '@@AIBLOCK' + (blocks.length - 1) + '@@';
+        };
+        s = s.replace(/```([a-zA-Z0-9_+-]*)\n([\s\S]*?)```/g, function (_, lang, code) {
+            return stash(lang, code);
+        });
+        // A fence that was opened and never closed. Happens on every truncated answer and
+        // whenever a small model simply forgets the closer; 2.45 rendered the whole tail as
+        // prose with stray backticks in it.
+        s = s.replace(/```([a-zA-Z0-9_+-]*)\n([\s\S]*)$/, function (_, lang, code) {
+            return stash(lang, code);
         });
 
         s = aiEsc(s);
@@ -4835,23 +4858,110 @@ $totalCount = count($worlds);
         s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
         s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
         s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-        s = s.replace(/^#{1,6}\s+(.+)$/gm, '<strong class="ai-h">$1</strong>');
-
-        const out = [];
-        let list = null;
-        s.split('\n').forEach(function (line) {
-            const ul = line.match(/^\s*[-*]\s+(.*)$/);
-            const ol = line.match(/^\s*\d+\.\s+(.*)$/);
-            const want = ul ? 'ul' : (ol ? 'ol' : null);
-            if (want) {
-                if (list !== want) { if (list) out.push('</' + list + '>'); out.push('<' + want + '>'); list = want; }
-                out.push('<li>' + (ul ? ul[1] : ol[1]) + '</li>');
-            } else {
-                if (list) { out.push('</' + list + '>'); list = null; }
-                out.push(line.trim() === '' ? '' : '<div>' + line + '</div>');
-            }
+        // Level is kept so a ## subsection does not shout as loudly as a # title.
+        s = s.replace(/^(#{1,6})\s+(.+?)\s*#*$/gm, function (_, h, t) {
+            return '<strong class="ai-h ai-h' + h.length + '">' + t + '</strong>';
         });
-        if (list) out.push('</' + list + '>');
+
+        const lines = s.split('\n');
+        const out   = [];
+
+        // A list stack, so an indented sub-bullet nests instead of flattening into its
+        // parent. Each frame is { tag, indent }.
+        const stack = [];
+        const closeLists = function (toIndent) {
+            while (stack.length && (toIndent === null || stack[stack.length - 1].indent >= toIndent)) {
+                out.push('</' + stack.pop().tag + '>');
+            }
+        };
+        // A row is a table row only if the NEXT line is the |---|---| separator. Without
+        // that check any prose containing a pipe would start a table.
+        const isDivider = function (l) {
+            return l !== undefined && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(l) && l.indexOf('|') >= 0;
+        };
+        const cells = function (l) {
+            return l.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(function (c) { return c.trim(); });
+        };
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            // ---- table ----
+            if (line.indexOf('|') >= 0 && isDivider(lines[i + 1])) {
+                closeLists(null);
+                const head  = cells(line);
+                const align = cells(lines[i + 1]).map(function (c) {
+                    if (/^:-+:$/.test(c)) return ' style="text-align:center"';
+                    if (/^-+:$/.test(c))  return ' style="text-align:right"';
+                    return '';
+                });
+                out.push('<table class="ai-table"><thead><tr>');
+                head.forEach(function (c, n) { out.push('<th' + (align[n] || '') + '>' + c + '</th>'); });
+                out.push('</tr></thead><tbody>');
+                i += 2;
+                for (; i < lines.length && lines[i].indexOf('|') >= 0; i++) {
+                    out.push('<tr>');
+                    cells(lines[i]).forEach(function (c, n) {
+                        out.push('<td' + (align[n] || '') + '>' + c + '</td>');
+                    });
+                    out.push('</tr>');
+                }
+                i--;
+                out.push('</tbody></table>');
+                continue;
+            }
+
+            // ---- horizontal rule ----
+            if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+                closeLists(null);
+                out.push('<hr class="ai-hr">');
+                continue;
+            }
+
+            // ---- blockquote (the > is already &gt; by this point) ----
+            const bq = line.match(/^\s*&gt;\s?(.*)$/);
+            if (bq) {
+                closeLists(null);
+                const quoted = [bq[1]];
+                while (i + 1 < lines.length) {
+                    const nxt = lines[i + 1].match(/^\s*&gt;\s?(.*)$/);
+                    if (!nxt) break;
+                    quoted.push(nxt[1]);
+                    i++;
+                }
+                out.push('<blockquote class="ai-quote">' + quoted.join('<br>') + '</blockquote>');
+                continue;
+            }
+
+            // ---- list item ----
+            const ul = line.match(/^(\s*)[-*+]\s+(.*)$/);
+            const ol = line.match(/^(\s*)(\d+)[.)]\s+(.*)$/);
+            if (ul || ol) {
+                const tag    = ul ? 'ul' : 'ol';
+                const indent = (ul ? ul[1] : ol[1]).replace(/\t/g, '  ').length;
+                const body   = ul ? ul[2] : ol[3];
+
+                while (stack.length && stack[stack.length - 1].indent > indent) {
+                    out.push('</' + stack.pop().tag + '>');
+                }
+                const top = stack[stack.length - 1];
+                if (!top || top.indent < indent) {
+                    // start= so a list the model numbers from 3 is not silently renumbered.
+                    out.push('<' + tag + (ol && ol[2] !== '1' ? ' start="' + ol[2] + '"' : '') + '>');
+                    stack.push({ tag: tag, indent: indent });
+                } else if (top.tag !== tag) {
+                    out.push('</' + stack.pop().tag + '>');
+                    out.push('<' + tag + (ol && ol[2] !== '1' ? ' start="' + ol[2] + '"' : '') + '>');
+                    stack.push({ tag: tag, indent: indent });
+                }
+                out.push('<li>' + body + '</li>');
+                continue;
+            }
+
+            closeLists(null);
+            out.push(line.trim() === '' ? '' : '<div>' + line + '</div>');
+        }
+        closeLists(null);
 
         return out.join('\n').replace(/@@AIBLOCK(\d+)@@/g, function (_, i) { return blocks[+i]; });
     }
@@ -5561,6 +5671,24 @@ $totalCount = count($worlds);
                         content.innerHTML = aiMd(acc) + '<span class="ai-cursor"></span>';
                         document.getElementById('aiMessages').scrollTop = 1e9;
                     } else if (ev.type === 'tool') {
+                        // TEXT BEFORE A TOOL CALL IS NOT THE ANSWER.
+                        //
+                        // Small models think out loud between rounds. Measured on DeepSeek
+                        // v4 Flash: a health-summary answer arrived as six paragraphs of
+                        // "Let me check whether... I should be careful... I now have enough
+                        // to write the summary" and THEN the actual summary. Every round
+                        // streams through the same bubble, so all of it piled up in one
+                        // answer and the real content was below the fold.
+                        //
+                        // A tool call is proof the model was still investigating, so
+                        // whatever it typed first was narration. The trace strip already
+                        // records what it looked at, which is the part worth keeping.
+                        // aiConverse returns only the FINAL round as `content`, so the
+                        // authoritative answer replayed on `done` agrees with this.
+                        if (acc !== '') {
+                            acc = '';
+                            content.innerHTML = '<span class="ai-cursor"></span>';
+                        }
                         // Show what the model actually looked at. This is the difference
                         // between "trust me" and a citation the operator can check.
                         settleLastRow();
@@ -5591,7 +5719,13 @@ $totalCount = count($worlds);
                         finish('done');
                         aiRenderProposals(ev.proposals);
                         if (ev.degraded) aiDegradedNotice(ev.degraded);
-                        if (ev.content && ev.content.length > acc.length) acc = ev.content;
+                        // The server's copy WINS when it has one, including when it is
+                        // shorter than what streamed. It used to be taken only if longer,
+                        // as a guard against a dropped delta -- but aiStripNarration()
+                        // deliberately makes it shorter by removing the model thinking out
+                        // loud, and the length test would have thrown that away and kept
+                        // the narration the operator was not meant to see.
+                        if (ev.content) acc = ev.content;
                         content.innerHTML = aiMd(acc);
                         const secs = ((Date.now() - started) / 1000).toFixed(1);
                         const u = ev.usage || {};
@@ -6043,11 +6177,38 @@ $totalCount = count($worlds);
                  +     '<div class="ai-prov-sub">' + aiEsc(p.model || 'no model pinned') + ' · ' + state + '</div>'
                  +   '</div>'
                  +   '<div class="ai-prov-actions">'
+                 // Which provider is the default was settable only by re-running the whole
+                 // Add-provider wizard over an existing row. A disabled provider is skipped
+                 // by aiDefaultProvider() in favour of the first enabled one, so offering
+                 // the button there would set a flag with no effect.
+                 +     (p.is_default
+                          ? '<button class="ai-chip-btn" disabled title="This is the default">&#9733; default</button>'
+                          : (p.enabled
+                               ? '<button class="ai-chip-btn" data-default="' + p.id + '" '
+                                 + 'title="Use this provider unless one is picked in the panel">Make default</button>'
+                               : '<button class="ai-chip-btn" disabled title="Enable it first — a disabled provider cannot be the default">Make default</button>'))
                  +     '<button class="ai-chip-btn" data-edit="' + p.id + '">Edit</button>'
                  +     '<button class="ai-chip-btn" data-del="' + p.id + '">Delete</button>'
                  +   '</div>'
                  + '</div>';
         }).join('');
+
+        box.querySelectorAll('[data-default]').forEach(function (b) {
+            b.addEventListener('click', async function () {
+                b.disabled = true;
+                const res = await fetch('adminAPI.php?action=setDefaultAiProvider', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: parseInt(b.getAttribute('data-default'), 10) })
+                });
+                const d = await res.json().catch(function () { return { success: false }; });
+                if (!d.success) { b.disabled = false; alert(d.error || 'Could not set the default.'); return; }
+                // Reload rather than patch the local copy: the promotion cleared the flag on
+                // whichever row held it, and the header dropdown picks its selection from
+                // the same list.
+                await aiLoadProviders(0, false);
+                aiRenderProviderList();
+            });
+        });
 
         box.querySelectorAll('[data-edit]').forEach(function (b) {
             b.addEventListener('click', function () { aiWizOpen(parseInt(b.getAttribute('data-edit'), 10)); });

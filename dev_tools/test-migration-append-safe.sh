@@ -47,12 +47,27 @@ else
 	bad "migration(s) ahead of Dockerfile $VERSION:$ahead — bump the version deliberately, or fold the schema into dbUpdate_$VERSION.sh"
 fi
 
-# --- 2. the current version must have a migration -------------------------------------
+# --- 2. the current version's migration, IF it has one --------------------------------
+#
+# A release with no schema change legitimately has no migration file, and demanding one
+# would push the next person to commit an empty script purely to satisfy this gate --
+# which is the same "route around the check" move this file exists to prevent.
+#
+# Not a guess: v2.35, 2.36, v2.37, v2.39 and v2.41 all shipped with no dbUpdate of their
+# own. This check used to fail the build for them.
+#
+# Check 1 above is the real guard, and it is unaffected: a migration NEWER than the
+# Dockerfile is still a failure whether or not the current version has one.
 if [ -f "$CUR" ]; then
 	ok "dbUpdate_$VERSION.sh exists"
 else
-	bad "no dbUpdate_$VERSION.sh for the version this image claims to be"
-	printf '\n\033[31m%s failure(s)\033[0m\n' "$FAIL"; exit 1
+	printf '  \033[33mSKIP\033[0m  no dbUpdate_%s.sh — fine if %s changes no schema, and checks 3-4 have nothing to inspect\n' "$VERSION" "$VERSION"
+	# Must still honour check 1. The first cut of this branch exited 0 unconditionally and
+	# swallowed a genuine "migration ahead of the build" failure it had just printed.
+	if [ "$FAIL" -gt 0 ]; then
+		printf '\n\033[31m%s failure(s)\033[0m\n' "$FAIL"; exit 1
+	fi
+	printf '\n\033[32m%s passed, 0 failures\033[0m\n' "$PASS"; exit 0
 fi
 
 # --- 3. it must be append-safe --------------------------------------------------------

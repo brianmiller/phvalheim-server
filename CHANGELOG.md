@@ -1,5 +1,139 @@
 # Changelog
 
+## v2.46
+
+### What Hugin is told about passwords
+
+Reported in Discord: Hugin said a server was not using a password and was gated by its
+access control list, and the operator did not believe that was their setup.
+
+Hugin was right. `startWorld.sh` reads the password column but consumes it only inside the
+`isVanilla = 1` branch — a modded world is started with `-public 0` and no `-password` at
+all, and entry is gated by `permittedlist.txt` alone. The admin UI still accepts, stores and
+displays a password for a modded world, which is why the answer was surprising rather than
+wrong.
+
+Driving the real tool loop against a live provider turned up three defects in what the model
+is handed, all in `includes/aicontext.php`:
+
+**`password_public` is not a password.** It is a `TINYINT` controlling whether the password
+is shown on the public world card. It was being redacted as a credential, and because both
+`"0"` and `"1"` are `!== ''`, it reported `(set — redacted)` *either way*. That destroys the
+boolean and invents a second credential — which a live model duly described to an operator as
+"a separate password used for the public/spectator view". It is now passed through as
+`show_password_on_public_card`, an int.
+
+**A NULL password skipped redaction entirely.** The guard was `isset()`, which is false for
+NULL — the column's default — so the commonest case went out as a bare `"password": null`
+while an empty string became `"(not set)"`. Now `array_key_exists()`, so both read alike.
+
+**Nothing said a password is vanilla-only.** `has_password` and `password_in_effect` are now
+on both `list_worlds` and `get_world`; the second is false on a modded world whatever the
+first says. `list_worlds` previously carried access-control state and no password state at
+all, so a question about how the server was secured could only be answered from half the data.
+
+The vanilla/modded password rule also moved into `DOMAIN FACTS`. It had lived only in
+`OPERATING PROCEDURES`, which `aiSystemPrompt()` omits when the model cannot act — so a
+read-only Hugin was never told it.
+
+Guarded by `dev_tools/test-ai-password-context.sh`: 17 assertions on the JSON the tools
+actually return, not on the source. 14 of them go red against 2.45.
+
+### The Hugin panel, measured against a small model
+
+Driven against the real DeepSeek v4 Flash provider on the production box rather than
+reasoned about, because the complaint was "the formatting isn't very pretty" and the causes
+turned out not to be the model.
+
+**The renderer was the problem, not the model.** `aiMd()` had no table support at all, so a
+side-by-side comparison — which a small model reaches for constantly — arrived as rows of
+literal `|` characters. Nor did it handle `---`, `>` quotes, indented sub-bullets, lists
+numbered from anything but 1, or a code fence the model opened and never closed (every
+truncated answer). Every heading level rendered identically. All of that now renders, with
+column alignment, and `dev_tools/test-ai-markdown.js` asserts on the HTML using fixtures
+pasted from real replies — 29 assertions, 20 of which go red against 2.45. The three
+escaping assertions in there are load-bearing: `aiMd()` is the only thing between model
+output and `innerHTML`.
+
+**Small models narrate their investigation into the answer.** A health summary opened with
+three to five paragraphs of "let me check…", "now I have enough…" before the first real
+sentence. Three changes, in order of how much each can cost:
+
+- the client now discards any prose that arrived *before* a tool call. A tool call is proof
+  the model was still investigating, and the trace strip already records what it looked at.
+- the system prompt says not to narrate. Helps; does not stop it.
+- `aiStripNarration()` removes leading process talk from the final round, which has no tool
+  call after it to key off. Deliberately conservative — it only fires on leading,
+  structure-free, first-person process talk, and returns the original if everything looks
+  like narration, so the worst case is 2.45's output rather than an empty bubble. The
+  second pass (cut to the first heading) additionally requires **two or more** narration
+  paragraphs, which is what keeps a normal lead-paragraph-then-heading answer intact.
+  `dev_tools/test-ai-narration.php` — 19 assertions, and the nine KEEP cases are the real
+  specification, since this function deletes text the operator asked for.
+
+`done` now takes the server's content even when it is *shorter* than what streamed. It was
+taken only if longer, as a guard against a dropped delta — which would have thrown the
+strip away and kept the narration.
+
+**The working strip is pinned to the bottom.** It was the first child of a growing bubble,
+so on any answer longer than the panel the raven, the phrase and the timer scrolled off the
+top exactly when the wait was longest. Now `position: sticky`, which works because
+`.ai-message.assistant` is a column flexbox, and it leaves with its own bubble.
+
+### Hugin was reading the wrong column for "is this world running"
+
+Reported from the panel: Hugin insisted a world the operator was standing in was stopped,
+and explained its live log as history.
+
+`worlds.status` is not a running indicator. On the production box:
+
+| status | mode | count |
+|---|---|---|
+| `Down` | `stopped` | 31 |
+| `Down` | `running` | 2 |
+| `failed` | `stopped` | 2 |
+
+`status` is the literal string `Down` for **all 33 worlds**, including the two whose
+`valheim_server` processes were live at that moment. `worlds.mode` is the column the engine
+maintains and the one `admin/index.php` renders from — and there the two `running` rows were
+exactly the two with processes.
+
+`aiTruthy($row, 'status')` was used as "is it running" in six places, so it was permanently
+false:
+
+- the prompt injected `0 running, 33 stopped`, plus the line telling the model that every
+  world being stopped is the server's resting state — which is how a live world got
+  described as stopped;
+- `stop_world` and `restart_world` refused **every** world with "already stopped", so
+  nothing could be turned off through Hugin at all;
+- `start_world` would have started a world that was already up;
+- `aidiagnose` downgraded every finding to history and skipped the restart-loop and
+  backup-freshness checks for precisely the worlds that were serving players.
+
+All six now go through one predicate, `aiWorldIsRunning()`, which reads `mode`. `status` is
+still reported, because it carries a signal `mode` does not — a world whose last start
+attempt failed reads `mode=stopped, status=failed`, and `list_worlds` now says
+"stopped (last start failed)". `get_world` also stops calling its `mode` field
+running/stopped while `list_worlds` calls its own field vanilla/modded; both now mean
+vanilla/modded, with running state in `status` and a `running` boolean.
+
+`aiTruthy()` itself was fine and is untouched — it is still correct for the boolean columns
+(`public`, `vanilla`). Only the running check was pointed at the wrong field.
+
+Guarded by `dev_tools/test-ai-world-state.sh`, whose fixture is the production shape —
+`status='Down'` **with** `mode='running'`. That combination *is* the bug; a fixture that set
+`status='Running'` for a running world would pass against the broken code and prove nothing,
+which is how this shipped in 2.45. 13 of its 15 assertions go red against 2.45.
+
+**Two things that were simply missing.** The default provider could only be changed by
+re-running the whole Add-provider wizard over an existing row; there is now a "Make default"
+button per provider, backed by `aiProviderSetDefault()` — its own one-field endpoint rather
+than a partial `aiSaveProvider()` call, which would have blanked the label, endpoint and
+model of the row it was promoting. It refuses an unknown id, because clearing the flag and
+then failing to set it would leave the registry with no default, which the panel cannot open
+in. And `.mods-modal-footer` had no CSS rule at all, which is why Back and Next sat hard
+against the dialog corners.
+
 ## v2.45
 
 ### The AI Helper stops holding opinions about which models exist (issue #83)

@@ -198,6 +198,45 @@ function aiTruthy($row, $key) {
     return $v === 1 || $v === '1' || $v === true || strtolower((string)$v) === 'running';
 }
 
+/**
+ * Is this world actually running?
+ *
+ * READS `mode`, NOT `status`. This is the whole bug that made Hugin insist a world an
+ * operator was standing in was stopped.
+ *
+ * `worlds.status` is not a running indicator. Measured on the production box: it is the
+ * literal string "Down" for ALL 33 worlds, including the two whose valheim_server
+ * processes were live at the time, and "failed" for two others. `worlds.mode` is the
+ * column the engine maintains and the one the admin UI renders from -- there, the two
+ * worlds reading `running` were exactly the two with processes.
+ *
+ * So aiTruthy($row, 'status') -- which was used in six places as "is it running" -- was
+ * permanently false. Hugin was handed "0 running, 33 stopped" plus a prompt line telling
+ * it that every world being stopped is the resting state, and it dutifully explained a
+ * running world's log as history. stop_world and restart_world refused outright with
+ * "already stopped", and start_world would happily start a world that was already up.
+ *
+ * aiTruthy itself is still correct for the boolean columns (public, vanilla) and is left
+ * alone; only the running check was reading the wrong field.
+ */
+function aiWorldIsRunning($row) {
+    return strtolower(trim((string)($row['mode'] ?? ''))) === 'running';
+}
+
+/**
+ * One phrase for a world's state, for the model to read.
+ *
+ * Derived, never the raw `status` column -- handing over "Down" for a running world is how
+ * this went wrong. `status` is still worth reporting when it says "failed", because that is
+ * a real signal `mode` does not carry: a world whose last start attempt failed reads
+ * mode=stopped, status=failed.
+ */
+function aiWorldStateText($row) {
+    if (aiWorldIsRunning($row)) return 'running';
+    $raw = strtolower(trim((string)($row['status'] ?? '')));
+    return stripos($raw, 'fail') !== false ? 'stopped (last start failed)' : 'stopped';
+}
+
 function aiWorldRows($pdo) {
     try {
         // SELECT * deliberately: the worlds table has grown a column nearly every
@@ -209,17 +248,37 @@ function aiWorldRows($pdo) {
     }
 }
 
+/**
+ * Does this world have a password set? NULL and '' both mean no.
+ *
+ * The column defaults to NULL, so any check that only compares against '' reports a
+ * passwordless world as having one, or skips it entirely.
+ */
+function aiWorldHasPassword($w) {
+    return isset($w['password']) && trim((string)$w['password']) !== '';
+}
+
 function aiToolListWorlds($pdo) {
     $out = [];
     foreach (aiWorldRows($pdo) as $w) {
         $out[] = [
             'name'                 => $w['name'],
-            'status'               => $w['status'] ?? 'unknown',
+            // Derived from `mode`. This used to pass through worlds.status, which reads
+            // "Down" even for a world that is serving players.
+            'status'               => aiWorldStateText($w),
             'mode'                 => !empty($w['vanilla']) ? 'vanilla' : 'modded',
             'port'                 => $w['port'] ?? null,
             'crossplay'            => (int)($w['crossplay'] ?? 0),
             'listed'               => (int)($w['listed'] ?? 0),
             'access_open_to_all'   => (int)($w['public'] ?? 0),
+            // Whether a password EXISTS, never the password. Without this the summary
+            // carried access-control state and no password state at all, so a model asked
+            // "how is my server secured?" could only answer from the half it was shown.
+            'has_password'         => aiWorldHasPassword($w),
+            // A password is only applied to a VANILLA world; startWorld.sh never passes
+            // -password on a modded one. A world can therefore have has_password true and
+            // still be gated entirely by its CITIZENS list.
+            'password_in_effect'   => !empty($w['vanilla']) && aiWorldHasPassword($w),
             'last_player_activity' => $w['last_player_activity'] ?? null,
             'last_backup'          => $w['last_backup_time'] ?? null,
             'mod_count'            => count(aiExpectedMods($pdo, $w['name'])),
@@ -236,9 +295,29 @@ function aiToolGetWorld($pdo, $world) {
 
         // Never hand a credential to a third-party model. The operator can read the
         // password in the UI; the assistant has no reason to and every reason not to.
-        foreach (['password', 'password_public'] as $secret) {
-            if (isset($w[$secret])) $w[$secret] = ($w[$secret] !== '' ? '(set — redacted)' : '(not set)');
+        //
+        // array_key_exists, NOT isset: isset() is false for NULL, which is the column's
+        // default, so the redaction never ran on the commonest case and the raw NULL went
+        // to the model as `"password": null` while an empty string became "(not set)".
+        // Same fact, two spellings, one of them sitting next to a "(set — redacted)".
+        // Computed BEFORE the redaction below: once $w['password'] holds the literal
+        // "(not set)", aiWorldHasPassword() sees a non-empty string and says true.
+        $hasPassword = aiWorldHasPassword($w);
+
+        if (array_key_exists('password', $w)) {
+            $w['password'] = $hasPassword ? '(set — redacted)' : '(not set)';
         }
+
+        // password_public is NOT a password. It is a TINYINT that controls whether the
+        // password is shown on the public world card. Redacting it as a credential
+        // reported "(set — redacted)" for BOTH 0 and 1 -- destroying the boolean and
+        // inventing a second credential, which a model duly described to an operator as
+        // "a separate password for the public/spectator view". No such thing exists.
+        $w['show_password_on_public_card'] = (int)($w['password_public'] ?? 1);
+        unset($w['password_public']);
+
+        // Stated, not left to be inferred from `vanilla`. See aiToolListWorlds().
+        $w['password_in_effect'] = !empty($w['vanilla']) && $hasPassword;
 
         $dir = "/opt/stateful/worlds/{$w['name']}";
         $w['_access_lists'] = [];
@@ -248,6 +327,18 @@ function aiToolGetWorld($pdo, $world) {
                 ? count(array_filter(array_map('trim', file($p)), function ($l) { return $l !== '' && strpos($l, '//') !== 0; }))
                 : 'file missing';
         }
+        // Running state, stated the same way list_worlds states it.
+        //
+        // Computed BEFORE `mode` is rewritten below -- aiWorldIsRunning() reads that column.
+        //
+        // And `mode` IS rewritten, because the two tools meant different things by it: the
+        // raw column is running/stopped, while list_worlds has always used mode for
+        // vanilla/modded. A model reading both saw "mode: running" against "mode: modded"
+        // for one world and had no way to know they were different fields.
+        $w['running'] = aiWorldIsRunning($w);
+        $w['status']  = aiWorldStateText($w);
+        $w['mode']    = !empty($w['vanilla']) ? 'vanilla' : 'modded';
+
         $w['_log_file'] = aiWorldLogPath($w['name']) ? basename(aiWorldLogPath($w['name'])) : null;
         return json_encode($w, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
@@ -631,13 +722,35 @@ function aiSystemPrompt($pdo, $contextWorld = '', $withActions = true) {
         . "argument; that is the separate 'listed' column. Do not conflate them.\n"
         . "- Valheim enforces permittedlist.txt only when it has entries. An empty enforced list means the "
         . "world is open to everyone, which is a security finding, not a healthy state.\n"
-        . "- BepInEx is engine-installed on every modded world and is not a selectable mod.\n\n";
+        . "- BepInEx is engine-installed on every modded world and is not a selectable mod.\n"
+        // This lived only in OPERATING PROCEDURES, which is omitted for a model that cannot
+        // act -- so a read-only Hugin was never told it, and told an operator that a modded
+        // world's password was protecting them. It is a fact about the server, not a
+        // procedure, and belongs here where every Hugin sees it.
+        . "- A PASSWORD ONLY APPLIES TO A VANILLA WORLD. startWorld.sh never passes -password "
+        . "on a modded world: modded worlds are gated by the CITIZENS permittedlist alone, and "
+        . "crossplay and server-browser listing do nothing on them either. The admin UI still "
+        . "stores and displays a password for a modded world, so has_password can be true while "
+        . "password_in_effect is false — trust password_in_effect.\n"
+        . "- There is no second password. 'show_password_on_public_card' is a display toggle for "
+        . "the public world card, not a credential.\n\n";
 
     $p .= "ANSWERING\n"
         . "- Lead with the answer. Supporting detail after.\n"
         . "- Be specific about the fix: name the mod, the setting, the tab in this UI, or the exact file.\n"
         . "- If the evidence does not support a conclusion, say so and say what you would need to look at.\n"
         . "- Use Markdown. Short bullets over paragraphs. Fenced code blocks for log excerpts and commands.\n"
+        // Small models narrate the investigation into the answer. Measured on a 2.45
+        // production box: a health summary opened with six paragraphs of "Let me check
+        // whether... I should be careful... I now have enough to write the summary" before
+        // the first real sentence. The client now drops prose that precedes a tool call,
+        // but the LAST round has no tool call to key off, so it has to be asked for.
+        . "- DO NOT NARRATE YOUR OWN PROCESS. No \"let me check\", no \"now I have enough\", no "
+        . "\"my answer above\", no reasoning out loud, no announcing which tool you are about to "
+        . "call. The operator sees the tools you used already. Open with the finding itself.\n"
+        . "- A table is for comparing things across the SAME fields (two worlds, a list of "
+        . "backups). For one thing, use bullets. Keep cells to a few words; put the explanation "
+        . "in a sentence under the table.\n"
         . "- You cannot change anything. Recommend actions for the operator to take; never claim to have "
         . "taken one.\n";
 
@@ -647,7 +760,7 @@ function aiSystemPrompt($pdo, $contextWorld = '', $withActions = true) {
     $rows    = aiWorldRows($pdo);
     $total   = count($rows);
     $running = 0;
-    foreach ($rows as $r) if (aiTruthy($r, 'status')) $running++;
+    foreach ($rows as $r) if (aiWorldIsRunning($r)) $running++;
 
     $p .= "\nLIVE STATE (as of this moment)\n"
         . "- Worlds: $running running, " . ($total - $running) . " stopped, $total configured.\n";
@@ -753,6 +866,96 @@ function aiRecordCapability($pdo, $provider, $res, $sawToolCall) {
 }
 
 /**
+ * Drop a model's leading process narration from an answer.
+ *
+ * Small models think out loud, and the last round has no tool call after it for the client
+ * to key off, so the narration lands in the answer itself. Measured on DeepSeek v4 Flash
+ * against a live box, asked for a health summary:
+ *
+ *   I have enough to summarise the server health. The engine errors about ...
+ *   Let me be careful about the "no log yet" -- there are no valheimworld_ ...
+ *   Now I can write the summary.
+ *   # Server Health Summary
+ *   ...
+ *
+ * Three paragraphs of working-out above the fold, every time. Asking the model not to do it
+ * (see the ANSWERING block) helps but does not stop it.
+ *
+ * DELIBERATELY CONSERVATIVE, because the cost of a false positive is a deleted answer:
+ *   - only LEADING paragraphs are considered; once a real one is found, everything after
+ *     it is kept untouched, so "let me know if you want..." at the end survives;
+ *   - a paragraph carrying block markdown (heading, table, list, fence, quote) is never
+ *     narration, whatever it starts with;
+ *   - if every paragraph looks like narration the ORIGINAL is returned, so the worst case
+ *     is the 2.45 behaviour rather than an empty bubble.
+ */
+function aiStripNarration($text) {
+    $orig = (string)$text;
+    $t    = ltrim($orig);
+    if ($t === '') return $orig;
+
+    // Openers observed in real replies. Anchored at the paragraph start.
+    $narration = '/^(?:ok(?:ay)?|right|alright|good|great)?[\s,.!:-]*'
+               . '(?:'
+               .   'let me\b|let us\b|lets\b|'
+               .   'i(?:\s+now)?\s+(?:have|think i have|believe i have)\s+(?:enough|everything|all i need|a clear picture|what i need)\b|'
+               .   'i\s+(?:should|need to|will|am going to|can now|now)\b|'
+               .   'now\s+(?:i|that i|we)\b|'
+               .   'my answer\b|the answer (?:above|i gave)\b|'
+               .   'first,?\s+let me\b|'
+               .   'before (?:i|answering)\b'
+               . ')/i';
+    // Anything with structure in it is the answer, not thinking about the answer.
+    $structural = '/(^|\n)\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|>\s|\||```)/';
+
+    $paras = preg_split("/\n[ \t]*\n/", $t);
+    $i = 0;
+    while ($i < count($paras)) {
+        $p = trim($paras[$i]);
+        if ($p === '')                     { $i++; continue; }
+        if (preg_match($structural, $p))   break;
+        if (!preg_match($narration, $p))   break;
+        $i++;
+    }
+
+    // Second pass, for the shape the first one cannot reach: the model interleaves a
+    // finding-shaped sentence with its thinking, so paragraph 1 is not narration and the
+    // walk above stops immediately. Measured verbatim on DeepSeek v4 Flash -- five
+    // paragraphs of working-out, only four of them recognisable, then "# Server Health
+    // Summary" and the actual report.
+    //
+    // Gated hard, because this one CAN delete a legitimate lead paragraph:
+    //   - a heading must exist, and not be the first thing already;
+    //   - everything before it must be plain prose (no list, table, fence or quote);
+    //   - and at least TWO of those paragraphs must be recognisable narration. One is an
+    //     answer that happens to say "I should"; two or more is a model showing its work.
+    // With that last condition a normal "lead paragraph, then a heading" answer is
+    // untouched, which is what KEEP7 in dev_tools/test-ai-narration.php pins down.
+    if ($i === 0) {
+        $head = null;
+        foreach ($paras as $n => $p) {
+            if (preg_match('/^#{1,6}\s/', ltrim($p))) { $head = $n; break; }
+        }
+        if ($head !== null && $head > 0) {
+            $lead = array_slice($paras, 0, $head);
+            $narr = 0; $struct = false;
+            foreach ($lead as $p) {
+                $p = trim($p);
+                if ($p === '') continue;
+                if (preg_match($structural, $p))  { $struct = true; break; }
+                if (preg_match($narration, $p))   $narr++;
+            }
+            if (!$struct && $narr >= 2) $i = $head;
+        }
+    }
+
+    if ($i === 0)              return $orig;               // nothing to strip
+    $kept = trim(implode("\n\n", array_slice($paras, $i)));
+    if ($kept === '')          return $orig;               // never hand back nothing
+    return $kept;
+}
+
+/**
  * The agentic loop: call the model, run any tools it asked for, feed the results back,
  * repeat until it answers in prose.
  *
@@ -794,7 +997,9 @@ function aiConverse($pdo, $provider, $messages, $contextWorld, $onDelta = null, 
             aiUsageBump($pdo, 'rounds', (string)$round);
             return [
                 'success'   => true,
-                'content'   => $res['content'],
+                // Stripped here rather than in the client so the non-streaming fallback,
+                // the streamed replay and the conversation history all carry the same text.
+                'content'   => aiStripNarration($res['content']),
                 // Degraded answers must be LABELLED. A Hugin that looks identical whether
                 // or not it could actually inspect anything is how an operator comes to
                 // trust something the model invented.

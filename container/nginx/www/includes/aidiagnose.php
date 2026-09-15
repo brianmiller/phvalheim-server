@@ -102,7 +102,10 @@ function aiDiagnoseWorld($pdo, $w) {
     // evidence (it is still the best clue to why it stopped) but they are capped at
     // 'warning', they say when they happened, and the two checks that are meaningless for a
     // stopped world -- restart loops and backup freshness -- are skipped outright.
-    $running = aiTruthy($w, 'status');
+    // `mode`, not `status`. While this read `status` every world looked stopped, so every
+    // finding was downgraded to history and the restart-loop and backup checks were skipped
+    // for worlds that were actually serving players -- the opposite of the intent.
+    $running = aiWorldIsRunning($w);
     $logAge  = ($log && is_readable($log)) ? time() - filemtime($log) : null;
     $stale   = !$running;
     $when    = $logAge === null ? '' : ' (last activity ' . aiAgeText($logAge) . ' ago)';
@@ -193,7 +196,7 @@ function aiDiagnoseWorld($pdo, $w) {
                 "World '$name' looks like it is in a restart loop. Find the fault that kills it each time."
             );
         }
-    } elseif (aiTruthy($w, 'status')) {
+    } elseif (aiWorldIsRunning($w)) {
         $out[] = aiFinding('info',
             "$name: no log yet",
             'The world is marked running but has written no log. If this persists past a minute or two, the process is not actually starting.',

@@ -2715,6 +2715,18 @@ input:checked + .slider:before {
 	padding: 1.25rem;
 }
 
+/* The footer had NO rule of its own, so Back and Next sat hard against the bottom
+ * corners of the dialog with nothing around them. Matches the header padding, and the
+ * border repeats the header/body separation at the other end. */
+.mods-modal-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 1rem 1.25rem;
+	border-top: 1px solid var(--border-color);
+}
+
 .mods-list {
 	list-style: none;
 	padding: 0;
@@ -6179,6 +6191,71 @@ pre.ms-log {
 	color: var(--accent-secondary);
 }
 
+/* A # title and a ### sub-heading were rendered identically, so a long answer read as one
+ * flat wall with periodic coloured lines. Small models lean on heading depth heavily. */
+.ai-message-content .ai-h1 { font-size: 1.02rem; margin-top: 0.7rem; }
+.ai-message-content .ai-h2 { font-size: 0.95rem; margin-top: 0.6rem; }
+.ai-message-content .ai-h3,
+.ai-message-content .ai-h4,
+.ai-message-content .ai-h5,
+.ai-message-content .ai-h6 { font-size: 0.86rem; color: var(--text-secondary); }
+
+/* ---- tables, rules and quotes in an answer -----------------------------------------
+ *
+ * 2.45 had colour resets for table/th/td but no layout, and nothing parsed a pipe table
+ * in the first place -- so a comparison table arrived as runs of literal | characters.
+ * This is the single biggest difference in how a small model's answer reads. */
+.ai-message-content .ai-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 0.5rem 0;
+	font-size: 0.76rem;
+	/* Long cells wrap rather than forcing the panel to scroll sideways. */
+	table-layout: auto;
+}
+
+.ai-message-content .ai-table th,
+.ai-message-content .ai-table td {
+	border: 1px solid var(--border-color);
+	padding: 0.3rem 0.45rem;
+	text-align: left;
+	vertical-align: top;
+	word-break: break-word;
+}
+
+.ai-message-content .ai-table th {
+	background: rgba(167, 139, 250, 0.10) !important;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.ai-message-content .ai-table tbody tr:nth-child(even) td {
+	background: rgba(148, 163, 184, 0.05) !important;
+}
+
+.ai-message-content .ai-hr {
+	border: 0;
+	border-top: 1px solid var(--border-color);
+	margin: 0.6rem 0;
+}
+
+.ai-message-content .ai-quote {
+	margin: 0.4rem 0;
+	padding: 0.3rem 0.6rem;
+	border-left: 3px solid var(--accent-secondary);
+	color: var(--text-secondary);
+	font-style: italic;
+}
+
+/* Bullets were sitting on the bubble edge with no room for the marker. */
+.ai-message-content ul,
+.ai-message-content ol {
+	margin: 0.3rem 0;
+	padding-left: 1.2rem;
+}
+
+.ai-message-content li { margin: 0.1rem 0; }
+
 /* ---- composer ---------------------------------------------------------------------- */
 
 /* Was a single flex row; now stacks quick prompts, the composer and the footer. */
@@ -6518,9 +6595,27 @@ pre.ms-log {
 	gap: 0.6rem;
 	padding: 0.5rem 0.7rem;
 	margin-bottom: 0.4rem;
-	background: linear-gradient(135deg, rgba(167, 139, 250, 0.09), rgba(34, 211, 238, 0.05));
+	/* Opaque base UNDER the tint. The strip is sticky (below), so a translucent-only
+	 * background let the streaming answer scroll visibly through the raven. */
+	background: linear-gradient(135deg, rgba(167, 139, 250, 0.09), rgba(34, 211, 238, 0.05)),
+	            var(--bg-secondary, #1e293b);
 	border: 1px solid rgba(167, 139, 250, 0.22);
 	border-radius: 0.6rem;
+
+	/* PINNED TO THE BOTTOM while the answer is being written.
+	 *
+	 * The strip is the first child of a growing bubble, so on any answer longer than the
+	 * panel it scrolled off the top: the operator lost the raven, the phrase and the timer
+	 * exactly when the wait was longest, and had to scroll back up to see whether anything
+	 * was still happening.
+	 *
+	 * Sticky rather than fixed: the bubble is the containing block, so the strip holds at
+	 * the bottom of the message list only while its own answer is on screen, and it leaves
+	 * with the bubble. .ai-message.assistant is flex-direction: column, which is what makes
+	 * sticky behave here at all. It is removed outright when the answer finishes. */
+	position: sticky;
+	bottom: 0.25rem;
+	z-index: 3;
 }
 
 .ai-working-text {

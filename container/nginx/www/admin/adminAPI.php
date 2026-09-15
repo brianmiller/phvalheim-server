@@ -371,6 +371,15 @@ switch($action) {
         }
         break;
 
+    case 'setDefaultAiProvider':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true) ?: [];
+            echo json_encode(aiProviderSetDefault($pdo, $input['id'] ?? 0));
+        } else {
+            echo json_encode(['error' => 'POST method required']);
+        }
+        break;
+
     case 'testAiProvider':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             aiTestProviderJson($pdo, json_decode(file_get_contents('php://input'), true) ?: []);

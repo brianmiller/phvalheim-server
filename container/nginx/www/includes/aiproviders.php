@@ -258,6 +258,32 @@ function aiDeleteProvider($pdo, $id) {
     }
 }
 
+/**
+ * Make one provider the default, in one statement pair.
+ *
+ * Its own function rather than routing through aiSaveProvider($pdo, ['id'=>..,
+ * 'is_default'=>1]): that builds a full row from the draft it is given, so a partial
+ * payload would blank the label, endpoint and model of the provider it was meant to
+ * promote. A one-field change gets a one-field endpoint.
+ *
+ * Refuses an id that does not exist, because "UPDATE ... SET is_default = 0" followed by a
+ * no-op UPDATE would leave the registry with NO default at all -- the state the panel
+ * cannot open in.
+ */
+function aiProviderSetDefault($pdo, $id) {
+    $id = (int)$id;
+    try {
+        $exists = (int)$pdo->query("SELECT COUNT(*) FROM ai_providers WHERE id = $id")->fetchColumn();
+        if (!$exists) return ['success' => false, 'error' => 'No such provider.'];
+
+        $pdo->exec("UPDATE ai_providers SET is_default = 0");
+        $pdo->prepare("UPDATE ai_providers SET is_default = 1 WHERE id = ?")->execute([$id]);
+        return ['success' => true, 'id' => $id];
+    } catch (Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
 /* ====================================================================================
  * HTTP
  * ==================================================================================== */

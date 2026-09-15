@@ -598,7 +598,11 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # A stopped world is not a broken one: the scan must consult world status, and the
   # persona must say so. Without both, eleven deliberately-stopped test worlds read as an
   # outage. Quotes as dots -- see the note above.
-  ib=$(grep -c "running = aiTruthy" /opt/stateless/nginx/www/includes/aidiagnose.php)
+  # 2.46 re-anchored this. It read "running = aiTruthy", which pinned the marker to the
+  # BUG -- aiTruthy on the status column, which is Down even for a running world. The
+  # intent was always "the scan consults whether the world is running", so it now anchors
+  # on the predicate that actually answers that.
+  ib=$(grep -c "running = aiWorldIsRunning" /opt/stateless/nginx/www/includes/aidiagnose.php)
   ic=$(grep -c "running && count(.starts)" /opt/stateless/nginx/www/includes/aidiagnose.php)
   id=$(grep -c "A STOPPED WORLD IS NOT A BROKEN WORLD" /opt/stateless/nginx/www/includes/aicontext.php)
   ie=$(grep -c "LIVE STATE" /opt/stateless/nginx/www/includes/aicontext.php)
@@ -725,6 +729,85 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # tripped by markers counting their own prose before.
   kx=$(grep -c "echo.*has crossplay set" /opt/stateless/games/valheim/scripts/startWorld.sh)
   echo "crossplay line: leads-with-outcome=$kw (want 1)  old-misleading-wording=$kx (want 0)  whatsnew=$ky (want 1)"
+
+  # ---- 2.45: what Hugin is told about passwords ----------------------------------
+  # STILL no apostrophes below, comments included -- one ends the sh -c block early and
+  # every check after it is silently skipped.
+  #
+  # The NEGATIVE is the one that matters. password_public is a TINYINT display flag, and
+  # redacting it as a credential reported set--redacted for BOTH 0 and 1: the boolean was
+  # destroyed and a second password invented, which a model then described to an operator
+  # as a password for the public view. No such password exists. Counting only the new keys
+  # would pass on an image that still carried the old redaction loop alongside them.
+  # The dots in the pattern match the quotes -- a literal one would close this block.
+  la=$(grep -cE "foreach \(\[.password., .password_public.\] as" /opt/stateless/nginx/www/includes/aicontext.php)
+  lb=$(grep -c "function aiWorldHasPassword" /opt/stateless/nginx/www/includes/aicontext.php)
+  lc=$(grep -c "has_password" /opt/stateless/nginx/www/includes/aicontext.php)
+  # A password is applied to VANILLA worlds only, so has_password alone still misleads.
+  ld=$(grep -c "password_in_effect" /opt/stateless/nginx/www/includes/aicontext.php)
+  le=$(grep -c "show_password_on_public_card" /opt/stateless/nginx/www/includes/aicontext.php)
+  # The vanilla/modded password rule lived ONLY in OPERATING PROCEDURES, which is omitted
+  # for a model that cannot act -- so a read-only Hugin was never told it. It is a fact
+  # about this server, so it has to sit in DOMAIN FACTS where every Hugin sees it.
+  lf=$(grep -c "A PASSWORD ONLY APPLIES TO A VANILLA WORLD" /opt/stateless/nginx/www/includes/aicontext.php)
+  echo "2.45 hugin passwords: stale redaction loop=$la (want 0)  helper=$lb (want 1)"
+  echo "2.45 hugin passwords: has_password=$lc (want 3)  in_effect=$ld (want 3)  display flag=$le (want 2)  domain fact=$lf (want 1)"
+
+  # ---- 2.46: the Hugin panel against a small model --------------------------------
+  # STILL no apostrophes below, comments included -- one closes the sh -c block early and
+  # every later check is silently skipped.
+  #
+  # The working strip is pinned with position:sticky. Anchored on the comment that explains
+  # WHY rather than on "position: sticky", which appears elsewhere in this stylesheet.
+  ma=$(grep -c "PINNED TO THE BOTTOM" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # The footer had no rule at all, which is the whole bug. Paired with a NEGATIVE: the
+  # inline flex that used to stand in for it must be gone, or it wins on specificity.
+  mb=$(grep -c "^\.mods-modal-footer" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  mc=$(grep -c "mods-modal-footer. style=" /opt/stateless/nginx/www/admin/index.php)
+  # Table rendering needs BOTH the parser and the styles. The markup alone renders an
+  # unstyled borderless table, which reads barely better than the literal pipes it replaced.
+  md=$(grep -c "ai-table" /opt/stateless/nginx/www/admin/index.php)
+  me=$(grep -c "ai-table" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  mf=$(grep -c "ai-hr\|ai-quote" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  mg=$(grep -c "ai-h1\|ai-h2" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # Narration: the client drops prose that preceded a tool call, the prompt asks for none,
+  # and the server strips what is left. The NEGATIVE is the one that matters -- the old
+  # take-it-only-if-longer guard would discard the strip and keep the narration.
+  mh=$(grep -c "TEXT BEFORE A TOOL CALL IS NOT THE ANSWER" /opt/stateless/nginx/www/admin/index.php)
+  mi=$(grep -c "ev.content.length . acc.length" /opt/stateless/nginx/www/admin/index.php)
+  mj=$(grep -c "function aiStripNarration" /opt/stateless/nginx/www/includes/aicontext.php)
+  mk=$(grep -c "aiStripNarration(" /opt/stateless/nginx/www/includes/aicontext.php)
+  ml=$(grep -c "DO NOT NARRATE YOUR OWN PROCESS" /opt/stateless/nginx/www/includes/aicontext.php)
+  # Default provider: its own one-field endpoint, reachable from the settings list.
+  mm=$(grep -c "function aiProviderSetDefault" /opt/stateless/nginx/www/includes/aiproviders.php)
+  mn=$(grep -c "setDefaultAiProvider" /opt/stateless/nginx/www/admin/adminAPI.php)
+  mo=$(grep -c "data-default" /opt/stateless/nginx/www/admin/index.php)
+  mp=$(grep -c "2.46. => \[" /opt/stateless/nginx/www/includes/whatsnew.php)
+  echo "2.46 strip pinned=$ma (want 1)  footer rule=$mb (want 1)  stale inline footer=$mc (want 0)"
+  echo "2.46 tables: parser=$md (want 1)  css=$me (want 5)  hr/quote css=$mf (want 2)  heading levels=$mg (want 2)"
+  echo "2.46 narration: client drop=$mh (want 1)  stale length guard=$mi (want 0)  fn=$mj (want 1)  calls=$mk (want 2)  prompt rule=$ml (want 1)"
+  echo "2.46 default provider: fn=$mm (want 1)  endpoint=$mn (want 1)  button=$mo (want 3)  whatsnew=$mp (want 1)"
+
+  # Running-ness comes from `mode`, never `status`. On the real box `status` is the string
+  # Down for EVERY world, running ones included, so the old check was permanently false:
+  # Hugin was told 0 running, stop_world refused everything as already stopped, and
+  # diagnostics treated a live world log as history.
+  #
+  # The NEGATIVES are the ones that matter. Counting the new helper would pass on a file
+  # that still had the status reads alongside it. The dots stand in for the quotes -- a
+  # literal one would close this sh -c block. The prose in the aicontext header says
+  # aiTruthy($row, ...) deliberately, so it does not match these $w/$r/$p forms.
+  na=$(grep -c "function aiWorldIsRunning" /opt/stateless/nginx/www/includes/aicontext.php)
+  nb=$(grep -c "function aiWorldStateText" /opt/stateless/nginx/www/includes/aicontext.php)
+  nc=$(grep -c "aiWorldIsRunning(" /opt/stateless/nginx/www/includes/aicontext.php)
+  nd=$(grep -c "aiWorldIsRunning(" /opt/stateless/nginx/www/includes/aiactions.php)
+  ne=$(grep -c "aiWorldIsRunning(" /opt/stateless/nginx/www/includes/aidiagnose.php)
+  nf=$(grep -hc "aiTruthy(.w, .status.)" /opt/stateless/nginx/www/includes/aicontext.php /opt/stateless/nginx/www/includes/aiactions.php /opt/stateless/nginx/www/includes/aidiagnose.php | paste -sd+ | bc)
+  ng=$(grep -hc "aiTruthy(.r, .status.)" /opt/stateless/nginx/www/includes/aicontext.php /opt/stateless/nginx/www/includes/aiactions.php /opt/stateless/nginx/www/includes/aidiagnose.php | paste -sd+ | bc)
+  nh=$(grep -hc "aiTruthy(.p\[.row.\]" /opt/stateless/nginx/www/includes/aicontext.php /opt/stateless/nginx/www/includes/aiactions.php /opt/stateless/nginx/www/includes/aidiagnose.php | paste -sd+ | bc)
+  ni=$(grep -c "aiWorldStateText(" /opt/stateless/nginx/www/includes/aicontext.php)
+  echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
+  echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
   echo "2.45 wizard: kind-change=$jd/$je presets=$jf/$jg (want >0 each)"
   echo "2.45 ollama removal: kind=$jh adapter=$ji (want 0/0)  migration: convert=$jj legacy=$jk (want >0/1)"
@@ -814,6 +897,14 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$kq" -gt 0 ] && [ "$kr" -gt 0 ] && [ "$ks" -gt 0 ] && [ "$kt" -gt 0 ] \
     && [ "$ku" -gt 0 ] && [ "$kv" -gt 0 ] \
     && [ "$kw" = "1" ] && [ "$kx" = "0" ] && [ "$ky" = "1" ] \
+    && [ "$la" = "0" ] && [ "$lb" = "1" ] && [ "$lc" = "3" ] \
+    && [ "$ld" = "3" ] && [ "$le" = "2" ] && [ "$lf" = "1" ] \
+    && [ "$ma" = "1" ] && [ "$mb" = "1" ] && [ "$mc" = "0" ] \
+    && [ "$md" = "1" ] && [ "$me" = "5" ] && [ "$mf" = "2" ] && [ "$mg" = "2" ] \
+    && [ "$mh" = "1" ] && [ "$mi" = "0" ] && [ "$mj" = "1" ] && [ "$mk" = "2" ] && [ "$ml" = "1" ] \
+    && [ "$mm" = "1" ] && [ "$mn" = "1" ] && [ "$mo" = "3" ] && [ "$mp" = "1" ] \
+    && [ "$na" = "1" ] && [ "$nb" = "1" ] && [ "$nc" = "5" ] && [ "$nd" = "3" ] && [ "$ne" = "2" ] \
+    && [ "$nf" = "0" ] && [ "$ng" = "0" ] && [ "$nh" = "0" ] && [ "$ni" = "3" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

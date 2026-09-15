@@ -456,12 +456,15 @@ function aiActionValidate($pdo, $name, $args) {
 
     switch ($name) {
         case 'start_world':
-            if (aiTruthy($p['row'], 'status')) return ['error' => "'{$p['world']}' is already running."];
+            if (aiWorldIsRunning($p['row'])) return ['error' => "'{$p['world']}' is already running."];
             break;
 
         case 'stop_world':
         case 'restart_world':
-            if (!aiTruthy($p['row'], 'status')) return ['error' => "'{$p['world']}' is already stopped."];
+            // Read `mode`, not `status`. On the real box `status` is "Down" for every world
+            // including the running ones, so this guard refused EVERY stop and restart with
+            // "already stopped" -- the operator could not turn anything off through Hugin.
+            if (!aiWorldIsRunning($p['row'])) return ['error' => "'{$p['world']}' is already stopped."];
             break;
 
         case 'set_world_options': {
@@ -961,7 +964,7 @@ function aiCapabilityCard($pdo) {
     // Live state, so the card is about THIS server rather than the product in general.
     $rows = aiWorldRows($pdo);
     $run  = 0;
-    foreach ($rows as $r) if (aiTruthy($r, 'status')) $run++;
+    foreach ($rows as $r) if (aiWorldIsRunning($r)) $run++;
     $tot  = count($rows);
 
     $verb = function ($n) use ($cat) {
