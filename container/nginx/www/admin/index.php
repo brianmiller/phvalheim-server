@@ -326,12 +326,15 @@ $totalCount = count($worlds);
                           // open nothing. check-whatsnew.sh makes that impossible for a real
                           // release, but a work-in-progress version bump hits it. ?>
                     <?php if (!empty($whatsNew)): ?>
+                    <?php // Icon only. The label is on title/aria-label rather than on screen,
+                          // so the control still announces itself to a screen reader and on
+                          // hover without taking header width from the things that need it. ?>
                     <button class="whatsnew-btn" id="whatsNewBtn" onclick="openWhatsNew()"
+                            aria-label="What's New in v<?php echo htmlspecialchars($phvalheimVersion); ?>"
                             title="What's New in v<?php echo htmlspecialchars($phvalheimVersion); ?>">
-                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                         </svg>
-                        What's New
                     </button>
                     <?php endif; ?>
                     <span class="live-indicator">
