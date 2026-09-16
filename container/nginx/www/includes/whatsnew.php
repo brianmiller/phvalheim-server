@@ -12,6 +12,7 @@
 function whatsNewNotes() {
     return [
         '2.47' => [
+            'New: a <b>What&rsquo;s New</b> button in the header, next to Ask Hugin. The release notes for the version you are running used to appear once after an upgrade and then be unreachable &mdash; the dialog was only built at all when there was something unseen in it. It is now always available, so you can go back and check what changed whenever you like.',
             'New: <b>PhValheim now tracks how many players are on each world.</b> Valheim gives a dedicated server no reliable live player count, so this is read out of each world&rsquo;s own log on a best-effort basis &mdash; it can lag a disconnect by up to ten minutes on a non-crossplay world, and it is labelled as approximate everywhere it appears. It is the groundwork for automatic updates, which need to know when a world is quiet.',
             'Crossplay and non-crossplay worlds are counted <b>differently, on purpose</b>. A crossplay world reports its own count on every join and leave; a non-crossplay world reports one every ten minutes, and arrivals and departures in between are followed as they happen. The single method that looked like it would cover both reports zero on a crossplay world while someone is playing on it, so it is not used there.',
             'New: you can <b>show a world&rsquo;s player count on the public page</b>, per world, under Settings &rarr; Options. It is off by default. The admin UI always shows the count. Both places label it approximate, because it is.',

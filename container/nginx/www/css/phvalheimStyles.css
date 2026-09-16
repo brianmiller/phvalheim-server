@@ -3337,6 +3337,35 @@ input:checked + .slider:before {
 	flex-shrink: 0;
 }
 
+/* What's New — same shape as Ask Hugin so the header reads as one row of controls, but
+   deliberately quieter. Ask Hugin is the thing you came here to use; this is reference
+   material you reach for occasionally, and two gradient buttons side by side would compete. */
+.whatsnew-btn {
+	display: flex;
+	align-items: center;
+	gap: 0.375rem;
+	padding: 0.375rem 0.75rem;
+	background: var(--bg-tertiary);
+	border: 1px solid var(--border-color);
+	border-radius: 0.5rem;
+	color: var(--text-secondary);
+	font-size: 0.75rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	white-space: nowrap;
+}
+
+.whatsnew-btn:hover {
+	color: var(--success);
+	border-color: var(--success);
+	transform: translateY(-1px);
+}
+
+.whatsnew-btn svg {
+	flex-shrink: 0;
+}
+
 /* Panel - uses fixed positioning and inset to avoid layout shift */
 .ai-panel {
 	position: fixed;

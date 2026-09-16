@@ -887,6 +887,21 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.47 updates tab: Mods rows=$op (want 1)  never-checked gate=$oq (want >0)"
   echo "2.47 rebuild btn: attr=$or_ (want 2)  handler=$os (want 1)  inline onclick=$ot (want 0)"
   echo "2.47 phases: ui=$ou (want >0)  applier writes=$ov (want >0)"
+  # The always-available release-notes button. The NEGATIVE is the one that matters: the modal
+  # must be gated on whatsNew (there are notes) and NOT on whatsNewAuto (there are UNSEEN
+  # notes). Gating on the latter is the bug -- the dialog was only built when something was
+  # unseen, so after clicking Got it there was no way to re-read the running version notes,
+  # and a header button would have opened nothing.
+  oy=$(grep -c "whatsNew = !empty(.whatsNewAuto)" /opt/stateless/nginx/www/admin/index.php)
+  oz=$(grep -c "whatsNewSince(.., .phvalheimVersion)" /opt/stateless/nginx/www/admin/index.php)
+  pa=$(grep -c "id=.whatsNewBtn." /opt/stateless/nginx/www/admin/index.php)
+  pb=$(grep -c "function openWhatsNew" /opt/stateless/nginx/www/admin/index.php)
+  pc=$(grep -c "window.whatsNewPending" /opt/stateless/nginx/www/admin/index.php)
+  pd=$(grep -c "whatsnew-btn" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # The old single-purpose dismiss handler is gone; closeWhatsNew replaced it.
+  pe=$(grep -c "onclick=.dismissWhatsNew()." /opt/stateless/nginx/www/admin/index.php)
+  echo "2.47 whatsnew btn: fallback=$oy/$oz (want 1/1)  button=$pa (want 1)  opener=$pb (want 1)"
+  echo "2.47 whatsnew btn: pending flag=$pc (want >0)  css=$pd (want >0)  stale dismiss onclick=$pe (want 0)"
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -994,6 +1009,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$op" = "1" ] && [ "$oq" -gt 0 ] \
     && [ "$or_" = "2" ] && [ "$os" = "1" ] && [ "$ot" = "0" ] \
     && [ "$ou" -gt 0 ] && [ "$ov" -gt 0 ] \
+    && [ "$oy" = "1" ] && [ "$oz" = "1" ] && [ "$pa" = "1" ] && [ "$pb" = "1" ] \
+    && [ "$pc" -gt 0 ] && [ "$pd" -gt 0 ] && [ "$pe" = "0" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

@@ -7,6 +7,25 @@ include '../includes/db_gets.php';
 require_once '/opt/stateless/nginx/www/includes/whatsnew.php';
 require_once '/opt/stateless/nginx/www/includes/hugin.php';
 
+// Release notes, resolved up here because the header button (rendered long before the modal)
+// has to know whether there is anything to open.
+//
+// $whatsNewAuto -- unseen notes, which auto-open the modal once. Gated on setupComplete == 2
+// so it queues BEHIND the setup wizard and the migration notice rather than stacking on top
+// of them; dismissing those is what sets 2.
+//
+// $whatsNew -- what the modal actually contains. On an upgrade that is everything since the
+// version last dismissed, which may span several releases. Otherwise it is the running
+// version's notes alone: passing '' as the shown version is exactly the "never seen this
+// before" case whatsNewSince() already handles, so there is no second code path to keep in
+// step with it.
+$whatsNewAuto = ($setupComplete == 2)
+    ? whatsNewSince($whatsNewShownVersion, $phvalheimVersion)
+    : [];
+$whatsNew = !empty($whatsNewAuto)
+    ? $whatsNewAuto
+    : whatsNewSince('', $phvalheimVersion);
+
 // Redirect to setup wizard if fresh install (but not for upgrades)
 if ($setupComplete === 0) {
     $worldCheck = $pdo->query("SELECT COUNT(*) FROM worlds")->fetchColumn();
@@ -303,6 +322,18 @@ $totalCount = count($worlds);
                         <?php echo huginSvg('idle ai-btn-hugin', 20); ?>
                         Ask Hugin
                     </button>
+                    <?php // Hidden when this version ships no notes, so the button can never
+                          // open nothing. check-whatsnew.sh makes that impossible for a real
+                          // release, but a work-in-progress version bump hits it. ?>
+                    <?php if (!empty($whatsNew)): ?>
+                    <button class="whatsnew-btn" id="whatsNewBtn" onclick="openWhatsNew()"
+                            title="What's New in v<?php echo htmlspecialchars($phvalheimVersion); ?>">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        What's New
+                    </button>
+                    <?php endif; ?>
                     <span class="live-indicator">
                         <span class="live-indicator-dot"></span>
                         Live
@@ -1236,16 +1267,12 @@ $totalCount = count($worlds);
     </script>
     <?php endif; ?>
 
-    <!-- What's New Dialog (one shot, after every upgrade) -->
-    <?php
-    // Gated on setupComplete == 2 so it queues BEHIND the setup wizard and the migration
-    // notice rather than stacking on top of them -- dismissing those is what sets 2.
-    $whatsNew = ($setupComplete == 2)
-        ? whatsNewSince($whatsNewShownVersion, $phvalheimVersion)
-        : [];
-    ?>
+    <!-- What's New Dialog: auto-shown once after an upgrade, and openable any time from the
+         header button. $whatsNew / $whatsNewAuto are resolved at the top of this file.
+         Rendered whenever there are notes at all, not only when there are UNSEEN ones -- that
+         is why there was previously no way to re-read the notes for the version you run. -->
     <?php if (!empty($whatsNew)): ?>
-    <div class="mods-modal-overlay show" id="whatsNewOverlay">
+    <div class="mods-modal-overlay<?php echo empty($whatsNewAuto) ? '' : ' show'; ?>" id="whatsNewOverlay" onclick="closeWhatsNew(event)">
         <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 560px;">
             <div class="mods-modal-header">
                 <h3 class="mods-modal-title">
@@ -1268,11 +1295,17 @@ $totalCount = count($worlds);
                 <?php endforeach; ?>
 
                 <div style="text-align: center;">
-                    <button class="action-btn success" onclick="dismissWhatsNew()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+                    <button class="action-btn success" onclick="closeWhatsNew()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
                 </div>
             </div>
         </div>
     </div>
+    <script>
+        // Whether these notes are still unacknowledged. Only then does closing need to tell
+        // the server; opening the modal from the header button later must not depend on a
+        // round trip to be closable again.
+        var whatsNewPending = <?php echo empty($whatsNewAuto) ? 'false' : 'true'; ?>;
+    </script>
     <?php endif; ?>
 
     <!-- Server Settings Modal -->
@@ -4941,14 +4974,35 @@ $totalCount = count($worlds);
         } catch(e) { console.error('Failed to dismiss notice:', e); }
     }
 
-    // Only closes the modal once the server has recorded the dismissal -- closing first
-    // would look dismissed but reappear on the next page load.
-    async function dismissWhatsNew() {
+    function openWhatsNew() {
+        const overlay = document.getElementById('whatsNewOverlay');
+        if (overlay) overlay.classList.add('show');
+    }
+
+    // Closing splits on whether these notes are still unacknowledged.
+    //
+    // Unacknowledged: record the dismissal FIRST and only close if the server took it.
+    // Closing first would look dismissed and then reappear on the next page load.
+    //
+    // Already acknowledged (opened from the header button): just close. Making that path
+    // wait on a round trip would mean a failed request leaves the operator unable to shut a
+    // dialog they opened themselves -- and there is nothing to record, since the version has
+    // been marked seen already.
+    async function closeWhatsNew(event) {
+        if (event && event.target !== event.currentTarget) return;  // ignore clicks inside
+        const overlay = document.getElementById('whatsNewOverlay');
+
+        if (!window.whatsNewPending) {
+            if (overlay) overlay.classList.remove('show');
+            return;
+        }
+
         try {
             const res = await fetch('adminAPI.php?action=dismissWhatsNew', { method: 'POST' });
             const data = await res.json();
             if (!data.success) { console.error('Failed to dismiss release notes:', data.error); return; }
-            document.getElementById('whatsNewOverlay').classList.remove('show');
+            window.whatsNewPending = false;
+            if (overlay) overlay.classList.remove('show');
         } catch(e) { console.error('Failed to dismiss release notes:', e); }
     }
 
