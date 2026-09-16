@@ -101,36 +101,52 @@ inWindow() {
 	return 1
 }
 
+# Record which PART of the update is running.
+#
+# update_state only ever said "updating", which meant the UI showed that for several minutes
+# while the thing actually happening was a backup -- indistinguishable from a stuck job. The
+# phase is what the operator is really asking about when they look.
+setPhase() {
+	local worldName="$1" phase="$2"
+	SQL "UPDATE worlds SET update_phase='$phase', update_phase_at=NOW() WHERE name='$worldName';"
+	echo "`date` [NOTICE : phvalheim] Auto-update '$worldName': phase=$phase"
+}
+
 applyUpdate() {
 	local worldName="$1" scope="$2" backupFirst="$3"
 
 	echo "`date` [NOTICE : phvalheim] Auto-update starting for '$worldName' (scope=$scope, backup=$backupFirst)"
-	SQL "UPDATE worlds SET update_state='updating' WHERE name='$worldName';"
+	SQL "UPDATE worlds SET update_state='updating', update_last_result=NULL WHERE name='$worldName';"
 
 	if [ "$backupFirst" = "1" ]; then
+		setPhase "$worldName" "backup"
 		echo "`date` [NOTICE : phvalheim] Auto-update: backing up '$worldName' first"
+		# worldBackup sets worlds.mode='backup' itself and restores the previous mode when
+		# it finishes, which is what drives the Backup pill on the world row.
 		/opt/stateless/engine/tools/worldBackup "$worldName" manual
 		if [ $? -ne 0 ]; then
 			# A failed backup stops the whole thing. The point of taking one is to have
 			# a way back; updating anyway would throw that away precisely when it is
 			# most likely to be needed.
 			echo "`date` [ERROR : phvalheim] Auto-update: backup failed for '$worldName' -- not updating"
-			SQL "UPDATE worlds SET update_state='failed', \
+			SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
 				update_last_result='Backup failed before update; nothing was changed.' \
 				WHERE name='$worldName';"
 			return 1
 		fi
 	fi
 
+	setPhase "$worldName" "stopping"
 	/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
 
 	local result=""
 
 	if [ "$scope" = "game" ] || [ "$scope" = "both" ]; then
+		setPhase "$worldName" "game"
 		InstallAndUpdateValheim "$worldName"
 		if [ $? -ne 0 ]; then
 			echo "`date` [ERROR : phvalheim] Auto-update: game update failed for '$worldName'"
-			SQL "UPDATE worlds SET update_state='failed', \
+			SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
 				update_last_result='Valheim server update failed. The world was left stopped.' \
 				WHERE name='$worldName';"
 			return 1
@@ -139,6 +155,7 @@ applyUpdate() {
 	fi
 
 	if [ "$scope" = "mods" ] || [ "$scope" = "both" ]; then
+		setPhase "$worldName" "mods"
 		# Hand the world to the engine's own update path rather than reimplementing mod
 		# installation here. mode='update' rebuilds BepInEx, the mod set and the client
 		# payload, and it already knows how to refuse to publish a modded world whose
@@ -146,6 +163,7 @@ applyUpdate() {
 		SQL "UPDATE worlds SET mode='update' WHERE name='$worldName';"
 		[ -n "$result" ] && result="$result, mods rebuilt" || result="mods rebuilt"
 	else
+		setPhase "$worldName" "starting"
 		/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
 	fi
 
@@ -158,6 +176,7 @@ applyUpdate() {
 	# actually re-establishes it. If this update did not take, the flag comes straight
 	# back rather than staying wrongly clear.
 	SQL "UPDATE worlds SET update_state='idle', update_pending_since=NULL, \
+		update_phase=NULL, update_phase_at=NULL, update_check_error=NULL, \
 		update_available_game=0, update_available_mods=0, \
 		update_last_result='Updated $stamp: $result.' \
 		WHERE name='$worldName';"

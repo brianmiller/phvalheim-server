@@ -884,7 +884,7 @@ function getWorldsJson($pdo) {
     // Must stay in step with getWorldsData() in admin/index.php: the page renders the table
     // once from that, then this endpoint redraws it every 5 seconds. A column present in
     // only one of them shows up on load and disappears on the first poll.
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state FROM worlds ORDER BY name");
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state, update_phase FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
@@ -917,6 +917,7 @@ function getWorldsJson($pdo) {
             'update_available_game' => (int)$row['update_available_game'],
             'update_available_mods' => (int)$row['update_available_mods'],
             'update_state' => $row['update_state'],
+            'update_phase' => $row['update_phase'],
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
             'launchString' => $launchString,
             // MUST stay in step with getWorldsData() in index.php: the dashboard renders

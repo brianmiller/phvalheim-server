@@ -109,5 +109,38 @@ check("empty input -> empty", "", uc.parse_public_buildid(""))
 check("public block with no buildid -> empty", "",
       uc.parse_public_buildid('"branches"\n{\n\t"public"\n\t{\n\t\t"timeupdated" "1"\n\t}\n}\n'))
 
+# --- steamcmd must be given a writable HOME ------------------------------------------
+#
+# This is the regression guard for the bug that made every world report "up to date"
+# forever in production. updateChecker runs as the phvalheim user from cron and from the
+# admin API, and that user's default HOME is not writable. steamcmd bootstraps into
+# $HOME/.local and $HOME/.steam, so without an explicit HOME it dies before printing any
+# app info and available_buildid() returns "".
+#
+# It passed every test and every manual run beforehand because those were done as root.
+captured = {}
+
+
+def fake_run(cmd, **kwargs):
+    captured["env"] = kwargs.get("env")
+    captured["cmd"] = cmd
+
+    class R:
+        stdout = SAMPLE
+    return R()
+
+
+_real_run = uc.subprocess.run
+uc.subprocess.run = fake_run
+try:
+    uc.available_buildid()
+finally:
+    uc.subprocess.run = _real_run
+
+check("steamcmd is given an explicit HOME", True,
+      captured.get("env", {}) is not None and "HOME" in (captured.get("env") or {}))
+check("that HOME is the steam home, not the inherited one", uc.STEAM_HOME,
+      (captured.get("env") or {}).get("HOME"))
+
 print(f"\n  {pass_count} passed, {fail_count} failed")
 sys.exit(1 if fail_count else 0)

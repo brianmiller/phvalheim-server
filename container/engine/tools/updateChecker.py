@@ -35,6 +35,7 @@ import sys
 MYSQL = "/usr/bin/mysql"
 DB = "phvalheim"
 STEAMCMD = "/usr/games/steamcmd"
+STEAM_HOME = "/opt/stateful/games/steam_home"
 APPID = "896660"
 WORLDS_ROOT = "/opt/stateful/games/valheim/worlds"
 
@@ -88,11 +89,24 @@ def available_buildid():
 
     So: locate "branches" first, then "public" inside it, then the buildid inside that.
     """
+    # HOME must be set explicitly.
+    #
+    # This runs as the phvalheim user from cron and from the admin API, and that user's HOME
+    # is not a directory it can write. steamcmd bootstraps itself into $HOME/.local and
+    # $HOME/.steam, so without this it fails with a pile of "cannot create directory
+    # '/opt/.local'" and never prints any app info at all. 0-functions.sh has always passed
+    # HOME for exactly this reason; this call has to do the same.
+    #
+    # It cost a silently wrong answer in production: every world reported "up to date"
+    # forever, including one running a build over five thousand revisions behind.
+    env = dict(os.environ)
+    env["HOME"] = STEAM_HOME
+
     try:
         r = subprocess.run(
             [STEAMCMD, "+login", "anonymous", "+app_info_update", "1",
              "+app_info_print", APPID, "+quit"],
-            capture_output=True, text=True, timeout=300)
+            capture_output=True, text=True, timeout=300, env=env)
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         log(f"steamcmd unavailable: {e}")
         return ""
@@ -226,12 +240,25 @@ def main():
     for world in todo:
         have = installed_buildid(world)
 
-        # Unknown on either side means we cannot claim an update exists. Reporting one
-        # here would hand updateApplier a reason to stop a server on no evidence.
-        if avail and have:
-            game = 1 if have != avail else 0
-        else:
+        # Unknown on either side means we cannot claim an update exists -- reporting one
+        # would hand updateApplier a reason to stop a server on no evidence.
+        #
+        # But it equally means we cannot claim the world is CURRENT, and that half was
+        # missing: update_available_game stayed 0 and the UI rendered a green "up to date"
+        # over a world five thousand builds behind. The reason is now recorded so the UI can
+        # say "could not check" and show why.
+        error = ""
+        if not avail:
+            error = ("Could not read the published Valheim build from Steam. "
+                     "The installed build is unknown to be current or not.")
             game = 0
+        elif not have:
+            error = (f"No Steam manifest found for this world "
+                     f"(game/steamapps/appmanifest_{APPID}.acf), so its installed build "
+                     f"could not be read.")
+            game = 0
+        else:
+            game = 1 if have != avail else 0
 
         count, stale = mod_updates(world)
 
@@ -239,12 +266,20 @@ def main():
             f"update_available_game={game}, "
             f"update_available_mods={count}, "
             f"installed_buildid={q(have)}, "
+            f"update_check_error={q(error)}, "
             f"update_checked_at=NOW() "
             f"WHERE name={q(world)};")
 
+        if error:
+            log(f"'{world}': {error}")
+
         # Clear a pending clock that no longer has anything to wait for -- the operator
         # may have updated by hand, or a mod may have been re-pinned.
-        if game == 0 and count == 0:
+        #
+        # Guarded on `not error`: a failed check also produces game=0 and count=0, and
+        # treating that as "nothing to do" would cancel a legitimate pending update every
+        # time Steam was briefly unreachable.
+        if not error and game == 0 and count == 0:
             sql(f"UPDATE worlds SET update_pending_since=NULL, "
                 f"update_state='idle' "
                 f"WHERE name={q(world)} AND update_state='pending';")

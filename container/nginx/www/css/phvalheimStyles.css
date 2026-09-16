@@ -2398,6 +2398,14 @@ input:checked + .slider:before {
 .status-badge.creating,
 .status-badge.updating,
 .status-badge.deleting,
+/* Drives the striped, moving fill on the update phase currently running. Neither steamcmd
+   nor the mod install reports a percentage, so a static bar would either look finished or
+   claim a number we do not have. Motion says "in flight" without inventing progress. */
+@keyframes auProgress {
+	from { background-position: 0 0; }
+	to   { background-position: 0.75rem 0; }
+}
+
 .status-badge.backup {
 	background: rgba(251, 191, 36, 0.2);
 	color: #fbbf24;

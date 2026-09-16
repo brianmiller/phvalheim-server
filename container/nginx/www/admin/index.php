@@ -90,7 +90,7 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
     // player_count / update_* travel with the world row because BOTH the server-rendered
     // table and the 5-second poll's JS template draw them. Adding them to only one reader
     // means the count appears on load and vanishes at the first refresh.
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state FROM worlds ORDER BY name");
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state, update_phase FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
@@ -440,6 +440,34 @@ $totalCount = count($worlds);
                         'backup' => 'Backup'
                     ];
                     ?>
+                    <?php
+                    // An update in flight owns the status pill. worlds.mode only reads 'backup'
+                    // for the brief window worldBackup itself holds it, so without this the row
+                    // said "Running" through the stop, the Steam download and the mod rebuild --
+                    // an operator could see an update happening in the Updates tab and nothing at
+                    // all on the row they were actually looking at.
+                    //
+                    // Maps onto modes that already have a badge style and a display label; this
+                    // invents no new pill.
+                    function phaseToMode($phase) {
+                        switch ($phase) {
+                            case 'backup':   return 'backup';
+                            case 'stopping': return 'stopping';
+                            case 'starting': return 'starting';
+                            case 'game':
+                            case 'mods':     return 'update';
+                        }
+                        return '';
+                    }
+
+                    function effectiveMode($world) {
+                        if (($world['update_state'] ?? '') === 'updating' && !empty($world['update_phase'])) {
+                            $m = phaseToMode($world['update_phase']);
+                            if ($m !== '') return $m;
+                        }
+                        return $world['mode'];
+                    }
+                    ?>
                     <div class="table-responsive">
                         <table class="worlds-table" id="worldsTable">
                             <!-- Active Worlds Section -->
@@ -471,10 +499,10 @@ $totalCount = count($worlds);
                                 </thead>
                                 <tbody id="onlineWorldsBody" class="worlds-section-body">
                                     <?php foreach ($onlineWorlds as $world): ?>
-                                    <?php $modeDisplay = $modeDisplayMap[$world['mode']] ?? $world['mode']; ?>
+                                    <?php $effMode = effectiveMode($world); $modeDisplay = $modeDisplayMap[$effMode] ?? $effMode; ?>
                                     <tr data-world="<?php echo htmlspecialchars($world['name']); ?>" data-section="online">
                                         <td>
-                                            <span class="status-badge <?php echo $world['mode']; ?>">
+                                            <span class="status-badge <?php echo $effMode; ?>">
                                                 <span class="status-dot"></span>
                                                 <?php echo $modeDisplay; ?>
                                             </span>
@@ -1722,8 +1750,9 @@ $totalCount = count($worlds);
         const statusCell = row.querySelector('td:first-child');
         const badge = statusCell.querySelector('.status-badge');
         if (badge) {
-            badge.className = `status-badge ${world.mode}`;
-            badge.innerHTML = `<span class="status-dot"></span>${getModeDisplayText(world.mode)}`;
+            const effMode = effectiveWorldMode(world);
+            badge.className = `status-badge ${effMode}`;
+            badge.innerHTML = `<span class="status-dot"></span>${getModeDisplayText(effMode)}`;
         }
 
         // Update mod count badge
@@ -1866,9 +1895,9 @@ $totalCount = count($worlds);
 
         row.innerHTML = `
             <td>
-                <span class="status-badge ${world.mode}">
+                <span class="status-badge ${effectiveWorldMode(world)}">
                     <span class="status-dot"></span>
-                    ${getModeDisplayText(world.mode)}
+                    ${getModeDisplayText(effectiveWorldMode(world))}
                 </span>
                 ${betaBadge}
             </td>
@@ -2248,10 +2277,80 @@ $totalCount = count($worlds);
 
     // ---- Updates tab (2.47, issue #87) ----------------------------------------------
 
+    let updatePhasePoll = null;
+
+    // Mirrors effectiveMode() / phaseToMode() in the PHP render above. Both paths draw the
+    // same rows -- the page renders once from PHP and this redraws every five seconds -- so
+    // a rule in only one of them shows on load and vanishes at the first poll.
+    function effectiveWorldMode(world) {
+        if (world.update_state === 'updating' && world.update_phase) {
+            switch (world.update_phase) {
+                case 'backup':   return 'backup';
+                case 'stopping': return 'stopping';
+                case 'starting': return 'starting';
+                case 'game':
+                case 'mods':     return 'update';
+            }
+        }
+        return world.mode;
+    }
+
+
     function escapeHtmlBasic(s) {
         return String(s ?? '').replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         })[c]);
+    }
+
+    // The phases updateApplier walks, in order. Kept in step with setPhase() in that script.
+    const UPDATE_PHASES = [
+        { key: 'backup',   label: 'Backup' },
+        { key: 'stopping', label: 'Stopping world' },
+        { key: 'game',     label: 'Valheim server' },
+        { key: 'mods',     label: 'Mods and client payload' },
+        { key: 'starting', label: 'Starting world' },
+    ];
+
+    function renderUpdatePhases(phase, phaseAt) {
+        // No phase recorded yet -- the applier writes one within a second of starting, so
+        // this is the brief gap right after the button, not an error.
+        if (!phase) {
+            return '<span style="color:var(--text-muted)">starting&hellip;</span>';
+        }
+
+        const current = UPDATE_PHASES.findIndex(p => p.key === phase);
+
+        // A phase this UI does not know about must not silently render as "everything is
+        // done" -- say so instead of drawing five full bars.
+        if (current === -1) {
+            return `<span style="color:var(--text-muted)">${escapeHtmlBasic(phase)}</span>`;
+        }
+
+        const bars = UPDATE_PHASES.map((p, i) => {
+            let fill, colour, note;
+            if (i < current)       { fill = '100%'; colour = 'var(--success)'; note = 'done'; }
+            else if (i === current){ fill = '100%'; colour = 'var(--warning)'; note = phaseAt ? `since ${escapeHtmlBasic(phaseAt)}` : 'running'; }
+            else                   { fill = '0%';   colour = 'var(--text-muted)'; note = ''; }
+
+            // The running phase is striped and animated: these steps have no percentage to
+            // report (steamcmd and the mod install do not stream progress), so a bar that
+            // merely sat at 100% would look finished. Motion is the honest signal that
+            // something is in flight without inventing a number.
+            const stripe = i === current
+                ? 'background-image:linear-gradient(45deg,rgba(255,255,255,.25) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.25) 50%,rgba(255,255,255,.25) 75%,transparent 75%,transparent);background-size:0.75rem 0.75rem;animation:auProgress 1s linear infinite;'
+                : '';
+
+            return `
+                <div style="display:flex;align-items:center;gap:0.5rem;padding:0.1rem 0;">
+                    <div style="min-width:10rem;font-size:0.78rem;color:${i <= current ? 'var(--text-primary)' : 'var(--text-muted)'}">${p.label}</div>
+                    <div style="flex:1;height:6px;background:var(--bg-secondary);border-radius:3px;overflow:hidden;">
+                        <div style="height:100%;width:${fill};background:${colour};${stripe}"></div>
+                    </div>
+                    <div style="min-width:9rem;font-size:0.7rem;color:var(--text-muted)">${note}</div>
+                </div>`;
+        }).join('');
+
+        return `<div style="margin-top:0.25rem;">${bars}</div>`;
     }
 
     function renderUpdateStatus(s, mods) {
@@ -2273,10 +2372,19 @@ $totalCount = count($worlds);
         }
         rows.push(['Players', players + ' <span style="color:var(--text-muted)">&middot; approximate</span>']);
 
+        // A check that could not run is NOT "up to date". Reporting the reassuring answer
+        // when we do not actually know is what let a world sit thousands of builds behind
+        // while this row showed green.
         const gameAvail = parseInt(s.update_available_game, 10) === 1;
-        rows.push(['Valheim server', gameAvail
-            ? `<span style="color:var(--warning)">update available</span> <span style="color:var(--text-muted)">(installed build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`
-            : `<span style="color:var(--success)">up to date</span> <span style="color:var(--text-muted)">(build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`]);
+        if (s.update_check_error) {
+            rows.push(['Valheim server',
+                `<span style="color:var(--danger)">could not check</span>`
+                + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${escapeHtmlBasic(s.update_check_error)}</div>`]);
+        } else {
+            rows.push(['Valheim server', gameAvail
+                ? `<span style="color:var(--warning)">update available</span> <span style="color:var(--text-muted)">(installed build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`
+                : `<span style="color:var(--success)">up to date</span> <span style="color:var(--text-muted)">(build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`]);
+        }
 
         const modCount = parseInt(s.update_available_mods, 10) || 0;
         rows.push(['Mods', modCount > 0
@@ -2304,6 +2412,17 @@ $totalCount = count($worlds);
             default:         stateText = '<span style="color:var(--text-muted)">idle</span>';
         }
         rows.push(['State', stateText]);
+
+        // When an update is actually running, show WHICH PART. "updating" on its own meant
+        // several minutes of backup looked identical to a stuck job.
+        if (s.update_state === 'updating') {
+            rows.push(['Progress', renderUpdatePhases(s.update_phase, s.update_phase_at)]);
+        }
+
+        // What the world itself last did, as opposed to when we last looked for updates.
+        rows.push(['World last updated', s.date_updated
+            ? escapeHtmlBasic(s.date_updated)
+            : '<span style="color:var(--text-muted)">unknown</span>']);
 
         if (s.update_last_result) {
             rows.push(['Last result', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_last_result)}</span>`]);
@@ -2344,6 +2463,16 @@ $totalCount = count($worlds);
 
             const pub = document.getElementById('opt-showPlayersPublic');
             if (pub) pub.checked = parseInt(s.show_players_public, 10) === 1;
+
+            // While an update is actually running, keep the phase bars moving. One timer
+            // only: re-entering here clears the previous one, so opening the tab repeatedly
+            // cannot stack pollers. It stops as soon as the state leaves 'updating'.
+            if (updatePhasePoll) { clearTimeout(updatePhasePoll); updatePhasePoll = null; }
+            if (s.update_state === 'updating'
+                && document.getElementById('updatesTab')
+                && document.getElementById('settingsModalOverlay').classList.contains('show')) {
+                updatePhasePoll = setTimeout(() => loadWorldUpdateSettings(worldName), 4000);
+            }
         } catch (e) {
             const el = document.getElementById('au-status');
             if (el) el.innerHTML = '<div style="color:var(--danger)">Could not load update status.</div>';

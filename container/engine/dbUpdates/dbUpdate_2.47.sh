@@ -113,6 +113,30 @@ addColumn settings autoUpdateWindowStart "INT DEFAULT -1"
 addColumn settings autoUpdateWindowHours "INT DEFAULT 0"
 
 
+# --- update check errors ---------------------------------------------------------------
+#
+# A check that could not run is NOT "up to date", and conflating the two is how a world sat
+# on build 20460518 while the UI reported it current. updateChecker could not reach steamcmd
+# (it runs as the phvalheim user, whose HOME was not set, so steamcmd tried to write to
+# /opt/.local and died), returned no published build, and the "unknown means claim nothing"
+# branch left update_available_game at 0 -- which the UI rendered as a green "up to date".
+#
+# Storing the reason separately means the UI can say "could not check" and show why, instead
+# of silently reporting the most reassuring possible answer.
+addColumn worlds update_check_error "TEXT DEFAULT NULL"
+
+
+# --- update phase ----------------------------------------------------------------------
+#
+# update_state says WHETHER an update is running; update_phase says WHICH PART is running.
+# Without it the UI showed "updating" for several minutes while the thing actually happening
+# was a backup, so the operator had no way to tell a slow download from a stuck job.
+#
+# Phases: backup | stopping | game | mods | starting | done
+addColumn worlds update_phase "VARCHAR(16) DEFAULT NULL"
+addColumn worlds update_phase_at "DATETIME DEFAULT NULL"
+
+
 echo "`date` [NOTICE : phvalheim] Database schema update for phvalheim-server >=v2.47 complete"
 
 ## END UPDATE ##
