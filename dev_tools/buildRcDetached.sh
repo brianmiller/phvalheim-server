@@ -815,7 +815,11 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   oa=$(ls /opt/stateless/engine/tools/playerMonitor /opt/stateless/engine/tools/updateChecker.py /opt/stateless/engine/tools/updateApplier 2>/dev/null | grep -c .)
   ob=$(find /opt/stateless/engine/tools -name "playerMonitor" -perm -u+x | grep -c .)
   oc=$(find /opt/stateless/engine/tools -name "updateApplier" -perm -u+x | grep -c .)
-  od=$(ls /opt/stateless/cron.d/ 2>/dev/null | grep -c "playerMonitor\|updateChecker\|updateApplier")
+  # /etc/cron.d, NOT /opt/stateless/cron.d -- the Dockerfile COPYs container/cron.d/* to
+  # /etc/cron.d/ and there is no cron.d under /opt/stateless at all. The first version of this
+  # check looked in the stateless tree, found nothing, and reported the three cron entries
+  # missing from an image that had all three.
+  od=$(ls /etc/cron.d/ 2>/dev/null | grep -c "playerMonitor\|updateChecker\|updateApplier")
   # steamcmd needs an explicit HOME. It runs as the phvalheim user, whose inherited home is
   # not writable, and without this it dies before printing anything -- which rendered as a
   # green up to date over a world thousands of builds behind.
