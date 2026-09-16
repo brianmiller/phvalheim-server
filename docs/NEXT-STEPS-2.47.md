@@ -10,8 +10,8 @@ Written 2026-09-16 as a handoff. Read this first after a context compaction.
 - Image `theoriginalbrian/phvalheim-server:rc`
 - Digest `sha256:e4d6ee2104315d8258284c4ffafc4a9a83bfc855b34194473068a4bf203156e5`
 - Version in Dockerfile: `2.47`
-- Tests: 37 passing — `test-playerMonitor.sh` (9), `test-updateApplier.sh` (16),
-  `test-updateChecker.py` (12)
+- Tests: 62 passing — `test-playerMonitor.sh` (9), `test-updateApplier.sh` (16),
+  `test-updateChecker.py` (19), `test-record-installed.py` (18)
 
 Issue #87 has been answered on GitHub (comment 5689792285) and left **open** deliberately,
 pending real-world testing.
@@ -46,50 +46,78 @@ pending real-world testing.
 - The `update_phase` bars are striped/animated rather than percentage-based on purpose:
   neither steamcmd nor the mod install reports progress, so a number would be invented.
 
-## Known-imperfect, deliberately left
+## Installed mod versions — DONE in 2.47 (was the 2.48 plan)
 
-**`worlds.modsViewer` is a UI display cache, and update detection currently reads it.** Its
-`version` comes from `effective_version()` — the live catalogue — so it is only correct
-because both `generateModViewerJson` call sites sit immediately after a mod install. That is
-a coincidence of call sites, not a property of the data: anything that calls
-`worldMods.py --viewer-json` later silently rewrites every "installed" version to "latest",
-and every world then reports up to date forever.
-
-Today's behaviour is *honest* (it says "waiting for data") but imprecise, and it resolves as
-worlds get rebuilt. 28 of 35 production worlds currently have a pre-2.43 snapshot with no
-versions at all; 26 of 35 have never been checked.
-
-### Planned for 2.48
+Folded in rather than deferred. `updateChecker` no longer reads `worlds.modsViewer` at all.
 
 ```sql
-world_mods.installed_version_id  INT UNSIGNED NULL   -- FK mod_versions.id
+world_mods.installed_version_id  INT UNSIGNED NULL   -- mod_versions.id
 world_mods.installed_at          DATETIME NULL
 ```
 
-Written by exactly one thing — the installer, after a mod is on disk. Read by
-`updateChecker`. `modsViewer` goes back to being a cache nobody's correctness depends on.
-Better because it records a fact rather than a derivation (`mod_versions.id` is immutable, so
-a catalogue resync cannot rewrite history), it is per-mod rather than one blob that blinds a
-whole world, and NULL genuinely means "never recorded".
+Written by exactly one thing: `worldMods.py --record-installed`, called from
+`downloadAndInstallTsModsForWorld()` with the ids of the mods that actually landed. `--plan`
+gained a ninth column (`mod_id`, **appended** so the four scripts that awk fields 1-5 are
+untouched) to carry those ids out to the bash loop.
 
-**Deliberately NOT done in 2.47**: it touches the mod install path, where a mistake leaves
-worlds unbootable, and 2.47 already carries ~24 new columns and four rounds of fixes on an
-RC that has not been through a full update cycle.
+`mod_versions.id` rather than a version string, because the id is immutable — a catalogue
+resync cannot rewrite history underneath us.
 
-### Offered but not built (Brian has not said yes)
+**The two columns carry three states, and all three are load-bearing:**
 
-- A **guard** so the latent `--viewer-json` bug cannot bite before 2.48 — either make
-  `--viewer-json` refuse to run outside an install, or have the checker ignore a `modsViewer`
-  written after `date_updated`.
-- A per-world **"Rebuild mods"** button next to the "waiting for data" message, so the 28
-  legacy worlds can be fixed one at a time when convenient rather than as a batch job.
+| `installed_at` | `installed_version_id` | meaning |
+| --- | --- | --- |
+| NULL | NULL | never recorded → **unknown** |
+| set | NULL | known **not** installed (a duplicate plugin `by_plugin()` collapsed away) |
+| set | set | comparable |
+
+Collapsing the middle case into the first is the trap on the other side: after a clean
+rebuild, a world with one collapsed duplicate would sit on "waiting for data" forever. Every
+modded world has at least one such row. Both directions are pinned by tests.
+
+A mod whose install **failed** is left completely untouched — its previous copy is still in
+`BepInEx/plugins`, so its previous recorded version is still true. Clearing it would report
+"unknown" for a mod we can see.
+
+The guard that was offered for the latent `--viewer-json` bug is no longer needed: nothing
+that makes a decision reads `modsViewer` any more. Its docstring now says so.
+
+Also built: the per-world **Rebuild Mods** button, in the Updates tab beside the "waiting for
+data" message. It posts `worldAction&cmd=update`, the same path as saving a mod-list edit.
+Deliberately per-world and manual — a rebuild stops the world, and a world whose mod list no
+longer resolves is left stopped by design, so doing this to 28 worlds unattended could take a
+server down overnight.
+
+Also fixed while in there: the Updates tab was drawing **two Mods rows** — a leftover
+unconditional block after the never-checked gate — so a never-checked world showed a muted
+"waiting for data" and a green "up to date" one line apart.
+
+### Verified against a real database
+
+Not just the unit tests. On `phvalheim-dev`, with a synthetic 36-mod dependency closure built
+from the live catalogue (since removed):
+
+- migration adds both columns and is a no-op on re-run
+- `--plan` emits 9 fields with `mod_id` last, across all 36 rows
+- a simulated failed install records 35 of 36 and leaves the failed row NULL/NULL
+- rewinding Jotunn to 2.0.1 → `1 mod(s): Jotunn 2.0.1 -> 2.30.0`
+- pinning that same mod → back to 0, no error
+- one unrecorded mod → "waiting for data" text, and a confirmed update alongside it still
+  reports **both**
+- `installed_at` set with a NULL version → correctly **not** treated as a gap
 
 ## Backfill options for the 28 legacy worlds
 
+**The migration writes nothing, deliberately.** Nothing on the box knows which version of a
+plugin is sitting in a world's `BepInEx/plugins` — the extracted folders carry no
+`manifest.json` — so any backfilled value would be a guess wearing the costume of a fact.
+NULL is the true answer and the UI says "waiting for data".
+
 1. **Do nothing** (recommended). Self-heals as worlds are rebuilt.
-2. **Rebuild them deliberately** — works, but each stops/reinstalls/restarts, and a world
+2. **Rebuild Mods, per world, when convenient** — now a button in the Updates tab.
+3. **Rebuild them all deliberately** — works, but each stops/reinstalls/restarts, and a world
    with a mod that no longer resolves is left stopped by design. Maintenance-window job.
-3. **Infer versions from the zip cache** — rejected. The cache is shared and holds multiple
+4. **Infer versions from the zip cache** — rejected. The cache is shared and holds multiple
    versions of the same mod, and issue #50 says it has no integrity check, so it would mean
    building authoritative-looking numbers on a store we do not trust.
 

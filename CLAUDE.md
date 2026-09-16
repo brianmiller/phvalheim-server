@@ -148,8 +148,24 @@ Each row carries a `content_hash` so only genuinely changed rows are written. A 
 build of both catalogues is ~30s; a routine no-change tick is ~2s. Neither catalogue needs
 an API key — both are public.
 
-**A world's mods:** `engine/tools/worldMods.py --resolve | --plan | --viewer-json`.
-`--plan` emits the install plan the engine loops over. Dependency resolution follows the
+**A world's mods:** `engine/tools/worldMods.py --resolve | --plan | --viewer-json | --record-installed`.
+`--plan` emits the install plan the engine loops over; its last column is `mod_id`, appended
+so the four scripts that awk fields 1-5 keep working.
+
+**`worlds.modsViewer` is a DISPLAY CACHE and nothing may make a decision from it.** Every
+version in it comes from `effective_version()` — the live catalogue — so it says what a world
+*would* get, not what it has. Update detection originally read it, which compared the
+catalogue against itself and could only ever answer "up to date"; it looked correct purely
+because both of its call sites sit immediately after an install.
+
+What a world actually has on disk is `world_mods.installed_version_id` + `installed_at`,
+written by `--record-installed` from `downloadAndInstallTsModsForWorld()` and by nothing else.
+The two columns encode **three** states and all three are load-bearing: `installed_at` NULL
+means *never recorded* (unknown); `installed_at` set with a NULL version means *known not
+installed* (a duplicate plugin `by_plugin()` collapsed away); both set means comparable.
+Collapsing either pair puts back a false "up to date" or a permanent "waiting for data".
+A mod whose install FAILED is left untouched — its previous copy is still on disk, so its
+previous recorded version is still true. Dependency resolution follows the
 version that will *actually* be installed (the pin, if pinned), and dependency strings are
 matched by **longest known `owner-name` prefix** — not by splitting on `-`, since owners
 (`LVH-IT`, `sinai-dev`) and versions (`2.0.6-beta.1`) both contain hyphens.

@@ -2418,7 +2418,7 @@ $totalCount = count($worlds);
         return `<div style="margin-top:0.25rem;">${bars}</div>`;
     }
 
-    function renderUpdateStatus(s, mods) {
+    function renderUpdateStatus(s, mods, worldName) {
         const el = document.getElementById('au-status');
         if (!el) return;
 
@@ -2463,9 +2463,26 @@ $totalCount = count($worlds);
         // So the never-checked case is handled FIRST, before either row is drawn.
         const neverChecked = !s.update_checked_at;
 
-        const waiting = (label, detail) => [label,
+        const waiting = (label, detail, action) => [label,
             `<span style="color:var(--text-muted)">waiting for data</span>`
-            + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${detail}</div>`];
+            + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${detail}</div>`
+            + (action || '')];
+
+        // Offered only where it is the actual remedy. A world whose mods have no recorded
+        // versions cannot be fixed by checking again -- there is nothing on disk to read the
+        // versions from -- so pointing at Check Now would send the operator round in a
+        // circle. Rebuilding the mods is what writes the record.
+        //
+        // No world name in the onclick attribute. escapeHtmlBasic turns an apostrophe into
+        // &#39;, the HTML parser turns it back into ' before JS ever sees the attribute, and
+        // the string literal it was supposed to be quoting ends early -- so a world called
+        // Bjorn's Hall would render a button that throws instead of one that works. The
+        // handler is bound below against the name from this closure instead.
+        const rebuildAction = worldName
+            ? `<div style="margin-top:0.35rem;"><button type="button" class="btn btn-sm btn-secondary"
+                   data-rebuild-mods="1"
+                   style="font-size:0.72rem;padding:0.15rem 0.5rem;">Rebuild Mods</button></div>`
+            : '';
 
         if (neverChecked) {
             rows.push(waiting('Valheim server',
@@ -2489,7 +2506,13 @@ $totalCount = count($worlds);
                 // Deliberately NOT styled as an error. Nothing is broken -- the versions
                 // simply were not recorded when this world was last built, and they will be
                 // the next time its mods are. It is a pending state, so it reads as one.
-                rows.push(waiting('Mods', escapeHtmlBasic(s.update_mods_error)));
+                // The count is still worth showing when it is nonzero: a mod we CAN see is
+                // out of date is out of date, and the note explains what is missing beside
+                // it rather than suppressing the part we do know.
+                const seen = modCount > 0
+                    ? `<div style="color:var(--warning);font-size:0.78rem;margin-top:0.15rem;">${modCount} of the mods we can compare can be updated.</div>`
+                    : '';
+                rows.push(waiting('Mods', escapeHtmlBasic(s.update_mods_error) + seen, rebuildAction));
             } else {
                 rows.push(['Mods', modCount > 0
                     ? `<span style="color:var(--warning)">${modCount} can be updated</span>`
@@ -2501,20 +2524,12 @@ $totalCount = count($worlds);
             rows.push(['Last checked', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_checked_at)}</span>`]);
         }
 
-        // Same rule as the build row: not knowing is not the same as being current.
-        // A world whose mod record predates version tracking has nothing to compare, and
-        // rendering that as green "up to date" is how 28 of 35 worlds on a real server
-        // reported clean mods while nobody had checked anything.
-        const modCount = parseInt(s.update_available_mods, 10) || 0;
-        if (s.update_mods_error) {
-            rows.push(['Mods',
-                `<span style="color:var(--danger)">could not check</span>`
-                + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${escapeHtmlBasic(s.update_mods_error)}</div>`]);
-        } else {
-            rows.push(['Mods', modCount > 0
-                ? `<span style="color:var(--warning)">${modCount} can be updated</span>`
-                : '<span style="color:var(--success)">up to date</span>']);
-        }
+        // There was a SECOND, unconditional Mods row here -- a leftover from before the
+        // never-checked gate above was added. It re-rendered the same value in red "could
+        // not check" styling, and on a never-checked world it printed a green "up to date"
+        // directly underneath the muted "waiting for data" one. Two contradictory answers to
+        // the same question, in the same panel, one of them the exact claim 2.47 exists to
+        // stop making. Removed; the gated block above is the only place that draws it.
 
         // Pinned mods get their own line, always -- including when the count above is zero.
         // "3 mods can be updated" otherwise reads as "all my mods", and an operator who
@@ -2557,6 +2572,11 @@ $totalCount = count($worlds);
                 <div style="min-width:11rem;color:var(--text-secondary);">${k}</div>
                 <div>${v}</div>
              </div>`).join('');
+
+        // Bound after the markup exists, and re-bound on every render because innerHTML
+        // above discards the previous button along with its listener.
+        const rebuildBtn = el.querySelector('[data-rebuild-mods]');
+        if (rebuildBtn) rebuildBtn.onclick = () => rebuildWorldMods(worldName);
     }
 
     async function loadWorldUpdateSettings(worldName) {
@@ -2567,7 +2587,7 @@ $totalCount = count($worlds);
             if (!d.success) return;
 
             const s = d.settings;
-            renderUpdateStatus(s, d.mods);
+            renderUpdateStatus(s, d.mods, worldName);
 
             const useGlobal = parseInt(s.autoupdate_use_global, 10) === 1;
             document.getElementById('au-useGlobal').checked = useGlobal;
@@ -2673,6 +2693,47 @@ $totalCount = count($worlds);
             status.innerHTML = '<span style="color:var(--danger)">Could not start the check.</span>';
             setTimeout(() => { status.innerHTML = ''; }, 5000);
         }
+    }
+
+    // Reinstall a world's mods so PhValheim records which version of each one it put down.
+    //
+    // This is the remedy for the 28-of-35 case: worlds built before per-mod version
+    // tracking have nothing on disk to read a version from, so no amount of checking will
+    // ever answer the question. Reinstalling is what writes the record.
+    //
+    // Deliberately per-world and manual rather than a batch job at upgrade time. A rebuild
+    // stops the world, and a world whose mod list contains something the catalogue can no
+    // longer resolve is left stopped on purpose -- so doing this to 28 worlds unattended
+    // could take a server down overnight. One world, when the operator chooses, is the
+    // safe shape. Worlds also fix themselves the next time their mods change anyway.
+    function rebuildWorldMods(worldName) {
+        if (!confirm(`Rebuild the mods for "${worldName}"?\n\nThe world will be stopped, its mods reinstalled, and then restarted. This is the same thing that happens when you edit its mod list. Anyone playing will be disconnected.`)) return;
+
+        const status = document.getElementById('updateActionStatus');
+        if (status) {
+            status.textContent = 'Mod rebuild started…';
+            status.style.color = 'var(--warning)';
+        }
+
+        fetch(`adminAPI.php?action=worldAction&cmd=update&world=${encodeURIComponent(worldName)}`)
+            .then(r => r.json()).then(d => {
+                if (!d.success) {
+                    if (status) {
+                        status.textContent = 'Could not start the rebuild.';
+                        status.style.color = 'var(--danger)';
+                    }
+                    return;
+                }
+                // The engine picks the world up on its next 2s tick and the install takes a
+                // while, so re-read rather than leave a message that never changes.
+                setTimeout(() => loadWorldUpdateSettings(worldName), 5000);
+                setTimeout(() => loadWorldUpdateSettings(worldName), 30000);
+            }).catch(() => {
+                if (status) {
+                    status.textContent = 'Could not start the rebuild.';
+                    status.style.color = 'var(--danger)';
+                }
+            });
     }
 
     function confirmUpdateNow(worldName) {

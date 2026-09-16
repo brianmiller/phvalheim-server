@@ -13,7 +13,6 @@ actually got wrong first time:
 Run: dev_tools/test-updateChecker.py
 """
 
-import json
 import os
 import sys
 
@@ -153,42 +152,80 @@ check("steamcmd is given an explicit HOME", True,
 check("that HOME is the steam home, not the inherited one", uc.STEAM_HOME,
       (captured.get("env") or {}).get("HOME"))
 
-# --- a mod snapshot with no versions is UNKNOWN, not "up to date" ---------------------
+# --- an unrecorded mod is UNKNOWN, not "up to date" ------------------------------------
 #
 # Regression guard for the second instance of the same bug as the buildid one: missing data
-# rendered as the reassuring answer. worlds.modsViewer only carries per-mod versions from
-# 2.43; older entries are {name,url,uuid}. The first version of mod_updates() skipped those
-# with `if not have: continue`, so every one of them produced a count of 0 and a green "up
-# to date". Measured on a real server: 28 of 35 worlds.
+# rendered as the reassuring answer.
+#
+# mod_updates() now reads world_mods.installed_version_id -- a fact the installer writes --
+# instead of worlds.modsViewer. The rows it gets back are
+#     [name, pin_version_id, installed_version_id, installed_version, latest_version, recorded]
+# where `recorded` is '1' when installed_at is set. Those two columns carry three states and
+# the tests below pin all three, because collapsing any pair of them reintroduces the bug in
+# one direction or the other.
 
-LEGACY = json.dumps([{"name": "EpicLoot", "url": "x", "uuid": "1"},
-                     {"name": "Jotunn", "url": "y", "uuid": "2"}])
-MODERN = json.dumps([{"name": "EpicLoot", "owner": "RandyKnapp", "source": "thunderstore",
-                      "version": "0.9.0", "pinned": False}])
+queries = []
 
 
-def with_fake_db(viewer, catalogue, fn):
+def with_fake_db(picks, fn, world_id="7"):
     real_one, real_rows = uc.one, uc.rows
-    uc.one = lambda qy: viewer
-    uc.rows = lambda qy: catalogue
+    queries.clear()
+    uc.one = lambda qy: (queries.append(qy), world_id)[1]
+    uc.rows = lambda qy: (queries.append(qy), picks)[1]
     try:
         return fn()
     finally:
         uc.one, uc.rows = real_one, real_rows
 
 
-cat = [["thunderstore", "RandyKnapp", "EpicLoot", "0.9.9"]]
+# Rows a world would produce in each state.
+UNRECORDED = ["EpicLoot", "", "", "", "0.9.9", "0"]
+STALE = ["EpicLoot", "", "51", "0.9.0", "0.9.9", "1"]
+CURRENT = ["Jotunn", "", "62", "2.7.9", "2.7.9", "1"]
+COLLAPSED = ["BepInExPack_Valheim", "", "", "", "5.4.22", "1"]
+PINNED = ["Jotunn", "44", "44", "2.7.0", "2.7.9", "1"]
 
-count, stale, err = with_fake_db(LEGACY, cat, lambda: uc.mod_updates("w"))
-check("legacy snapshot reports an error, not a clean bill", True, bool(err))
-check("legacy snapshot does not claim updates either", 0, count)
+count, stale, err = with_fake_db([UNRECORDED, UNRECORDED], lambda: uc.mod_updates("w"))
+check("an unrecorded mod reports an error, not a clean bill", True, bool(err))
+check("an unrecorded mod does not claim updates either", 0, count)
 
-count, stale, err = with_fake_db(MODERN, cat, lambda: uc.mod_updates("w"))
-check("modern snapshot detects the newer version", 1, count)
-check("modern snapshot reports no error", "", err)
+count, stale, err = with_fake_db([STALE], lambda: uc.mod_updates("w"))
+check("a recorded older version is detected", 1, count)
+check("a recorded older version reports no error", "", err)
 
-count, stale, err = with_fake_db("", cat, lambda: uc.mod_updates("w"))
+count, stale, err = with_fake_db([CURRENT], lambda: uc.mod_updates("w"))
+check("a recorded current version is a clean zero", (0, ""), (count, err))
+
+count, stale, err = with_fake_db([], lambda: uc.mod_updates("w"))
 check("no mods at all is an honest zero, not an error", (0, ""), (count, err))
+
+# The other direction of the same mistake, and the one a careful fix walks straight into.
+# record_installed() writes installed_at WITHOUT a version id for a duplicate plugin that
+# by_plugin() collapsed away. If that is read as "unrecorded", a freshly rebuilt world sits
+# at "waiting for data" forever -- can't-tell-the-difference again, just pointing the other
+# way. Every modded world has at least one of these (the BepInEx loader row).
+count, stale, err = with_fake_db([CURRENT, COLLAPSED], lambda: uc.mod_updates("w"))
+check("a known-not-installed mod is not a gap in our knowledge", (0, ""), (count, err))
+
+# A pin is a decision, not missing data. It must not drag the world into "unknown", and it
+# must not be counted as updatable however far behind the catalogue has moved.
+count, stale, err = with_fake_db([PINNED], lambda: uc.mod_updates("w"))
+check("a pinned mod is neither stale nor unknown", (0, ""), (count, err))
+
+# Partial knowledge still reports the part it knows. Suppressing the count because some
+# other mod is unrecorded would hide a real, confirmed update behind an unrelated gap.
+count, stale, err = with_fake_db([STALE, UNRECORDED], lambda: uc.mod_updates("w"))
+check("a confirmed update is still reported alongside a gap", 1, count)
+check("...and the gap is still reported too", True, bool(err))
+
+# The whole point of moving off modsViewer: its versions come from the live catalogue, so
+# comparing it against the catalogue compares a number with itself and can only ever say
+# "up to date". Nothing in this path may read it.
+with_fake_db([STALE], lambda: uc.mod_updates("w"))
+check("mod_updates never reads the display cache", False,
+      any("modsViewer" in qy for qy in queries))
+check("mod_updates reads the installed-version record instead", True,
+      any("installed_version_id" in qy for qy in queries))
 
 print(f"\n  {pass_count} passed, {fail_count} failed")
 sys.exit(1 if fail_count else 0)

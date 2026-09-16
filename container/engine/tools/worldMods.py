@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """A world's mod set: dependency closure, install plan, and the admin viewer payload.
 
-  worldMods.py --world NAME --resolve       expand dependencies into world_mods
-  worldMods.py --world NAME --plan          TSV install plan for the engine
-  worldMods.py --world NAME --viewer-json   refresh worlds.modsViewer
+  worldMods.py --world NAME --resolve              expand dependencies into world_mods
+  worldMods.py --world NAME --plan                 TSV install plan for the engine
+  worldMods.py --world NAME --viewer-json          refresh worlds.modsViewer (DISPLAY ONLY)
+  worldMods.py --world NAME --record-installed IDS record what is on disk (INSTALLER ONLY)
 
 Replaces tsModDepGetter.sh and generateModViewerJson().
 
@@ -294,12 +295,17 @@ def install_rows(wid, warn=None):
 
 
 def plan(name):
-    """TSV the installer loops over: source, owner, name, version, url, filename, pinned.
+    """TSV the installer loops over: source, owner, name, version, url, filename, pinned,
+    is_dep, mod_id.
 
     Emitting a filename here keeps the engine from reconstructing one: the local cache is
     shared across worlds and sources, so the name has to include the source to stop
     Hexium's and Thunderstore's copies of the same owner/name/version colliding on a
     single cached zip.
+
+    mod_id is APPENDED rather than inserted, so the four scripts that read fields 1-5 with
+    awk keep working untouched. The installer needs it to report back which mods actually
+    landed -- see record_installed().
     """
     wid = world_id(name)
     warn = lambda m: print(f"[worldmods] '{name}': {m}", file=sys.stderr)
@@ -311,12 +317,70 @@ def plan(name):
             continue
         fname = f"{r['source']}-{r['owner']}-{r['name']}-{r['version']}.zip"
         out.append("\t".join([r["source"], r["owner"], r["name"], r["version"], r["url"],
-                              fname, "pinned" if r["pinned"] else "latest", r["is_dep"]]))
+                              fname, "pinned" if r["pinned"] else "latest", r["is_dep"],
+                              str(r["mod_id"])]))
     print("\n".join(out))
 
 
+def record_installed(name, installed_ids):
+    """Record which version of each mod is now ON DISK for this world.
+
+    The ONLY writer of world_mods.installed_version_id, and it is called from exactly one
+    place: downloadAndInstallTsModsForWorld(), after the unzips, with the ids of the mods
+    that actually landed. That restriction is the entire point. The previous design read
+    worlds.modsViewer, whose versions come from the live catalogue, so it silently answered
+    "whatever is newest today" instead of "whatever we installed" the moment anything
+    refreshed it outside an install.
+
+    Three outcomes, and the difference between them matters:
+
+      installed  -- the mod's files were just written. Record the version we installed.
+      failed     -- the download or the unzip failed. LEAVE THE ROW ALONE: the previous
+                    copy is still sitting in BepInEx/plugins, so the old value is still
+                    the truth. Clearing it would report "unknown" for a mod we can see.
+      not in plan -- a duplicate plugin that by_plugin() collapsed away, or a loader row.
+                    Nothing of it is installed under its own id, so it must claim nothing.
+
+    The two columns carry three states between them, and the checker needs all three:
+
+      installed_at NULL                        never recorded -- we do NOT know
+      installed_at set, installed_version_id NULL   looked at, deliberately not installed
+      installed_at set, installed_version_id set    this exact version is on disk
+
+    Collapsing the middle case into the first is the trap: after a clean rebuild a world
+    with one collapsed duplicate would sit at "unknown" forever, which is the same
+    can't-tell-the-difference failure as the one this replaced, just pointing the other way.
+    """
+    wid = world_id(name)
+    rows_now = install_rows(wid)
+    wanted = {r["mod_id"] for r in rows_now}
+    landed = {i for i in installed_ids if i in wanted}
+
+    for r in rows_now:
+        if r["mod_id"] not in landed:
+            continue
+        sql(f"UPDATE world_mods SET installed_version_id={r['version_id'] or 'NULL'}, "
+            f"installed_at=NOW() "
+            f"WHERE world_id={wid} AND mod_id={int(r['mod_id'])};")
+
+    # Not in the plan: record that we KNOW it is not installed, rather than leaving it
+    # indistinguishable from a mod nobody has ever looked at.
+    not_planned = f"AND mod_id NOT IN ({','.join(str(int(m)) for m in wanted)})" if wanted else ""
+    sql(f"UPDATE world_mods SET installed_version_id=NULL, installed_at=NOW() "
+        f"WHERE world_id={wid} {not_planned};")
+
+    print(f"[worldmods] '{name}': recorded installed versions for {len(landed)} of "
+          f"{len(wanted)} planned mod(s)")
+
+
 def viewer_json(name):
-    """worlds.modsViewer -- what the admin UI's mod dropdown reads."""
+    """worlds.modsViewer -- what the admin UI's mod dropdown reads, and NOTHING else.
+
+    This is a DISPLAY CACHE. Its versions come from effective_version(), i.e. the live
+    catalogue, so an entry says what the world WOULD get, not what it has. Nothing that
+    decides whether an update is available may read it -- that is what
+    world_mods.installed_version_id is for. See record_installed().
+    """
     wid = world_id(name)
     items = []
     # install_rows(), not world_mods directly: the viewer must show the mods a world
@@ -344,6 +408,9 @@ def main():
     ap.add_argument("--resolve", action="store_true")
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--viewer-json", action="store_true")
+    ap.add_argument("--record-installed", metavar="MOD_IDS",
+                    help="comma-separated mod ids that were just installed on disk; "
+                         "call this ONLY from the installer")
     ap.add_argument("--quiet", action="store_true")
     a = ap.parse_args()
     if a.resolve:
@@ -352,8 +419,18 @@ def main():
         plan(a.world)
     if a.viewer_json:
         viewer_json(a.world)
-    if not (a.resolve or a.plan or a.viewer_json):
-        ap.error("pick one of --resolve / --plan / --viewer-json")
+    if a.record_installed is not None:
+        # An EMPTY string is meaningful and must not be confused with the flag being
+        # absent: "the installer ran and nothing landed" is a real outcome, and it still
+        # has to clear the rows for mods that are no longer installed.
+        ids = []
+        for tok in a.record_installed.split(","):
+            tok = tok.strip()
+            if tok.isdigit():
+                ids.append(tok)
+        record_installed(a.world, ids)
+    if not (a.resolve or a.plan or a.viewer_json or a.record_installed is not None):
+        ap.error("pick one of --resolve / --plan / --viewer-json / --record-installed")
     return 0
 
 

@@ -170,6 +170,34 @@ addColumn worlds update_check_state "VARCHAR(16) DEFAULT NULL"
 addColumn worlds update_mods_error "TEXT DEFAULT NULL"
 
 
+# --- what is actually installed, per mod ---------------------------------------------------
+#
+# Update detection first hung off worlds.modsViewer, which was the wrong place. modsViewer is
+# a DISPLAY CACHE for the admin UI's mod dropdown, and every version in it comes from
+# effective_version() -- the LIVE catalogue -- not from anything on disk. It was only ever
+# correct because both of its call sites happen to sit immediately after a mod install. That
+# is a coincidence of call sites, not a property of the data: anything calling
+# `worldMods.py --viewer-json` at some other moment silently rewrites every "installed"
+# version to whatever is newest today, and from then on every world reports up to date
+# forever, with no way to tell.
+#
+# So record the fact instead of deriving it. installed_version_id is written by exactly one
+# thing -- the installer, after the mod's files are on disk -- and read by updateChecker.
+#
+# mod_versions.id rather than a version string: the id is immutable, so a catalogue resync
+# cannot rewrite history underneath us. Per-mod rather than one blob per world, so one
+# unrecorded mod no longer blinds the whole world. And NULL genuinely means "never recorded",
+# which is the distinction the whole 2.47 "unknown is not up to date" work turns on.
+addColumn world_mods installed_version_id "INT UNSIGNED DEFAULT NULL"
+addColumn world_mods installed_at "DATETIME DEFAULT NULL"
+
+# No backfill, deliberately. There is nothing on the box that knows which version of a plugin
+# is sitting in a world's BepInEx/plugins -- the extracted folders carry no manifest.json --
+# so any value written here would be a guess wearing the costume of a fact. NULL is the true
+# answer, the UI says "waiting for data" rather than "up to date", and a world's next mod
+# rebuild records the real versions.
+
+
 echo "`date` [NOTICE : phvalheim] Database schema update for phvalheim-server >=v2.47 complete"
 
 ## END UPDATE ##

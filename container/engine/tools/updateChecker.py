@@ -13,11 +13,15 @@ world's own appmanifest_896660.acf. N worlds cost one steamcmd call, not N downl
 The alternative -- running `app_update` and seeing whether anything moved -- would
 download the whole game per world on every check.
 
-MODS: worlds.modsViewer is the record of what was last INSTALLED, because the engine
-refreshes it immediately after installing a world's mods, and each entry carries its
-version. Comparing that against the catalogue's current version tells us what has moved.
-A pinned mod is skipped outright: a pin means the operator chose that version, and
-auto-update must never quietly walk away from it.
+MODS: world_mods.installed_version_id is the record of what is on disk, written by the
+installer once the files are down. Comparing the version behind that id against the
+catalogue's current version tells us what has moved. A pinned mod is skipped outright: a
+pin means the operator chose that version, and auto-update must never quietly walk away
+from it.
+
+This deliberately does NOT read worlds.modsViewer, which is where it started. modsViewer is
+the admin UI's display cache and its versions come from the live catalogue, so comparing it
+against the catalogue compares a number with itself -- always equal, always "up to date".
 
 Usage:
     updateChecker.py              check every running world, honouring the interval
@@ -26,7 +30,6 @@ Usage:
 """
 
 import argparse
-import json
 import os
 import re
 import subprocess
@@ -182,72 +185,85 @@ def installed_buildid(world):
 # --------------------------------------------------------------------------- mods
 
 def mod_updates(world):
-    """How many UNPINNED mods have a newer version than the world last installed.
+    """How many UNPINNED mods have a newer version than the one this world has on disk.
 
     Returns (count, names, error). An `error` means the question could not be answered,
     which is NOT the same as zero and must never be rendered as "up to date".
 
-    worlds.modsViewer is the record of what was last installed. It only started carrying
-    per-mod versions in 2.43: a world not rebuilt since then has entries shaped
-    {name, url, uuid} with no version, no owner and no source. There is nothing to compare
-    against, and nothing else on the box knows either -- the installed plugin folders carry
-    no manifest.json. Measured on a real server, 28 of 35 worlds were in that state, and
-    every one of them was reporting "up to date".
+    Reads world_mods.installed_version_id, which the installer writes after a mod's files
+    are actually on disk (worldMods.py record_installed). It does NOT read
+    worlds.modsViewer: that is a display cache whose versions come from the live catalogue,
+    so comparing it against the catalogue compares a number with itself and answers "up to
+    date" unconditionally. It only looked right because its two call sites happen to sit
+    immediately after an install.
+
+    mod_versions.id is immutable, so a catalogue resync can move latest_version without
+    rewriting what we recorded -- which is the whole reason for storing the id rather than
+    a version string.
+
+    Three states per row, and all three are needed:
+      installed_at NULL                     -- never recorded. UNKNOWN.
+      installed_at set, version_id NULL     -- known not installed (a duplicate plugin that
+                                               by_plugin() collapsed away). Not a gap.
+      installed_at set, version_id set      -- comparable.
     """
-    raw = one(f"SELECT IFNULL(modsViewer,'') FROM worlds WHERE name={q(world)};")
-    if not raw:
-        # No snapshot at all. A vanilla world legitimately has no mods; a modded world that
-        # has never been packaged has nothing to compare either. Both are honestly zero.
+    wid = one(f"SELECT id FROM worlds WHERE name={q(world)} LIMIT 1;")
+    if not wid:
         return 0, [], ""
 
-    try:
-        installed = json.loads(raw)
-    except (ValueError, TypeError):
-        return 0, [], ("This world's mod record could not be read, so there is nothing to "
-                       "compare against the catalogue. Rebuilding its mods will write a "
-                       "fresh record.")
+    # LEFT JOIN on mod_versions: the row survives even if the recorded version has since
+    # been pruned from the catalogue. An INNER JOIN would drop it, and a dropped row is
+    # indistinguishable from a world with fewer mods -- silently back to a false zero.
+    picks = rows(
+        f"SELECT m.name, "
+        f"       IFNULL(wm.pin_version_id,''), "
+        f"       IFNULL(wm.installed_version_id,''), "
+        f"       IFNULL(iv.version,''), "
+        f"       IFNULL(m.latest_version,''), "
+        f"       IF(wm.installed_at IS NULL,'0','1') "
+        f"FROM world_mods wm "
+        f"JOIN mods m ON m.id = wm.mod_id "
+        f"LEFT JOIN mod_versions iv ON iv.id = wm.installed_version_id "
+        f"WHERE wm.world_id = {int(wid)};")
 
-    if not isinstance(installed, list) or not installed:
+    if not picks:
+        # A vanilla world legitimately has no mods. Honestly zero.
         return 0, [], ""
-
-    # Current catalogue version per (source, owner, name). Identity is the triple, never
-    # the source's uuid -- Hexium mirrors Thunderstore packages carrying their original
-    # uuid4, so 600 package UUIDs exist in both catalogues.
-    latest = {}
-    for source, owner, name, version in rows(
-            "SELECT source, owner, name, IFNULL(latest_version,'') FROM mods;"):
-        latest[(source, owner, name)] = version
 
     stale = []
+    unknown = 0
     comparable = 0
-    pinned = 0
 
-    for item in installed:
-        if not isinstance(item, dict):
+    for name, pin, inst_id, have, want, recorded in picks:
+        if pin:
+            # Pinned: the operator chose that version on purpose, and auto-update must
+            # never quietly walk away from it. Not a gap in our knowledge either.
             continue
-        if item.get("pinned"):
-            pinned += 1
+        if recorded != "1":
+            unknown += 1
             continue
-        have = (item.get("version") or "").strip()
-        if not have:
-            # Legacy entry with no version. Counted as NOT comparable rather than skipped
-            # silently -- skipping is what produced the false "up to date".
+        if not inst_id:
+            # Recorded, and recorded as not installed. Nothing to compare, nothing missing.
             continue
         comparable += 1
-        key = (item.get("source", ""), item.get("owner", ""), item.get("name", ""))
-        want = latest.get(key, "")
-        if want and want != have:
-            stale.append(f"{item.get('name')} {have} -> {want}")
+        if want and have and want != have:
+            stale.append(f"{name} {have} -> {want}")
 
-    # Entries exist, none of them pinned, and not one carried a version: the snapshot
-    # predates version tracking entirely.
-    if comparable == 0 and pinned == 0:
-        return 0, [], (
-            f"Mod versions have not been recorded for this world yet. Its {len(installed)} "
-            f"mods were installed before PhValheim started tracking which version of each "
-            f"one it put down, so there is nothing to compare against the catalogue. This "
-            f"resolves itself the next time the world's mods are rebuilt -- editing its mod "
-            f"list, or letting an update run, will record the versions.")
+    if unknown:
+        # Report the definite part of the answer even while some of it is missing: a mod we
+        # CAN see is out of date is still out of date. The error text exists so the UI can
+        # say "and N we cannot see" instead of implying the count is the whole story.
+        # NOT named `one` -- that is this module's single-value SQL helper, and shadowing it
+        # here made the very next call to it raise UnboundLocalError.
+        singular = unknown == 1
+        subject = "1 mod has" if singular else f"{unknown} mods have"
+        they, were, them = ("it", "was", "it") if singular else ("they", "were", "them")
+        return len(stale), stale, (
+            f"{subject} no recorded installed version on this world, so {they} cannot be "
+            f"compared against the catalogue. PhValheim records a version when it installs "
+            f"a mod; {they} {were} installed before it started doing that. Rebuilding the "
+            f"world's mods records {them} -- use Rebuild Mods, edit its mod list, or let "
+            f"an update run.")
 
     return len(stale), stale, ""
 

@@ -351,8 +351,17 @@ function downloadAndInstallTsModsForWorld() {
         #A literal tab, so read -r splits on tabs ONLY. Mod names and versions are safe
         #but owners are not guaranteed to be, and the default IFS would split any field
         #containing a space into the wrong column.
+        #Which mods actually made it onto disk this pass. Fed to --record-installed below so
+        #world_mods.installed_version_id records a FACT rather than a derivation -- see the
+        #comment block in dbUpdate_2.47.sh for why that distinction cost a release.
+        #
+        #A herestring, not a pipe, feeds the loop below, so this accumulates in THIS shell.
+        #`while ... done < <(...)` would work too; `... | while` would not, and the list
+        #would silently come out empty.
+        modsInstalledIds=""
+
         origIFS="$IFS"
-        while IFS=$'\t' read -r modSource modAuthor modName modVersion modDownloadUrl modFileConstructed modPinKind modIsDep; do
+        while IFS=$'\t' read -r modSource modAuthor modName modVersion modDownloadUrl modFileConstructed modPinKind modIsDep modId; do
 
                 [ -z "$modSource" ] && continue
 
@@ -439,6 +448,12 @@ function downloadAndInstallTsModsForWorld() {
                 if [ $unzipResult -gt 1 ] && [ $unzipResult -ne 11 ]; then
                         echo "`date` [ERROR : phvalheim]   #### PLUGIN INSTALL FAILED for $modName (unzip exit $unzipResult) -- it will be MISSING from '$worldName' ####"
                         modInstallFailures=$((modInstallFailures+1))
+                else
+                        #This version is now on disk. Recorded here rather than after the
+                        #whole loop because the loop's other exit -- the download failure
+                        #above -- `continue`s straight past this point, and a mod that was
+                        #never fetched must not be claimed as installed.
+                        modsInstalledIds="$modsInstalledIds$modId,"
                 fi
 
                 #Core
@@ -454,6 +469,17 @@ function downloadAndInstallTsModsForWorld() {
                 unzip -j -o $tsModsDir/$modFileConstructed patchers/* -d $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/$modName/ > /dev/null 2>&1
         done <<< "$modPlan"
         IFS="$origIFS"
+
+        #Record what is now on disk, before anything else can touch the world. Run even when
+        #nothing landed: an empty list still has work to do, because a mod removed from the
+        #world's list has to stop claiming to be installed.
+        #
+        #Runs even when modInstallFailures is nonzero, and that is deliberate -- the mods
+        #that DID install are still installed, and throwing their versions away because a
+        #sibling failed is exactly the "no record, so assume up to date" hole this closes.
+        /opt/stateless/engine/tools/worldMods.py --world "$worldName" \
+                --record-installed "${modsInstalledIds%,}" \
+                || echo "`date` [WARN : phvalheim] Could not record installed mod versions for '$worldName'; its Updates tab will read 'waiting for data' until the next rebuild."
 
         #echo
         echo "`date` [NOTICE : phvalheim] Mods download and installation sequence complete. Note: This does NOT indicate success."
