@@ -806,6 +806,70 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   ng=$(grep -hc "aiTruthy(.r, .status.)" /opt/stateless/nginx/www/includes/aicontext.php /opt/stateless/nginx/www/includes/aiactions.php /opt/stateless/nginx/www/includes/aidiagnose.php | paste -sd+ | bc)
   nh=$(grep -hc "aiTruthy(.p\[.row.\]" /opt/stateless/nginx/www/includes/aicontext.php /opt/stateless/nginx/www/includes/aiactions.php /opt/stateless/nginx/www/includes/aidiagnose.php | paste -sd+ | bc)
   ni=$(grep -c "aiWorldStateText(" /opt/stateless/nginx/www/includes/aicontext.php)
+  # 2.47 -- player counts, automatic updates, and installed-version tracking. This block was
+  # missing entirely until now: the first 2.47 release candidates verified only against 2.40
+  # to 2.46 markers, so nothing in the whole feature was ever checked inside the image.
+  #
+  # The three engine tools have to BE there and be executable. A missing cron tool is silent:
+  # the columns simply never move and every world reads waiting for data forever.
+  oa=$(ls /opt/stateless/engine/tools/playerMonitor /opt/stateless/engine/tools/updateChecker.py /opt/stateless/engine/tools/updateApplier 2>/dev/null | grep -c .)
+  ob=$(find /opt/stateless/engine/tools -name "playerMonitor" -perm -u+x | grep -c .)
+  oc=$(find /opt/stateless/engine/tools -name "updateApplier" -perm -u+x | grep -c .)
+  od=$(ls /opt/stateless/cron.d/ 2>/dev/null | grep -c "playerMonitor\|updateChecker\|updateApplier")
+  # steamcmd needs an explicit HOME. It runs as the phvalheim user, whose inherited home is
+  # not writable, and without this it dies before printing anything -- which rendered as a
+  # green up to date over a world thousands of builds behind.
+  oe=$(grep -c "STEAM_HOME" /opt/stateless/engine/tools/updateChecker.py)
+  # Player detection splits by crossplay. The non-crossplay heartbeat reads 0 while someone is
+  # connected to a crossplay world, so using it everywhere reports every crossplay world empty.
+  of=$(grep -c "now N player" /opt/stateless/engine/tools/playerMonitor)
+  # Closing socket is logged TWICE per departure, the copies differing only in the run of
+  # spaces after the timestamp. Squeezing before the dedupe is the whole fix.
+  og=$(grep -c "tr -s" /opt/stateless/engine/tools/playerMonitor)
+  echo "2.47 tools: present=$oa (want 3)  exec pm=$ob applier=$oc (want 1/1)  cron=$od (want 3)"
+  echo "2.47 checker steam home=$oe (want >0)  crossplay split=$of (want >0)  socket squeeze=$og (want >0)"
+  # Installed-version tracking. The NEGATIVE is the important one: updateChecker must not read
+  # worlds.modsViewer at all. That column is a display cache whose versions come from the live
+  # catalogue, so comparing it against the catalogue compares a number with itself and can only
+  # ever answer up to date. An image with both the new query and the old read would pass a
+  # positive-only check.
+  #
+  # Count a READ, not a mention: the docstring names modsViewer twice explaining why it is
+  # not read, and a bare word count would fail on the correct image. A SELECT is the thing
+  # that would actually reintroduce the bug.
+  oh=$(grep -c "installed_version_id" /opt/stateless/engine/tools/updateChecker.py)
+  oi=$(grep -c "SELECT.*modsViewer" /opt/stateless/engine/tools/updateChecker.py)
+  oj=$(grep -c "def record_installed" /opt/stateless/engine/tools/worldMods.py)
+  # Anchored on the trailing-comma strip, which only the real invocation has -- the word
+  # record-installed also appears in the comment four lines above it.
+  ok=$(grep -c "modsInstalledIds%," /opt/stateless/engine/includes/0-functions.sh)
+  ol=$(grep -c "installed_version_id" /opt/stateless/engine/dbUpdates/dbUpdate_2.47.sh)
+  om=$(grep -c "installed_at" /opt/stateless/engine/dbUpdates/dbUpdate_2.47.sh)
+  # The plan TSV must carry mod_id, or the installer has nothing to report back with.
+  on_=$(grep -c "str(r\[.mod_id.\])" /opt/stateless/engine/tools/worldMods.py)
+  oo=$(grep -c "modId" /opt/stateless/engine/includes/0-functions.sh)
+  echo "2.47 installed versions: checker reads=$oh (want >0)  checker reads modsViewer=$oi (want 0)"
+  echo "2.47 recorder: fn=$oj (want 1)  installer calls=$ok (want 1)  migration cols=$ol/$om (want >0 each)"
+  echo "2.47 plan carries mod_id: tsv=$on_ (want 1)  bash reads it=$oo (want >0)"
+  # The Updates tab. ONE Mods row, not two -- a leftover unconditional block drew a second one
+  # in red could-not-check styling, and on a never-checked world a green up to date sat one
+  # line under the muted waiting for data. Two contradictory answers to the same question.
+  op=$(grep -c "rows.push(\[.Mods." /opt/stateless/nginx/www/admin/index.php)
+  oq=$(grep -c "neverChecked" /opt/stateless/nginx/www/admin/index.php)
+  # Rebuild Mods is bound in JS, NOT interpolated into an onclick. escapeHtmlBasic turns an
+  # apostrophe into an entity, the parser turns it back before JS sees it, and a world named
+  # with one would render a button that throws. So: the data attribute must be there and
+  # rebuildWorldMods must never appear inside an onclick. 2 = the markup and the querySelector
+  # that binds to it; either one missing is a button that does nothing.
+  or_=$(grep -c "data-rebuild-mods" /opt/stateless/nginx/www/admin/index.php)
+  os=$(grep -c "function rebuildWorldMods" /opt/stateless/nginx/www/admin/index.php)
+  ot=$(grep -c "onclick=.rebuildWorldMods" /opt/stateless/nginx/www/admin/index.php)
+  # Progress phases and the Active Worlds pill.
+  ou=$(grep -c "UPDATE_PHASES" /opt/stateless/nginx/www/admin/index.php)
+  ov=$(grep -c "update_phase" /opt/stateless/engine/tools/updateApplier)
+  echo "2.47 updates tab: Mods rows=$op (want 1)  never-checked gate=$oq (want >0)"
+  echo "2.47 rebuild btn: attr=$or_ (want 2)  handler=$os (want 1)  inline onclick=$ot (want 0)"
+  echo "2.47 phases: ui=$ou (want >0)  applier writes=$ov (want >0)"
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -905,6 +969,13 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$mm" = "1" ] && [ "$mn" = "1" ] && [ "$mo" = "3" ] && [ "$mp" = "1" ] \
     && [ "$na" = "1" ] && [ "$nb" = "1" ] && [ "$nc" = "5" ] && [ "$nd" = "3" ] && [ "$ne" = "2" ] \
     && [ "$nf" = "0" ] && [ "$ng" = "0" ] && [ "$nh" = "0" ] && [ "$ni" = "3" ] \
+    && [ "$oa" = "3" ] && [ "$ob" = "1" ] && [ "$oc" = "1" ] && [ "$od" = "3" ] \
+    && [ "$oe" -gt 0 ] && [ "$of" -gt 0 ] && [ "$og" -gt 0 ] \
+    && [ "$oh" -gt 0 ] && [ "$oi" = "0" ] && [ "$oj" = "1" ] && [ "$ok" = "1" ] \
+    && [ "$ol" -gt 0 ] && [ "$om" -gt 0 ] && [ "$on_" = "1" ] && [ "$oo" -gt 0 ] \
+    && [ "$op" = "1" ] && [ "$oq" -gt 0 ] \
+    && [ "$or_" = "2" ] && [ "$os" = "1" ] && [ "$ot" = "0" ] \
+    && [ "$ou" -gt 0 ] && [ "$ov" -gt 0 ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
