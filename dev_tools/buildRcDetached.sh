@@ -339,13 +339,17 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # The install path must use the STORED download_url. The old template only ever worked for
   # Thunderstore -- Hexium serves from cdn.hexium.gg behind an opaque numeric path -- so the
   # stale template being GONE is the check that matters.
-  dk=$(grep -c "worldMods.py --world" /opt/stateless/engine/includes/0-functions.sh)
+  #
+  # Counted BY MODE, not as a bare count of the tool name. 2.43 cares that these three
+  # specific invocations exist; a bare count also moves whenever a later release adds a call
+  # site, which is what happened in 2.47 (--record-installed) -- and the wrong fix is to
+  # relax this number to absorb it, because then the 2.43 line no longer asserts anything
+  # about 2.43. The total call-site count lives in the 2.47 block instead.
+  dk=$(grep -cE "worldMods.py --world .+(--resolve|--plan|--viewer-json)" /opt/stateless/engine/includes/0-functions.sh)
   dl=$(grep -c "tsModDownloadUrl/\$modAuthor" /opt/stateless/engine/includes/0-functions.sh)
   dm=$(grep -c "requiredMods=" /opt/stateless/engine/includes/phvalheim-static.conf)
   dn=$(grep -c "requiredTsMods=" /opt/stateless/engine/includes/phvalheim-static.conf)
-  # 4 since 2.47: --resolve, --plan, --record-installed, --viewer-json. It was 3 until the
-  # installer started recording which version of each mod it put on disk.
-  echo "2.43 install path: worldMods calls=$dk (want 4)  stale url template=$dl (want 0)"
+  echo "2.43 install path: resolve/plan/viewer calls=$dk (want 3)  stale url template=$dl (want 0)"
   echo "2.43 required mods by owner/name=$dm (want 1)  stale uuid list=$dn (want 0)"
 
   # The picker and the panel. Pills for BOTH sources must be styled or the source marker is
@@ -849,6 +853,12 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # Anchored on the trailing-comma strip, which only the real invocation has -- the word
   # record-installed also appears in the comment four lines above it.
   ok=$(grep -c "modsInstalledIds%," /opt/stateless/engine/includes/0-functions.sh)
+  # 2.47 ADDED a fourth worldMods call site, so 2.47 is where the total is asserted. The 2.43
+  # block counts its own three by mode and is deliberately blind to this one. Splitting them
+  # means a dropped --record-installed fails HERE, naming the release that owns it, instead of
+  # showing up as a 2.43 line that is off by one for no stated reason.
+  ow=$(grep -c "worldMods.py --world" /opt/stateless/engine/includes/0-functions.sh)
+  ox=$(grep -cE "worldMods.py --world .+\\\\$" /opt/stateless/engine/includes/0-functions.sh)
   ol=$(grep -c "installed_version_id" /opt/stateless/engine/dbUpdates/dbUpdate_2.47.sh)
   om=$(grep -c "installed_at" /opt/stateless/engine/dbUpdates/dbUpdate_2.47.sh)
   # The plan TSV must carry mod_id, or the installer has nothing to report back with.
@@ -856,6 +866,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   oo=$(grep -c "modId" /opt/stateless/engine/includes/0-functions.sh)
   echo "2.47 installed versions: checker reads=$oh (want >0)  checker reads modsViewer=$oi (want 0)"
   echo "2.47 recorder: fn=$oj (want 1)  installer calls=$ok (want 1)  migration cols=$ol/$om (want >0 each)"
+  echo "2.47 worldMods call sites: total=$ow (want 4)  the new line-continued one=$ox (want 1)"
   echo "2.47 plan carries mod_id: tsv=$on_ (want 1)  bash reads it=$oo (want >0)"
   # The Updates tab. ONE Mods row, not two -- a leftover unconditional block drew a second one
   # in red could-not-check styling, and on a never-checked world a green up to date sat one
@@ -927,7 +938,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$de" = "1" ] && [ "$df" = "1" ] \
     && [ "$dg" = "1" ] && [ "$dh" = "0" ] \
     && [ "$di" -gt 0 ] && [ "$dj" -gt 0 ] \
-    && [ "$dk" = "4" ] && [ "$dl" = "0" ] && [ "$dm" = "1" ] && [ "$dn" = "0" ] \
+    && [ "$dk" = "3" ] && [ "$dl" = "0" ] && [ "$dm" = "1" ] && [ "$dn" = "0" ] \
     && [ "$do_" = "1" ] && [ "$dp" -gt 0 ] && [ "$dq" -gt 0 ] \
     && [ "$dr" -gt 0 ] && [ "$ds" -gt 0 ] && [ "$dt" -gt 0 ] && [ "$du" = "0" ] \
     && [ "$dv" -gt 0 ] && [ "$dw" -gt 0 ] && [ "$dx" -gt 0 ] && [ "$dy" = "1" ] \
@@ -979,6 +990,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$oe" -gt 0 ] && [ "$of" -gt 0 ] && [ "$og" -gt 0 ] \
     && [ "$oh" -gt 0 ] && [ "$oi" = "0" ] && [ "$oj" = "1" ] && [ "$ok" = "1" ] \
     && [ "$ol" -gt 0 ] && [ "$om" -gt 0 ] && [ "$on_" = "1" ] && [ "$oo" -gt 0 ] \
+    && [ "$ow" = "4" ] && [ "$ox" = "1" ] \
     && [ "$op" = "1" ] && [ "$oq" -gt 0 ] \
     && [ "$or_" = "2" ] && [ "$os" = "1" ] && [ "$ot" = "0" ] \
     && [ "$ou" -gt 0 ] && [ "$ov" -gt 0 ] \
