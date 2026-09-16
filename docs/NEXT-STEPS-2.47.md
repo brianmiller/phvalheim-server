@@ -2,26 +2,33 @@
 
 Written 2026-09-16 as a handoff. Read this first after a context compaction.
 
+`docs/RELEASING.md` points here for "what is still untested", so **keep the next two sections
+true** — a stale entry here becomes a release note that lies.
+
 ## Status
 
-**`:rc` only. NOT released.** No version tag, no `:latest`, no GitHub release.
+**Shipped as a PRE-RELEASE on 2026-09-16.** `:latest` still points at 2.46, deliberately.
 
-- Branch `master`, commit `4602580a`, pushed.
-- Image `theoriginalbrian/phvalheim-server:rc`
-- Digest `sha256:e4d6ee2104315d8258284c4ffafc4a9a83bfc855b34194473068a4bf203156e5`
+- Branch `master`, tag `v2.47`, pushed.
+- Image `theoriginalbrian/phvalheim-server` tags `:2.47` and `:rc`, both on
+  `sha256:c0a005ef468492410d0d5074732d1dbed401cdb2ebd3a2990ccba091b32af713`
+- `:latest` is `sha256:c16d8e7ac8ad07a31a2935cdadcfe07dbe1a9791beba65db2f151b70874ab079` (2.46)
 - Version in Dockerfile: `2.47`
 - Tests: 62 passing — `test-playerMonitor.sh` (9), `test-updateApplier.sh` (16),
   `test-updateChecker.py` (19), `test-record-installed.py` (18)
+- GitHub release <https://github.com/brianmiller/phvalheim-server/releases/tag/v2.47>,
+  marked pre-release.
 
 Issue #87 has been answered on GitHub (comment 5689792285) and left **open** deliberately,
 pending real-world testing.
 
-## What Brian has actually tested
+## What has actually been tested
 
 - Check Now — confirmed much faster and better
-- The three scroll fixes — not yet confirmed either way at time of writing
+- The three scroll fixes — not confirmed either way in a browser
 - **Update Now has NEVER been watched end to end on a live world.** This is the single
   biggest untested path and it is the one that stops a server.
+- **The scheduled path has never fired on its own.**
 
 ## Do this next, in order
 
@@ -31,11 +38,14 @@ pending real-world testing.
 2. **Turn auto-update on for exactly one world** and let the scheduled path fire on its own.
    `updateApplier` is the only thing in PhValheim that stops a server nobody asked it to
    stop; watch it do that once before trusting it broadly.
-3. **Confirm the scroll fixes** in a browser — they were reasoned from the code, not
+3. **Watch one mod rebuild**, via the new Rebuild Mods button or a mod-list edit. 2.47 added
+   `--record-installed` to the install path, and that path has only been exercised against a
+   synthetic mod set, never a real download-and-unzip.
+4. **Confirm the scroll fixes** in a browser — they were reasoned from the code, not
    exercised. The mod picker one is the least certain of the three.
-4. Only then: version tags. **Rebuild for `2.47` and `latest` — never `docker tag` a tested
-   `:rc`** (2.45 lesson; finishing the docs changes files inside the image). Then the GitHub
-   release, then close #87.
+5. Only then, promote: `EXTRA_TAGS="latest" setsid nohup dev_tools/buildRcDetached.sh &`,
+   `gh release edit v2.47 --prerelease=false --latest`, then close #87. **Never `docker tag` a
+   tested `:rc`** — see `docs/RELEASING.md`.
 
 ## Watch for
 
