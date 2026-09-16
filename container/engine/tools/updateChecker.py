@@ -184,49 +184,70 @@ def installed_buildid(world):
 def mod_updates(world):
     """How many UNPINNED mods have a newer version than the world last installed.
 
-    Returns (count, names). Pinned mods are excluded entirely -- not counted, not
-    reported, never updated. That is the whole contract of a pin.
+    Returns (count, names, error). An `error` means the question could not be answered,
+    which is NOT the same as zero and must never be rendered as "up to date".
+
+    worlds.modsViewer is the record of what was last installed. It only started carrying
+    per-mod versions in 2.43: a world not rebuilt since then has entries shaped
+    {name, url, uuid} with no version, no owner and no source. There is nothing to compare
+    against, and nothing else on the box knows either -- the installed plugin folders carry
+    no manifest.json. Measured on a real server, 28 of 35 worlds were in that state, and
+    every one of them was reporting "up to date".
     """
     raw = one(f"SELECT IFNULL(modsViewer,'') FROM worlds WHERE name={q(world)};")
     if not raw:
-        return 0, []
+        # No snapshot at all. A vanilla world legitimately has no mods; a modded world that
+        # has never been packaged has nothing to compare either. Both are honestly zero.
+        return 0, [], ""
 
     try:
         installed = json.loads(raw)
     except (ValueError, TypeError):
-        return 0, []
+        return 0, [], ("This world's mod record could not be read, so its mods could not "
+                       "be compared against the catalogue.")
 
-    if not isinstance(installed, list):
-        return 0, []
+    if not isinstance(installed, list) or not installed:
+        return 0, [], ""
 
     # Current catalogue version per (source, owner, name). Identity is the triple, never
     # the source's uuid -- Hexium mirrors Thunderstore packages carrying their original
     # uuid4, so 600 package UUIDs exist in both catalogues.
-    # latest_version, NOT version: `mods` denormalises the newest published version onto
-    # the row under that name, and there is no bare `version` column. Getting this wrong
-    # throws rather than returning a plausible zero, which is the good failure mode -- but
-    # only because it is a hard SQL error. A column that merely existed and meant something
-    # else would have reported "no mod updates" forever.
     latest = {}
     for source, owner, name, version in rows(
             "SELECT source, owner, name, IFNULL(latest_version,'') FROM mods;"):
         latest[(source, owner, name)] = version
 
     stale = []
+    comparable = 0
+    pinned = 0
+
     for item in installed:
         if not isinstance(item, dict):
             continue
         if item.get("pinned"):
+            pinned += 1
             continue
         have = (item.get("version") or "").strip()
         if not have:
+            # Legacy entry with no version. Counted as NOT comparable rather than skipped
+            # silently -- skipping is what produced the false "up to date".
             continue
+        comparable += 1
         key = (item.get("source", ""), item.get("owner", ""), item.get("name", ""))
         want = latest.get(key, "")
         if want and want != have:
             stale.append(f"{item.get('name')} {have} -> {want}")
 
-    return len(stale), stale
+    # Entries exist, none of them pinned, and not one carried a version: the snapshot
+    # predates version tracking entirely.
+    if comparable == 0 and pinned == 0:
+        return 0, [], (
+            f"This world's mod record was written before PhValheim tracked mod versions "
+            f"({len(installed)} mods, none with a version recorded), so it cannot be "
+            f"compared against the catalogue. Rebuilding the world's mods will establish "
+            f"versions and make this check work.")
+
+    return len(stale), stale, ""
 
 
 # --------------------------------------------------------------------------- main
@@ -305,13 +326,14 @@ def main():
             else:
                 game = 1 if have != avail else 0
 
-            count, stale = mod_updates(world)
+            count, stale, mods_error = mod_updates(world)
 
             sql(f"UPDATE worlds SET "
                 f"update_available_game={game}, "
                 f"update_available_mods={count}, "
                 f"installed_buildid={q(have)}, "
                 f"update_check_error={q(error)}, "
+            f"update_mods_error={q(mods_error)}, "
                 f"update_checked_at=NOW() "
                 f"WHERE name={q(world)};")
 
@@ -324,7 +346,7 @@ def main():
             # Guarded on `not error`: a failed check also produces game=0 and count=0, and
             # treating that as "nothing to do" would cancel a legitimate pending update every
             # time Steam was briefly unreachable.
-            if not error and game == 0 and count == 0:
+            if not error and not mods_error and game == 0 and count == 0:
                 sql(f"UPDATE worlds SET update_pending_since=NULL, "
                     f"update_state='idle' "
                     f"WHERE name={q(world)} AND update_state='pending';")

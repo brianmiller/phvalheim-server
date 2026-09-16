@@ -2469,10 +2469,20 @@ $totalCount = count($worlds);
             rows.push(['Last checked', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_checked_at)}</span>`]);
         }
 
+        // Same rule as the build row: not knowing is not the same as being current.
+        // A world whose mod record predates version tracking has nothing to compare, and
+        // rendering that as green "up to date" is how 28 of 35 worlds on a real server
+        // reported clean mods while nobody had checked anything.
         const modCount = parseInt(s.update_available_mods, 10) || 0;
-        rows.push(['Mods', modCount > 0
-            ? `<span style="color:var(--warning)">${modCount} can be updated</span>`
-            : '<span style="color:var(--success)">up to date</span>']);
+        if (s.update_mods_error) {
+            rows.push(['Mods',
+                `<span style="color:var(--danger)">could not check</span>`
+                + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${escapeHtmlBasic(s.update_mods_error)}</div>`]);
+        } else {
+            rows.push(['Mods', modCount > 0
+                ? `<span style="color:var(--warning)">${modCount} can be updated</span>`
+                : '<span style="color:var(--success)">up to date</span>']);
+        }
 
         // Pinned mods get their own line, always -- including when the count above is zero.
         // "3 mods can be updated" otherwise reads as "all my mods", and an operator who

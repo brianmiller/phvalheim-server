@@ -158,6 +158,18 @@ addColumn settings publishedBuildidAt "DATETIME DEFAULT NULL"
 addColumn worlds update_check_state "VARCHAR(16) DEFAULT NULL"
 
 
+# --- mod check errors ---------------------------------------------------------------------
+#
+# Separate from update_check_error because the game row and the mods row can fail for
+# completely different reasons, and a single column would make one overwrite the other.
+#
+# The reason this exists: worlds.modsViewer only started carrying per-mod versions in 2.43.
+# A world not rebuilt since then has a snapshot of {name,url,uuid} with no version at all,
+# so there is nothing to compare and the honest answer is "unknown". Measured on a real
+# server: 28 of 35 worlds were in that state, every one of them reporting "up to date".
+addColumn worlds update_mods_error "TEXT DEFAULT NULL"
+
+
 echo "`date` [NOTICE : phvalheim] Database schema update for phvalheim-server >=v2.47 complete"
 
 ## END UPDATE ##

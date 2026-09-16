@@ -681,7 +681,7 @@ function getWorldBackupSettings($pdo, $worldName) {
 }
 
 function getWorldAutoUpdateSettings($pdo, $worldName) {
-        $stmt = $pdo->prepare("SELECT autoupdate_use_global, autoupdate_mode, autoupdate_scope, autoupdate_idle_minutes, autoupdate_max_wait_hours, autoupdate_on_timeout, autoupdate_backup_first, autoupdate_window_start, autoupdate_window_hours, update_available_game, update_available_mods, update_checked_at, update_pending_since, update_state, update_last_result, update_check_error, update_check_state, update_phase, update_phase_at, installed_buildid, player_count, player_count_at, player_count_source, show_players_public, crossplay, date_updated, mode FROM worlds WHERE name = ?");
+        $stmt = $pdo->prepare("SELECT autoupdate_use_global, autoupdate_mode, autoupdate_scope, autoupdate_idle_minutes, autoupdate_max_wait_hours, autoupdate_on_timeout, autoupdate_backup_first, autoupdate_window_start, autoupdate_window_hours, update_available_game, update_available_mods, update_checked_at, update_pending_since, update_state, update_last_result, update_check_error, update_mods_error, update_check_state, update_phase, update_phase_at, installed_buildid, player_count, player_count_at, player_count_source, show_players_public, crossplay, date_updated, mode FROM worlds WHERE name = ?");
         $stmt->execute([$worldName]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
 }

@@ -13,6 +13,7 @@ actually got wrong first time:
 Run: dev_tools/test-updateChecker.py
 """
 
+import json
 import os
 import sys
 
@@ -151,6 +152,43 @@ check("steamcmd is given an explicit HOME", True,
       captured.get("env", {}) is not None and "HOME" in (captured.get("env") or {}))
 check("that HOME is the steam home, not the inherited one", uc.STEAM_HOME,
       (captured.get("env") or {}).get("HOME"))
+
+# --- a mod snapshot with no versions is UNKNOWN, not "up to date" ---------------------
+#
+# Regression guard for the second instance of the same bug as the buildid one: missing data
+# rendered as the reassuring answer. worlds.modsViewer only carries per-mod versions from
+# 2.43; older entries are {name,url,uuid}. The first version of mod_updates() skipped those
+# with `if not have: continue`, so every one of them produced a count of 0 and a green "up
+# to date". Measured on a real server: 28 of 35 worlds.
+
+LEGACY = json.dumps([{"name": "EpicLoot", "url": "x", "uuid": "1"},
+                     {"name": "Jotunn", "url": "y", "uuid": "2"}])
+MODERN = json.dumps([{"name": "EpicLoot", "owner": "RandyKnapp", "source": "thunderstore",
+                      "version": "0.9.0", "pinned": False}])
+
+
+def with_fake_db(viewer, catalogue, fn):
+    real_one, real_rows = uc.one, uc.rows
+    uc.one = lambda qy: viewer
+    uc.rows = lambda qy: catalogue
+    try:
+        return fn()
+    finally:
+        uc.one, uc.rows = real_one, real_rows
+
+
+cat = [["thunderstore", "RandyKnapp", "EpicLoot", "0.9.9"]]
+
+count, stale, err = with_fake_db(LEGACY, cat, lambda: uc.mod_updates("w"))
+check("legacy snapshot reports an error, not a clean bill", True, bool(err))
+check("legacy snapshot does not claim updates either", 0, count)
+
+count, stale, err = with_fake_db(MODERN, cat, lambda: uc.mod_updates("w"))
+check("modern snapshot detects the newer version", 1, count)
+check("modern snapshot reports no error", "", err)
+
+count, stale, err = with_fake_db("", cat, lambda: uc.mod_updates("w"))
+check("no mods at all is an honest zero, not an error", (0, ""), (count, err))
 
 print(f"\n  {pass_count} passed, {fail_count} failed")
 sys.exit(1 if fail_count else 0)
