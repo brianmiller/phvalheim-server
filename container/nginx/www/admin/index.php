@@ -1715,23 +1715,34 @@ $totalCount = count($worlds);
         });
 
         // Process offline worlds (sorted by dateUpdated)
-        offlineWorlds.forEach((world, index) => {
+        //
+        // Update in place FIRST, and only reorder if the order actually changed.
+        //
+        // This used to call offlineBody.appendChild(row) for every offline world on every
+        // poll, to force sorted order. appendChild on a node that is already in the document
+        // MOVES it -- detach plus re-insert -- so every five seconds the entire tbody was
+        // torn down and rebuilt. That resets the scroll position, drops any text selection,
+        // and cancels a hover. With a few dozen offline worlds the table was effectively
+        // unscrollable: you would get about four seconds before being thrown back to the top.
+        //
+        // The sort key is dateUpdated, which changes rarely, so in the normal case the order
+        // is already correct and the right number of DOM moves is zero.
+        offlineWorlds.forEach(world => {
             let row = document.querySelector(`tr[data-world="${world.name}"]`);
             if (row) {
-                const currentSection = row.getAttribute('data-section');
-                if (currentSection !== 'offline') {
+                if (row.getAttribute('data-section') !== 'offline') {
                     row.setAttribute('data-section', 'offline');
+                    offlineBody.appendChild(row);
                 }
                 updateWorldRow(row, world);
-                // Re-order: append in sorted order
-                offlineBody.appendChild(row);
             } else {
-                // Create new row
                 const newRow = createWorldRow(world, 'offline');
                 offlineBody.appendChild(newRow);
                 initWorldChartsForRow(newRow, world.name);
             }
         });
+
+        reorderRowsIfChanged(offlineBody, offlineWorlds.map(w => w.name));
 
         // Update section counts
         document.getElementById('onlineWorldsCount').textContent = onlineWorlds.length;
@@ -1743,6 +1754,40 @@ $totalCount = count($worlds);
 
         // Reflow overflow menus after DOM updates
         reflowActionGroups();
+    }
+
+    // Put a tbody's rows into `desiredNames` order, doing NOTHING when they are already in
+    // it. The check is the whole point: an unconditional reorder is indistinguishable from a
+    // needed one to the DOM, and both reset the user's scroll position.
+    //
+    // When a reorder IS needed, it is done in one DocumentFragment so the table reflows once
+    // rather than once per row.
+    function reorderRowsIfChanged(tbody, desiredNames) {
+        if (!tbody) return;
+
+        const rows = Array.from(tbody.querySelectorAll('tr[data-world]'));
+        const current = rows.map(tr => tr.getAttribute('data-world'));
+
+        // Joined on NUL, which a world name cannot contain -- a comma or a space could
+        // appear in a name and make two different orderings compare equal, skipping a
+        // reorder that was genuinely needed.
+        //
+        // Written as the ESCAPE \u0000, never a literal NUL byte. A raw NUL in a source
+        // file makes grep treat the whole file as binary and report nothing at all, which
+        // is exactly how this line hid from three searches after it was first written.
+        if (current.join('\u0000') === desiredNames.join('\u0000')) return;
+
+        const byName = new Map(rows.map(tr => [tr.getAttribute('data-world'), tr]));
+        const frag = document.createDocumentFragment();
+        desiredNames.forEach(name => {
+            const tr = byName.get(name);
+            if (tr) { frag.appendChild(tr); byName.delete(name); }
+        });
+        // Anything the caller did not name keeps its place at the end rather than being
+        // dropped -- losing a row here would silently remove a world from the table.
+        byName.forEach(tr => frag.appendChild(tr));
+
+        tbody.appendChild(frag);
     }
 
     function updateWorldRow(row, world) {
