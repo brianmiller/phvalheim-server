@@ -343,7 +343,9 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   dl=$(grep -c "tsModDownloadUrl/\$modAuthor" /opt/stateless/engine/includes/0-functions.sh)
   dm=$(grep -c "requiredMods=" /opt/stateless/engine/includes/phvalheim-static.conf)
   dn=$(grep -c "requiredTsMods=" /opt/stateless/engine/includes/phvalheim-static.conf)
-  echo "2.43 install path: worldMods calls=$dk (want 3)  stale url template=$dl (want 0)"
+  # 4 since 2.47: --resolve, --plan, --record-installed, --viewer-json. It was 3 until the
+  # installer started recording which version of each mod it put on disk.
+  echo "2.43 install path: worldMods calls=$dk (want 4)  stale url template=$dl (want 0)"
   echo "2.43 required mods by owner/name=$dm (want 1)  stale uuid list=$dn (want 0)"
 
   # The picker and the panel. Pills for BOTH sources must be styled or the source marker is
@@ -925,7 +927,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$de" = "1" ] && [ "$df" = "1" ] \
     && [ "$dg" = "1" ] && [ "$dh" = "0" ] \
     && [ "$di" -gt 0 ] && [ "$dj" -gt 0 ] \
-    && [ "$dk" = "3" ] && [ "$dl" = "0" ] && [ "$dm" = "1" ] && [ "$dn" = "0" ] \
+    && [ "$dk" = "4" ] && [ "$dl" = "0" ] && [ "$dm" = "1" ] && [ "$dn" = "0" ] \
     && [ "$do_" = "1" ] && [ "$dp" -gt 0 ] && [ "$dq" -gt 0 ] \
     && [ "$dr" -gt 0 ] && [ "$ds" -gt 0 ] && [ "$dt" -gt 0 ] && [ "$du" = "0" ] \
     && [ "$dv" -gt 0 ] && [ "$dw" -gt 0 ] && [ "$dx" -gt 0 ] && [ "$dy" = "1" ] \
