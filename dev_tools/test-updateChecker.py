@@ -121,19 +121,29 @@ check("public block with no buildid -> empty", "",
 captured = {}
 
 
-def fake_run(cmd, **kwargs):
-    captured["env"] = kwargs.get("env")
-    captured["cmd"] = cmd
+class FakeResult:
+    def __init__(self, stdout):
+        self.returncode = 0
+        self.stdout = stdout
+        self.stderr = ""
 
-    class R:
-        stdout = SAMPLE
-    return R()
+
+def fake_run(cmd, **kwargs):
+    # This stands in for BOTH the steamcmd call and the mysql calls the checker makes
+    # around it, so it has to look like a finished process either way -- returncode
+    # included, or sql() raises before the assertion under test is ever reached.
+    if cmd and str(cmd[0]).endswith("steamcmd"):
+        captured["env"] = kwargs.get("env")
+        captured["cmd"] = cmd
+        return FakeResult(SAMPLE)
+    return FakeResult("")
 
 
 _real_run = uc.subprocess.run
 uc.subprocess.run = fake_run
 try:
-    uc.available_buildid()
+    # 0 = never use the cache, so the steamcmd path is definitely exercised.
+    uc.available_buildid(0)
 finally:
     uc.subprocess.run = _real_run
 

@@ -798,15 +798,34 @@ switch($action) {
         break;
 
     case 'checkForUpdates':
-        // Re-run the version check for one world on demand, so the Updates tab can answer
-        // "is this current?" without waiting for the next scheduled sweep.
+        // Started DETACHED, not run inline.
+        //
+        // A cold check takes about 31 seconds, essentially all of it steamcmd starting up
+        // and logging into Steam -- measured, and app_info_update accounts for none of it.
+        // Running that inside the request meant half a minute of a dead button, and on a
+        // slower host it would outlive the php-fpm timeout and look like a failure.
+        //
+        // The checker marks the world 'checking' before the slow part, so the UI polls
+        // getWorldAutoUpdateSettings and shows real progress instead of guessing.
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $input = json_decode(file_get_contents('php://input'), true);
             $world = $input['world'] ?? '';
             if ($world) {
                 $safe = escapeshellarg($world);
-                exec("/opt/stateless/engine/tools/updateChecker.py --world $safe >> /opt/stateful/logs/phvalheim.log 2>&1");
-                echo json_encode(['success' => true, 'settings' => getWorldAutoUpdateSettings($pdo, $world)]);
+
+                // Mark it here as well as in the checker. The process takes a moment to
+                // start, and without this the first poll can land before it has marked
+                // anything and conclude the check already finished.
+                $stmt = $pdo->prepare("UPDATE worlds SET update_check_state='checking' WHERE name = ?");
+                $stmt->execute([$world]);
+
+                // --refresh-build when the operator asked: pressing Check Now twice because
+                // you doubt the answer should actually re-ask Steam, not hand back the same
+                // cached number faster.
+                $flag = !empty($input['refresh']) ? ' --refresh-build' : '';
+                exec("setsid nohup /opt/stateless/engine/tools/updateChecker.py --world $safe$flag >> /opt/stateful/logs/phvalheim.log 2>&1 &");
+
+                echo json_encode(['success' => true, 'started' => true]);
             } else {
                 echo json_encode(['success' => false, 'error' => 'World name required']);
             }

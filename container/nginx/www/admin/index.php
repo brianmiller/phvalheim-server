@@ -2424,6 +2424,20 @@ $totalCount = count($worlds);
 
         const rows = [];
 
+        // A check in flight owns the top of the block. The build and mod rows below are
+        // still last-run values, and presenting them plainly while a check is running reads
+        // as the current answer.
+        if (s.update_check_state === 'checking') {
+            rows.push(['Checking',
+                '<span style="display:inline-flex;align-items:center;gap:0.5rem;color:var(--warning)">'
+                + '<span class="backup-spinner" style="width:12px;height:12px;border-width:2px;"></span>'
+                + 'asking Steam for the published build&hellip;</span>'
+                + '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">'
+                + 'Takes up to a minute the first time &mdash; almost all of it is steamcmd signing in. '
+                + 'The result is cached for 15 minutes, so checking other worlds straight after is instant.'
+                + '</div>']);
+        }
+
         // Player count. Deliberately never says "empty" -- the count is parsed out of the
         // world log and can lag a disconnect, so the honest phrasing is what was last seen
         // and when. Saying "empty" would be a claim the data cannot support.
@@ -2449,6 +2463,10 @@ $totalCount = count($worlds);
             rows.push(['Valheim server', gameAvail
                 ? `<span style="color:var(--warning)">update available</span> <span style="color:var(--text-muted)">(installed build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`
                 : `<span style="color:var(--success)">up to date</span> <span style="color:var(--text-muted)">(build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`]);
+        }
+
+        if (s.update_checked_at) {
+            rows.push(['Last checked', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_checked_at)}</span>`]);
         }
 
         const modCount = parseInt(s.update_available_mods, 10) || 0;
@@ -2492,10 +2510,6 @@ $totalCount = count($worlds);
         if (s.update_last_result) {
             rows.push(['Last result', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_last_result)}</span>`]);
         }
-        if (s.update_checked_at) {
-            rows.push(['Last checked', `<span style="color:var(--text-muted)">${escapeHtmlBasic(s.update_checked_at)}</span>`]);
-        }
-
         el.innerHTML = rows.map(([k, v]) =>
             `<div style="display:flex;gap:0.75rem;padding:0.15rem 0;">
                 <div style="min-width:11rem;color:var(--text-secondary);">${k}</div>
@@ -2532,11 +2546,23 @@ $totalCount = count($worlds);
             // While an update is actually running, keep the phase bars moving. One timer
             // only: re-entering here clears the previous one, so opening the tab repeatedly
             // cannot stack pollers. It stops as soon as the state leaves 'updating'.
+            // Disable the buttons while a check is in flight -- a second click would start a
+            // second checker over the same world.
+            const busy = (s.update_check_state === 'checking') || (s.update_state === 'updating');
+            ['auCheckBtn', 'auRecheckBtn', 'auUpdateBtn'].forEach(id => {
+                const b = document.getElementById(id);
+                if (b) { b.disabled = busy; b.style.opacity = busy ? '0.5' : ''; b.style.pointerEvents = busy ? 'none' : ''; }
+            });
+
             if (updatePhasePoll) { clearTimeout(updatePhasePoll); updatePhasePoll = null; }
-            if (s.update_state === 'updating'
+            const stillWorking = busy;
+            if (stillWorking
                 && document.getElementById('updatesTab')
                 && document.getElementById('settingsModalOverlay').classList.contains('show')) {
-                updatePhasePoll = setTimeout(() => loadWorldUpdateSettings(worldName), 4000);
+                // 2s while checking (it finishes in one step and the wait is the whole UX
+                // complaint), 4s while updating (phases last minutes).
+                const every = s.update_check_state === 'checking' ? 2000 : 4000;
+                updatePhasePoll = setTimeout(() => loadWorldUpdateSettings(worldName), every);
             }
         } catch (e) {
             const el = document.getElementById('au-status');
@@ -2578,30 +2604,33 @@ $totalCount = count($worlds);
         setTimeout(() => { status.textContent = ''; }, 4000);
     }
 
-    async function checkWorldUpdates(worldName) {
+    async function checkWorldUpdates(worldName, forceRefresh) {
         const status = document.getElementById('updateActionStatus');
-        status.textContent = 'Checking…';
-        status.style.color = 'var(--text-muted)';
+        status.innerHTML = '<span style="color:var(--text-muted)">Starting check&hellip;</span>';
         try {
             const r = await fetch('adminAPI.php?action=checkForUpdates', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ world: worldName })
+                // No refresh flag: use the cached published build when it is under 15
+                // minutes old. That is the whole point -- a check that reuses it finishes in
+                // 0.4s instead of 32s (measured). "Re-check Steam" below forces a real
+                // fetch for when the cached answer is the thing in doubt.
+                body: JSON.stringify({ world: worldName, refresh: !!forceRefresh })
             });
             const d = await r.json();
-            if (d.success) {
-                await loadWorldUpdateSettings(worldName);
-                status.textContent = 'Checked.';
-                status.style.color = 'var(--success)';
-            } else {
-                status.textContent = 'Check failed.';
-                status.style.color = 'var(--danger)';
+            if (!d.success) {
+                status.innerHTML = '<span style="color:var(--danger)">Could not start the check.</span>';
+                setTimeout(() => { status.innerHTML = ''; }, 5000);
+                return;
             }
+            status.innerHTML = '';
+            // The status block and the poller take it from here: loadWorldUpdateSettings
+            // sees update_check_state='checking', shows the spinner and schedules itself.
+            loadWorldUpdateSettings(worldName);
         } catch (e) {
-            status.textContent = 'Check failed.';
-            status.style.color = 'var(--danger)';
+            status.innerHTML = '<span style="color:var(--danger)">Could not start the check.</span>';
+            setTimeout(() => { status.innerHTML = ''; }, 5000);
         }
-        setTimeout(() => { status.textContent = ''; }, 4000);
     }
 
     function confirmUpdateNow(worldName) {
@@ -3801,8 +3830,9 @@ $totalCount = count($worlds);
                     <div class="settings-tab-pane" id="updatesTab" style="display:none;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                             <div style="display:flex;gap:0.5rem;">
-                                <button class="action-btn" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="checkWorldUpdates('${worldName}')">Check Now</button>
-                                <button class="action-btn success" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="confirmUpdateNow('${worldName}')">Update Now</button>
+                                <button class="action-btn" id="auCheckBtn" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="checkWorldUpdates('${worldName}')">Check Now</button>
+                                <button class="action-btn" id="auRecheckBtn" style="padding:0.3rem 0.75rem;font-size:0.8rem" title="Ignore the cached published build and ask Steam again. Takes about half a minute." onclick="checkWorldUpdates('${worldName}', true)">Re-check Steam</button>
+                                <button class="action-btn success" id="auUpdateBtn" style="padding:0.3rem 0.75rem;font-size:0.8rem" onclick="confirmUpdateNow('${worldName}')">Update Now</button>
                             </div>
                             <div id="updateActionStatus" style="font-size:0.8rem;"></div>
                         </div>

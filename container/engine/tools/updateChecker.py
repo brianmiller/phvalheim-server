@@ -73,7 +73,40 @@ def log(msg):
 
 # --------------------------------------------------------------------------- game
 
-def available_buildid():
+BUILD_CACHE_MINUTES = 15
+
+
+def cached_buildid(max_age_minutes=BUILD_CACHE_MINUTES):
+    """The published buildid from cache, or "" if there is none recent enough.
+
+    The published build is server-wide, not per-world, and fetching it costs about 31
+    seconds -- almost entirely steamcmd starting up and logging into Steam, measured; the
+    app_info refresh itself is free by comparison. Without this cache, checking five worlds
+    meant five logins and clicking Check Now twice meant two.
+    """
+    if max_age_minutes <= 0:
+        return ""
+    row = one(f"SELECT IFNULL(publishedBuildid,'') FROM settings "
+              f"WHERE publishedBuildidAt IS NOT NULL "
+              f"AND publishedBuildidAt > DATE_SUB(NOW(), INTERVAL {int(max_age_minutes)} MINUTE) "
+              f"LIMIT 1;")
+    return row or ""
+
+
+def store_buildid(buildid):
+    if buildid:
+        sql(f"UPDATE settings SET publishedBuildid={q(buildid)}, publishedBuildidAt=NOW();")
+
+
+def available_buildid(max_age_minutes=BUILD_CACHE_MINUTES):
+    cached = cached_buildid(max_age_minutes)
+    if cached:
+        log(f"published buildid {cached} (cached, under {max_age_minutes}m old)")
+        return cached
+    return fetch_buildid()
+
+
+def fetch_buildid():
     """The published buildid for the public branch, fetched once for the whole server.
 
     app_info_print emits a nested VDF blob, and getting the right number out of it needs
@@ -111,7 +144,9 @@ def available_buildid():
         log(f"steamcmd unavailable: {e}")
         return ""
 
-    return parse_public_buildid(r.stdout)
+    buildid = parse_public_buildid(r.stdout)
+    store_buildid(buildid)
+    return buildid
 
 
 def parse_public_buildid(out):
@@ -210,6 +245,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--world")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--refresh-build", action="store_true",
+                    help="ignore the cached published build and ask Steam")
     args = ap.parse_args()
 
     interval = one("SELECT IFNULL(autoUpdateCheckIntervalHours,6) FROM settings LIMIT 1;")
@@ -232,69 +269,82 @@ def main():
     if not todo:
         return 0
 
-    # One steamcmd call for the whole run, not one per world.
-    avail = available_buildid()
-    if avail:
-        log(f"published buildid for app {APPID}: {avail}")
+    # Mark every world in this run as checking BEFORE the slow part, so the UI can show a
+    # spinner rather than an unexplained half-minute pause. Set first, cleared per world as
+    # each finishes.
+    names = ",".join(q(w) for w in todo)
+    sql(f"UPDATE worlds SET update_check_state='checking' WHERE name IN ({names});")
 
-    for world in todo:
-        have = installed_buildid(world)
+    try:
+        # One steamcmd call for the whole run, not one per world -- and reused from cache
+        # when it is recent, which makes a repeat check effectively instant.
+        avail = available_buildid(0 if args.refresh_build else BUILD_CACHE_MINUTES)
+        if avail:
+            log(f"published buildid for app {APPID}: {avail}")
 
-        # Unknown on either side means we cannot claim an update exists -- reporting one
-        # would hand updateApplier a reason to stop a server on no evidence.
-        #
-        # But it equally means we cannot claim the world is CURRENT, and that half was
-        # missing: update_available_game stayed 0 and the UI rendered a green "up to date"
-        # over a world five thousand builds behind. The reason is now recorded so the UI can
-        # say "could not check" and show why.
-        error = ""
-        if not avail:
-            error = ("Could not read the published Valheim build from Steam. "
-                     "The installed build is unknown to be current or not.")
-            game = 0
-        elif not have:
-            error = (f"No Steam manifest found for this world "
-                     f"(game/steamapps/appmanifest_{APPID}.acf), so its installed build "
-                     f"could not be read.")
-            game = 0
-        else:
-            game = 1 if have != avail else 0
+        for world in todo:
+            have = installed_buildid(world)
 
-        count, stale = mod_updates(world)
+            # Unknown on either side means we cannot claim an update exists -- reporting one
+            # would hand updateApplier a reason to stop a server on no evidence.
+            #
+            # But it equally means we cannot claim the world is CURRENT, and that half was
+            # missing: update_available_game stayed 0 and the UI rendered a green "up to date"
+            # over a world five thousand builds behind. The reason is now recorded so the UI can
+            # say "could not check" and show why.
+            error = ""
+            if not avail:
+                error = ("Could not read the published Valheim build from Steam. "
+                         "The installed build is unknown to be current or not.")
+                game = 0
+            elif not have:
+                error = (f"No Steam manifest found for this world "
+                         f"(game/steamapps/appmanifest_{APPID}.acf), so its installed build "
+                         f"could not be read.")
+                game = 0
+            else:
+                game = 1 if have != avail else 0
 
-        sql(f"UPDATE worlds SET "
-            f"update_available_game={game}, "
-            f"update_available_mods={count}, "
-            f"installed_buildid={q(have)}, "
-            f"update_check_error={q(error)}, "
-            f"update_checked_at=NOW() "
-            f"WHERE name={q(world)};")
+            count, stale = mod_updates(world)
 
-        if error:
-            log(f"'{world}': {error}")
+            sql(f"UPDATE worlds SET "
+                f"update_available_game={game}, "
+                f"update_available_mods={count}, "
+                f"installed_buildid={q(have)}, "
+                f"update_check_error={q(error)}, "
+                f"update_checked_at=NOW() "
+                f"WHERE name={q(world)};")
 
-        # Clear a pending clock that no longer has anything to wait for -- the operator
-        # may have updated by hand, or a mod may have been re-pinned.
-        #
-        # Guarded on `not error`: a failed check also produces game=0 and count=0, and
-        # treating that as "nothing to do" would cancel a legitimate pending update every
-        # time Steam was briefly unreachable.
-        if not error and game == 0 and count == 0:
-            sql(f"UPDATE worlds SET update_pending_since=NULL, "
-                f"update_state='idle' "
-                f"WHERE name={q(world)} AND update_state='pending';")
-        else:
-            # Start the max-wait clock on the first sighting, and only then.
-            sql(f"UPDATE worlds SET update_pending_since=NOW() "
-                f"WHERE name={q(world)} AND update_pending_since IS NULL;")
+            if error:
+                log(f"'{world}': {error}")
 
-        if game or count:
-            bits = []
-            if game:
-                bits.append(f"game {have} -> {avail}")
-            if count:
-                bits.append(f"{count} mod(s): " + ", ".join(stale[:5]))
-            log(f"'{world}': update available -- " + "; ".join(bits))
+            # Clear a pending clock that no longer has anything to wait for -- the operator
+            # may have updated by hand, or a mod may have been re-pinned.
+            #
+            # Guarded on `not error`: a failed check also produces game=0 and count=0, and
+            # treating that as "nothing to do" would cancel a legitimate pending update every
+            # time Steam was briefly unreachable.
+            if not error and game == 0 and count == 0:
+                sql(f"UPDATE worlds SET update_pending_since=NULL, "
+                    f"update_state='idle' "
+                    f"WHERE name={q(world)} AND update_state='pending';")
+            else:
+                # Start the max-wait clock on the first sighting, and only then.
+                sql(f"UPDATE worlds SET update_pending_since=NOW() "
+                    f"WHERE name={q(world)} AND update_pending_since IS NULL;")
+
+            if game or count:
+                bits = []
+                if game:
+                    bits.append(f"game {have} -> {avail}")
+                if count:
+                    bits.append(f"{count} mod(s): " + ", ".join(stale[:5]))
+                log(f"'{world}': update available -- " + "; ".join(bits))
+
+    finally:
+        # Always clear, including on an exception. A world stuck on 'checking'
+        # would spin in the UI forever with no way to retry.
+        sql(f"UPDATE worlds SET update_check_state=NULL WHERE name IN ({names});")
 
     return 0
 

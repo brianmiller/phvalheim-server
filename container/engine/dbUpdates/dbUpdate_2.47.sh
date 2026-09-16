@@ -137,6 +137,27 @@ addColumn worlds update_phase "VARCHAR(16) DEFAULT NULL"
 addColumn worlds update_phase_at "DATETIME DEFAULT NULL"
 
 
+# --- published build cache --------------------------------------------------------------
+#
+# The published Valheim buildid is a property of the SERVER, not of a world: every world
+# compares against the same number. Fetching it costs ~31 seconds, essentially all of it
+# steamcmd starting up and logging in anonymously -- measured, and `+app_info_update 1`
+# accounts for none of the difference.
+#
+# Without a cache, checking five worlds cost five logins, and clicking Check Now twice cost
+# two. Cached here with its age so a check can reuse a recent answer and finish instantly,
+# while a stale one still goes and asks Steam.
+addColumn settings publishedBuildid "VARCHAR(32) DEFAULT NULL"
+addColumn settings publishedBuildidAt "DATETIME DEFAULT NULL"
+
+
+# --- check in progress -------------------------------------------------------------------
+#
+# Check Now is asynchronous because a cold check takes half a minute. This is what the UI
+# watches to know the difference between "still working" and "finished".
+addColumn worlds update_check_state "VARCHAR(16) DEFAULT NULL"
+
+
 echo "`date` [NOTICE : phvalheim] Database schema update for phvalheim-server >=v2.47 complete"
 
 ## END UPDATE ##
