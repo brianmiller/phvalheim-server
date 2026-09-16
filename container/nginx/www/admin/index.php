@@ -2103,6 +2103,26 @@ $totalCount = count($worlds);
             }
             const menu = overflow.querySelector('.action-overflow-menu');
 
+            // Skip groups whose layout inputs have not changed.
+            //
+            // Everything below this point MUTATES the DOM -- buttons are pulled out of the
+            // overflow menu, the trigger is shown and hidden, and scrollWidth is read back
+            // between moves, which forces a synchronous layout each time. Doing that to
+            // every row of the table on every five-second poll is what made Active Worlds
+            // impossible to scroll: the work is identical each tick, but the browser still
+            // reflows and the scroll position still goes.
+            //
+            // The signature covers the only two things that can change the answer: how wide
+            // the group is, and which buttons exist and are enabled. A window resize changes
+            // the width, and an action appearing or greying out changes the button list, so
+            // both still trigger a genuine reflow -- there is no need for callers to force one.
+            const sigBtns = Array.from(group.querySelectorAll('.action-btn'))
+                .map(b => (b.textContent || '').trim() + (b.classList.contains('disabled') ? '!' : ''))
+                .join(',');
+            const sig = group.clientWidth + '|' + sigBtns;
+            if (group.dataset.reflowSig === sig) return;
+            group.dataset.reflowSig = sig;
+
             // Move all buttons back from menu to inline (before the overflow div)
             while (menu.firstChild) {
                 group.insertBefore(menu.firstChild, overflow);

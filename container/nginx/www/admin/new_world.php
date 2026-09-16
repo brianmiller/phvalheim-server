@@ -923,6 +923,15 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			function redrawInPlace(table, rows) {
 				var body = $(table.table().container()).find('.dataTables_scrollBody');
 				var scrollTop = body.scrollTop();
+				// The PAGE scroll has to be held as well as the table's own.
+				//
+				// scrollCollapse is on, so the scroll body's height tracks its content: a
+				// redraw that changes the row count changes the table's height, the document
+				// gets shorter or taller, and the browser moves the viewport to compensate.
+				// Restoring only the inner scroll left the list in the right place inside a
+				// panel that had itself jumped up the page, which reads as the picker
+				// snapping to the top.
+				var pageTop = window.pageYOffset;
 				table.clear().rows.add(rows).draw(false);
 				// Restored TWICE, and the second one is not redundant. DataTables adjusts the
 				// scroll body itself after the draw returns (_fnScrollDraw re-measures the
@@ -930,7 +939,11 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				// the list at the top even though the page was held. The rAF pass lands after
 				// that adjustment.
 				body.scrollTop(scrollTop);
-				window.requestAnimationFrame(function() { body.scrollTop(scrollTop); });
+				window.scrollTo(0, pageTop);
+				window.requestAnimationFrame(function() {
+					body.scrollTop(scrollTop);
+					window.scrollTo(0, pageTop);
+				});
 			}
 
 			// Rebuild both tables from checkedSet state
