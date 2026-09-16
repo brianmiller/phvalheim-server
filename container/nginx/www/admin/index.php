@@ -2451,18 +2451,50 @@ $totalCount = count($worlds);
         }
         rows.push(['Players', players + ' <span style="color:var(--text-muted)">&middot; approximate</span>']);
 
-        // A check that could not run is NOT "up to date". Reporting the reassuring answer
-        // when we do not actually know is what let a world sit thousands of builds behind
-        // while this row showed green.
-        const gameAvail = parseInt(s.update_available_game, 10) === 1;
-        if (s.update_check_error) {
-            rows.push(['Valheim server',
-                `<span style="color:var(--danger)">could not check</span>`
-                + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${escapeHtmlBasic(s.update_check_error)}</div>`]);
+        // NOTHING on this panel goes green unless a check actually produced that answer.
+        //
+        // Three separate ways this went wrong, all the same mistake -- absence of data
+        // rendered as the most reassuring possible result:
+        //   1. steamcmd could not run, so no published build -> "up to date"
+        //   2. the world's mod record predates version tracking -> "up to date"
+        //   3. the world had never been checked at all, and the columns default to 0
+        //      -> "up to date". On a real server that was 26 of 35 worlds.
+        //
+        // So the never-checked case is handled FIRST, before either row is drawn.
+        const neverChecked = !s.update_checked_at;
+
+        const waiting = (label, detail) => [label,
+            `<span style="color:var(--text-muted)">waiting for data</span>`
+            + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${detail}</div>`];
+
+        if (neverChecked) {
+            rows.push(waiting('Valheim server',
+                'This world has not been checked yet. Press <b>Check Now</b>, or wait for the next scheduled check.'));
+            rows.push(waiting('Mods',
+                'This world has not been checked yet. Press <b>Check Now</b>, or wait for the next scheduled check.'));
         } else {
-            rows.push(['Valheim server', gameAvail
-                ? `<span style="color:var(--warning)">update available</span> <span style="color:var(--text-muted)">(installed build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`
-                : `<span style="color:var(--success)">up to date</span> <span style="color:var(--text-muted)">(build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`]);
+            const gameAvail = parseInt(s.update_available_game, 10) === 1;
+            if (s.update_check_error) {
+                rows.push(['Valheim server',
+                    `<span style="color:var(--danger)">could not check</span>`
+                    + `<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">${escapeHtmlBasic(s.update_check_error)}</div>`]);
+            } else {
+                rows.push(['Valheim server', gameAvail
+                    ? `<span style="color:var(--warning)">update available</span> <span style="color:var(--text-muted)">(installed build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`
+                    : `<span style="color:var(--success)">up to date</span> <span style="color:var(--text-muted)">(build ${escapeHtmlBasic(s.installed_buildid || 'unknown')})</span>`]);
+            }
+
+            const modCount = parseInt(s.update_available_mods, 10) || 0;
+            if (s.update_mods_error) {
+                // Deliberately NOT styled as an error. Nothing is broken -- the versions
+                // simply were not recorded when this world was last built, and they will be
+                // the next time its mods are. It is a pending state, so it reads as one.
+                rows.push(waiting('Mods', escapeHtmlBasic(s.update_mods_error)));
+            } else {
+                rows.push(['Mods', modCount > 0
+                    ? `<span style="color:var(--warning)">${modCount} can be updated</span>`
+                    : '<span style="color:var(--success)">up to date</span>']);
+            }
         }
 
         if (s.update_checked_at) {

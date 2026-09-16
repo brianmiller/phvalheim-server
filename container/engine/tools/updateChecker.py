@@ -203,8 +203,9 @@ def mod_updates(world):
     try:
         installed = json.loads(raw)
     except (ValueError, TypeError):
-        return 0, [], ("This world's mod record could not be read, so its mods could not "
-                       "be compared against the catalogue.")
+        return 0, [], ("This world's mod record could not be read, so there is nothing to "
+                       "compare against the catalogue. Rebuilding its mods will write a "
+                       "fresh record.")
 
     if not isinstance(installed, list) or not installed:
         return 0, [], ""
@@ -242,10 +243,11 @@ def mod_updates(world):
     # predates version tracking entirely.
     if comparable == 0 and pinned == 0:
         return 0, [], (
-            f"This world's mod record was written before PhValheim tracked mod versions "
-            f"({len(installed)} mods, none with a version recorded), so it cannot be "
-            f"compared against the catalogue. Rebuilding the world's mods will establish "
-            f"versions and make this check work.")
+            f"Mod versions have not been recorded for this world yet. Its {len(installed)} "
+            f"mods were installed before PhValheim started tracking which version of each "
+            f"one it put down, so there is nothing to compare against the catalogue. This "
+            f"resolves itself the next time the world's mods are rebuilt -- editing its mod "
+            f"list, or letting an update run, will record the versions.")
 
     return len(stale), stale, ""
 
