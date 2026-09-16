@@ -45,9 +45,15 @@ Off by default; upgrading changes no behaviour until it is switched on.
 `updateChecker.py` records what is available and never applies anything. The published
 Valheim buildid is fetched **once per run** with `app_info_print` and compared against each
 world's own `appmanifest_896660.acf`, so N worlds cost one steamcmd call rather than N
-downloads. Mod updates come from comparing `worlds.modsViewer` — the record of what was
-last installed — against the catalogue's current `latest_version`. **Pinned mods are
-excluded entirely**: not counted, not reported, never updated.
+downloads. Mod updates come from comparing `world_mods.installed_version_id` — what the
+installer actually put on disk — against the catalogue's current `latest_version`. **Pinned
+mods are excluded entirely**: not counted, not reported, never updated.
+
+A cold check costs ~31 seconds, essentially all of it steamcmd signing in; `app_info_update`
+accounts for none of it. The published buildid is the same for every world, so it is cached
+in `settings.publishedBuildid` for 15 minutes — cold 32.4s, cached 0.40s, measured. steamcmd
+also needs an explicit `HOME`: it runs as the `phvalheim` user, whose inherited home is not
+writable, and without one it dies before printing anything.
 
 `updateApplier` decides only *when*. Every gate must say yes and anything unestablished
 counts as no: a world with no player observation at all is never considered idle. A backup
@@ -57,12 +63,88 @@ without a way back. Stopped worlds are untouched — they update on next start, 
 Per-world overrides mirror the backup system exactly, including that a global "on for all
 worlds" does not overrule a world explicitly set to off.
 
+### Recording what is actually installed
+
+Update detection first hung off `worlds.modsViewer`. That was wrong, and wrong in a way that
+looked right: `modsViewer` is the **display cache** behind the admin UI's mod dropdown, and
+every version in it comes from `effective_version()` — the live catalogue. Comparing it
+against the catalogue compared a number with itself, so it could only ever answer "up to
+date". It gave correct answers purely because both of its writers sit immediately after a mod
+install; anything that refreshed it at some other moment would have silently rewritten every
+"installed" version to whatever was newest and blinded every world, permanently.
+
+So the fact is recorded rather than derived:
+
+```sql
+world_mods.installed_version_id  -- mod_versions.id; immutable, so a catalogue resync
+world_mods.installed_at          -- cannot rewrite history underneath us
+```
+
+Written by exactly one thing — `worldMods.py --record-installed`, called from
+`downloadAndInstallTsModsForWorld()` with the ids of the mods that actually landed.
+`--plan` gained a ninth column (`mod_id`, **appended**, so the four scripts that read fields
+1–5 with awk are untouched) to carry those ids out to the installer.
+
+The two columns carry **three** states, and all three are load-bearing:
+
+| `installed_at` | `installed_version_id` | meaning |
+| --- | --- | --- |
+| NULL | NULL | never recorded → **unknown** |
+| set | NULL | known **not** installed — a duplicate plugin `by_plugin()` collapsed away |
+| set | set | comparable |
+
+Collapsing the middle case into the first is the same can't-tell-the-difference bug pointing
+the other way: after a clean rebuild, a world with one collapsed duplicate would sit on
+"waiting for data" forever, and every modded world has at least one such row. A mod whose
+install **failed** is left untouched — its previous copy is still in `BepInEx/plugins`, so
+its previous recorded version is still true.
+
+**No backfill.** Nothing on the box knows which version of a plugin is sitting in a world's
+`BepInEx/plugins` — the extracted folders carry no `manifest.json` — so any value written
+would be a guess wearing the costume of a fact. NULL is the true answer, the UI says *waiting
+for data*, and a world's next mod rebuild records the real versions.
+
+### Nothing claims "up to date" without checking
+
+Three separate gaps all rendered as the same reassuring green, because a `0`/false default
+silently doubles as a real answer:
+
+1. steamcmd could not run, so no published build → a world thousands of builds behind read
+   as current.
+2. A world's mod versions were never recorded → the loop skipped every entry and the count
+   came out 0. **28 of 35 worlds on one real server.**
+3. The world had never been checked at all — both columns `DEFAULT 0`. **26 of 35.**
+
+Each now has its own state in the schema (`update_check_error`, `update_mods_error`, a gate on
+`update_checked_at`) rather than being reconstructed in the UI. A pending state reads as muted
+*waiting for data*, not a red *could not check* — nothing is broken.
+
+Also fixed: the Updates tab drew **two Mods rows**. A leftover unconditional block sat after
+the never-checked gate, so a never-checked world showed a muted "waiting for data" and a green
+"up to date" one line apart — two contradictory answers to the same question, in the same
+panel.
+
+### Rebuild Mods
+
+A per-world button in the Updates tab, beside the *waiting for data* message. Worlds built
+before version recording have nothing to compare, and no amount of checking will change that;
+reinstalling their mods is what records it. Per-world and manual on purpose — a rebuild stops
+the world, and a world whose mod list no longer resolves is left stopped by design, so doing
+this to two dozen worlds unattended could take a server down overnight. Worlds also fix
+themselves the next time their mod list changes.
+
 ### Tests
 
 `dev_tools/test-playerMonitor.sh` (9), `test-updateApplier.sh` (16),
-`test-updateChecker.py` (5). Each case is one where a plausible wrong implementation gives a
-different answer than the right one — the doubled-disconnect and depot-`public` cases were
-both written after the real bug, and verified to fail against the broken code.
+`test-updateChecker.py` (19), `test-record-installed.py` (18) — 62 in total. Each case is one
+where a plausible wrong implementation gives a different answer than the right one, and the
+new ones are mutation-checked: collapsing either of the three installed-states, suppressing a
+confirmed update because some other mod is unrecorded, and re-reading the display cache each
+fail the suite.
+
+Verified against a real database as well as in unit tests — a synthetic 36-mod dependency
+closure built from the live catalogue, covering a simulated failed install, a rewound version,
+a pin, and a recorded-but-not-installed row.
 
 ## v2.46
 
