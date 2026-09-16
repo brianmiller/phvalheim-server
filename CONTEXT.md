@@ -119,9 +119,9 @@ bash dev_tools/deployRc.sh
 - Stateful volume: `/opt/phvalheim-test`
 
 ### Promote RC to Production
-```bash
-bash dev_tools/promoteRCtoLatest.sh
-```
+**Not for releases.** `dev_tools/promoteRCtoLatest.sh` does a bare `docker tag` of `:rc`,
+which ships whatever `:rc` happened to contain rather than the commit you mean. Releases
+rebuild — see **Release Process** below.
 
 ### Other dev_tools scripts
 - `deployLatest.sh` — deploy the :latest tag locally
@@ -138,10 +138,31 @@ and the Ollama URL. Never commit it or its contents — this repo is public.
 - Any BepInEx version bump will require re-patching the affected DLLs
 
 ## Release Process
-1. `bash dev_tools/buildImage.sh` — builds `:rc` locally. Long builds must run detached
-   (`setsid nohup`) — background Bash tasks die when the agent session recycles.
-2. Bump `ENV phvalheimVersion` in the Dockerfile; add a `dbUpdates/dbUpdate_X.YZ.sh` if the schema changed.
-3. Tag and push `:VERSION`, then `bash dev_tools/promoteRCtoLatest.sh` to promote `:rc` → `:latest`.
-   All three tags should end up on the same digest.
-4. Add a `CHANGELOG.md` entry, commit, push.
-5. `gh release create vX.YZ --latest --notes-file <notes>`.
+
+**Full procedure, with the traps and why each one is there:
+[`.claude/agents/phvalheim-release.md`](.claude/agents/phvalheim-release.md).** Read it before
+shipping — it is also a Claude Code subagent (`phvalheim-release`). The summary below is not
+sufficient on its own.
+
+1. Bump `ENV phvalheimVersion` in the Dockerfile (**the user's call, not yours**); add
+   `dbUpdates/dbUpdate_X.YZ.sh` if the schema changed. Migrations are object-by-object
+   idempotent — the RC ships first and revisions re-run the same file.
+2. Add `whatsnew.php` entries and run `dev_tools/check-whatsnew.sh`. It fails without them,
+   and a missing entry is invisible at runtime.
+3. **Add verify markers for this release to `dev_tools/buildRcDetached.sh`.** Without them the
+   script still prints `IMAGE VERIFY OK` — it is only checking older releases' markers. Dry-run
+   them against the repo tree first, remembering that repo paths and image paths differ.
+4. Run the tests. Mutation-check the new ones; confirm any failure is not pre-existing.
+5. Write the `CHANGELOG.md` entry **against the final code**, not the design you started with.
+6. Build detached — never as a tracked background task, which dies when the session recycles:
+   ```bash
+   setsid nohup dev_tools/buildRcDetached.sh > /dev/null 2>&1 &   # :rc only
+   EXTRA_TAGS="X.YZ"        setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &  # pre-release
+   EXTRA_TAGS="X.YZ latest" setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &  # full release
+   ```
+   It builds, pushes `:rc`, verifies the markers **inside the pushed image**, and promotes the
+   extra tags only on `IMAGE VERIFY OK`. **Never `docker tag` a tested `:rc` into a version.**
+   Note `:rc` is pushed *before* the verify runs; a failed verify does not unpush it.
+7. `git tag -a vX.YZ` + push, then `gh release create vX.YZ [--prerelease] --notes-file <file>`.
+   **Pre-release until the user has watched the risky path run** — a pre-release leaves
+   `:latest` alone.

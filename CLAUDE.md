@@ -73,17 +73,29 @@ docker create --name phvalheim \
 # In dev_tools/
 ./buildImage.sh          # Build and push Docker image
 ./deployLocal.sh         # Local deployment
-./promoteRCtoLatest.sh   # Promote release candidate
+./promoteRCtoLatest.sh   # Bare retag of :rc — NOT for releases, see Releasing below
 ./saveGit.sh             # Git operations
 ```
 
 ## Releasing
 
-Every release must add an entry to `container/nginx/www/includes/whatsnew.php` describing
-its new features and bug fixes — that file feeds the admin UI's one-shot "What's New"
-modal, which is how operators find out anything changed. Run `dev_tools/check-whatsnew.sh`
-before building; it fails when the Dockerfile version has no entry. A missing entry is
-invisible at runtime (the modal shows nothing), so the gate is the only thing that catches it.
+**Read `.claude/agents/phvalheim-release.md` before shipping anything.** It is the full
+procedure and the list of traps that have actually bitten this project, each with the release
+it bit. It is also a Claude Code subagent (`phvalheim-release`).
+
+The three that cost the most, in short:
+
+- Every release must add an entry to `container/nginx/www/includes/whatsnew.php`. That file
+  feeds the admin UI's one-shot "What's New" modal, which is how operators find out anything
+  changed. Run `dev_tools/check-whatsnew.sh` before building; it fails when the Dockerfile
+  version has no entry. A missing entry is invisible at runtime, so the gate is the only thing
+  that catches it.
+- Every release must add **verify markers for itself** to `dev_tools/buildRcDetached.sh`.
+  Without them that script still prints `IMAGE VERIFY OK` — it is only checking older
+  releases' markers, which all still pass. 2.47 shipped three RCs with zero 2.47 markers.
+- **Never `docker tag` a tested `:rc` into a version or into `:latest`** — rebuild via
+  `EXTRA_TAGS=`, which promotes only after the in-image verify passes. A retag ships whatever
+  `:rc` happened to contain.
 
 ## Database Schema Updates
 

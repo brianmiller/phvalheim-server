@@ -1,4 +1,15 @@
 #!/bin/bash
+#
+# NOT FOR RELEASES. This retags whatever :rc currently contains, which is not necessarily
+# the commit you mean -- finishing the docs after a build changes files inside the image, and
+# 2.45 shipped that way. It also skips the in-image verify entirely, so nothing checks that
+# the release you think you are promoting is actually in there.
+#
+# Release path: EXTRA_TAGS="X.YZ latest" setsid nohup dev_tools/buildRcDetached.sh &
+# That rebuilds from source and promotes only after IMAGE VERIFY OK.
+# See .claude/agents/phvalheim-release.md
+#
+# Kept for hand-driven local work where you know exactly what :rc is.
 
 # login
 docker login
