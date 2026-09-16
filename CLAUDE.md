@@ -79,9 +79,10 @@ docker create --name phvalheim \
 
 ## Releasing
 
-**Read `.claude/agents/phvalheim-release.md` before shipping anything.** It is the full
+**Read [`docs/RELEASING.md`](docs/RELEASING.md) before shipping anything.** It is the full
 procedure and the list of traps that have actually bitten this project, each with the release
-it bit. It is also a Claude Code subagent (`phvalheim-release`).
+it bit. Claude Code users get it as the `phvalheim-release` subagent, which reads that same
+file — there is one copy, so the two cannot drift apart.
 
 The three that cost the most, in short:
 

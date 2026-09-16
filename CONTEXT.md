@@ -140,8 +140,8 @@ and the Ollama URL. Never commit it or its contents — this repo is public.
 ## Release Process
 
 **Full procedure, with the traps and why each one is there:
-[`.claude/agents/phvalheim-release.md`](.claude/agents/phvalheim-release.md).** Read it before
-shipping — it is also a Claude Code subagent (`phvalheim-release`). The summary below is not
+[`docs/RELEASING.md`](docs/RELEASING.md).** Read it before shipping — Claude Code users get it
+as the `phvalheim-release` subagent, which reads that same file. The summary below is not
 sufficient on its own.
 
 1. Bump `ENV phvalheimVersion` in the Dockerfile (**the user's call, not yours**); add
