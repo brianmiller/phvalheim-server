@@ -902,6 +902,19 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   pe=$(grep -c "onclick=.dismissWhatsNew()." /opt/stateless/nginx/www/admin/index.php)
   echo "2.47 whatsnew btn: fallback=$oy/$oz (want 1/1)  button=$pa (want 1)  opener=$pb (want 1)"
   echo "2.47 whatsnew btn: pending flag=$pc (want >0)  css=$pd (want >0)  stale dismiss onclick=$pe (want 0)"
+  # The transitional status pills. 2.47 dropped @keyframes auProgress into the MIDDLE of
+  # their selector list, which makes the parser discard the whole rule -- Updating, Starting,
+  # Stopping, Creating and Deleting all went flat grey, silently, and only .backup survived
+  # because it was the last selector and so became its own valid rule.
+  #
+  # pf asserts the list still runs straight into .backup with no at-rule between. pg asserts
+  # auProgress is defined somewhere. Both are needed: moving the keyframes out without
+  # rejoining the list would leave the pills grey and still pass pg.
+  pf=$(grep -A1 "status-badge.deleting," /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "status-badge.backup {")
+  # The DEFINITION, with its brace -- the comment warning about this bug names auProgress too,
+  # so a bare word count is 2 on the correct file.
+  pg=$(grep -c "@keyframes auProgress {" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "2.47 status pills: transitional list intact=$pf (want 1)  auProgress defined=$pg (want 1)"
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1011,6 +1024,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$ou" -gt 0 ] && [ "$ov" -gt 0 ] \
     && [ "$oy" = "1" ] && [ "$oz" = "1" ] && [ "$pa" = "1" ] && [ "$pb" = "1" ] \
     && [ "$pc" -gt 0 ] && [ "$pd" -gt 0 ] && [ "$pe" = "0" ] \
+    && [ "$pf" = "1" ] && [ "$pg" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

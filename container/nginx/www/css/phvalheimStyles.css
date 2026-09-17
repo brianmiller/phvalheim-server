@@ -2398,19 +2398,18 @@ input:checked + .slider:before {
 .status-badge.creating,
 .status-badge.updating,
 .status-badge.deleting,
-/* Drives the striped, moving fill on the update phase currently running. Neither steamcmd
-   nor the mod install reports a percentage, so a static bar would either look finished or
-   claim a number we do not have. Motion says "in flight" without inventing progress. */
-@keyframes auProgress {
-	from { background-position: 0 0; }
-	to   { background-position: 0.75rem 0; }
-}
-
 .status-badge.backup {
 	background: rgba(251, 191, 36, 0.2);
 	color: #fbbf24;
 	animation: status-pulse 1.2s ease-in-out infinite;
 }
+
+/* NOTHING may be inserted between the selectors above and their block. A comment is fine;
+   an at-rule is not. 2.47 put @keyframes auProgress in the middle of that list, which ends a
+   selector list on a comma followed by an at-rule -- the parser error-recovers by discarding
+   the whole thing, declarations included. Every transitional state except .backup silently
+   went grey and stopped pulsing, because .backup happened to be the last selector and so
+   became its own valid rule. Valid CSS, no warning, nothing in the console. */
 
 .status-dot {
 	width: 6px;
@@ -2425,6 +2424,15 @@ input:checked + .slider:before {
 	animation: pulse 3.5s ease-in-out infinite;
 	animation-delay: -1.75s; /* Start halfway through cycle to avoid all dots syncing on AJAX refresh */
 	will-change: opacity, box-shadow;
+}
+
+/* Drives the striped, moving fill on the update phase currently running (Updates tab).
+   Neither steamcmd nor the mod install reports a percentage, so a static bar would either
+   look finished or claim a number we do not have. Motion says "in flight" without inventing
+   progress. Kept here beside the other keyframes, away from any selector list. */
+@keyframes auProgress {
+	from { background-position: 0 0; }
+	to   { background-position: 0.75rem 0; }
 }
 
 /* Simple pulse animation for transitional states */
