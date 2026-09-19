@@ -352,7 +352,15 @@ def record_installed(name, installed_ids):
     can't-tell-the-difference failure as the one this replaced, just pointing the other way.
     """
     wid = world_id(name)
-    rows_now = install_rows(wid)
+
+    # A VANILLA world plans NOTHING, whatever rows world_mods still holds: the engine purges
+    # its mod files and skips the install path entirely. Leaving the plan empty sends every
+    # row through the not-in-plan sweep below, which records the truth -- known not installed
+    # -- rather than leaving it indistinguishable from a row nobody has ever looked at.
+    vanillaRow = rows(f"SELECT IFNULL(vanilla,0) FROM worlds WHERE id={int(wid)};")
+    isVanilla = bool(vanillaRow) and str(vanillaRow[0][0]).strip() == "1"
+
+    rows_now = [] if isVanilla else install_rows(wid)
     wanted = {r["mod_id"] for r in rows_now}
     landed = {i for i in installed_ids if i in wanted}
 

@@ -167,10 +167,18 @@ check("that HOME is the steam home, not the inherited one", uc.STEAM_HOME,
 queries = []
 
 
-def with_fake_db(picks, fn, world_id="7"):
+def with_fake_db(picks, fn, world_id="7", vanilla="0"):
     real_one, real_rows = uc.one, uc.rows
     queries.clear()
-    uc.one = lambda qy: (queries.append(qy), world_id)[1]
+
+    # Routed by query, not a single canned answer: one() now answers BOTH "what is the
+    # world id" and "is it vanilla", and returning the id to both would make a world whose
+    # id happens to be 1 read as vanilla.
+    def fake_one(qy):
+        queries.append(qy)
+        return vanilla if "vanilla" in qy else world_id
+
+    uc.one = fake_one
     uc.rows = lambda qy: (queries.append(qy), picks)[1]
     try:
         return fn()
@@ -226,6 +234,23 @@ check("mod_updates never reads the display cache", False,
       any("modsViewer" in qy for qy in queries))
 check("mod_updates reads the installed-version record instead", True,
       any("installed_version_id" in qy for qy in queries))
+
+# --- a VANILLA world with leftover mod rows ---------------------------------------------
+# Converting a world to vanilla purges its mod files and skips the install path, but its
+# world_mods rows survive, unrecorded. Reproduced on a live server: the Updates tab said
+# "5 mods have no recorded installed version" permanently, and Rebuild Mods could not clear
+# it because every rebuild took the same skip. A vanilla world runs zero mods; its leftover
+# rows must not be reported as a gap in our knowledge.
+count, stale, err = with_fake_db([UNRECORDED, UNRECORDED],
+                                 lambda: uc.mod_updates("w"), vanilla="1")
+check("a vanilla world with leftover mod rows reports no error", "", err)
+check("...and no updates", (0, []), (count, stale))
+
+# The same rows on a NON-vanilla world must still report the gap -- otherwise this guard
+# has silently turned every unrecorded world into a false clean bill.
+count, stale, err = with_fake_db([UNRECORDED, UNRECORDED],
+                                 lambda: uc.mod_updates("w"), vanilla="0")
+check("the same rows on a modded world still report the gap", True, bool(err))
 
 print(f"\n  {pass_count} passed, {fail_count} failed")
 sys.exit(1 if fail_count else 0)

@@ -956,6 +956,16 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   pt=$(grep -c "SELECT pid FROM worlds" /opt/stateless/engine/phvalheim)
   pu=$(grep -c "^function worldProcessRunning" /opt/stateless/engine/includes/0-functions.sh)
   pv=$(grep -c "worldProcessRunning ..worldName." /opt/stateless/engine/phvalheim)
+  # A world converted to vanilla keeps its world_mods rows while the vanilla path skips the
+  # whole mod install, so without these every row stays installed_at NULL and the Updates
+  # tab waits for data forever -- Rebuild Mods takes the same skip. Reproduced live.
+  qc=$(grep -c "IFNULL(vanilla,0) FROM worlds WHERE id=" /opt/stateless/engine/tools/updateChecker.py)
+  qd=$(grep -c "IFNULL(vanilla,0) FROM worlds WHERE id=" /opt/stateless/engine/tools/worldMods.py)
+  # Counted, not anchored: the call ends in a line continuation, so a $-anchored pattern
+  # matched nothing and reported a missing fix that was present.
+  qe=$(grep -c -- "--record-installed" /opt/stateless/engine/phvalheim)
+  qf=$(grep -c "isVanilla else install_rows" /opt/stateless/engine/tools/worldMods.py)
+  echo "2.47 vanilla mods: checker guard=$qc (want 1)  recorder guard=$qd (want 1)  empty plan=$qf (want 1)  engine calls it=$qe (want 1)"
   echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 3)  states=$pw (want 1)"
   # Nothing that sets mode=update stops the world first, so the engine must do it. Refusing
   # instead left mode=update set and the 2s loop reprinted the refusal forever.
@@ -1082,6 +1092,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$po" = "1" ] && [ "$pp" = "1" ] \
     && [ "$pq" = "1" ] && [ "$pr" = "3" ] && [ "$pw" = "1" ] \
     && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "5" ] \
+    && [ "$qc" = "1" ] && [ "$qd" = "1" ] && [ "$qe" = "1" ] && [ "$qf" = "1" ] \
     && [ "$px" = "1" ] && [ "$py" = "1" ] && [ "$pz" = "1" ] && [ "$qa" = "0" ] && [ "$qb" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '

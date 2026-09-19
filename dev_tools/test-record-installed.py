@@ -185,5 +185,66 @@ check("...appended, leaving the first eight columns where awk expects them",
        "https://example/EpicLoot-0.9.9.zip"], fields[0:5])
 check("...and the row is exactly nine fields", 9, len(fields))
 
+# --- a VANILLA world --------------------------------------------------------------------
+# Converting a world to vanilla purges its mod files and skips the install path, but leaves
+# its world_mods rows behind. Reproduced on a live server: every row stayed installed_at
+# NULL, the Updates tab read "5 mods have no recorded installed version", and Rebuild Mods
+# could never clear it because every rebuild took the same skip. A vanilla world plans
+# NOTHING, so every row must go through the not-in-plan sweep and be recorded as known
+# NOT installed.
+def run_vanilla(installed_ids="", plan=PLAN):
+    emitted = []
+    real_sql, real_world_id = wm.sql, wm.world_id
+    real_install_rows, real_rows = wm.install_rows, wm.rows
+    wm.sql = lambda stmt, fetch=False: emitted.append(" ".join(stmt.split())) or ""
+    wm.world_id = lambda name: "7"
+    wm.rows = lambda query: [["1"]] if "vanilla" in query else []
+    # If the plan is consulted at all for a vanilla world, these rows would be excluded
+    # from the sweep -- which is exactly the bug.
+    wm.install_rows = lambda wid, warn=None: list(plan)
+    try:
+        wm.record_installed("w", installed_ids)
+    finally:
+        wm.sql, wm.world_id = real_sql, real_world_id
+        wm.install_rows, wm.rows = real_install_rows, real_rows
+    return emitted
+
+
+stmts = run_vanilla()
+check("vanilla: no mod is claimed as installed", [None, None, None],
+      [recorded_for(stmts, m) for m in ("10", "11", "12")])
+check("vanilla: the sweep covers EVERY row, with no mod_id exclusion",
+      True, "installed_version_id=NULL" in sweep(stmts) and "NOT IN" not in sweep(stmts))
+check("vanilla: and it stamps installed_at, so the rows read known-not-installed "
+      "rather than unknown", True, "installed_at=NOW()" in sweep(stmts))
+
+# The inverse: a NON-vanilla world must still exclude its planned mods from that sweep,
+# or a real install would be wiped out by the very next line.
+stmts = run(["10", "11", "12"])
+# `wanted` is a set, so the id ORDER in the NOT IN list is arbitrary -- compare as a set,
+# not as a string. (Asserting the literal text passed by luck of iteration order once.)
+excluded = re.search(r"NOT IN \(([^)]*)\)", sweep(stmts))
+check("non-vanilla: the sweep still excludes the planned mods",
+      {"10", "11", "12"},
+      set(excluded.group(1).split(",")) if excluded else set())
+
+# --- the caller ---------------------------------------------------------------------------
+# record_installed only helps a vanilla world if the vanilla path actually CALLS it. That
+# call is the difference between "known not installed" and a permanent "waiting for data",
+# so pin it here rather than trusting the engine to keep it.
+ENGINE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                      "..", "container", "engine", "phvalheim")
+with open(ENGINE) as fh:
+    engine_src = fh.read()
+
+check("the vanilla path calls --record-installed", True,
+      '--record-installed ""' in engine_src)
+
+skip_at = engine_src.find("is vanilla -- skipping")
+record_at = engine_src.find('--record-installed ""')
+viewer_at = engine_src.find('generateModViewerJson "$worldName"', skip_at)
+check("...after the purge and before the viewer is rebuilt, i.e. inside the vanilla branch",
+      True, -1 < skip_at < record_at < viewer_at)
+
 print(f"\n  {pass_count} passed, {fail_count} failed")
 sys.exit(1 if fail_count else 0)

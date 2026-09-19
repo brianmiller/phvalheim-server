@@ -439,6 +439,14 @@ while [ true ]; do
 					#Make sure a world converted to vanilla has no mod remnants
 					purgeWorldModsConfigsPatchers "$worldName"
 
+					#The files are gone, so say so. A world converted to vanilla keeps its
+					#world_mods rows, and without this they stay installed_at NULL -- which
+					#means UNKNOWN, and the Updates tab waits for data that this path never
+					#produces. They are not unknown: they are known NOT installed, which is
+					#the middle state the two columns exist to carry.
+					/opt/stateless/engine/tools/worldMods.py --world "$worldName" --record-installed "" \
+						|| echo "`date` [WARN : phvalheim] Could not record the purged mod state for '$worldName'."
+
 					#Empty the mod viewer list so the UI doesn't show stale mods
 					generateModViewerJson "$worldName"
 				else

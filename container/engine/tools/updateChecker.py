@@ -211,6 +211,15 @@ def mod_updates(world):
     if not wid:
         return 0, [], ""
 
+    # A VANILLA world runs zero mods, whatever world_mods still holds. Converting a world to
+    # vanilla purges its mod FILES and skips the entire install path -- but leaves its
+    # selection rows behind, so every one of them stays installed_at NULL forever. Without
+    # this the Updates tab reports "N mods have no recorded installed version" permanently,
+    # and the Rebuild Mods button it tells you to press can never clear it, because every
+    # rebuild takes that same skip. Reproduced on a live server against a converted world.
+    if str(one(f"SELECT IFNULL(vanilla,0) FROM worlds WHERE id={int(wid)};")).strip() == "1":
+        return 0, [], ""
+
     # LEFT JOIN on mod_versions: the row survives even if the recorded version has since
     # been pruned from the catalogue. An INNER JOIN would drop it, and a dropped row is
     # indistinguishable from a world with fewer mods -- silently back to a false zero.
