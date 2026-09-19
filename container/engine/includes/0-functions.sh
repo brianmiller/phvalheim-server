@@ -165,7 +165,23 @@ function InstallAndUpdateValheim() {
                 return 1
         fi
 
-        chown -R phvalheim: $worldsDirectoryRoot/$worldName
+        #Best effort, and explicitly NOT this function's return value.
+        #
+        #This used to be the last command, so `chown -R` decided what the whole function
+        #returned. The engine runs as root, so packageClient leaves the client payload zip
+        #owned by root; updateApplier runs as the phvalheim user, and a non-root chown of a
+        #root-owned file is EPERM. One unchownable file made `chown -R` exit non-zero, so a
+        #steamcmd run that had just logged "installed successfully" was reported to the
+        #operator as "Valheim server update failed. The world was left stopped."
+        #
+        #Warned about rather than swallowed: the ownership still matters (see issue #80 --
+        #the world process runs as phvalheim and must be able to read its own game tree), so
+        #a failure here is worth seeing. It is simply not a failed game update.
+        if ! chown -R phvalheim: $worldsDirectoryRoot/$worldName 2>/dev/null; then
+                echo "`date` [WARN : phvalheim] Could not chown every file under '$worldName' to phvalheim. The game update itself succeeded; check for root-owned leftovers."
+        fi
+
+        return 0
 }
 
 #$1=world name, $2=world seed

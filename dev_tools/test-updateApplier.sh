@@ -137,6 +137,105 @@ check "0 players, last seen 5h ago -> busy"       "BUSY" "$(runIdle 0 300 30)"
 # Never observed at all. Unknown must never authorise a restart.
 check "never observed -> busy"                    "BUSY" "$(runIdle 0 0 30 1)"
 
+# --- stopping the world ----------------------------------------------------------------
+#
+# The worst bug this feature has had. updateApplier is run from cron AS THE phvalheim USER,
+# and supervisorctl cannot work as that user: supervisord.conf is 0660 root:root and its
+# socket is 0700 root:root, so it exits 2 with "could not read config file". The old code was
+#
+#     /usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
+#
+# which discarded that, so the world was never stopped and steamcmd went on to rewrite the
+# game tree underneath a live server with players on it. Verified on a real server: the
+# process ran straight through the update while the UI reported the world left stopped.
+echo
+
+# The whole file, minus the shebang/source line, so the greps below see the real thing.
+BODY=$(tail -n +3 "$TOOL")
+
+# NEGATIVE, and the one that matters. Counting the new code would pass on a file that kept
+# the broken call beside it.
+#
+# Matched on the INVOCATION path, not the bare word: the comments above the fix explain why
+# supervisorctl cannot be used here and name it three times, so a bare word count is 3 on the
+# corrected file.
+supCalls=$(printf '%s' "$BODY" | grep -c '/usr/bin/supervisorctl')
+check "supervisorctl is never called (it cannot work as this user)" "0" "$supCalls"
+
+# Stop must go through worlds.mode, which the engine owns and the engine runs as root.
+check "the stop goes through worlds.mode" "1" \
+	"$(printf '%s' "$BODY" | grep -c "UPDATE worlds SET mode='stop' WHERE")"
+check "the start goes through worlds.mode" "1" \
+	"$(printf '%s' "$BODY" | grep -c "UPDATE worlds SET mode='start' WHERE")"
+
+# Liveness is asked of the process table. Asking supervisor is impossible here, and asking
+# worlds.mode would be trusting the thing we are trying to verify.
+check "liveness is checked against the process table" "1" \
+	"$(printf '%s' "$BODY" | grep -c 'pgrep -f')"
+
+# stopWorldAndWait is pure enough to run directly, with the two things it touches stubbed.
+sed -n '/^worldProcessRunning() {/,/^}/p' "$TOOL" >  /tmp/stopw.fn
+sed -n '/^stopWorldAndWait() {/,/^}/p'    "$TOOL" >> /tmp/stopw.fn
+
+# $1 = how many liveness checks report "still running" before it goes quiet; 99 = never stops.
+runStop() {
+	bash -c '
+		calls=0
+		stopsAfter='"$1"'
+		worldProcessRunning() { calls=$((calls+1)); [ "$calls" -le "$stopsAfter" ]; }
+		SQL() { echo "SQL:$*" >> /tmp/stopw.sql; }
+		sleep() { :; }          # no real waiting in a test
+		date() { echo "-"; }
+		'"$(sed -n '/^stopWorldAndWait() {/,/^}/p' "$TOOL")"'
+		if stopWorldAndWait "w"; then echo STOPPED; else echo STILLUP; fi
+	' 2>/dev/null | tail -1   # the failure path logs an ERROR line first; the verdict is last
+}
+
+rm -f /tmp/stopw.sql
+check "a world that goes quiet reports stopped"      "STOPPED" "$(runStop 2)"
+# The load-bearing one: it must NOT claim success just because it waited.
+check "a world that never stops reports failure"     "STILLUP" "$(runStop 99)"
+# Already down before we start: no stop command, nothing to wait for.
+rm -f /tmp/stopw.sql
+check "an already-stopped world returns immediately" "STOPPED" "$(runStop 0)"
+check "...and issues no stop command"                "0" \
+	"$(grep -c "mode='stop'" /tmp/stopw.sql 2>/dev/null || echo 0)"
+
+# A failure to stop must abort before anything is written. This asserts the wiring: the
+# stopping phase is followed by a guarded call whose failure branch returns.
+check "a failed stop aborts the update" "1" \
+	"$(printf '%s' "$BODY" | grep -c 'if ! stopWorldAndWait')"
+check "...and says the world is still running" "1" \
+	"$(printf '%s' "$BODY" | grep -c 'could not be stopped, so nothing was updated')"
+
+# --- a skipped backup is not a backup ----------------------------------------------------
+#
+# worldBackup holds ONE global lock, so "already running" usually means a different world.
+# It exited 0 for that, and this script only checked for non-zero, so a skip read as a
+# successful backup and the update proceeded with no way back.
+BACKUP="$(cd "$(dirname "$0")/.." && pwd)/container/engine/tools/worldBackup"
+check "worldBackup exits 75 when it skips, not 0" "1" \
+	"$(grep -A4 'Backup already running' "$BACKUP" | grep -c 'exit 75')"
+check "the applier treats 75 as no-backup-taken" "1" \
+	"$(printf '%s' "$BODY" | grep -c 'backupStatus" -eq 75')"
+# Deferred, not failed: the condition is transient, and 'pending' is what the sweep retries.
+# Anchored on the deferral message -- the sweep sets 'pending' too, so a bare count is 2.
+check "a deferred backup leaves the world retryable" "1" \
+	"$(printf '%s' "$BODY" | grep -c 'Deferred: another backup was running')"
+
+# --- the game update's own exit status ---------------------------------------------------
+#
+# InstallAndUpdateValheim ended with `chown -R`, so a single unchownable file decided the
+# whole function's return value. The engine runs as root and leaves the client payload zip
+# root-owned; this script runs as phvalheim, so that chown is EPERM. A steamcmd run that had
+# just logged "installed successfully" was reported as a failed update.
+FUNCS="$(cd "$(dirname "$0")/.." && pwd)/container/engine/includes/0-functions.sh"
+tail=$(awk '/^function InstallAndUpdateValheim/,/^}/' "$FUNCS" | grep -v '^\s*#' | grep -v '^\s*$' | tail -2 | head -1)
+check "InstallAndUpdateValheim ends with an explicit return, not a chown" "1" \
+	"$(awk '/^function InstallAndUpdateValheim/,/^}/' "$FUNCS" | grep -c '^        return 0$')"
+check "...and its chown cannot decide the return value" "1" \
+	"$(awk '/^function InstallAndUpdateValheim/,/^}/' "$FUNCS" | grep -c 'if ! chown -R phvalheim:')"
+
 echo
 echo "  $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

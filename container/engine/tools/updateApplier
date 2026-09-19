@@ -112,6 +112,54 @@ setPhase() {
 	echo "`date` [NOTICE : phvalheim] Auto-update '$worldName': phase=$phase"
 }
 
+# Is the world's server process actually alive?
+#
+# Asked of the PROCESS TABLE, not of supervisor and not of worlds.mode. This runs as the
+# phvalheim user, which cannot talk to supervisor at all (see stopWorld below), and mode is
+# what we are trying to verify rather than something to trust. Matched on the world's own
+# game directory so two worlds cannot be confused for each other.
+worldProcessRunning() {
+	pgrep -f "worlds/$1/game/valheim_server.x86_64" > /dev/null 2>&1
+}
+
+# Stop the world and DO NOT RETURN until it is really down.
+#
+# This used to be a bare `supervisorctl stop ... > /dev/null 2>&1`, which cannot work: cron
+# runs updateApplier as the phvalheim user, supervisord.conf is 0660 root:root and its socket
+# is 0700 root:root, so supervisorctl exits 2 with "could not read config file" -- and 2>&1
+# threw that away. The world was never stopped, and steamcmd went on to replace the game
+# files underneath a live server. Observed on a real server: the process ran through the
+# entire update and the UI still reported the world as left stopped.
+#
+# Routed through worlds.mode instead, which the ENGINE owns and the engine runs as root. That
+# is the same path the admin UI's Stop button uses, and the same one this script already used
+# for the mods phase, so there is one mechanism rather than two.
+#
+# Returns non-zero if the world is still running at the end. Every caller must treat that as
+# fatal: touching game files under a running server is the thing this exists to prevent.
+stopWorldAndWait() {
+	local worldName="$1" waited=0 limit=180
+
+	worldProcessRunning "$worldName" || return 0
+
+	SQL "UPDATE worlds SET mode='stop' WHERE name='$worldName';"
+
+	while [ "$waited" -lt "$limit" ]; do
+		sleep 5
+		waited=$((waited + 5))
+		worldProcessRunning "$worldName" || return 0
+	done
+
+	echo "`date` [ERROR : phvalheim] Auto-update: '$worldName' did not stop within ${limit}s"
+	return 1
+}
+
+# Ask the engine to start the world again. Fire and forget: the engine's start path has its
+# own readiness handling, and blocking here would hold the applier lock for no benefit.
+startWorld() {
+	SQL "UPDATE worlds SET mode='start' WHERE name='$1';"
+}
+
 applyUpdate() {
 	local worldName="$1" scope="$2" backupFirst="$3"
 
@@ -124,20 +172,42 @@ applyUpdate() {
 		# worldBackup sets worlds.mode='backup' itself and restores the previous mode when
 		# it finishes, which is what drives the Backup pill on the world row.
 		/opt/stateless/engine/tools/worldBackup "$worldName" manual
-		if [ $? -ne 0 ]; then
-			# A failed backup stops the whole thing. The point of taking one is to have
-			# a way back; updating anyway would throw that away precisely when it is
-			# most likely to be needed.
-			echo "`date` [ERROR : phvalheim] Auto-update: backup failed for '$worldName' -- not updating"
-			SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
-				update_last_result='Backup failed before update; nothing was changed.' \
-				WHERE name='$worldName';"
+		backupStatus=$?
+		if [ "$backupStatus" -ne 0 ]; then
+			# A backup that did not happen stops the whole thing. The point of taking one
+			# is to have a way back; updating anyway would throw that away precisely when
+			# it is most likely to be needed.
+			#
+			# 75 is worldBackup declining because another backup holds the global lock. It
+			# used to exit 0 for that, so a skipped backup passed this check and the update
+			# ran with no way back. Separated out because the two need different words: one
+			# is broken, the other is just busy and will be fine on the next sweep.
+			if [ "$backupStatus" -eq 75 ]; then
+				echo "`date` [NOTICE : phvalheim] Auto-update: another backup is running, so '$worldName' was not backed up -- deferring"
+				SQL "UPDATE worlds SET update_state='pending', update_phase=NULL, \
+					update_last_result='Deferred: another backup was running, so this world could not be backed up first. Nothing was changed.' \
+					WHERE name='$worldName';"
+			else
+				echo "`date` [ERROR : phvalheim] Auto-update: backup failed for '$worldName' -- not updating"
+				SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
+					update_last_result='Backup failed before update; nothing was changed.' \
+					WHERE name='$worldName';"
+			fi
 			return 1
 		fi
 	fi
 
 	setPhase "$worldName" "stopping"
-	/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
+	if ! stopWorldAndWait "$worldName"; then
+		# Abort with nothing touched. A world that will not stop is the one case where
+		# carrying on does real damage -- steamcmd would rewrite the game tree under a
+		# live server and players already connected to it.
+		echo "`date` [ERROR : phvalheim] Auto-update: '$worldName' would not stop -- nothing was updated"
+		SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
+			update_last_result='The world could not be stopped, so nothing was updated. It is still running.' \
+			WHERE name='$worldName';"
+		return 1
+	fi
 
 	local result=""
 
@@ -146,6 +216,9 @@ applyUpdate() {
 		InstallAndUpdateValheim "$worldName"
 		if [ $? -ne 0 ]; then
 			echo "`date` [ERROR : phvalheim] Auto-update: game update failed for '$worldName'"
+			# Say what is true of the world, not what is convenient. It IS stopped here --
+			# stopWorldAndWait confirmed that against the process table before anything was
+			# touched -- so the operator needs to know it will stay down until they act.
 			SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
 				update_last_result='Valheim server update failed. The world was left stopped.' \
 				WHERE name='$worldName';"
@@ -164,7 +237,10 @@ applyUpdate() {
 		[ -n "$result" ] && result="$result, mods rebuilt" || result="mods rebuilt"
 	else
 		setPhase "$worldName" "starting"
-		/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
+		# Through the engine, for the same reason as the stop: supervisorctl is not
+		# reachable from this user. When the scope includes mods the branch above has
+		# already set mode='update', which starts the world itself at the end.
+		startWorld "$worldName"
 	fi
 
 	# $(date), not backticks: this SQL is inside DOUBLE quotes, so a backtick would be

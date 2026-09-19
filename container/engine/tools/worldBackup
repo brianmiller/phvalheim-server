@@ -12,11 +12,20 @@ MANUAL_MODE=0
 LOCK_FILE="/tmp/worldBackup.lock"
 
 # prevent concurrent runs
+#
+# EXIT 75, not 0. The lock is global, so the backup that holds it is very likely for a
+# DIFFERENT world -- "already running" means this world was not backed up, and exiting 0 said
+# the opposite. updateApplier checked only for non-zero before deciding a backup had been
+# taken, so a skip read as a success and an auto-update went ahead with no fresh backup: the
+# exact situation the backup-first setting exists to prevent, and it happened on a real
+# server. 75 is EX_TEMPFAIL -- try again later -- which is what a skip actually means.
+#
+# Callers that do not care (the cron sweep) ignore the status as before.
 if [ -f "$LOCK_FILE" ]; then
 	lockPid=$(cat "$LOCK_FILE")
 	if kill -0 "$lockPid" 2>/dev/null; then
 		echo "`date` [WARN : phvalheim] Backup already running (PID $lockPid), skipping."
-		exit 0
+		exit 75
 	else
 		rm -f "$LOCK_FILE"
 	fi

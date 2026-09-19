@@ -915,6 +915,23 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # so a bare word count is 2 on the correct file.
   pg=$(grep -c "@keyframes auProgress {" /opt/stateless/nginx/www/css/phvalheimStyles.css)
   echo "2.47 status pills: transitional list intact=$pf (want 1)  auProgress defined=$pg (want 1)"
+  # The auto-update stop path. updateApplier runs from cron as the phvalheim user, which
+  # cannot reach supervisor at all -- its config is 0660 root:root and its socket 0700
+  # root:root. The old bare supervisorctl call discarded that error, so the world was never
+  # stopped and steamcmd rewrote the game tree under a live server. The NEGATIVE is the load
+  # bearing check: matched on the invocation path, since the comments explaining the fix name
+  # supervisorctl several times.
+  ph=$(grep -c "/usr/bin/supervisorctl" /opt/stateless/engine/tools/updateApplier)
+  pi_=$(grep -c "UPDATE worlds SET mode=.stop. WHERE" /opt/stateless/engine/tools/updateApplier)
+  pj=$(grep -c "pgrep -f" /opt/stateless/engine/tools/updateApplier)
+  pk=$(grep -c "if ! stopWorldAndWait" /opt/stateless/engine/tools/updateApplier)
+  # A skipped backup must not read as a taken one.
+  pl=$(grep -c "exit 75" /opt/stateless/engine/tools/worldBackup)
+  pm=$(grep -c "backupStatus. -eq 75" /opt/stateless/engine/tools/updateApplier)
+  # InstallAndUpdateValheim must not end on a chown, whose status became its return value.
+  pn=$(grep -c "if ! chown -R phvalheim:" /opt/stateless/engine/includes/0-functions.sh)
+  echo "2.47 autoupdate stop: supervisorctl calls=$ph (want 0)  via mode=$pi_ (want 1)  pgrep=$pj (want 1)  guarded=$pk (want 1)"
+  echo "2.47 autoupdate safety: backup skip=$pl/$pm (want 1/1)  chown not the return value=$pn (want 1)"
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1025,6 +1042,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$oy" = "1" ] && [ "$oz" = "1" ] && [ "$pa" = "1" ] && [ "$pb" = "1" ] \
     && [ "$pc" -gt 0 ] && [ "$pd" -gt 0 ] && [ "$pe" = "0" ] \
     && [ "$pf" = "1" ] && [ "$pg" = "1" ] \
+    && [ "$ph" = "0" ] && [ "$pi_" = "1" ] && [ "$pj" = "1" ] && [ "$pk" = "1" ] \
+    && [ "$pl" = "1" ] && [ "$pm" = "1" ] && [ "$pn" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
