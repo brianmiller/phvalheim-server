@@ -163,13 +163,16 @@ NULL is the true answer and the UI says "waiting for data".
    versions of the same mod, and issue #50 says it has no integrity check, so it would mean
    building authoritative-looking numbers on a store we do not trust.
 
-## Production state to be aware of
+## Test-server state to be aware of
 
-`513-phvalheim1` has the 2.47 schema and a newer `updateChecker.py` **staged by hand** from
-verification runs during development. Pulling `:rc` there is a no-op for the DB (the
-migration is idempotent). `phvalheim-dev` on this host likewise has the 2.47 schema and a
-synced web tree.
+The test server has the 2.47 schema and, from verification runs during development, some
+engine tools **staged by hand**. Pulling `:rc` there is a no-op for the DB — the migration is
+object-by-object idempotent — but it will overwrite those hand-staged files, which is what
+you want. The local dev container likewise has the 2.47 schema and a synced web tree.
 
-Unrelated, noticed in passing: `VOXYLADY.log` on production is 1.4 MB, of which 12,277 of
-36,830 lines are one repeated `MissingMethodException: Method not found: void
-.Character.Message(…)` — a broken mod spamming a live world. Never investigated.
+Noticed in passing on two different worlds, never investigated: a mod compiled against an
+older Valheim API throws on every tick and fills the world log — 12,277 of 36,830 lines in
+one case, 2,340 in another. The second one **resolved itself** once the mods were brought up
+to date, which is the likely answer for the first too. It is a symptom of game-and-mods
+drifting apart, not a PhValheim fault, but a world log that is 25% one exception is worth
+surfacing to the operator somewhere.
