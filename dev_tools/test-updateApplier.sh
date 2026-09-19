@@ -208,6 +208,58 @@ check "a failed stop aborts the update" "1" \
 check "...and says the world is still running" "1" \
 	"$(printf '%s' "$BODY" | grep -c 'could not be stopped, so nothing was updated')"
 
+# --- the world has to come back up -------------------------------------------------------
+#
+# The engine's update path ends with "finally, set the world to stopped state" -- it does NOT
+# restart what it updated, because a mod-list edit from the admin UI goes through the same
+# path. The start used to sit in an `else` against the mods branch, so the default scope
+# ('both') stopped the world, handed the rebuild to the engine, and never started it again,
+# while reporting "Updated ... mods rebuilt". VikingOutlaws was down for 7 minutes that way.
+check "the start is NOT in an else against the mods branch" "0" \
+	"$(printf '%s' "$BODY" | grep -A2 'mods rebuilt"$' | grep -c '^	else')"
+check "every scope reaches the starting phase" "1" \
+	"$(printf '%s' "$BODY" | grep -c 'Start the world again, for EVERY scope')"
+
+# The engine handoff is asynchronous, so the completion message has to wait for it. Without
+# this the world reported Updated and idle while the engine was still downloading mods.
+check "the mods handoff is waited on" "1" \
+	"$(printf '%s' "$BODY" | grep -c 'if ! waitForEngineUpdate')"
+
+sed -n '/^waitForEngineUpdate() {/,/^}/p' "$TOOL" > /tmp/waitupd.fn
+
+# $1 = space-separated modes returned on successive polls; $2 = final status
+#
+# The poll counter lives in a FILE, not a variable. waitForEngineUpdate reads the mode with
+# `mode=$(SQL ...)`, which runs the stub in a command-substitution subshell, so an in-memory
+# counter never increments in the parent -- every call returns the first mode and the loop
+# spins to its timeout. The first version of this harness did exactly that and reported the
+# product broken when it was not.
+runWait() {
+	echo 0 > /tmp/waitupd.i
+	bash -c '
+		modes="'"$1"'"; finalStatus="'"$2"'"
+		SQL() {
+			case "$*" in
+				*"SELECT mode"*)
+					i=$(( $(cat /tmp/waitupd.i) + 1 )); echo "$i" > /tmp/waitupd.i
+					echo "$modes" | cut -d" " -f$i ;;
+				*status*) echo "$finalStatus" ;;
+			esac
+		}
+		sleep() { :; }
+		date() { echo "-"; }
+		'"$(cat /tmp/waitupd.fn)"'
+		if waitForEngineUpdate "w"; then echo OK; else echo BAD; fi
+	' 2>/dev/null | tail -1
+}
+
+check "waits through update->updating->stopped"  "OK"  "$(runWait 'update updating stopped' '')"
+# The tick the engine has not seen yet: mode is still 'update' and must not be read as done.
+check "does not mistake the un-ticked handoff for completion" "OK" \
+	"$(runWait 'update update update stopped' '')"
+# A rebuild the engine marked failed must not be reported as a successful update.
+check "a failed rebuild is a failure"            "BAD" "$(runWait 'update stopped' 'failed')"
+
 # --- a skipped backup is not a backup ----------------------------------------------------
 #
 # worldBackup holds ONE global lock, so "already running" usually means a different world.

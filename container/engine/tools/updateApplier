@@ -160,6 +160,44 @@ startWorld() {
 	SQL "UPDATE worlds SET mode='start' WHERE name='$1';"
 }
 
+# Wait for the engine to finish the mod rebuild it was handed via mode='update'.
+#
+# That handoff is asynchronous: setting the mode returns instantly and the engine picks the
+# world up on its next tick. Without waiting, applyUpdate announced "Auto-update complete,
+# mods rebuilt" while the rebuild had not started -- observed on a real server, where the
+# world reported Updated and idle at 04:06:51 and the engine was still downloading mods at
+# 04:07:11.
+#
+# The engine drives mode 'update' -> 'updating' -> 'stopped', so waiting while it is either
+# of the first two is safe against the tick it has not seen yet. It marks a rebuild that
+# failed with status='failed', which is the only way to tell a finished-badly world from a
+# finished-well one.
+waitForEngineUpdate() {
+	local worldName="$1" waited=0 limit=900 mode=""
+
+	while [ "$waited" -lt "$limit" ]; do
+		mode=$(SQL "SELECT mode FROM worlds WHERE name='$worldName';")
+		case "$mode" in
+			update|updating) ;;
+			*) break ;;
+		esac
+		sleep 5
+		waited=$((waited + 5))
+	done
+
+	if [ "$waited" -ge "$limit" ]; then
+		echo "`date` [ERROR : phvalheim] Auto-update: mod rebuild for '$worldName' did not finish within ${limit}s"
+		return 1
+	fi
+
+	if [ "$(SQL "SELECT IFNULL(status,'') FROM worlds WHERE name='$worldName';")" = "failed" ]; then
+		echo "`date` [ERROR : phvalheim] Auto-update: mod rebuild failed for '$worldName'"
+		return 1
+	fi
+
+	return 0
+}
+
 applyUpdate() {
 	local worldName="$1" scope="$2" backupFirst="$3"
 
@@ -234,14 +272,28 @@ applyUpdate() {
 		# payload, and it already knows how to refuse to publish a modded world whose
 		# mods failed to install.
 		SQL "UPDATE worlds SET mode='update' WHERE name='$worldName';"
+		if ! waitForEngineUpdate "$worldName"; then
+			SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
+				update_last_result='The mod rebuild did not complete. The world was left stopped.' \
+				WHERE name='$worldName';"
+			return 1
+		fi
 		[ -n "$result" ] && result="$result, mods rebuilt" || result="mods rebuilt"
-	else
-		setPhase "$worldName" "starting"
-		# Through the engine, for the same reason as the stop: supervisorctl is not
-		# reachable from this user. When the scope includes mods the branch above has
-		# already set mode='update', which starts the world itself at the end.
-		startWorld "$worldName"
 	fi
+
+	# Start the world again, for EVERY scope.
+	#
+	# This used to sit in an `else` against the mods branch, on the assumption that the
+	# engine's update path restarts what it updated. It does not: that path ends with
+	# "finally, set the world to stopped state" and leaves mode='stopped' on purpose,
+	# because it is also what a mod-list edit from the admin UI goes through. So any
+	# auto-update whose scope included mods -- which is the default, 'both' -- stopped the
+	# world and never brought it back, while reporting "Updated ... mods rebuilt".
+	#
+	# Seen on a real server: VikingOutlaws went down at 04:06 and was still down at 04:13
+	# with update_state='idle' and a successful-looking result string.
+	setPhase "$worldName" "starting"
+	startWorld "$worldName"
 
 	# $(date), not backticks: this SQL is inside DOUBLE quotes, so a backtick would be
 	# command substitution in a string that already contains SQL quoting -- one of the

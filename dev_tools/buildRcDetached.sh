@@ -932,6 +932,12 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   pn=$(grep -c "if ! chown -R phvalheim:" /opt/stateless/engine/includes/0-functions.sh)
   echo "2.47 autoupdate stop: supervisorctl calls=$ph (want 0)  via mode=$pi_ (want 1)  pgrep=$pj (want 1)  guarded=$pk (want 1)"
   echo "2.47 autoupdate safety: backup skip=$pl/$pm (want 1/1)  chown not the return value=$pn (want 1)"
+  # The world has to come back up. The engine update path ends with mode=stopped on purpose,
+  # so the applier must start it for EVERY scope -- it used to sit in an else against the
+  # mods branch, which meant the default scope stopped a world and never restarted it.
+  po=$(grep -c "Start the world again, for EVERY scope" /opt/stateless/engine/tools/updateApplier)
+  pp=$(grep -c "if ! waitForEngineUpdate" /opt/stateless/engine/tools/updateApplier)
+  echo "2.47 autoupdate restart: start for every scope=$po (want 1)  waits for rebuild=$pp (want 1)"
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1044,6 +1050,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$pf" = "1" ] && [ "$pg" = "1" ] \
     && [ "$ph" = "0" ] && [ "$pi_" = "1" ] && [ "$pj" = "1" ] && [ "$pk" = "1" ] \
     && [ "$pl" = "1" ] && [ "$pm" = "1" ] && [ "$pn" = "1" ] \
+    && [ "$po" = "1" ] && [ "$pp" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
