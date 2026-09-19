@@ -943,6 +943,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # pid -- a loop with no exit, reported from a real server. Ask supervisor first, and only
   # reap when something is actually alive.
   pq=$(grep -c "Stopping it through supervisor" /opt/stateless/engine/phvalheim)
+  # THREE sites: the reaper, and the update branch twice (is it running, and did it stop).
+  # This said 1 and failed a build on correct code after the update branch grew two more.
   pr=$(grep -c "if worldProcessRunning" /opt/stateless/engine/phvalheim)
   pw=$(grep -c "RUNNING|STARTING|BACKOFF" /opt/stateless/engine/phvalheim)
   # NEGATIVES. Nothing writes worlds.pid, so both guards that read it always answered
@@ -952,7 +954,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   pt=$(grep -c "SELECT pid FROM worlds" /opt/stateless/engine/phvalheim)
   pu=$(grep -c "^function worldProcessRunning" /opt/stateless/engine/includes/0-functions.sh)
   pv=$(grep -c "worldProcessRunning ..worldName." /opt/stateless/engine/phvalheim)
-  echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 1)  states=$pw (want 1)"
+  echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 3)  states=$pw (want 1)"
   # Nothing that sets mode=update stops the world first, so the engine must do it. Refusing
   # instead left mode=update set and the 2s loop reprinted the refusal forever.
   px=$(grep -c "Stopping it for the update" /opt/stateless/engine/phvalheim)
@@ -1076,7 +1078,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$ph" = "0" ] && [ "$pi_" = "1" ] && [ "$pj" = "1" ] && [ "$pk" = "1" ] \
     && [ "$pl" = "1" ] && [ "$pm" = "1" ] && [ "$pn" = "1" ] \
     && [ "$po" = "1" ] && [ "$pp" = "1" ] \
-    && [ "$pq" = "1" ] && [ "$pr" = "1" ] && [ "$pw" = "1" ] \
+    && [ "$pq" = "1" ] && [ "$pr" = "3" ] && [ "$pw" = "1" ] \
     && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "5" ] \
     && [ "$px" = "1" ] && [ "$py" = "1" ] && [ "$pz" = "1" ] && [ "$qa" = "0" ] && [ "$qb" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
