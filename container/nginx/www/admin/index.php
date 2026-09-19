@@ -2652,6 +2652,25 @@ $totalCount = count($worlds);
                 if (b) { b.disabled = busy; b.style.opacity = busy ? '0.5' : ''; b.style.pointerEvents = busy ? 'none' : ''; }
             });
 
+            // Retire the "Update started…" / "Mod rebuild started…" banner once the work is
+            // over. Those two set it and nothing ever took it down, so it sat there claiming
+            // an update was in progress long after the panel below said idle -- reported from
+            // a real server, with the job finished and the banner still up.
+            //
+            // Age-gated rather than cleared on the first not-busy read, because the engine
+            // only picks the world up on its next 2s tick: an immediate refresh legitimately
+            // sees 'idle' before the update has begun, and clearing there would wipe the
+            // banner a second after the operator clicked. Anything still not busy 10s later
+            // is genuinely done -- or never started, which this should not keep claiming
+            // either. Errors carry no timestamp, so they are never cleared here.
+            const actionStatus = document.getElementById('updateActionStatus');
+            if (actionStatus && actionStatus.dataset.transientAt && !busy
+                && (Date.now() - parseInt(actionStatus.dataset.transientAt, 10)) > 10000) {
+                actionStatus.textContent = '';
+                actionStatus.style.color = '';
+                delete actionStatus.dataset.transientAt;
+            }
+
             if (updatePhasePoll) { clearTimeout(updatePhasePoll); updatePhasePoll = null; }
             const stillWorking = busy;
             if (stillWorking
@@ -2749,6 +2768,7 @@ $totalCount = count($worlds);
         if (status) {
             status.textContent = 'Mod rebuild started…';
             status.style.color = 'var(--warning)';
+            status.dataset.transientAt = String(Date.now());
         }
 
         fetch(`adminAPI.php?action=worldAction&cmd=update&world=${encodeURIComponent(worldName)}`)
@@ -2757,6 +2777,7 @@ $totalCount = count($worlds);
                     if (status) {
                         status.textContent = 'Could not start the rebuild.';
                         status.style.color = 'var(--danger)';
+                        delete status.dataset.transientAt;
                     }
                     return;
                 }
@@ -2768,6 +2789,7 @@ $totalCount = count($worlds);
                 if (status) {
                     status.textContent = 'Could not start the rebuild.';
                     status.style.color = 'var(--danger)';
+                    delete status.dataset.transientAt;
                 }
             });
     }
@@ -2781,6 +2803,9 @@ $totalCount = count($worlds);
         const status = document.getElementById('updateActionStatus');
         status.textContent = 'Update started…';
         status.style.color = 'var(--warning)';
+        // Stamped, so the refresh above knows this is a progress message to retire rather
+        // than an error to leave up.
+        status.dataset.transientAt = String(Date.now());
 
         fetch('adminAPI.php?action=updateWorldNow', {
             method: 'POST',
@@ -2790,6 +2815,7 @@ $totalCount = count($worlds);
             if (!d.success) {
                 status.textContent = 'Could not start the update.';
                 status.style.color = 'var(--danger)';
+                delete status.dataset.transientAt;
                 return;
             }
             // The applier runs detached and takes minutes, so poll the status block rather
@@ -2799,6 +2825,7 @@ $totalCount = count($worlds);
         }).catch(() => {
             status.textContent = 'Could not start the update.';
             status.style.color = 'var(--danger)';
+            delete status.dataset.transientAt;
         });
     }
 

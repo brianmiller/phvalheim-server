@@ -965,6 +965,15 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # matched nothing and reported a missing fix that was present.
   qe=$(grep -c -- "--record-installed" /opt/stateless/engine/phvalheim)
   qf=$(grep -c "isVanilla else install_rows" /opt/stateless/engine/tools/worldMods.py)
+  # The "Update started..." banner had no path that ever took it down: reported from a real
+  # server with the job finished and the banner still up. Setters stamp, the refresh retires
+  # a stamped banner once the world is idle, and every error path unstamps so its message
+  # survives. The age gate is what keeps it from racing the engine 2s tick.
+  qg=$(grep -c "dataset.transientAt = String" /opt/stateless/nginx/www/admin/index.php)
+  qh=$(grep -c "delete status.dataset.transientAt" /opt/stateless/nginx/www/admin/index.php)
+  qi=$(grep -c "delete actionStatus.dataset.transientAt" /opt/stateless/nginx/www/admin/index.php)
+  qj=$(grep -c "transientAt, 10)) > 10000" /opt/stateless/nginx/www/admin/index.php)
+  echo "2.47 update banner: setters stamp=$qg (want 2)  errors unstamp=$qh (want 4)  rule=$qi (want 1)  age gate=$qj (want 1)"
   echo "2.47 vanilla mods: checker guard=$qc (want 1)  recorder guard=$qd (want 1)  empty plan=$qf (want 1)  engine calls it=$qe (want 1)"
   echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 3)  states=$pw (want 1)"
   # Nothing that sets mode=update stops the world first, so the engine must do it. Refusing
@@ -1093,6 +1102,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$pq" = "1" ] && [ "$pr" = "3" ] && [ "$pw" = "1" ] \
     && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "5" ] \
     && [ "$qc" = "1" ] && [ "$qd" = "1" ] && [ "$qe" = "1" ] && [ "$qf" = "1" ] \
+    && [ "$qg" = "2" ] && [ "$qh" = "4" ] && [ "$qi" = "1" ] && [ "$qj" = "1" ] \
     && [ "$px" = "1" ] && [ "$py" = "1" ] && [ "$pz" = "1" ] && [ "$qa" = "0" ] && [ "$qb" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
