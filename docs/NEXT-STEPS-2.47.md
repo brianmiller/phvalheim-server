@@ -7,45 +7,77 @@ true** — a stale entry here becomes a release note that lies.
 
 ## Status
 
-**Shipped as a PRE-RELEASE on 2026-09-16.** `:latest` still points at 2.46, deliberately.
+**PRE-RELEASE. `:rc` moved on 2026-09-19 and is now AHEAD of the `:2.47` tag.**
+`:latest` still points at 2.46, deliberately.
 
-- Branch `master`, tag `v2.47`, pushed.
-- Image `theoriginalbrian/phvalheim-server` tags `:2.47` and `:rc`, both on
-  `sha256:c0a005ef468492410d0d5074732d1dbed401cdb2ebd3a2990ccba091b32af713`
-- `:latest` is `sha256:c16d8e7ac8ad07a31a2935cdadcfe07dbe1a9791beba65db2f151b70874ab079` (2.46)
-- Version in Dockerfile: `2.47`
-- Tests: 62 passing — `test-playerMonitor.sh` (9), `test-updateApplier.sh` (16),
-  `test-updateChecker.py` (19), `test-record-installed.py` (18)
+- Branch `master` @ `90712938`, pushed. Tag `v2.47` is at the older `31fdb460`.
+- `:rc` = `sha256:beb91bf88540132cd3ed84ea8bab4a9184bc90b85d1049f23967c24129a79f58`
+  — this is the one to test. Contains five commits the `:2.47` tag does not.
+- `:2.47` = `sha256:c0a005ef…` (2026-09-16, **superseded — has the four auto-update bugs**)
+- `:latest` = `sha256:c16d8e7a…` (2.46)
+- Tests: **118 passing** — `test-updateApplier.sh` (37), `test-updateChecker.py` (19),
+  `test-record-installed.py` (18), `test-whatsnew.sh` (18), `test-status-badge-css.py` (17),
+  `test-playerMonitor.sh` (9)
 - GitHub release <https://github.com/brianmiller/phvalheim-server/releases/tag/v2.47>,
-  marked pre-release.
+  marked pre-release. **Its notes predate the 2026-09-19 fixes** — re-cut the tag and the
+  release from `master` when promoting.
 
-Issue #87 has been answered on GitHub (comment 5689792285) and left **open** deliberately,
-pending real-world testing.
+Issue #87 answered on GitHub (comment 5689792285), left **open** deliberately.
 
 ## What has actually been tested
 
-- Check Now — confirmed much faster and better
-- The three scroll fixes — not confirmed either way in a browser
-- **Update Now has NEVER been watched end to end on a live world.** This is the single
-  biggest untested path and it is the one that stops a server.
-- **The scheduled path has never fired on its own.**
+- Check Now — confirmed fast and correct
+- **A full Update Now run, on a live world, 2026-09-19.** First one ever. It found four
+  bugs; all four are fixed and in `:rc`. See `phvalheim_autoupdate_lifecycle` in memory.
+- **The mod rebuild path is now exercised for real** — 6 mods downloaded and installed,
+  36 plugins verified, `--record-installed` recorded all 36 against a live catalogue.
+- The three scroll fixes — still not confirmed in a browser
+- The What's New button and the status pills — code and markers verified, **not looked at**
+- **The scheduled path has still never fired on its own.** Everything so far has been
+  `updateApplier <world> now`, which skips the idle and window gates.
 
 ## Do this next, in order
 
-1. **Watch one full Update Now run on a live world.** Verify each phase is written and
-   rendered: backup → stopping → game → mods → starting, the Active Worlds pill follows it,
-   and the world comes back up. Pick a world that is not precious.
-2. **Turn auto-update on for exactly one world** and let the scheduled path fire on its own.
-   `updateApplier` is the only thing in PhValheim that stops a server nobody asked it to
-   stop; watch it do that once before trusting it broadly.
-3. **Watch one mod rebuild**, via the new Rebuild Mods button or a mod-list edit. 2.47 added
-   `--record-installed` to the install path, and that path has only been exercised against a
-   synthetic mod set, never a real download-and-unzip.
-4. **Confirm the scroll fixes** in a browser — they were reasoned from the code, not
-   exercised. The mod picker one is the least certain of the three.
+1. **Let the SCHEDULED path fire.** Turn auto-update on for one world, leave it, and watch
+   cron pick it up. Every fix so far was verified through the `now` path, which bypasses
+   `isIdle` and `inWindow` — those two gates have never run in anger.
+2. **Watch the world come back up by itself.** The 2026-09-19 run left it down for 7
+   minutes; that is fixed, but the fix landed *after* the run, so the restart has been
+   tested only by unit tests and a marker.
+3. **Look at the What's New button and the status pills** in a browser. Both were changed
+   on 2026-09-19 and neither has been seen rendered.
+4. **Confirm the scroll fixes** in a browser — reasoned from the code, never exercised.
+   The mod picker one is the least certain of the three.
+5. Then promote: re-tag `v2.47` at `master`, rebuild with
+   `EXTRA_TAGS="2.47 latest"`, update the release notes, drop pre-release, close #87.
 5. Only then, promote: `EXTRA_TAGS="latest" setsid nohup dev_tools/buildRcDetached.sh &`,
    `gh release edit v2.47 --prerelease=false --latest`, then close #87. **Never `docker tag` a
    tested `:rc`** — see `docs/RELEASING.md`.
+
+## The 2026-09-19 auto-update fixes, in one place
+
+All four found by actually running it. Full detail in the `phvalheim_autoupdate_lifecycle`
+memory entry; the short version, because it is the part that will be needed again:
+
+1. **`updateApplier` runs as `phvalheim` and CANNOT use `supervisorctl`** — supervisord's
+   config is `0660 root:root` and its socket `0700 root:root`. The bare call discarded the
+   error, so worlds were never stopped and steamcmd rewrote game files under live servers.
+   Stop/start now go through `worlds.mode`, which the root engine owns, and the applier
+   polls the process table before touching anything.
+2. **`mode='update'` ALWAYS ends with the world stopped** — that path finishes with
+   "finally, set the world to stopped state", on purpose, because a hand-edited mod list
+   uses it too. The applier's start was in an `else` that only ran for `scope='game'`, and
+   the default scope is `both`. Every auto-update touching mods took a world offline and
+   left it there while reporting success.
+3. **A function's last command is its return value.** `InstallAndUpdateValheim` ended with
+   `chown -R`, and the client payload zip is root-owned while the applier is not, so EPERM
+   turned a successful install into "update failed".
+4. **`worldBackup` exited 0 when it SKIPPED** (global lock held by another world), so a
+   skipped backup read as a taken one. Now exit 75, and the update defers.
+
+**Still open, deliberately not fixed:** `update_state='failed'` excludes a world from the
+sweep (`WHERE update_state IN ('idle','pending')`) with no retry and no expiry. A failed
+auto-update is a dead end until someone clears it by hand. Worth a decision before 2.48.
 
 ## Watch for
 
