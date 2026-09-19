@@ -125,8 +125,10 @@ check "no ps -p \$worldPID guard survives in the engine" \
 	"$(grep -c 'ps -p \$worldPID' "$ENGINE")" "0"
 check "the engine no longer reads worlds.pid for liveness" \
 	"$(grep -c 'SELECT pid FROM worlds' "$ENGINE")" "0"
+# 5 sites: the reaper, the stop-loop confirmation, and three in the update branch
+# (the initial check, the post-stop wait, and the did-it-actually-stop decision).
 check "worldProcessRunning is what the engine asks instead" \
-	"$(grep -c 'worldProcessRunning "\$worldName"' "$ENGINE")" "3"
+	"$(grep -c 'worldProcessRunning "\$worldName"' "$ENGINE")" "5"
 
 # ---- 13-15: the helper itself ----------------------------------------------------------
 check "worldProcessRunning is defined in 0-functions.sh" \
@@ -155,7 +157,102 @@ fi
 ) && ok "worldProcessRunning: finds its own world, not a lookalike name" \
   || bad "worldProcessRunning: wrong answer for its own world or a lookalike"
 
-rm -f "$BLOCK"
+# ---- 16-23: the update branch must not spin on a running world -----------------------
+# Nothing that sets mode=update stops the world first (updateWorld() in db_sets.php, used by
+# the mod-list save, the Rebuild Mods button and Hugin). So the moment the liveness guard
+# above started working, the branch refused a running world, left mode=update untouched, and
+# the 2s loop reprinted the same refusal forever. A real server logged it ~30x a minute.
+PRO=/tmp/upd.pro.$$
+EPI=/tmp/upd.epi.$$
+# The range ends INSIDE the else, so close it -- otherwise the text is not a complete
+# compound command and eval runs only part of it, which silently passed some assertions.
+{ sed -n '/^\t\t\twasRunning=0$/,/mode=.updating./p' "$ENGINE" | sed 's#/usr/bin/supervisorctl#supervisorctl#'; echo fi; } > "$PRO"
+sed -n '/#finally, put the world back/,/^\t\t\t\tfi$/p' "$ENGINE" > "$EPI"
+[ -s "$PRO" ] && [ -s "$EPI" ] || { echo "  FAIL: could not extract the update prologue/epilogue"; exit 1; }
+
+# $1 = "alive"|"dead", $2 = ticks the world stays alive after the stop (999 = never stops)
+runPrologue() {
+	local start="$1" stops="$2" out=/tmp/upd.out.$$
+	: > "$out"
+	(
+		worldName="ITToT1dot0nomods"
+		OUT="$out"; CNT=/tmp/upd.cnt.$$; echo 0 > "$CNT"
+		# File-backed, because the calls happen inside a `while` whose condition is a
+		# command -- a plain variable increment there is lost to the subshell.
+		worldProcessRunning() {
+			local n; n=$(cat "$CNT"); n=$((n+1)); echo "$n" > "$CNT"
+			[ "$start" = "alive" ] && [ "$n" -le "$stops" ]
+		}
+		supervisorctl() { echo "supervisorctl $1 $2" >> "$OUT"; }
+		SQL() { echo "SQL $*" >> "$OUT"; }
+		sleep() { :; }
+		date() { echo "TESTDATE"; }
+		echo() { case "$1" in TESTDATE*) : ;; *) builtin echo "$@" ;; esac; }
+		eval "$(cat "$PRO")"
+		builtin echo "wasRunning=$wasRunning" >> "$OUT"
+		rm -f "$CNT"
+	) > /dev/null 2>&1
+	cat "$out"; rm -f "$out"
+}
+
+r=$(runPrologue alive 2)          # alive for the guard, stops after the supervisor stop
+case "$r" in
+	*"supervisorctl stop valheimworld_ITToT1dot0nomods"*) ok "update: a running world is stopped, not refused" ;;
+	*) bad "update: a running world was not stopped -- the branch spins on it forever" ;;
+esac
+case "$r" in
+	*"mode='updating'"*) ok "update: it then proceeds with the update" ;;
+	*) bad "update: the update never ran after stopping the world" ;;
+esac
+case "$r" in
+	*"wasRunning=1"*) ok "update: it remembers the world was running" ;;
+	*) bad "update: wasRunning not set, so the world will not be restarted" ;;
+esac
+
+r=$(runPrologue dead 0)
+case "$r" in
+	*supervisorctl*) bad "update: pointless stop issued for an already-stopped world" ;;
+	*) ok "update: an already-stopped world is not stopped again" ;;
+esac
+case "$r" in
+	*"wasRunning=0"*) ok "update: a stopped world is remembered as stopped" ;;
+	*) bad "update: wasRunning set for a world that was not running" ;;
+esac
+
+r=$(runPrologue alive 999)        # never dies
+case "$r" in
+	*"mode='broken'"*) ok "update: an unstoppable world is marked broken, not retried forever" ;;
+	*) bad "update: an unstoppable world leaves mode=update -- the 2s spin is back" ;;
+esac
+case "$r" in
+	*"mode='updating'"*) bad "update: it updated a world it could not stop" ;;
+	*) ok "update: a world that would not stop is NOT updated" ;;
+esac
+
+# The epilogue: restore what the operator had.
+runEpilogue() {
+	(
+		wasRunning="$1"; worldName="W"
+		SQL() { builtin echo "SQL $*"; }
+		date() { builtin echo "TESTDATE"; }
+		echo() { case "$1" in TESTDATE*) : ;; *) builtin echo "$@" ;; esac; }
+		eval "$(cat "$EPI")"
+	) 2>/dev/null
+}
+case "$(runEpilogue 1)" in
+	*"mode='start'"*) ok "epilogue: a world that was running is started again" ;;
+	*) bad "epilogue: a running world was left stopped after its update" ;;
+esac
+case "$(runEpilogue 0)" in
+	*"mode='stopped'"*) ok "epilogue: a world that was stopped stays stopped" ;;
+	*) bad "epilogue: an update started a world the operator had stopped" ;;
+esac
+
+# The refusal that caused the spin must be gone entirely.
+check "the spin-forever refusal text is gone" \
+	"$(grep -c 'Stop the world before updating' "$ENGINE")" "0"
+
+rm -f "$BLOCK" "$PRO" "$EPI"
 
 echo
 echo "=== $pass passed, $fail failed ==="

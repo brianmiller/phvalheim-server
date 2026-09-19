@@ -386,9 +386,35 @@ while [ true ]; do
 			# Ask the process table. This guard used to read worlds.pid, a column
 			# NOTHING writes, so it always saw an empty pid, always concluded "not
 			# running", and let steamcmd rewrite a live world under its own players.
-			worldProcessRunning "$worldName"
-                        if [ $? = 0 ]; then
-                                echo "`date` [WARN : phvalheim] World '$worldName' is running. Stop the world before updating..."
+			# Nothing that sets mode='update' stops the world first -- not the mod-list
+			# save, not the Rebuild Mods button, not Hugin (all go through updateWorld()
+			# in db_sets.php). So refusing here is not a safe default: the mode is never
+			# cleared, the loop revisits it every 2 seconds, and the log fills with the
+			# same refusal forever while the update never happens. Observed on a real
+			# server the moment the guard below started working.
+			#
+			# Stop it ourselves instead, and remember that it WAS running so it can be
+			# started again at the end. That is the distinction the update path cares
+			# about: it ends on mode='stopped' deliberately so it cannot start a world
+			# the operator had deliberately stopped -- but a world the operator had
+			# RUNNING should come back.
+			wasRunning=0
+			if worldProcessRunning "$worldName"; then
+				wasRunning=1
+				echo "`date` [NOTICE : phvalheim] World '$worldName' is running. Stopping it for the update; it will be started again afterwards..."
+				/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
+				stopWait=0
+				while worldProcessRunning "$worldName" && [ $stopWait -lt 180 ]; do
+					sleep 5
+					let stopWait=stopWait+5
+				done
+			fi
+
+			if worldProcessRunning "$worldName"; then
+				# Bail out LOUDLY and leave a mode the loop will not revisit, rather
+				# than spinning on this world forever.
+				echo "`date` [ERROR : phvalheim] World '$worldName' would not stop within 180s, so it cannot be updated safely. Marking it broken; stop it by hand and try again."
+				SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
 			else
 				echo "`date` [NOTICE : phvalheim] Updating world '$worldName'..."
 				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
@@ -476,8 +502,15 @@ while [ true ]; do
 				#set last updated timestamp
 				SQL "UPDATE worlds SET date_updated='`date +'%F %T'`' WHERE name='$worldName'"
 
-				#finally, set the world to stopped state
-				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
+				#finally, put the world back the way we found it. Stopped is the
+				#default on purpose -- a hand-edited mod list must not start a world
+				#the operator left stopped -- but one that WAS running is restarted.
+				if [ "$wasRunning" = "1" ]; then
+					echo "`date` [NOTICE : phvalheim] Update finished; starting '$worldName' again..."
+					SQL "UPDATE worlds SET mode='start' WHERE name='$worldName'"
+				else
+					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
+				fi
 
 								
 

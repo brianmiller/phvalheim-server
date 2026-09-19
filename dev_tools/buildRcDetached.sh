@@ -953,7 +953,16 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   pu=$(grep -c "^function worldProcessRunning" /opt/stateless/engine/includes/0-functions.sh)
   pv=$(grep -c "worldProcessRunning ..worldName." /opt/stateless/engine/phvalheim)
   echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 1)  states=$pw (want 1)"
-  echo "2.47 reaper NEGATIVES: dead pid guard=$ps_ (want 0)  reads worlds.pid=$pt (want 0)  helper=$pu (want 1)  call sites=$pv (want 3)"
+  # Nothing that sets mode=update stops the world first, so the engine must do it. Refusing
+  # instead left mode=update set and the 2s loop reprinted the refusal forever.
+  px=$(grep -c "Stopping it for the update" /opt/stateless/engine/phvalheim)
+  py=$(grep -c "wasRunning=1" /opt/stateless/engine/phvalheim)
+  pz=$(grep -c "wasRunning. = " /opt/stateless/engine/phvalheim)
+  qa=$(grep -c "Stop the world before updating" /opt/stateless/engine/phvalheim)
+  qb=$(grep -c "would not stop within 180s" /opt/stateless/engine/phvalheim)
+  echo "2.47 update stop: stops it=$px (want 1)  remembers=$py (want 1)  restarts=$pz (want 1)  unstoppable=$qb (want 1)"
+  echo "2.47 update NEGATIVE: spin-forever refusal=$qa (want 0)"
+  echo "2.47 reaper NEGATIVES: dead pid guard=$ps_ (want 0)  reads worlds.pid=$pt (want 0)  helper=$pu (want 1)  call sites=$pv (want 5)"
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1068,7 +1077,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$pl" = "1" ] && [ "$pm" = "1" ] && [ "$pn" = "1" ] \
     && [ "$po" = "1" ] && [ "$pp" = "1" ] \
     && [ "$pq" = "1" ] && [ "$pr" = "1" ] && [ "$pw" = "1" ] \
-    && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "3" ] \
+    && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "5" ] \
+    && [ "$px" = "1" ] && [ "$py" = "1" ] && [ "$pz" = "1" ] && [ "$qa" = "0" ] && [ "$qb" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
