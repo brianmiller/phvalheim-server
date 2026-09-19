@@ -100,6 +100,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # that the new message is present would pass on an image that had both.
   m=$(grep -c "accessSwitchNoticeShown" /opt/stateless/nginx/www/admin/index.php)
   n=$(grep -c "accessSwitchNoticeShown" /opt/stateless/engine/dbUpdates/dbUpdate_2.40.sh)
+  # THREE sites as of 2.47: a world that will not start, one that does not come up in time,
+  # and one that will not STOP for an update. Was 2 until the update branch gained its own.
   o=$(grep -c "Marking it broken" /opt/stateless/engine/phvalheim)
   p=$(grep -c "exit 1" /opt/stateless/engine/phvalheim)
   echo "idHelpDisclosure=$i (want 2)  old banner=$j (want 0)"
@@ -115,7 +117,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   r=$(grep -c "copyVanillaJoinCode" /opt/stateless/nginx/www/public/authenticated.php)
   s=$(grep -c "joinCode" /opt/stateless/nginx/www/public/api.php)
   t=$(grep -c "clearUnreportedWorlds" /opt/stateless/nginx/www/admin/index.php)
-  echo "engine marks-broken=$o (want 2)  engine exit-1 count=$p (want 0)"
+  echo "engine marks-broken=$o (want 3)  engine exit-1 count=$p (want 0)"
   # A crossplay world launches with -joincode. Match the URL itself, not the bare word --
   # the comments explaining all this mention "-joincode" nine times.
   u=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/public/authenticated.php)
@@ -989,7 +991,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
-    && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "2" ] && [ "$p" = "0" ] \
+    && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "3" ] && [ "$p" = "0" ] \
     && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
     && [ "$u" = "0" ] && [ "$v" = "0" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
     && [ "$y" = "1" ] && [ "$z" = "1" ] \
