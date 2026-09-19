@@ -7,54 +7,72 @@ true** — a stale entry here becomes a release note that lies.
 
 ## Status
 
-**PRE-RELEASE. `:rc` moved on 2026-09-19 and is now AHEAD of the `:2.47` tag.**
+**PRE-RELEASE. `:rc` moved FOUR times on 2026-09-19 and is far ahead of the `:2.47` tag.**
 `:latest` still points at 2.46, deliberately.
 
-- Branch `master` @ `90712938`, pushed. Tag `v2.47` is at the older `31fdb460`.
-- `:rc` = `sha256:beb91bf88540132cd3ed84ea8bab4a9184bc90b85d1049f23967c24129a79f58`
-  — this is the one to test. Contains five commits the `:2.47` tag does not.
-- `:2.47` = `sha256:c0a005ef…` (2026-09-16, **superseded — has the four auto-update bugs**)
-- `:latest` = `sha256:c16d8e7a…` (2.46)
-- Tests: **118 passing** — `test-updateApplier.sh` (37), `test-updateChecker.py` (19),
-  `test-record-installed.py` (18), `test-whatsnew.sh` (18), `test-status-badge-css.py` (17),
-  `test-playerMonitor.sh` (9)
+- Branch `master` @ `244b7d30`, pushed. Tag `v2.47` is at the much older `31fdb460`.
+- `:rc` = `sha256:8000bda485d92db00f974382fc0a7185a4d94a9e642c567c693f84e6277f86d6`
+  — **this is the one to test, by digest.** The `:2.47` tag has none of the day's fixes.
+- Tests: **163 passing** — `test-updateApplier.sh` (37), `test-engine-reaper.sh` (27),
+  `test-record-installed.py` (24), `test-updateChecker.py` (22), `test-whatsnew.sh` (18),
+  `test-status-badge-css.py` (17), `test-update-banner.js` (9), `test-playerMonitor.sh` (9).
+- `dev_tools/test-duplicate-plugin.sh` fails 3 and **was already failing** (verified on a
+  clean tree). It asserts BepInEx appears in the install plan and the mod viewer, which 2.44
+  deliberately removed. The test encodes a reversed expectation; retire or rewrite it.
 - GitHub release <https://github.com/brianmiller/phvalheim-server/releases/tag/v2.47>,
-  marked pre-release. **Its notes predate the 2026-09-19 fixes** — re-cut the tag and the
-  release from `master` when promoting.
+  marked pre-release. **Its notes predate everything below.**
 
 Issue #87 answered on GitHub (comment 5689792285), left **open** deliberately.
 
 ## What has actually been tested
 
-- Check Now — confirmed fast and correct
-- **A full Update Now run, on a live world, 2026-09-19.** First one ever. It found four
-  bugs; all four are fixed and in `:rc`. See `phvalheim_autoupdate_lifecycle` in memory.
-- **The mod rebuild path is now exercised for real** — 6 mods downloaded and installed,
-  36 plugins verified, `--record-installed` recorded all 36 against a live catalogue.
-- The three scroll fixes — still not confirmed in a browser
-- The What's New button and the status pills — code and markers verified, **not looked at**
-- **The scheduled path has still never fired on its own.** Everything so far has been
-  `updateApplier <world> now`, which skips the idle and window gates.
+- **An outside operator ran a full auto-update on his own server and it worked** — backup,
+  stop, update, start, all four phases. First confirmation off our box.
+  **Ask him whether that run was SCHEDULED or a manual Update Now** before promoting: only
+  the scheduled path exercises `isIdle` and `inWindow`.
+- A full Update Now on a live world, and the mod rebuild path, both exercised for real.
+- **The vanilla fix was reproduced, fixed and re-verified on a live container** in both
+  halves: the checker reports an honest zero with no rebuild, and a rebuild records the rows
+  as known-not-installed.
+- The three scroll fixes, the What's New button and the status pills — **still not looked at
+  in a browser.**
+- **The scheduled path has still never been watched from this side.**
 
 ## Do this next, in order
 
-1. **Let the SCHEDULED path fire.** Turn auto-update on for one world, leave it, and watch
-   cron pick it up. Every fix so far was verified through the `now` path, which bypasses
-   `isIdle` and `inWindow` — those two gates have never run in anger.
-2. **Watch the world come back up by itself.** The 2026-09-19 run left it down for 7
-   minutes; that is fixed, but the fix landed *after* the run, so the restart has been
-   tested only by unit tests and a marker.
-3. **Look at the What's New button and the status pills** in a browser. Both were changed
-   on 2026-09-19 and neither has been seen rendered.
-4. **Confirm the scroll fixes** in a browser — reasoned from the code, never exercised.
-   The mod picker one is the least certain of the three.
-5. Then promote: re-tag `v2.47` at `master`, rebuild with
-   `EXTRA_TAGS="2.47 latest"`, update the release notes, drop pre-release, close #87.
-5. Only then, promote: `EXTRA_TAGS="latest" setsid nohup dev_tools/buildRcDetached.sh &`,
-   `gh release edit v2.47 --prerelease=false --latest`, then close #87. **Never `docker tag` a
-   tested `:rc`** — see `docs/RELEASING.md`.
+1. **Confirm with the reporting operator whether that successful run was scheduled or manual.** If scheduled,
+   the `:latest` gate is met. If manual, that gate is still open.
+2. **Look at the What's New button and the status pills** in a browser. Both were changed on
+   2026-09-19 and neither has been seen rendered.
+3. **Confirm the scroll fixes** in a browser — reasoned from the code, never exercised.
+4. Then promote: re-tag `v2.47` at `master`, rebuild with `EXTRA_TAGS="2.47 latest"`, update
+   the release notes, drop pre-release, close #87. **Never `docker tag` a tested `:rc`** —
+   see `docs/RELEASING.md`.
 
-## The 2026-09-19 auto-update fixes, in one place
+## The 2026-09-19 fixes, in one place
+
+Eight in one day. Four came from the first real Update Now; **four more came from shipping
+those fixes to a real operator**, each uncovered by the one before it.
+
+5. **The reaper fought supervisor and could not win.** SIGKILL on an `autorestart=true`
+   program is respawned instantly, and the next 2s tick kills the new pid — one kill per
+   tick, pid climbing, forever. Ask supervisor to stop it first (that marks the exit
+   expected); only SIGKILL what supervisor does not own.
+6. **`mode='update'` then SPUN on a running world.** Fixing the dead liveness guard made a
+   refusal reachable that nothing ever cleared, so the loop reprinted it every 2s and the
+   update never ran. **Nothing that sets `mode='update'` stops the world first** — not the
+   mod-list save, not Rebuild Mods, not Hugin — so the engine stops it itself now, and
+   restarts it only if it was running.
+7. **A vanilla world waited forever for mod data.** Converting to vanilla purges the mod
+   files and skips the install path but keeps the `world_mods` rows, so they stayed
+   `installed_at IS NULL` — "waiting for data" that no rebuild could ever clear.
+8. **The "Update started…" banner never came down**, so a finished job looked like a running
+   one. Age-gated at 10s: the engine only picks a world up on its next tick, so clearing on
+   the first not-busy read would wipe the banner a second after the click.
+
+**`worlds.pid` is never written by anything.** Both guards that read it always answered "not
+running". Ask the process table via `worldProcessRunning`.
+
 
 All four found by actually running it. Full detail in the `phvalheim_autoupdate_lifecycle`
 memory entry; the short version, because it is the part that will be needed again:
