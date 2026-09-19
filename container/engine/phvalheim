@@ -174,11 +174,29 @@ while [ true ]; do
 
 
 		if [ "$worldMode" = "stopped" ]; then
-			orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
-			for orphanedPID in $orphanedPIDs; do
-				echo "`date` [WARN: phvalheim] Murdering orphaned PID: $orphanedPID"
-				kill -9 $orphanedPID
-			done
+			# A process here is only ORPHANED if supervisor does not own it. If it does,
+			# SIGKILL is unwinnable: the world program is autorestart=true, so supervisor
+			# logs "terminated by SIGKILL; not expected" and respawns it, and the next
+			# 2s tick kills the new PID. That loop has no exit -- a user's log showed it
+			# running for minutes, one kill per tick, the PID climbing every time.
+			#
+			# So ask supervisor first, which marks the stop EXPECTED and suppresses the
+			# restart, and only SIGKILL what is left over afterwards.
+			if worldProcessRunning "$worldName"; then
+				supervisorState=$(/usr/bin/supervisorctl status valheimworld_$worldName 2>/dev/null|tr -s " "|cut -d " " -f2)
+				case "$supervisorState" in
+					RUNNING|STARTING|BACKOFF)
+						echo "`date` [WARN: phvalheim] World '$worldName' is marked stopped but supervisor still has it $supervisorState. Stopping it through supervisor..."
+						/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
+						;;
+				esac
+
+				orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
+				for orphanedPID in $orphanedPIDs; do
+					echo "`date` [WARN: phvalheim] Murdering orphaned PID: $orphanedPID"
+					kill -9 $orphanedPID
+				done
+			fi
 		fi
 
 
@@ -305,7 +323,7 @@ while [ true ]; do
 			while [ $killLoop -le 5 ]; do
 				sleep 10 
 				let killLoop=killLoop+1
-				ps -p $worldPID > /dev/null 2>&1
+				worldProcessRunning "$worldName"
 	                        if [ ! $? = 0 ]; then
 	                                echo "`date` [NOTICE : phvalheim] World '$worldName' successfully stopped."
 					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
@@ -365,8 +383,10 @@ while [ true ]; do
 
 		if [ "$worldMode" = "update" ]; then
 			echo "`date` [NOTICE : phvalheim] Update command recieved for world '$worldName':"
-	                worldPID=$(SQL "SELECT pid FROM worlds WHERE id='$worldID';")
-                        ps -p $worldPID > /dev/null 2>&1
+			# Ask the process table. This guard used to read worlds.pid, a column
+			# NOTHING writes, so it always saw an empty pid, always concluded "not
+			# running", and let steamcmd rewrite a live world under its own players.
+			worldProcessRunning "$worldName"
                         if [ $? = 0 ]; then
                                 echo "`date` [WARN : phvalheim] World '$worldName' is running. Stop the world before updating..."
 			else

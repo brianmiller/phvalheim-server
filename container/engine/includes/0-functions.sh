@@ -684,6 +684,21 @@ function packageClient() {
         return $?
 }
 
+#Is this world's server process actually alive?
+#$1=worldName
+#
+#Asked of the PROCESS TABLE. The obvious-looking alternative, `ps -p $(SELECT pid ...)`, is
+#what two of the engine's guards used to do -- and NOTHING has ever written worlds.pid, so
+#`ps -p ""` always failed and both guards always answered "not running". That is how a live
+#world got updated underneath its own players.
+#
+#Matched on the world's own game directory so two worlds cannot be confused for each other.
+#The startWorld.sh wrapper's argv does NOT contain this path, so only the server itself
+#matches; pgrep also excludes its own pid, so it cannot see itself.
+function worldProcessRunning() {
+        pgrep -f "worlds/$1/game/valheim_server.x86_64" > /dev/null 2>&1
+}
+
 #create supervisor config file for this world
 #$1=worldName, $2=worldPassword, $3=worldPort
 function createSupervisorWorldConfig() {
