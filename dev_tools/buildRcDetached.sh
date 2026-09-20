@@ -973,6 +973,14 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   qh=$(grep -c "delete status.dataset.transientAt" /opt/stateless/nginx/www/admin/index.php)
   qi=$(grep -c "delete actionStatus.dataset.transientAt" /opt/stateless/nginx/www/admin/index.php)
   qj=$(grep -c "transientAt, 10)) > 10000" /opt/stateless/nginx/www/admin/index.php)
+  # Two forced syncs of DIFFERENT sources deadlocked on the one global mod_deps table and
+  # cost a production server 668 versions of dependency edges. One lock for the whole run,
+  # and zero-edge versions rejoin the retry set so a lost rebuild heals itself.
+  qk=$(grep -c "def take_global_lock" /opt/stateless/engine/tools/modSync.py)
+  ql=$(grep -c "lock = take_global_lock" /opt/stateless/engine/tools/modSync.py)
+  qm=$(grep -c "already queued behind it" /opt/stateless/engine/tools/modSync.py)
+  qn=$(grep -c "NOT EXISTS (SELECT 1 FROM mod_deps d" /opt/stateless/engine/tools/modSync.py)
+  echo "2.47 sync lock: fn=$qk (want 1)  used in main=$ql (want 1)  queue depth 1=$qm (want 1)  orphan retry=$qn (want 1)"
   echo "2.47 update banner: setters stamp=$qg (want 2)  errors unstamp=$qh (want 4)  rule=$qi (want 1)  age gate=$qj (want 1)"
   echo "2.47 vanilla mods: checker guard=$qc (want 1)  recorder guard=$qd (want 1)  empty plan=$qf (want 1)  engine calls it=$qe (want 1)"
   echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 3)  states=$pw (want 1)"
@@ -1103,6 +1111,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "5" ] \
     && [ "$qc" = "1" ] && [ "$qd" = "1" ] && [ "$qe" = "1" ] && [ "$qf" = "1" ] \
     && [ "$qg" = "2" ] && [ "$qh" = "4" ] && [ "$qi" = "1" ] && [ "$qj" = "1" ] \
+    && [ "$qk" = "1" ] && [ "$ql" = "1" ] && [ "$qm" = "1" ] && [ "$qn" = "1" ] \
     && [ "$px" = "1" ] && [ "$py" = "1" ] && [ "$pz" = "1" ] && [ "$qa" = "0" ] && [ "$qb" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
