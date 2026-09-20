@@ -10,12 +10,13 @@ true** — a stale entry here becomes a release note that lies.
 **PRE-RELEASE. `:rc` moved FOUR times on 2026-09-19 and is far ahead of the `:2.47` tag.**
 `:latest` still points at 2.46, deliberately.
 
-- Branch `master` @ `244b7d30`, pushed. Tag `v2.47` is at the much older `31fdb460`.
-- `:rc` = `sha256:8000bda485d92db00f974382fc0a7185a4d94a9e642c567c693f84e6277f86d6`
+- Branch `master` @ `52c0ed69`, pushed. Tag `v2.47` is at the much older `31fdb460`.
+- `:rc` = `sha256:ab4a74a3d89f3c74dce8222b541d8a5bf3a4e105b5f18a12fa74ff815c24a3e5`
   — **this is the one to test, by digest.** The `:2.47` tag has none of the day's fixes.
-- Tests: **163 passing** — `test-updateApplier.sh` (37), `test-engine-reaper.sh` (27),
+- Tests: **183 passing** — `test-updateApplier.sh` (37), `test-engine-reaper.sh` (27),
   `test-record-installed.py` (24), `test-updateChecker.py` (22), `test-whatsnew.sh` (18),
-  `test-status-badge-css.py` (17), `test-update-banner.js` (9), `test-playerMonitor.sh` (9).
+  `test-status-badge-css.py` (17), `test-modsync-lock.py` (20), `test-update-banner.js` (9),
+  `test-playerMonitor.sh` (9).
 - `dev_tools/test-duplicate-plugin.sh` fails 3 and **was already failing** (verified on a
   clean tree). It asserts BepInEx appears in the install plan and the mod viewer, which 2.44
   deliberately removed. The test encodes a reversed expectation; retire or rewrite it.
@@ -37,6 +38,18 @@ Issue #87 answered on GitHub (comment 5689792285), left **open** deliberately.
 - The three scroll fixes, the What's New button and the status pills — **still not looked at
   in a browser.**
 - **The scheduled path has still never been watched from this side.**
+
+## Two things that affect EVERY `:rc` operator
+
+**`:rc` is a live channel** — other people run it, so each push is a release. Batch fixes
+rather than pushing per-fix, and ask for a **digest** in bug reports: the tag moved six times
+on 2026-09-19 and "I'm on rc" identifies nothing.
+
+**Pulling stops every world, and `autostart=0` worlds do not come back.** Nothing warns the
+operator — not the What's New modal, not the docs. Production had three running worlds in
+exactly that state. Better fixed than documented: remember which worlds were running at
+shutdown and restore those, instead of leaning on a flag that means something subtly
+different.
 
 ## Do this next, in order
 
