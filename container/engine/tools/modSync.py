@@ -38,6 +38,7 @@ this uses urllib plus the `mysql` client over stdin.
 """
 
 import argparse
+import fcntl
 import gzip
 import hashlib
 import json
@@ -337,6 +338,70 @@ def last_good(source):
     return sha, lm
 
 
+RUN_LOCK = "/tmp/phvalheim-modsync.run.lock"
+WAIT_LOCK = "/tmp/phvalheim-modsync.wait.lock"
+
+
+def take_global_lock(trigger):
+    """Serialise ENTIRE syncs against each other, across sources.
+
+    `already_running()` below is per-SOURCE, and that is not enough: mod_deps is one
+    GLOBAL table, resolved cross-source on purpose (a Hexium mod's dependency reaches
+    into Thunderstore rows). Two forced syncs of DIFFERENT sources therefore sailed past
+    that guard, both ran DELETE + bulk INSERT on mod_deps, and deadlocked -- observed on a
+    production server, which lost 668 versions' dependency edges across 27 worlds.
+
+    flock, not a table row or a pidfile: the kernel drops it when the process dies, so a
+    killed sync cannot wedge every future one. That is a whole failure mode we do not
+    have to write, or get wrong.
+
+    Returns an open file object (keep it alive -- closing it releases the lock) or None
+    if this run should not proceed.
+    """
+    fh = open(RUN_LOCK, "w")
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fh
+    except OSError:
+        pass
+
+    # An AUTOMATIC trigger has nothing to gain by waiting: a sync is refreshing the
+    # catalogue right now, so queueing behind it only repeats that work minutes later.
+    if trigger != "manual":
+        log(f"another sync is already running; skipping this {trigger} run")
+        fh.close()
+        return None
+
+    # A MANUAL run is someone asking for it, so queue -- but only one deep. Ten clicks
+    # must not mean ten full rebuilds back to back; whoever is already waiting will pick
+    # up the same catalogue this run would have.
+    waiter = open(WAIT_LOCK, "w")
+    try:
+        fcntl.flock(waiter, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        log("another sync is running and one is already queued behind it; nothing to add")
+        waiter.close()
+        fh.close()
+        return None
+
+    log("another sync is running; queued behind it")
+    waited = 0
+    while waited < 900:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            waiter.close()          # let the next manual run queue behind this one
+            log(f"queued sync starting after {waited}s")
+            return fh
+        except OSError:
+            time.sleep(5)
+            waited += 5
+
+    log("gave up waiting for the running sync after 900s", level="ERROR")
+    waiter.close()
+    fh.close()
+    return None
+
+
 def already_running(source):
     """True if another sync of this source is genuinely alive.
 
@@ -589,7 +654,27 @@ def resolve_deps(run, scope_version_ids=None, catalogue_moved=False):
         if catalogue_moved:
             extra = [r[0] for r in rows(
                 "SELECT DISTINCT version_id FROM mod_deps WHERE dep_mod_id IS NULL;")]
-        want = sorted(set(ids) | set(extra))
+
+        # Versions that declare dependencies and have NO edges at all -- not one resolved,
+        # not one unresolved. That is not a state resolution produces: every dep string
+        # writes a row, resolved or not. It means a rebuild DIED between its DELETE and its
+        # INSERT (a deadlock, an OOM, a container stop mid-sync).
+        #
+        # Retried unconditionally, not only when the catalogue moved, because such a
+        # version is in neither of the sets above: it never changes, and it has no
+        # dep_mod_id IS NULL row to be found by. Without this it is never resolved again,
+        # and the world quietly installs that mod with none of its dependencies. That is
+        # exactly what a production deadlock left behind -- 668 versions across 27 worlds,
+        # which no amount of routine syncing would ever have repaired.
+        orphans = [r[0] for r in rows(
+            "SELECT v.id FROM mod_versions v JOIN mods m ON m.id = v.mod_id "
+            f"WHERE {reachable} AND v.deps IS NOT NULL AND v.deps NOT IN ('[]','') "
+            "AND NOT EXISTS (SELECT 1 FROM mod_deps d WHERE d.version_id = v.id);")]
+        if orphans:
+            log(f"{len(orphans)} version(s) have no dependency edges at all -- "
+                f"re-resolving (an earlier rebuild did not finish)")
+
+        want = sorted(set(ids) | set(extra) | set(orphans))
         if not want:
             log("dependency graph unchanged, nothing to resolve")
             return 0, int(scalar("SELECT COUNT(*) FROM mod_deps WHERE dep_mod_id IS NULL;", 0))
@@ -1003,9 +1088,19 @@ def main():
     settings = get_settings()
     todo = list(SOURCES) if args.source == "all" else [args.source]
 
+    # Held for the WHOLE run, every source. See take_global_lock().
+    lock = take_global_lock(args.trigger)
+    if lock is None:
+        if args.json:
+            print(json.dumps({"skipped": "another sync is running"}))
+        return 0
+
     results = {}
-    for s in todo:
-        results[s] = sync_source(s, settings, args.trigger, args.force, args.dry_run)
+    try:
+        for s in todo:
+            results[s] = sync_source(s, settings, args.trigger, args.force, args.dry_run)
+    finally:
+        lock.close()
 
     if args.json:
         print(json.dumps(results))
