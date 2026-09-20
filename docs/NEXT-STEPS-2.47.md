@@ -29,8 +29,10 @@ Issue #87 answered on GitHub (comment 5689792285), left **open** deliberately.
 
 - **An outside operator ran a full auto-update on his own server and it worked** — backup,
   stop, update, start, all four phases. First confirmation off our box.
-  **Ask him whether that run was SCHEDULED or a manual Update Now** before promoting: only
-  the scheduled path exercises `isIdle` and `inWindow`.
+  **He confirmed 2026-09-20 that it was a MANUAL Update Now, not a scheduled run.** So the
+  four phases are proven, but the *trigger* is not: `isIdle` and `inWindow` are still
+  unexercised outside unit tests, in both directions (fires when it should, holds when it
+  should not). That is the remaining `:latest` gate, and it is ours to close, not his.
 - A full Update Now on a live world, and the mod rebuild path, both exercised for real.
 - **The vanilla fix was reproduced, fixed and re-verified on a live container** in both
   halves: the checker reports an honest zero with no rebuild, and a rebuild records the rows
