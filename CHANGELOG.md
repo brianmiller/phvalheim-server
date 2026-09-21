@@ -58,8 +58,29 @@ successive bad restores (nested three deep) also recovers. No data was ever dele
 was inside the archive the whole time, and the pre-restore safety backup taken before every
 restore still holds the state from the moment it happened.
 
-Verified end-to-end in a live container, not just in the harness: a nested world plus a nested
-backup restores to a readable save at the server's `-savedir`, owned by `phvalheim`.
+### Verification
+
+Verified on the shipped image, not only in the harness. On a fresh 2.48 container, for a vanilla
+world and a modded one (BepInEx + NoMovementPenalty), each generating its **own** Valheim save:
+
+- backup **and** restore driven through the real admin HTTP API (`nginx` → `php-fpm` →
+  `adminAPI.php` → `startDetachedJob`), with the job polled the way the UI polls it;
+- the restored save byte-identical by `sha256`, and **still byte-identical after the live engine
+  finished the post-restore `mode='update'` rebuild** — the rebuild does not clobber it;
+- BepInEx and the selected mod reinstalled by that rebuild;
+- Valheim then **loaded** the restored world (`ZNet.LoadWorld`) with its seed preserved, where the
+  pre-fix code generated a new one (`LDDQYb6tzP` → `JQrJyFl97b`);
+- all three archive formats — `.tar`, `.tar.gz`, `.tar.zst` — restore byte-identically, the last
+  of which exercises the separate `eval` branch;
+- `backupDir` on its own mount whose `st_dev` matches its parent's, which is the condition that
+  broke backup detection in 2.42;
+- and the reporter's whole chain: healthy backup → the **real pre-fix code** buries it → the
+  30-minute automatic backup captures the nesting → 2.48 restores that nested archive and returns
+  every original byte.
+
+Two log lines are *not* evidence of loading and were discarded as oracles: `Loading: Generating
+locations` appears on loaded worlds too, and a freshly generated world loads `0 zdos`. The seed in
+`_main.N.fwl2` is the discriminator, because generation always changes it.
 
 Guarded by `dev_tools/test-restore-format-detection.sh`, which extracts both the probe and the
 repair loop out of `worldRestore` itself. Re-introducing the unanchored `grep` fails 6 of its
