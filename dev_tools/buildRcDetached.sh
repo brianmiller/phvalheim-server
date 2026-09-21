@@ -1004,9 +1004,11 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # fresh world. Asserting the new anchored probe exists is not enough -- it passes just as
   # well on an image that still has the unanchored one somewhere beside it.
   #
-  # No single quotes and no "$" in these patterns: the whole verify payload is inside
-  # sh -c '...', and a "$" in a double-quoted grep argument would expand here instead of
-  # matching. "." stands in for both.
+  # No apostrophes and no "$" in these patterns. The whole verify payload is one
+  # single-quoted sh -c argument, so a lone apostrophe -- even in a comment like this one --
+  # truncates the verify silently; the guard at the top of this script refuses the build for
+  # it. And a "$" in a double-quoted grep argument would expand here instead of matching.
+  # "." stands in for both.
   ra=$(grep -c "archiveListingIsLegacy" /opt/stateless/engine/tools/worldRestore)
   rb=$(grep -c "grep -q .worlds_local/." /opt/stateless/engine/tools/worldRestore)
   rc_=$(grep -c "worlds_local/|^worlds_local/" /opt/stateless/engine/tools/worldRestore)
