@@ -1,5 +1,70 @@
 # Changelog
 
+## v2.48
+
+### Restoring a backup generated a fresh world (issue #89)
+
+Every world backup taken since 2.38 restored into the wrong directory, so the server found no
+save at its `-savedir` and generated a new world. The restore reported success.
+
+`worldRestore` supports two archive layouts, and picked between them like this:
+
+```sh
+tar tf "$backupFilePath" | grep -q "worlds_local/" && isOldFormat=1
+```
+
+**Both layouts contain `worlds_local/`.** They differ only in where it sits, because the two
+generations of `worldBackup` archive from different directories:
+
+| | archives from | `worlds_local/` appears at |
+|---|---|---|
+| pre-2.38 | `$worldDir/game/.config/unity3d/IronGate/Valheim` | `./worlds_local/` — archive root |
+| 2.38+ | `$worldDir` | `./game/.config/unity3d/IronGate/Valheim/worlds_local/` |
+
+Unanchored, that `grep` matched every modern archive too. So every restore took the legacy
+branch and unpacked the whole world tree into
+`$worldDir/game/.config/unity3d/IronGate/Valheim/`, leaving the real save at
+
+```
+<worldDir>/game/.config/unity3d/IronGate/Valheim/game/.config/unity3d/IronGate/Valheim/worlds_local/<world>/
+```
+
+one full world tree below where Valheim looks. The `-savedir` `worlds_local` was empty, so
+Valheim did what it does with an empty save directory: generated a new world. The 2.38+ branch
+was unreachable code — it had never run in any release.
+
+The probe is now anchored to the archive root, which is the actual distinction:
+
+```sh
+grep -qE '^\./worlds_local/|^worlds_local/'
+```
+
+It is a function, `archiveListingIsLegacy`, so the regression test exercises the shipping code
+rather than a copy of it.
+
+### Recovering worlds already damaged (step 5b)
+
+Fixing the probe stops new damage but cannot help a world already restored by 2.38–2.47: that
+world directory is nested, and since automatic backups run every 30 minutes, **every backup
+taken since is nested too**. Unpacking one of those correctly still leaves the save buried and
+still boots a fresh world, so an affected operator had no route back through the UI.
+
+A world directory can never legitimately contain
+`.../IronGate/Valheim/game/.config/unity3d/IronGate/Valheim` — a real Valheim save directory
+holds `worlds_local/`, `cache/` and the access lists, never another `game/` tree. That doubled
+path is an unambiguous signature of the old bug, so restore now lifts the buried tree back to
+the world root. Each pass peels one level and the loop is bounded, so a world damaged by two
+successive bad restores (nested three deep) also recovers. No data was ever deleted: the save
+was inside the archive the whole time, and the pre-restore safety backup taken before every
+restore still holds the state from the moment it happened.
+
+Verified end-to-end in a live container, not just in the harness: a nested world plus a nested
+backup restores to a readable save at the server's `-savedir`, owned by `phvalheim`.
+
+Guarded by `dev_tools/test-restore-format-detection.sh`, which extracts both the probe and the
+repair loop out of `worldRestore` itself. Re-introducing the unanchored `grep` fails 6 of its
+checks; deleting the repair fails another.
+
 ## v2.47
 
 ### Player counts

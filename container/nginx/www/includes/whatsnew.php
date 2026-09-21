@@ -11,6 +11,10 @@
  */
 function whatsNewNotes() {
     return [
+        '2.48' => [
+            'Fixed: <b>restoring a world backup started a brand-new world instead of your saved one.</b> Every backup taken since 2.38 was mistaken for the much older format and unpacked into the wrong place &mdash; one folder deep, where the server does not look &mdash; so Valheim found no save, generated a fresh one, and the restore reported success. Restores now put the save back where the server reads it. <b>Your data was never deleted</b>: it is still inside the backup, and inside the safety backup PhValheim takes automatically just before every restore.',
+            'If you already restored a backup and lost your world this way, <b>restore it again with this version</b> and it will come back. PhValheim now recognises a world that the old bug had buried &mdash; including in backups taken after it happened &mdash; and lifts it back into place. Pick the newest backup from before the bad restore, or the <i>pre-restore</i> safety backup made at the time.',
+        ],
         '2.47' => [
             'Fixed: <b>an automatic update left the world stopped.</b> Once the mods had been rebuilt, nothing started the world again &mdash; the rebuild deliberately ends with the world stopped, because editing a mod list by hand goes through the same path, and the updater was relying on it to restart. With the default setting (update both the game and the mods) that meant every automatic update took the world offline and left it there, while reporting it as finished. The world is now started again whatever was updated.',
             'Fixed: <b>an update reported itself finished before it was.</b> Rebuilding the mods is handed to the engine and runs in the background, and the updater was announcing success the moment it handed it over &mdash; so the Updates tab showed <i>Updated</i> while mods were still downloading. It now waits for the rebuild to actually finish, and says so if it fails.',

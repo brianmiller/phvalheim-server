@@ -994,6 +994,41 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.47 update stop: stops it=$px (want 1)  remembers=$py (want 1)  restarts=$pz (want 1)  unstoppable=$qb (want 1)"
   echo "2.47 update NEGATIVE: spin-forever refusal=$qa (want 0)"
   echo "2.47 reaper NEGATIVES: dead pid guard=$ps_ (want 0)  reads worlds.pid=$pt (want 0)  helper=$pu (want 1)  call sites=$pv (want 5)"
+
+  # ---- 2.48: restore put the world back where the server reads it (issue #89) ------
+  # worldRestore had NO markers at all before this release, so none of this was verified
+  # in the image. The headline marker is a NEGATIVE: the old probe was
+  #   grep -q "worlds_local/"
+  # which matches BOTH archive layouts, so every 2.38+ backup was misread as pre-2.38 and
+  # unpacked one world tree too deep, leaving the -savedir empty and Valheim generating a
+  # fresh world. Asserting the new anchored probe exists is not enough -- it passes just as
+  # well on an image that still has the unanchored one somewhere beside it.
+  #
+  # No single quotes and no "$" in these patterns: the whole verify payload is inside
+  # sh -c '...', and a "$" in a double-quoted grep argument would expand here instead of
+  # matching. "." stands in for both.
+  ra=$(grep -c "archiveListingIsLegacy" /opt/stateless/engine/tools/worldRestore)
+  rb=$(grep -c "grep -q .worlds_local/." /opt/stateless/engine/tools/worldRestore)
+  rc_=$(grep -c "worlds_local/|^worlds_local/" /opt/stateless/engine/tools/worldRestore)
+  # ra counts the definition plus BOTH call sites -- the plain-tar branch and the zstd
+  # eval branch. A fix applied to only one of them still restores .tar.zst backups wrong.
+  echo "2.48 restore probe: fn+both call sites=$ra (want 3)  anchored regex=$rc_ (want 1)"
+  echo "2.48 restore probe NEGATIVE: unanchored grep gone=$rb (want 0)"
+
+  # step 5b, the recovery path for worlds the old bug already buried. Keyed on the Unity
+  # save path appearing TWICE in a row, which a real world directory can never contain.
+  # rf is a NEGATIVE against the narrower condition this was first written with
+  # (...$unityRel/$unityRel/worlds_local): it only matched ONE level of nesting, so a world
+  # wrecked by two successive bad restores was silently left broken.
+  rd=$(grep -c "unityRel/.unityRel" /opt/stateless/engine/tools/worldRestore)
+  re=$(grep -c "liftTmp" /opt/stateless/engine/tools/worldRestore)
+  rf=$(grep -c "unityRel/.unityRel/worlds_local" /opt/stateless/engine/tools/worldRestore)
+  ri=$(grep -c "liftCount. -lt 5" /opt/stateless/engine/tools/worldRestore)
+  rj=$(grep -c "mv -t ..worldDir" /opt/stateless/engine/tools/worldRestore)
+  rg=$(grep -c "2.48. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
+  echo "2.48 nesting repair: doubled-path condition=$rd (want 1)  bounded=$ri (want 1)  swap=$re (want 6)/$rj (want 1)"
+  echo "2.48 nesting repair NEGATIVE: single-level-only condition=$rf (want 0)"
+  echo "2.48 whatsnew entry=$rg (want 1)"
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1113,6 +1148,9 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$qg" = "2" ] && [ "$qh" = "4" ] && [ "$qi" = "1" ] && [ "$qj" = "1" ] \
     && [ "$qk" = "1" ] && [ "$ql" = "1" ] && [ "$qm" = "1" ] && [ "$qn" = "1" ] \
     && [ "$px" = "1" ] && [ "$py" = "1" ] && [ "$pz" = "1" ] && [ "$qa" = "0" ] && [ "$qb" = "1" ] \
+    && [ "$ra" = "3" ] && [ "$rb" = "0" ] && [ "$rc_" = "1" ] \
+    && [ "$rd" = "1" ] && [ "$re" = "6" ] && [ "$rf" = "0" ] && [ "$ri" = "1" ] && [ "$rj" = "1" ] \
+    && [ "$rg" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

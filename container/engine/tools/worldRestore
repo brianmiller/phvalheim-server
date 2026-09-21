@@ -134,7 +134,26 @@ find "$worldDir" -mindepth 1 -delete
 # step 5: detect backup format and extract
 # Old backups (pre-2.38) contain Unity save files (worlds_local/, adminlist.txt)
 # New backups (2.38+) contain the full world directory (game/, custom_configs/, etc.)
+#
+# The distinction is WHERE worlds_local/ sits, not whether it is present -- both formats
+# contain it. Pre-2.38 worldBackup ran from
+#   $worldDir/game/.config/unity3d/IronGate/Valheim/
+# so the archive holds ./worlds_local/ at its ROOT. 2.38+ worldBackup runs from $worldDir,
+# so the very same worlds_local/ appears far below, at
+#   ./game/.config/unity3d/IronGate/Valheim/worlds_local/
+#
+# An UNANCHORED match therefore matched every modern backup too, so every restore took the
+# legacy branch and unpacked the whole world tree into
+# $worldDir/game/.config/unity3d/IronGate/Valheim/ -- burying the real save one entire world
+# tree deep and leaving the server's -savedir worlds_local empty. Valheim then generated a
+# brand-new world, which looked exactly like the backup had restored a fresh seed. The
+# "new format" branch below was unreachable. Anchor to the archive root. (issue #89)
 isOldFormat=0
+
+#Reads a tar listing on stdin. True only when the Unity save dir is at the archive ROOT.
+function archiveListingIsLegacy() {
+	grep -qE '^\./worlds_local/|^worlds_local/'
+}
 case "$backupFilePath" in
 	*.tar.gz)
 		tarListCmd="tar tzf"
@@ -153,11 +172,11 @@ case "$backupFilePath" in
 		;;
 esac
 
-# check if old format by looking for worlds_local/ in the archive
+# check if old format by looking for worlds_local/ AT THE ROOT of the archive
 if [ "$tarListCmd" = "tar tf" ] || [ "$tarListCmd" = "tar tzf" ]; then
-	$tarListCmd "$backupFilePath" 2>/dev/null | grep -q "worlds_local/" && isOldFormat=1
+	$tarListCmd "$backupFilePath" 2>/dev/null | archiveListingIsLegacy && isOldFormat=1
 else
-	eval "$tarListCmd" 2>/dev/null | grep -q "worlds_local/" && isOldFormat=1
+	eval "$tarListCmd" 2>/dev/null | archiveListingIsLegacy && isOldFormat=1
 fi
 
 extractStart=$(date +%s%N)
@@ -187,6 +206,43 @@ fi
 if [ $? -ne 0 ]; then
 	echo "`date` [FAIL : phvalheim]  Backup extraction failed!" >> "$LOG"
 	jsonError "Backup extraction failed"
+fi
+
+# step 5b: undo the nesting left behind by a pre-2.48 restore (issue #89)
+#
+# Fixing the probe above stops NEW damage, but it cannot help a world that was already
+# restored by 2.38-2.47: that world directory has the whole tree buried one level down,
+# under game/.config/unity3d/IronGate/Valheim/. Automatic backups run every 30 minutes, so
+# every backup taken since then contains the nesting too -- unpacking one correctly still
+# leaves the save buried and the server's -savedir empty, and the world still boots as a
+# fresh seed. The operator has no way out through the UI.
+#
+# The signature is the Unity save path appearing TWICE in a row: a real world directory
+# holds worlds_local/, cache/ and the access lists under .../IronGate/Valheim, never another
+# game/ tree. Each lift peels exactly one level, so the loop also recovers a world that was
+# restored badly more than once (two bad restores nest it three deep); the bound keeps a
+# surprise layout from spinning forever.
+unityRel="game/.config/unity3d/IronGate/Valheim"
+liftCount=0
+while [ "$liftCount" -lt 5 ] && [ -d "$worldDir/$unityRel/$unityRel" ]; do
+	liftCount=$((liftCount+1))
+	progress "Repairing a world tree nested by a pre-2.48 restore (issue #89)..."
+
+	liftTmp="${worldDir}.lift.$$"
+	rm -rf "$liftTmp"
+	# the buried directory IS the real world root -- move it clear, then swap it in
+	if ! mv "$worldDir/$unityRel" "$liftTmp" 2>>"$LOG"; then
+		progress "WARNING: could not lift the nested world tree; leaving it as extracted."
+		rm -rf "$liftTmp"
+		break
+	fi
+	find "$worldDir" -mindepth 1 -delete
+	find "$liftTmp" -mindepth 1 -maxdepth 1 -exec mv -t "$worldDir" {} +
+	rm -rf "$liftTmp"
+done
+if [ "$liftCount" -gt 0 ]; then
+	echo "`date` [NOTICE : phvalheim] Lifted a nested world tree for '$worldName' ($liftCount level(s), issue #89)" >> "$LOG"
+	progress "Repaired nesting from a pre-2.48 restore ($liftCount level(s))."
 fi
 
 extractEnd=$(date +%s%N)
