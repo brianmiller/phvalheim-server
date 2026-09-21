@@ -70,7 +70,13 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   a=$(grep -c "modSelectionCard" /opt/stateless/nginx/www/admin/new_world.php)
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)
-  d=$(grep -c "modSelectionArea" /opt/stateless/nginx/www/admin/new_world.php)
+  # The wrapper div itself, anchored. This used to be a bare count of "modSelectionArea"
+  # with a printed (want 2) that deliberately included the comment explaining why the toggle
+  # moved off it -- a number that any future comment edit would have broken, and which was
+  # never in the gate at all, so it asserted nothing either way.
+  d=$(grep -c "<div id=\"modSelectionArea\">" /opt/stateless/nginx/www/admin/new_world.php)
+  # NEGATIVE, which is the thing actually worth asserting: no live toggle came back onto it.
+  d2=$(grep -cE "[(]..modSelectionArea..[)][.]toggle[(]" /opt/stateless/nginx/www/admin/new_world.php)
   # The Access-tab rename. Check the NEW names are in and the OLD ones are gone --
   # counting only the new id would pass on an image that still carried both.
   e=$(grep -c "settingsAccessListToggle" /opt/stateless/nginx/www/admin/index.php)
@@ -83,9 +89,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "modSelectionCard=$a (want 2)"
   echo "Clearing world md5sum=$b (want 1)"
   echo "modded-payload WARNING=$c (want 1)"
-  # 2 = the wrapper <div id="modSelectionArea"> + the comment explaining why the
-  # toggle moved off it. A THIRD would mean a live $(...).toggle() came back.
-  echo "modSelectionArea mentions=$d (want 2: the div + the comment)"
+  echo "modSelectionArea div=$d (want 1)  NEGATIVE live toggle back=$d2 (want 0)"
   # The Access-tab refactor: ONE shared ID-help disclosure instead of three copies
   # of the banner, and per-list lookup buttons. The css must ship too -- the markup
   # alone renders an unstyled <details>, which looks like nothing was done.
@@ -479,7 +483,11 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
        /opt/stateless/engine/phvalheim 2>/dev/null | wc -l)
   # The sync must NOT be forced (a full refetch on every container restart) and must use
   # trigger=boot (trigger=cron obeys modSyncIntervalHours and would silently skip).
-  fn=$(grep -c "trigger boot" /opt/stateless/engine/includes/0-functions.sh)
+  # Anchor on the INVOCATION, not the bare string. This was `grep -c "trigger boot"`, which
+  # also matched the comment above the call site that 2.47 added to explain the flag -- so it
+  # read 2 against a printed (want 1) while its own gate was the looser `-gt 0`, and the log
+  # showed a mismatch on an image that was perfectly correct. Marker rot, not a regression.
+  fn=$(grep -cE "modSync.py .*--trigger boot" /opt/stateless/engine/includes/0-functions.sh)
   fo=$(grep -A1 "setsid /opt/stateless/engine/tools/modSync.py" \
        /opt/stateless/engine/includes/0-functions.sh | grep -c -- "--force")
   echo "2.43 boot sync fn=$fk caller=$fl (want 1/1)  old seeder refs=$fm (want 0)"
@@ -633,6 +641,9 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   jq=$(grep -cE "input. => .object..c..arguments" /opt/stateless/nginx/www/includes/aiproviders.php)
   jr=$(grep -cE "args. => .object..c..arguments" /opt/stateless/nginx/www/includes/aiproviders.php)
   # Capability negotiation: the loop plus both known quirks must ship together.
+  # jb was assigned here and then never printed and never gated -- a probe that ran on every
+  # build and could not fail. Its siblings ja and jc were both in the chain, so it was simply
+  # dropped from it. Wired up below at its real value.
   ja=$(grep -c "reasoning_effort" /opt/stateless/nginx/www/includes/aiproviders.php)
   jb=$(grep -c "function (\$res) {" /opt/stateless/nginx/www/includes/aiproviders.php)
   jc=$(grep -c "try <= count(\$quirks)" /opt/stateless/nginx/www/includes/aiproviders.php)
@@ -1034,6 +1045,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
+  echo "2.45 openai negotiation: retry closures=$jb (want 2)"
   echo "2.45 wizard: kind-change=$jd/$je presets=$jf/$jg (want >0 each)"
   echo "2.45 ollama removal: kind=$jh adapter=$ji (want 0/0)  migration: convert=$jj legacy=$jk (want >0/1)"
   echo "2.45 ollama notice: migration=$jl reader=$jm modal=$jn dismiss=$jo (want >0 each)"
@@ -1096,7 +1108,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$fd" -gt 0 ] && [ "$fe" -gt 0 ] && [ "$ff" -gt 0 ] && [ "$fg" -gt 0 ] \
     && [ "$fh" = "0" ] && [ "$fi_" -gt 0 ] && [ "$fj" -gt 0 ] \
     && [ "$fk" = "1" ] && [ "$fl" = "1" ] && [ "$fm" = "0" ] \
-    && [ "$fn" -gt 0 ] && [ "$fo" = "0" ] \
+    && [ "$fn" = "1" ] && [ "$fo" = "0" ] \
     && [ "$fp" = "1" ] && [ "$fq" = "1" ] && [ "$fr" = "0" ] && [ "$fs" = "0" ] \
     && [ "$ft" -gt 0 ] \
     && [ "$fu" -gt 0 ] && [ "$fv" -gt 0 ] && [ "$fw" -gt 0 ] && [ "$fx" = "0" ] \
@@ -1153,6 +1165,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$ra" = "3" ] && [ "$rb" = "0" ] && [ "$rc_" = "1" ] \
     && [ "$rd" = "1" ] && [ "$re" = "6" ] && [ "$rf" = "0" ] && [ "$ri" = "1" ] && [ "$rj" = "1" ] \
     && [ "$rg" = "1" ] \
+    && [ "$d" = "1" ] && [ "$d2" = "0" ] && [ "$jb" = "2" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
