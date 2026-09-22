@@ -192,6 +192,149 @@ function worldDirPrep(){
         chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
+#Did worldDirPrep actually produce the tree it is contracted to produce?
+#
+#This is the POSTCONDITION of a world deployment, and it replaced the exit status of a
+#`chown -R` as the thing the create branch judged. Those answer different questions:
+#chown reports whether it could change ownership of every file it walked, which comes
+#apart from "is this world deployed" in both directions -- one unchownable file (NFS
+#root_squash, an immutable bit, a file vanishing mid-walk) failed a perfectly good
+#deployment, and an incomplete-but-chownable tree passed a broken one.
+#
+#The same bad oracle is documented at the chown below in InstallAndUpdateValheim, where
+#it turned a successful update into "update failed". There it printed a wrong message.
+#In the create branch it deleted the world row and rm -rf-ed the directory.
+#
+#Echoes the names of any missing directories, and returns 1 if there are any.
+#
+#$1=world name
+function worldDirIsPrepared() {
+        local w="$1"
+        local missing=""
+        local d
+
+        if [ -z "$w" ]; then
+                echo "no world name given"
+                return 1
+        fi
+
+        #Must stay in lockstep with worldDirPrep. The savedir entry is the one that matters
+        #most: syncAccessLists.sh writes the CITIZENS list into it before the world ever boots.
+        for d in game custom_configs custom_configs_secure custom_plugins custom_patchers \
+                 game/.config/unity3d/IronGate/Valheim; do
+                [ -d "$worldsDirectoryRoot/$w/$d" ] || missing="$missing $d"
+        done
+
+        if [ -n "$missing" ]; then
+                echo "$missing"
+                return 1
+        fi
+        return 0
+}
+
+#Steam app state for a world, read from the manifest steamcmd writes for itself.
+#Echoes the raw StateFlags value, or nothing at all when the manifest is absent.
+#
+#The same file is what updateChecker.py reads the installed buildid out of, so this is
+#not a new dependency -- it is the existing one, asked a second question.
+#
+#$1=world name
+function valheimAppStateFlags() {
+        local manifest="$worldsDirectoryRoot/$1/game/steamapps/appmanifest_896660.acf"
+        [ -f "$manifest" ] || return 1
+        sed -n 's/.*"StateFlags"[[:space:]]*"\([0-9][0-9]*\)".*/\1/p' "$manifest" | head -1
+}
+
+#Verdict on a finished steamcmd run for a world. THREE states, all load-bearing:
+#  0 = installed and verified   1 = did not complete   2 = installed but unverifiable
+#
+#Kept out of InstallAndUpdateValheim so it can be driven directly from a test with
+#fixture manifests -- the old check lived inline and was never exercised by anything.
+#
+#StateFlags is a BITMASK, so "is it 6?" is the wrong question -- the reported fault was
+#0x6, but 0x4|0x8 (update queued) and 0x4|0x20 (files missing) are just as unfinished and
+#carry the fully-installed bit too. Success therefore needs 0x4 SET and every bit that
+#means not-done CLEAR:
+#
+#  0x001 Uninstalled   0x002 UpdateRequired  0x008 UpdateQueued   0x020 FilesMissing
+#  0x080 FilesCorrupt  0x100 UpdateRunning   0x200 UpdatePaused   0x400 UpdateStarted
+#  0x800 Uninstalling                                              = 4011 decimal
+#
+#0x10 UpdateOptional is deliberately NOT in that mask: an optional update being available
+#says nothing about whether this install completed, and failing on it would stop worlds
+#that are perfectly fine.
+#
+#10# forces decimal: an arithmetic context reads a leading zero as octal.
+#
+#$1=world name
+function valheimInstallVerdict() {
+        local flags
+        [ -f "$worldsDirectoryRoot/$1/game/valheim_server.x86_64" ] || return 1
+        flags=$(valheimAppStateFlags "$1") || true
+        [ -n "$flags" ] || return 2
+        if [ $((10#$flags & 4)) -eq 4 ] && [ $((10#$flags & 4011)) -eq 0 ]; then
+                return 0
+        fi
+        return 1
+}
+
+#Escalating self-repair between steamcmd attempts, so a stuck install fixes itself instead
+#of waiting for an operator to run rm by hand.
+#
+#### READ THIS BEFORE ADDING A PATH ####
+#
+#The world SAVE lives INSIDE the game directory: startWorld.sh passes
+#  -savedir .../worlds/<world>/game/.config/unity3d/IronGate/Valheim
+#and the mod loader lives at .../game/BepInEx. So "wipe the game dir and reinstall" --
+#the obvious shape for this function -- DESTROYS EVERY WORLD SAVE ON THE SERVER.
+#
+#Everything touched here is therefore confined to game/steamapps, which holds only
+#steamcmd bookkeeping and re-downloadable content. Nothing else under game/ is in scope,
+#ever. If you are about to add a path outside steamapps, you are about to delete data.
+#
+#$1=world name  $2=level (2..4; higher does everything the lower levels do, plus more)
+function healSteamcmdState() {
+        local w="$1"
+        local level="$2"
+        local game="$worldsDirectoryRoot/$w/game"
+
+        #An empty world name would aim every path below at the shared worlds root.
+        if [ -z "$w" ]; then
+                echo "`date` [ERROR : phvalheim] healSteamcmdState called with no world name; refusing."
+                return 1
+        fi
+
+        #Level 2 -- the steamcmd bootstrap. Cheap, discards no content.
+        rm -rf "$game/Steam"
+        rm -rf "$game/.steam"
+        mkdir -p "$game/.steam"
+
+        #Also level 2: ownership and permissions. steamcmd runs as the phvalheim user with
+        #HOME set to the game dir, so a root-owned or unwritable tree makes it fail before
+        #it transfers a single byte. This is the cheapest real fault to repair and the one
+        #a manual rm would never have fixed.
+        chown -R phvalheim: "$game" 2>/dev/null
+        chmod -R u+rwX "$game" 2>/dev/null
+        echo "`date` [NOTICE : phvalheim] Self-repair: reset the steamcmd bootstrap and fixed ownership under '$w/game'."
+
+        #Level 3 -- discard a partial or corrupt transfer. Content already installed is
+        #untouched; steamcmd re-fetches only what was mid-flight.
+        if [ "$level" -ge 3 ]; then
+                rm -rf "$game/steamapps/downloading"
+                rm -rf "$game/steamapps/temp"
+                echo "`date` [NOTICE : phvalheim] Self-repair: discarded the partial Steam download for '$w'."
+        fi
+
+        #Level 4 -- last resort. Dropping the manifest makes steamcmd re-verify the whole
+        #app, which costs a full re-download. Deliberately last, and deliberately loud.
+        if [ "$level" -ge 4 ]; then
+                rm -f "$game/steamapps/appmanifest_896660.acf"
+                echo "`date` [WARN : phvalheim] Self-repair: cleared the Steam manifest for '$w' -- the next attempt re-downloads the game. World saves and mods are NOT affected."
+        fi
+
+        return 0
+}
+
 #$1=world name
 function InstallAndUpdateValheim() {
         worldName="$1"
@@ -225,16 +368,27 @@ function InstallAndUpdateValheim() {
         local maxRetries=5
         local retryCount=0
         local steamcmdSuccess=false
+        local stateFlags=""
+        local installVerdict=0
+        local healLevel=0
 
         while [ $retryCount -lt $maxRetries ] && [ "$steamcmdSuccess" = "false" ]; do
                 retryCount=$((retryCount + 1))
 
                 if [ $retryCount -gt 1 ]; then
                         echo "`date` [WARN : phvalheim] Steamcmd failed, retrying (attempt $retryCount of $maxRetries)..."
-                        # Clean up Steam directory before retry to avoid stale state
-                        rm -rf /opt/stateful/games/valheim/worlds/$worldName/game/Steam
-                        rm -rf /opt/stateful/games/valheim/worlds/$worldName/game/.steam
-                        mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game/.steam
+                        # Escalate the repair with each attempt rather than doing the same
+                        # thing five times. Retrying an identical command against identical
+                        # state is what the old loop would have done, and it can only ever
+                        # produce the identical failure.
+                        #
+                        # 2 -> bootstrap + permissions, 3 -> also drop a partial transfer,
+                        # 4+ -> also drop the manifest and re-download. Capped at 4 so the
+                        # fifth attempt retries the fully-cleaned state rather than
+                        # re-clearing a manifest that was just cleared.
+                        healLevel=$retryCount
+                        [ $healLevel -gt 4 ] && healLevel=4
+                        healSteamcmdState "$worldName" "$healLevel"
                         sleep 2
                 fi
 
@@ -246,15 +400,45 @@ function InstallAndUpdateValheim() {
                 $beta validate \
                 +quit
 
-                # Check if valheim_server.x86_64 was installed
-                if [ -f "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64" ]; then
-                        steamcmdSuccess=true
-                        echo "`date` [NOTICE : phvalheim] Valheim server installed successfully for '$worldName'"
-                fi
+                # Did the update actually WORK?
+                #
+                # This was `[ -f valheim_server.x86_64 ]` and nothing else -- a check that
+                # cannot see the failure it exists to catch. steamcmd reports a partial
+                # update as `Error! App 896660 state is 0x6 after update job.`, and 0x6 is
+                # StateFullyInstalled|StateUpdateRequired: the binary is very much on disk.
+                # So every failed update logged "installed successfully", and because that
+                # also set steamcmdSuccess=true it broke out of the retry loop on attempt 1 --
+                # the five retries never ran for the one fault they were written for.
+                valheimInstallVerdict "$worldName"
+                installVerdict=$?
+                stateFlags=$(valheimAppStateFlags "$worldName")
+                case "$installVerdict" in
+                        0)
+                                steamcmdSuccess=true
+                                echo "`date` [NOTICE : phvalheim] Valheim server installed successfully for '$worldName' (Steam app state $stateFlags)"
+                                ;;
+                        2)
+                                # Unknown is not success -- but it is not a proven failure
+                                # either, and refusing to run a world over a missing manifest
+                                # would be a worse bug than the one being fixed here. Report
+                                # it as the third state it actually is.
+                                steamcmdSuccess=true
+                                echo "`date` [WARN : phvalheim] Valheim installed for '$worldName', but game/steamapps/appmanifest_896660.acf is missing so the install could NOT be verified."
+                                ;;
+                        *)
+                                echo "`date` [WARN : phvalheim] steamcmd did not finish the update for '$worldName' (Steam app state ${stateFlags:-none}; needs bit 4 set and bit 2 clear)."
+                                ;;
+                esac
         done
 
         if [ "$steamcmdSuccess" = "false" ]; then
                 echo "`date` [ERROR : phvalheim] Failed to install Valheim after $maxRetries attempts for '$worldName'"
+                # A partial steamcmd update leaves state 0x6 and no other clue, and the cause
+                # is very often simply that the volume filled. Print it rather than send the
+                # operator looking for something the engine already knows.
+                df -h "$worldsDirectoryRoot" 2>/dev/null | while read -r dfLine; do
+                        echo "`date` [ERROR : phvalheim] disk: $dfLine"
+                done
                 return 1
         fi
 

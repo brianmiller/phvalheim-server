@@ -1,5 +1,145 @@
 # Changelog
 
+## v2.50
+
+### A failed Valheim update was reported as a success, and that disabled the retries
+
+Reported from a world log that read, in order:
+
+```
+Error! App '896660' state is 0x6 after update job.
+[NOTICE : phvalheim] Valheim server installed successfully for 'Brotality'
+```
+
+`InstallAndUpdateValheim()` decided whether steamcmd had worked like this:
+
+```sh
+# Check if valheim_server.x86_64 was installed
+if [ -f ".../game/valheim_server.x86_64" ]; then
+        steamcmdSuccess=true
+        echo "... Valheim server installed successfully for '$worldName'"
+fi
+```
+
+`StateFlags` `0x6` is `StateFullyInstalled|StateUpdateRequired` — Steam has the files on disk
+and still considers the app to need an update. The server binary is therefore present in
+exactly the failure this check exists to catch, so it returned the same answer whether the
+update had completed or not. A non-oracle: it could never go red.
+
+**Second-order damage.** `steamcmdSuccess=true` is also the loop condition. Setting it on a
+failed run broke out of the retry loop on attempt 1, so the five retries never ran for the one
+fault they were written for. The operator got a single failed attempt, labelled a success.
+
+**The fix.** Two new functions in `0-functions.sh`:
+
+- `valheimAppStateFlags()` reads `StateFlags` out of `game/steamapps/appmanifest_896660.acf`
+  — the manifest steamcmd writes for itself, and the same file `updateChecker.py` already
+  reads the installed buildid from. Not a new dependency; an existing one asked a second
+  question.
+- `valheimInstallVerdict()` returns **three** states: verified (0), did not complete (1),
+  installed-but-unverifiable (2). The third is not folded into either of the others — a
+  missing manifest is unknown, and refusing to run a world over it would be a worse bug than
+  the one being fixed.
+
+`StateFlags` is a bitmask, so "is it 6" is the wrong test. Success requires `0x4` set and
+every not-done bit clear (`0x1|0x2|0x8|0x20|0x80|0x100|0x200|0x400|0x800` = 4011). The first
+cut of this patch checked only bits `0x4` and `0x2`; `dev_tools/test-steamcmd-install-verdict.sh`
+caught that state 12 (update queued) and state 36 (files missing) were still verifying as
+clean. `0x10 UpdateOptional` is deliberately outside the mask — an optional update on offer
+says nothing about whether this install finished, and failing on it would stop healthy worlds.
+
+A run that fails all five attempts now also logs `df -h` for the worlds volume. A partial
+steamcmd update leaves state `0x6` and no other clue, and the usual cause is simply a full
+disk.
+
+**Tests.** `dev_tools/test-steamcmd-install-verdict.sh` drives the shipped functions against
+fixture manifests (states 4, 6, 12, 36, 1, 20, no-manifest, no-binary). Mutation-checked:
+reverting `valheimInstallVerdict` to the bare existence test turns 5 of the 10 cases red.
+
+### World creation was gated on a chown exit status, and deleted the world when it failed
+
+Found while investigating an unrelated report. `phvalheim` decided whether a new world had
+deployed like this:
+
+```sh
+chown -R phvalheim: $worldsDirectoryRoot/$worldName
+RESULT=$?
+if [ $RESULT = 0 ]; then
+        # ...created...
+else
+        deleteWorldModRows "$worldName"
+        SQL "DELETE FROM worlds WHERE name='$worldName'"
+        rm -rf /opt/stateful/games/valheim/worlds/$worldName
+fi
+```
+
+`chown -R` answers "could I change ownership of every file I walked". That is not "did this
+world deploy", and the two come apart in both directions: **one** unchownable file — NFS
+`root_squash`, an immutable bit, a file vanishing mid-walk — destroyed a world whose
+deployment had gone fine, while an incomplete but chownable tree passed as created.
+
+This is the third appearance of the same bad oracle. `InstallAndUpdateValheim` carries a
+comment describing it exactly, from when it turned a successful update into "update failed";
+there it printed a wrong message. Here it deleted the world. The branch also handles
+**clones**, whose directory arrives already holding a copied save.
+
+The `chown` was additionally redundant: `worldDirPrep()` ends with that identical command and
+runs immediately above on this path. It existed only to set `RESULT`.
+
+**Two changes.** `worldDirIsPrepared()` asserts the postcondition — the six directories
+`worldDirPrep` is contracted to produce — and names any that are missing. And a failed
+deployment is now **marked `mode='broken'` and otherwise left alone**. `broken` is the state
+this engine already uses at three other sites, none of which delete anything; the create
+branch was the outlier. A deleted row is indistinguishable from a world that never existed,
+so the operator watched their world vanish with the only explanation in the engine log.
+
+Removing the `rm -rf` also deletes a second, partial implementation of "remove a world" — it
+skipped the orphan-PID kill and `deleteSupervisorWorldConfig` that the real delete path does.
+Two implementations of one operation drift; the UI's Delete already does it correctly.
+
+**Tests.** `dev_tools/test-world-deploy-verdict.sh`, 13 assertions. The oracle case is a
+complete tree containing a file that cannot be chowned: the old code destroyed that world,
+and it is a perfectly good deployment. Mutation-checked against restored chown-gating.
+
+Three of that test's first-run failures were **its own probes**, not the code: two markers
+matched the new comments, which quote `rm -rf` and `RESULT=$?` verbatim while explaining the
+bug, and the fixture for "missing `game`" recreated `game` via `mkdir -p` of the savedir
+beneath it. Both the test and the build markers now read the engine with comments stripped.
+
+### Escalating self-repair, and the reason it is not a reinstall
+
+Restoring the retries exposed the next problem: five attempts ran the *identical* command
+against *identical* state, so they could only produce the identical failure. The retries were
+honest but useless.
+
+`healSteamcmdState()` now escalates. Level 2 resets the steamcmd bootstrap and repairs
+ownership and permissions on the game tree; level 3 additionally discards a partial transfer;
+level 4 additionally drops the manifest, forcing a full re-verify. Each step logs what it did.
+
+Permission repair is at level 2 deliberately — it is the cheapest real fault to fix, it is
+non-destructive, and `docs/RELEASING.md` already records steamcmd failing for want of a
+writable `HOME` as a trap this project has hit before.
+
+**The constraint that shaped the whole function.** `startWorld.sh` passes
+
+```
+-savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim
+```
+
+**The world save lives inside the game directory.** So does `BepInEx`. The obvious
+implementation of self-healing — wipe the game dir and let steamcmd reinstall — would have
+deleted every world save on every server that hit a failed update. Everything the repair
+touches is therefore confined to `game/steamapps` plus the two steamcmd bootstrap dirs, and
+the function carries a comment saying so in the imperative.
+
+**Tests.** `dev_tools/test-steamcmd-self-heal.sh`, 32 assertions. The survival cases are the
+real subject: saves, world db, `permittedlist.txt`, BepInEx plugins, the loader config and
+installed game content are asserted intact at *every* level, plus an empty-world-name guard.
+Mutation-checked: replacing the repair with `rm -rf "$game"` turns 22 cases red, the first six
+being the data-loss ones. The build gate additionally asserts the repair function never so
+much as names `unity3d`, `BepInEx` or `savedir`, and pins its `rm` count at 5 so a sixth
+cannot be added without someone re-reading the path list.
+
 ## v2.49
 
 ### The world log stopped naming loaded plugins, and the client's BepInEx window stopped appearing

@@ -386,7 +386,14 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # world_mods is keyed on worlds.id, so a delete that leaves its rows behind is not just
   # untidy: InnoDB recomputes AUTO_INCREMENT as MAX(id)+1 on restart, so the next world
   # created can be handed a recycled id and inherit the deleted world mod selection.
-  # BOTH delete paths must clear it (normal delete AND failed deployment), hence 2.
+  # EVERY path that deletes a world must clear it first. That was 2 paths through 2.49
+  # (normal delete AND failed deployment); 2.50 removed the failed-deployment one, which
+  # deleted a world because a chown returned non-zero, so there is now exactly 1.
+  #
+  # This is a real count change, not a relaxed number: the assertion is still "every
+  # delete path clears world_mods", and the REASON it is 1 is pinned separately by the
+  # 2.50 negative marker vb (create branch deletes row=0). If a second delete path ever
+  # comes back, this goes to 2 and vb goes to 1, and both have to be explained.
   dz=$(grep -c "deleteWorldModRows" /opt/stateless/engine/phvalheim)
   ea=$(grep -c "function deleteWorldModRows" /opt/stateless/engine/includes/0-functions.sh)
   eb=$(grep -c "function pruneOrphanedWorldMods" /opt/stateless/engine/includes/0-functions.sh)
@@ -394,7 +401,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # The vanilla switch purge has to reach world_mods too, or it reports success and then
   # builds the world with its full mod list anyway.
   ed=$(grep -c "DELETE wm FROM world_mods" /opt/stateless/nginx/www/includes/db_sets.php)
-  echo "2.43 orphan guard: delete calls=$dz (want 2)  fn=$ea sweep fn=$eb boot sweep=$ec (want 1 each)"
+  echo "2.43 orphan guard: delete calls=$dz (want 1, was 2 before 2.50)  fn=$ea sweep fn=$eb boot sweep=$ec (want 1 each)"
   echo "2.43 vanilla purge clears world_mods=$ed (want 1)"
 
   # ---- the tsSync removal: NEGATIVES ----------------------------------------------------
@@ -1102,6 +1109,79 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   sn=$(grep -c "SELECT gameDNS FROM settings" /opt/stateless/engine/phvalheim)
   echo "2.49 gameDNS live refresh: read sites=$sn (want 2)"
 
+  # ---- 2.50: a failed steamcmd update was reported as a success ---------------------
+  # InstallAndUpdateValheim judged a steamcmd run by [ -f valheim_server.x86_64 ] alone.
+  # steamcmd reports a partial update as state 0x6, which is FullyInstalled|UpdateRequired --
+  # the binary is on disk either way, so that test answered the same whether the update had
+  # worked or not. It also set steamcmdSuccess=true, which exited the retry loop on attempt
+  # 1, so the five retries never ran for the one fault they were written for.
+  #
+  # The HEADLINE marker is the NEGATIVE, tc: no bare binary-existence test may set the
+  # success flag again. The positives below all pass on an image that also still has the
+  # old path sitting beside the new one.
+  tc=$(grep -A1 "valheim_server.x86_64.*]; then" /opt/stateless/engine/includes/0-functions.sh | grep -c "steamcmdSuccess=true")
+  # Anchored on the assignment, NOT the bare word: the comment explaining the fix names
+  # steamcmdSuccess=true while explaining the bug, and a marker that counts its own prose
+  # is a marker that breaks on the next comment edit. Exactly 2 = verified, and unverifiable.
+  ta=$(grep -cE "^(function valheimInstallVerdict|[[:space:]]+valheimInstallVerdict )" /opt/stateless/engine/includes/0-functions.sh)
+  tb=$(grep -cE "^(function valheimAppStateFlags|[[:space:]]+(flags|stateFlags)=.\(valheimAppStateFlags)" /opt/stateless/engine/includes/0-functions.sh)
+  tg=$(grep -cE "^[[:space:]]+steamcmdSuccess=true" /opt/stateless/engine/includes/0-functions.sh)
+  # StateFlags is a bitmask, so the fix cannot be "is it 6". 4011 is every bit meaning
+  # not-done; without it, state 12 (update queued) and 36 (files missing) verify as clean.
+  # This number IS the fix -- a build with the function present but this mask missing is
+  # the half-fix that the first cut of the patch actually was.
+  td=$(grep -c "10#.flags & 4011" /opt/stateless/engine/includes/0-functions.sh)
+  th=$(grep -c "could NOT be verified" /opt/stateless/engine/includes/0-functions.sh)
+  te=$(grep -c "disk: .dfLine" /opt/stateless/engine/includes/0-functions.sh)
+  tf=$(grep -c "2.50. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
+  echo "2.50 install verdict NEGATIVE: bare binary-existence success gone=$tc (want 0)"
+  echo "2.50 install verdict: fn def+call=$ta (want 2)  stateflags def+reads=$tb (want 3)"
+  echo "2.50 install verdict: success sites=$tg (want 2)  unverifiable third state=$th (want 1)"
+  echo "2.50 install verdict: bad-bit mask 4011=$td (want 1)  disk diagnostic=$te (want 1)"
+  echo "2.50 whatsnew entry=$tf (want 1)"
+
+  # ---- 2.50: escalating self-repair between steamcmd attempts ----------------------
+  # The world SAVE lives INSIDE the game dir (-savedir is game/.config/unity3d/...), and
+  # the mod loader is game/BepInEx. The obvious shape for self-healing -- wipe the game
+  # dir and reinstall -- would delete every world save on the server.
+  #
+  # The HEADLINE marker is uc, and it is a NEGATIVE: the repair function must not so much
+  # as NAME player data. ub pins the number of rm statements inside it, so a sixth one
+  # cannot be added without this gate going red and someone re-reading the path list.
+  uc=$(awk "/^function healSteamcmdState/,/^}/" /opt/stateless/engine/includes/0-functions.sh | grep -cE "unity3d|BepInEx|savedir")
+  ub=$(awk "/^function healSteamcmdState/,/^}/" /opt/stateless/engine/includes/0-functions.sh | grep -cE "^ +rm -[rf]")
+  ue=$(awk "/^function healSteamcmdState/,/^}/" /opt/stateless/engine/includes/0-functions.sh | grep -c "refusing")
+  ua=$(grep -cE "^(function healSteamcmdState|[[:space:]]+healSteamcmdState )" /opt/stateless/engine/includes/0-functions.sh)
+  ud=$(grep -c "healLevel -gt 4" /opt/stateless/engine/includes/0-functions.sh)
+  # NEGATIVE: the old fixed cleanup must be gone, or the loop repeats one repair 5 times.
+  uf=$(grep -c "Clean up Steam directory before retry" /opt/stateless/engine/includes/0-functions.sh)
+  echo "2.50 self-heal NEGATIVE: repair never names player data=$uc (want 0)"
+  echo "2.50 self-heal NEGATIVE: old fixed cleanup gone=$uf (want 0)"
+  echo "2.50 self-heal: fn def+call=$ua (want 2)  rm statements=$ub (want 5)"
+  echo "2.50 self-heal: escalation cap=$ud (want 1)  empty-world guard=$ue (want 1)"
+
+  # ---- 2.50: world deployment was gated on a chown exit status --------------------
+  # The create branch ran `chown -R; RESULT=$?` and, when that was non-zero, deleted the
+  # worlds row and rm -rf-ed the directory. chown reports whether it could change every
+  # file it walked, which is a different question from whether the world deployed -- one
+  # unchownable file destroyed a good deployment, and the branch also handles CLONES,
+  # whose directory arrives already holding a copied save.
+  #
+  # Every marker here reads the engine with COMMENTS STRIPPED. The fix carries comments
+  # that quote the removed code verbatim, so a grep over raw source matches the prose
+  # explaining the bug and then reports the bug as still present. That is exactly what
+  # happened when this test was first written -- three false failures in one run.
+  vcode=$(grep -vE "^[[:space:]]*#" /opt/stateless/engine/phvalheim)
+  vspan=$(echo "$vcode" | awk "/Deploying new world/,/Delete command received/")
+  va=$(grep -cE "^(function worldDirIsPrepared|[[:space:]]+deployMissing=.\(worldDirIsPrepared)" /opt/stateless/engine/includes/0-functions.sh /opt/stateless/engine/phvalheim | awk -F: "{s+=\$2} END{print s}")
+  vb=$(echo "$vspan" | grep -c "DELETE FROM worlds")
+  vc=$(echo "$vspan" | grep -c "rm -rf")
+  vd=$(echo "$vspan" | grep -c "mode=.broken.")
+  ve=$(echo "$vspan" | grep -c "RESULT=")
+  echo "2.50 deploy verdict NEGATIVE: create branch deletes row=$vb rm -rf=$vc (want 0/0)"
+  echo "2.50 deploy verdict NEGATIVE: chown exit status gates deploy=$ve (want 0)"
+  echo "2.50 deploy verdict: fn def+call=$va (want 2)  marks broken=$vd (want 1)"
+
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1158,7 +1238,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$do_" = "1" ] && [ "$dp" -gt 0 ] && [ "$dq" -gt 0 ] \
     && [ "$dr" -gt 0 ] && [ "$ds" -gt 0 ] && [ "$dt" -gt 0 ] && [ "$du" = "0" ] \
     && [ "$dv" -gt 0 ] && [ "$dw" -gt 0 ] && [ "$dx" -gt 0 ] && [ "$dy" = "1" ] \
-    && [ "$dz" = "2" ] && [ "$ea" = "1" ] && [ "$eb" = "1" ] && [ "$ec" = "1" ] && [ "$ed" = "1" ] \
+    && [ "$dz" = "1" ] && [ "$ea" = "1" ] && [ "$eb" = "1" ] && [ "$ec" = "1" ] && [ "$ed" = "1" ] \
     && [ "$ee" = "0" ] && [ "$ef" = "0" ] && [ "$eg" = "1" ] && [ "$eh" = "0" ] \
     && [ "$ei" = "0" ] && [ "$ej" = "0" ] && [ "$ek" = "0" ] && [ "$el" = "0" ] && [ "$em" = "0" ] \
     && [ "$en" = "1" ] && [ "$eo" = "3" ] && [ "$ep" = "0" ] && [ "$er" = "0" ] \
@@ -1226,6 +1306,13 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$rd" = "1" ] && [ "$re" = "6" ] && [ "$rf" = "0" ] && [ "$ri" = "1" ] && [ "$rj" = "1" ] \
     && [ "$rg" = "1" ] \
     && [ "$d" = "1" ] && [ "$d2" = "0" ] && [ "$jb" = "2" ] \
+    && [ "$tc" = "0" ] && [ "$ta" = "2" ] && [ "$tb" = "3" ] \
+    && [ "$tg" = "2" ] && [ "$th" = "1" ] && [ "$td" = "1" ] \
+    && [ "$te" = "1" ] && [ "$tf" = "1" ] \
+    && [ "$uc" = "0" ] && [ "$uf" = "0" ] && [ "$ua" = "2" ] \
+    && [ "$ub" = "5" ] && [ "$ud" = "1" ] && [ "$ue" = "1" ] \
+    && [ "$vb" = "0" ] && [ "$vc" = "0" ] && [ "$ve" = "0" ] \
+    && [ "$va" = "2" ] && [ "$vd" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

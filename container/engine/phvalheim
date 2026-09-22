@@ -272,9 +272,22 @@ while [ true ]; do
 			fi
 
 			echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
-			chown -R phvalheim: $worldsDirectoryRoot/$worldName
-			RESULT=$?
-			if [ $RESULT = 0 ]; then
+			# Judge the deployment on its POSTCONDITION -- the directory tree
+			# worldDirPrep is contracted to produce -- not on the exit status of a
+			# chown.
+			#
+			# This used to be `chown -R phvalheim: ...; RESULT=$?`, and the else branch
+			# below deleted the worlds row and rm -rf-ed the directory. chown answers
+			# "could I change ownership of every file I walked", which is not the same
+			# question: ONE unchownable file (NFS root_squash, an immutable bit, a file
+			# vanishing mid-walk) destroyed a world whose deployment had gone fine. The
+			# identical bad oracle is documented in InstallAndUpdateValheim, where it
+			# only mislabelled a good update.
+			#
+			# The chown itself was also redundant -- worldDirPrep ends with exactly this
+			# command, on this path, immediately above. It existed only to set RESULT.
+			deployMissing=$(worldDirIsPrepared "$worldName")
+			if [ $? = 0 ]; then
 				echo "`date` [NOTICE : phvalheim] World '$worldName' successfully created..."
 
 				echo "`date` [NOTICE : phvalheim] Checking for required mods..."
@@ -300,11 +313,24 @@ while [ true ]; do
 				SQL "UPDATE worlds SET mode='update' WHERE name='$worldName'"
 
 			else
-				echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment..."
-				#world_mods FIRST, while the worlds row still exists to resolve the id from.
-				deleteWorldModRows "$worldName"
-				SQL "DELETE FROM worlds WHERE name='$worldName'"
-				rm -rf /opt/stateful/games/valheim/worlds/$worldName
+				# Mark it broken and LEAVE IT ALONE. This used to delete the worlds row
+				# and rm -rf the directory, which was wrong twice over:
+				#
+				# 1. A deleted row is indistinguishable from a world that never existed.
+				#    The operator clicked Create and watched it vanish, with the only
+				#    explanation in the engine log. 'broken' is the state this engine
+				#    already uses for exactly this -- see the three sites below -- and
+				#    none of those delete anything either.
+				# 2. This branch also handles a CLONE, whose directory arrives already
+				#    populated with a copied save. rm -rf took that with it.
+				#
+				# An operator who wants the failed world gone can delete it from the UI,
+				# which runs the real delete path -- the one that also kills orphaned
+				# PIDs and removes the supervisor config. Keeping a second, partial
+				# implementation of "remove a world" here only invited the two to drift.
+				echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment -- missing:$deployMissing"
+				echo "`date` [FAIL : phvalheim] Marking '$worldName' broken. Nothing was deleted; delete it from the admin UI if you want it gone."
+				SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
 			fi
 		fi
 
