@@ -116,6 +116,25 @@ docker start phvalheim
 
 <img src="https://raw.githubusercontent.com/brianmiller/phvalheim-server/master/container/nginx/www/images/phvalheim_unraid_icon.svg" alt="PhValheim Unraid Icon" width="48" style="vertical-align:middle;"> Search for **PhValheim** in the Community Apps store.
 
+> [!IMPORTANT]
+> **Pin the `appdata` share to your pool, or Mover can empty PhValheim out from under it.**
+>
+> `/mnt/user/appdata/...` is the *user share* — a view that aggregates your pool **and** the
+> array. `/mnt/cache/...` or `/mnt/<pool>/...` is the pool device itself. If the `appdata`
+> share is allowed to move off the pool, Unraid's **Mover** relocates it to the array on its
+> schedule. A container bind-mounted to the pool path is then pointing at an empty directory.
+>
+> Because `/opt/stateful` holds PhValheim's **database** as well as its worlds, the symptom is
+> alarming and misleading: the admin dashboard comes up with **no worlds at all**, exactly as
+> though it were a fresh install. Nothing has been deleted — the files are still on the array,
+> visible under `/mnt/user/appdata/...`.
+>
+> Set **Shares → appdata → Primary storage: your pool, Secondary storage: None** (on older
+> Unraid, *Use cache: Only*). This is Unraid's own recommendation for all `appdata`; databases
+> do not survive being relocated mid-write. To check whether anything is currently stranded on
+> the array, list `/mnt/user0/appdata/phvalheim-server/` — `/mnt/user0` is the array-only view,
+> so anything it shows is **not** on your pool.
+
 ### Kubernetes / K3s (Helm)
 
 A Helm chart is included in the repo at `helm/phvalheim/`.
