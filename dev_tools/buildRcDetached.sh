@@ -1095,6 +1095,12 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.49 gameDNS: live read=$si (want 1)  refresh=$sj (want 1)  import fixed=$sk (want 1)"
   echo "2.49 gameDNS notice: overlay refs=$sl (want 3)  change guard=$sm (want 2)"
   echo "2.49 gameDNS NEGATIVE: frozen read is fallback only=$sh_ (want 1)"
+  # The engine runs for weeks, so the startup `export gameDNS=...` is NOT a live value, and
+  # the loop-top `source /etc/environment` re-imposes the boot-time copy every pass. The
+  # first 2.49 RC had every marker above passing and still wrote the OLD hostname into a
+  # freshly updated world: it read the startup variable. Two read sites = startup + loop.
+  sn=$(grep -c "SELECT gameDNS FROM settings" /opt/stateless/engine/phvalheim)
+  echo "2.49 gameDNS live refresh: read sites=$sn (want 2)"
 
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"

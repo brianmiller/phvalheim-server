@@ -80,6 +80,24 @@ AFTER   settings.gameDNS=newdns.example.org    midgard endpoint=valheim.example.
   imported world got a `quick_connect_servers.cfg` with an **empty hostname** and a QuickConnect
   entry that could not resolve. It now uses the same `gameDNS` the INSERT already stores.
 
+**A second read of `gameDNS` that was not live.** The first fix above read `$gameDNS`, which
+the engine sets **once at startup**:
+
+```sh
+export gameDNS=$(SQL "SELECT gameDNS FROM settings")    # line 84, engine boot only
+```
+
+The engine is a long-running process — weeks between restarts — so that variable holds
+whatever Game DNS was when the container last booted. Worse, the main loop opens with
+`source /etc/environment`, and that file is written once at boot from `printenv`, so it
+actively **re-imposes** the stale value on every pass. A world updated right after a DNS
+change still got the old hostname written into its cfg, with every other part of the fix
+working correctly.
+
+`gameDNS` is now re-read from the database on every loop pass, **after** the environment
+source — placed before it, the refresh is silently undone. It stays exported because
+`importWorld.sh` and the other spawned scripts read it too.
+
 **The notice.** The cfg is only rewritten when a world is updated, so changing the setting
 alone still isn't enough. Saving a *changed* Game DNS now raises a blocking dialog saying every
 world needs updating before players get the new address. It fires only on an actual change, and

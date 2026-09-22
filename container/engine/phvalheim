@@ -155,6 +155,21 @@ while [ true ]; do
 	# Re-read environment so admin UI setting changes (timezone, etc.) take effect
 	source /etc/environment
 
+	# gameDNS is re-read from the database on EVERY pass, not just at engine start.
+	#
+	# This MUST come after the source above, not before: /etc/environment is written once
+	# at boot from printenv, so sourcing it re-imposes the boot-time gameDNS and would
+	# quietly undo the refresh.
+	#
+	# The engine is a long-running process -- weeks between restarts -- so the value
+	# exported at startup is whatever Game DNS was when the container last booted. Reading
+	# that variable looks live and is not: it is why 2.49's first attempt at this fix
+	# still wrote the OLD hostname into a world's quick_connect_servers.cfg even though
+	# the operator had changed the setting and then updated the world.
+	#
+	# Exported because importWorld.sh and the other spawned scripts read it as well.
+	export gameDNS=$(SQL "SELECT gameDNS FROM settings")
+
 	WORLDS=$(SQL "SELECT id FROM worlds;")
 
 	for WORLD in $WORLDS; do

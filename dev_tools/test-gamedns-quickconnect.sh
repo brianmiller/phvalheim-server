@@ -107,6 +107,25 @@ n=$(grep -c "SELECT external_endpoint FROM worlds" "$ENGINE")
 	&& pass "the frozen column is read only as a fallback (1 site)" \
 	|| fail "expected 1 read of external_endpoint in the engine, found $n"
 
+echo "--- 4b. gameDNS is re-read from the DB inside the loop, not just at engine start ---"
+# The engine runs for weeks. `export gameDNS=...` at startup looks live and is not, and the
+# loop's `source /etc/environment` re-imposes the boot-time copy on every pass -- so a
+# refresh placed BEFORE that source is silently undone. The first 2.49 attempt read the
+# startup variable and wrote the old hostname into a freshly updated world's cfg.
+reads=$(grep -c "SELECT gameDNS FROM settings" "$ENGINE")
+[ "$reads" -ge 2 ] \
+	&& pass "gameDNS is read more than once (startup + loop): $reads sites" \
+	|| fail "gameDNS is read $reads time(s) -- a startup-only read can never see a change"
+
+# Order matters more than presence: the refresh has to sit after the environment source.
+srcLine=$(grep -n "source /etc/environment" "$ENGINE" | tail -1 | cut -d: -f1)
+refLine=$(grep -n "export gameDNS=" "$ENGINE" | tail -1 | cut -d: -f1)
+if [ -n "$srcLine" ] && [ -n "$refLine" ] && [ "$refLine" -gt "$srcLine" ]; then
+	pass "the refresh (line $refLine) comes after source /etc/environment (line $srcLine)"
+else
+	fail "refresh at line ${refLine:-none} does not follow source /etc/environment at line ${srcLine:-none} -- it would be undone"
+fi
+
 echo "--- 5. an imported world no longer gets an empty host ---"
 grep -q 'worldHost="\$gameDNS"' "$IMPORT" \
 	&& pass "importWorld assigns worldHost" \
