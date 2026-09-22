@@ -47,6 +47,51 @@ looked like two unrelated regressions rather than one.
 
 Already-affected worlds repair themselves on the next rebuild.
 
+### Changing Game DNS never reached quick_connect_servers.cfg
+
+Open for years. `worlds.external_endpoint` was stamped from `gameDNS` when a world was
+**created** and never touched again — the column had **two INSERTs and zero UPDATE statements
+in the entire tree**. The engine read that frozen copy into `$worldHost` and handed it to
+`createQuickConnectConfig()`, so editing Game DNS in Server Settings changed nothing a player
+would ever see through QuickConnect.
+
+What made it so hard to pin down: the **Steam launch string reads `gameDNS` live**
+(`admin/index.php:120`, `adminAPI.php:914`) while **QuickConnect read the frozen column**. After
+a DNS change one join path worked and the other didn't.
+
+Reproduced live before changing anything:
+
+```
+BEFORE  settings.gameDNS=valheim.example.com   midgard endpoint=valheim.example.com
+        (admin changes Game DNS)
+AFTER   settings.gameDNS=newdns.example.org    midgard endpoint=valheim.example.com
+        engine would feed createQuickConnectConfig: worldHost=valheim.example.com
+```
+
+**Fixes**
+
+- `phvalheim` takes `worldHost` from the **live `$gameDNS`**, falling back to the stored
+  column only when `gameDNS` is unset (setup wizard unfinished) — so it can never write an
+  empty host.
+- The update path now runs `UPDATE worlds SET external_endpoint='$worldHost'` immediately
+  before writing the cfg, so the setting, the file and the admin UI display cannot drift apart
+  again. This is what makes "update your worlds" a real remedy rather than advice.
+- **`importWorld.sh` never assigned `$worldHost` at all** — it expanded to nothing, so every
+  imported world got a `quick_connect_servers.cfg` with an **empty hostname** and a QuickConnect
+  entry that could not resolve. It now uses the same `gameDNS` the INSERT already stores.
+
+**The notice.** The cfg is only rewritten when a world is updated, so changing the setting
+alone still isn't enough. Saving a *changed* Game DNS now raises a blocking dialog saying every
+world needs updating before players get the new address. It fires only on an actual change, and
+it blocks the page reload — a status line would have been wiped a second later by the reload,
+which is part of why this went unnoticed for so long.
+
+### Tests
+
+`dev_tools/test-gamedns-quickconnect.sh` — models the engine's update path and pins its
+assertions to the engine source, including a NEGATIVE that the frozen read survives at exactly
+one site (the fallback). Three cases fail against the pre-fix code.
+
 ### Related, and worth knowing
 
 `denikson/BepInExPack_Valheim` **5.4.2350** (2026-09-09, BepInEx core 5.4.23.5) carries upstream

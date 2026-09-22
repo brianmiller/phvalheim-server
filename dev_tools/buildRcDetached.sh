@@ -1075,6 +1075,27 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.49 loader cfg NEGATIVE: unconditional rm -rf of BepInEx/config gone=$sc (want 0)"
   echo "2.49 whatsnew entry=$sf (want 1)"
 
+  # ---- 2.49: Game DNS never reached quick_connect_servers.cfg ----------------------
+  # worlds.external_endpoint was stamped at CREATION and never updated -- two INSERTs and
+  # zero UPDATEs in the whole tree -- while the Steam launch string reads gameDNS live.
+  # So the two join paths disagreed the moment an operator edited Game DNS.
+  #
+  # The headline marker is the NEGATIVE, sh below: the frozen read must survive at exactly
+  # ONE site, the empty-gameDNS fallback. Two means the primary read came back and the
+  # positives above would still pass.
+  sh_=$(grep -c "SELECT external_endpoint FROM worlds" /opt/stateless/engine/phvalheim)
+  si=$(grep -c "worldHost=..gameDNS" /opt/stateless/engine/phvalheim)
+  sj=$(grep -c "UPDATE worlds SET external_endpoint=" /opt/stateless/engine/phvalheim)
+  sk=$(grep -c "worldHost=..gameDNS" /opt/stateless/games/valheim/scripts/importWorld.sh)
+  # The notice itself: overlay, the element the new hostname is written into, the dismiss
+  # handler, and the guard that only fires it when the value actually CHANGED. Without that
+  # last one it would nag on every unrelated settings save.
+  sl=$(grep -c "gameDnsNoticeOverlay" /opt/stateless/nginx/www/admin/index.php)
+  sm=$(grep -c "_ssOriginalGameDNS" /opt/stateless/nginx/www/admin/index.php)
+  echo "2.49 gameDNS: live read=$si (want 1)  refresh=$sj (want 1)  import fixed=$sk (want 1)"
+  echo "2.49 gameDNS notice: overlay refs=$sl (want 3)  change guard=$sm (want 2)"
+  echo "2.49 gameDNS NEGATIVE: frozen read is fallback only=$sh_ (want 1)"
+
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"

@@ -1100,6 +1100,62 @@ $totalCount = count($worlds);
     </div>
     <?php endif; ?>
 
+    <!-- ================================================================================
+         Game DNS changed notice (2.49)
+
+         Changing Game DNS does NOT rewrite anything on disk. Each world's
+         quick_connect_servers.cfg is written only when that world is created or updated, so
+         until a world is updated its players keep being handed the OLD hostname by
+         QuickConnect -- while the Steam launch button, which reads the setting live, already
+         uses the new one. Those two disagreeing is the whole reported bug.
+
+         Shown only when the value actually changed, and it blocks the reload rather than
+         riding on the status line, which the reload would wipe before it could be read.
+         ================================================================================ -->
+    <div class="mods-modal-overlay" id="gameDnsNoticeOverlay">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 620px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z"/>
+                    </svg>
+                    Your worlds need updating
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    Game DNS is now <strong><span id="gameDnsNoticeNew" style="font-family: var(--font-mono);"></span></strong>.
+                    The setting is saved, but <strong>your worlds are still handing players the old
+                    address</strong>.
+                </p>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    Each world writes the address into its own QuickConnect file, and that file is
+                    only rewritten when the world is updated. Until then players who join through
+                    QuickConnect will still be sent to the previous hostname.
+                </p>
+                <div class="pv-note" style="margin-bottom: 1rem;">
+                    <div style="font-size: 0.85rem;">
+                        <strong>Update every world</strong> to finish the change. Any world you do not
+                        update keeps the old address.
+                    </div>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0;">
+                    Nothing else about your worlds changes, and players already connected are not
+                    disconnected.
+                </p>
+            </div>
+            <div style="display: flex; justify-content: center; padding: 1rem;">
+                <button class="action-btn success" onclick="dismissGameDnsNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+            </div>
+        </div>
+    </div>
+    <script>
+    function dismissGameDnsNotice() {
+        document.getElementById('gameDnsNoticeOverlay').classList.remove('show');
+        window.location.reload();
+    }
+    </script>
+
     <!-- Migration Notice Dialog -->
     <?php if ($setupComplete == 1 && $migrationNoticeShown == 0): ?>
     <div class="mods-modal-overlay show" id="migrationNoticeOverlay">
@@ -5051,6 +5107,12 @@ $totalCount = count($worlds);
                 return;
             }
             const s = data.settings;
+
+            // What Game DNS was when the modal opened, so the save can tell whether it really
+            // changed. Taken from the server's value rather than the input, because the input
+            // is the thing that is about to be edited.
+            window._ssOriginalGameDNS = s.gameDNS || '';
+
             const keyField = (id, val) => `
                 <div style="position:relative">
                     <input type="password" class="form-control form-control-sm" id="${id}" value="${val || ''}" style="font-family:var(--font-mono);padding-right:3.5rem">
@@ -5116,7 +5178,7 @@ $totalCount = count($worlds);
                     <div class="row mb-2">
                         <div class="col-6">
                             <label style="font-size:0.8rem;color:orchid" ${tip('The DNS name or IP that game clients use to connect to your Valheim worlds')}>Game DNS <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
-                            <input type="text" class="form-control form-control-sm" id="ss-gameDNS" value="${s.gameDNS || ''}" style="font-family:var(--font-mono)" ${tip('Public hostname or IP for Valheim client connections (e.g. valheim.example.com)')}>
+                            <input type="text" class="form-control form-control-sm" id="ss-gameDNS" value="${s.gameDNS || ''}" style="font-family:var(--font-mono)" ${tip('Public hostname or IP for Valheim client connections (e.g. valheim.example.com). Changing this requires updating every world before players get the new address.')}>
                         </div>
                         <div class="col-3">
                             <label style="font-size:0.8rem;color:orchid" ${tip('Starting UDP port for world servers. Each world uses 2 consecutive ports.')}>Base Port <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
@@ -5507,6 +5569,20 @@ $totalCount = count($worlds);
             const data = await res.json();
             if (data.success) {
                 status.style.color = 'var(--success)';
+
+                // Game DNS is the one setting that does not take effect on its own: each
+                // world's quick_connect_servers.cfg is only rewritten when that world is
+                // updated. Say so, and block the reload -- a status line would be wiped by
+                // the reload a second later, which is how this has gone unnoticed for years.
+                const newDns = payload.gameDNS;
+                if (typeof window._ssOriginalGameDNS === 'string' && newDns !== window._ssOriginalGameDNS) {
+                    status.textContent = 'Settings saved.';
+                    document.getElementById('serverSettingsOverlay').classList.remove('show');
+                    document.getElementById('gameDnsNoticeNew').textContent = newDns || '(empty)';
+                    document.getElementById('gameDnsNoticeOverlay').classList.add('show');
+                    return;
+                }
+
                 status.textContent = 'Settings saved. Reloading...';
                 setTimeout(() => window.location.reload(), 1000);
                 return;

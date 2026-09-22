@@ -163,7 +163,24 @@ while [ true ]; do
 		worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldID';")
 		worldPort=$(SQL "SELECT port FROM worlds WHERE id='$worldID';")
 		worldSeed=$(SQL "SELECT seed FROM worlds WHERE id='$worldID';")
-		worldHost=$(SQL "SELECT external_endpoint FROM worlds WHERE id='$worldID';")
+		#QuickConnect's host comes from the LIVE gameDNS setting, not from the copy that
+		#was stamped into worlds.external_endpoint when the world was created. That column
+		#was write-once -- there was no UPDATE for it anywhere in the tree -- so changing
+		#Game DNS in Server Settings moved the Steam launch string (which reads gameDNS
+		#live) and left quick_connect_servers.cfg pointing at the old name forever. The two
+		#join paths disagreed, which is why this looked unfixable for years.
+		#
+		#The column is kept as the value the admin UI displays, and is refreshed from this
+		#one in the update path below, so the setting, the cfg and the display cannot drift
+		#apart again.
+		worldHost="$gameDNS"
+		if [ -z "$worldHost" ]; then
+			#gameDNS not set yet (setup wizard unfinished). Fall back to the stored
+			#value rather than writing an empty host into the cfg -- an empty host is
+			#exactly what an imported world used to get, and it silently breaks the
+			#QuickConnect entry instead of merely pointing it somewhere stale.
+			worldHost=$(SQL "SELECT external_endpoint FROM worlds WHERE id='$worldID';")
+		fi
 		worldVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE id='$worldID';")
 		worldPassword="hammertime";
 
@@ -473,6 +490,12 @@ while [ true ]; do
 
 					#generate mod viwer list
 					generateModViewerJson "$worldName"
+
+					#Refresh the stored endpoint so the admin UI shows the host the cfg
+					#was actually written with. This is the step the Game DNS notice
+					#points at: changing the setting alone rewrites nothing on disk --
+					#a world has to be updated before its players see the new name.
+					SQL "UPDATE worlds SET external_endpoint='$worldHost' WHERE id='$worldID';"
 
 					#Generate quick connect config
 					createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
