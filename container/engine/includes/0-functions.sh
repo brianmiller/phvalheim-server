@@ -40,6 +40,16 @@ function InstallAndUpdateBepInEx() {
                 # This was due to PWD missing after deletion of the last world. 
                 cd
 
+                #Keep the pack's OWN BepInEx.cfg before the pack directory is deleted. It is
+                #the only copy that ships [Logging.Console] Enabled = true, and rsync below
+                #cannot be relied on to deliver it: -u skips any file the world already has
+                #with a newer mtime, and BepInEx rewrites its cfg on every single boot.
+                #ensureBepInExLoaderConfig() restores from this stash.
+                if [ -f /opt/stateful/games/valheim/worlds/$worldName/game/BepInExPack_Valheim/BepInEx/config/BepInEx.cfg ]; then
+                        cp /opt/stateful/games/valheim/worlds/$worldName/game/BepInExPack_Valheim/BepInEx/config/BepInEx.cfg \
+                           /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_default.cfg
+                fi
+
                 rsync -purval /opt/stateful/games/valheim/worlds/$worldName/game/BepInExPack_Valheim/ /opt/stateful/games/valheim/worlds/$worldName/game/
                 rm -r /opt/stateful/games/valheim/worlds/$worldName/game/BepInExPack_Valheim
                 echo $latest_version > /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt
@@ -73,6 +83,89 @@ function InstallAndUpdateBepInEx() {
 
 
         chown -R phvalheim: $worldsDirectoryRoot/$worldName
+}
+
+#$1=world name
+#
+#Guarantees the LOADER's own BepInEx.cfg -- which is not a mod config, and is not operator
+#state. The loader is engine-installed on every modded world, and so is its config.
+#
+#Why this exists: purgeWorldModsConfigsPatchers() clears BepInEx/config/* on every world
+#update so a removed mod cannot leave a stale config behind. That sweep also took
+#BepInEx.cfg, and nothing put it back -- so the world booted on BepInEx's STOCK defaults,
+#where [Logging.Console] is FALSE. One setting feeds two things that both went dark at once:
+#
+#  - the "Loading [Plugin x.y]" lines in the world log. BepInEx's console logger writes to
+#    stdout, and supervisor captures a world's stdout into valheimworld_<name>.log. Console
+#    off means the world log never sees BepInEx at all.
+#  - the BepInEx console window on the client. packageClient() zips ./BepInEx wholesale, so
+#    whatever config this leaves on the server IS what the client gets. No cfg in the zip,
+#    no window.
+#
+#Must run AFTER purgeWorldModsConfigsPatchers() and BEFORE packageClient().
+function ensureBepInExLoaderConfig() {
+        worldName="$1"
+        [ -z "$worldName" ] && return 0
+
+        local gameDir="$worldsDirectoryRoot/$worldName/game"
+        local cfg="$gameDir/BepInEx/config/BepInEx.cfg"
+        local stash="$gameDir/bepinex_default.cfg"
+
+        #A vanilla world has no BepInEx tree at all -- nothing to configure, and creating one
+        #would hand it the loader it is defined by not having.
+        [ -d "$gameDir/BepInEx" ] || return 0
+
+        mkdir -p "$gameDir/BepInEx/config"
+
+        if [ ! -f "$cfg" ]; then
+                if [ -f "$stash" ]; then
+                        cp "$stash" "$cfg"
+                        echo "`date` [NOTICE : phvalheim] Restored the BepInEx loader config for '$worldName' from the installed pack."
+                else
+                        #No stash: a world whose pack has not been reinstalled since this
+                        #release. Write only what we require -- BepInEx fills in every other
+                        #default and rewrites the whole file on its first boot.
+                        printf '%s\n' \
+                                '[Logging.Console]' \
+                                '' \
+                                'Enabled = true' \
+                                '' \
+                                '[Logging.Disk]' \
+                                '' \
+                                'Enabled = true' > "$cfg"
+                        echo "`date` [NOTICE : phvalheim] Wrote a minimal BepInEx loader config for '$worldName'."
+                fi
+        fi
+
+        #A cfg can exist and still have the console off: BepInEx rewrites this file every
+        #boot, so a stock copy written once carries false forward forever. Assert the setting
+        #in place, scoped to its own section -- [Logging.Disk] has an 'Enabled' too.
+        awk '
+                /^[[:space:]]*\[/ { section = $0 }
+                section ~ /^[[:space:]]*\[Logging\.Console\]/ && /^[[:space:]]*Enabled[[:space:]]*=/ {
+                        print "Enabled = true"; next
+                }
+                { print }
+        ' "$cfg" > "$cfg.tmp" && mv "$cfg.tmp" "$cfg"
+
+        #Still not on means the section or the key was absent entirely. Append rather than
+        #guess at placement; BepInEx re-enters an existing section and normalises the file.
+        local consoleState
+        consoleState=$(awk '
+                /^[[:space:]]*\[/ { section = $0; next }
+                section ~ /^[[:space:]]*\[Logging\.Console\]/ && /^[[:space:]]*Enabled[[:space:]]*=/ {
+                        sub(/^[[:space:]]*Enabled[[:space:]]*=[[:space:]]*/, "")
+                        sub(/[[:space:]]*$/, "")
+                        print tolower($0); exit
+                }
+        ' "$cfg")
+
+        if [ "$consoleState" != "true" ]; then
+                printf '\n%s\n\n%s\n' '[Logging.Console]' 'Enabled = true' >> "$cfg"
+                echo "`date` [NOTICE : phvalheim] Enabled the BepInEx console logger for '$worldName'."
+        fi
+
+        chown -R phvalheim: "$gameDir/BepInEx/config"
 }
 
 #$1=world name
@@ -221,8 +314,20 @@ function purgeWorldModsConfigsPatchers() {
         fi
 
         rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/plugins/*
-        rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/config/*
         rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/*
+
+        #Mod configs go; the LOADER's own BepInEx.cfg stays. The loader is engine-installed
+        #on every modded world and is not a mod, so its config is not a mod config either.
+        #Sweeping it here is what left every rebuilt world booting on BepInEx's stock
+        #defaults, where [Logging.Console] is false -- which silenced the plugin lines in the
+        #world log AND the client's console window. See ensureBepInExLoaderConfig(), which
+        #puts it back if it is missing for any other reason.
+        #
+        #-delete implies -depth, so a subdirectory goes after the files inside it.
+        if [ -d "$worldsDirectoryRoot/$worldName/game/BepInEx/config" ]; then
+                find "$worldsDirectoryRoot/$worldName/game/BepInEx/config" -mindepth 1 \
+                        ! -name 'BepInEx.cfg' -delete
+        fi
 }
 
 #$1=world name

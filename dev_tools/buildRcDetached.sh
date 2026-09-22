@@ -1042,6 +1042,36 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.48 nesting repair: doubled-path condition=$rd (want 1)  bounded=$ri (want 1)  swap=$re (want 6)/$rj (want 1)"
   echo "2.48 nesting repair NEGATIVE: single-level-only condition=$rf (want 0)"
   echo "2.48 whatsnew entry=$rg (want 1)"
+
+  # ---- 2.49: the loader config the mod-config purge was deleting -------------------
+  # BepInEx/config/BepInEx.cfg is the LOADER.s config, not a mod config. The purge that
+  # clears mod configs on every world rebuild swept it too, and nothing put it back, so
+  # the world booted on BepInEx stock defaults where [Logging.Console] is false. That one
+  # setting feeds BOTH symptoms: the plugin lines the world log gets from BepInEx stdout,
+  # and the console window on the client -- packageClient zips ./BepInEx whole, so a
+  # server with no cfg ships a client with no cfg.
+  #
+  # The headline marker is the NEGATIVE. Asserting the new scoped find exists proves
+  # nothing on its own: the old unconditional rm -rf could still be sitting beside it,
+  # and it ran first.
+  #
+  # Same quoting rule as the 2.48 block above -- no apostrophes, no "." that is really a
+  # dollar sign. "." stands in for a literal quote.
+  sa=$(grep -c "ensureBepInExLoaderConfig" /opt/stateless/engine/includes/0-functions.sh)
+  sb=$(grep -c "ensureBepInExLoaderConfig" /opt/stateless/engine/phvalheim)
+  sc=$(grep -c "rm -rf .*BepInEx/config" /opt/stateless/engine/includes/0-functions.sh)
+  sd=$(grep -c "mindepth 1" /opt/stateless/engine/includes/0-functions.sh)
+  se=$(grep -c "bepinex_default.cfg" /opt/stateless/engine/includes/0-functions.sh)
+  sf=$(grep -c "2.49. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
+  # sb is the call site in the engine loop. It must sit AFTER installCustomModsConfigsPatchers
+  # and BEFORE packageClient -- a call in the wrong place verifies as present and still
+  # ships a client payload with no cfg in it.
+  sg=$(grep -A4 "installCustomModsConfigsPatchers ." /opt/stateless/engine/phvalheim | grep -c "ensureBepInExLoaderConfig")
+  echo "2.49 loader cfg: helper+refs=$sa (want 3)  call site=$sb (want 1)  ordered before packaging=$sg (want 1)"
+  echo "2.49 loader cfg: purge keeps it=$sd (want 1)  pack stash=$se (want 2)"
+  echo "2.49 loader cfg NEGATIVE: unconditional rm -rf of BepInEx/config gone=$sc (want 0)"
+  echo "2.49 whatsnew entry=$sf (want 1)"
+
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"

@@ -1,5 +1,75 @@
 # Changelog
 
+## v2.49
+
+### The world log stopped naming loaded plugins, and the client's BepInEx window stopped appearing
+
+Two symptoms, one deleted file.
+
+`BepInEx/config/BepInEx.cfg` is the **loader's** config. The loader is engine-installed on
+every modded world (2.44+) and is deliberately not a mod — but its config was being treated as
+one. `purgeWorldModsConfigsPatchers()` clears mod configs on every world rebuild so a removed
+mod cannot leave a stale one behind, and it did this:
+
+```sh
+rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/config/*
+```
+
+That runs at `phvalheim:457`, three lines after `InstallAndUpdateBepInEx()` installs the pack
+at `:454`. So the pack's cfg was laid down and immediately deleted, and nothing restored it
+before the world booted or before the client payload was built.
+
+With no cfg, BepInEx regenerates one from its **stock defaults, where
+`[Logging.Console] Enabled = false`**. One setting, two visible consequences:
+
+| | how it breaks |
+|---|---|
+| World log | BepInEx's console logger writes to **stdout**, and supervisor captures a world's stdout into `valheimworld_<name>.log`. Console off ⇒ the world log never sees BepInEx, so no `Loading [Plugin x.y]` lines. |
+| Client window | `packageClient()` zips `./BepInEx` wholesale. No cfg on the server ⇒ no cfg in the payload ⇒ the client's console window never opens. |
+
+Mods were loading correctly throughout. Only the reporting of it was gone — which is why this
+looked like two unrelated regressions rather than one.
+
+**Fixes**
+
+- `purgeWorldModsConfigsPatchers()` clears mod configs with a scoped `find ... ! -name
+  'BepInEx.cfg' -delete`. Mod configs and their subdirectories go exactly as before; the
+  loader's own config stays.
+- `InstallAndUpdateBepInEx()` stashes the pack's `BepInEx.cfg` to `game/bepinex_default.cfg`
+  before the unpacked pack directory is removed. It cannot rely on `rsync -purval` to deliver
+  it: `-u` skips any file the world already has with a newer mtime, and BepInEx rewrites its
+  cfg on every boot.
+- New `ensureBepInExLoaderConfig()` restores the cfg when missing (from the stash, else a
+  minimal one) and asserts `[Logging.Console] Enabled = true`, scoped to that section —
+  `[Logging.Disk]` has an `Enabled` key too. Called from `phvalheim` after
+  `installCustomModsConfigsPatchers()` and before `packageClient()`, so it is the last word
+  before the payload is built. It is idempotent and skips vanilla worlds entirely.
+
+Already-affected worlds repair themselves on the next rebuild.
+
+### Related, and worth knowing
+
+`denikson/BepInExPack_Valheim` **5.4.2350** (2026-09-09, BepInEx core 5.4.23.5) carries upstream
+fixes for this same area on Unity 6 — Valheim 1.0 runs `v6000.0.61f1`, and its stripped Unity
+log callbacks used to take the chainloader down:
+
+```
+* v5: Don't kill the chainloader when Unity log callbacks are stripped (#1392)
+* Fold the two Unity 6 log writer probes into one
+* Fix logging issues in UnityLogListener.cs for Unity 6
+```
+
+`InstallAndUpdateBepInEx()` compares `bepinex_version.txt` against the feed's latest, so a
+world still on 5.4.2333 picks 5.4.2350 up at its next update. No code change was needed for
+that, and it is not what caused either symptom.
+
+### Tests
+
+`dev_tools/test-bepinex-loader-config.sh` — seven cases, all of which fail against the pre-2.49
+code: the purge keeping the cfg while still clearing mod configs, restore-from-stash, the
+no-stash fallback, the section-scoped console flip (asserting `[Logging.Disk]` is untouched),
+appending a missing section, idempotency, and leaving vanilla worlds without a BepInEx tree.
+
 ## v2.48
 
 ### Restoring a backup generated a fresh world (issue #89)

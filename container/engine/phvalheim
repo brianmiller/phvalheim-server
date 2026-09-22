@@ -483,6 +483,12 @@ while [ true ]; do
 					#Install custom mods and config
 					installCustomModsConfigsPatchers "$worldName"
 
+					#The loader's own config, AFTER every config-touching step above and
+					#BEFORE the client is packaged. packageClient() zips ./BepInEx
+					#wholesale, so this is the last moment that decides whether the world
+					#log gets its plugin lines and the client gets its console window.
+					ensureBepInExLoaderConfig "$worldName"
+
 					#Packge client
 					packageClient "$worldName"
 				fi
