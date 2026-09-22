@@ -1066,7 +1066,10 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # sb is the call site in the engine loop. It must sit AFTER installCustomModsConfigsPatchers
   # and BEFORE packageClient -- a call in the wrong place verifies as present and still
   # ships a client payload with no cfg in it.
-  sg=$(grep -A4 "installCustomModsConfigsPatchers ." /opt/stateless/engine/phvalheim | grep -c "ensureBepInExLoaderConfig")
+  # -A8, not -A4: the call carries a four-line comment, so it lands at +6. The first RC of
+  # 2.49 reported this as 0 against an image whose ordering was correct -- a marker whose
+  # window is too small is a false failure, and the next person reads it as a real one.
+  sg=$(grep -A8 "installCustomModsConfigsPatchers ." /opt/stateless/engine/phvalheim | grep -c "ensureBepInExLoaderConfig")
   echo "2.49 loader cfg: helper+refs=$sa (want 3)  call site=$sb (want 1)  ordered before packaging=$sg (want 1)"
   echo "2.49 loader cfg: purge keeps it=$sd (want 1)  pack stash=$se (want 2)"
   echo "2.49 loader cfg NEGATIVE: unconditional rm -rf of BepInEx/config gone=$sc (want 0)"
