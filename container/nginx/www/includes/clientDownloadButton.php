@@ -35,10 +35,10 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 				if($operatingSystem == "Windows"){
 					echo "
 						<div class='client_download_os_icon $release'>
-							<td>
+							<td class='client_download_cell'>
 								<a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.msi'>
 									<img class='client_download_link_colorizer' src='../images/win11.png'>
-									<p class='versionLabel'>Download</p>
+									<p class='versionLabel'>Windows</p>
 								</a>
 							</td>
 						</div>
@@ -49,22 +49,22 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                 if($operatingSystem == "Linux"){
                                         echo "
                                                 <div class='client_download_os_icon $release'>
-                                                        <td>
+                                                        <td class='client_download_cell'>
                                                                 <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-universal-x86_64.tar.gz'>
                                                                         <img class='client_download_link_colorizer' src='../images/linux.png'>
-                                                                        <p class='versionLabel'>Download</p>
+                                                                        <p class='versionLabel'>Universal</p>
                                                                 </a>
                                                         </td>
-                                                        <td>
+                                                        <td class='client_download_cell'>
                                                                 <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.deb'>
                                                                         <img class='client_download_link_colorizer' src='../images/ubuntu.png'>
-                                                                        <p class='versionLabel'>Download</p>
+                                                                        <p class='versionLabel'>Ubuntu</p>
                                                                 </a>
                                                         </td>
-                                                        <td>
+                                                        <td class='client_download_cell'>
                                                                 <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.rpm'>
                                                                         <img class='client_download_link_colorizer' src='../images/fedora.png'>
-                                                                        <p class='versionLabel'>Download</p>
+                                                                        <p class='versionLabel'>Fedora</p>
                                                                 </a>
                                                         </td>
                                         ";
@@ -72,12 +72,20 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                         // Flatpak: the only one of the four that installs on an immutable
                                         // system (SteamOS, Bazzite), where there is nowhere to put a .deb or
                                         // a .rpm. Older client tags have no .flatpak to link to.
+                                        //
+                                        // Unlike the other three this one does NOT download on click -- a
+                                        // Flatpak bundle is useless without the install command, and on a bare
+                                        // window manager it is useless without the XDG_DATA_DIRS step too. The
+                                        // click opens the instructions modal, which carries the download button.
+                                        // href and target stay real so ctrl-click and Save Link As still work,
+                                        // and openFlatpakInstall() reads the URL back off this anchor -- the
+                                        // modal is never told a version, so it cannot disagree with the link.
                                         if (version_compare($release, PHVALHEIM_CLIENT_FIRST_FLATPAK, '>=')) {
                                                 echo "
-                                                        <td>
-                                                                <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.flatpak'>
+                                                        <td class='client_download_cell'>
+                                                                <a class='client_download_os_icon' target='_blank' rel='noopener' onclick='return openFlatpakInstall(this);' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.flatpak'>
                                                                         <img class='client_download_link_colorizer' src='../images/flatpak.svg'>
-                                                                        <p class='versionLabel'>Download</p>
+                                                                        <p class='versionLabel'>Flatpak</p>
                                                                 </a>
                                                         </td>
                                                 ";

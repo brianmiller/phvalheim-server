@@ -25,6 +25,39 @@ a `.tar.gz`, a `.deb` and a `.rpm` in `builds/` and no `.flatpak`, so an ungated
 for each of them. `PHVALHEIM_CLIENT_FIRST_FLATPAK` is the floor and `version_compare()` is the
 gate; older tags render exactly the three packages they did before.
 
+### The Flatpak icon opens instructions, not a download
+
+The other three packages are self-explanatory — double-click the `.deb`, extract the tarball.
+A `.flatpak` bundle is not: it needs `flatpak install --user ./<file>`, and on a bare window
+manager (Hyprland, Sway, i3) it needs a second one-off command putting Flatpak's exports
+directory on `XDG_DATA_DIRS`, without which **clicking a world's launch link does nothing at
+all, silently**. Handing someone the file alone reproduces that failure.
+
+So the Flatpak icon opens `#flatpakInstallModal` — four numbered steps, each with a brief
+explanation and a copy button, and the download button in the footer. `href` and `target` stay
+real, so ctrl-click and *Save Link As* still download directly; only the plain click is
+intercepted, via `return openFlatpakInstall(this)`.
+
+**The commands live in one place.** `FLATPAK_CMDS` in JS is the only copy; the `<code>` blocks
+are empty in the markup and filled by `textContent` when the modal opens, and the copy buttons
+read the same object. The macOS modal keeps two copies — a shortened one on screen, a hidden
+full one for the clipboard — which are free to drift apart. This one cannot.
+
+`openFlatpakInstall()` is handed the anchor and reads the download URL off it, deriving the
+filename in the install command from the same string it puts on the download button. The modal
+is never told a version, so it cannot contradict the link it was opened from.
+
+Two things this depends on, both already true and both load-bearing: the popover is built with
+`sanitize: false` (Bootstrap's default allowList strips `onclick`, which would make the icon a
+plain download again), and `bootstrap.Modal.getOrCreateInstance()` is already used elsewhere on
+the page. The modal markup sits at page top level beside `#macInstallModal`, not inside the
+popover's table.
+
+### Labels and spacing
+
+All four Linux icons said "Download". They now say what they are — Universal, Ubuntu, Fedora,
+Flatpak — and Windows says Windows. `td.client_download_cell` adds 9px either side.
+
 No engine, database or API change. Nothing on an existing player's machine changes.
 
 ## v2.50

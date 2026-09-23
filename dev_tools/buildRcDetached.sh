@@ -1208,6 +1208,36 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.51 flatpak gate: version_compare=$wc (want 1)  floor const refs=$wd (want 3)"
   echo "2.51 flatpak icon in image=$we (want 1)  whatsnew entry=$wf (want 1)"
 
+  # ---- 2.51: named labels, icon spacing, and the Flatpak instructions modal --------
+  # wg is the NEGATIVE and the real one: every icon said Download, so a label that failed
+  # to change leaves the word behind. wh alone would pass with four of the five renamed.
+  # Note the dot in versionLabel.> -- that character is a single quote in the source, and a
+  # single quote anywhere in this payload truncates the whole verify.
+  wg=$(echo "$wcode" | grep -c "versionLabel.>Download")
+  wh=$(echo "$wcode" | grep -cE "versionLabel.>(Windows|Universal|Ubuntu|Fedora|Flatpak)<")
+  wi=$(echo "$wcode" | grep -c "client_download_cell")
+  wj=$(echo "$wcode" | grep -c "return openFlatpakInstall(this)")
+  wacode=$(grep -vE "^[[:space:]]*(//|#)" /opt/stateless/nginx/www/public/authenticated.php)
+  wk=$(echo "$wacode" | grep -c "flatpakInstallModal")
+  wl=$(echo "$wacode" | grep -c "var FLATPAK_CMDS")
+  # wm is the single-source guard. The command blocks must be EMPTY in the markup and filled
+  # from FLATPAK_CMDS when the modal opens, so the text on screen and the text on the
+  # clipboard cannot differ. Type a command into the markup and this drops below 4.
+  wm=$(echo "$wacode" | grep -oE "id=.fpCmd[A-Za-z]*.></code>" | wc -l)
+  wn=$(echo "$wacode" | grep -c "copyFlatpakCmd(this,")
+  wo=$(echo "$wacode" | grep -c "flatpakDownloadBtn")
+  # The feature dies SILENTLY without this. Bootstrap sanitizes popover html by default and
+  # its allowList drops event handlers, so the onclick would be stripped and the Flatpak icon
+  # would quietly go back to being a plain download with no instructions anywhere.
+  wp=$(echo "$wacode" | grep -c "sanitize: false")
+  wq=$(grep -c "flatpakInstallModal.modal" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  wr=$(grep -c "td.client_download_cell" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "2.51 labels NEGATIVE: icons still saying Download=$wg (want 0)"
+  echo "2.51 labels: named=$wh (want 5)  spaced cells=$wi (want 5)  css cell rule=$wr (want 1)"
+  echo "2.51 modal: refs=$wk (want 4)  cmd table=$wl (want 1)  copy btns=$wn (want 4)  dl btn=$wo (want 2)"
+  echo "2.51 modal single-source: empty cmd blocks=$wm (want 4)"
+  echo "2.51 modal wiring: icon onclick=$wj (want 1)  popover sanitize off=$wp (want 2)  css=$wq (want 1)"
+
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1341,6 +1371,9 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$va" = "2" ] && [ "$vd" = "1" ] \
     && [ "$wa" = "1" ] && [ "$wb" = "1" ] && [ "$wc" = "1" ] && [ "$wd" = "3" ] \
     && [ "$we" = "1" ] && [ "$wf" = "1" ] \
+    && [ "$wg" = "0" ] && [ "$wh" = "5" ] && [ "$wi" = "5" ] && [ "$wj" = "1" ] \
+    && [ "$wk" = "4" ] && [ "$wl" = "1" ] && [ "$wm" = "4" ] && [ "$wn" = "4" ] \
+    && [ "$wo" = "2" ] && [ "$wp" = "2" ] && [ "$wq" = "1" ] && [ "$wr" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

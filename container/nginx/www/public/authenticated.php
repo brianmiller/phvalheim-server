@@ -1047,6 +1047,142 @@ if (phvDevSteamID() !== NULL) {
                         </div>
                 </div>
 
+                <!-- Linux Flatpak Install Modal -->
+                <div class="modal fade" id="flatpakInstallModal" tabindex="-1" aria-labelledby="flatpakInstallModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                                <div class="modal-content mac-install-modal">
+                                        <div class="modal-header mac-install-header">
+                                                <img src="../images/flatpak.svg" alt="Flatpak" style="width:28px;height:28px;margin-right:10px;">
+                                                <h5 class="modal-title" id="flatpakInstallModalLabel">Install PhValheim Client as a Flatpak</h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body mac-install-body">
+                                                <p class="flatpak-lead">For <strong>SteamOS</strong>, <strong>Bazzite</strong> and other immutable systems, where there is nowhere to install a <code class="flatpak-inline">.deb</code> or an <code class="flatpak-inline">.rpm</code>. Grab the file with the button at the bottom, then work through these.</p>
+
+                                                <div class="flatpak-step">
+                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">1</span>Install the bundle</div>
+                                                        <p class="flatpak-step-text">Run this in whatever folder you saved the download to. No root needed &mdash; <code class="flatpak-inline">--user</code> installs it for you alone.</p>
+                                                        <div class="mac-install-command-wrap">
+                                                                <code class="mac-install-command" id="fpCmdInstall"></code>
+                                                                <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'install')" title="Copy to clipboard"></button>
+                                                        </div>
+                                                </div>
+
+                                                <div class="flatpak-step">
+                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">2</span>Bare window managers only<span class="flatpak-step-tag">Hyprland &middot; Sway &middot; i3</span></div>
+                                                        <p class="flatpak-step-text"><strong>GNOME and KDE can skip this.</strong> Anywhere else, run it once and then log out and back in &mdash; otherwise clicking a world&rsquo;s launch link does nothing at all, silently. It puts Flatpak&rsquo;s applications directory on your session&rsquo;s search path so the <code class="flatpak-inline">phvalheim://</code> handler can be found. Every Flatpak needs this, not just ours, and no Flatpak can do it for you.</p>
+                                                        <div class="mac-install-command-wrap">
+                                                                <code class="mac-install-command" id="fpCmdPath"></code>
+                                                                <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'path')" title="Copy to clipboard"></button>
+                                                        </div>
+                                                </div>
+
+                                                <div class="flatpak-step">
+                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">3</span>Check it worked</div>
+                                                        <p class="flatpak-step-text">After logging back in. It should print <code class="flatpak-inline">com.phvalheim.Client.desktop</code>. Anything else means step 2 has not taken effect yet.</p>
+                                                        <div class="mac-install-command-wrap">
+                                                                <code class="mac-install-command" id="fpCmdCheck"></code>
+                                                                <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'check')" title="Copy to clipboard"></button>
+                                                        </div>
+                                                </div>
+
+                                                <div class="flatpak-step">
+                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">4</span>Launch without desktop wiring</div>
+                                                        <p class="flatpak-step-text">Always works, even if step 2 is unresolved. Right-click a world&rsquo;s launch button above &rarr; <em>Copy Link Address</em>, and paste it in place of the link below.</p>
+                                                        <div class="mac-install-command-wrap">
+                                                                <code class="mac-install-command" id="fpCmdRun"></code>
+                                                                <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'run')" title="Copy to clipboard"></button>
+                                                        </div>
+                                                </div>
+
+                                                <p class="mac-install-note">Your synced worlds live in <code class="flatpak-inline">~/.config/PhValheim</code>, the same place the <code class="flatpak-inline">.deb</code> and <code class="flatpak-inline">.rpm</code> use, so switching packages keeps everything.</p>
+                                        </div>
+                                        <div class="modal-footer mac-install-footer">
+                                                <a href="https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.13" target="_blank" rel="noopener" class="mac-install-ref-link">Full release notes on GitHub</a>
+                                                <div class="flatpak-footer-actions">
+                                                        <button type="button" class="btn btn-sm btn-outline-download" data-bs-dismiss="modal">Close</button>
+                                                        <a href="#" id="flatpakDownloadBtn" target="_blank" rel="noopener" class="btn btn-sm btn-outline-download flatpak-download-btn">Download the Flatpak</a>
+                                                </div>
+                                        </div>
+                                </div>
+                        </div>
+                </div>
+
+                <script>
+                // Every command lives here and nowhere else. The <code> blocks above are EMPTY in the
+                // markup and filled from this object when the modal opens, so what is on screen and
+                // what lands on the clipboard are the same string by construction. The macOS modal
+                // keeps two copies -- a shortened one to read and a hidden full one to copy -- and
+                // they are free to drift apart.
+                var FLATPAK_CMDS = {
+                        install: "",   // filled in per release by openFlatpakInstall()
+                        path:    "mkdir -p ~/.config/environment.d && printf 'XDG_DATA_DIRS=/usr/local/share:/usr/share:/var/lib/flatpak/exports/share:%s/.local/share/flatpak/exports/share\\n' \"$HOME\" > ~/.config/environment.d/flatpak.conf",
+                        check:   "gio mime x-scheme-handler/phvalheim",
+                        run:     "flatpak run com.phvalheim.Client 'phvalheim://...paste your world link here...'"
+                };
+
+                var FP_ICON_COPY = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+                var FP_ICON_DONE = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="palegreen" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+                // Called from the Flatpak icon in the download popover. It is handed the anchor, so the
+                // download URL and the version in the install command both come off the same element --
+                // the modal is never told a version separately and so cannot contradict the link.
+                function openFlatpakInstall(anchor) {
+                        var url = anchor.getAttribute('href');
+                        var file = url.substring(url.lastIndexOf('/') + 1);
+                        FLATPAK_CMDS.install = 'flatpak install --user ./' + file;
+
+                        document.getElementById('fpCmdInstall').textContent = FLATPAK_CMDS.install;
+                        document.getElementById('fpCmdPath').textContent    = FLATPAK_CMDS.path;
+                        document.getElementById('fpCmdCheck').textContent   = FLATPAK_CMDS.check;
+                        document.getElementById('fpCmdRun').textContent     = FLATPAK_CMDS.run;
+                        document.getElementById('flatpakDownloadBtn').setAttribute('href', url);
+
+                        Array.prototype.forEach.call(
+                                document.querySelectorAll('#flatpakInstallModal .mac-install-copy-btn'),
+                                function(b) { b.innerHTML = FP_ICON_COPY; }
+                        );
+
+                        // The popover is opened with trigger:focus, so it does not always dismiss itself
+                        // when focus moves into the modal -- it would otherwise sit on top of the backdrop.
+                        var popTrigger = document.querySelector('[data-bs-toggle="popover"][aria-describedby^="popover"]');
+                        if (popTrigger && window.bootstrap && bootstrap.Popover) {
+                                var pop = bootstrap.Popover.getInstance(popTrigger);
+                                if (pop) { pop.hide(); }
+                        }
+
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('flatpakInstallModal')).show();
+                        return false;   // do not follow the href; the modal carries the download button
+                }
+
+                function copyFlatpakCmd(btn, key) {
+                        var text = FLATPAK_CMDS[key];
+                        var done = function() {
+                                btn.innerHTML = FP_ICON_DONE;
+                                setTimeout(function() { btn.innerHTML = FP_ICON_COPY; }, 2000);
+                        };
+                        // navigator.clipboard needs a secure context, and plenty of self-hosted
+                        // PhValheim servers are plain http on a LAN. Same fallback the Steam ID uses.
+                        if (navigator.clipboard && window.isSecureContext) {
+                                navigator.clipboard.writeText(text).then(done, function() { fpLegacyCopy(text, done); });
+                        } else {
+                                fpLegacyCopy(text, done);
+                        }
+                }
+
+                function fpLegacyCopy(text, done) {
+                        var ta = document.createElement('textarea');
+                        ta.value = text;
+                        ta.style.position = 'fixed';
+                        ta.style.left = '-9999px';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        try { document.execCommand('copy'); } catch (e) { /* nothing else to try */ }
+                        document.body.removeChild(ta);
+                        done();
+                }
+                </script>
+
                 <script>
                 function copyMacCommand() {
                         var cmd = document.getElementById('macInstallCmdFull').value;

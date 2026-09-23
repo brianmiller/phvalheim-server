@@ -14,6 +14,8 @@ function whatsNewNotes() {
         '2.51' => [
             'New: <b>your players can download the PhValheim client as a Flatpak.</b> The Linux download menu on the public page now offers a fourth package alongside the .tar.gz, the .deb and the .rpm. Nothing changes for players already using one of those three.',
             'This is the package for <b>SteamOS, Bazzite and other systems where the operating system itself is read-only</b> &mdash; there is nowhere on those machines to install a .deb or a .rpm, so until now the only option was the plain .tar.gz and setting it up by hand. The Flatpak also brings its own copy of the system libraries the client needs, which is what the <i>Couldn&rsquo;t find a valid ICU package</i> error on a minimal install was about.',
+            'Clicking the Flatpak icon opens <b>step-by-step instructions</b> rather than starting the download, because a Flatpak bundle is not much use on its own &mdash; it has to be installed with a command, and on a bare window manager such as Hyprland, Sway or i3 there is a second one-off command without which <b>clicking a world&rsquo;s launch link does nothing at all, silently</b>. Every command has a copy button, and the download button sits at the bottom of the same dialog.',
+            'The download icons are now <b>labelled with what they are</b> &mdash; Universal, Ubuntu, Fedora, Flatpak, Windows &mdash; instead of all four saying &ldquo;Download&rdquo;, and they have a little more room between them.',
             'The Flatpak link only appears for client releases that actually ship one, which is <b>client 2.0.13 and newer</b>. If your players are on an older client release the menu looks exactly as it did before.',
         ],
         '2.50' => [

@@ -1420,8 +1420,10 @@ table.table-hover tbody tr:hover {
 	background-color: var(--bg-secondary);
 }
 
-/* macOS Install Modal — scoped overrides for Bootstrap modal on public UI */
-#macInstallModal.modal {
+/* macOS + Flatpak Install Modals — scoped overrides for Bootstrap modal on public UI.
+   The two share every rule below; only the step blocks further down are Flatpak-only. */
+#macInstallModal.modal,
+#flatpakInstallModal.modal {
 	display: none;
 	position: fixed;
 	z-index: 9999;
@@ -1433,12 +1435,21 @@ table.table-hover tbody tr:hover {
 	backdrop-filter: blur(6px);
 }
 
-#macInstallModal .modal-dialog {
+#macInstallModal .modal-dialog,
+#flatpakInstallModal .modal-dialog {
 	max-width: 648px;
 	margin: auto;
 }
 
-#macInstallModal .modal-content.mac-install-modal {
+/* modal-dialog-scrollable needs a real height to scroll against; `margin: auto` alone
+   leaves it auto-sized, so a tall body would run off the bottom of the viewport. */
+#flatpakInstallModal .modal-dialog.modal-dialog-scrollable {
+	max-height: calc(100% - 3.5rem);
+	margin: 1.75rem auto;
+}
+
+#macInstallModal .modal-content.mac-install-modal,
+#flatpakInstallModal .modal-content.mac-install-modal {
 	background: linear-gradient(to bottom, #1e2d4a, #131729) !important;
 	border: 1px solid #34e2e2;
 	border-radius: 12px;
@@ -1532,6 +1543,107 @@ table.table-hover tbody tr:hover {
 
 .mac-install-ref-link:hover {
 	color: palegreen;
+}
+
+/* ---- Flatpak install modal: numbered steps ---------------------------------------- */
+
+.flatpak-lead {
+	color: #DEDEDE;
+	margin-bottom: 1.1rem !important;
+}
+
+.flatpak-step {
+	border-left: 2px solid rgba(52, 226, 226, 0.35);
+	padding-left: 0.9rem;
+	margin-bottom: 1.15rem;
+}
+
+.flatpak-step-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: palegreen;
+	font-size: 0.86rem;
+	font-weight: 600;
+	margin-bottom: 0.35rem;
+}
+
+.flatpak-step-num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	flex-shrink: 0;
+	border: 1px solid #34e2e2;
+	border-radius: 50%;
+	color: #34e2e2;
+	font-size: 0.72rem;
+	line-height: 1;
+}
+
+.flatpak-step-tag {
+	color: #9a9ab0;
+	font-size: 0.68rem;
+	font-weight: normal;
+	border: 1px solid rgba(154, 154, 176, 0.35);
+	border-radius: 10px;
+	padding: 1px 8px;
+}
+
+.flatpak-step-text {
+	color: #b9b9c9;
+	font-size: 0.79rem;
+	line-height: 1.55;
+	margin-bottom: 0.5rem !important;
+}
+
+.flatpak-step-text strong {
+	color: #DEDEDE;
+}
+
+/* Inline literals in the prose. Distinct from .mac-install-command, which is the copyable
+   block -- these are named things being referred to, not commands to run. */
+code.flatpak-inline {
+	color: #34e2e2;
+	background: rgba(52, 226, 226, 0.08);
+	border-radius: 3px;
+	padding: 0 4px;
+	font-size: 0.92em;
+}
+
+/* The commands are long enough to wrap; the copy button must not be squeezed out. */
+#flatpakInstallModal .mac-install-command-wrap {
+	align-items: flex-start;
+	margin-bottom: 0;
+}
+
+#flatpakInstallModal .mac-install-command {
+	white-space: pre-wrap;
+	line-height: 1.5;
+}
+
+.flatpak-footer-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.flatpak-download-btn {
+	border-color: #34e2e2 !important;
+	color: palegreen !important;
+}
+
+.flatpak-download-btn:hover {
+	background: rgba(52, 226, 226, 0.12) !important;
+	color: #34e2e2 !important;
+}
+
+/* ---- Client download popover: breathing room between the OS icons ------------------ */
+
+td.client_download_cell {
+	padding: 0 9px !important;
+	vertical-align: top;
 }
 
 /* Bootstrap 5 Popover overrides */
