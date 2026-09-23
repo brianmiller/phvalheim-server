@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.51
+
+### A Flatpak download for the client
+
+The Linux entry in the public page's client download popover offered three packages — the
+universal `.tar.gz`, a `.deb` and a `.rpm`. phvalheim-client has shipped a fourth since its
+2.0.13 release, `phvalheim-client-<v>-x86_64.flatpak`, and nothing linked to it.
+
+That is the package that matters on an immutable distribution. On SteamOS and Bazzite there is
+nowhere to install a `.deb` or an `.rpm` at all, so the only route was the raw tarball. The
+Flatpak also carries its own runtime, which covers the `Couldn't find a valid ICU package`
+failure a minimal install hits — the `.deb` and `.rpm` declare no dependencies, and a
+self-contained .NET build still needs the system libicu.
+
+`includes/clientDownloadButton.php` gains a fourth `<td>` in the Linux branch, and
+`images/flatpak.svg` is a new 32×32 asset drawn to sit in the same row as `win11.png`,
+`ubuntu.png` and `fedora.png` under the existing `brightness(75%)` treatment.
+
+**The link is gated on the client version.** `$clientVersionsToRender` is `1`, so in practice
+only the newest tag is ever rendered and that tag has a Flatpak — but it is an operator
+setting, and raising it is the entire point of it. Every client tag before 2.0.13 has a `.msi`,
+a `.tar.gz`, a `.deb` and a `.rpm` in `builds/` and no `.flatpak`, so an ungated link would 404
+for each of them. `PHVALHEIM_CLIENT_FIRST_FLATPAK` is the floor and `version_compare()` is the
+gate; older tags render exactly the three packages they did before.
+
+No engine, database or API change. Nothing on an existing player's machine changes.
+
 ## v2.50
 
 ### A failed Valheim update was reported as a success, and that disabled the retries

@@ -11,6 +11,11 @@
  */
 function whatsNewNotes() {
     return [
+        '2.51' => [
+            'New: <b>your players can download the PhValheim client as a Flatpak.</b> The Linux download menu on the public page now offers a fourth package alongside the .tar.gz, the .deb and the .rpm. Nothing changes for players already using one of those three.',
+            'This is the package for <b>SteamOS, Bazzite and other systems where the operating system itself is read-only</b> &mdash; there is nowhere on those machines to install a .deb or a .rpm, so until now the only option was the plain .tar.gz and setting it up by hand. The Flatpak also brings its own copy of the system libraries the client needs, which is what the <i>Couldn&rsquo;t find a valid ICU package</i> error on a minimal install was about.',
+            'The Flatpak link only appears for client releases that actually ship one, which is <b>client 2.0.13 and newer</b>. If your players are on an older client release the menu looks exactly as it did before.',
+        ],
         '2.50' => [
             'Fixed: <b>a Valheim install or update that failed was reported to you as a success.</b> When Steam only gets part of the way through a download it leaves the game files on disk but marks them as still needing an update &mdash; and PhValheim decided the download had worked purely by checking that the server program was present. It always was. So a world whose game files were incomplete logged &ldquo;Valheim server installed successfully&rdquo; and carried on, and the only sign anything was wrong was a line from Steam itself reading <i>Error! App 896660 state is 0x6 after update job</i>.',
             'That also silently disabled the retries. PhValheim is meant to try a failed download up to five times; because the first attempt was mistaken for a success, <b>it only ever tried once</b>. A download that would have worked on the second attempt never got one.',

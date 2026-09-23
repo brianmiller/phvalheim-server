@@ -1182,6 +1182,32 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.50 deploy verdict NEGATIVE: chown exit status gates deploy=$ve (want 0)"
   echo "2.50 deploy verdict: fn def+call=$va (want 2)  marks broken=$vd (want 1)"
 
+  # ---- 2.51: Flatpak in the client download popover --------------------------------
+  # Two markers together are the oracle, and neither works alone: wb proves exactly one
+  # flatpak link exists in the whole file, wa proves the one that exists is inside a
+  # Linux branch. Drop either and a link pasted into the Windows branch passes.
+  #
+  # The awk span matches BOTH Linux branches in the file (the header title and the link
+  # block) because awk restarts a range pattern. That is harmless: the header block holds
+  # no hrefs, so the count is unchanged, and pinning the span to one of them would break
+  # the next time the file is reordered.
+  wcode=$(grep -vE "^[[:space:]]*(//|#)" /opt/stateless/nginx/www/includes/clientDownloadButton.php)
+  wlin=$(echo "$wcode" | awk "/if\(.operatingSystem == .Linux.\)/,/^[[:space:]]*}[[:space:]]*$/")
+  wa=$(echo "$wlin" | grep -c "x86_64.flatpak")
+  wb=$(echo "$wcode" | grep -c "x86_64.flatpak")
+  # The version gate. A dead link for every pre-2.0.13 client tag is what this stops, and
+  # it is invisible until someone raises clientVersionsToRender. wd counts the guard, the
+  # define and the use: three references, no more and no less.
+  wc=$(echo "$wcode" | grep -c "version_compare")
+  wd=$(echo "$wcode" | grep -c "PHVALHEIM_CLIENT_FIRST_FLATPAK")
+  # The icon has to be IN the image, not just in the repo. images/ rides in on the same
+  # COPY as the php, so a missing file here means the asset was never committed.
+  we=$(ls /opt/stateless/nginx/www/images/flatpak.svg 2>/dev/null | wc -l)
+  wf=$(grep -c "2.51. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
+  echo "2.51 flatpak link: in Linux branch=$wa (want 1)  in whole file=$wb (want 1)"
+  echo "2.51 flatpak gate: version_compare=$wc (want 1)  floor const refs=$wd (want 3)"
+  echo "2.51 flatpak icon in image=$we (want 1)  whatsnew entry=$wf (want 1)"
+
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1313,6 +1339,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$ub" = "5" ] && [ "$ud" = "1" ] && [ "$ue" = "1" ] \
     && [ "$vb" = "0" ] && [ "$vc" = "0" ] && [ "$ve" = "0" ] \
     && [ "$va" = "2" ] && [ "$vd" = "1" ] \
+    && [ "$wa" = "1" ] && [ "$wb" = "1" ] && [ "$wc" = "1" ] && [ "$wd" = "3" ] \
+    && [ "$we" = "1" ] && [ "$wf" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 

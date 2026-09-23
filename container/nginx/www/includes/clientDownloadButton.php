@@ -2,6 +2,14 @@
 include '../includes/git.php';
 include '../includes/phvalheim-frontend-config.php';
 
+// The Flatpak bundle first appears in phvalheim-client 2.0.13. Every earlier tag still has a
+// .msi, a .tar.gz, a .deb and a .rpm in builds/, but no .flatpak -- so an ungated link would
+// 404 for anyone rendering an older release. $clientVersionsToRender is 1 by default, which
+// means only the newest tag is ever shown, but it is a setting and raising it is the whole
+// point of it; the gate is what makes that safe.
+if (!defined('PHVALHEIM_CLIENT_FIRST_FLATPAK')) {
+	define('PHVALHEIM_CLIENT_FIRST_FLATPAK', '2.0.13');
+}
 
 function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 	if($operatingSystem == "Windows"){
@@ -59,6 +67,23 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                                                         <p class='versionLabel'>Download</p>
                                                                 </a>
                                                         </td>
+                                        ";
+
+                                        // Flatpak: the only one of the four that installs on an immutable
+                                        // system (SteamOS, Bazzite), where there is nowhere to put a .deb or
+                                        // a .rpm. Older client tags have no .flatpak to link to.
+                                        if (version_compare($release, PHVALHEIM_CLIENT_FIRST_FLATPAK, '>=')) {
+                                                echo "
+                                                        <td>
+                                                                <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.flatpak'>
+                                                                        <img class='client_download_link_colorizer' src='../images/flatpak.svg'>
+                                                                        <p class='versionLabel'>Download</p>
+                                                                </a>
+                                                        </td>
+                                                ";
+                                        }
+
+                                        echo "
                                                 </div>
                                         ";
                                 }
