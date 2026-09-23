@@ -1203,10 +1203,20 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # The icon has to be IN the image, not just in the repo. images/ rides in on the same
   # COPY as the php, so a missing file here means the asset was never committed.
   we=$(ls /opt/stateless/nginx/www/images/flatpak.svg 2>/dev/null | wc -l)
+  # we above only proves the file is THERE. The first 2.51 release candidate shipped a
+  # flatpak.svg that was present, the right size, owned correctly and completely undrawable:
+  # the header comment ended with a doubled hyphen, which XML forbids inside a comment, so
+  # every browser refused it and the popover showed a blank gap. Existence was a non-oracle.
+  # ws parses the file the way a browser would. wt/wu sweep every svg in the image and derive
+  # their own expected value, so the pair cannot rot as artwork is added or removed.
+  ws=$(python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse(sys.argv[1]); print(1)" /opt/stateless/nginx/www/images/flatpak.svg 2>/dev/null)
+  wt=$(for f in /opt/stateless/nginx/www/images/*.svg; do python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse(sys.argv[1])" "$f" 2>/dev/null && echo x; done | wc -l)
+  wu=$(ls /opt/stateless/nginx/www/images/*.svg | wc -l)
   wf=$(grep -c "2.51. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
   echo "2.51 flatpak link: in Linux branch=$wa (want 1)  in whole file=$wb (want 1)"
   echo "2.51 flatpak gate: version_compare=$wc (want 1)  floor const refs=$wd (want 3)"
   echo "2.51 flatpak icon in image=$we (want 1)  whatsnew entry=$wf (want 1)"
+  echo "2.51 flatpak icon PARSES=$ws (want 1)  all svgs well-formed=$wt of $wu"
 
   # ---- 2.51: named labels, icon spacing, and the Flatpak instructions modal --------
   # wg is the NEGATIVE and the real one: every icon said Download, so a label that failed
@@ -1370,7 +1380,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$vb" = "0" ] && [ "$vc" = "0" ] && [ "$ve" = "0" ] \
     && [ "$va" = "2" ] && [ "$vd" = "1" ] \
     && [ "$wa" = "1" ] && [ "$wb" = "1" ] && [ "$wc" = "1" ] && [ "$wd" = "3" ] \
-    && [ "$we" = "1" ] && [ "$wf" = "1" ] \
+    && [ "$we" = "1" ] && [ "$wf" = "1" ] && [ "$ws" = "1" ] && [ "$wt" = "$wu" ] \
     && [ "$wg" = "0" ] && [ "$wh" = "5" ] && [ "$wi" = "5" ] && [ "$wj" = "1" ] \
     && [ "$wk" = "4" ] && [ "$wl" = "1" ] && [ "$wm" = "4" ] && [ "$wn" = "4" ] \
     && [ "$wo" = "2" ] && [ "$wp" = "2" ] && [ "$wq" = "1" ] && [ "$wr" = "1" ] \

@@ -3,8 +3,12 @@
   Icon for the Flatpak bundle in the client download popover. Drawn here rather than
   shipping the upstream Flatpak trademark: an isometric package, in the same 32x32 box
   as win11.png / ubuntu.png / fedora.png, which the popover renders under
-  .client_download_os_icon img (32x32, brightness 75%, 110% on hover). Flat fills only --
-  the brightness filter is applied to the whole image, so gradients would band.
+  .client_download_os_icon img (32x32, brightness 75%, 110% on hover). Flat fills only,
+  because the brightness filter is applied to the whole image and gradients would band.
+
+  Keep this comment free of a doubled hyphen. XML forbids one inside a comment, and the
+  first version of this file shipped with one: the file was present, it was the right
+  size, and every browser refused to draw it. See marker ws in buildRcDetached.sh.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
   <g stroke-linejoin="round" stroke-width="1.6">

@@ -18,6 +18,13 @@ self-contained .NET build still needs the system libicu.
 `images/flatpak.svg` is a new 32×32 asset drawn to sit in the same row as `win11.png`,
 `ubuntu.png` and `fedora.png` under the existing `brightness(75%)` treatment.
 
+The first release candidate shipped that asset **undrawable**. Its header comment ended with a
+doubled hyphen, which XML forbids inside a comment, so the file was present, the right size,
+owned correctly — and refused by every browser, leaving a blank gap in the popover. The
+existence marker passed the whole time; it could not have failed. `ws` now parses the file the
+way a browser would, and `wt`/`wu` sweep every SVG in the image against a count they derive
+themselves, so the pair cannot rot as artwork comes and goes.
+
 **The link is gated on the client version.** `$clientVersionsToRender` is `1`, so in practice
 only the newest tag is ever rendered and that tag has a Flatpak — but it is an operator
 setting, and raising it is the entire point of it. Every client tag before 2.0.13 has a `.msi`,
