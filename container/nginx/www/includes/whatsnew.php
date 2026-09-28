@@ -11,6 +11,12 @@
  */
 function whatsNewNotes() {
     return [
+        '2.52' => [
+            'Fixed: <b>your mod catalogues stopped updating after the first start.</b> PhValheim refreshes Thunderstore and Hexium when it starts, and then again every few hours. The scheduled refresh &mdash; and the per-catalogue refresh links on the Sync &amp; Maintenance panel &mdash; have been failing since 2.47, because the file PhValheim uses to stop two refreshes running at once was being created by the wrong account at startup and could not then be opened by the account that does the later refreshes. The refresh links reported an error; the scheduled ones failed <b>silently</b>, which is why this went unnoticed for five releases.',
+            'Your catalogue was still refreshed every time the container restarted, so <b>nothing was lost or corrupted</b> &mdash; it was simply only as current as your last restart. Mods you already have installed in a world, and their versions, were never affected.',
+            '<b>This repairs itself as soon as you upgrade.</b> There is nothing to clean up, and no restart beyond the upgrade itself.',
+            'The same fault was possible, though not yet reported, in the analytics push and in the files that guard backups, restores and automatic updates against running twice at once. All of them have been given the same treatment, so a future change cannot quietly reintroduce it somewhere else.',
+        ],
         '2.51' => [
             'New: <b>your players can download the PhValheim client as a Flatpak.</b> The Linux download menu on the public page now offers a fourth package alongside the .tar.gz, the .deb and the .rpm. Nothing changes for players already using one of those three.',
             'This is the package for <b>SteamOS, Bazzite and other systems where the operating system itself is read-only</b> &mdash; there is nowhere on those machines to install a .deb or a .rpm, so until now the only option was the plain .tar.gz and setting it up by hand. The Flatpak also brings its own copy of the system libraries the client needs, which is what the <i>Couldn&rsquo;t find a valid ICU package</i> error on a minimal install was about.',

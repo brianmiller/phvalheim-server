@@ -143,7 +143,15 @@ ai_capability=$(SQL "SELECT CONCAT('{\"k\":\"', IF(tool_capability='', 'unknown'
 worlds_file=$(mktemp /tmp/phvalheim_analytics_worlds.XXXXXX)
 mods_file=$(mktemp /tmp/phvalheim_analytics_mods.XXXXXX)
 work_file=$(mktemp /tmp/phvalheim_analytics_work.XXXXXX)
-trap 'rm -f "$worlds_file" "$mods_file" "$work_file"' EXIT INT TERM
+# The payload and the curl response body were FIXED /tmp paths. This script runs as root
+# from the engine at startup and as phvalheim from cron and from the admin UI's analytics
+# toggle, and /tmp is sticky -- so a root run that died before its rm -f (a hung or killed
+# curl) left a root-owned file that no later phvalheim run could truncate, wedging every
+# subsequent push. mktemp per run, cleaned by the trap that already covers the other three.
+# Same class of bug as the mod-sync lock. (2.52)
+payload_file=$(mktemp /tmp/phvalheim_analytics_payload.XXXXXX)
+resp_file=$(mktemp /tmp/phvalheim_analytics_resp.XXXXXX)
+trap 'rm -f "$worlds_file" "$mods_file" "$work_file" "$payload_file" "$resp_file"' EXIT INT TERM
 echo "[]" > "$worlds_file"
 
 world_ids=$(SQL "SELECT id FROM worlds" 2>/dev/null)
@@ -271,7 +279,7 @@ fi
 
 # Write payload to a temp file so curl reads it with --data-binary.
 # This avoids bash's null-byte truncation when expanding "$payload" inline.
-payload_file="/tmp/phvalheim_analytics_payload.json"
+# payload_file is mktemp'd above, with the rest of this run's scratch files.
 printf '%s' "$payload" > "$payload_file"
 
 # ── POST ──────────────────────────────────────────────────────────
@@ -280,7 +288,7 @@ printf '%s' "$payload" > "$payload_file"
 primary_url="https://analytics.phvalheim.com/api/ingest"
 fallback_url="http://localhost/api/ingest"
 
-http_code=$(curl -s -o /tmp/phvalheim_analytics.tmp -w "%{http_code}" \
+http_code=$(curl -s -o "$resp_file" -w "%{http_code}" \
 	-X POST \
 	-H "Content-Type: application/json" \
 	--data-binary "@${payload_file}" \
@@ -289,21 +297,21 @@ http_code=$(curl -s -o /tmp/phvalheim_analytics.tmp -w "%{http_code}" \
 	"$primary_url" 2>/dev/null)
 
 # If HTTPS endpoint fails or returns non-200, try the local fallback
-response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
+response_body=$(cat "$resp_file" 2>/dev/null)
 if [ "$http_code" != "200" ] || ! echo "$response_body" | grep -q '"success":true'; then
-	http_code=$(curl -s -o /tmp/phvalheim_analytics.tmp -w "%{http_code}" \
+	http_code=$(curl -s -o "$resp_file" -w "%{http_code}" \
 		-X POST \
 		-H "Content-Type: application/json" \
 		--data-binary "@${payload_file}" \
 		--max-time 10 \
 		--connect-timeout 5 \
 		"$fallback_url" 2>/dev/null)
-	response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
+	response_body=$(cat "$resp_file" 2>/dev/null)
 fi
 
 if [ "$http_code" != "200" ]; then
-	response_body=$(cat /tmp/phvalheim_analytics.tmp 2>/dev/null)
+	response_body=$(cat "$resp_file" 2>/dev/null)
 	echo "$(date) [WARN : phvalheim] Analytics push failed (HTTP ${http_code:-000}): ${response_body}"
 fi
 
-rm -f /tmp/phvalheim_analytics.tmp "$payload_file"
+# cleanup is the EXIT trap set at the top; both files are mktemp'd (2.52)

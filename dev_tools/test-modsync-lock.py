@@ -11,6 +11,15 @@ These drive the REAL take_global_lock() against REAL flock calls. flock is per o
 description, so two open() calls in one process contend exactly as two processes do --
 which is what makes this testable without spawning anything.
 
+SCOPE, and what this file is BLIND to. Every case here runs as ONE uid in ONE process,
+by construction. modSync.py is run by TWO uids in production -- root at boot, phvalheim
+from cron and from the admin UI's forced sync -- and this suite cannot observe anything
+about that split. It stayed green through all five releases (2.47-2.51) in which the
+lock's own open() mode made every cron and forced sync die with EACCES, because a
+permission difference between uids is invisible to a single-uid test. Do not extend this
+file to cover cross-user behaviour; that needs real uids in a container and lives in
+dev_tools/test-modsync-lock-crossuser.sh. Keep this one for the contention semantics.
+
 Run: dev_tools/test-modsync-lock.py
 """
 

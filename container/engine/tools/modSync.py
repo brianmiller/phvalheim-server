@@ -342,6 +342,43 @@ RUN_LOCK = "/tmp/phvalheim-modsync.run.lock"
 WAIT_LOCK = "/tmp/phvalheim-modsync.wait.lock"
 
 
+def open_lock(path):
+    """Open a lock file for flock(2) needing NO write permission.
+
+    This tool runs as TWO uids -- root at boot (engine), phvalheim from cron and from
+    the admin UI's forced sync. /tmp is sticky, so whichever uid got there first owned
+    the lock file and the other could neither truncate it nor remove it. The original
+    open(path, "w") therefore threw PermissionError for every cron and forced sync on
+    every server after its first boot: visibly for the forced link, SILENTLY for cron.
+    (2.52; the bug shipped in 2.47-2.51.)
+
+    LOCK_EX is honoured on a read-only descriptor, so read is all we ever needed -- a
+    lock file's CONTENTS are never used, and truncating it was the only reason "w" was
+    there. Opening read-only self-heals an already-affected server with no cleanup: the
+    root-owned 0644 file left behind is world-readable, so phvalheim can lock it as-is.
+
+    O_CREAT is passed ONLY when the file is genuinely missing, and that is not a tidiness
+    preference -- it is load-bearing. Linux's sticky-directory hardening
+    (fs.protected_regular, on by default since ~2019) refuses an O_CREAT open of an
+    EXISTING file in a world-writable sticky directory unless the file's owner matches
+    either the caller or the DIRECTORY's owner, and CAP_DAC_OVERRIDE does not bypass it.
+    /tmp is 1777 and owned by root, so a root-owned lock stays openable by everyone, but
+    a phvalheim-owned one is refused to root with EACCES -- and 2.52 makes the boot sync
+    phvalheim, so every lock file becomes phvalheim-owned. A plain O_RDONLY is not
+    subject to the check at all, so the existing-file path simply never asks to create.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except FileNotFoundError:
+        try:
+            os.close(os.open(path, os.O_RDONLY | os.O_CREAT, 0o666))
+        except OSError:
+            pass          # lost the create race, or the sticky-dir refusal above; either
+                          # way the file exists now and the reopen below is what matters
+        fd = os.open(path, os.O_RDONLY)
+    return os.fdopen(fd, "r")
+
+
 def take_global_lock(trigger):
     """Serialise ENTIRE syncs against each other, across sources.
 
@@ -358,7 +395,7 @@ def take_global_lock(trigger):
     Returns an open file object (keep it alive -- closing it releases the lock) or None
     if this run should not proceed.
     """
-    fh = open(RUN_LOCK, "w")
+    fh = open_lock(RUN_LOCK)
     try:
         fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
         return fh
@@ -375,7 +412,7 @@ def take_global_lock(trigger):
     # A MANUAL run is someone asking for it, so queue -- but only one deep. Ten clicks
     # must not mean ten full rebuilds back to back; whoever is already waiting will pick
     # up the same catalogue this run would have.
-    waiter = open(WAIT_LOCK, "w")
+    waiter = open_lock(WAIT_LOCK)
     try:
         fcntl.flock(waiter, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:

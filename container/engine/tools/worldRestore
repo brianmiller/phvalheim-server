@@ -11,15 +11,17 @@ source /opt/stateless/engine/includes/phvalheim-static.conf
 LOCK_FILE="/tmp/worldRestore.lock"
 LOG="/opt/stateful/logs/worldBackups.log"
 
+# Neither of these removes the lock file any more -- see the flock block below. The old
+# jsonError() `rm -f` was reached on the "another restore is already in progress" path,
+# where it deleted the RUNNING restore's lock file and left the next caller free to start
+# a second concurrent restore. flock releases on process exit; nothing needs unlinking.
 function jsonError() {
 	echo "{\"success\":false,\"error\":\"$1\"}"
-	rm -f "$LOCK_FILE"
 	exit 1
 }
 
 function jsonSuccess() {
 	echo "{\"success\":true,\"message\":\"$1\",\"safetyBackupId\":\"${2:-}\"}"
-	rm -f "$LOCK_FILE"
 	exit 0
 }
 
@@ -29,15 +31,16 @@ function progress() {
 }
 
 # prevent concurrent restores
-if [ -f "$LOCK_FILE" ]; then
-	lockPid=$(cat "$LOCK_FILE")
-	if kill -0 "$lockPid" 2>/dev/null; then
-		jsonError "Another restore is already in progress"
-	else
-		rm -f "$LOCK_FILE"
-	fi
-fi
-echo $$ > "$LOCK_FILE"
+#
+# flock on a READ-ONLY descriptor, not a pidfile. (2.52) `echo $$ >` needs write permission
+# on a file in sticky /tmp, so the first uid to run owns it and any other uid is locked out
+# permanently -- the bug that killed the mod-catalogue sync in 2.47-2.51. Only the admin UI
+# (phvalheim) invokes this today, so the uid split is defensive here; the pidfile's own
+# failure modes were not. flock releases when the holder dies, so a killed restore cannot
+# wedge every later one, and there is no stale-pid guess to get wrong.
+[ -e "$LOCK_FILE" ] || (umask 0022; : > "$LOCK_FILE") 2>/dev/null
+exec 9<"$LOCK_FILE"
+flock -n 9 || jsonError "Another restore is already in progress"
 
 backupId="$1"
 

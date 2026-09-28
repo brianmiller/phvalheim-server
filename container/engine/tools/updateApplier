@@ -17,7 +17,15 @@ source /opt/stateless/engine/includes/0-functions.sh
 #                                 pressing it has decided already)
 
 lockFile="/tmp/.updateApplier.lock"
-exec 9>"$lockFile"
+# Open the lock READ-ONLY. flock(2) honours LOCK_EX on a read-only descriptor, and a lock
+# file's contents are never read -- so write permission was never needed, and demanding it
+# is what wedged the mod-catalogue sync in 2.47-2.51. /tmp is sticky: whichever uid creates
+# the file owns it, and the other can then neither truncate (`exec 9>`) nor remove it. Only
+# phvalheim invokes this today (cron + the admin UI's "Update now"), so this is defensive --
+# but if anything ever calls it as root, auto-updates would stop permanently and silently.
+# Same idiom as modSync.py's open_lock(). (2.52)
+[ -e "$lockFile" ] || (umask 0022; : > "$lockFile") 2>/dev/null
+exec 9<"$lockFile"
 flock -n 9 || exit 0
 
 targetWorld="${1:-}"

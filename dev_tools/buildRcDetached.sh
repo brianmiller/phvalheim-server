@@ -495,7 +495,12 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # read 2 against a printed (want 1) while its own gate was the looser `-gt 0`, and the log
   # showed a mismatch on an image that was perfectly correct. Marker rot, not a regression.
   fn=$(grep -cE "modSync.py .*--trigger boot" /opt/stateless/engine/includes/0-functions.sh)
-  fo=$(grep -A1 "setsid /opt/stateless/engine/tools/modSync.py" \
+  # fo anchored on the literal string "setsid /opt/stateless/engine/tools/modSync.py" until
+  # 2.52 put an su between the two halves. The grep then matched nothing, the pipe counted
+  # nothing, and fo read 0 -- its own want value -- so it went on passing while asserting
+  # NOTHING about --force. Re-anchored on the line that actually launches the sync, which is
+  # what it always meant. Keep this counting the LAUNCH, not any fixed prefix of it.
+  fo=$(grep -A1 -E "modSync.py --source all --trigger boot" \
        /opt/stateless/engine/includes/0-functions.sh | grep -c -- "--force")
   echo "2.43 boot sync fn=$fk caller=$fl (want 1/1)  old seeder refs=$fm (want 0)"
   echo "2.43 boot sync trigger=$fn (want 1)  forced=$fo (want 0)"
@@ -1248,6 +1253,71 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.51 modal single-source: empty cmd blocks=$wm (want 4)"
   echo "2.51 modal wiring: icon onclick=$wj (want 1)  popover sanitize off=$wp (want 2)  css=$wq (want 1)"
 
+  # ---- 2.52: cross-user /tmp state -------------------------------------------------
+  # STILL no apostrophes below, comments included. The whole body is inside sh -c and one
+  # closes it early, silently skipping every check after it.
+  #
+  # xa/xb are the release. They ARE the 2.47-2.51 bug: open(LOCK, w) needs write permission
+  # to truncate, so whichever uid ran first owned the file in sticky /tmp and locked the
+  # other out for good. Negatives, because a correct open_lock() sitting beside a leftover
+  # open(...,w) call site is still broken and every positive marker would pass.
+  xsrc=/opt/stateless/engine/tools/modSync.py
+  xa=$(grep -c "open(RUN_LOCK, .w.)" $xsrc)
+  xb=$(grep -c "open(WAIT_LOCK, .w.)" $xsrc)
+  xc=$(grep -c "def open_lock" $xsrc)
+  xd=$(grep -c "open_lock(RUN_LOCK)" $xsrc)
+  xe=$(grep -c "open_lock(WAIT_LOCK)" $xsrc)
+  # O_CREAT must appear EXACTLY once and O_RDONLY-alone twice: the plain open is tried
+  # first and retried after a create. Passing O_CREAT on the normal path reintroduces the
+  # half of this bug that only shows up in the reverse uid direction -- Linux sticky-dir
+  # hardening (fs.protected_regular) refuses O_CREAT on an existing file in /tmp owned by
+  # someone who is neither the caller nor the directory owner, and CAP_DAC_OVERRIDE does
+  # NOT bypass it, so even root is refused. xg going to 1 is that regression.
+  xf=$(grep -c "os.O_RDONLY | os.O_CREAT" $xsrc)
+  xg=$(grep -c "os.open(path, os.O_RDONLY)" $xsrc)
+  # One user for all three triggers. xi is the negative: the un-su-ed launch must be GONE,
+  # not merely joined by a new one. Note 2.43 marker fo was re-anchored in the same pass --
+  # it had been keyed to the exact string xi now wants zero of, so it would have kept
+  # passing while checking nothing.
+  xfn=/opt/stateless/engine/includes/0-functions.sh
+  xh=$(grep -cE "setsid su phvalheim -s /bin/sh -c ./opt/stateless/engine/tools/modSync.py --source all --trigger boot." $xfn)
+  xi=$(grep -c "setsid /opt/stateless/engine/tools/modSync.py" $xfn)
+  # The sweep. Every fixed-path /tmp file written by a tool that can run as either uid.
+  xj=$(grep -c "phvalheim_analytics_payload.json" /opt/stateless/engine/tools/pushAnalytics.sh)
+  xk=$(grep -c "phvalheim_analytics.tmp" /opt/stateless/engine/tools/pushAnalytics.sh)
+  xl=$(grep -c "mktemp /tmp/phvalheim_analytics_payload" /opt/stateless/engine/tools/pushAnalytics.sh)
+  # The three lock files: read-only flock, never a write-open or a pidfile. xm/xn/xo are
+  # the negatives that matter; the old forms are what wedge.
+  #
+  # COMMENTS ARE STRIPPED FIRST, and that is not cosmetic. Each of these three files now
+  # carries a comment explaining which old form it replaced, quoting that form verbatim --
+  # so the bare greps read 1 against a want of 0 on a tree that was perfectly correct.
+  # Caught in the repo dry-run. The probe was wrong, not the code.
+  xua=$(grep -vE "^[[:space:]]*#" /opt/stateless/engine/tools/updateApplier)
+  xba=$(grep -vE "^[[:space:]]*#" /opt/stateless/engine/tools/worldBackup)
+  xra=$(grep -vE "^[[:space:]]*#" /opt/stateless/engine/tools/worldRestore)
+  xm=$(echo "$xua" | grep -c "exec 9>")
+  xn=$(echo "$xba" | grep -c "echo \$\$ >")
+  xo=$(echo "$xra" | grep -c "echo \$\$ >")
+  xp=0
+  echo "$xua" | grep -q "exec 9<" && xp=$((xp + 1))
+  echo "$xba" | grep -q "exec 9<" && xp=$((xp + 1))
+  echo "$xra" | grep -q "exec 9<" && xp=$((xp + 1))
+  # worldBackup must NOT rm its lock on exit any more: unlinking a file another run is
+  # about to open gives two holders on two inodes, which is not a lock at all.
+  xq=$(echo "$xba" | grep -c "trap .rm -f \$LOCK_FILE. EXIT")
+  # The cross-user oracle has to be IN the repo image-side check as a file that exists and
+  # parses; a suite nobody can run is not a guard.
+  xr=0; bash -n /opt/stateless/engine/tools/modSync.py 2>/dev/null; python3 -m py_compile $xsrc 2>/dev/null && xr=1
+  xs=$(grep -c "2.52. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
+  echo "2.52 NEGATIVES lock write-open: RUN=$xa WAIT=$xb (want 0/0)  un-su-ed boot launch=$xi (want 0)"
+  echo "2.52 open_lock: def=$xc RUN=$xd WAIT=$xe (want 1/1/1)  O_CREAT=$xf (want 1)  plain O_RDONLY=$xg (want 2)"
+  echo "2.52 boot sync as phvalheim=$xh (want 1)"
+  echo "2.52 analytics NEGATIVES: fixed payload path=$xj fixed resp path=$xk (want 0/0)  mktemp=$xl (want 1)"
+  echo "2.52 lock sweep NEGATIVES: updateApplier exec 9>=$xm backup pidfile=$xn restore pidfile=$xo (want 0/0/0)"
+  echo "2.52 lock sweep: tools on read-only flock=$xp (want 3)  backup rm-on-exit=$xq (want 0)"
+  echo "2.52 modSync compiles=$xr (want 1)  whatsnew entry=$xs (want 1)"
+
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"
@@ -1328,6 +1398,13 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$hl" = "0" ] && [ "$hm" -gt 0 ] && [ "$hn" = "0" ] && [ "$ho" = "0" ] \
     && [ "$hp" -gt 0 ] && [ "$hq" -gt 0 ] && [ "$hr" -gt 0 ] && [ "$hs" -gt 0 ] && [ "$ht" -gt 0 ] \
     && [ "$hu" -gt 0 ] \
+    && [ "$xa" = "0" ] && [ "$xb" = "0" ] && [ "$xi" = "0" ] \
+    && [ "$xc" = "1" ] && [ "$xd" = "1" ] && [ "$xe" = "1" ] \
+    && [ "$xf" = "1" ] && [ "$xg" = "2" ] && [ "$xh" = "1" ] \
+    && [ "$xj" = "0" ] && [ "$xk" = "0" ] && [ "$xl" = "1" ] \
+    && [ "$xm" = "0" ] && [ "$xn" = "0" ] && [ "$xo" = "0" ] \
+    && [ "$xp" = "3" ] && [ "$xq" = "0" ] \
+    && [ "$xr" = "1" ] && [ "$xs" = "1" ] \
     && [ "$hx" = "1" ] && [ "$hy" = "0" ] && [ "$hz" = "1" ] && [ "$ia" = "1" ] \
     && [ "$is" -gt 0 ] && [ "$jp" = "1" ] && [ "$jq" = "1" ] && [ "$jr" = "1" ] && [ "$ja" -gt 0 ] && [ "$jc" = "2" ] && [ "$it" = "1" ] && [ "$iu" = "1" ] && [ "$iv" -gt 0 ] && [ "$iw" -gt 0 ] \
     && [ "$jd" = "1" ] && [ "$je" = "1" ] && [ "$jf" -gt 0 ] && [ "$jg" -gt 0 ] && [ "$jh" = "0" ] && [ "$ji" = "0" ] && [ "$jj" -gt 0 ] && [ "$jk" = "1" ] \

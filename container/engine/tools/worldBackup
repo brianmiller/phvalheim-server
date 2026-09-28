@@ -21,17 +21,24 @@ LOCK_FILE="/tmp/worldBackup.lock"
 # server. 75 is EX_TEMPFAIL -- try again later -- which is what a skip actually means.
 #
 # Callers that do not care (the cron sweep) ignore the status as before.
-if [ -f "$LOCK_FILE" ]; then
-	lockPid=$(cat "$LOCK_FILE")
-	if kill -0 "$lockPid" 2>/dev/null; then
-		echo "`date` [WARN : phvalheim] Backup already running (PID $lockPid), skipping."
-		exit 75
-	else
-		rm -f "$LOCK_FILE"
-	fi
+# flock on a READ-ONLY descriptor, not a pidfile. (2.52)
+#
+# `echo $$ > "$LOCK_FILE"` needs write permission on a file in sticky /tmp, so the first uid
+# to run owned it and any other uid was locked out for good -- exactly how the mod-catalogue
+# sync broke in 2.47-2.51. Cron is the only caller today, so this is defensive; the stronger
+# reason is that the pidfile scheme could not tell a dead holder from an unreadable one. A
+# recycled pid reads as "still running" and skips forever, and `kill -0` across uids returns
+# EPERM, which read the same way. The kernel drops an flock when the holder dies, so there
+# is no staleness to reason about and no rm-on-exit to get wrong.
+[ -e "$LOCK_FILE" ] || (umask 0022; : > "$LOCK_FILE") 2>/dev/null
+exec 9<"$LOCK_FILE"
+if ! flock -n 9; then
+	echo "`date` [WARN : phvalheim] Backup already running, skipping."
+	exit 75
 fi
-echo $$ > "$LOCK_FILE"
-trap "rm -f $LOCK_FILE" EXIT
+# Deliberately NO `trap rm -f $LOCK_FILE EXIT`: unlinking the file another process may be
+# about to open means the next run creates a fresh inode and two backups hold "the" lock.
+# The lock releases when this process exits, which is the whole point of using flock.
 
 # update status
 SQL "UPDATE systemstats SET worldBackupLastExecStatus='running';"
@@ -239,11 +246,11 @@ function backupWorld() {
 		if [ "$compression" = "gzip" ]; then
 			compOutPath="${backupFilePath}.gz"
 			[ "$compLevel" -gt 0 ] 2>/dev/null && compLevelArg="-$compLevel"
-			$nicePrefix gzip $compLevelArg "$backupFilePath" &
+			$nicePrefix gzip $compLevelArg "$backupFilePath" 9>&- &
 		elif [ "$compression" = "zstd" ]; then
 			compOutPath="${backupFilePath}.zst"
 			[ "$compLevel" -gt 0 ] 2>/dev/null && compLevelArg="-$compLevel"
-			$nicePrefix zstd --rm -q $compLevelArg "$backupFilePath" &
+			$nicePrefix zstd --rm -q $compLevelArg "$backupFilePath" 9>&- &
 		fi
 		local compPid=$!
 

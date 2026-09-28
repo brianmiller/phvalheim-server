@@ -564,7 +564,18 @@ function syncModCatalogue() {
                 echo "`date` [NOTICE : phvalheim] Refreshing both mod catalogues in the background ($modCount mods known)."
         fi
         echo "`date` [NOTICE : phvalheim] Progress: /opt/stateful/logs/modSync.log"
-        setsid /opt/stateless/engine/tools/modSync.py --source all --trigger boot \
+        #Run as phvalheim, NOT root. The engine is the only caller that was ever root; cron
+        #and the admin UI's forced sync are both phvalheim. That split is what broke the
+        #catalogue in 2.47-2.51: root's boot sync created /tmp's lock files first, /tmp is
+        #sticky, and every later phvalheim run then failed to open them. The lock itself no
+        #longer needs write (modSync.py's open_lock()), so this is belt and braces -- but it
+        #also closes already_running()'s EPERM-from-os.kill path, where a recycled root pid
+        #reads to phvalheim as "a sync is alive" and the run is skipped.
+        #
+        #-s /bin/sh guards against the account's login shell changing. Not `su -`: HOME is
+        #/opt and is NOT writable by phvalheim, and a login shell resolves to the same place.
+        #modSync.py needs no HOME -- cron has run it as this user with this HOME all along.
+        setsid su phvalheim -s /bin/sh -c '/opt/stateless/engine/tools/modSync.py --source all --trigger boot' \
                 >> /opt/stateful/logs/modSync.log 2>&1 &
 }
 

@@ -1,5 +1,98 @@
 # Changelog
 
+## v2.52
+
+### The mod catalogue stopped refreshing after the first boot
+
+`modSync.py` is run by **two different uids**: root at container boot, via the engine's
+`syncModCatalogue()`; and `phvalheim` from `cron.d/modSync` hourly and from the admin UI's
+per-catalogue forced sync, which `exec()`s out of PHP-FPM. `take_global_lock()` opened its two
+lock files with `open(path, "w")`, and `"w"` needs write permission in order to truncate.
+
+The boot sync runs first and always, so `/tmp/phvalheim-modsync.run.lock` was created
+`root:root 0644`. `/tmp` is sticky, so `phvalheim` could neither truncate that file nor unlink
+it, and every later sync died with `PermissionError: [Errno 13]`. The forced link surfaced a
+traceback; **cron failed silently**, hourly, into `modSync.log`. The catalogue still refreshed
+at every container restart — which is why it looked almost current rather than broken.
+
+Introduced by `09b2aff3`, the fix for the 668-lost-dependency-edges incident, and live in
+**every published release from 2.47 to 2.51 inclusive**.
+
+`open_lock()` replaces both call sites. `flock(2)` honours `LOCK_EX` on a **read-only**
+descriptor, and a lock file's contents are never read, so write permission was never actually
+needed — truncation was the only thing asking for it. The already-affected servers self-heal on
+upgrade with no cleanup step: the root-owned `0644` file left behind is world-readable, so
+`phvalheim` locks it as-is.
+
+**`O_CREAT` is passed only when the file is genuinely absent, and that detail is load-bearing.**
+The first pass used `os.open(path, O_RDONLY | O_CREAT)` unconditionally and the new cross-user
+test went red in the *reverse* direction — root refused on a `phvalheim`-owned lock. That is
+Linux's sticky-directory hardening (`fs.protected_regular`, default-on since ~2019):
+`may_create_in_sticky()` rejects an `O_CREAT` open of an existing file in a world-writable
+sticky directory unless the file's owner matches the caller or the **directory's** owner, and
+`CAP_DAC_OVERRIDE` does not bypass it. `/tmp` is owned by root, which is exactly why the
+originally-reported direction happened to work and the reverse one did not — and 2.52 makes
+every lock `phvalheim`-owned. A plain `O_RDONLY` is not subject to the check at all.
+
+### One uid for all three triggers
+
+`0-functions.sh` now launches the boot sync as `setsid su phvalheim -s /bin/sh -c '…'`, so the
+engine stops being the odd one out. This also closes a second, independent cross-uid bug in the
+same file: `already_running()` reaps stale `mod_sync_runs` rows with `os.kill(pid, 0)` and maps
+`PermissionError` to `alive = True` — a correct conservative default that only became reachable
+because of the uid split. A row left `running` by a root boot sync whose pid had since been
+recycled returned `EPERM` to `phvalheim`, which read as "a sync is alive" and skipped the run.
+
+`HOME` is `/opt` and is **not** writable by `phvalheim`; `modSync.py` needs no `HOME`, and cron
+has run it as this user with this same `HOME` all along, so parity is proven rather than hoped
+for. Not `su -`: a login shell resolves to the same unwritable `/opt`. The sync stays
+backgrounded, keeps `--trigger boot` (the interval is enforced for `trigger=cron` only), and
+still never passes `--force`.
+
+### The same shape, swept out of four other tools
+
+This was a class, not an instance — every fixed-path `/tmp` state file written by a tool that
+can run as either uid.
+
+`pushAnalytics.sh` wrote `/tmp/phvalheim_analytics_payload.json` and
+`/tmp/phvalheim_analytics.tmp` at fixed paths, and runs as root from the engine and as
+`phvalheim` from cron and from the analytics toggle. Its `rm -f` cleaned both on the happy
+path, so it only wedged when a root run died before reaching it — a hung or killed `curl`.
+Both are now `mktemp`, on the `EXIT INT TERM` trap that already covered the other three
+scratch files.
+
+`updateApplier`'s `exec 9>`, and the `echo $$ >` pidfiles in `worldBackup` and `worldRestore`,
+all move to the same read-only `flock` idiom. Only `phvalheim` invokes these today, so the uid
+split is defensive here — but the pidfile scheme had its own failure modes that were not: a
+recycled pid reads as "still running" forever, and `kill -0` across uids returns `EPERM`, which
+read the same way. `worldBackup` loses its `trap rm -f … EXIT`, because unlinking a file
+another run is about to open yields two holders on two inodes, which is not a lock; and it now
+closes fd 9 in the backgrounded `gzip`/`zstd` so a compressor can never outlive the script
+holding it. `worldRestore`'s `jsonError()` no longer removes the lock file either — on the
+"another restore is already in progress" path it had been deleting the **running** restore's
+lock, leaving the next caller free to start a second concurrent restore.
+
+### Tests
+
+`dev_tools/test-modsync-lock.py` passed throughout all five broken releases and could not have
+failed: every case runs as one uid in one process, so a cross-uid permission difference is
+invisible to it. Its docstring now says so, and says where the cross-user cases belong.
+
+`dev_tools/test-modsync-lock-crossuser.sh` is the new oracle — docker-based, because the whole
+bug is two uids. Root-creates-then-`phvalheim`-takes (the reported direction),
+`phvalheim`-creates-then-root-takes (the direction that caught the `O_CREAT` mistake), an
+exclusion control proving the lock is still genuinely a lock, and boot-path uid parity. Both
+mutations were checked: reverting `open_lock()` turns cases 1 and 2 red, reverting the `su`
+turns case 4 red.
+
+Marker `fo`, from 2.43, was anchored on the literal string
+`setsid /opt/stateless/engine/tools/modSync.py`. Inserting the `su` split that string in half,
+so the grep matched nothing, the pipe counted nothing, and `fo` read `0` — its own want value.
+It would have gone on passing while asserting nothing at all about `--force`. Re-anchored on
+the launch itself.
+
+No DB migration, no schema change.
+
 ## v2.51
 
 ### A Flatpak download for the client
