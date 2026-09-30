@@ -118,6 +118,12 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # Count the DEFINITION, not every mention: getVanillaJoinInfo() now calls this too, so a bare
   # string count went to 2 and failed the verify on an image that was perfectly correct.
   q=$(grep -c "function getWorldJoinCode" /opt/stateless/nginx/www/includes/db_gets.php)
+  # 2.53 moved both of these UP by one, and the numbers are NOT relaxed to >= for it: crossplay
+  # became available on modded worlds, so the public card grew a second join-code cell (with its
+  # own copy link) and api.php grew a second connection block carrying a joinCode. The vanilla
+  # occurrence each of these was written for is still in there; it is now one of two. The 2.53
+  # block pins the modded half separately (yy, yac), so if either total drifts again it is a
+  # real change and not this one.
   r=$(grep -c "copyVanillaJoinCode" /opt/stateless/nginx/www/public/authenticated.php)
   s=$(grep -c "joinCode" /opt/stateless/nginx/www/public/api.php)
   t=$(grep -c "clearUnreportedWorlds" /opt/stateless/nginx/www/admin/index.php)
@@ -126,7 +132,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # the comments explaining all this mention "-joincode" nine times.
   u=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/public/authenticated.php)
   v=$(grep -cF "steam://run/892970//-joincode" /opt/stateless/nginx/www/public/api.php)
-  echo "getWorldJoinCode=$q (want 1)  copyVanillaJoinCode=$r (want 3)  api joinCode=$s (want 1)"
+  echo "getWorldJoinCode=$q (want 1)  copyVanillaJoinCode=$r (want 4, was 3 before 2.53)  api joinCode=$s (want 2, was 1 before 2.53)"
   echo "clearUnreportedWorlds=$t (want 2)"
   # The join path must follow the RUNNING backend, not the crossplay column.
   w=$(grep -c "function getWorldNetBackend" /opt/stateless/nginx/www/includes/db_gets.php)
@@ -208,9 +214,15 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   az=$(grep -c "canonicalFirstId" /opt/stateless/nginx/www/admin/adminAPI.php)
   echo "canonical stored=$au (want 1)  player-page V_ id=$av (want 3)  id does not wrap=$aw (want 1)"
   echo "create example is V_=$ax (want 1)  stale digits-only regex=$ay (want 0)  create canonicalises=$az (want 3)"
-  # Crossplay is vanilla-only again. The launch gate is the one that matters -- the UI gates
-  # are cosmetic without it -- so match something only the GATED version contains, rather than
-  # the word crossplay, which appears either way.
+  # Crossplay was vanilla-only here. 2.53 REVERSED that, so ba and bd have flipped from
+  # want-1 to want-0: they now assert the two gates are GONE rather than present. Kept in place
+  # rather than deleted, because a marker that changes direction is the clearest record there
+  # is that the behaviour changed deliberately -- and the 2.53 block asserts the same two
+  # things from the other side (ya, yh), so neither gate can come back unnoticed.
+  #
+  # bb and bc are UNCHANGED at 2, which is not luck worth relying on: the ids still appear
+  # twice each, but they no longer appear in a display gate. What the ids are actually used
+  # for is pinned by the 2.53 UI negatives (yp, yq, yr), not here.
   #
   # NO APOSTROPHES anywhere in this section, including in comments: the whole block is inside
   # sh -c and a single quote closes it early, silently skipping every later check. That trap is
@@ -219,7 +231,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   bb=$(grep -c "crossplayRow" /opt/stateless/nginx/www/admin/index.php)
   bc=$(grep -c "crossplayOption" /opt/stateless/nginx/www/admin/new_world.php)
   bd=$(grep -c "isVanilla && !empty(.vanillaOptions..crossplay..)" /opt/stateless/nginx/www/admin/adminAPI.php)
-  echo "crossplay vanilla-only: launch gate=$ba (want 1)  settings row=$bb (want 2)  create option=$bc (want 2)  createWorld gate=$bd (want 1)"
+  echo "crossplay NOW ANY WORLD: launch gate gone=$ba (want 0, was 1 before 2.53)  settings row=$bb (want 2)  create option=$bc (want 2)  createWorld gate gone=$bd (want 0, was 1 before 2.53)"
   # World cards online-first, and the player id on its own line. The stale ORDER BY is a
   # NEGATIVE: the PHP sort would mask its return, so nothing would visibly break.
   be=$(grep -c "function sortWorldsOnlineFirst" /opt/stateless/nginx/www/includes/db_gets.php)
@@ -232,14 +244,17 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # are pinned in CSS instead, so they stop claiming a share of the slack. 3 = header + 2 cards.
   bi=$(grep -c "table width=100% height=100%" /opt/stateless/nginx/www/public/authenticated.php)
   bj=$(grep -c "catbox th.card_worldLaunch" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # bk and bl both went UP by one in 2.53, not relaxed: the MODDED card gained a hint row and
+  # its spacer, because a modded crossplay world has a two-step join that has to be explained
+  # on the card. The vanilla hint and its two slack rows are all still there.
   bk=$(grep -c "vanilla-hint. colspan=2" /opt/stateless/nginx/www/public/authenticated.php)
-  echo "card layout: full-height tables=$bi (want 3)  header rows pinned=$bj (want 1)  hint in table=$bk (want 1)"
+  echo "card layout: full-height tables=$bi (want 3)  header rows pinned=$bj (want 1)  hint in table=$bk (want 2, was 1 before 2.53)"
   # Row spacing, session-scoped backend detection, and the dropped Server row.
   bl=$(grep -c "card-slack" /opt/stateless/nginx/www/public/authenticated.php)
   bm=$(grep -c "function phvCurrentSessionTail" /opt/stateless/nginx/www/includes/db_gets.php)
   bn=$(grep -c "function worldIsPlayFab" /opt/stateless/nginx/www/includes/db_gets.php)
   bo=$(grep -c "serverRow" /opt/stateless/nginx/www/public/authenticated.php)
-  echo "row slack rows=$bl (want 2)  session tail=$bm (want 1)  worldIsPlayFab=$bn (want 1)  serverRow=$bo (want 2)"
+  echo "row slack rows=$bl (want 3, was 2 before 2.53)  session tail=$bm (want 1)  worldIsPlayFab=$bn (want 1)  serverRow=$bo (want 2)"
   # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
   # tolerated -- treating it as failure would mark every modded world broken.
   am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
@@ -252,11 +267,17 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # must be GONE from both -- checking only that the helper is called would pass on an image
   # where one path still built its own href.
   ap=$(grep -c "function getVanillaJoinInfo" /opt/stateless/nginx/www/includes/db_gets.php)
-  aq=$(grep -c "getVanillaJoinInfo(" /opt/stateless/nginx/www/admin/index.php)
+  # RE-ANCHORED in 2.53, and the old form was a false pass rather than a false fail. A bare
+  # "getVanillaJoinInfo(" count over index.php was 3: one real call and TWO comment mentions.
+  # It was therefore mostly measuring its own prose -- rewording a comment in 2.53 dropped it
+  # to 2 and failed the verify on an image whose call site was untouched and correct. Anchored
+  # on the leading ternary now, which only the real call has. 1 before 2.53 and 1 after, so the
+  # re-anchoring is not hiding a change.
+  aq=$(grep -cE "^[[:space:]]*\? getVanillaJoinInfo\(" /opt/stateless/nginx/www/admin/index.php)
   ar=$(grep -c "getVanillaJoinInfo(" /opt/stateless/nginx/www/admin/adminAPI.php)
   as=$(grep -c "function launchButtonHtml" /opt/stateless/nginx/www/admin/index.php)
   at=$(grep -hcE "^[[:space:]]*\? .steam://run/892970//\+connect ." /opt/stateless/nginx/www/admin/index.php /opt/stateless/nginx/www/admin/adminAPI.php | paste -sd+ | bc)
-  echo "shared join helper=$ap (want 1)  admin render=$aq (want 3)  admin poll=$ar (want 2)"
+  echo "shared join helper=$ap (want 1)  admin render=$aq (want 1, re-anchored in 2.53)  admin poll=$ar (want 2)"
   echo "js null-href guard=$as (want 1)  stale unconditional +connect=$at (want 0)"
 
   # ---- 2.41 ----------------------------------------------------------------------------
@@ -752,14 +773,22 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # The crossplay log line must LEAD with the outcome. It previously opened "has crossplay
   # set but is MODDED", which is what a reader scanning a modded world log took away --
   # reported as "the world log says crossplay is enabled".
-  kw=$(grep -c "crossplay is OFF" /opt/stateless/games/valheim/scripts/startWorld.sh)
+  #
+  # RE-POINTED in 2.53. This counted "crossplay is OFF", the modded branch that said the flag
+  # had been refused -- and 2.53 deletes that branch, because a modded world now gets
+  # -crossplay. The PRINCIPLE is what this marker is for, and it survives: both remaining
+  # messages still lead with the effective setting rather than the stored one. So count those
+  # instead, 2 of them, one per branch. Re-pointing rather than deleting, because the reported
+  # bug this came from was about wording and the wording is still a thing that can regress.
+  # ky below is untouched and still reads 1: whatsnew entries are historical and 2.46 keeps its.
+  kw=$(grep -c "crossplay is ON" /opt/stateless/games/valheim/scripts/startWorld.sh)
   # ...and the operator has to be TOLD, or the fix is invisible to the person who reported it.
   ky=$(grep -c "crossplay is OFF" /opt/stateless/nginx/www/includes/whatsnew.php)
   # Anchored on echo, NOT the bare phrase: the comment above the fix QUOTES the old wording
   # to explain why it changed, so a bare count is 1 on correct source. This script has been
   # tripped by markers counting their own prose before.
   kx=$(grep -c "echo.*has crossplay set" /opt/stateless/games/valheim/scripts/startWorld.sh)
-  echo "crossplay line: leads-with-outcome=$kw (want 1)  old-misleading-wording=$kx (want 0)  whatsnew=$ky (want 1)"
+  echo "crossplay line: leads-with-outcome=$kw (want 2, re-pointed in 2.53)  old-misleading-wording=$kx (want 0)  whatsnew=$ky (want 1)"
 
   # ---- 2.45: what Hugin is told about passwords ----------------------------------
   # STILL no apostrophes below, comments included -- one ends the sh -c block early and
@@ -1456,18 +1485,18 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
     && [ "$m" = "2" ] && [ "$n" = "4" ] && [ "$o" = "3" ] && [ "$p" = "0" ] \
-    && [ "$q" = "1" ] && [ "$r" = "3" ] && [ "$s" = "1" ] && [ "$t" = "2" ] \
+    && [ "$q" = "1" ] && [ "$r" = "4" ] && [ "$s" = "2" ] && [ "$t" = "2" ] \
     && [ "$u" = "0" ] && [ "$v" = "0" ] && [ "$w" = "1" ] && [ "$x" = "1" ] \
     && [ "$y" = "1" ] && [ "$z" = "1" ] \
     && [ "$aa" = "0" ] && [ "$ab" = "0" ] && [ "$ac" = "1" ] && [ "$ad" = "2" ] && [ "$ae" = "0" ] \
     && [ "$af" = "1" ] && [ "$ag" = "10" ] && [ "$ah" = "5" ] && [ "$ai" = "4" ] \
     && [ "$aj" = "1" ] && [ "$ak" = "3" ] && [ "$al" = "2" ] \
     && [ "$am" = "1" ] && [ "$an" = "1" ] && [ "$ao" = "1" ] \
-    && [ "$ap" = "1" ] && [ "$aq" = "3" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
+    && [ "$ap" = "1" ] && [ "$aq" = "1" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
     && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
-    && [ "$ba" = "1" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "1" ] \
-    && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "1" ] \
-    && [ "$bl" = "2" ] && [ "$bm" = "1" ] && [ "$bn" = "1" ] && [ "$bo" = "2" ] \
+    && [ "$ba" = "0" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "0" ] \
+    && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "2" ] \
+    && [ "$bl" = "3" ] && [ "$bm" = "1" ] && [ "$bn" = "1" ] && [ "$bo" = "2" ] \
     && [ "$ver" = "1" ] \
     && [ "$bp" = "1" ] && [ "$bq" = "1" ] && [ "$br" = "1" ] && [ "$bs" = "1" ] && [ "$bt" = "1" ] \
     && [ "$bu" = "7" ] && [ "$bv" = "1" ] && [ "$bw" = "1" ] \
@@ -1528,7 +1557,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$km" -gt 0 ] && [ "$kn" -gt 0 ] && [ "$ko" -gt 0 ] && [ "$kp" -gt 0 ] \
     && [ "$kq" -gt 0 ] && [ "$kr" -gt 0 ] && [ "$ks" -gt 0 ] && [ "$kt" -gt 0 ] \
     && [ "$ku" -gt 0 ] && [ "$kv" -gt 0 ] \
-    && [ "$kw" = "1" ] && [ "$kx" = "0" ] && [ "$ky" = "1" ] \
+    && [ "$kw" = "2" ] && [ "$kx" = "0" ] && [ "$ky" = "1" ] \
     && [ "$la" = "0" ] && [ "$lb" = "1" ] && [ "$lc" = "3" ] \
     && [ "$ld" = "3" ] && [ "$le" = "2" ] && [ "$lf" = "1" ] \
     && [ "$ma" = "1" ] && [ "$mb" = "1" ] && [ "$mc" = "0" ] \
@@ -1573,6 +1602,20 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$wg" = "0" ] && [ "$wh" = "5" ] && [ "$wi" = "5" ] && [ "$wj" = "1" ] \
     && [ "$wk" = "4" ] && [ "$wl" = "1" ] && [ "$wm" = "4" ] && [ "$wn" = "4" ] \
     && [ "$wo" = "2" ] && [ "$wp" = "2" ] && [ "$wq" = "1" ] && [ "$wr" = "1" ] \
+    && [ "$xa" = "0" ] && [ "$xb" = "0" ] && [ "$xi" = "0" ] \
+    && [ "$xc" = "1" ] && [ "$xd" = "1" ] && [ "$xe" = "1" ] && [ "$xf" = "1" ] && [ "$xg" = "2" ] \
+    && [ "$xh" = "1" ] && [ "$xj" = "0" ] && [ "$xk" = "0" ] && [ "$xl" = "1" ] \
+    && [ "$xm" = "0" ] && [ "$xn" = "0" ] && [ "$xo" = "0" ] && [ "$xp" = "3" ] && [ "$xq" = "0" ] \
+    && [ "$xr" = "1" ] && [ "$xs" = "1" ] \
+    && [ "$ya" = "0" ] && [ "$yb" = "0" ] && [ "$yg" = "0" ] && [ "$yh" = "0" ] \
+    && [ "$yc" = "1" ] && [ "$yd" = "1" ] && [ "$ye" = "0" ] && [ "$yf" = "1" ] \
+    && [ "$yi" = "1" ] && [ "$yj" = "1" ] && [ "$yk" = "1" ] && [ "$yl" = "1" ] \
+    && [ "$ym" = "0" ] && [ "$yn" = "0" ] && [ "$yo" = "1" ] \
+    && [ "$yp" = "0" ] && [ "$yq" = "0" ] && [ "$yr" = "0" ] \
+    && [ "$ys2" = "2" ] && [ "$yt" = "2" ] && [ "$yu" = "4" ] && [ "$yv" = "3" ] \
+    && [ "$yw" = "1" ] && [ "$yx" = "1" ] \
+    && [ "$yy" = "3" ] && [ "$yz" = "1" ] && [ "$yaa" = "1" ] && [ "$yab" = "0" ] \
+    && [ "$yac" = "1" ] && [ "$yad" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
 '
 
