@@ -505,6 +505,57 @@ function getVanillaJoinInfo($pdo, $world, $gameDNS, $port, $isOnline) {
         ];
 }
 
+# How a MODDED world is joined. The counterpart to getVanillaJoinInfo(), kept separate rather
+# than folded into it because the two answer differently in the crossplay case and that
+# function is pinned by the assertions in test-vanilla-joincode.php.
+#
+# Crossplay on a modded world is allowed as of 2.53, and the launch link SURVIVES it -- which
+# is the opposite of the vanilla case, for two reasons:
+#
+#  1. The client is not what connects a modded world. Its job is to sync the mod payload and
+#     start Valheim with BepInEx injected, and the modded launch path in Launcher.cs passes no
+#     connect argument on any platform -- connection has always been a separate in-game step,
+#     historically through the QuickConnect mod's server list. So the link still does its real
+#     work on a crossplay world; only the last step changes.
+#  2. There is no launch argument that could do better anyway. -joincode resolves the code and
+#     calls JoinServer() without SelectCharacter(), landing the player as "Odev (Developer)"
+#     with a character they never made -- see the note in getVanillaJoinInfo above.
+#
+# So: always hand back the phvalheim:// link, and when the world is on PlayFab also hand back
+# the join code so the UI can tell the player to finish in Valheim's "Join by code" box.
+# QuickConnect's entry for a crossplay world points at a host:port that cannot answer; it is
+# inert rather than harmful, and the UI says not to use it.
+#
+# Returns ['href' => string|NULL, 'playfab' => bool, 'joinCode' => string|NULL].
+#
+# href is NEVER NULL, which is deliberate and is not what the vanilla function does. A modded
+# world has always been handed its phvalheim:// link regardless of whether it is up -- the
+# client is a mod installer as much as a launcher, and running it against a stopped world is a
+# legitimate thing to do. Gating the href on $isOnline here would have quietly removed a link
+# that has worked since before crossplay existed, for every modded world, in the name of a
+# crossplay change.
+#
+# $isOnline gates only the PlayFab question, for the same reason it does in getVanillaJoinInfo:
+# the backend and the join code are read from the world's CURRENT session log. A stopped world
+# has no current session, so asking would answer from the saved column and a stale log -- i.e.
+# it would hand out a dead join code with nothing marking it dead.
+function getModdedJoinInfo($pdo, $world, $launchString, $isOnline) {
+        $href = 'phvalheim://?' . $launchString;
+
+        if (!$isOnline || !worldIsPlayFab($pdo, $world, $isOnline)) {
+                return ['href' => $href, 'playfab' => false, 'joinCode' => NULL];
+        }
+
+        # NULL is a real state here: the world is up but its lobby has not registered a code
+        # yet, which takes about 30 seconds. The UI shows the link with a "waiting for the
+        # join code" note rather than printing an empty code as if it were one.
+        return [
+                'href'     => $href,
+                'playfab'  => true,
+                'joinCode' => getWorldJoinCode($world),
+        ];
+}
+
 # NOTE: `listed` is the Steam server-browser flag (Valheim's -public argument).
 # It is NOT the same as `public` -- see getPublic() below, which is the CITIZENS
 # access-control flag. Conflating them would list every open world publicly.

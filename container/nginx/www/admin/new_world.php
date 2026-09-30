@@ -277,20 +277,39 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				</div>
 				<div class="row g-3 mt-1">
 					<!--
-						VANILLA ONLY for now, so this is hidden until "Vanilla world" is ticked.
-						Crossplay makes Valheim open a PlayFab server, which has no host:port -- and
-						the PhValheim client reaches a modded world through QuickConnect, whose config
-						is host:port. A modded crossplay world is therefore unreachable by the client.
-						Revisit when the client can launch with -joincode.
+						Available on ANY world as of 2.53, so this is always visible. It was
+						vanilla-only because a crossplay world is a PlayFab server with no
+						host:port and QuickConnect's config file is host:port -- but connecting
+						was never the client's job on a modded world. See getModdedJoinInfo().
 					-->
-					<div class="col-12" id="crossplayOption" style="display:none;">
+					<div class="col-12" id="crossplayOption">
 						<div class="form-check">
-							<input class="form-check-input" type="checkbox" id="worldCrossplay">
+							<input class="form-check-input" type="checkbox" id="worldCrossplay" onchange="syncCrossplayWarning()">
 							<label class="form-check-label alt-color" for="worldCrossplay"><strong>Enable crossplay</strong></label>
 							<div class="form-text text-secondary">
-								Allow Xbox, PlayStation and Nintendo players to join. <strong>Vanilla worlds
-								only</strong> for now &mdash; the PhValheim client cannot yet connect to a
-								modded crossplay world.
+								Allow Xbox, PlayStation and Nintendo players to join. This changes how
+								<em>everyone</em> connects: Valheim opens a PlayFab server instead of a Steam
+								one, so direct IP connections through your firewall stop working entirely and
+								every player joins using the world's <strong>crossplay join code</strong>
+								instead. The code appears next to Launch once the world is running.
+							</div>
+							<!--
+								Shown only when this world is MODDED and crossplay is ticked. Separate
+								from the description above because it is a different kind of fact: that
+								one is how everyone connects, this one is a limitation that lands on
+								console players the operator cannot see, and it is the one that can make
+								a world unplayable.
+							-->
+							<div class="alert alert-warning py-2 px-3 mt-2 mb-0" id="crossplayModdedWarning" style="display:none; font-size:0.8rem; line-height:1.5;">
+								<strong>Mods will not load for console players.</strong>
+								Only Steam players can run BepInEx. Xbox, PlayStation and Nintendo Switch
+								players <em>can join</em> this world, but they will be playing unmodded
+								against a modded server. Whether that works depends entirely on which mods
+								you pick: server-side mods are fine, but anything adding items, creatures or
+								recipes, or changing the network protocol, can make the game unplayable for
+								them or crash them on join. <strong>Use mods sparingly in this
+								configuration.</strong> Server-side networking mods, often run to improve
+								playability for a busy server on high-latency connections, are a good fit.
 							</div>
 						</div>
 					</div>
@@ -1162,14 +1181,24 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				return msg;
 			}
 
+			// The console-players-cannot-load-mods warning, shown only when the world being
+			// created is MODDED and crossplay is ticked. Driven from both switches, because
+			// either can be flipped at any point before Create -- a warning fixed at page load
+			// would be wrong exactly while the operator is making the change it warns about.
+			function syncCrossplayWarning() {
+				var isModded = !$('#vanillaWorld').is(':checked');
+				var isCrossplay = $('#worldCrossplay').is(':checked');
+				$('#crossplayModdedWarning').toggle(isModded && isCrossplay);
+			}
+
 			function toggleVanillaWorld(checked) {
 				$('#vanillaOptions').toggle(checked);
 
-				// Crossplay is vanilla-only for now. UNTICK it on the way out rather than just
-				// hiding it: a hidden-but-ticked box would keep sending crossplay:1 from a form
-				// that no longer shows the option, which is how invisible state ships.
-				$('#crossplayOption').toggle(checked);
-				if (!checked) $('#worldCrossplay').prop('checked', false);
+				// Crossplay applies to any world as of 2.53, so #crossplayOption is always
+				// visible and is deliberately no longer hidden or unticked here -- the box
+				// keeps whatever the operator set, because it stays meaningful either way.
+				// Its modded-only warning does depend on this switch, so re-evaluate it.
+				syncCrossplayWarning();
 				// Hide the WHOLE mod card, not just the tables inside it. Hiding only
 				// #modSelectionArea left the "Select Mods (Optional)" header and the
 				// clone-from-another-world control on screen for a world that can hold
@@ -1550,9 +1579,10 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					modSources: isVanilla ? [] : getModSources(),
 					vanilla: isVanilla ? 1 : 0,
 					password: isVanilla ? $('#vanillaPassword').val().trim() : '',
-					// Crossplay applies to any world, so it is NOT gated on isVanilla.
-					// Vanilla-only for now; the server enforces this too.
-					crossplay: (isVanilla && $('#worldCrossplay').is(':checked')) ? 1 : 0,
+					// Crossplay applies to any world, modded or not, and is genuinely not
+					// gated on isVanilla as of 2.53 -- the comment here used to say that and
+					// then gate it on the next line anyway.
+					crossplay: $('#worldCrossplay').is(':checked') ? 1 : 0,
 					listed: (isVanilla && $('#vanillaListed').is(':checked')) ? 1 : 0,
 					// Sent as the CITIZENS access flag (worlds.public), NOT Valheim's -public
 					// server browser argument -- that is `listed` above. Same names, opposite

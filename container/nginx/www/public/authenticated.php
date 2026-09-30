@@ -483,8 +483,65 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				# Modded worlds are gated by the same CITIZENS list as vanilla ones, so they say
 				# so on the card too. Leaving it off the modded card meant the one kind of world
 				# that is ALWAYS access-controlled was the one that never mentioned it.
-				$moddedBadges = accessBadges($pdo, $myWorld,
-					$worldDimmed ? "vanilla-badge-dimmed" : "");
+				$moddedBadgeDim = $worldDimmed ? "vanilla-badge-dimmed" : "";
+				$moddedBadges = accessBadges($pdo, $myWorld, $moddedBadgeDim);
+
+				# Crossplay on a MODDED world, allowed as of 2.53.
+				#
+				# Read exactly the way the vanilla card reads it, and for the same reason: the
+				# RUNNING options for a live world, the saved ones for a stopped one. Reading the
+				# `crossplay` column for a live world would light this pill the instant the option
+				# was saved, while the world went on serving Steam until someone restarted it --
+				# a card promising a crossplay world that does not exist yet.
+				$moddedOpts = effectiveWorldOptions($pdo, $myWorld, $isOnline);
+				$moddedIsPlayFab = $isOnline
+					? worldIsPlayFab($pdo, $myWorld, $isOnline)
+					: ((int)$moddedOpts['crossplay'] === 1);
+				$moddedJoinCode = $moddedIsPlayFab ? getWorldJoinCode($myWorld) : NULL;
+
+				if ($moddedIsPlayFab) {
+					$moddedBadges = trim($moddedBadges . " " . accessBadge('crossplay', $moddedBadgeDim,
+						'Hosted on PlayFab so Xbox, PlayStation and Nintendo players can join. '
+						. 'Join with the code on this card -- a crossplay world cannot be joined by IP. '
+						. 'Console players cannot load mods, so they play unmodded here.'));
+				}
+
+				# Join code row, only for crossplay. Labels on this card are padded with &nbsp;
+				# to a common monospace width -- the label column shrinks to its widest entry, so
+				# a short label leaves its value hanging right of the rest of the column.
+				$moddedJoinCodeRow = "";
+				if ($moddedIsPlayFab) {
+					$moddedCodeCell = $moddedJoinCode !== NULL
+						? "<span class='vanilla-joincode' data-joincode=\"" . htmlspecialchars($moddedJoinCode) . "\">"
+							. "<code>" . htmlspecialchars($moddedJoinCode) . "</code>"
+							. "<a href='#' class='vanilla-password-action' onclick='copyVanillaJoinCode(this); return false;'>copy</a></span>"
+						# A world that is up but has not registered its lobby yet, which takes
+						# about 30s. Say so -- an empty cell reads as a broken card, and a blank
+						# where a code goes reads as "there is no code", which is a wrong answer
+						# rather than a pending one.
+						: ($isOnline ? "<em>starting&hellip;</em>" : "&mdash;");
+					# .world-joincode is the hook the 5s poll queries to refresh this cell.
+					# Without it the code is correct on load and then stale forever, which is
+					# the same failure as showing a dead code -- just slower to notice.
+					$moddedJoinCodeRow = "
+                                                        <td class='$worldDimmed card_worldInfo'>Join&nbsp;code&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-joincode'>$moddedCodeCell</td>
+                                                        <tr>";
+				}
+
+				# The two-step join, spelled out, because it is not guessable and it is not what
+				# this card has ever asked for before. Launch! still does real work on a crossplay
+				# world -- it installs the mods and starts Valheim with BepInEx -- it just cannot
+				# also connect, so the player finishes in Join by code. Only shown for crossplay;
+				# a normal modded world is still one click and needs no explanation.
+				$moddedHintRow = "";
+				if ($moddedIsPlayFab) {
+					$moddedHintRow = "
+                                                        <td colspan=2 class='card-slack'></td>
+                                                        <tr>
+                                                        <td class='$worldDimmed vanilla-hint' colspan=2>Crossplay world &mdash; click <strong>Launch!</strong> to install the mods and start Valheim, then join with the code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP.</td>
+                                                        <tr>";
+				}
 				echo "
                                         <div class=\"$worldDimmed catbox\" data-world=\"$myWorld\">
                                                 <table width=100% height=100% border=0>
@@ -506,6 +563,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>Access&nbsp;&nbsp;&nbsp;&nbsp;:</td>
                                                         <td class='$worldDimmed card_worldInfo'>$moddedBadges</td>
                                                         <tr>
+                                                        $moddedJoinCodeRow
                                                         <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
 							<td class='$worldDimmed card_worldInfo world-seed'>$seed</td>
                                                         <tr>
@@ -520,6 +578,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>
                                                         <td colspan=2 class='card-slack'></td>
                                                         <tr>
+                                                        $moddedHintRow
                                                 </table>
 						<table border=0 class='trophy-table'>
 							$trophyRow
@@ -801,7 +860,24 @@ if (phvDevSteamID() !== NULL) {
                         // The RUNNING backend, not the crossplay setting -- see api.php. A world
                         // whose flag was toggled but which has not restarted is still serving
                         // the old way, and the card has to match reality, not intent.
-                        const isCrossplay = !!(world.vanilla && world.connection && world.connection.playfab);
+                        //
+                        // TWO flags as of 2.53, because a modded world can be crossplay now and
+                        // the two facts drive different things:
+                        //
+                        //   isPlayFab       - the world is reached by join code. True for modded
+                        //                     and vanilla alike, and what the Join code cell
+                        //                     follows. This was gated on `vanilla` when only a
+                        //                     vanilla world could be crossplay; leaving it that
+                        //                     way would have left a modded world's code frozen
+                        //                     at whatever it was on page load.
+                        //   isVanillaLaunchBlocked - Launch! cannot launch at all, so it opens
+                        //                     the how-to-join modal. VANILLA crossplay only. A
+                        //                     modded crossplay world keeps a real launch link,
+                        //                     because the client still has to install the mods
+                        //                     even though it cannot connect.
+                        const isPlayFab = !!(world.connection && world.connection.playfab);
+                        const isVanillaLaunchBlocked = !!(world.vanilla && isPlayFab);
+                        const isCrossplay = isVanillaLaunchBlocked;
                         if (launchLink) {
                             if (isOnline) {
                                 // A CROSSPLAY world has no launchable URL at all -- it is
@@ -857,8 +933,10 @@ if (phvDevSteamID() !== NULL) {
                         // Update the join code. It is issued per session, so a world that
                         // restarts gets a new one -- the poll is what keeps a card that was
                         // open across a restart from advertising the old, dead code.
+                        // isPlayFab, not isCrossplay: a MODDED crossplay world has this cell too,
+                        // and its code is reissued on restart exactly the same way.
                         const joinCodeEl = card.querySelector('.world-joincode');
-                        if (joinCodeEl && isCrossplay) {
+                        if (joinCodeEl && isPlayFab) {
                             const code = world.connection.joinCode;
                             if (code) {
                                 joinCodeEl.innerHTML =

@@ -136,6 +136,59 @@ const check = (name, ok, detail = '') => {
     `got "${(await page.textContent('#crossplayJoinCode')).trim()}" -- a stale code cannot join`);
   await closeModals();
 
+  // --- A MODDED crossplay world is the OPPOSITE case (2.53) ---
+  //
+  // Crossplay stopped being vanilla-only in 2.53, and a modded crossplay world must KEEP a
+  // real phvalheim:// link where a vanilla one has none. The client is a mod installer as much
+  // as a launcher: it has to sync the payload and inject BepInEx even though it cannot do the
+  // connecting, and the player finishes in Valheim's "Join by code" box.
+  //
+  // This is here rather than in its own file because the failure mode is shared with
+  // everything above: the 5-second poll rewriting a correct server-rendered link. The vanilla
+  // branch of that poll was gated on `world.vanilla`, so the obvious way to let a modded world
+  // through is to widen the gate -- which would hand a modded crossplay world the vanilla
+  // treatment and kill its only route to installing mods.
+  console.log('\nA MODDED crossplay world keeps a launchable link (2.53)');
+
+  const driveModded = async (joinCode) => page.evaluate(([name, joinCode]) => {
+    updateWorldCards([{
+      name, vanilla: false, online: true, launchString: 'bW9kZGVk',
+      connection: { playfab: true, joinCode, steamUrl: null }
+    }]);
+  }, [worldName, joinCode]);
+
+  await driveModded('777888');
+  const mLink = await page.$('.launch-link');
+  check('poll renders Launch! for a modded crossplay world',
+    (await mLink.innerText()).trim() === 'Launch!', `got "${(await mLink.innerText()).trim()}"`);
+  // The assertion that separates this from the vanilla case. A '#' here means the mods never
+  // install and the world is unplayable for everyone, not just consoles.
+  check('and it IS launchable, via phvalheim://',
+    (await mLink.getAttribute('href') || '').startsWith('phvalheim://'),
+    `href=${await mLink.getAttribute('href')}`);
+  check('and clicking it does NOT open the join modal',
+    !(await page.evaluate(() => !!document.querySelector('.launch-link').onclick)),
+    'the vanilla modal handler is still attached, so the click would be swallowed');
+
+  // The code still has to be on the card -- it is the only way in. Same .world-joincode hook
+  // the vanilla card uses, so the poll keeps it fresh across a restart.
+  const mCodeCell = await page.$('.world-joincode');
+  if (mCodeCell) {
+    check('the join code cell shows the modded world\'s code',
+      /777888/.test(await mCodeCell.innerText()),
+      `got "${(await mCodeCell.innerText()).trim()}"`);
+    await driveModded('999000');
+    check('and the poll refreshes it after a restart',
+      /999000/.test(await (await page.$('.world-joincode')).innerText()),
+      'a stale code cannot join');
+  } else {
+    // Not a silent skip: the cell is server-rendered only for a world that is ACTUALLY
+    // crossplay, so a vanilla/non-crossplay fixture world legitimately has no cell to drive.
+    // Say which case ran, or a green suite reads as coverage it does not have.
+    console.log('  SKIP  join code cell not present -- fixture world is not crossplay '
+      + '(set crossplay=1 on it to cover the modded code cell)');
+  }
+
   // The modal must be REACHABLE and DISMISSABLE. This is the gap that let a broken modal ship:
   // every earlier close went through closeModals(), which calls bootstrap hide() directly, so
   // the suite never touched the Close button and never noticed the backdrop was painting over

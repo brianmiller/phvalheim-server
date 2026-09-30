@@ -127,10 +127,13 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
         // crossplay opens a PlayFab server that cannot be joined by IP at all, so the button
         // failed silently. getVanillaJoinInfo() follows the RUNNING backend and is shared with
         // the public card, so the two can no longer disagree.
+        // A MODDED world keeps its phvalheim:// link even with crossplay on (2.53) -- the
+        // client still has to install the mods, and the connect step was never its job.
+        // getModdedJoinInfo() adds the join code so the button can say how to finish.
         $isRunning = ($row['mode'] === 'running');
         $joinInfo = $vanilla
             ? getVanillaJoinInfo($pdo, $row['name'], $gameDNS, $row['port'], $isRunning)
-            : ['href' => 'phvalheim://?' . $launchString, 'playfab' => false, 'joinCode' => NULL];
+            : getModdedJoinInfo($pdo, $row['name'], $launchString, $isRunning);
 
         $worlds[] = [
             // May be NULL: a crossplay world that is up but has not registered its lobby yet
@@ -562,6 +565,26 @@ $totalCount = count($worlds);
                                                       // genuinely nothing to launch with, so say so rather than offer a
                                                       // link with an empty argument. ?>
                                                 <span class="action-btn disabled" data-action="launch" title="Crossplay world: waiting for its join code">starting&hellip;</span>
+                                                <?php elseif (!empty($world['launchPlayfab'])): ?>
+                                                <?php // MODDED + crossplay (2.53). The link still runs -- the client has to
+                                                      // install the mods and inject BepInEx -- but it cannot connect, because
+                                                      // a PlayFab server has no host:port and -joincode lands the player as
+                                                      // "Odev (Developer)". So the button launches and the code sits beside
+                                                      // it for the in-game "Join by code" box.
+                                                      //
+                                                      // The code is NULL for the ~30s before the lobby registers one. Show
+                                                      // that as "waiting", never as an empty code: an operator who reads a
+                                                      // blank chip as the code has been handed a wrong answer, not a pending
+                                                      // one. Launching early is still useful, it installs the mods. ?>
+                                                <a href="<?php echo htmlspecialchars($world['launchHref']); ?>" class="action-btn success" data-action="launch"
+                                                   title="Installs mods and starts Valheim. This world is crossplay, so it cannot be joined by IP -- use Join by code in Valheim once it is running.">Launch</a>
+                                                <?php if ($world['launchJoinCode'] !== NULL): ?>
+                                                <span class="join-code-chip" data-action="joincode"
+                                                      title="Crossplay join code. Enter it in Valheim's Join by code box -- QuickConnect's server entry cannot reach a crossplay world.">code <?php echo htmlspecialchars($world['launchJoinCode']); ?></span>
+                                                <?php else: ?>
+                                                <span class="join-code-chip pending" data-action="joincode"
+                                                      title="Crossplay world: the lobby has not registered its join code yet. It usually appears within 30 seconds.">code waiting&hellip;</span>
+                                                <?php endif; ?>
                                                 <?php else: ?>
                                                 <a href="<?php echo htmlspecialchars($world['launchHref']); ?>" class="action-btn success" data-action="launch">Launch</a>
                                                 <?php endif; ?>
@@ -1970,14 +1993,32 @@ $totalCount = count($worlds);
                         .replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // The Launch button for a RUNNING world. launchHref is null when the world is a crossplay
-    // one whose lobby has not registered a join code yet -- interpolating that straight into
-    // the markup produced href="null", a link that silently goes nowhere. Mirrors the PHP
-    // render in getWorldsData(); both take their href from getVanillaJoinInfo().
+    // The Launch button for a RUNNING world. launchHref is null when the world is a VANILLA
+    // crossplay one whose lobby has not registered a join code yet -- interpolating that
+    // straight into the markup produced href="null", a link that silently goes nowhere.
+    //
+    // MUST mirror the PHP render in getWorldsData() branch for branch. That render runs once on
+    // load and this one replaces it on every 5-second poll, so a branch that exists in only one
+    // of them is a control that appears and then disappears a few seconds later -- which is how
+    // the vanilla crossplay button was wrong before, and it is not obvious from either file
+    // alone. Both take their values from the same get*JoinInfo() pair.
     function launchButtonHtml(world) {
         if (!world.launchHref) {
             return '<span class="action-btn disabled" data-action="launch" title="Crossplay world: waiting for its join code">starting&hellip;</span>';
         }
+
+        // MODDED + crossplay (2.53): the link installs mods and starts Valheim, but cannot
+        // connect. The code goes beside it for Valheim's "Join by code" box. A null code is
+        // shown as waiting rather than as an empty code.
+        if (world.launchPlayfab) {
+            const launchTitle = escapeAttr('Installs mods and starts Valheim. This world is crossplay, '
+                + 'so it cannot be joined by IP -- use Join by code in Valheim once it is running.');
+            const chip = world.launchJoinCode
+                ? `<span class="join-code-chip" data-action="joincode" title="${escapeAttr('Crossplay join code. Enter it in Valheim’s Join by code box -- QuickConnect’s server entry cannot reach a crossplay world.')}">code ${escapeAttr(world.launchJoinCode)}</span>`
+                : `<span class="join-code-chip pending" data-action="joincode" title="${escapeAttr('Crossplay world: the lobby has not registered its join code yet. It usually appears within 30 seconds.')}">code waiting&hellip;</span>`;
+            return `<a href="${world.launchHref}" class="action-btn success" data-action="launch" title="${launchTitle}">Launch</a>${chip}`;
+        }
+
         return `<a href="${world.launchHref}" class="action-btn success" data-action="launch">Launch</a>`;
     }
 
@@ -3873,23 +3914,45 @@ $totalCount = count($worlds);
                                 </label>
                             </div>
                             <!--
-                                VANILLA ONLY for now. Crossplay makes Valheim open a PlayFab
-                                server, which has no host:port -- and the PhValheim client
-                                reaches a modded world through QuickConnect, whose config is
-                                host:port. So a modded crossplay world cannot be joined by the
-                                client at all. Hidden rather than disabled: an inert switch
-                                invites the question this comment would have to answer.
-                                Revisit when the client learns to launch with -joincode.
+                                Available on ANY world as of 2.53, so this row is no longer
+                                gated on isVanilla. It was, because a crossplay world is a
+                                PlayFab server with no host:port and QuickConnect's config file
+                                is host:port -- but connecting was never the client's job on a
+                                modded world. See getModdedJoinInfo() in db_gets.php.
+
+                                The two consequences below are SEPARATE controls on purpose.
+                                The first applies to every crossplay world and belongs in the
+                                row description. The second only bites a MODDED one, is the one
+                                that can ruin a world, and is loud accordingly.
                             -->
-                            <div class="pv-row" id="crossplayRow" style="display: ${isVanilla ? '' : 'none'};">
+                            <div class="pv-row" id="crossplayRow">
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">Enable crossplay</span>
-                                    <span class="pv-row-desc">Let Xbox, PlayStation and Nintendo players join. Vanilla worlds only for now &mdash; the PhValheim client cannot yet connect to a modded crossplay world.</span>
+                                    <span class="pv-row-desc">Let Xbox, PlayStation and Nintendo players join. This changes how <em>everyone</em> connects: Valheim opens a PlayFab server instead of a Steam one, so direct IP connections through your firewall stop working entirely and every player joins with the world's <strong>crossplay join code</strong> instead. The code is shown next to Launch once the world is running. Requires a restart to take effect.</span>
                                 </div>
                                 <label class="switch pv-row-control">
-                                    <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked}>
+                                    <input type="checkbox" id="settingsCrossplayToggle" ${crossplayChecked} onchange="syncCrossplayWarning()">
                                     <span class="slider round"></span>
                                 </label>
+                            </div>
+                            <!--
+                                Shown only for a MODDED world with crossplay on. Not a
+                                description under the label: the operator has just turned on a
+                                switch whose cost lands on players they cannot see, and the one
+                                thing they need to know is that console players will be running
+                                NO mods. Kept out of the row so it cannot be read as a caption
+                                for the switch's label.
+                            -->
+                            <div class="pv-callout pv-callout-warning" id="crossplayModdedWarning" style="display:none;">
+                                <strong>This world is modded and crossplay is on.</strong>
+                                Only Steam players can load mods. Xbox, PlayStation and Nintendo Switch players
+                                <em>can join</em>, but BepInEx cannot run on those platforms &mdash; they will be
+                                playing unmodded against a modded server. Whether that works at all depends on
+                                which mods you load: server-side mods are fine, but anything that adds items,
+                                creatures or recipes, or changes the network protocol, can make the game
+                                unplayable or crash them on join. <strong>Use mods sparingly in this
+                                configuration.</strong> Server-side networking mods, commonly run to improve
+                                playability for a full server on high-latency connections, are a good fit.
                             </div>
                         </div>
                     </div>
@@ -4249,6 +4312,10 @@ $totalCount = count($worlds);
                 // just what gets typed afterwards. Opening the modal on a passwordless world
                 // has to show the toggle blocked straight away.
                 syncListedAvailability();
+                // Same reason -- and this one matters on OPEN, not just on change: a world
+                // that is already modded+crossplay must show the console-mods warning the
+                // moment its settings are looked at, without anyone touching a switch.
+                syncCrossplayWarning();
                 // Same reason: the Options tab's "show players publicly" switch and the
                 // Updates tab's fields only exist once the body above has been written.
                 loadWorldUpdateSettings(worldName);
@@ -4260,18 +4327,37 @@ $totalCount = count($worlds);
         }
     }
 
-    // Password / crossplay / listing only apply to vanilla worlds -- modded worlds are
-    // gated by the CITIZENS list and startWorld.sh ignores these for them. Hide rather
-    // than disable so nobody sets a password on a modded world and wonders why nothing
-    // asks for it.
+    // Password / listing only apply to vanilla worlds -- modded worlds are gated by the
+    // CITIZENS list and startWorld.sh ignores these for them. Hide rather than disable so
+    // nobody sets a password on a modded world and wonders why nothing asks for it.
+    //
+    // Crossplay is NOT in this group as of 2.53 -- #crossplayRow is always visible and is
+    // deliberately no longer touched here. Its modded-only warning does depend on this
+    // switch, though, so flipping vanilla has to re-evaluate it.
     function toggleVanillaFields(checked) {
         const block = document.getElementById('vanillaOptionsBlock');
         if (block) block.style.display = checked ? 'block' : 'none';
 
-        // Crossplay lives in the Server Type section rather than vanillaOptionsBlock -- it sits
-        // next to the Vanilla switch that controls it -- so it needs toggling by hand.
-        const crossplay = document.getElementById('crossplayRow');
-        if (crossplay) crossplay.style.display = checked ? '' : 'none';
+        syncCrossplayWarning();
+    }
+
+    // The console-players-cannot-load-mods warning, shown only when BOTH are true: the world
+    // is modded and crossplay is on. Driven from the two switches rather than set once when
+    // the modal is built, because either can be flipped before Save and the warning has to
+    // follow -- a warning that only reflects the state the modal OPENED in is worse than none,
+    // since it is then wrong exactly when the operator is making the change it warns about.
+    function syncCrossplayWarning() {
+        const warning = document.getElementById('crossplayModdedWarning');
+        if (!warning) return;
+
+        const vanillaToggle = document.getElementById('settingsVanillaToggle');
+        const crossplayToggle = document.getElementById('settingsCrossplayToggle');
+        // Missing elements mean the modal body is not built yet. Default to hidden rather
+        // than shown: guessing wrong in the loud direction trains people to ignore it.
+        const isModded = vanillaToggle ? !vanillaToggle.checked : false;
+        const isCrossplay = crossplayToggle ? crossplayToggle.checked : false;
+
+        warning.style.display = (isModded && isCrossplay) ? '' : 'none';
     }
 
     // A public world does not consult permittedlist.txt at all, so showing an editor for

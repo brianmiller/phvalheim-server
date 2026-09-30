@@ -1,5 +1,85 @@
 # Changelog
 
+## v2.53
+
+### Crossplay on modded worlds
+
+`-crossplay` was restricted to vanilla worlds, and the restriction was enforced in **five**
+places: the argv gate in `startWorld.sh`, `saveWorldOptions` and `createWorld` in
+`adminAPI.php`, and the two admin forms. All five are removed.
+
+The restriction was never a Valheim limitation. It was a **client** one, and on re-examination
+it was not even that. The reasoning had been: crossplay makes Valheim open a PlayFab server,
+which has no `host:port`; the PhValheim client reaches a modded world through the QuickConnect
+mod, whose config file is `world:host:port:password`; therefore a modded crossplay world starts
+fine and cannot be joined.
+
+Every step of that is still true. What it misses is that **connecting was never the client's job
+on a modded world.** `Launcher.cs`'s modded path passes no connect argument on any platform —
+Windows gets `-applaunch 892970 --doorstop-*`, Linux execs `valheim.x86_64` directly, macOS the
+same with `DYLD_*`. The client installs the mod payload and injects BepInEx; joining has always
+been a separate in-game step that happened to be served by QuickConnect. So the client works
+**unmodified** on a modded crossplay world: it installs the mods, Valheim comes up modded, and
+the player joins from Valheim's *Join by code* box instead of QuickConnect's server list.
+Client 2.0.13 needs no change and gets none — it has no crossplay or join-code code at all.
+
+QuickConnect's entry for a crossplay world points at a `host:port` that cannot answer. It is
+inert rather than harmful, and both UIs say not to use it.
+
+**The launch link therefore survives on a modded crossplay world, which is the opposite of the
+vanilla case.** `getVanillaJoinInfo()` returns `href => NULL` for crossplay because there is
+genuinely nothing to launch; the new `getModdedJoinInfo()` beside it always returns the
+`phvalheim://` link, and additionally returns the join code when the world is on PlayFab. Both
+admin call sites now share it — the modded branch used to be an inline literal that ignored
+crossplay entirely, which was correct only while crossplay could not be set on a modded world.
+
+Passing `-joincode` was considered and rejected for the second time: `FejdStartup` registers
+`AutoJoinServer()`, which resolves the code and calls `JoinServer()` without ever calling
+`SelectCharacter()`, so the player lands as **"Odev (Developer)"** on a character they never
+made. There is no argument that stops at character selection.
+
+### The half of the fix that was nearly missed
+
+`effectiveCrossplay` was computed **inside** the `if isVanilla` branch that writes
+`.running-options`. Removing only the argv gate would have handed a modded world `-crossplay`
+and recorded `crossplay=0` — and since everything describing a *live* world reads that file,
+every UI would have drawn a direct-connect link and no join code for a PlayFab server. That is
+the same one-card-two-sources-of-truth bug the file was introduced to fix, with the flags
+reversed. `listed` and the password hash stay inside the branch, because a modded world is
+still started `-public 0` with no `-password`.
+
+`api.php` now emits a `connection` block for modded worlds too, and the public page's 5-second
+poll derives `isPlayFab` without the `world.vanilla` gate. Without both, a modded world's join
+code was correct on page load and frozen thereafter — the code is reissued on every restart.
+
+### The disclaimers are part of the feature
+
+Enabling crossplay **removes direct IP connection entirely**, for every player: there is no
+address to connect to, everyone joins by code, and the forwarded UDP port stops being used.
+Stated in both option descriptions and on the card.
+
+The one that can ruin a world gets its own callout, shown only when a world is modded *and*
+crossplay is on: **console players cannot load mods.** Xbox, PlayStation and Switch players can
+join, but BepInEx does not run on those platforms, so they play unmodded against a modded
+server. Server-side mods are fine; anything adding items, creatures or recipes, or changing the
+network protocol, can make the world unplayable for them or drop them on join. The advice is to
+use mods sparingly, and that server-side networking mods are a good fit. The world log repeats
+it, so it survives the dialog being dismissed.
+
+### Tests
+
+`test-crossplay-vanilla-only.sh` asserted exactly what this release removes and is replaced by
+`test-crossplay-any-world.sh`, every case paired with a control — an implementation that stores
+`crossplay=1` for everything passes half of them, and so does one that still forces `0`.
+`test-startWorld-args.sh` gains the inverted argv assertions plus `.running-options` coverage,
+and `test-crossplay-join-modal.js` gains the modded case, whose point is that the link must
+*still be launchable*.
+
+Every new marker and assertion was checked against the pre-2.53 tree to confirm it fails there.
+Four did not on the first attempt: three build markers and one test regex used a single `.` to
+stand for a quote in `[ "$isCrossplay"` and `'phvalheim://?' . $launchString`, where two
+characters sit before the name. They matched neither tree, so they could not fail.
+
 ## v2.52
 
 ### The mod catalogue stopped refreshing after the first boot

@@ -914,11 +914,15 @@ function getWorldsJson($pdo) {
         $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme?$vanilla");
 
         // Shared with the dashboard's PHP render and the public card, so a crossplay world
-        // gets -joincode rather than a +connect that can never reach a PlayFab server.
+        // gets a join code rather than a +connect that can never reach a PlayFab server.
+        //
+        // Both branches are shared functions as of 2.53. The modded branch used to be an
+        // inline literal that ignored crossplay entirely -- correct while crossplay was
+        // vanilla-only, and silently wrong the moment it was not.
         $isRunning = ($row['mode'] === 'running');
         $joinInfo = $vanilla
             ? getVanillaJoinInfo($pdo, $row['name'], $gameDNS, $row['port'], $isRunning)
-            : ['href' => 'phvalheim://?' . $launchString, 'playfab' => false, 'joinCode' => NULL];
+            : getModdedJoinInfo($pdo, $row['name'], $launchString, $isRunning);
 
         $worlds[] = [
             'name' => $row['name'],
@@ -1465,15 +1469,15 @@ function saveWorldOptionsJson($pdo, $world, $input) {
     // the CITIZENS list instead. Storing them for a modded world would show settings in
     // the UI that startWorld.sh deliberately ignores.
     //
-    // Crossplay is in that group TOO, for now. It makes Valheim open a PlayFab server, which
-    // has no host:port -- and the PhValheim client reaches a modded world through QuickConnect,
-    // whose config is host:port. So a modded crossplay world is unreachable by the client.
-    // Forced off here as well as hidden in the UI, because the endpoint is reachable directly.
-    // Revisit when the client can launch with -joincode.
+    // Crossplay is NOT in that group as of 2.53. It used to be forced off here for a client
+    // reason: a crossplay world is a PlayFab server with no host:port, and QuickConnect's
+    // config file is host:port. But the client never needed to connect a modded world itself
+    // -- its job is the mod payload and the BepInEx injection, and the modded launch path
+    // passes no connect argument on any platform. The player joins from the in-game
+    // "Join by code" box. So crossplay is now stored for any world.
     if (!$vanilla) {
         $password = '';
         $listed = 0;
-        $crossplay = 0;
     }
 
     $wasVanilla = (int)getVanilla($pdo, $world);
@@ -1813,10 +1817,10 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
             handleCloneFolders($cloneSource, $world, $cloneConfigs, $clonePlugins);
         }
 
-        // Crossplay applies to any world, modded or not.
-        // Vanilla only, for now: a modded crossplay world cannot be reached by the PhValheim
-        // client (QuickConnect's config is host:port; a PlayFab server has neither).
-        setCrossplay($pdo, $world, ($isVanilla && !empty($vanillaOptions['crossplay'])) ? 1 : 0);
+        // Crossplay applies to any world, modded or not -- no longer gated on $isVanilla
+        // (2.53). See the note in saveWorldOptionsJson for why the client limitation that
+        // used to gate this turned out not to be one.
+        setCrossplay($pdo, $world, !empty($vanillaOptions['crossplay']) ? 1 : 0);
 
         // Set the access model EXPLICITLY. Before this, create wrote no `public` value at all
         // and the world silently inherited the column default -- which is 0, "enforce the

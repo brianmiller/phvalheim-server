@@ -1318,6 +1318,118 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.52 lock sweep: tools on read-only flock=$xp (want 3)  backup rm-on-exit=$xq (want 0)"
   echo "2.52 modSync compiles=$xr (want 1)  whatsnew entry=$xs (want 1)"
 
+  # ---- 2.53: crossplay on modded worlds --------------------------------------------
+  # STILL no apostrophes below, comments included -- the whole body is inside sh -c and one
+  # closes it early, silently skipping every check after it. Note that the FILES grepped are
+  # full of apostrophes (PHP string literals); that is fine, only this script cannot have them.
+  # Hence the dot-for-quote patterns throughout, same as the 2.52 block above.
+  #
+  # The release removes a gate that existed in FIVE places, so the headline markers are all
+  # NEGATIVES: four of the five can be removed while the fifth still forces crossplay off, and
+  # every positive marker passes in that state. ya is the one that decides the feature.
+  ysw=/opt/stateless/games/valheim/scripts/startWorld.sh
+  yfn=/opt/stateless/nginx/www/admin/adminAPI.php
+  yix=/opt/stateless/nginx/www/admin/index.php
+  ynw=/opt/stateless/nginx/www/admin/new_world.php
+  ydb=/opt/stateless/nginx/www/includes/db_gets.php
+  yau=/opt/stateless/nginx/www/public/authenticated.php
+  yap=/opt/stateless/nginx/www/public/api.php
+
+  # The argv gate. ya: the compound isCrossplay-AND-isVanilla condition must be GONE.
+  # .+ around each variable, not a single dot: the shell test reads [ "$isCrossplay" -- a
+  # quote AND a dollar sit before the name, so a single dot matches neither. The first cut of
+  # this marker read 0 against the OLD tree as well as the new one, i.e. it could not fail and
+  # was verifying nothing. Checked in both directions before being trusted.
+  ya=$(grep -cE "^if \[ .+isCrossplay.+&& \[ .+isVanilla" $ysw)
+  # yb: and so must the refusal notice. A build that passes -crossplay while still logging
+  # that it refused to is half-applied, and the log is what an operator reads.
+  yb=$(grep -c "crossplay is OFF" $ysw)
+  yc=$(grep -c "CANNOT run mods" $ysw)
+  # The .running-options half, which was the easy half to miss. effectiveCrossplay=1 used to
+  # sit INSIDE the if-isVanilla block; a modded world would then be handed -crossplay and
+  # record crossplay=0, and every UI reads that file for a LIVE world. Anchored on INDENTATION:
+  # yd wants the assignment at column 0 (outside the block), ye wants zero indented copies.
+  # Counting the string alone cannot tell the two positions apart, and the position IS the fix.
+  # .+ rather than . between the words: the shell test reads [ "$isCrossplay" = "1" ], so there
+  # are TWO characters before the variable name, a quote and a dollar. A single dot matched
+  # neither position and reported 0 against a tree that was correct -- caught in the repo dry
+  # run, where the probe was wrong and the code was not.
+  yd=$(grep -cE "^\[ .+isCrossplay.+effectiveCrossplay=1" $ysw)
+  ye=$(grep -cE "^[[:space:]]+\[ .+isCrossplay.+effectiveCrossplay=1" $ysw)
+  # Listing and password must STAY vanilla-only -- a modded world is started -public 0 with no
+  # -password. yf guards the blast radius: taking too much out of that block is invisible
+  # otherwise, and would start listing modded worlds in the public server browser.
+  yf=$(grep -cE "^[[:space:]]+effectiveListed=.isListed" $ysw)
+
+  # The two API write paths. Both negatives: the forced-off assignment and the gated call.
+  yg=$(grep -cE "^[[:space:]]+.crossplay = 0;" $yfn)
+  yh=$(grep -c "setCrossplay(.pdo, .world, (.isVanilla && !empty" $yfn)
+  yi=$(grep -c "setCrossplay(.pdo, .world, !empty" $yfn)
+
+  # The launch decision. getModdedJoinInfo is the new shared function: 1 definition plus the
+  # two admin call sites that used to hold an inline literal. yk is the negative -- that
+  # literal, which ignored crossplay entirely and was correct only while crossplay could not
+  # be set on a modded world.
+  yj=$(grep -c "getModdedJoinInfo" $ydb)
+  yk=$(grep -c "getModdedJoinInfo(.pdo, .row\[.name.\], .launchString, .isRunning)" $yix)
+  yl=$(grep -c "getModdedJoinInfo(.pdo, .row\[.name.\], .launchString, .isRunning)" $yfn)
+  # .+ for the same reason as ya: in the PHP source the URL is a quoted literal concatenated
+  # onto the variable, so the gap between them is a quote, a dot and two spaces. Spelling that
+  # out one character at a time gave a marker that matched neither tree. The literal is NOT
+  # quoted here on purpose -- it carries two apostrophes, and this block is inside sh -c.
+  ym=$(grep -cE ".href. => .phvalheim://.+launchString, .playfab. => false" $yix)
+  yn=$(grep -cE ".href. => .phvalheim://.+launchString, .playfab. => false" $yfn)
+  # A modded crossplay world MUST keep a launchable href -- the client still installs the mods.
+  # yo pins the guard that makes href unconditional there; if this ever becomes an isOnline
+  # gate copied from the vanilla function, every modded world silently loses its link.
+  yo=$(grep -c "if (!.isOnline || !worldIsPlayFab(.pdo, .world, .isOnline))" $ydb)
+
+  # The UI gates, all negatives. Each of these three would silently override the operator.
+  yp=$(grep -c "crossplay.style.display = checked" $yix)
+  yq=$(grep -c "#worldCrossplay.).prop(.checked., false)" $ynw)
+  yr=$(grep -c "crossplay: (isVanilla && " $ynw)
+
+  # The disclaimers. The caveat IS the feature here as much as the flag is: a modded crossplay
+  # world admits console players who cannot load mods at all. 2 each = the element plus the
+  # code that shows or hides it.
+  ys2=$(grep -c "crossplayModdedWarning" $yix)
+  yt=$(grep -c "crossplayModdedWarning" $ynw)
+  yu=$(grep -c "syncCrossplayWarning" $yix)
+  yv=$(grep -c "syncCrossplayWarning" $ynw)
+  # The styles the warning and the code chip depend on. 2.51 shipped an icon that existed and
+  # could not be drawn, so presence of the markup is not presence of the feature.
+  ycss=/opt/stateless/nginx/www/css/phvalheimStyles.css
+  yw=$(grep -c "^\.join-code-chip {" $ycss)
+  yx=$(grep -c "^\.pv-callout {" $ycss)
+
+  # The public card and its 5s poll. The poll is what clobbered a correct server-rendered card
+  # before: isPlayFab had to stop being gated on world.vanilla, or the join code on a modded
+  # world would be right on load and frozen forever after.
+  yy=$(grep -c "moddedJoinCodeRow" $yau)
+  yz=$(grep -c "const isPlayFab = " $yau)
+  yaa=$(grep -c "joinCodeEl && isPlayFab" $yau)
+  # NEGATIVE: the old vanilla-gated derivation must be gone.
+  yab=$(grep -c "isCrossplay = !!(world.vanilla && world.connection" $yau)
+  # api.php has to emit a connection block for a MODDED world now, or the poll has no code to
+  # refresh from. Anchored on the steamUrl NULL line that only the modded branch carries.
+  yac=$(grep -cE "^[[:space:]]+.steamUrl.[[:space:]]+=> NULL," $yap)
+  yad=$(grep -c "2.53. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
+
+  echo "2.53 HEADLINE NEGATIVES: argv gate gone=$ya (want 0)  refusal notice gone=$yb (want 0)"
+  echo "2.53 HEADLINE NEGATIVES: api force-off gone=$yg (want 0)  gated setCrossplay gone=$yh (want 0)"
+  echo "2.53 startWorld: console caveat=$yc (want 1)  running-options unindented=$yd (want 1) indented=$ye (want 0)"
+  echo "2.53 startWorld blast radius: listed stays vanilla-only=$yf (want 1)"
+  echo "2.53 api: ungated setCrossplay=$yi (want 1)"
+  echo "2.53 launch: getModdedJoinInfo def=$yj (want 1)  admin call sites=$yk/$yl (want 1/1)"
+  echo "2.53 launch NEGATIVES: inline modded literal gone=$ym/$yn (want 0/0)"
+  echo "2.53 launch: modded href unconditional guard=$yo (want 1)"
+  echo "2.53 UI NEGATIVES: row display-gate=$yp untick=$yq payload isVanilla-AND=$yr (want 0/0/0)"
+  echo "2.53 disclaimers: warning el index/new=$ys2/$yt (want 2/2)  sync fn=$yu/$yv (want 4/3)"
+  echo "2.53 styles: join-code-chip=$yw (want 1)  pv-callout=$yx (want 1)"
+  echo "2.53 public card: joincode row=$yy (want 3)  isPlayFab=$yz (want 1)  poll uses it=$yaa (want 1)"
+  echo "2.53 public NEGATIVE: vanilla-gated isCrossplay gone=$yab (want 0)  api modded block=$yac (want 1)"
+  echo "2.53 whatsnew entry=$yad (want 1)"
+
   echo "2.46 world state: helper=$na/$nb (want 1/1)  calls ctx=$nc actions=$nd diag=$ne (want 5/3/2)  stateText=$ni (want 3)"
   echo "2.46 world state NEGATIVES: stale status reads w=$nf r=$ng row=$nh (want 0/0/0)"
   echo "2.45 openai negotiation: completion_tokens=$is reasoning=$ja loops=$jc (want >0)  stream err body=$it/$iu (want 1/1)"

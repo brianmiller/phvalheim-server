@@ -185,6 +185,31 @@ if ($mode == "getMyWorldsStatus") {
                                             ? NULL
                                             : 'steam://run/892970//+connect ' . $gameDNS . ':' . $worldPort
                 ];
+            } else {
+                // A MODDED world gets a connection block too as of 2.53, because crossplay is
+                // no longer vanilla-only and its join code has to stay fresh. The code is
+                // reissued on every world restart, so a card left open across one would
+                // otherwise go on showing a dead code with nothing marking it dead -- the
+                // exact bug this payload was extended to fix for vanilla worlds.
+                //
+                // Deliberately NOT the full vanilla block. A modded world has no published
+                // password and no steamUrl: it is launched through the client, which is still
+                // the right link even on crossplay (it installs the mods; the player then
+                // joins by code). Sending a steamUrl here would invite the poll to overwrite
+                // that link with a direct connection a PlayFab server cannot accept.
+                //
+                // Same running-vs-saved rule as above, for the same reason.
+                $apiOpts          = effectiveWorldOptions($pdo, $myWorld, $isOnline);
+                $isCrossplayWorld = ((int)$apiOpts['crossplay'] === 1);
+                $isPlayFabWorld   = $isOnline
+                                        ? worldIsPlayFab($pdo, $myWorld, $isOnline)
+                                        : $isCrossplayWorld;
+                $connection = [
+                    'crossplay' => $isCrossplayWorld,
+                    'joinCode'  => $isPlayFabWorld ? getWorldJoinCode($myWorld) : NULL,
+                    'playfab'   => $isPlayFabWorld,
+                    'steamUrl'  => NULL,
+                ];
             }
 
             $worldsData[] = [

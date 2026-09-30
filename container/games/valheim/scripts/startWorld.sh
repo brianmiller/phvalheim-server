@@ -88,36 +88,37 @@ else
 	set -- "$@" -public 0
 fi
 
-# Crossplay is VANILLA-ONLY for now.
+# Crossplay, on ANY world -- vanilla or modded (2.53).
 #
 # -crossplay makes Valheim open a PlayFab server instead of a Steam one. A PlayFab server is
-# reached by join code and has no host:port at all -- but the PhValheim client reaches a modded
-# world through QuickConnect, whose config file is `world:host:port:password`. So a modded
-# crossplay world cannot be joined by the client, whatever the operator intended.
+# reached by join code and has no host:port at all, so enabling this removes direct IP
+# connection entirely: nothing reaches the world except through its join code, and the UDP
+# port forward stops mattering.
 #
-# Enforced HERE and not only in the admin UI, because this is what actually reaches Valheim.
-# That also means a modded world whose crossplay flag was set before this gate existed stops
-# opening a PlayFab server on its next start, without anyone having to find and fix the row.
+# It was vanilla-only until 2.53, for a CLIENT reason rather than a server one. A modded world
+# is connected to by the QuickConnect mod, whose config file is `world:host:port:password` --
+# a format with nowhere to put a join code. That has not changed and QuickConnect still cannot
+# reach a crossplay world.
 #
-# NOTE: the `crossplay` column is left alone rather than zeroed -- it is the operator's stored
-# preference, and it becomes live again the moment the world is switched to vanilla.
+# What changed is the realisation that it never needed to. The client's actual job on a modded
+# world is to sync the mod payload and start Valheim with BepInEx injected -- and the modded
+# launch path passes NO connect argument at all, on any platform. So the client works
+# unmodified: it installs the mods, Valheim comes up modded, and the player joins from the
+# in-game "Join by code" box instead of from QuickConnect's server list. Both UIs show the
+# code next to the Launch button and say so.
 #
-# Revisit when the client can launch with -joincode; see docs and the 2.0.13 client work.
-# The message below LEADS WITH THE OUTCOME, deliberately.
-#
-# It used to open "World 'X' has crossplay set but is MODDED", and that is what an operator
-# scanning a log actually takes away: crossplay is on. It was reported as "the world log for
-# a modded world says crossplay is enabled", and the reader was right to read it that way --
-# the first thing the sentence asserts is that crossplay is set. Whether the rest of the
-# line then walks it back is not how anyone reads a log.
-#
-# State the effective setting first, then explain the stored one. Same facts, opposite
-# first impression, and the first impression is the one that sticks.
-if [ "$isCrossplay" = "1" ] && [ "$isVanilla" = "1" ]; then
+# The caveat that belongs in the log, because it is the one that ruins a world: non-Steam
+# crossplay platforms (Xbox, PlayStation, Switch) CANNOT load BepInEx. They can join, but they
+# run vanilla against a modded server. Whether that is playable depends entirely on which mods
+# are loaded -- server-side-only mods are fine, anything that adds content or changes the
+# network protocol is not.
+if [ "$isCrossplay" = "1" ]; then
 	set -- "$@" -crossplay
-	echo "`date` [NOTICE : phvalheim] World '$worldName': crossplay is ON."
-elif [ "$isCrossplay" = "1" ]; then
-	echo "`date` [NOTICE : phvalheim] World '$worldName': crossplay is OFF -- it is saved as enabled, but crossplay applies to VANILLA worlds only. A modded world runs as a Steam server so the PhValheim client can reach it; crossplay would make it a PlayFab server with no host:port, which the client cannot join. Switch the world to vanilla if you need crossplay."
+	if [ "$isVanilla" = "1" ]; then
+		echo "`date` [NOTICE : phvalheim] World '$worldName': crossplay is ON. This world is a PlayFab server -- it is joined by code only and cannot be reached by IP."
+	else
+		echo "`date` [NOTICE : phvalheim] World '$worldName': crossplay is ON for a MODDED world. It is joined by code only and cannot be reached by IP. Console players (Xbox, PlayStation, Switch) can join but CANNOT run mods -- they will be playing vanilla against a modded server, which may be unplayable depending on which mods are loaded. Use mods sparingly in this configuration."
+	fi
 fi
 
 set -- "$@" -savedir /opt/stateful/games/valheim/worlds/$worldName/game/.config/unity3d/IronGate/Valheim
@@ -141,9 +142,17 @@ runtimeOptions=/opt/stateful/games/valheim/worlds/$worldName/.running-options
 effectiveCrossplay=0
 effectiveListed=0
 effectivePasswordHash=""
+# Crossplay is recorded for ANY world as of 2.53, because it now applies to any world. It has
+# to sit OUTSIDE the isVanilla branch it used to live in: everything that describes a live
+# world reads this file, so leaving it in there would have written crossplay=0 for a modded
+# world that was in fact handed -crossplay above -- and every UI would then have drawn a
+# direct-connect link and no join code for a PlayFab server. That is the same one-card,
+# two-sources-of-truth bug this file was added to fix, just with the flags reversed.
+[ "$isCrossplay" = "1" ] && effectiveCrossplay=1
+# Listing and password stay vanilla-only: a modded world is started -public 0 with no
+# -password, gated by the CITIZENS permittedlist instead.
 if [ "$isVanilla" = "1" ]; then
 	effectiveListed=$isListed
-	[ "$isCrossplay" = "1" ] && effectiveCrossplay=1
 	if [ -n "$worldPasswordDb" ]; then
 		effectivePasswordHash=$(printf '%s' "$worldPasswordDb" | sha256sum | cut -d' ' -f1)
 	fi
