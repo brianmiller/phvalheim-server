@@ -529,19 +529,18 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>";
 				}
 
-				# The two-step join, spelled out, because it is not guessable and it is not what
-				# this card has ever asked for before. Launch! still does real work on a crossplay
-				# world -- it installs the mods and starts Valheim with BepInEx -- it just cannot
-				# also connect, so the player finishes in Join by code. Only shown for crossplay;
-				# a normal modded world is still one click and needs no explanation.
-				$moddedHintRow = "";
-				if ($moddedIsPlayFab) {
-					$moddedHintRow = "
-                                                        <td colspan=2 class='card-slack'></td>
-                                                        <tr>
-                                                        <td class='$worldDimmed vanilla-hint' colspan=2>Crossplay world &mdash; click <strong>Launch!</strong> to install the mods and start Valheim, then join with the code above in Valheim's <em>Join by code</em> box. It cannot be joined by IP.</td>
-                                                        <tr>";
-				}
+				# NO hint row on a modded crossplay card. There was one; it is gone.
+				#
+				# It said nothing the card does not already say. The CROSSPLAY pill states the
+				# world type, and the row directly above shows the join code with a copy link
+				# beside it -- a code with a copy button is self-evidently the thing you join
+				# with. A sentence repeating that is noise.
+				#
+				# It also rendered at the wrong size, which is what made it look broken rather
+				# than merely redundant: the styling for .vanilla-hint that keeps it small is
+				# scoped `.catbox-vanilla .vanilla-hint`, and a modded card is a plain .catbox.
+				# Reusing a vanilla class on a modded card inherited none of it. If a hint ever
+				# comes back here it needs its own class, not this one.
 				echo "
                                         <div class=\"$worldDimmed catbox\" data-world=\"$myWorld\">
                                                 <table width=100% height=100% border=0>
@@ -578,7 +577,6 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>
                                                         <td colspan=2 class='card-slack'></td>
                                                         <tr>
-                                                        $moddedHintRow
                                                 </table>
 						<table border=0 class='trophy-table'>
 							$trophyRow

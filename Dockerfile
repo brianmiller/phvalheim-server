@@ -69,6 +69,11 @@ COPY container/engine/ /opt/stateless/engine/
 COPY container/games/ /opt/stateless/games/
 COPY container/games/valheim/macos/libdoorstop.dylib /opt/stateless/games/valheim/macos/libdoorstop.dylib
 COPY container/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed /opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed
+# The PhValheim Companion ships IN THE IMAGE from 2.53, not through Thunderstore. It is
+# PhValheim's own infrastructure -- it talks to the PhValheim backend and reads PhValheim
+# config, so it has no audience outside this server -- and bundling it means the server and
+# the Companion are one artifact that cannot drift apart. See docs/RELEASE-2.53-DESIGN.md 9.
+COPY container/games/valheim/custom_plugins/PhValheimCompanion /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion
 COPY container/php-fpm/php.ini /etc/php/8.1/fpm/php.ini
 COPY container/php-fpm/www.conf /etc/php/8.1/fpm/pool.d/www.conf
 COPY container/php-fpm/php-fpm.conf /etc/php/8.1/fpm/php-fpm.conf

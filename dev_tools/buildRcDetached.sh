@@ -35,26 +35,33 @@ cd "$REPO" || exit 1
 
 # Self-check before anything expensive.
 #
-# The image verify at the bottom is one giant `sh -c '...'` argument. A single apostrophe
-# anywhere inside it -- INCLUDING in a comment -- closes the string early; the shell then
-# reinterprets the remainder and the rest of the verify silently never runs. This script
-# has already reported a clean build while skipping its last four checks that way, and
-# `bash -n` cannot catch it because the result is still valid shell.
+# This used to count APOSTROPHES. The verify was one giant `sh -c \'...\'` argument, and a
+# single apostrophe anywhere inside it -- including in a comment -- closed the string early,
+# so the rest of the verify silently never ran. This script reported a clean build while
+# skipping its last four checks exactly that way.
 #
-# Counting them here turns an invisible failure into a refusal to build.
-# Anchored on the docker-run line itself, NOT on the substring "--entrypoint sh": this
-# check's own source line contains that substring, so a looser pattern matches HERE and
-# counts the wrong region -- which it did on the first attempt, reporting 4 apostrophes
-# in a payload that had none.
-apos=$(awk '/^docker run --rm -e EXPECT_VER=/{f=1} f&&/^.$/{exit} f' "$0" | tr -cd "'" | wc -c)
-# 1 = the opening quote on the docker-run line. Anything more is inside the payload.
-if [ "$apos" -ne 1 ]; then
-	echo "REFUSING TO BUILD: the sh -c verify payload contains $((apos - 1)) apostrophe(s)."
-	echo "One apostrophe truncates the verify silently. Remove them, including in comments."
+# That hazard is gone as of 2026-10-01: the payload is written to a file with a QUOTED
+# heredoc and mounted into the container, so its contents are taken literally and an
+# apostrophe is just a character. What replaced the hazard is this one:
+#
+#   a payload line that is EXACTLY the heredoc delimiter ends the heredoc early, and
+#   everything after it becomes shell in THIS script instead of verify payload.
+#
+# Same shape of failure -- a silently truncated verify that still exits 0 -- so it gets the
+# same treatment: count it, and refuse to build rather than discover it afterwards.
+#
+# The old apostrophe check was left in place for one build after the restructure and it
+# FIRED, on a payload with no apostrophes in it: its awk anchored on the docker-run line,
+# which the restructure moved to the bottom, so it counted the wrong region. A guard that
+# outlives the thing it guards does not fail safe, it fails confusing.
+badDelim=$(awk 'f && /^PHVVERIFYEOF$/{c++} /^cat > "\$VERIFY_SH" <<.PHVVERIFYEOF.$/{f=1} END{print c+0}' "$0")
+if [ "${badDelim:-0}" -ne 1 ]; then
+	echo "REFUSING TO BUILD: found $badDelim lines matching the heredoc delimiter, expected exactly 1."
+	echo "A payload line equal to PHVVERIFYEOF truncates the verify silently."
 	echo "=== done FAILED ==="
 	exit 1
 fi
-echo "=== verify payload apostrophe check: clean ==="
+echo "=== verify payload delimiter check: clean ==="
 
 echo "=== building $IMAGE ==="
 docker buildx build --network=host -t "$IMAGE" . || { echo "BUILD FAILED"; echo "=== done FAILED ==="; exit 1; }
@@ -66,7 +73,24 @@ echo "=== verifying the fixes are INSIDE the pushed image ==="
 # Trust bytes in the image, not the build output.
 EXPECT_VER=$(sed -n 's/^ENV phvalheimVersion=//p' Dockerfile | head -1)
 echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
-docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
+# The verify payload is written to a FILE and mounted, not passed as an argv string.
+#
+# It used to be one `sh -c '...'` argument. On 2026-10-01 it crossed 128 KiB -- the Linux
+# cap on a SINGLE argv entry, which is separate from and much lower than the total ARG_MAX --
+# and docker died with "Argument list too long". The build still pushed :rc, printed a
+# digest and exited 0: the verify simply never ran, and every marker in this file gated
+# nothing. That is the same silent-pass failure the markers exist to prevent, arriving by a
+# different door.
+#
+# A mounted file has no size limit worth worrying about. The heredoc is QUOTED, so nothing
+# is expanded while writing it -- $EXPECT_VER and every $(...) are expanded by the sh inside
+# the container, exactly as they were when this was an argv string.
+#
+# Apostrophes are now safe in the payload. The old rule existed only because of the single
+# quoting; it is kept in the marker comments anyway, because reverting this would silently
+# reinstate the hazard.
+VERIFY_SH=/tmp/phvalheim-rc-verify.sh
+cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   a=$(grep -c "modSelectionCard" /opt/stateless/nginx/www/admin/new_world.php)
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)
@@ -111,9 +135,13 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "idHelpDisclosure=$i (want 2)  old banner=$j (want 0)"
   echo "pv-list-lookup=$k (want 3)  .pv-disclosure css rules=$l (want >0)"
   echo "accessSwitchNoticeShown ui=$m (want 2) migration=$n (want 4)"
-  # NO single quotes in these echoes -- the whole block is inside sh -c QUOTES, so one
-  # apostrophe closes it early and the rest of the verify silently never runs. That is
-  # exactly how this script reported a clean build while skipping its last four checks.
+  # HISTORICAL: this used to be one sh -c QUOTED argument, where a single apostrophe -- even
+  # inside a comment -- closed the quote early and silently skipped every later check. That is
+  # exactly how this script once reported a clean build while skipping its last four checks.
+  # Since 2026-10-01 the body is written to $VERIFY_SH through a QUOTED heredoc
+  # (<<'PHVVERIFYEOF') and run as a file, so apostrophes are safe and several appear below.
+  # The surviving rule is the one the badDelim guard at the top enforces: no payload line may
+  # be exactly PHVVERIFYEOF.
   # Crossplay join code, and the offline-world stats sweep.
   # Count the DEFINITION, not every mention: getVanillaJoinInfo() now calls this too, so a bare
   # string count went to 2 and failed the verify on an image that was perfectly correct.
@@ -141,9 +169,9 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # character selected, so the client falls back to its Odev (Developer) profile, and the card
   # now opens a how-to-join modal instead. If either goes back to 1 the dead launch URL has
   # returned. Do NOT re-baseline them to whatever the image contains.
-  # NOTE: this whole verify body is inside sh -c SINGLE quotes. No apostrophes, no single
-  # quotes, not even in a comment -- one of either ends the block early, every later check is
-  # skipped, and the leftover greps run against the HOST where these paths do not exist.
+  # NOTE: the apostrophe ban that used to apply here is OBSOLETE -- the body is a quoted
+  # heredoc written to a file since 2026-10-01, not an sh -c argument. Kept as a pointer
+  # because the old warning is repeated in several places and all of them meant this.
   cl=$(grep -c "showCrossplayJoin" /opt/stateless/nginx/www/public/authenticated.php)
   cm=$(grep -c "crossplayJoinModal" /opt/stateless/nginx/www/public/authenticated.php)
   cn=$(grep -c "crossplay-join-dialog" /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -224,9 +252,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # twice each, but they no longer appear in a display gate. What the ids are actually used
   # for is pinned by the 2.53 UI negatives (yp, yq, yr), not here.
   #
-  # NO APOSTROPHES anywhere in this section, including in comments: the whole block is inside
-  # sh -c and a single quote closes it early, silently skipping every later check. That trap is
-  # called out at the top of this file and it still caught me twice here.
+  # The old NO APOSTROPHES rule for this section no longer applies: the verify body is a
+  # quoted heredoc run from a file, not an sh -c argument. See the note at the top.
   ba=$(grep -c "crossplay set but is MODDED" /opt/stateless/games/valheim/scripts/startWorld.sh)
   bb=$(grep -c "crossplayRow" /opt/stateless/nginx/www/admin/index.php)
   bc=$(grep -c "crossplayOption" /opt/stateless/nginx/www/admin/new_world.php)
@@ -244,22 +271,32 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # are pinned in CSS instead, so they stop claiming a share of the slack. 3 = header + 2 cards.
   bi=$(grep -c "table width=100% height=100%" /opt/stateless/nginx/www/public/authenticated.php)
   bj=$(grep -c "catbox th.card_worldLaunch" /opt/stateless/nginx/www/css/phvalheimStyles.css)
-  # bk and bl both went UP by one in 2.53, not relaxed: the MODDED card gained a hint row and
-  # its spacer, because a modded crossplay world has a two-step join that has to be explained
-  # on the card. The vanilla hint and its two slack rows are all still there.
+  # bk and bl went UP by one earlier in 2.53 when the modded card gained a hint row, and are
+  # now back DOWN to their original values because that row was removed again -- it repeated
+  # what the CROSSPLAY pill and the join code beside it already said, and it rendered unstyled
+  # because .vanilla-hint sizing is scoped `.catbox-vanilla .vanilla-hint` and a modded card is
+  # a plain .catbox.
+  #
+  # So: exactly ONE hint row (the vanilla card keeps its own) and TWO slack spacers. Restored
+  # to the pre-2.53 numbers rather than left at the inflated ones, because a marker that still
+  # expects a row the product no longer has is a marker that fails on correct code.
   bk=$(grep -c "vanilla-hint. colspan=2" /opt/stateless/nginx/www/public/authenticated.php)
-  echo "card layout: full-height tables=$bi (want 3)  header rows pinned=$bj (want 1)  hint in table=$bk (want 2, was 1 before 2.53)"
+  echo "card layout: full-height tables=$bi (want 3)  header rows pinned=$bj (want 1)  hint in table=$bk (want 1)"
   # Row spacing, session-scoped backend detection, and the dropped Server row.
   bl=$(grep -c "card-slack" /opt/stateless/nginx/www/public/authenticated.php)
   bm=$(grep -c "function phvCurrentSessionTail" /opt/stateless/nginx/www/includes/db_gets.php)
   bn=$(grep -c "function worldIsPlayFab" /opt/stateless/nginx/www/includes/db_gets.php)
   bo=$(grep -c "serverRow" /opt/stateless/nginx/www/public/authenticated.php)
-  echo "row slack rows=$bl (want 3, was 2 before 2.53)  session tail=$bm (want 1)  worldIsPlayFab=$bn (want 1)  serverRow=$bo (want 2)"
+  echo "row slack rows=$bl (want 2)  session tail=$bm (want 1)  worldIsPlayFab=$bn (want 1)  serverRow=$bo (want 2)"
   # The plugin parents must be created BEFORE the unzip that needs them, and exit 11 must stay
   # tolerated -- treating it as failure would mark every modded world broken.
-  am=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
+  # 2.53 moved these from a hardcoded game/BepInEx path to $treeRoot, because the install
+  # loop now runs once per destination tree. Re-anchored on the new form rather than dropped:
+  # unzip -d still creates only the LAST path component, so a missing parent still means
+  # EVERY plugin unzip fails silently into a world that boots with no mods.
+  am=$(grep -c "mkdir -p \$treeRoot/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh)
   an=$(grep -c "unzipResult -ne 11" /opt/stateless/engine/includes/0-functions.sh)
-  mkline=$(grep -n "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh | head -1 | cut -d: -f1)
+  mkline=$(grep -n "mkdir -p \$treeRoot/BepInEx/plugins" /opt/stateless/engine/includes/0-functions.sh | head -1 | cut -d: -f1)
   uzline=$(grep -n "BepInEx/plugins/\$modName/" /opt/stateless/engine/includes/0-functions.sh | head -1 | cut -d: -f1)
   ao=0; [ -n "$mkline" ] && [ -n "$uzline" ] && [ "$mkline" -lt "$uzline" ] && ao=1
   echo "plugins mkdir=$am (want 1)  tolerates exit 11=$an (want 1)  mkdir before unzip=$ao (want 1)"
@@ -281,8 +318,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "js null-href guard=$as (want 1)  stale unconditional +connect=$at (want 0)"
 
   # ---- 2.41 ----------------------------------------------------------------------------
-  # Still NO APOSTROPHES below, comments included. The whole block is inside sh -c and one
-  # quote ends it early, silently skipping every later check.
+  # The old NO APOSTROPHES rule no longer applies here -- quoted heredoc, run from a file.
   # The Dockerfile is not copied into the image, so read the ENV it set. This is the value
   # dbUpdater and the admin UI actually see.
   # Compared against EXPECT_VER passed in from the Dockerfile, NOT a literal. This was
@@ -332,8 +368,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "spacer: malformed td=$cj (want 0)  card-gap cell=$ck (want 2)"
 
   # ---- 2.43: the multi-source mod catalogue ---------------------------------------------
-  # STILL no apostrophes below, comments included -- the whole body is inside sh -c and one
-  # quote ends it early, silently skipping every check after it.
+  # The old NO APOSTROPHES rule no longer applies here -- quoted heredoc, run from a file.
   #
   # python3 is FIRST because everything else here depends on it. The mod catalogue sync and a
   # world mod resolution are both Python, and before 2.43 python3 was in the image only as a
@@ -475,8 +510,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   echo "2.43 log table=$es timings col=$et (want >0)  record fn=$eu insert=$ev reset=$ew prune=$ex"
 
   # The API and the pane.
-  # No apostrophes: this whole block is inside sh -c SINGLE quotes, so a quoted case label
-  # closes it early and the grep matches nothing. That is the trap called out at the top of
+  # The old NO APOSTROPHES rule no longer applies here -- quoted heredoc, run from a file.
   # this file, and it caught this line on its first run -- reporting a perfectly good image
   # as broken.
   ey=$(grep -c getModSyncLog /opt/stateless/nginx/www/admin/adminAPI.php)
@@ -506,7 +540,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # or the engine calls a name that no longer exists and the catalogue never syncs at boot.
   # grep -o + wc, NOT awk: a single-quoted awk program inside this sh -c block closes the
   # outer quote, so $2 reaches the OUTER bash and dies on set -u. Same trap as the rest of
-  # this file -- no single quotes anywhere in here.
+  # The old NO APOSTROPHES rule no longer applies here -- quoted heredoc, run from a file.
   fm=$(grep -o seedModCatalogue /opt/stateless/engine/includes/0-functions.sh \
        /opt/stateless/engine/phvalheim 2>/dev/null | wc -l)
   # The sync must NOT be forced (a full refetch on every container restart) and must use
@@ -575,9 +609,7 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
 
   # ---- 2.45: the provider-agnostic AI Helper (issue #83) -------------------------
   #
-  # NO APOSTROPHES anywhere below. The whole verify is inside sh -c ...  and one
-  # apostrophe closes it early, silently skipping every check after it. That is how this
-  # script once reported a clean build while running none of its last four markers.
+  # The old NO APOSTROPHES rule no longer applies here -- quoted heredoc, run from a file.
   #
   # The headline markers are NEGATIVE. 2.44 held three hardcoded model tables and a
   # validator that silently rewrote an unrecognised model; an image that still carried
@@ -637,8 +669,9 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   # operator never chose. Both halves ship or neither does.
   #
   # NOTE: every quote below is written as a dot. This whole verify payload is carried
-  # inside a single-quoted sh -c string, so ONE literal apostrophe -- even in a comment --
-  # closes it and silently skips every remaining check. bash -n cannot see it.
+  # The old NO APOSTROPHES rule no longer applies here -- quoted heredoc, run from a file.
+  # (The dots standing in for quotes below are left as they were: `.` matches the quote fine,
+  # and rewriting working patterns buys nothing.)
   hx=$(grep -c "Credentials., .Model., .Test." /opt/stateless/nginx/www/admin/index.php)
   hy=$(grep -vE "^[[:space:]]*(\*|//|#)" /opt/stateless/nginx/www/includes/aiproviders.php | grep -cE "models.{0,3}\[0\]")
   hz=$(grep -c "case .discoverAiModels." /opt/stateless/nginx/www/admin/adminAPI.php)
@@ -1444,6 +1477,521 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
   yac=$(grep -cE "^[[:space:]]+.steamUrl.[[:space:]]+=> NULL," $yap)
   yad=$(grep -c "2.53. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
 
+  # ---- 2.53: QuickConnect retirement and the join-path notice -----------------------
+  #
+  # STILL NO APOSTROPHES, comments included. Note especially that there is no awk below:
+  # a single-quoted awk program inside this sh -c block closes it early, which is the trap
+  # documented further up this file. grep with a bounded -A window instead.
+  #
+  # The retirement is DERIVED from the catalogue, never assumed. If any of these read the
+  # wrong way, the failure mode is a modded world that starts normally and cannot be
+  # joined -- with a [WARN] in the log as the only evidence. Both directions are pinned,
+  # because a marker set that only checks that QuickConnect is gone passes on exactly the
+  # unconditional removal this whole mechanism exists to prevent.
+  zconf=/opt/stateless/engine/includes/phvalheim-static.conf
+  zfun=/opt/stateless/engine/includes/0-functions.sh
+  zeng=/opt/stateless/engine/phvalheim
+  zimp=/opt/stateless/games/valheim/scripts/importWorld.sh
+  zidx=/opt/stateless/nginx/www/admin/index.php
+  zmig=/opt/stateless/engine/dbUpdates/dbUpdate_2.53.sh
+
+  # NEGATIVE: QuickConnect must no longer be in requiredMods...
+  za=$(grep -c "^requiredMods=.*QuickConnect" $zconf)
+  # ...but must still exist as the fallback, or the not-yet-capable path installs nothing.
+  zb=$(grep -c "^legacyConnectMods=.*QuickConnect" $zconf)
+  # NEGATIVE: the Companion is BUNDLED from 2.53, so it must not also be catalogue-resolved.
+  # Both at once puts two DLLs with the same BepInEx GUID in plugins/ and one fails to load.
+  zc=$(grep -c "^requiredMods=.*PhValheimCompanion" $zconf)
+  # The flag that replaced the whole catalogue probe.
+  zd=$(grep -c "^companionProvidesConnect=" $zconf)
+  # The DLL is actually IN THE IMAGE. The Dockerfile COPY can be right while the file is
+  # absent from the build context, and installSystemPlugins exits 1 on every world if so.
+  ze=0; [ -s /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll ] && ze=1
+
+  # NEGATIVE: versionAtLeast and the catalogue probe are gone with the bundling. Left as a
+  # marker rather than deleted so a revert that quietly restores them is visible here.
+  zf=$(grep -c "^function versionAtLeast()" $zfun)
+  zg=$(grep -c "^function companionSupportsConnect()" $zfun)
+  # installSystemPlugins installs it, and fails HARD when the image does not carry it.
+  zh=$(grep -c "systemPluginsSourceDir/PhValheimCompanion" $zfun)
+  zi=$(grep -A30 "# Install the PhValheim Companion" $zfun | grep -c "exit 1")
+  # NEGATIVE: no Newtonsoft alongside the Companion. Bundled, a second copy of that assembly
+  # in plugins/ beside another mod own copy is a load-order lottery that fails at runtime.
+  zj=$(ls /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/ 2>/dev/null | grep -ci newtonsoft)
+
+  # Both writers of quick_connect_servers.cfg must consult the same verdict.
+  zk=$(grep -c "companionSupportsConnect" $zeng)
+  zl=$(grep -c "companionSupportsConnect" $zimp)
+  # ...and the writer itself must stay unconditional: test-gamedns-quickconnect.sh lifts
+  # it and calls it directly, so a self-gate would neuter that test rather than fail it.
+  zm=$(grep -A4 "^function createQuickConnectConfig()" $zfun | grep -c "companionSupportsConnect")
+
+  # The one-shot notice, all four sites.
+  zn=$(grep -c "connectNoticeShown" $zmig)
+  zo=$(grep -cE "connectNoticeShown.\] \?\? 1" /opt/stateless/nginx/www/includes/config_env_puller.php)
+  # ?? 1 in the MARKUP too. null == 0 is true in PHP, so without it a server that has not
+  # run the migration gets this dialog on every page load forever.
+  zp=$(grep -c "connectNoticeShown ?? 1" $zidx)
+  zq=$(grep -cE "case .dismissConnectNotice.:" /opt/stateless/nginx/www/admin/adminAPI.php)
+  zr=$(grep -c "action=dismissConnectNotice" $zidx)
+  # Seeded once, INDENTED inside the column-missing branch. A hoisted copy lands at less
+  # nesting and fails here.
+  zs=$(grep -cE "^[[:space:]][[:space:]]+sql .UPDATE settings SET connectNoticeShown = 1" $zmig)
+  # The operator MUST be told that updating a world stops it.
+  zt=$(grep -c "Updating a world stops it" $zidx)
+
+  # ---- 2.53 UI repairs (found in testing on 37648-phvalheim1) ------------------------
+  zauth=/opt/stateless/nginx/www/public/authenticated.php
+
+  # The dashboard poll must delete the previous join-code chip before re-rendering the
+  # launch button. launchButtonHtml() returns the anchor AND the chip as one string, but
+  # the poll finds only the anchor, so without this the row gained another copy of the
+  # join code every 5 seconds. Declaration plus the guarded remove.
+  zu=$(grep -c "staleChip" $zidx)
+
+  # Exactly TWO card-slack rows in the public page, one per card type. The crossplay
+  # modded hint row briefly carried its own, on top of the one the card body already
+  # emits, which made a crossplay card a whole blank row taller than every other card.
+  #
+  # Anchored on the MARKUP, not on the bare string: a plain count reads 3 because the
+  # comment explaining this names card-slack too, so it would have been measuring its own
+  # prose -- the same mistake aq made earlier in this release.
+  zv=$(grep -cE "colspan=2 class=.card-slack.></td>" $zauth)
+
+  echo "2.53 UI repairs: poll chip removal=$zu (want 2)  card-slack rows=$zv (want 2)"
+
+  # ---- 2.53 per-mod install destinations (design doc section 8) ----------------------
+  #
+  # NO APOSTROPHES anywhere in this block. The whole verify payload runs inside sh -c with a
+  # single-quoted body, so one apostrophe truncates every check after it -- silently, while
+  # still printing IMAGE VERIFY OK. Patterns use . rather than $ or quotes for the same
+  # reason: an unescaped $ would be expanded by the outer shell before grep ever sees it.
+  zwm=/opt/stateless/engine/tools/worldMods.py
+  zbk=/opt/stateless/engine/tools/worldBackup
+
+  # Schema. DEFAULT 1 on both is what makes an existing world install byte-identically.
+  cza=$(grep -c "for destCol in deploy_server deploy_client" $zmig)
+  czb=$(grep -c "TINYINT NOT NULL DEFAULT 1" $zmig)
+
+  # The union propagation, and the single derivation both --resolve and --plan share.
+  czc=$(grep -c "^def walk_closure" $zwm)
+  czd=$(grep -c "^def fold_by_plugin" $zwm)
+  cze=$(grep -c "^def closure" $zwm)
+  # The re-queue that carries a widening further down the subtree. Without it a dep reached
+  # from both sides widens but its OWN dependencies do not, and a plugin goes missing from a
+  # payload with nothing anywhere saying why.
+  czf=$(grep -c "elif widened:" $zwm)
+  # The plan emits both flags as its last two columns...
+  czg=$(grep -cE "r..deploy_client.. else" $zwm)
+  # ...and the install loop has a variable for each. read assigns its LAST variable every
+  # remaining field, so a column without a variable gets GLUED onto mod_id.
+  czh=$(grep -c "modDeployServer modDeployClient" $zfun)
+
+  # The client staging tree.
+  czi=$(grep -c "^function clientStagingRoot()" $zfun)
+  czj=$(grep -c "^function prepareClientStaging()" $zfun)
+  czk=$(grep -c "^function modTargetTrees()" $zfun)
+  czl=$(grep -cE "prepareClientStaging .+worldName" $zfun)
+  # The purge must sweep BOTH trees or a deselected client-only mod ships forever.
+  czm=$(grep -A30 "^function purgeWorldModsConfigsPatchers()" $zfun | grep -c "for treeRoot in")
+  # NEGATIVE: packageClient must no longer cd into the servers live game directory.
+  czn=$(grep -cE "cd /opt/stateful/games/valheim/worlds/.+/game" $zfun)
+  # The derived staging tree stays out of backups; it is rebuilt on every world update.
+  czo=$(grep -cE "exclude=.+client" $zbk)
+
+  echo "2.53 per-mod schema: deploy cols=$cza (want 1)  default 1=$czb (want 1)"
+  echo "2.53 per-mod union: walk_closure=$czc (want 1)  fold_by_plugin=$czd (want 1)  closure=$cze (want 1)  widen re-queue=$czf (want 1)"
+  echo "2.53 per-mod plan: flags emitted=$czg (want 1)  read loop vars=$czh (want 1)"
+  echo "2.53 staging tree: root=$czi (want 1)  prepare=$czj (want 1)  targets=$czk (want 1)  prepare called=$czl (want 1)  purge both=$czm (want 1)"
+  echo "2.53 STAGING NEGATIVE: packageClient still cds into game=$czn (want 0)"
+  echo "2.53 staging: backup excludes it=$czo (want 1)"
+
+  # ---- 2.53 mod picker switches (design doc section 8.2) -----------------------------
+  zpnew=/opt/stateless/nginx/www/admin/new_world.php
+  zped=/opt/stateless/nginx/www/admin/edit_world.php
+  zpmc=/opt/stateless/nginx/www/includes/modcatalog.php
+
+  # Both picker pages carry their own copy of this JS. A change applied to one and not the
+  # other is invisible until an operator uses the other page, so every count here is 2.
+  czp=$(grep -c "var destSet = {};" $zpnew $zped | grep -c ":1")
+  czq=$(grep -c "title: .Installs on." $zpnew $zped | grep -c ":1")
+  czr=$(grep -c "on(.change., ..dest-toggle" $zpnew $zped | grep -c ":1")
+  # The column holds controls, so it must not be sortable.
+  czs=$(grep -c "orderable: false, targets: .0, 5." $zpnew $zped | grep -c ":1")
+  # getSelectedMods must SEND the flags, or the switches are decoration.
+  czt=$(grep -c "server: ..d.0., client: ..d.1." $zpnew $zped | grep -c ":1")
+
+  # The PHP round trip.
+  czu=$(grep -c "IFNULL(wm.deploy_server,1) AS deploy_server" $zpmc)
+  czv=$(grep -c "deploy_server, deploy_client)" $zpmc)
+  # NEGATIVE-ish: an absent flag must default to TRUE. aiactions.php posts bare mod ids
+  # through this same function, so a falsy default would install those mods nowhere.
+  czw=$(grep -c "array_key_exists(.server., .m) ? (bool).m..server.. : true" $zpmc)
+
+  # ---------------------------------------------------------------------------
+  # 2.53 Companion connect support, checked in the SHIPPED DLL.
+  #
+  # These read the binary that is actually in the image, not the source tree that built it.
+  # That distinction is the whole reason the block exists: the Companion's shipping artifact is
+  # a committed binary, the project builds Debug by default, and the file it ships lives under
+  # bin/Release -- so it is entirely possible to write the connect code, build it, see "Build
+  # succeeded", and copy nothing. That very mistake was made while writing this release: the
+  # Debug output went to bin/Debug/net472 while the bundled copy stayed at the previous
+  # Release build.
+  #
+  # grep -a rather than strings(1), because binutils is not installed in the image and a
+  # marker that silently cannot run is worse than no marker.
+  #
+  # The NUL strip is not cosmetic. .NET keeps TYPE and MEMBER names as UTF-8 but string
+  # LITERALS as UTF-16, so a plain ASCII grep finds LaunchPayload and silently fails to find
+  # "--phvalheim-launch" or "ProceedJoinRequest" -- which are the literals that matter most,
+  # because they are the transport name and the reflected method. The first draft of this
+  # block wanted 1 and got 0 for all three, and a dry run against the real DLL is what caught
+  # it. Dropping NUL bytes turns UTF-16 ASCII back into plain text and reads both heaps.
+  zdll=/opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll
+  zdlltxt=/tmp/phv-companion-strings.txt
+  tr -d '\000' < $zdll > $zdlltxt 2>/dev/null
+
+  # Normalised to 0/1 with -q, not counted with -c. grep -c counts matching LINES, and in a
+  # binary the "lines" are wherever a 0x0a happens to fall -- ConnectFlow came back 2 purely
+  # because its two mentions straddled one. A presence check must answer presence.
+  cna=0; grep -aq "LaunchPayload" $zdlltxt && cna=1
+  cnb=0; grep -aq "ConnectFlow" $zdlltxt && cnb=1
+  cnc=0; grep -aq "ConnectDialog" $zdlltxt && cnc=1
+  # The transport name, which must match phvalheim-client's CompanionArgName exactly. A
+  # mismatch shows no dialog and logs nothing -- the Companion simply concludes it was not
+  # launched by PhValheim.
+  cnd=0; grep -aq -- "--phvalheim-launch" $zdlltxt && cnd=1
+  # ProceedJoinRequest is reached by REFLECTION, so its name survives only as a string literal
+  # in the DLL. If this is 0 the connect path was rewritten to call something directly, which
+  # is the publicizer trap waiting to happen.
+  cne=0; grep -aq "ProceedJoinRequest" $zdlltxt && cne=1
+  # Likewise the private UnifiedPopup label field.
+  cnf=0; grep -aq "yesText" $zdlltxt && cnf=1
+
+  # The justification fix. The dialog body arrives JUSTIFIED, which is what made a bulleted
+  # mod list look wrong, and the fix reflects UnifiedPopup.bodyText to set TopLeft alignment.
+  # The alignment VALUE cannot be checked here -- TextAlignmentOptions is an enum and compiles
+  # to an integer, leaving no string behind -- but the reflected field name does survive, so
+  # this catches the fix being dropped from the shipped DLL.
+  cnk=0; grep -aq "bodyText" $zdlltxt && cnk=1
+
+  # The join code reader must match ANY join-code mention and take the last, not just the
+  # registration line.
+  #
+  # Valheim re-reports a sticky code from the PlayFab lobby entity when it registers, then
+  # mints a replacement a second later. Reading only "registered with join code" handed
+  # players 537586 for test123 while the game itself was using 284283 -- wrong in the public
+  # UI, the admin dashboard AND the Launch link, because all seven call sites come through
+  # getWorldJoinCode(). The NEGATIVE is the one that matters: the narrow pattern must be gone,
+  # not merely joined by a broader one, or whichever matches first wins again.
+  # QuickConnect retirement, in the migration.
+  #
+  # The NEGATIVE is the one that matters and it is not obvious: there are FOUR different
+  # QuickConnect packages in the live catalogue, from four different owners (bdew,
+  # HouseAtreides, ValheimEnjoyers, GillianAprils). PhValheim only ever installed bdew's, per
+  # legacyConnectMods. A DELETE matching on name alone would strip three unrelated operators'
+  # deliberate picks, which is exactly why identity in this project is (source, owner, name)
+  # and never the name on its own. qcb fails if the owner guard is ever dropped.
+  qca=$(grep -c "quickConnectRetired" $zmig)
+  qcb=$(grep -c "m.owner = 'bdew' AND m.name = 'QuickConnect'" $zmig)
+  # One-shot, not a policy. Without the flag being SET the delete would run on every boot and
+  # silently re-strip a QuickConnect the operator had deliberately added back.
+  qcc=$(grep -c "UPDATE settings SET quickConnectRetired = 1" $zmig)
+
+  zgets=/opt/stateless/nginx/www/includes/db_gets.php
+  cnl=$(grep -c "preg_match_all('/join code (.d{4,10})/'" $zgets)
+  cnm=$(grep -c "registered with join code (.d{4,10})" $zgets)
+
+  # Size floor. The last pre-connect Companion was 10,752 bytes; the build with the DNS fix is
+  # 32,256. The shipping artifact is a committed binary and the project builds Debug by default
+  # while shipping from bin/Release, so "built it, copied nothing" is a real and easy mistake --
+  # it was made twice while writing this release.
+  #
+  # Raised from 20000 to 30000 deliberately. The second time, the stale bundled copy was the
+  # 29,184-byte build from one commit earlier: it cleared a 20 KB floor, carried every string
+  # literal every other marker greps for, and was the SAME SIZE as the new build to the byte in
+  # an `ls`. Only the hashes differed. A floor between the two builds is the cheapest thing
+  # that can see that, which is why this number is specific and not round.
+  cng=0; [ "$(wc -c < $zdll 2>/dev/null || echo 0)" -gt 30000 ] && cng=1
+
+  # The IP:PORT (non-crossplay) join fix.
+  #
+  # FejdStartup.JoinServer()'s dedicated branch calls GetServerIPAsync and then transitions to
+  # the main scene WITHOUT waiting for the callback, so ZNet.SetServerHost has not run yet. It
+  # only works when the resolve answers synchronously, which happens on a warm DNS cache -- and
+  # arriving from our dialog instead of the server list, the cache is cold. The player was
+  # bounced back to the main menu with no error. The fix pre-resolves gameDNS through Valheim's
+  # own resolver before handing the join over.
+  #
+  # cnn is the resolve call itself; a direct call leaves the member name in metadata.
+  cnn=0; grep -aq "GetServerIPAsync" $zdlltxt && cnn=1
+  # cno is the coroutine. This one matters more than it looks: the fix is ONLY a fix because it
+  # can wait, and waiting needs the coroutine form. Collapse it back to a plain method and every
+  # other marker here still passes while the join is broken again exactly as before. The
+  # compiler emits the state machine as <JoinByAddressRoutine>d__n, so the name survives.
+  cno=0; grep -aq "JoinByAddressRoutine" $zdlltxt && cno=1
+  # cnp is the watchdog that clears ConnectFlow.Connecting when Valheim drops the player back on
+  # the main menu. Without it a failed join hides the dialog AND the reopen button permanently --
+  # which is the half of Brian's report that is independent of the join itself.
+  cnp=0; grep -aq "NoticeMainMenu" $zdlltxt && cnp=1
+
+  # The dialog layout.
+  #
+  # The YesNoPopup panel is a fixed size and its body does NOT clip, so a body a few lines too
+  # tall draws the world name over the "PhValheim" header and hides the closing sentence behind
+  # the buttons. That shipped once. Two things keep it fixed and both have to be in the DLL:
+  #
+  # cnq -- the <align=left> tag. Horizontal alignment is carried IN THE TEXT rather than only on
+  # the TMP component, because the component-level set demonstrably did not take and the result
+  # was a centred, ragged table. A tag cannot be lost to a reflection failure.
+  #
+  # All four use grep -F. These patterns contain <, =, % and / and are matched literally; a
+  # regex read of "<pos=26%>" is not what anyone writing this line intends.
+  cnq=0; grep -aqF -- "<align=left>" $zdlltxt && cnq=1
+  # cnr -- the <pos=> column stop that makes it a table rather than a paragraph. Padding with
+  # spaces cannot do this: the body font is proportional, so padded labels drift per row.
+  cnr=0; grep -aqF -- "<pos=26%>" $zdlltxt && cnr=1
+  # cns -- BuildBodyText, which is the seam dev_tools/test-dialog-layout.sh renders through. If
+  # it is renamed or inlined the layout silently becomes untestable again, which is how the
+  # overflowing version got out in the first place.
+  cns=0; grep -aqF -- "BuildBodyText" $zdlltxt && cns=1
+
+  # The scrolling mod list and the failure notice.
+  #
+  # cnu -- ModListView, the scrolling list. It builds its OWN object tree under the popup
+  # rather than re-parenting Valheim's bodyText, because the popup is a shared singleton and a
+  # missed teardown would leave every later confirm dialog in the session broken.
+  cnu=0; grep -aqF -- "PhValheimModList" $zdlltxt && cnu=1
+  # cnv -- the failure notice. Every failure path used to end at the BepInEx log and nowhere
+  # else, so a failed join just made the dialog silently reappear. ConnectFlow.LastFailure is
+  # what the player now reads.
+  cnv=0; grep -aqF -- "LastFailure" $zdlltxt && cnv=1
+  # cnw -- the panel scale reaches popupUIParent, which is PRIVATE in the real assembly and so
+  # survives only as a reflected string literal. If this is 0 the dialog is back to its old
+  # size with no other symptom.
+  cnw=0; grep -aqF -- "popupUIParent" $zdlltxt && cnw=1
+
+  # cnx -- the tighter budget that applies while the scrolling list is up. The list owns the
+  # bottom of the body rect, so the summary rows only have the top; checking those layouts
+  # against the full-panel budget passed a body that then rendered straight THROUGH the list,
+  # which is what the second screenshot showed. Its absence means the two cases have been
+  # conflated again.
+  cnx=0; grep -aqF -- "BodyLineBudgetWithList" $zdlltxt && cnx=1
+  # cny -- the anchored layout. The list is placed with normalized anchors on the parent rect,
+  # NOT by measuring the body text: that measurement ran before the popup was laid out, came
+  # back short, and put the list on top of the closing sentence and past the bottom of the
+  # panel. StretchBottom is the anchored form.
+  cny=0; grep -aqF -- "StretchBottom" $zdlltxt && cny=1
+
+  # The admin Launch button for a vanilla crossplay world, and the join-code modal it opens.
+  # BOTH render paths must have it -- the server renders the row and the 5s poll replaces it,
+  # so a button in only one appears and then vanishes.
+  zjd=$(grep -c "showJoinCodeModal(this)" /opt/stateless/nginx/www/admin/index.php)
+  zje=$(grep -c "id=.joinCodeModalOverlay." /opt/stateless/nginx/www/admin/index.php)
+
+  echo "2.53 admin vanilla launch: modal openers=$zjd (want 2)  modal present=$zje (want 1)"
+
+  # cnz -- the body style is applied AFTER UnifiedPopup.Push. Styling the popup while its
+  # GameObject is still inactive is why the body stayed vertically centred for two rounds of
+  # testing: the alignment write did not survive the object being enabled, the text hung down
+  # into the mod list's strip, and the list looked misplaced when it was the text that was.
+  # ApplyBodyStyle is the post-push method.
+  cnz=0; grep -aqF -- "ApplyBodyStyle" $zdlltxt && cnz=1
+  # cob -- the explicit vertical axis plus the reserved bottom margin. Vertical alignment is
+  # the axis that actually went wrong and no rich-text tag can reach it; the margin is the
+  # geometric backstop so the text cannot occupy the list's strip even if alignment is ignored.
+  cob=0; grep -aqF -- "set_verticalAlignment" $zdlltxt && cob=1
+  coc=0; grep -aqF -- "set_margin" $zdlltxt && coc=1
+
+  echo "2.53 dialog vertical fix: styled after push=$cnz (want 1)  vAlign=$cob (want 1)  reserved margin=$coc (want 1)"
+
+  # cod/coe/cof -- the content-size decoupling. PanelScale is a localScale on the popup root, so
+  # it multiplies the panel art, the header, the body, the list AND both buttons together.
+  # Raising it twice (1.28 -> 1.75) grew everything in step and bought zero extra content room,
+  # which is why the dialog read as cramped at every size. Content sizes are now screen-space
+  # constants divided by PanelScale.
+  #
+  # The constants themselves are compile-time folded and leave NO symbol in the DLL, so there is
+  # nothing to grep for them -- these markers pin the METHOD and the two reflected members that
+  # only this work introduced. ApplyChromeStyle is the post-push header/button styler;
+  # headerText and buttonRightText are reached by reflection from nowhere else in the mod.
+  coe=0; grep -aqF -- "ApplyChromeStyle" $zdlltxt && coe=1
+  cof=0; grep -aqF -- "buttonRightText" $zdlltxt && cof=1
+  cog=0; grep -aqF -- "headerText" $zdlltxt && cog=1
+
+  # cod -- the admin row's wrap rule. The join-code chip is a LABEL, not an .action-btn, so
+  # reflowActionGroups() never counts its width; it came straight out of the button row's budget
+  # and pushed Start, Stop and Logs behind the "..." menu on every crossplay world at every
+  # width measured. Matched on the full selector, not the bare class: `.join-code-chip` alone
+  # already appears several times in this stylesheet and would pass with the fix removed.
+  cod=$(grep -c "action-group:has(.join-code-chip)" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+
+  echo "2.53 dialog content size: chrome styler=$coe (want 1)  button text reflected=$cof (want 1)  header reflected=$cog (want 1)"
+  echo "2.53 admin row overflow: chip wrap rule=$cod (want 1)"
+
+  # coh -- the mod list's measured-geometry log line. Every size in ModListView is a const and
+  # is folded away at compile time, so there is no symbol for the list height, the overshoot or
+  # the scrollbar mode to grep for. This log string is emitted by the rebuilt Build() and by
+  # nothing else, so it stands in for the whole of that rework -- and it is the line that
+  # answers, from a world's log, whether the list was actually taller than its viewport.
+  coh=0; grep -aqF -- "scrollable=" $zdlltxt && coh=1
+
+  # The dashboard column rebalance. Configure held 40% (default) and 41% (the 1024-1366
+  # breakpoint) while showing two links, and both the World and Actions columns wrapped.
+  # TWO markers because there are TWO rule sets: fixing only the default one leaves every
+  # window between 1024 and 1366 still wrapping, and a single marker would have passed anyway.
+  # That is the same mistake as editing one of four render sites.
+  coi=$(grep -c "width: 29%" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  coj=$(grep -c "width: 34%" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # NEGATIVES: the two old Configure widths. These are the shape of the bug, and they are the
+  # only two occurrences of either literal in the stylesheet -- verified before they were used.
+  cok=$(grep -c "width: 40%" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  com=$(grep -c "width: 41%" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # The world name must not break mid-word. Matched on the scoped selector, not on `nowrap`,
+  # which appears all over this stylesheet and would pass with the rule deleted.
+  con=$(grep -c "nth-child(2) .world-name" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+
+  echo "2.53 ADMIN COLUMN NEGATIVES: old Configure 40%=$cok (want 0)  old Configure 41%=$com (want 0)"
+  echo "2.53 admin columns: actions default=$coi (want 1)  actions narrow=$coj (want 1)  name nowrap=$con (want 1)"
+  echo "2.53 mod list geometry: measured log=$coh (want 1)"
+
+  # cop/coq -- the scroll fix and the panel geometry nudges.
+  #
+  # cop: the mod list's content height is now COMPUTED from the known line count instead of read
+  # from TMP_Text.preferredHeight at build time. The old read ran before layout had given the
+  # rect a width, came back about one viewport tall, and ScrollRect clamps travel to
+  # (content - viewport) -- so the bar appeared, its handle filled the track, and 34 mods would
+  # not scroll. "lineH=" is emitted only by the computed path; "tmpPreferred=" logs what the old
+  # reading would have said, side by side, so the next report can tell the two apart.
+  cop=0; grep -aqF -- "lineH=" $zdlltxt && cop=1
+  # coq: the header lift, body-rect lift and button pull all log through this one line.
+  coq=0; grep -aqF -- "body rect " $zdlltxt && coq=1
+
+  echo "2.53 dialog scroll + spacing: computed content height=$cop (want 1)  rect geometry log=$coq (want 1)"
+
+  # cor -- a deliberate disconnect must not be reported as a failed connection. Nothing cleared
+  # Connecting on success, so it stayed true for the whole session and the menu-return watchdog
+  # fired on the player's own logout. The constants are folded away, so this pins the log line
+  # the success branch emits -- which exists only on that branch.
+  cor=0; grep -aqF -- "treating it as a disconnect" $zdlltxt && cor=1
+
+  # cos -- the OBSERVER, which is the half that was missing. The first fix put the "did we get
+  # in?" check in ConnectDialog.Update, which lives on FejdStartup's GameObject and is destroyed
+  # on the way into a world -- so it could not run during the only window that mattered, and the
+  # bug shipped unchanged with a passing test. JoinSentry is a DontDestroyOnLoad object that
+  # survives the scene load; this pins its GameObject name, which exists only if it was built.
+  cos=0; grep -aqF -- "PhValheimJoinSentry" $zdlltxt && cos=1
+
+  echo "2.53 disconnect vs failure: success branch=$cor (want 1)  join observer=$cos (want 1)"
+
+  # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
+  # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
+  # same count and a very different number of rendered lines. That is precisely how the body
+  # overflowed. The replacement caps by character width instead (ModLineBudgetChars).
+  #
+  # Chosen because it is unmatchable by anything legitimate: no other identifier contains it,
+  # unlike a bullet or a stray "   . " pattern, which would match half the assembly and make
+  # the marker fire on a correct build.
+  cnt=0; grep -aqF -- "MaxModsListed" $zdlltxt && cnt=1
+
+  # NEGATIVE: SetServerToJoin must NOT appear. It is the wrong door -- it writes m_joinServer,
+  # which OnCharacterStart then overwrites from m_queuedJoinServer, so the player would pick a
+  # character and land in the world list with no error. Reading the IL is what found that;
+  # this marker is what stops it being "fixed" back. Checked against the NUL-stripped text so
+  # it is a real negative and not a grep that could never have matched anyway.
+  cnh=0; grep -aq "SetServerToJoin" $zdlltxt && cnh=1
+
+  # The flag, re-anchored after the real-client smoke test passed on 2026-10-01.
+  #
+  # These two markers previously wanted the OPPOSITE: marker present (1) and the flag at 0.
+  # That was correct while the connect path was written but unproven. Flipping the flag without
+  # moving them would have failed the build -- which is the point of them -- so they are
+  # updated to the new reality rather than deleted. The pending marker must now be GONE and the
+  # flag must be 1; either one drifting back means QuickConnect is being installed again, or
+  # the declaration and the flag have fallen out of step.
+  cni=$(grep -c "COMPANION CONNECT PENDING SMOKE TEST" $zconf)
+  cnj=$(grep -c '^companionProvidesConnect="1"' $zconf)
+
+  # The mod picker blocker. `var neededDeps = {}` is declared inside rebuildTables(), and
+  # destinationCell() is a SIBLING function, not a nested one -- so reading it there threw
+  # ReferenceError. Only the UNCHECKED branch reads it, and a catalogue of thousands of mods is
+  # almost entirely unchecked, so the first row threw, the exception escaped the AJAX success
+  # handler, and the picker's spinner span forever. World creation and editing were both dead.
+  #
+  # Nothing cheap could see it: php -l is clean because it is a runtime error, node --check is
+  # clean on the source AND the served page, and the admin API answered valid JSON in 500 ms.
+  # So it gets pinned here. The NEGATIVE is the one that matters -- the two-argument definition
+  # must be GONE, not merely accompanied by a three-argument one, since a stray leftover copy
+  # would shadow or replace the fixed one depending on source order.
+  zpa=$(grep -c "function destinationCell(uuid, isChecked, neededDeps)" /opt/stateless/nginx/www/admin/new_world.php /opt/stateless/nginx/www/admin/edit_world.php | awk -F: '{s+=$2} END{print s}')
+  zpb=$(grep -c "function destinationCell(uuid, isChecked)" /opt/stateless/nginx/www/admin/new_world.php /opt/stateless/nginx/www/admin/edit_world.php | awk -F: '{s+=$2} END{print s}')
+  # And the guarded read inside it. Passing the argument but dereferencing it unguarded would
+  # throw TypeError on any caller that omitted it -- a different exception in the same place,
+  # with the same spinner.
+  zpc=$(grep -c "if (neededDeps && neededDeps\[uuid\])" /opt/stateless/nginx/www/admin/new_world.php /opt/stateless/nginx/www/admin/edit_world.php | awk -F: '{s+=$2} END{print s}')
+
+  # The admin UI showed no join code for a VANILLA crossplay world.
+  #
+  # getVanillaJoinInfo() returns href = NULL for one permanently and by design -- there is no
+  # address and no Companion (design doc section 13). The launch cell branched on href first and
+  # rendered "starting..." for the NULL case, so the code never appeared, while the modded world
+  # in the row above showed its code fine. The code is the ONLY way into a vanilla crossplay
+  # world, so this was the one thing that branch must not hide.
+  #
+  # BOTH files, because the server renders the row once and the 5s poll REPLACES it: a branch
+  # present in only one of them is a chip that appears and then vanishes seconds later.
+  # The WAITING state keeps the Launch affordance in place, disabled, rather than swapping in a
+  # differently-worded control. A vanilla crossplay world that briefly had no Launch button at
+  # all is what Brian reported twice; a label that changes out from under the operator reads as
+  # the button having disappeared. Both render paths say "Launch" in every running case now, so
+  # the marker counts the PENDING CHIP instead -- 3: two PHP waiting branches (vanilla and
+  # modded) plus the single shared JS chip builder, which is why it is 3 and not 4. The old "join by code" label is gone, which zjf asserts.
+  zja=$(grep -c "code waiting" /opt/stateless/nginx/www/admin/index.php)
+  # NEGATIVE: the old label must not come back. It is the shape of the bug, not a style choice.
+  zjf=$(grep -c "join by code" /opt/stateless/nginx/www/admin/index.php)
+  # The shared JS chip builder. Three call sites now go through it so they cannot disagree about
+  # what a present vs absent code looks like.
+  zjb=$(grep -c "function joinCodeChipHtml" /opt/stateless/nginx/www/admin/index.php)
+  # NEGATIVE: the no-href branch must no longer be an unconditional "starting...". If this is 0
+  # the branch has been collapsed back and vanilla crossplay worlds are hiding their code again.
+  # The array subscript sits between the key and the operator, so the literal is
+  # launchJoinCode'] !== NULL -- a dot stands in for the quote because a bare apostrophe here
+  # is still legal but needlessly hard to read. Two occurrences: the no-href branch this fix
+  # added, and the pre-existing modded-crossplay branch.
+  zjc=$(grep -c "launchJoinCode.. !== NULL" /opt/stateless/nginx/www/admin/index.php)
+
+  echo "2.53 ADMIN JOIN CODE NEGATIVE: old join-by-code label=$zjf (want 0)"
+  echo "2.53 admin join code (vanilla crossplay): pending chips=$zja (want 3)  shared chip fn=$zjb (want 1)  guarded branch=$zjc (want 2)"
+
+  echo "2.53 PICKER BLOCKER NEGATIVES: two-arg destinationCell still present=$zpb (want 0)"
+  echo "2.53 picker blocker: neededDeps passed in=$zpa (want 2)  guarded read=$zpc (want 2)"
+
+  echo "2.53 COMPANION CONNECT NEGATIVES: SetServerToJoin in dll=$cnh (want 0)"
+  echo "2.53 companion connect dll: payload=$cna (want 1)  flow=$cnb (want 1)  dialog=$cnc (want 1)  argname=$cnd (want 1)"
+  echo "2.53 companion connect reflection: ProceedJoinRequest=$cne (want 1)  yesText=$cnf (want 1)  bodyText=$cnk (want 1)  dll over 30k=$cng (want 1)"
+  echo "2.53 companion ip:port join: pre-resolve=$cnn (want 1)  coroutine=$cno (want 1)  menu-return watchdog=$cnp (want 1)"
+  echo "2.53 DIALOG LAYOUT NEGATIVES: MaxModsListed count-cap still present=$cnt (want 0)"
+  echo "2.53 dialog layout: align tag=$cnq (want 1)  column stop=$cnr (want 1)  testable seam=$cns (want 1)"
+  echo "2.53 dialog UX: scrolling mod list=$cnu (want 1)  failure notice=$cnv (want 1)  bigger panel=$cnw (want 1)"
+  echo "2.53 dialog UX: list-mode budget=$cnx (want 1)  anchored list layout=$cny (want 1)"
+  echo "2.53 COMPANION CONNECT NEGATIVES: pending marker still present=$cni (want 0)"
+  echo "2.53 companion connect gating: flag flipped to 1=$cnj (want 1)"
+  echo "2.53 JOIN CODE NEGATIVES: narrow registered-only regex still present=$cnm (want 0)"
+  echo "2.53 join code reader: any-mention regex=$cnl (want 1)"
+  echo "2.53 quickconnect retirement: flag col=$qca (want >0)  owner-scoped delete=$qcb (want 2)  one-shot set=$qcc (want 1)"
+
+  echo "2.53 picker (both pages): destSet=$czp (want 2)  column=$czq (want 2)  handler=$czr (want 2)  unsortable=$czs (want 2)  flags sent=$czt (want 2)"
+  echo "2.53 picker PHP: selection reads cols=$czu (want 1)  save writes cols=$czv (want 1)  absent means both=$czw (want 1)"
+
+  echo "2.53 QC RETIREMENT NEGATIVES: in requiredMods=$za (want 0)  gated on server version=$zj (want 0)  self-gating writer=$zm (want 0)"
+  echo "2.53 QC retirement: legacy fallback=$zb (want 1)  connect flag=$zd (want 1)  companion dll in image=$ze (want 1)"
+  echo "2.53 BUNDLING NEGATIVES: companion in requiredMods=$zc (want 0)  versionAtLeast alive=$zf (want 0)  newtonsoft shipped=$zj (want 0)"
+  echo "2.53 bundling: companionSupportsConnect=$zg (want 1)  installSystemPlugins installs it=$zh (want 1)  hard exit if missing=$zi (want 1)"
+  echo "2.53 call sites gated: engine=$zk (want 1)  importWorld=$zl (want 1)"
+  echo "2.53 notice sites: migration=$zn (want 4)  puller ?? 1=$zo (want 1)  markup ?? 1=$zp (want 1)  dismiss case=$zq (want 1)  dismiss call=$zr (want 1)"
+  echo "2.53 notice: seeding nested=$zs (want 1)  stop warning=$zt (want 1)"
+
   echo "2.53 HEADLINE NEGATIVES: argv gate gone=$ya (want 0)  refusal notice gone=$yb (want 0)"
   echo "2.53 HEADLINE NEGATIVES: api force-off gone=$yg (want 0)  gated setCrossplay gone=$yh (want 0)"
   echo "2.53 startWorld: console caveat=$yc (want 1)  running-options unindented=$yd (want 1) indented=$ye (want 0)"
@@ -1495,8 +2043,8 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$ap" = "1" ] && [ "$aq" = "1" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
     && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
     && [ "$ba" = "0" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "0" ] \
-    && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "2" ] \
-    && [ "$bl" = "3" ] && [ "$bm" = "1" ] && [ "$bn" = "1" ] && [ "$bo" = "2" ] \
+    && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "1" ] \
+    && [ "$bl" = "2" ] && [ "$bm" = "1" ] && [ "$bn" = "1" ] && [ "$bo" = "2" ] \
     && [ "$ver" = "1" ] \
     && [ "$bp" = "1" ] && [ "$bq" = "1" ] && [ "$br" = "1" ] && [ "$bs" = "1" ] && [ "$bt" = "1" ] \
     && [ "$bu" = "7" ] && [ "$bv" = "1" ] && [ "$bw" = "1" ] \
@@ -1616,8 +2164,58 @@ docker run --rm -e EXPECT_VER="$EXPECT_VER" --entrypoint sh "$IMAGE" -c '
     && [ "$yw" = "1" ] && [ "$yx" = "1" ] \
     && [ "$yy" = "3" ] && [ "$yz" = "1" ] && [ "$yaa" = "1" ] && [ "$yab" = "0" ] \
     && [ "$yac" = "1" ] && [ "$yad" = "1" ] \
+    && [ "$za" = "0" ] && [ "$zm" = "0" ] \
+    && [ "$zc" = "0" ] && [ "$zf" = "0" ] && [ "$zj" = "0" ] \
+    && [ "$zb" = "1" ] && [ "$zd" = "1" ] && [ "$ze" = "1" ] \
+    && [ "$zg" = "1" ] && [ "$zh" = "1" ] && [ "$zi" = "1" ] \
+    && [ "$zk" = "1" ] && [ "$zl" = "1" ] \
+    && [ "$zn" = "4" ] && [ "$zo" = "1" ] && [ "$zp" = "1" ] && [ "$zq" = "1" ] && [ "$zr" = "1" ] \
+    && [ "$zs" = "1" ] && [ "$zt" = "1" ] \
+    && [ "$zu" = "2" ] && [ "$zv" = "2" ] \
+    && [ "$czn" = "0" ] \
+    && [ "$cza" = "1" ] && [ "$czb" = "1" ] \
+    && [ "$czc" = "1" ] && [ "$czd" = "1" ] && [ "$cze" = "1" ] && [ "$czf" = "1" ] \
+    && [ "$czg" = "1" ] && [ "$czh" = "1" ] \
+    && [ "$czi" = "1" ] && [ "$czj" = "1" ] && [ "$czk" = "1" ] && [ "$czl" = "1" ] && [ "$czm" = "1" ] \
+    && [ "$czo" = "1" ] \
+    && [ "$czp" = "2" ] && [ "$czq" = "2" ] && [ "$czr" = "2" ] && [ "$czs" = "2" ] && [ "$czt" = "2" ] \
+    && [ "$czu" = "1" ] && [ "$czv" = "1" ] && [ "$czw" = "1" ] \
+    && [ "$zpb" = "0" ] \
+    && [ "$zpa" = "2" ] && [ "$zpc" = "2" ] \
+    && [ "$cnh" = "0" ] \
+    && [ "$cna" = "1" ] && [ "$cnb" = "1" ] && [ "$cnc" = "1" ] && [ "$cnd" = "1" ] \
+    && [ "$cne" = "1" ] && [ "$cnf" = "1" ] && [ "$cng" = "1" ] && [ "$cnk" = "1" ] \
+    && [ "$cnn" = "1" ] && [ "$cno" = "1" ] && [ "$cnp" = "1" ] \
+    && [ "$cnt" = "0" ] \
+    && [ "$cnq" = "1" ] && [ "$cnr" = "1" ] && [ "$cns" = "1" ] \
+    && [ "$cnu" = "1" ] && [ "$cnv" = "1" ] && [ "$cnw" = "1" ] \
+    && [ "$cnx" = "1" ] && [ "$cny" = "1" ] \
+    && [ "$cnz" = "1" ] && [ "$cob" = "1" ] && [ "$coc" = "1" ] \
+    && [ "$coe" = "1" ] && [ "$cof" = "1" ] && [ "$cog" = "1" ] && [ "$cod" = "1" ] \
+    && [ "$coh" = "1" ] && [ "$coi" = "1" ] && [ "$coj" = "1" ] && [ "$con" = "1" ] \
+    && [ "$cok" = "0" ] && [ "$com" = "0" ] \
+    && [ "$cop" = "1" ] && [ "$coq" = "1" ] && [ "$cor" = "1" ] && [ "$cos" = "1" ] \
+    && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
+    && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
+    && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \
+    && [ "$cnm" = "0" ] \
+    && [ "$cnl" = "1" ] \
+    && [ "$qca" -gt 0 ] && [ "$qcb" = "2" ] && [ "$qcc" = "1" ] \
     && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
-'
+PHVVERIFYEOF
+
+# Refuse to proceed on a truncated payload rather than verify a fraction of it and pass.
+verifyBytes=$(wc -c < "$VERIFY_SH")
+echo "=== verify payload is $verifyBytes bytes (mounted, not argv) ==="
+if [ "$verifyBytes" -lt 10000 ]; then
+  echo "IMAGE VERIFY FAILED -- the verify payload is only $verifyBytes bytes; it did not assemble"
+  echo "=== done FAILED ==="
+  exit 1
+fi
+
+docker run --rm -e EXPECT_VER="$EXPECT_VER" \
+  -v "$VERIFY_SH":/phvalheim-verify.sh:ro \
+  --entrypoint sh "$IMAGE" /phvalheim-verify.sh
 
 echo "=== digest ==="
 docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE"

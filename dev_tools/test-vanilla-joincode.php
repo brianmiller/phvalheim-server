@@ -79,6 +79,36 @@ writeLog('cross', implode("\n", [
 ]));
 check('extracts 441944', getWorldJoinCode('cross') === '441944', var_export(getWorldJoinCode('cross'), true));
 
+echo "\nCase 1b: Valheim REPLACES the registered code mid-session\n";
+# Taken verbatim from test123's production log, 2026-10-01 23:17. This is the sequence that
+# made the public UI, the admin dashboard and the Launch link all hand out 537586 -- a code
+# that had been re-reported identically across four restarts and did not work. The live code
+# was 284283, and only the game itself showed it.
+#
+# The registration line is NOT authoritative: Valheim re-reports a code carried on the PlayFab
+# lobby entity, then mints a replacement a second later. Case 1 could never catch this because
+# its two lines carry the SAME code -- a fixture that agrees with itself cannot tell a reader
+# that picks the wrong line from one that picks the right one.
+writeLog('replaced', implode("\n", [
+    '10/01/2026 23:17:56: Register PlayFab server "test123" with IP 203.0.113.10:25022',
+    '10/01/2026 23:17:56: New session server "test123" that has join code , now 0 player(s)',
+    '10/01/2026 23:17:57: Session "test123" registered with join code 537586',
+    '10/01/2026 23:17:58: Created new join code 284283 for session "test123"',
+    '10/01/2026 23:17:59: Session "test123" with join code 284283 and IP 203.0.113.10:25022 is active with 0 player(s)',
+    '10/01/2026 23:18:49: Player joined server "test123" that has join code 284283, now 1 player(s)',
+]));
+check('returns the REPLACEMENT code 284283, not the registered 537586',
+    getWorldJoinCode('replaced') === '284283', var_export(getWorldJoinCode('replaced'), true));
+
+echo "\nCase 1c: the codeless 'join code ,' line is not mistaken for a code\n";
+# "that has join code , now 0 player(s)" appears before a code exists. A looser pattern could
+# match it and return something absurd, or match the player count that follows it.
+writeLog('nocode', implode("\n", [
+    '10/01/2026 23:17:56: New session server "W" that has join code , now 0 player(s)',
+]));
+check('returns NULL when no code has been issued yet', getWorldJoinCode('nocode') === NULL,
+    var_export(getWorldJoinCode('nocode'), true));
+
 echo "\nCase 2: after a RESTART the newest code wins\n";
 # The stale code is the dangerous answer: it looks perfectly valid and simply does not work.
 writeLog('restart', implode("\n", [
@@ -179,13 +209,30 @@ if (strpos($block, 'worldIsPlayFabStub') === false) {
     echo "\nthe card block no longer calls worldIsPlayFab() -- the stub rewrite is stale\n"; exit(1);
 }
 
-echo "\nCase 7: an ONLINE CROSSPLAY world launches with -joincode\n";
-# `-joincode` is a real Valheim launch argument -- it sits in the assembly's literal heap
-# alongside -crossplay/-password/-port/-world. So a crossplay world IS launchable from a
-# link; what it cannot use is +connect, which asks for a direct IP connection that a
-# PlayFab-hosted server never offers.
+echo "\nCase 7: an ONLINE CROSSPLAY world offers its join code, NOT -joincode\n";
+# This case used to assert the link carried `-joincode 441944`, and it had a plausible
+# rationale: -joincode IS a real Valheim launch argument, sitting in the assembly's literal
+# heap alongside -crossplay/-password/-port/-world. It was abandoned anyway, and the reason is
+# worth keeping -- Valheim's own -joincode handler resolves the code and then calls
+# JoinServer() DIRECTLY, with no SelectCharacter() anywhere. The player lands in the world as
+# "Odev (Developer)", Valheim's internal dev profile, instead of their own character.
+#
+# So a crossplay world shows its code for the player to paste into Valheim's "Join by code"
+# box. The Companion's connect flow is the real fix for this -- it routes the same resolved
+# server through ProceedJoinRequest, which goes via character selection -- but that only
+# covers MODDED worlds, which are the only ones the Companion is installed on.
+#
+# This assertion was failing on git HEAD before the join-code reader was touched; it is
+# re-anchored to what the code does, not relaxed.
 $r = renderCard($block, true, true, '441944');
-check('launches via -joincode', strpos($r['link'], '-joincode 441944') !== false, $r['link']);
+check('offers the join code for Valheim\'s Join-by-code box',
+    strpos($r['link'], 'data-joincode="441944"') !== false
+    && strpos($r['link'], 'showCrossplayJoin') !== false, $r['link']);
+# The ARGUMENT form `-joincode <code>`, not the substring "-joincode" -- the attribute
+# data-joincode="441944" contains it, so a bare substring check fails on correct markup. Same
+# trap as asserting no "--" reaches an argv that legitimately carries a long option.
+check('does NOT pass -joincode as a launch argument, which would land the player as "Odev"',
+    strpos($r['link'], '-joincode 441944') === false, $r['link']);
 check('does NOT use +connect', strpos($r['link'], '+connect') === false, $r['link']);
 check('the button reads "Launch!"', strpos($r['link'], 'Launch!') !== false, $r['link']);
 check('the code still appears on the card', strpos($r['row'], '441944') !== false, $r['row']);
@@ -236,8 +283,10 @@ check('does NOT claim it cannot be joined by IP',
 
 echo "\nCase 12: crossplay switched OFF, world NOT yet restarted (still PlayFab)\n";
 $r = renderCard($block, false, true, '778899', 'playfab');
-check('still launches by -joincode while it is still PlayFab',
-    strpos($r['link'], '-joincode 778899') !== false, $r['link']);
+# Re-anchored for the same reason as Case 7: the link offers the code to paste, rather than
+# passing -joincode, which skips character selection and lands the player as "Odev".
+check('still offers the join code while it is still PlayFab',
+    strpos($r['link'], 'data-joincode="778899"') !== false, $r['link']);
 check('does not offer +connect to a PlayFab server',
     strpos($r['link'], '+connect') === false, $r['link']);
 

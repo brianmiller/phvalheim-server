@@ -423,6 +423,14 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			var reverseDepMap = {};    // moduuid -> [mods that depend on it]
 			var checkedSet = {};       // mods.id -> true for ALL checked mods
 			var pinSet = {};           // mods.id -> mod_versions.id, when a version is PINNED
+			// mods.id -> [server, client]: where a SELECTED mod installs.
+			//
+			// Only ever holds entries for checked mods. A dependency the operator did not pick
+			// has no entry, because its destination is not theirs to set -- worldMods.py
+			// derives it as the union of its parents when the world is updated, and letting it
+			// be overridden here is the one thing that can starve a mod of a dependency on a
+			// side where its parent runs. See section 8.2 of docs/RELEASE-2.53-DESIGN.md.
+			var destSet = {};
 			var versionCache = {};     // mods.id -> full version list, fetched on demand
 			var activeSources = {};    // source key -> true when that catalogue is shown
 			var catalogSourceDefs = [];
@@ -685,10 +693,15 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			function handleModCheck(uuid, isChecked) {
 				if (isChecked) {
 					checkedSet[uuid] = true;
+					// Both switches ON for anything newly selected, which is what every mod
+					// did before the switches existed -- so ticking a mod behaves exactly as
+					// it always has until someone deliberately changes a destination.
+					if (!destSet[uuid]) destSet[uuid] = [true, true];
 					// Auto-check all recursive dependencies
 					var deps = getAllDeps(uuid);
 					deps.forEach(function(depUuid) {
 						checkedSet[depUuid] = true;
+						if (!destSet[depUuid]) destSet[depUuid] = [true, true];
 					});
 					$('#modProcessingOverlay').css('display', 'flex');
 					setTimeout(function() {
@@ -705,6 +718,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					} else {
 						// No dependents or orphaned deps — just remove
 						delete checkedSet[uuid];
+						delete destSet[uuid];
 						$('#modProcessingOverlay').css('display', 'flex');
 						setTimeout(function() {
 							rebuildTables();
@@ -849,7 +863,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					var checkbox = '<input type="checkbox" class="form-check-input mod-checkbox" value="' + uuid + '" data-uuid="' + uuid + '"' + (isChecked ? ' checked' : '') + '>';
 
 					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.updated || '',
-					           versionCell(mod, isChecked)];
+					           versionCell(mod, isChecked), destinationCell(uuid, isChecked, neededDeps)];
 
 					if (isChecked || neededDeps[uuid]) {
 						activeRows.push(row);
@@ -878,13 +892,14 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 						scrollCollapse: true,
 						paging: true,
 						lengthMenu: [[20, 50, 75, -1], [20, 50, 75, 'All']],
-						columnDefs: [{ orderable: false, targets: [0] }],
+						columnDefs: [{ orderable: false, targets: [0, 5] }],
 						columns: [
 							{ title: 'Select', width: '50px', className: 'alt-color' },
 							{ title: 'Name', className: 'alt-color' },
 							{ title: 'Author', className: 'alt-color' },
 							{ title: 'Last Updated', className: 'alt-color' },
-							{ title: 'Version', className: 'alt-color', width: '150px' }
+							{ title: 'Version', className: 'alt-color', width: '150px' },
+								{ title: 'Installs on', className: 'alt-color', width: '150px' }
 						],
 						rowCallback: function(row, data, index) {
 							$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
@@ -928,11 +943,54 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			}
 
 			// Get all checked mod UUIDs (state-driven, no DOM dependency)
+
+			// The Server / Client pair for one row.
+			//
+			// Both ON for a selected mod, and DISABLED rather than merely unchecked when the
+			// mod is not selected: an enabled switch on an unselected row implies it does
+			// something, and it does not.
+			//
+			// A dependency the operator did not tick gets no switches at all -- just the word
+			// "derived". Showing a computed pair here was the alternative and it would lie:
+			// reverseDepMap is one level deep, so a dependency three levels down a chain would
+			// display a union that is not the one the engine installs. The engine walks the
+			// whole closure; this page should not pretend to.
+			// neededDeps is PASSED IN, not closed over.
+			//
+			// It is built with `var neededDeps = {}` inside rebuildTables(), and this is a
+			// sibling function, so reading it here was a ReferenceError on every UNCHECKED
+			// row -- which is nearly every row in a catalogue of thousands. The exception
+			// escaped the AJAX success handler, so the picker's loading spinner never cleared
+			// and new_world/edit_world never finished loading at all. The CHECKED branch never
+			// touches it, which is why this survived testing that only looked at selected mods.
+
+			function destinationCell(uuid, isChecked, neededDeps) {
+				if (!isChecked) {
+					if (neededDeps && neededDeps[uuid]) {
+						return '<span class="dest-derived dep-badge" title="Set automatically: a '
+						     + 'dependency installs wherever the mods that need it install. '
+						     + 'Worked out when the world is updated.">derived</span>';
+					}
+					return '<span class="dest-off">&mdash;</span>';
+				}
+				var d = destSet[uuid] || [true, true];
+				function sw(kind, on, label) {
+					return '<label class="dest-sw" title="Install this mod on the ' + label + '">'
+					     + '<input type="checkbox" class="form-check-input dest-toggle" '
+					     + 'data-uuid="' + uuid + '" data-kind="' + kind + '"'
+					     + (on ? ' checked' : '') + '> ' + label + '</label>';
+				}
+				return '<div class="dest-pair">' + sw('server', d[0], 'Server')
+				     + sw('client', d[1], 'Client') + '</div>';
+			}
+
 			function getSelectedMods() {
 				// Objects, not bare ids: the server needs the pin alongside the mod, and a
 				// null pin explicitly means "follow latest".
 				return Object.keys(checkedSet).map(function(id) {
-					return { id: parseInt(id, 10), pin: pinSet[id] || null };
+					var d = destSet[id] || [true, true];
+					return { id: parseInt(id, 10), pin: pinSet[id] || null,
+					         server: !!d[0], client: !!d[1] };
 				});
 			}
 
@@ -1153,6 +1211,13 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 						(list || []).forEach(function(entry) {
 							var id = String(typeof entry === 'object' ? entry.id : entry);
 							checkedSet[id] = true;
+							// The destinations as STORED. Absent keys mean both, which is the
+							// schema default and what every pre-2.53 row holds -- so a world
+							// built before the switches opens with both on, not with one side
+							// silently off.
+							if (typeof entry === 'object') {
+								destSet[id] = [entry.server !== false, entry.client !== false];
+							}
 							if (typeof entry === 'object' && entry.pin) {
 								pinSet[id] = entry.pin;
 								pinVersionLabel[id] = entry.pin_version || 'pinned';
@@ -1196,6 +1261,31 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					handleModCheck(uuid, isChecked);
 					if (isChecked) markChanged();
 				});
+
+				// Server / Client switches.
+				//
+				// Turning BOTH off is not a state the operator can reach here. A mod that
+				// installs nowhere is indistinguishable from one that was never selected, so
+				// the last switch off unticks the mod instead -- which is reversible and says
+				// what happened, where a row with two dead switches would not.
+				$(document).on('change', '.dest-toggle', function() {
+					var uuid = String($(this).data('uuid'));
+					var kind = $(this).data('kind');
+					var on = $(this).prop('checked');
+					var d = destSet[uuid] || [true, true];
+					d[kind === 'server' ? 0 : 1] = on;
+
+					if (!d[0] && !d[1]) {
+						destSet[uuid] = [true, true];
+						handleModCheck(uuid, false);
+						markChanged();
+						return;
+					}
+					destSet[uuid] = d;
+					markChanged();
+					rebuildTables();
+				});
+
 
 				// Dependency removal modal: toggle children when parent unchecked
 				$(document).on('change', '.dep-removal-check', function() {

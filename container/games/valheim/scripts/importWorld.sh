@@ -113,8 +113,13 @@ InstallAndUpdateBepInEx "$worldName"
 # world got a quick_connect_servers.cfg with an EMPTY host and a QuickConnect entry that
 # could not resolve. The INSERT above already stores gameDNS in external_endpoint; use the
 # same value here so the row and the file agree from the start.
+# 2.53: only while QuickConnect is still the join path. An imported world must reach the
+# same verdict as a created one, or importing would be the one way to get a world with a
+# cfg that nothing reads.
 worldHost="$gameDNS"
-createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+if ! companionSupportsConnect; then
+	createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+fi
 
 # add required mods
 mergeRequiredTsMods "$worldName"

@@ -116,7 +116,10 @@ if [ "$dirContentCount" -gt 0 ]; then
 		safetyFile="$backupDir/valheimworld_${worldName}-${safetyTimestamp}-prerestore.tar"
 
 		cd "$worldDir"
-		/usr/bin/tar cf "$safetyFile" --exclude="./${worldName}.zip" . >> "$LOG" 2>&1
+		#client/ excluded for the same reason as the payload zip and for the same reason
+		#worldBackup excludes it: the client staging tree (2.53+) is derived, and the world
+		#update that follows any restore rebuilds it from scratch.
+		/usr/bin/tar cf "$safetyFile" --exclude="./${worldName}.zip" --exclude="./client" . >> "$LOG" 2>&1
 
 		if [ -f "$safetyFile" ]; then
 			safetySize=$(stat --format=%s "$safetyFile" 2>/dev/null || echo 0)

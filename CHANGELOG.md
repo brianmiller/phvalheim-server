@@ -2,6 +2,125 @@
 
 ## v2.53
 
+### The Companion ships with the server
+
+The PhValheim Companion is no longer published to Thunderstore or Hexium. It ships inside the
+image and is installed by `installSystemPlugins()`, the same path that already carried
+`PhValheim-TickMonitor` and `ZeroBandwidth-CustomSeed`.
+
+It is PhValheim's own infrastructure — it posts to the PhValheim backend and reads PhValheim
+config, so it has no audience outside this server — and bundling it makes the server and the
+Companion one artifact that cannot be version-skewed against each other. That skew was the only
+reason the catalogue-capability machinery existed: `companionConnectMinVersion`,
+`companionModIdentity`, `versionAtLeast()` with its `sort -V` prerelease carve-out, and a SQL
+probe of `mod_versions` are all gone, replaced by one build flag.
+
+**QuickConnect is retired in this release.** `companionProvidesConnect` is `1`: the bundled
+Companion does the joining now, and QuickConnect comes off a world the next time it is updated.
+The flag is why this is safe to flip rather than delete: a required mod missing from the
+catalogue only produces a `[WARN]` and the world is built *without* it, so retiring QuickConnect
+before the Companion could connect would have produced modded worlds with no way to join them
+and a warning in a log nobody reads. `dev_tools/test-companion-bundled.sh` fails if the flag
+disagrees with the Companion's actual connect support, in either direction — which is what
+makes the flag a gate and not a comment.
+
+The Companion came out of `requiredMods`, and the migration deletes the `world_mods` rows every
+existing world still holds for it — otherwise an upgrader would install the Thunderstore copy on
+top of the bundled one, two DLLs with the same BepInEx GUID in one `plugins/` folder.
+
+The mod dropped its Newtonsoft dependency (one `JsonConvert.SerializeObject` call on an object
+with two string fields) and now builds as a single self-contained 10,752-byte DLL. Bundled, a
+Newtonsoft reference would have meant shipping a second copy of that assembly beside whatever
+another mod bundled.
+
+### Per-mod install destinations: Server and/or Client
+
+Every mod on a world now carries `deploy_server` and `deploy_client` flags (`world_mods`, both
+`NOT NULL DEFAULT 1`). A dependency inherits the **union** of its parents' destinations —
+erring toward installing is the only rule that cannot starve a mod of a dependency, and a
+dependency missing from a side where its parent runs is a BepInEx load failure that never names
+the dependency.
+
+This required splitting the server's live tree from the client payload. Until now
+`packageClient()` zipped `game/BepInEx` wholesale, so the two were the same directory — which is
+why 2.49's loss of one `BepInEx.cfg` broke the world log and the client console together. Mods
+now install into `game/` and/or a new `client/` staging tree, and the payload is built from the
+staging tree.
+
+The mod picker gained an **Installs on** column: a Server and a Client switch per selected mod,
+in both `new_world.php` and `edit_world.php`. Both are on for anything selected, so nothing
+changes for an existing world — both flags default to 1, and the install plan for a world at
+those defaults is byte-identical to the one the previous `worldMods.py` produced, verified by
+diffing against `git HEAD` across a 229-mod closure.
+
+A dependency the operator did not tick shows the word *derived* rather than a computed pair:
+the picker's `reverseDepMap` is one level deep, so a pair displayed there would be wrong for
+anything further down a chain. `walk_closure()` walks the closure transitively and is the only
+thing that decides. Turning both switches off unticks the mod instead of storing one that
+installs nowhere.
+
+Also: the derived `client/` tree is excluded from backups (it is rebuilt on every world update,
+and including it roughly doubled a modded world's archive every 30 minutes), and
+`packageClient()` now returns `zip`'s exit status rather than the `rm` that followed it, so a
+failed package no longer reports success.
+
+### Retiring QuickConnect, derived rather than declared
+
+The crossplay work above leaves QuickConnect unable to do its job: its config file is
+`world:host:port:password` and a PlayFab world has no `host:port`. The PhValheim Companion —
+already a required mod on every modded world — takes joining over, and QuickConnect is retired.
+
+**The retirement is derived at world-build time, not hardcoded.** This is the whole design, and
+it is forced by how `requiredMods` behaves: `mergeRequiredTsMods()` resolves each entry against
+the **mod catalogue**, and a required mod that is not there produces a `[WARN]` and then builds
+the world *without* it. Deleting QuickConnect from that list would therefore, on any server whose
+catalogue has not yet seen a connect-capable Companion, produce modded worlds **with no join path
+at all** — and a warning as the only evidence. That is not a thing to be careful about; it is a
+thing to make impossible.
+
+So `companionSupportsConnect()` asks the catalogue, every time, whether a Companion at or above
+`companionConnectMinVersion` (1.1.0) is actually resolvable:
+
+- **capable** → Companion only; no QuickConnect, no `quick_connect_servers.cfg`
+- **absent or older** → QuickConnect exactly as before, cfg written as before, plus one NOTICE
+  naming which path the world got and what is holding up the other
+
+This makes the server safe to ship **before** the mod is published, makes the cutover automatic
+when it is, and degrades an unsynced catalogue to the old working path rather than to a world
+nobody can join. It is deliberately **not** gated on `phvalheimVersion`: the server's version
+says nothing about what is in the catalogue, and the catalogue is what worlds install from.
+
+`versionAtLeast()` uses `sort -V`, because `1.10.0` is alphabetically *less* than `1.9.0`.
+Prereleases are then handled explicitly, because `sort -V` alone ranks `1.1.0-rc1` **above**
+`1.1.0` — so a bare version compare would have let a release candidate silently become every
+world's only join path. A prerelease of exactly the minimum is rejected; one of a later version
+is accepted.
+
+Both writers of `quick_connect_servers.cfg` consult the same verdict — `phvalheim` and
+`importWorld.sh` — so an imported world cannot end up the one way to get a cfg nothing reads.
+`createQuickConnectConfig()` itself stays an unconditional writer: `test-gamedns-quickconnect.sh`
+lifts it and calls it directly, so gating it internally would have quietly neutered that test
+rather than failing it.
+
+The engine's stale-`gameDNS` repair block was expected to become dead code here and **does not**.
+`worldHost` still feeds the fallback `createQuickConnectConfig()` call and the
+`external_endpoint` the admin UI displays, so it stays exactly as it is.
+
+### Telling operators before it happens
+
+A one-shot `connectNoticeShown` dialog explains, on first login after upgrading, that joining has
+moved, that **each existing modded world must be updated once**, that **updating a world stops
+it**, and that nothing breaks by waiting. It copies the `huginNoticeShown` pattern across the same
+five sites, and `?? 1` is load-bearing in both the read and the markup: an undefined variable is
+`null`, PHP evaluates `null == 0` as true, and the gate tests `== 0` — so a missing default shows
+the dialog on every page load forever.
+
+It is seeded from the **modded** world count rather than the total. 2.40 and 2.42 use the total to
+answer "has this server run an older version"; this asks "does this server own anything the change
+affects", which has a different answer on a vanilla-only server. Fresh installs and vanilla-only
+servers are seeded quiet. Getting this backwards is how 2.31 and 2.35 shipped the setup wizard to
+the wrong audience twice.
+
 ### Crossplay on modded worlds
 
 `-crossplay` was restricted to vanilla worlds, and the restriction was enforced in **five**

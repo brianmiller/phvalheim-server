@@ -257,6 +257,8 @@ function worldModSelection($pdo, $world)
 
     $sth = $pdo->prepare(
         "SELECT wm.mod_id, wm.is_dep, wm.pin_version_id,
+                IFNULL(wm.deploy_server,1) AS deploy_server,
+                IFNULL(wm.deploy_client,1) AS deploy_client,
                 v.version AS pin_version,
                 m.source, m.owner, m.name,
                 COALESCE(latest.version,'') AS latest_version
@@ -280,6 +282,13 @@ function worldModSelection($pdo, $world)
             'pin_version' => $r['pin_version'],
             'pin_missing' => $r['pin_version_id'] !== null && $r['pin_version'] === null,
             'latest_version' => $r['latest_version'],
+            // Where this mod installs. On a PICK these are the operator's own switches. On a
+            // DEPENDENCY they are what worldMods.py --resolve computed as the union of its
+            // parents', which is why the picker shows a dependency's pair read-only: it is
+            // derived, and an operator override is the one thing that can starve a mod of a
+            // dependency on a side where its parent runs.
+            'server' => (int)$r['deploy_server'] === 1,
+            'client' => (int)$r['deploy_client'] === 1,
         ];
         if ((int)$r['is_dep'] === 1) {
             $deps[] = $entry;
@@ -320,21 +329,43 @@ function saveWorldModSelection($pdo, $world, $mods)
     }
 
     $wanted = [];
+    $dest = [];
+    $rejected = [];
     foreach ((array)$mods as $m) {
         if (is_array($m)) {
             $id = (int)($m['id'] ?? 0);
             $pin = isset($m['pin']) && $m['pin'] !== null && $m['pin'] !== ''
                 ? (int)$m['pin'] : null;
+            // Absent means BOTH, which is both the schema default and what every mod did
+            // before the switches existed. A client that does not know about them -- the
+            // AI action path in aiactions.php posts bare ids, and a browser tab opened
+            // before the upgrade posts the old shape -- must not silently narrow a mod to
+            // one side. `?? true` and not `?? false`: a falsy default doubling as a real
+            // answer is the trap that shipped three times in one release.
+            $srv = array_key_exists('server', $m) ? (bool)$m['server'] : true;
+            $cli = array_key_exists('client', $m) ? (bool)$m['client'] : true;
         } else {
             $id = (int)$m;
             $pin = null;
+            $srv = true;
+            $cli = true;
         }
-        if ($id > 0) {
-            $wanted[$id] = $pin;
+        if ($id <= 0) {
+            continue;
         }
+        // Neither switch set is the same thing as not selecting the mod -- it installs
+        // nowhere -- so it is treated as a deselection rather than stored. The picker
+        // unticks instead of allowing it (design doc 8.2), so reaching here means some
+        // other client sent it; say so rather than dropping it quietly, because from the
+        // operator's side a mod that vanishes without explanation looks like a lost save.
+        if (!$srv && !$cli) {
+            $rejected[] = "mod id $id was set to install on neither the server nor the "
+                        . "client, which is the same as not selecting it, so it was removed";
+            continue;
+        }
+        $wanted[$id] = $pin;
+        $dest[$id] = [$srv, $cli];
     }
-
-    $rejected = [];
     if ($wanted) {
         $ids = array_keys($wanted);
         $in = implode(',', array_fill(0, count($ids), '?'));
@@ -435,7 +466,16 @@ function saveWorldModSelection($pdo, $world, $mods)
                 $rejected[] = "{$loser['label']} from {$loser['source']} was not added: "
                             . "{$win['source']}'s copy of the same mod ({$win['version']}) "
                             . "is already selected, and only one can be installed";
-                unset($wanted[$loser['id']]);
+                // The surviving row carries the UNION of the collapsed copies' destinations.
+                // The two are the same plugin in the same BepInEx tree, so dropping a copy
+                // must not drop a side it was wanted on -- otherwise ticking one catalogue's
+                // copy for the client and the other's for the server silently loses one.
+                // Mirrors fold_by_plugin() in worldMods.py, which does this for the install.
+                if (isset($dest[$loser['id']], $dest[$win['id']])) {
+                    $dest[$win['id']][0] = $dest[$win['id']][0] || $dest[$loser['id']][0];
+                    $dest[$win['id']][1] = $dest[$win['id']][1] || $dest[$loser['id']][1];
+                }
+                unset($wanted[$loser['id']], $dest[$loser['id']]);
             }
         }
     }
@@ -452,12 +492,16 @@ function saveWorldModSelection($pdo, $world, $mods)
         $sth->execute([$wid]);
 
         $ins = $pdo->prepare(
-            "INSERT INTO world_mods (world_id, mod_id, pin_version_id, is_dep)
-             VALUES (?, ?, ?, 0)
-             ON DUPLICATE KEY UPDATE pin_version_id = VALUES(pin_version_id), is_dep = 0"
+            "INSERT INTO world_mods
+                 (world_id, mod_id, pin_version_id, is_dep, deploy_server, deploy_client)
+             VALUES (?, ?, ?, 0, ?, ?)
+             ON DUPLICATE KEY UPDATE pin_version_id = VALUES(pin_version_id), is_dep = 0,
+                 deploy_server = VALUES(deploy_server),
+                 deploy_client = VALUES(deploy_client)"
         );
         foreach ($wanted as $id => $pin) {
-            $ins->execute([$wid, $id, $pin]);
+            $d = $dest[$id] ?? [true, true];
+            $ins->execute([$wid, $id, $pin, $d[0] ? 1 : 0, $d[1] ? 1 : 0]);
         }
         $pdo->commit();
     } catch (Throwable $e) {

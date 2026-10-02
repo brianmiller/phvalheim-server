@@ -211,12 +211,20 @@ function backupWorld() {
 	[ "$MANUAL_MODE" != "1" ] && echo "`date` [phvalheim]  Backing up world directory: $worldDir"
 	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Creating tar archive of $fileCount files...\"}"
 
-	# create backup - full world directory, excluding the client zip
+	# create backup - full world directory, excluding the client payload
+	#
+	# client/ is excluded for exactly the reason the zip is: both are DERIVED. The staging
+	# tree (2.53+) is rebuilt from the mod catalogue and the custom_* directories on every
+	# world update, so backing it up stores a second full copy of every client-side plugin --
+	# every 30 minutes, times backupsToKeep. For a modded world that is roughly a doubling of
+	# backup size to preserve something no restore needs, since the next update regenerates
+	# it. The saves, the mod SELECTION and the custom_* sources are all still in the archive.
 	cd "$worldDir"
 	errorSetter $?
 
 	local backupTimeTaken=$(/usr/bin/time --format='%e' $nicePrefix /usr/bin/tar cf "$backupFilePath" \
 		--exclude="./${worldName}.zip" \
+		--exclude="./client" \
 		. 2>&1)
 	errorSetter $?
 

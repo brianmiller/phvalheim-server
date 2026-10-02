@@ -483,6 +483,88 @@ function createCustomSeedConfig() {
         chown -R phvalheim: $worldsDirectoryRoot/$worldName
 }
 
+#The client staging tree for a world.
+#$1=world name
+#
+#Until 2.53 there was no such thing: mods unzipped into game/BepInEx and packageClient()
+#zipped that directory wholesale, so the server's live tree WAS the client payload. That is
+#why 2.49's deletion of the loader's BepInEx.cfg broke the world log and the client's console
+#window in the same stroke -- one file, two symptoms, because one directory served both.
+#
+#Per-mod Server/Client switches make that impossible to keep: a client-only mod in
+#game/BepInEx is loaded by the server too, and a server-only mod cannot be withheld from a
+#payload built by zipping the directory it lives in. So the client gets its own tree.
+#
+#A SIBLING of game/, never inside it. game/ holds the world saves -- clearing game/ deletes
+#every world, which is why the purge paths below are all scoped to individual subdirectories.
+#A staging tree under game/ would also land inside the -savedir and inside the payload of
+#itself.
+function clientStagingRoot() {
+        echo "$worldsDirectoryRoot/$1/client"
+}
+
+#Which BepInEx trees a mod installs into.
+#$1=world name, $2=deploy_server (1/0), $3=deploy_client (1/0)
+#
+#Returns TREE ROOTS -- the directory holding BepInEx/ -- because the BepInEx-pack copy in the
+#install loop targets the root itself: the pack ships doorstop_libs/ and winhttp.dll as
+#siblings of BepInEx/.
+#
+#Its own function so the routing can be tested directly, for all four flag combinations,
+#without standing up a container and a mod catalogue to observe it indirectly. Note that both
+#flags off returns EMPTY rather than defaulting to somewhere -- the caller must treat that as
+#"skip and say so", because the silent alternative is a mod that touches no disk and is then
+#recorded as installed.
+function modTargetTrees() {
+        local out=""
+        [ "$2" = "1" ] && out="$worldsDirectoryRoot/$1/game"
+        [ "$3" = "1" ] && out="$out $(clientStagingRoot "$1")"
+        echo "$out"
+}
+
+#Build the client staging tree and seed it with the loader.
+#$1=world name
+#
+#Seeded by COPYING from the server's tree rather than by unpacking the BepInEx pack a second
+#time, and that is deliberate: InstallAndUpdateBepInEx() has already run by this point and its
+#result is the version the server is actually going to load. Unpacking independently would let
+#the two trees drift to different loader builds, which is the 2.49 failure wearing a different
+#hat -- the client console and the world log disagreeing about what is installed.
+function prepareClientStaging() {
+        worldName="$1"
+        [ -z "$worldName" ] && return 1
+
+        local gameDir="$worldsDirectoryRoot/$worldName/game"
+        local stage; stage="$(clientStagingRoot "$worldName")"
+
+        #A vanilla world has no BepInEx tree and no payload. Creating a staging tree would
+        #hand it the loader it is defined by not having.
+        [ -d "$gameDir/BepInEx" ] || return 0
+
+        mkdir -p "$stage/BepInEx/plugins" "$stage/BepInEx/patchers" \
+                 "$stage/BepInEx/config" "$stage/BepInEx/core"
+
+        #The loader itself: core/ plus its own BepInEx.cfg. Not a mod, not switchable -- a
+        #tree with any plugin in it needs a loader to load it.
+        if [ -d "$gameDir/BepInEx/core" ]; then
+                cp -prf "$gameDir/BepInEx/core/." "$stage/BepInEx/core/" > /dev/null 2>&1
+        fi
+        if [ -f "$gameDir/BepInEx/config/BepInEx.cfg" ]; then
+                cp -pf "$gameDir/BepInEx/config/BepInEx.cfg" "$stage/BepInEx/config/BepInEx.cfg" > /dev/null 2>&1
+        fi
+
+        #The doorstop plumbing, which is what makes the client load BepInEx at all. Copied in
+        #here rather than at package time so the staging tree is a COMPLETE payload root --
+        #packageClient() can then zip one directory, and a test can assert a payload's
+        #contents by looking at one place.
+        local item
+        for item in doorstop_libs doorstop_config.ini start_game_bepinex.sh winhttp.dll; do
+                [ -e "$gameDir/$item" ] && cp -prf "$gameDir/$item" "$stage/" > /dev/null 2>&1
+        done
+
+        return 0
+}
+
 #$1=world name
 function purgeWorldModsConfigsPatchers() {
         worldName="$1"
@@ -497,21 +579,35 @@ function purgeWorldModsConfigsPatchers() {
                 break
         fi
 
-        rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/plugins/*
-        rm -rf $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/*
-
-        #Mod configs go; the LOADER's own BepInEx.cfg stays. The loader is engine-installed
-        #on every modded world and is not a mod, so its config is not a mod config either.
-        #Sweeping it here is what left every rebuilt world booting on BepInEx's stock
-        #defaults, where [Logging.Console] is false -- which silenced the plugin lines in the
-        #world log AND the client's console window. See ensureBepInExLoaderConfig(), which
-        #puts it back if it is missing for any other reason.
+        #BOTH trees, and the client one is not optional. A mod deselected -- or flipped from
+        #Client to Server-only -- leaves its plugin directory behind in whichever tree it was
+        #in, and the install pass that follows only ever WRITES. Sweep the server tree alone
+        #and a client-only plugin the operator removed stays in every payload built from then
+        #on, with nothing in the UI or the logs suggesting it is still there.
         #
-        #-delete implies -depth, so a subdirectory goes after the files inside it.
-        if [ -d "$worldsDirectoryRoot/$worldName/game/BepInEx/config" ]; then
-                find "$worldsDirectoryRoot/$worldName/game/BepInEx/config" -mindepth 1 \
-                        ! -name 'BepInEx.cfg' -delete
-        fi
+        #Iterated rather than written twice so the two can never fall out of step: the list of
+        #things a rebuild throws away is one list, whichever tree it is in.
+        local treeRoot
+        for treeRoot in "$worldsDirectoryRoot/$worldName/game" "$(clientStagingRoot "$worldName")"; do
+                [ -d "$treeRoot/BepInEx" ] || continue
+
+                rm -rf $treeRoot/BepInEx/plugins/*
+                rm -rf $treeRoot/BepInEx/patchers/*
+
+                #Mod configs go; the LOADER's own BepInEx.cfg stays. The loader is
+                #engine-installed on every modded world and is not a mod, so its config is not
+                #a mod config either. Sweeping it here is what left every rebuilt world booting
+                #on BepInEx's stock defaults, where [Logging.Console] is false -- which
+                #silenced the plugin lines in the world log AND the client's console window.
+                #See ensureBepInExLoaderConfig(), which puts it back if it is missing for any
+                #other reason.
+                #
+                #-delete implies -depth, so a subdirectory goes after the files inside it.
+                if [ -d "$treeRoot/BepInEx/config" ]; then
+                        find "$treeRoot/BepInEx/config" -mindepth 1 \
+                                ! -name 'BepInEx.cfg' -delete
+                fi
+        done
 }
 
 #$1=world name
@@ -593,6 +689,42 @@ function pruneOrphanedWorldMods() {
         fi
 }
 
+#Can the Companion shipped in THIS image connect a player on its own?
+#
+#One flag read. Until 2.53 this was a catalogue probe: resolve the Companion in `mods`, take
+#its newest version, compare it against a minimum with a sort -V helper that needed an
+#explicit carve-out so a prerelease could not satisfy its own release. Every bit of that
+#existed for one reason -- the Companion was published separately and could drift from the
+#server. Bundling it into the image (see installSystemPlugins) makes the answer a property of
+#the build, so companionConnectMinVersion, companionModIdentity and versionAtLeast() are gone
+#along with the SQL.
+#
+#Still a function and not an inlined test: it is the one place both the engine and
+#importWorld.sh ask this question, and keeping it named means the call sites did not have to
+#change when the implementation collapsed.
+function companionSupportsConnect() {
+        [ "$companionProvidesConnect" = "1" ]
+}
+
+#$1=world name
+#
+#Says, once per world build, which join path the world is getting and why. The verdict is
+#otherwise invisible: both paths produce a world that starts normally, and the difference
+#only shows up when a player tries to join.
+function logConnectPathVerdict() {
+        worldName="$1"
+
+        if companionSupportsConnect; then
+                echo "`date` [NOTICE : phvalheim] World '$worldName': join path is the PhValheim Companion, which ships with this server. QuickConnect is NOT being installed."
+        else
+                #Deliberately NOT "run a catalogue sync". That was the right advice while the
+                #Companion came from Thunderstore and the operator could act on it. Now there
+                #is nothing they can do and nothing wrong, so saying so plainly beats sending
+                #them to a button that cannot change the outcome.
+                echo "`date` [NOTICE : phvalheim] World '$worldName': join path is QuickConnect. The PhValheim Companion ships with this server but does not do the connecting itself yet, so the legacy path is still installed. Nothing is broken and there is nothing to do -- a later release turns this over."
+        fi
+}
+
 #$1=world name
 #
 #Ensures PhValheim's own required mods are part of the world's selection. They are
@@ -607,7 +739,16 @@ function mergeRequiredTsMods() {
                 return 1
         fi
 
-        for requiredMod in $requiredMods; do
+        #QuickConnect is appended to the required list only while the Companion cannot do
+        #the connecting. Kept as a separate variable rather than edited into requiredMods so
+        #that what is unconditional infrastructure and what is a fallback stay legible.
+        effectiveRequiredMods="$requiredMods"
+        if ! companionSupportsConnect; then
+                effectiveRequiredMods="$requiredMods $legacyConnectMods"
+        fi
+        logConnectPathVerdict "$worldName"
+
+        for requiredMod in $effectiveRequiredMods; do
                 reqSource=$(echo "$requiredMod"|cut -d '|' -f1)
                 reqOwner=$(echo "$requiredMod"|cut -d '|' -f2)
                 reqName=$(echo "$requiredMod"|cut -d '|' -f3)
@@ -615,10 +756,10 @@ function mergeRequiredTsMods() {
                 reqModId=$(SQL "SELECT id FROM mods WHERE source='$reqSource' AND owner='$reqOwner' AND name='$reqName' LIMIT 1;")
 
                 #A required mod that is not in the catalogue is not a cosmetic problem:
-                #without QuickConnect a modded world cannot be joined, and without the
-                #Companion the web UI has no server-side half. The old code could not
-                #detect this at all -- it pasted uuids into a text column and only found
-                #out at download time, by which point the log said "complete".
+                #without a working join path a modded world cannot be joined at all, and
+                #without the Companion the web UI has no server-side half. The old code
+                #could not detect this at all -- it pasted uuids into a text column and only
+                #found out at download time, by which point the log said "complete".
                 if [ -z "$reqModId" ]; then
                         echo "`date` [WARN : phvalheim] Required mod $reqSource/$reqOwner/$reqName is NOT in the catalogue. World '$worldName' will be built WITHOUT it. Run a catalogue sync (admin UI -> Sync) and update the world."
                         continue
@@ -649,6 +790,12 @@ function downloadAndInstallTsModsForWorld() {
 
         #The install plan is one tab-separated line per mod:
         #  source  owner  name  version  download_url  filename  pinned|latest  is_dep
+        #  mod_id  deploy_server  deploy_client
+        #
+        #Every column here needs its own variable in the `read` below. `read` assigns its
+        #LAST variable everything left on the line, so a column added to the plan without a
+        #variable to catch it does not go missing -- it gets GLUED onto the previous field.
+        #The last field is mod_id, which goes straight into --record-installed and into SQL.
         #
         #download_url comes from the CATALOGUE, not a template. The old code built
         #"$tsModDownloadUrl/$owner/$name/$version", which only ever works for
@@ -676,10 +823,24 @@ function downloadAndInstallTsModsForWorld() {
         #would silently come out empty.
         modsInstalledIds=""
 
+        #The client's own BepInEx tree, seeded with the loader the server is about to run.
+        #Must happen BEFORE the install loop: a client-destined mod unzips straight into it,
+        #and unzip -d will not create missing parents.
+        prepareClientStaging "$worldName"
+
         origIFS="$IFS"
-        while IFS=$'\t' read -r modSource modAuthor modName modVersion modDownloadUrl modFileConstructed modPinKind modIsDep modId; do
+        while IFS=$'\t' read -r modSource modAuthor modName modVersion modDownloadUrl modFileConstructed modPinKind modIsDep modId modDeployServer modDeployClient; do
 
                 [ -z "$modSource" ] && continue
+
+                #Defaulted rather than trusted, so this loop still installs correctly if it
+                #is ever fed a plan from an older worldMods.py: an absent field would
+                #otherwise read as empty, and empty is not "off" here, it is "unknown".
+                #The tree split that consumes these is the next step -- for now every mod
+                #goes where it has always gone, which is exactly what both flags being 1
+                #means for every world that exists today.
+                [ -z "$modDeployServer" ] && modDeployServer=1
+                [ -z "$modDeployClient" ] && modDeployClient=1
 
                 echo "`date` [phvalheim] World '$worldName' wants this mod: "
                 echo "`date` [phvalheim]  Name: $modName"
@@ -712,6 +873,34 @@ function downloadAndInstallTsModsForWorld() {
 
                 echo "`date` [phvalheim]    #### Installing... ####"
 
+                #WHERE this mod goes. Before 2.53 there was one answer and it was not worth
+                #naming: game/BepInEx, which packageClient() then zipped wholesale, so every
+                #mod reached both sides whether that made sense or not.
+                #
+                #Expressed as TREE ROOTS (the directory holding BepInEx/) rather than as
+                #BepInEx paths, because the BepInEx-pack copy below targets the root itself --
+                #the pack ships doorstop_libs/ and winhttp.dll alongside BepInEx/.
+                modTargets="$(modTargetTrees "$worldName" "$modDeployServer" "$modDeployClient")"
+
+                #worldMods.py --plan already drops a mod destined nowhere, with a WARN naming
+                #it. This is the second line of that defence, and it exists because the
+                #alternative is silent: an empty target list would fall straight through every
+                #loop below, touch no disk, and then be RECORDED AS INSTALLED.
+                if [ -z "${modTargets// /}" ]; then
+                        echo "`date` [WARN : phvalheim]   #### $modName is destined for neither server nor client -- skipping ####"
+                        continue
+                fi
+
+                echo "`date` [phvalheim]  Destination: server=$modDeployServer client=$modDeployClient"
+
+                #Counted per MOD, across its destinations. A mod that unzips cleanly into one
+                #tree and fails in the other is not installed -- it is missing from a side,
+                #which is the failure this whole feature can introduce, so it is treated as a
+                #failure rather than averaged into a success.
+                modDestFailures=0
+
+                for treeRoot in $modTargets; do
+
                 #BepInEx is special
                 rm -rf /tmp/BepInEx_tmp
                 mkdir /tmp/BepInEx_tmp
@@ -721,7 +910,7 @@ function downloadAndInstallTsModsForWorld() {
                 #warnings". A backslash-packed BepInEx pack returned 1 and this silently skipped
                 #copying the loader into the world.
                 if [ $RESULT -le 1 ]; then
-                        cp -prfv /tmp/BepInEx_tmp/BepInExPack_Valheim/* $worldsDirectoryRoot/$worldName/game/. > /dev/null 2>&1
+                        cp -prfv /tmp/BepInEx_tmp/BepInExPack_Valheim/* $treeRoot/. > /dev/null 2>&1
                         rm -rf /tmp/BepInEx_tmp
                 fi
 
@@ -734,13 +923,15 @@ function downloadAndInstallTsModsForWorld() {
                 #line reads "Installing...".
                 #
                 #Deterministic, not a race: it happens to every newly created modded world.
-                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/plugins
-                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/patchers
-                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/config
-                mkdir -p $worldsDirectoryRoot/$worldName/game/BepInEx/core
+                #The client staging tree is newly created on EVERY rebuild, so it needs this
+                #every bit as much as game/ ever did.
+                mkdir -p $treeRoot/BepInEx/plugins
+                mkdir -p $treeRoot/BepInEx/patchers
+                mkdir -p $treeRoot/BepInEx/config
+                mkdir -p $treeRoot/BepInEx/core
 
                 #Plugins
-                unzip -o $tsModsDir/$modFileConstructed -x config/* core/* patchers/* BepInExPack_Valheim/* README.md icon.png manifest.json -d $worldsDirectoryRoot/$worldName/game/BepInEx/plugins/$modName/ > /dev/null 2>&1
+                unzip -o $tsModsDir/$modFileConstructed -x config/* core/* patchers/* BepInExPack_Valheim/* README.md icon.png manifest.json -d $treeRoot/BepInEx/plugins/$modName/ > /dev/null 2>&1
                 unzipResult=$?
                 #Captured BEFORE the test: inside the if, $? is the TEST's status, not unzip's.
                 #
@@ -762,27 +953,40 @@ function downloadAndInstallTsModsForWorld() {
                 #
                 #So: fail only on 2..10 and 12+, which are real format/IO errors.
                 if [ $unzipResult -gt 1 ] && [ $unzipResult -ne 11 ]; then
-                        echo "`date` [ERROR : phvalheim]   #### PLUGIN INSTALL FAILED for $modName (unzip exit $unzipResult) -- it will be MISSING from '$worldName' ####"
-                        modInstallFailures=$((modInstallFailures+1))
-                else
-                        #This version is now on disk. Recorded here rather than after the
-                        #whole loop because the loop's other exit -- the download failure
-                        #above -- `continue`s straight past this point, and a mod that was
-                        #never fetched must not be claimed as installed.
-                        modsInstalledIds="$modsInstalledIds$modId,"
+                        echo "`date` [ERROR : phvalheim]   #### PLUGIN INSTALL FAILED for $modName into $treeRoot (unzip exit $unzipResult) -- it will be MISSING from '$worldName' ####"
+                        modDestFailures=$((modDestFailures+1))
                 fi
 
                 #Core
-                unzip -o $tsModsDir/$modFileConstructed core/* -d $worldsDirectoryRoot/$worldName/game/BepInEx/core/ > /dev/null 2>&1
+                unzip -o $tsModsDir/$modFileConstructed core/* -d $treeRoot/BepInEx/core/ > /dev/null 2>&1
 
                 #Config
                 rm -rf /tmp/BepInEx_tmp
                 mkdir /tmp/BepInEx_tmp
                 unzip -o $tsModsDir/$modFileConstructed config/* -d /tmp/BepInEx_tmp/ > /dev/null 2>&1
-                cp -prfv /tmp/BepInEx_tmp/config/* $worldsDirectoryRoot/$worldName/game/BepInEx/config/. > /dev/null 2>&1
+                cp -prfv /tmp/BepInEx_tmp/config/* $treeRoot/BepInEx/config/. > /dev/null 2>&1
 
                 #Patchers
-                unzip -j -o $tsModsDir/$modFileConstructed patchers/* -d $worldsDirectoryRoot/$worldName/game/BepInEx/patchers/$modName/ > /dev/null 2>&1
+                unzip -j -o $tsModsDir/$modFileConstructed patchers/* -d $treeRoot/BepInEx/patchers/$modName/ > /dev/null 2>&1
+
+                done
+
+                if [ $modDestFailures -gt 0 ]; then
+                        modInstallFailures=$((modInstallFailures+1))
+                else
+                        #This version is now on disk in every tree it was destined for.
+                        #Recorded here rather than after the whole loop because the loop's
+                        #other exit -- the download failure above -- `continue`s straight past
+                        #this point, and a mod that was never fetched must not be claimed as
+                        #installed.
+                        #
+                        #"Every tree it was destined for" is the load-bearing part. Record a
+                        #client-only mod as installed on the strength of the SERVER tree and
+                        #the Updates tab reports a version that is not there; record nothing
+                        #for it and installed_at stays NULL, which that tab renders as
+                        #"unknown" forever. Both of those have shipped before.
+                        modsInstalledIds="$modsInstalledIds$modId,"
+                fi
         done <<< "$modPlan"
         IFS="$origIFS"
 
@@ -828,6 +1032,11 @@ function downloadAndInstallTsModsForWorld() {
         #without them chmod prints "cannot access" and that was the ONLY visible trace of a
         #world whose mods had all silently failed to install.
         [ -d "$worldsDirectoryRoot/$worldName/game/BepInEx" ] && chmod -R u+rwX $worldsDirectoryRoot/$worldName/game/BepInEx
+        #The staging tree needs the 2.39 treatment for the same reason the server tree does,
+        #and arguably more: mod zips packaged on Windows store directories without the execute
+        #bit, unzip preserves it, and here that bad mode is about to be sealed into the
+        #payload zip and shipped to every player.
+        [ -d "$(clientStagingRoot "$worldName")/BepInEx" ] && chmod -R u+rwX "$(clientStagingRoot "$worldName")/BepInEx"
 
         #### Did any of that actually work? ####
         #
@@ -877,10 +1086,6 @@ function installCustomModsConfigsPatchers() {
         customConfigsSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_configs"
         customPatchersSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_patchers"
 
-        worldModsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/plugins"
-        worldConfigsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/config"
-        worldPatchersDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/patchers"
-
         if [ ! -d $customModsSourceDir ]; then
                 echo "`date` [NOTICE : phvalheim] Custom mods source directory for this world is missing, creating..."
                 mkdir -p $customModsSourceDir
@@ -896,17 +1101,38 @@ function installCustomModsConfigsPatchers() {
                 mkdir -p $customPatchersSourceDir
         fi
 
-        cp -prf $customModsSourceDir/* $worldModsDestDir/. > /dev/null 2>&1
-        cp -prf $customConfigsSourceDir/* $worldConfigsDestDir/. > /dev/null 2>&1
-        cp -prf $customPatchersSourceDir/* $worldPatchersDestDir/. > /dev/null 2>&1
+        #BOTH trees. These are files the operator dropped into custom_plugins/,
+        #custom_configs/ and custom_patchers/ by hand, and before 2.53 they reached the client
+        #for free -- packageClient() zipped the same directory this copies into. Splitting the
+        #trees would silently drop every operator-supplied mod out of the payload, which looks
+        #exactly like "my custom mod does nothing on the client".
+        #
+        #Both, rather than switchable: there is no world_mods row to hang a switch on. A file
+        #in custom_plugins/ has no catalogue identity, so the only honest default is the
+        #behaviour it has always had.
+        #
+        #Note what this does NOT cover, and must not: InstallCustomConfigSecureFiles() writes
+        #to game/ only. It used to be server-only by virtue of running AFTER packageClient --
+        #an ordering nothing declared. Now it is server-only because it names the server's
+        #tree, which is the same outcome stated out loud.
+        local treeRoot
+        for treeRoot in "$worldsDirectoryRoot/$worldName/game" "$(clientStagingRoot "$worldName")"; do
+                [ -d "$treeRoot/BepInEx" ] || continue
+
+                mkdir -p "$treeRoot/BepInEx/plugins" "$treeRoot/BepInEx/config" "$treeRoot/BepInEx/patchers"
+
+                cp -prf $customModsSourceDir/* $treeRoot/BepInEx/plugins/. > /dev/null 2>&1
+                cp -prf $customConfigsSourceDir/* $treeRoot/BepInEx/config/. > /dev/null 2>&1
+                cp -prf $customPatchersSourceDir/* $treeRoot/BepInEx/patchers/. > /dev/null 2>&1
+
+                #cp -p preserves source permissions, which may lack the directory execute bit
+                #(same failure mode as issue #80) — restore traverse for the phvalheim user
+                chmod -R u+rwX "$treeRoot/BepInEx/plugins" "$treeRoot/BepInEx/config" "$treeRoot/BepInEx/patchers"
+        done
 
         chown -R phvalheim:phvalheim $customModsSourceDir
         chown -R phvalheim:phvalheim $customConfigsSourceDir
         chown -R phvalheim:phvalheim $customPatchersSourceDir
-
-        #cp -p preserves source permissions, which may lack the directory execute bit
-        #(same failure mode as issue #80) — restore traverse for the phvalheim user
-        chmod -R u+rwX $worldModsDestDir $worldConfigsDestDir $worldPatchersDestDir
 
 }
 
@@ -933,6 +1159,34 @@ function installSystemPlugins() {
 		cp -rf "$tickMonitorSrc/"* "$tickMonitorDest/." 2>/dev/null || true
 	fi
 
+	# Install the PhValheim Companion
+	#
+	# Bundled in the image from 2.53 rather than pulled from Thunderstore. It is PhValheim's
+	# own infrastructure -- it posts to the PhValheim backend and reads PhValheim config, so
+	# there is no audience for it outside this server -- and shipping it with the server means
+	# the two are one artifact and cannot be version-skewed against each other. That skew is
+	# the only reason the catalogue-capability machinery in this file ever existed.
+	#
+	# It lands in custom_plugins/, so installCustomModsConfigsPatchers() copies it into BOTH
+	# the server tree and the client staging tree. The Companion is dual-role -- server-side
+	# ZNet work and client-side HungHeads -- so both is exactly right, and it is why it has no
+	# Server/Client switches: there is no world_mods row to hang them on, and there should not
+	# be. It is not a mod the operator chose.
+	#
+	# Fail HARD when the image does not contain it, matching CustomSeed above. A missing
+	# Companion is not cosmetic: it is the web UI's server-side half and, once
+	# companionProvidesConnect flips, the only way into a world. If it is absent the image is
+	# broken and every world built from it would be broken the same way, so saying so once and
+	# loudly beats building worlds that look fine and cannot be joined.
+	companionSrc="$systemPluginsSourceDir/PhValheimCompanion"
+	companionDest="$worldPluginsDestDir/PhValheimCompanion"
+	if [ ! -f "$companionSrc/PhValheimCompanion.dll" ]; then
+		echo "`date` [ERROR : phvalheim] Install source for PhValheimCompanion.dll is missing from '$companionSrc/PhValheimCompanion.dll', exiting..."
+		exit 1
+	fi
+	mkdir -p "$companionDest"
+	cp -rf "$companionSrc/"* "$companionDest/."
+
 	chown -R phvalheim:phvalheim $worldPluginsDestDir
 }
 
@@ -957,6 +1211,13 @@ function InstallCustomConfigSecureFiles() {
 
 
 #$1=worldName
+#$1=world name
+#
+#Zips the CLIENT STAGING tree, not the server's live one. Until 2.53 this function did
+#`cd game && zip -r ./BepInEx ...`, which is why the server's tree and the client's payload
+#were the same thing -- and why 2.49's loss of one BepInEx.cfg took out the world log and the
+#client console together. Per-mod destinations make that arrangement unable to express what
+#it is asked to: a server-only mod cannot be withheld from a zip of the directory it sits in.
 function packageClient() {
 
         #echo ""
@@ -964,23 +1225,57 @@ function packageClient() {
 
         worldName="$1"
 
-        #delete current world payload zip
-        rm /opt/stateful/games/valheim/worlds/$worldName/$worldName.zip > /dev/null 2>&1
+        local gameDir="$worldsDirectoryRoot/$worldName/game"
+        local stage; stage="$(clientStagingRoot "$worldName")"
+        local zipPath="/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip"
 
-        cd /opt/stateful/games/valheim/worlds/$worldName/game
+        #delete current world payload zip
+        rm -f "$zipPath" > /dev/null 2>&1
+
+        #Refused rather than attempted. zip with nothing to add leaves NO archive at all, so
+        #the failure would surface downstream as an empty md5 -- which the engine's own
+        #warning describes as "clients will have nothing to sync" without saying why. Name the
+        #cause here, where it is known.
+        if [ ! -d "$stage/BepInEx" ]; then
+                echo "`date` [ERROR : phvalheim] No client staging tree for '$worldName' -- cannot build a payload. Expected $stage/BepInEx."
+                return 1
+        fi
+
+        #The loader config the SERVER will actually boot with, copied over whatever the
+        #staging tree has. This keeps the 2.49 invariant deliberately: the client's console
+        #window and the world log are driven by the same [Logging.Console] setting, and they
+        #should agree because they are the same file, not because two code paths happened to
+        #write the same value.
+        if [ -f "$gameDir/BepInEx/config/BepInEx.cfg" ]; then
+                mkdir -p "$stage/BepInEx/config"
+                cp -pf "$gameDir/BepInEx/config/BepInEx.cfg" "$stage/BepInEx/config/BepInEx.cfg" > /dev/null 2>&1
+        fi
 
         # inject universal macOS doorstop dylib for macOS client support
-        cp /opt/stateless/games/valheim/macos/libdoorstop.dylib ./doorstop_libs/libdoorstop.dylib
+        #
+        #Left in place afterwards, unlike the old version. That `rm` existed to keep the
+        #dylib out of the SERVER's game directory; the staging tree is the payload and
+        #nothing else, so a client-only file belongs in it.
+        mkdir -p "$stage/doorstop_libs"
+        cp /opt/stateless/games/valheim/macos/libdoorstop.dylib "$stage/doorstop_libs/libdoorstop.dylib" > /dev/null 2>&1
 
-        zip ../$worldName.zip -r \
+        #|| return, because a failed cd would otherwise leave zip running in whatever
+        #directory the engine happened to be in and packaging that instead.
+        cd "$stage" || {
+                echo "`date` [ERROR : phvalheim] Could not enter the client staging tree for '$worldName' ($stage)."
+                return 1
+        }
+
+        zip "$zipPath" -r \
         ./BepInEx \
         ./doorstop_libs \
         ./doorstop_config.ini \
         ./start_game_bepinex.sh \
         ./winhttp.dll
 
-        rm -f ./doorstop_libs/libdoorstop.dylib
-
+        #zip's status, captured immediately. The old version ran `rm -f` and then returned
+        #`$?` -- so it reported the rm's exit code, which is 0 essentially always, and a
+        #genuinely failed zip returned success.
         return $?
 }
 

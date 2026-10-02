@@ -501,6 +501,15 @@ switch($action) {
         }
         break;
 
+    case 'dismissConnectNotice':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $stmt = $pdo->prepare("UPDATE settings SET connectNoticeShown = 1");
+            echo json_encode(['success' => (bool)$stmt->execute()]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
     case 'dismissAiOllamaNotice':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dismissAiOllamaNoticeJson($pdo);
@@ -907,11 +916,16 @@ function getWorldsJson($pdo) {
     $worlds = [];
 
     foreach ($stmt as $row) {
-        // Same positional contract as getLaunchString() in db_gets.php -- keep the two
-        // in step, and only ever append fields.
+        // Built by phvBuildLaunchString() in db_gets.php, shared with the dashboard's PHP
+        // render and the public card, so the string the poll hands back cannot drift from
+        // the one the page loaded with.
         $vanilla = (int)$row['vanilla'];
         $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
-        $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme?$vanilla");
+        list($lsCrossplay, $lsJoinCode) =
+            phvLaunchCrossplayFields($pdo, $row['name'], $row['mode'] === 'running');
+        $launchString = phvBuildLaunchString($row['name'], $password, $gameDNS, $row['port'],
+                                             $phvalheimHost, $httpScheme, $vanilla,
+                                             $lsCrossplay, $lsJoinCode);
 
         // Shared with the dashboard's PHP render and the public card, so a crossplay world
         // gets a join code rather than a +connect that can never reach a PlayFab server.

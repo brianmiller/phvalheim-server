@@ -538,8 +538,14 @@ while [ true ]; do
 					#a world has to be updated before its players see the new name.
 					SQL "UPDATE worlds SET external_endpoint='$worldHost' WHERE id='$worldID';"
 
-					#Generate quick connect config
-					createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+					#Generate quick connect config, but only while QuickConnect is
+					#still the join path. Once the catalogue has a connect-capable
+					#Companion the cfg is not written, because there is no QuickConnect
+					#installed to read it. Same verdict mergeRequiredTsMods() used, so
+					#the file and the installed mod list cannot disagree.
+					if ! companionSupportsConnect; then
+						createQuickConnectConfig "$worldName" "$worldHost" "$worldPort" "$worldPassword"
+					fi
 
 					#Install system plugins (health monitor, etc)
 					installSystemPlugins "$worldName"

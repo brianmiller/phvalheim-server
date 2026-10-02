@@ -2508,6 +2508,45 @@ input:checked + .slider:before {
 	user-select: none;
 }
 
+/* The admin join-code modal, opened by Launch on a vanilla crossplay world. The counterpart
+   of the public page's #crossplayJoinModal, but built on the admin's own mods-modal overlay --
+   the admin UI is not a Bootstrap page and the legacy .modal rule further up this file sets a
+   z-index that traps the backdrop. */
+.joincode-wrap {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin: 0.875rem 0;
+	padding: 0.625rem 0.75rem;
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	background: var(--bg-tertiary);
+}
+
+.joincode-value {
+	flex: 1;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 1.5rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	color: #60a5fa;
+	/* The whole point of this modal is handing the code to someone, so one click should
+	   select all of it rather than a double-click selecting half. */
+	user-select: all;
+}
+
+.joincode-steps {
+	margin: 0.75rem 0 0.5rem 0;
+	padding-left: 1.25rem;
+	line-height: 1.7;
+}
+
+.joincode-note {
+	margin: 0;
+	font-size: 0.8125rem;
+	color: var(--text-secondary);
+}
+
 .status-badge {
 	display: inline-flex;
 	align-items: center;
@@ -2603,19 +2642,39 @@ input:checked + .slider:before {
 }
 
 /* Fixed column widths for consistent alignment.
-   Actions and Configure are sized to comfortably hold their button groups
-   without wrapping at typical viewport widths (≥ ~1450px table width).
-   Endpoint and Seed are trimmed to compensate. */
+   Measured from a render of the real dashboard, not estimated: at a 1557px window the
+   Configure column's 40% was ~560px holding only "View N" and "Settings" -- about 450px of
+   it empty -- while World was wrapping "ModdedCrossplayPublished" onto two lines and Actions
+   was wrapping Logs onto a second row. Configure's surplus is handed to the two columns that
+   were actually short.
+   Keep the total at 100: table-layout is fixed, so these percentages are the whole budget and
+   anything over 100 is silently rescaled, which makes the next person's measurement lie. */
 .worlds-table th:nth-child(1),
 .worlds-table td:nth-child(1) { width: 7%; }  /* Status */
 .worlds-table th:nth-child(2),
-.worlds-table td:nth-child(2) { width: 15%; } /* World */
+.worlds-table td:nth-child(2) { width: 22%; } /* World */
 .worlds-table th:nth-child(3),
-.worlds-table td:nth-child(3) { width: 18%; } /* Actions */
+.worlds-table td:nth-child(3) { width: 29%; } /* Actions */
 .worlds-table th:nth-child(4),
-.worlds-table td:nth-child(4) { width: 40%; } /* Configure */
+.worlds-table td:nth-child(4) { width: 22%; } /* Configure */
 .worlds-table th:nth-child(5),
 .worlds-table td:nth-child(5) { width: 20%; } /* Resources */
+
+/* A world name is an identifier -- breaking it across two lines makes it harder to read and
+   to compare against the list of worlds. There is room for it now, and if a name really is
+   too long for the column it gets an ellipsis, which reads as "truncated" rather than as a
+   name with a space in it. The full name stays available on hover via the row's title. */
+.worlds-table td:nth-child(2) .world-name {
+	/* display:block is load-bearing, not tidiness: .world-name is a <span>, and overflow and
+	   text-overflow have no effect on an inline box, so the ellipsis would silently do
+	   nothing. word-break is overridden explicitly because the base .world-name rule sets
+	   break-word -- that is what was splitting "ModdedCrossplayPublished" mid-word. */
+	display: block;
+	white-space: nowrap;
+	word-break: normal;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 
 .worlds-table thead th {
 	background: var(--bg-tertiary);
@@ -2685,6 +2744,23 @@ input:checked + .slider:before {
 	gap: 0.5rem;
 	flex-wrap: nowrap;
 	align-items: center;
+}
+
+/* A crossplay row carries a join-code chip beside Launch. The chip is a LABEL, not an action,
+   so reflowActionGroups() never counts it -- that function only ever moves `.action-btn`
+   elements into the overflow menu. The chip's ~65px therefore came straight out of the button
+   row's budget, and Start, Stop and Logs were pushed behind the "..." menu on EVERY crossplay
+   world, at every width measured (1280/1440/1600/1920) by rendering the live admin page
+   headless. Nothing in the markup hints at this: the chip is a sibling of the buttons and
+   looks free.
+
+   Wrapping is the fix rather than teaching the reflow about the chip. The chip is the one
+   child that may legitimately sit on its own line -- it is read, not clicked -- and letting
+   it drop returns its width to the buttons, so the overflow menu goes back to appearing only
+   when the buttons really do not fit. Scoped with :has() so every other row keeps nowrap. */
+.action-group:has(.join-code-chip) {
+	flex-wrap: wrap;
+	row-gap: 0.25rem;
 }
 
 .action-btn {
@@ -3204,15 +3280,20 @@ input:checked + .slider:before {
 		min-width: 0 !important;
 	}
 
-	/* Reallocate column widths: shrink Endpoint/Seed, expand button columns */
+	/* Reallocate column widths: shrink Endpoint/Seed, expand button columns.
+	   Same correction as the default widths above -- this breakpoint carried its own copy of
+	   the 41%-Configure split, so fixing only the default rule left every window between 1024
+	   and 1366 still wrapping. A measured fix that skips a media query is a fix that works at
+	   exactly one window size. Actions needs the most here: it is the only column whose
+	   contents (Launch + join code + Stop + Logs) all have to sit on one line. */
 	.worlds-table th:nth-child(1),
-	.worlds-table td:nth-child(1) { width: 8%; }   /* Status */
+	.worlds-table td:nth-child(1) { width: 7%; }   /* Status */
 	.worlds-table th:nth-child(2),
-	.worlds-table td:nth-child(2) { width: 15%; }  /* World */
+	.worlds-table td:nth-child(2) { width: 19%; }  /* World */
 	.worlds-table th:nth-child(3),
-	.worlds-table td:nth-child(3) { width: 18%; }  /* Actions */
+	.worlds-table td:nth-child(3) { width: 34%; }  /* Actions */
 	.worlds-table th:nth-child(4),
-	.worlds-table td:nth-child(4) { width: 41%; }  /* Configure */
+	.worlds-table td:nth-child(4) { width: 22%; }  /* Configure */
 	.worlds-table th:nth-child(5),
 	.worlds-table td:nth-child(5) { width: 18%; }  /* Resources */
 

@@ -113,11 +113,16 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
     $worlds = [];
 
     foreach ($stmt as $row) {
-        // Same positional launch-string contract as getLaunchString() in db_gets.php and
-        // getWorldsJson() in adminAPI.php -- keep all three in step, and only ever append.
+        // Built by phvBuildLaunchString() in db_gets.php, which all three callers now share.
+        // This used to be a hand-assembled copy kept in step by comment; the Companion's
+        // crossplay fields made that a third place to forget.
         $vanilla = (int)$row['vanilla'];
         $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
-        $launchString = base64_encode("launch?{$row['name']}?$password?$gameDNS?{$row['port']}?$phvalheimHost?$httpScheme?$vanilla");
+        list($lsCrossplay, $lsJoinCode) =
+            phvLaunchCrossplayFields($pdo, $row['name'], $row['mode'] === 'running');
+        $launchString = phvBuildLaunchString($row['name'], $password, $gameDNS, $row['port'],
+                                             $phvalheimHost, $httpScheme, $vanilla,
+                                             $lsCrossplay, $lsJoinCode);
 
         // A vanilla world has no client payload and no BepInEx, so phvalheim:// is
         // meaningless for it -- handing that link to the client makes it try to sync mods
@@ -561,10 +566,45 @@ $totalCount = count($worlds);
                                             <div class="action-group">
                                                 <?php if ($world['mode'] === 'running'): ?>
                                                 <?php if ($world['launchHref'] === NULL): ?>
-                                                <?php // Crossplay world, up but no join code registered yet. There is
-                                                      // genuinely nothing to launch with, so say so rather than offer a
-                                                      // link with an empty argument. ?>
-                                                <span class="action-btn disabled" data-action="launch" title="Crossplay world: waiting for its join code">starting&hellip;</span>
+                                                <?php // No launch link. TWO different worlds land here and they need
+                                                      // different things said about them, which is what this branch got
+                                                      // wrong: it showed "starting..." for both.
+                                                      //
+                                                      // A VANILLA crossplay world has href === NULL *permanently*, by
+                                                      // design -- getVanillaJoinInfo() returns no href because there is
+                                                      // no address to connect to and no Companion to join with (see
+                                                      // docs/RELEASE-2.53-DESIGN.md section 13). Its join code is the
+                                                      // ONLY way in, so hiding the code is the one thing this branch
+                                                      // must not do. It used to, and the world sat on "starting..."
+                                                      // forever while the modded worlds beside it showed their codes.
+                                                      //
+                                                      // The genuinely-waiting case is the same world in its first ~30s,
+                                                      // before the lobby registers a code. That is the ONLY time
+                                                      // "starting..." is true. ?>
+                                                <?php // A real Launch button, matching the public page. It cannot start the
+                                                      // game -- a crossplay world has no address and -joincode would land the
+                                                      // player as "Odev (Developer)" -- so it opens the how-to-join modal with
+                                                      // the code, which is the same thing Launch! does on the public card.
+                                                      //
+                                                      // data-joincode carries the code so the modal reads it at CLICK time; the
+                                                      // 5s poll rewrites this row on every restart. ?>
+                                                <?php if ($world['launchJoinCode'] !== NULL): ?>
+                                                <a href="#" class="action-btn success" data-action="launch"
+                                                   data-joincode="<?php echo htmlspecialchars($world['launchJoinCode'], ENT_QUOTES); ?>"
+                                                   onclick="showJoinCodeModal(this); return false;"
+                                                   title="Crossplay world: shows the join code and how to use it. There is no address to launch.">Launch</a>
+                                                <span class="join-code-chip" data-action="joincode"
+                                                      title="Crossplay join code. Enter it in Valheim's Join by code box.">code <?php echo htmlspecialchars($world['launchJoinCode']); ?></span>
+                                                <?php else: ?>
+                                                <?php // Starting: the world is up but its lobby has not registered a code
+                                                      // yet. Show the pending CHIP as well as the label, the same way the
+                                                      // modded branch below does. Without the chip there is nothing in the
+                                                      // row to say a code is coming, so the cell looks like a world that
+                                                      // simply has no join code -- and then one silently appears. ?>
+                                                <span class="action-btn disabled" data-action="launch" title="Crossplay world: waiting for its join code. It usually appears within 30 seconds of the world starting.">Launch</span>
+                                                <span class="join-code-chip pending" data-action="joincode"
+                                                      title="Crossplay world: the lobby has not registered its join code yet. It usually appears within 30 seconds.">code waiting&hellip;</span>
+                                                <?php endif; ?>
                                                 <?php elseif (!empty($world['launchPlayfab'])): ?>
                                                 <?php // MODDED + crossplay (2.53). The link still runs -- the client has to
                                                       // install the mods and inject BepInEx -- but it cannot connect, because
@@ -854,6 +894,36 @@ $totalCount = count($worlds);
     </div>
 
     <!-- Mods Modal -->
+    <!-- Join code modal. The admin counterpart of the public UI's #crossplayJoinModal, opened
+         by Launch on a VANILLA crossplay world, which has no launchable URL at all.
+
+         Built on the admin's own mods-modal-overlay pattern rather than copied across as a
+         Bootstrap modal. The public page is a Bootstrap page; this one is not, and there is a
+         pre-Bootstrap `.modal` rule in phvalheimStyles.css whose z-index ties the backdrop --
+         dropping a Bootstrap modal in here is a known way to get a dialog you cannot click.
+         Same words and same three steps as the public modal; same mechanism as its neighbours. -->
+    <div class="mods-modal-overlay" id="joinCodeModalOverlay" onclick="closeJoinCodeModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 520px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">Join this crossplay world</h3>
+                <button class="mods-modal-close" onclick="closeJoinCodeModal()">&times;</button>
+            </div>
+            <div class="mods-modal-body">
+                <p>A crossplay world is joined with a <strong>join code</strong>, not an address &mdash; so it cannot be started from this page.</p>
+                <div class="joincode-wrap">
+                    <code class="joincode-value" id="joinCodeModalValue">&nbsp;</code>
+                    <button type="button" class="action-btn" id="joinCodeCopyBtn" onclick="copyAdminJoinCode()" title="Copy join code">copy</button>
+                </div>
+                <ol class="joincode-steps">
+                    <li>Start Valheim and <strong>pick your character</strong> as usual.</li>
+                    <li>On the world screen choose <strong>Join by code</strong>.</li>
+                    <li>Paste the code above and join.</li>
+                </ol>
+                <p class="joincode-note">The code changes every time the world restarts &mdash; come back here for the current one.</p>
+            </div>
+        </div>
+    </div>
+
     <div class="mods-modal-overlay" id="modsModalOverlay" onclick="closeModsModal(event)">
         <div class="mods-modal" onclick="event.stopPropagation()">
             <div class="mods-modal-header">
@@ -1297,6 +1367,72 @@ $totalCount = count($worlds);
         // dead code that reads as working, and the only symptom would be a button in the
         // welcome dialog that quietly does nothing.
         if (openSettings) showServerSettingsModal();
+    }
+    </script>
+    <?php endif; ?>
+
+    <!-- How players join modded worlds has changed (one shot, 2.53) --------------------
+         z-index 1072 sits between Hugin (1075) and the Ollama notice (1070), so on an
+         upgrade the operator meets the bird first and then reads this, which is the one
+         that asks them to go and do something. -->
+    <?php // ?? 1 is load-bearing here for the same reason it is on the Hugin notice above:
+      // an UNDEFINED $connectNoticeShown is null, and null == 0 is TRUE in PHP, so a server
+      // that has not yet run dbUpdate_2.53.sh would show this on every page load forever.
+      if ($setupComplete == 2 && ($connectNoticeShown ?? 1) == 0): ?>
+    <div class="mods-modal-overlay show" id="connectNoticeOverlay" style="z-index:1072;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 620px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    How players join your modded worlds has changed
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    The <strong>PhValheim Companion</strong> now handles connecting players to your
+                    modded worlds. <strong>QuickConnect</strong> is being retired and will no longer
+                    be installed once a Companion that can do the job is available in your mod
+                    catalogue.
+                </p>
+
+                <div style="background: var(--bg-tertiary); border-left: 3px solid var(--warning); padding: 0.75rem 1rem; margin-bottom: 1rem;">
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.5rem;">
+                        <strong style="color: var(--text-primary);">Each existing modded world must be updated once</strong>
+                        to move to the new join path.
+                    </p>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
+                        Until you update a world it keeps working exactly as it does now.
+                        <strong>Nothing breaks by waiting.</strong>
+                    </p>
+                </div>
+
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                    <strong style="color: var(--warning);">Updating a world stops it.</strong>
+                    A world is left stopped when its update finishes and you start it again yourself,
+                    so do this at a quiet time rather than while people are playing.
+                </p>
+
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem;">
+                    After a world has been updated, its players should download its client payload
+                    again so they pick up the matching mods.
+                </p>
+
+                <div style="text-align: center;">
+                    <button class="action-btn success" onclick="dismissConnectNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    async function dismissConnectNotice() {
+        const el = document.getElementById('connectNoticeOverlay');
+        if (el) el.classList.remove('show');
+        // Fire and forget, but close regardless: the operator has read it, and a dialog that
+        // will not go away is worse than a flag that clears on the next page load.
+        try { await fetch('adminAPI.php?action=dismissConnectNotice', { method: 'POST' }); }
+        catch (e) { /* dismissed visually either way */ }
     }
     </script>
     <?php endif; ?>
@@ -2002,9 +2138,34 @@ $totalCount = count($worlds);
     // of them is a control that appears and then disappears a few seconds later -- which is how
     // the vanilla crossplay button was wrong before, and it is not obvious from either file
     // alone. Both take their values from the same get*JoinInfo() pair.
+    // One place that renders the code chip, so the three call sites below cannot disagree about
+    // what a present-vs-absent code looks like.
+    function joinCodeChipHtml(code) {
+        if (code) {
+            return `<span class="join-code-chip" data-action="joincode" title="${escapeAttr('Crossplay join code. Enter it in Valheim’s Join by code box.')}">code ${escapeAttr(code)}</span>`;
+        }
+        return `<span class="join-code-chip pending" data-action="joincode" title="${escapeAttr('Crossplay world: the lobby has not registered its join code yet. It usually appears within 30 seconds.')}">code waiting&hellip;</span>`;
+    }
+
     function launchButtonHtml(world) {
         if (!world.launchHref) {
-            return '<span class="action-btn disabled" data-action="launch" title="Crossplay world: waiting for its join code">starting&hellip;</span>';
+            // No launch link, and TWO different worlds land here -- see the long comment on the
+            // matching PHP branch. A VANILLA crossplay world has no href permanently and by
+            // design, so its join code is the only way in and must be shown. Only a world whose
+            // lobby has not registered a code yet is genuinely "starting".
+            // With a code: a real Launch button that opens the how-to-join modal, exactly as
+            // the public card does. Without one: nothing to show yet, so the button stays
+            // disabled and the chip says the code is coming. This branch MUST agree with the
+            // PHP above -- the server renders the row once and this replaces it five seconds
+            // later, so a button that exists in only one of them appears and then vanishes.
+            if (world.launchJoinCode) {
+                const t = escapeAttr('Crossplay world: shows the join code and how to use it. There is no address to launch.');
+                return `<a href="#" class="action-btn success" data-action="launch" data-joincode="${escapeAttr(world.launchJoinCode)}"`
+                     + ` onclick="showJoinCodeModal(this); return false;" title="${t}">Launch</a>${joinCodeChipHtml(world.launchJoinCode)}`;
+            }
+
+            const waiting = escapeAttr('Crossplay world: waiting for its join code. It usually appears within 30 seconds of the world starting.');
+            return `<span class="action-btn disabled" data-action="launch" title="${waiting}">Launch</span>${joinCodeChipHtml(null)}`;
         }
 
         // MODDED + crossplay (2.53): the link installs mods and starts Valheim, but cannot
@@ -2013,10 +2174,7 @@ $totalCount = count($worlds);
         if (world.launchPlayfab) {
             const launchTitle = escapeAttr('Installs mods and starts Valheim. This world is crossplay, '
                 + 'so it cannot be joined by IP -- use Join by code in Valheim once it is running.');
-            const chip = world.launchJoinCode
-                ? `<span class="join-code-chip" data-action="joincode" title="${escapeAttr('Crossplay join code. Enter it in Valheim’s Join by code box -- QuickConnect’s server entry cannot reach a crossplay world.')}">code ${escapeAttr(world.launchJoinCode)}</span>`
-                : `<span class="join-code-chip pending" data-action="joincode" title="${escapeAttr('Crossplay world: the lobby has not registered its join code yet. It usually appears within 30 seconds.')}">code waiting&hellip;</span>`;
-            return `<a href="${world.launchHref}" class="action-btn success" data-action="launch" title="${launchTitle}">Launch</a>${chip}`;
+            return `<a href="${world.launchHref}" class="action-btn success" data-action="launch" title="${launchTitle}">Launch</a>${joinCodeChipHtml(world.launchJoinCode)}`;
         }
 
         return `<a href="${world.launchHref}" class="action-btn success" data-action="launch">Launch</a>`;
@@ -2175,6 +2333,21 @@ $totalCount = count($worlds);
         const stopBtn = findBtn('stop');
 
         if (launchBtn && startBtn && stopBtn) {
+            // The join-code chip is a SIBLING of the launch button, not part of it.
+            //
+            // launchButtonHtml() returns the anchor AND the chip for a crossplay world, so
+            // assigning it to launchBtn.outerHTML re-inserts a chip every time -- while
+            // findBtn('launch') only ever matches the anchor, so the previous chip is left
+            // behind. At a 5s poll that stacked one more copy of the join code every five
+            // seconds until the row was unreadable.
+            //
+            // Remove it up front, unconditionally: the branches below then either re-add
+            // exactly one (running + crossplay) or none. Doing it here rather than only in
+            // the running branch also clears a stale code off a world that has just stopped,
+            // which would otherwise sit there advertising a lobby that no longer exists.
+            const staleChip = findBtn('joincode');
+            if (staleChip) { staleChip.remove(); }
+
             if (world.mode === 'running') {
                 launchBtn.outerHTML = launchButtonHtml(world);
                 startBtn.outerHTML = `<span class="action-btn disabled" data-action="start">Start</span>`;
@@ -2342,12 +2515,57 @@ $totalCount = count($worlds);
         }
     }
 
+    // Read the code off the CLICKED element, never off a variable captured at page load.
+    // The 5s poll rewrites these rows whenever a world restarts and its lobby reissues a
+    // code, so a modal populated once at load would hand the operator a dead code with
+    // nothing marking it dead. Same reasoning as the public UI's showCrossplayJoin().
+    function showJoinCodeModal(el) {
+        const code = (el && el.dataset ? el.dataset.joincode : '') || '';
+        const slot = document.getElementById('joinCodeModalValue');
+        if (slot) slot.textContent = code || '—';
+        const overlay = document.getElementById('joinCodeModalOverlay');
+        if (overlay) overlay.classList.add('show');
+    }
+
+    function closeJoinCodeModal(event) {
+        if (!event || event.target === document.getElementById('joinCodeModalOverlay')) {
+            const overlay = document.getElementById('joinCodeModalOverlay');
+            if (overlay) overlay.classList.remove('show');
+        }
+    }
+
+    function copyAdminJoinCode() {
+        const slot = document.getElementById('joinCodeModalValue');
+        const btn = document.getElementById('joinCodeCopyBtn');
+        if (!slot) return;
+        const code = slot.textContent.trim();
+        if (!code || code === '—') return;
+
+        // Report the OUTCOME, not the attempt. navigator.clipboard rejects on an insecure
+        // origin, and the admin UI is routinely reached over plain http on a LAN address --
+        // so "copied" printed unconditionally would be a lie exactly where it is most likely
+        // to be wrong.
+        const done = (ok) => {
+            if (!btn) return;
+            const original = btn.textContent;
+            btn.textContent = ok ? 'copied' : 'copy failed';
+            setTimeout(() => { btn.textContent = original; }, 1500);
+        };
+
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(code).then(() => done(true), () => done(false));
+        } else {
+            done(false);
+        }
+    }
+
     // Close modal on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeModsModal();
             closeSettingsModal();
             closeSteamIdModal();
+            closeJoinCodeModal();
         }
     });
 

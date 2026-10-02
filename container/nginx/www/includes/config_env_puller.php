@@ -46,6 +46,12 @@ $aiOllamaNotice = (int)($_settingsRow['aiOllamaNotice'] ?? 0);
 // Defaults to 1 (already shown) when the column is missing, so a server whose migration has
 // not run yet does not flash an introduction for a feature it does not have.
 $huginNoticeShown = (int)($_settingsRow['huginNoticeShown'] ?? 1);
+
+// 2.53: how players join modded worlds changed. Same `?? 1` rule and it is load-bearing for
+// the same reason -- an undefined variable is null, PHP evaluates null == 0 as TRUE, and the
+// markup gates on == 0. Without the default, a server that has not run dbUpdate_2.53.sh yet
+// would be shown this dialog on every single page load, forever.
+$connectNoticeShown = (int)($_settingsRow['connectNoticeShown'] ?? 1);
 # 1 = stay quiet. Defaults to 1 for a database that predates the column, so an install
 # that never ran the 2.40 migration cannot be told its ids were converted.
 $accessIdNoticeShown = (int)($_settingsRow['accessIdNoticeShown'] ?? 1);

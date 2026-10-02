@@ -182,13 +182,44 @@ function getDateUpdated($pdo,$world) {
 # Arguments.cs. Only ever APPEND fields -- an older client ignores trailing fields it
 # does not know about, but reordering silently breaks every installed client.
 #
-#   0        1      2         3         4      5               6            7
-#   launch ? world ? password ? gameDNS ? port ? phvalheimHost ? httpScheme ? vanilla
+#   0        1      2         3         4      5               6            7         8          9
+#   launch ? world ? password ? gameDNS ? port ? phvalheimHost ? httpScheme ? vanilla ? crossplay ? joinCode
+#
+# Fields 8 and 9 are 2.53 and exist for the Companion, which reads this same string out of
+# Valheim's argv to know which world it was launched for and how to reach it. Appended, and
+# optional on the client exactly as field 7 (vanilla) was when 2.40 added it: a client that
+# predates them ignores both and behaves as it always did.
+#
+# joinCode is deliberately carried IN THE LINK rather than written to a file. A crossplay
+# world reissues its code on every restart, so a copy on disk goes stale silently -- which is
+# the whole reason quick_connect_servers.cfg was wrong for years. The link is regenerated
+# every time the page renders or polls, so the code rides along fresh with the click that
+# used it.
+#
+# THE ONE BUILDER. Three callers used to assemble this string by hand, each with a comment
+# asking the next person to keep all three in step. That is a convention, and conventions are
+# what a positional format breaks on. This makes it structural: add a field here and every
+# caller gets it.
+function phvBuildLaunchString($world, $password, $gameDNS, $port, $phvalheimHost,
+                              $httpScheme, $vanilla, $crossplay, $joinCode) {
+        return base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost"
+                           . "?$httpScheme?$vanilla?$crossplay?$joinCode");
+}
+
+# The crossplay pair for a world, as the launch string wants them.
+# Returns [crossplay(0|1), joinCode(string, '' when there is none yet)].
+function phvLaunchCrossplayFields($pdo, $world, $isOnline) {
+        $crossplay = worldIsPlayFab($pdo, $world, $isOnline) ? 1 : 0;
+        # NULL means the lobby has not registered yet -- about 30 seconds after start. Sent as
+        # empty, which the Companion treats as "ask the backend", not as "there is no code".
+        $joinCode  = $crossplay ? (getWorldJoinCode($world) ?? '') : '';
+        return [$crossplay, $joinCode];
+}
+
 function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
-        $getWorldData = $pdo->query("SELECT status,name,port FROM worlds WHERE name='$world'");
+        $getWorldData = $pdo->query("SELECT status,mode,name,port FROM worlds WHERE name='$world'");
         foreach($getWorldData as $row)
         {
-                $status = $row['status'];
                 $world = $row['name'];
                 $port = $row['port'];
 
@@ -199,9 +230,14 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
                 # Keep sending the historical literal so older clients behave identically.
                 $password = $vanilla ? (getWorldPassword($pdo, $world) ?: "") : "hammertime";
 
-                $launchString = base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost?$httpScheme?$vanilla");
+                # mode, not status: status is written once at world creation and never
+                # updated by anything, so reading it here would call every world offline.
+                list($crossplay, $joinCode) =
+                        phvLaunchCrossplayFields($pdo, $world, $row['mode'] === 'running');
 
-		return $launchString;
+                return phvBuildLaunchString($world, $password, $gameDNS, $port,
+                                            $phvalheimHost, $httpScheme, $vanilla,
+                                            $crossplay, $joinCode);
 	}
 }
 
@@ -358,12 +394,24 @@ function savedWorldOptions($pdo, $world) {
         $row = $sth->fetch(PDO::FETCH_ASSOC);
         if (!$row) { return ['vanilla' => 0, 'crossplay' => 0, 'listed' => 0, 'passwordhash' => '']; }
 
-        # Mirror startWorld.sh's gates, or a modded world with a stale crossplay flag would read
-        # as "restart pending" forever: the flag is kept as a preference but never applied.
+        # Mirror startWorld.sh's gates, or a world whose flag is kept as a preference but never
+        # applied would read as "restart pending" forever.
+        #
+        # CROSSPLAY IS NO LONGER ONE OF THOSE GATES. 2.53 made crossplay available on modded
+        # worlds and removed the vanilla check from startWorld.sh -- but this mirror kept it,
+        # so a modded world with crossplay=1 in the database read back as 0 while
+        # .running-options correctly said 1. worldRestartPending() then reported "crossplay"
+        # as a pending change on every single poll, and NO restart could ever clear it: the
+        # two sides were comparing different questions, and restarting only ever re-confirmed
+        # the running side.
+        #
+        # listed and passwordhash ARE still vanilla-only -- startWorld.sh still gates those --
+        # so they keep their checks until that changes too. A mirror is only safe while it is
+        # actually a mirror; when one side moves, this is the file that has to move with it.
         $vanilla = (int)$row['vanilla'];
         return [
                 'vanilla'      => $vanilla,
-                'crossplay'    => ($vanilla === 1 && (int)$row['crossplay'] === 1) ? 1 : 0,
+                'crossplay'    => (int)$row['crossplay'] === 1 ? 1 : 0,
                 'listed'       => ($vanilla === 1) ? (int)$row['listed'] : 0,
                 'passwordhash' => ($vanilla === 1 && $row['password'] !== '')
                                   ? hash('sha256', $row['password']) : '',
@@ -443,7 +491,31 @@ function getWorldJoinCode($world) {
         $tail = phvCurrentSessionTail($world);
         if ($tail === NULL) { return NULL; }
 
-        if (preg_match_all('/registered with join code (\d{4,10})/', $tail, $m)) {
+        # Match ANY join-code mention, not just the registration line, and take the LAST one.
+        #
+        # "Session X registered with join code N" is NOT reliably the live code. Valheim
+        # re-reports a code carried on the PlayFab lobby entity when it registers, and may
+        # then mint a replacement a second later:
+        #
+        #   23:17:57  Session "test123" registered with join code 537586     <- sticky, stale
+        #   23:17:58  Created new join code 284283 for session "test123"      <- the real one
+        #   23:17:59  Session "test123" with join code 284283 ... is active
+        #   23:18:49  Player joined server "test123" that has join code 284283
+        #
+        # Reading only the registration line handed players 537586 -- a code that had been
+        # re-reported identically across four restarts and did not work. It was wrong in the
+        # public UI, the admin dashboard AND the Launch link, because all of them come through
+        # here. Found by comparing the UI against what the game itself displayed.
+        #
+        # Recency rather than ranking the message types: across every session in a real log the
+        # authoritative lines ("Created new", "is active", "Player joined") always FOLLOW the
+        # registration, so the last mention is the live code, and nothing has to be taught
+        # which Valheim message to trust. If Valheim renames one of them this still works.
+        #
+        # Known window: for the ~1-2 seconds between registering and minting a replacement, the
+        # only mention is the registration line, so a stale code can be returned. That matches
+        # what Valheim itself believes at that moment, and it self-corrects on the next poll.
+        if (preg_match_all('/join code (\d{4,10})/', $tail, $m)) {
                 return end($m[1]);
         }
         return NULL;
