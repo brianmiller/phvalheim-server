@@ -1956,7 +1956,19 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   echo "2.53 access decoupled: -public 0 gone=$cot (want 0)  explicit -public=$cpa (want 1)  listed recorded=$cou (want 1)  pw hash blocks=$cov (want 2)"
   echo "2.53 access decoupled: blankpw in requiredMods=$cow (want 0)  requiredMods empty=$cox (want 1)  seed rule=$coy (want 1)  qmark rule=$coz (want 1)"
+  # cpg -- NEGATIVE, and this is the one that actually shipped broken. savedWorldOptions() is a
+  # MIRROR of startWorld.sh's gating, used by the restart-pending badge. startWorld.sh lost its
+  # vanilla gates on listed/password; the mirror kept them, so every modded world with a
+  # password reported "password" pending on every poll and NO restart could clear it --
+  # restarting only re-confirms the running side. Three of four live worlds on :rc.
+  #
+  # It is the SECOND time this file lagged startWorld.sh in 2.53 (crossplay was the first), so
+  # the gate is pinned out of existence rather than pinned to a value. test-restart-pending-
+  # mirror.sh is the end-to-end half: it runs the real startWorld.sh and the real comparison.
+  cpg=$(grep -c '\$vanilla === 1' /opt/stateless/nginx/www/includes/db_gets.php)
+
   echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated=$cpc (want 1)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused=$cpf (want 2)"
+  echo "2.53 access decoupled: restart-pending mirror vanilla gates=$cpg (want 0, was 2 and shipped broken)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2271,7 +2283,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cot" = "0" ] && [ "$cpa" = "1" ] && [ "$cou" = "1" ] && [ "$cov" = "2" ] \
     && [ "$cow" = "0" ] && [ "$cox" = "1" ] && [ "$coy" = "1" ] && [ "$coz" = "1" ] \
     && [ "$cpb" = "1" ] && [ "$cpc" = "1" ] && [ "$cpd" = "0" ] && [ "$cpe" = "0" ] \
-    && [ "$cpf" = "2" ] \
+    && [ "$cpf" = "2" ] && [ "$cpg" = "0" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

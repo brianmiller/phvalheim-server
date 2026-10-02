@@ -406,27 +406,33 @@ function savedWorldOptions($pdo, $world) {
         $row = $sth->fetch(PDO::FETCH_ASSOC);
         if (!$row) { return ['vanilla' => 0, 'crossplay' => 0, 'listed' => 0, 'passwordhash' => '']; }
 
-        # Mirror startWorld.sh's gates, or a world whose flag is kept as a preference but never
-        # applied would read as "restart pending" forever.
+        # This function MIRRORS startWorld.sh. Every gate here has to match a gate there, or a
+        # world reads as "restart pending" forever -- and no restart clears it, because
+        # restarting only re-confirms the running side. The two sides end up answering
+        # different questions.
         #
-        # CROSSPLAY IS NO LONGER ONE OF THOSE GATES. 2.53 made crossplay available on modded
-        # worlds and removed the vanilla check from startWorld.sh -- but this mirror kept it,
-        # so a modded world with crossplay=1 in the database read back as 0 while
-        # .running-options correctly said 1. worldRestartPending() then reported "crossplay"
-        # as a pending change on every single poll, and NO restart could ever clear it: the
-        # two sides were comparing different questions, and restarting only ever re-confirmed
-        # the running side.
+        # THERE ARE NO GATES LEFT. All four values apply to every world.
         #
-        # listed and passwordhash ARE still vanilla-only -- startWorld.sh still gates those --
-        # so they keep their checks until that changes too. A mirror is only safe while it is
-        # actually a mirror; when one side moves, this is the file that has to move with it.
-        $vanilla = (int)$row['vanilla'];
+        # This file has now been caught lagging startWorld.sh TWICE in 2.53, the same way both
+        # times:
+        #
+        #   - crossplay moved first, when it became available on modded worlds. This mirror
+        #     kept its vanilla check, so a modded crossplay world read back 0 against a
+        #     .running-options that correctly said 1, and reported "crossplay" on every poll.
+        #   - listed and passwordhash moved when access control was decoupled from world type.
+        #     This mirror kept ITS vanilla checks -- including the comment right here claiming
+        #     startWorld.sh still gated them, which had just stopped being true. Every modded
+        #     world with a password reported "password" pending forever, which is exactly what
+        #     the upgrade had just given all of them.
+        #
+        # So: if you change what startWorld.sh hands the server, change this in the same commit.
+        # test-restart-pending-mirror.sh compares the two files directly and fails if either
+        # side grows a gate the other does not have.
         return [
-                'vanilla'      => $vanilla,
+                'vanilla'      => (int)$row['vanilla'],
                 'crossplay'    => (int)$row['crossplay'] === 1 ? 1 : 0,
-                'listed'       => ($vanilla === 1) ? (int)$row['listed'] : 0,
-                'passwordhash' => ($vanilla === 1 && $row['password'] !== '')
-                                  ? hash('sha256', $row['password']) : '',
+                'listed'       => (int)$row['listed'] === 1 ? 1 : 0,
+                'passwordhash' => $row['password'] !== '' ? hash('sha256', $row['password']) : '',
         ];
 }
 

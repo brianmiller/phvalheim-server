@@ -244,6 +244,30 @@ Two things `-public` also taught us, both recorded as markers rather than commen
 **defaults to 1 when absent**, so losing the explicit argument would list every world *and*
 switch on password validation for all of them.
 
+### The mirror that goes stale, a second time
+
+`savedWorldOptions()` in `db_gets.php` exists to mirror `startWorld.sh`'s gating, because the
+restart-pending badge compares what the server was *handed* (`.running-options`) against what the
+operator has *saved* (the database). Decoupling access control moved `startWorld.sh` and left the
+mirror behind, so for every modded world the saved side computed `passwordhash => ''` while the
+running side correctly carried a real hash. The badge reported "password" on every poll, and **no
+restart could clear it** — restarting only re-confirms the running side. Three of four live
+worlds on `:rc`, immediately after the upgrade generated their passwords.
+
+This is the second time in 2.53 that this file lagged `startWorld.sh` in exactly this way;
+crossplay was the first, and the comment left behind by that fix *claimed* `startWorld.sh` still
+gated listing and password — which had stopped being true in the same commit that read it. The
+mirror now has no gates at all, which is what both sides agree on.
+
+`test-restart-pending-mirror.sh` is the test that was missing. Every earlier test checked one
+side; this one runs the real `startWorld.sh` to produce a real `.running-options`, feeds it to
+the real PHP comparison with a database row saying the same thing, and asserts the verdict is
+"nothing pending" — so it fails if either side grows a gate the other does not have, without
+needing to know what the gate is. Against the broken tree it fails 4, including the latent
+`listed` case that had not bitten yet. It carries four controls that a genuinely changed setting
+is still reported, because a mirror returning a constant — or a `runningWorldOptions()` whose
+path resolved nowhere — would pass every case otherwise.
+
 ### Two password rules Valheim enforces and we did not
 
 `IsPublicPasswordValid` rejects a password contained in the world name **or in the seed name**.
