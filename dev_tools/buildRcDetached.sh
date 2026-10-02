@@ -2023,6 +2023,22 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   echo "2.53 password timing: migration writes one=$cpm (want 0, was 1 and shipped)  update-path fn=$cpn (want 1)  engine calls it=$cpo (want 1)"
 
+  # cpp..cpt -- "your players must update the client", raised by the FIRST world update.
+  #
+  # A TRI-state, because "not triggered" and "dismissed" are different answers and a boolean
+  # holds one of them. cpq and cpt are the two halves that keep it honest:
+  #   cpq -- the promotion is scoped `WHERE state = 0`, so a DISMISSED notice cannot be revived
+  #          by the next world update. Unscoped, the operator meets the dialog once per world.
+  #   cpt -- dismiss must not write 0. Zero means "not triggered", so dismissing that way re-arms
+  #          it. Both failures look like a correct boolean until a second world is updated.
+  cpp=$(grep -c 'ADD COLUMN clientUpdateNoticeState TINYINT NOT NULL DEFAULT 0' $zmig)
+  cpq=$(grep -c 'SET clientUpdateNoticeState = 1 WHERE clientUpdateNoticeState = 0' $zfun)
+  cpr=$(grep -c 'noticeClientUpdateRequired "\$worldName"' $zeng)
+  cps=$(grep -c 'UPDATE settings SET clientUpdateNoticeState = 2' /opt/stateless/nginx/www/admin/adminAPI.php)
+  cpt=$(grep -c 'UPDATE settings SET clientUpdateNoticeState = 0' /opt/stateless/nginx/www/admin/adminAPI.php)
+
+  echo "2.53 client-update notice: column=$cpp (want 1)  promote scoped to 0=$cpq (want 1)  engine fires it=$cpr (want 1)  dismiss writes 2=$cps (want 1)  dismiss writes 0=$cpt (want 0)"
+
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
   # same count and a very different number of rendered lines. That is precisely how the body
@@ -2340,6 +2356,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cph" = "0" ] && [ "$cpi" = "1" ] && [ "$cpj" = "1" ] \
     && [ "$cpk" = "1" ] && [ "$cpl" = "0" ] \
     && [ "$cpm" = "0" ] && [ "$cpn" = "1" ] && [ "$cpo" = "1" ] \
+    && [ "$cpp" = "1" ] && [ "$cpq" = "1" ] && [ "$cpr" = "1" ] && [ "$cps" = "1" ] && [ "$cpt" = "0" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

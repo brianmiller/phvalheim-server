@@ -52,6 +52,15 @@ $huginNoticeShown = (int)($_settingsRow['huginNoticeShown'] ?? 1);
 // markup gates on == 0. Without the default, a server that has not run dbUpdate_2.53.sh yet
 // would be shown this dialog on every single page load, forever.
 $connectNoticeShown = (int)($_settingsRow['connectNoticeShown'] ?? 1);
+
+// 2.53: "your players need the new client", raised by the first world UPDATE rather than by
+// the upgrade. THREE states, because "has not happened yet" and "dismissed" are different
+// answers and a boolean cannot hold both:
+//     0 = not triggered   1 = pending (show it)   2 = dismissed
+// Defaults to 0, so the safe reading of a missing column is "nothing has happened", not "show".
+// The markup gates on == 1, which no null can satisfy -- the opposite of the == 0 gates above,
+// where the null == 0 trap is real.
+$clientUpdateNoticeState = (int)($_settingsRow['clientUpdateNoticeState'] ?? 0);
 # 1 = stay quiet. Defaults to 1 for a database that predates the column, so an install
 # that never ran the 2.40 migration cannot be told its ids were converted.
 $accessIdNoticeShown = (int)($_settingsRow['accessIdNoticeShown'] ?? 1);

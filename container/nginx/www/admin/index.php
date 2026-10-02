@@ -1448,6 +1448,82 @@ $totalCount = count($worlds);
     </script>
     <?php endif; ?>
 
+    <!-- "Your players need the new client", raised by the FIRST world UPDATE rather than by
+         the upgrade. The connect notice above fires at upgrade and explains what is coming;
+         this one fires when it has actually happened to a world, and is the one with a job
+         for the operator that only they can do.
+
+         Gated on == 1, not == 0, because the state is a tri-state: 0 not triggered, 1 pending,
+         2 dismissed. A missing column reads 0 through config_env_puller's `?? 0`, so the
+         null == 0 trap that the gates above need `?? 1` to dodge cannot arise here at all.
+
+         z-index 1073 puts it above the connect notice (1072) and below Hugin (1075). The two
+         2.53 notices should not normally coexist -- the other is dismissed at upgrade, long
+         before a world is updated -- but if they do, the one describing something that has
+         already happened belongs in front. -->
+    <?php if ($setupComplete == 2 && ($clientUpdateNoticeState ?? 0) == 1): ?>
+    <div class="mods-modal-overlay show" id="clientUpdateNoticeOverlay" style="z-index:1073;">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 640px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">
+                    <svg width="20" height="20" fill="none" stroke="var(--warning)" viewBox="0 0 24 24" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.5 0L3.2 16.25A2 2 0 005 19z"/>
+                    </svg>
+                    Your players must update the PhValheim client
+                </h3>
+            </div>
+            <div class="mods-modal-body">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                    You have updated a world to the new join path. <strong>Everyone who plays on it
+                    needs the current PhValheim client.</strong> An older client cannot hand the
+                    world&rsquo;s details to the Companion, so it never learns the world&rsquo;s
+                    password &mdash; and QuickConnect, which used to put the world in their in-game
+                    server list, is gone.
+                </p>
+
+                <div style="background: var(--bg-tertiary); border-left: 3px solid var(--warning); padding: 0.75rem 1rem; margin-bottom: 1rem;">
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.5rem;">
+                        <strong style="color: var(--text-primary);">On an old client, Launch no longer takes them all the way in.</strong>
+                        It still installs the mods and starts Valheim, but the world will not be in
+                        their server list and they will have to join it by hand.
+                    </p>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
+                        <strong>Nobody is locked out.</strong> A player on an old client can still
+                        get in using the world&rsquo;s address and its password, both of which are on
+                        the world&rsquo;s card on the public page.
+                    </p>
+                </div>
+
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                    They download the new client from the same place as always &mdash; the
+                    <strong>Download PhValheim Client</strong> button on the public page. After
+                    updating it, they should also download this world&rsquo;s client payload again
+                    so they get the matching mods.
+                </p>
+
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem;">
+                    This is shown once, for the first world you update. Every world you update from
+                    here on behaves the same way, so it will not be repeated.
+                </p>
+
+                <div style="text-align: center;">
+                    <button class="action-btn success" onclick="dismissClientUpdateNotice()" style="padding: 0.5rem 2rem; font-size: 0.9rem;">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    async function dismissClientUpdateNotice() {
+        const el = document.getElementById('clientUpdateNoticeOverlay');
+        if (el) el.classList.remove('show');
+        // Fire and forget, but close regardless -- same reasoning as the connect notice: a
+        // dialog that will not go away is worse than a flag that clears on the next page load.
+        try { await fetch('adminAPI.php?action=dismissClientUpdateNotice', { method: 'POST' }); }
+        catch (e) { /* dismissed visually either way */ }
+    }
+    </script>
+    <?php endif; ?>
+
     <?php if ($aiOllamaNotice > 0): ?>
     <div class="mods-modal-overlay show" id="aiOllamaNoticeOverlay" style="z-index:1070;">
         <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 620px;">

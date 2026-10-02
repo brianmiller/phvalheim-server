@@ -510,6 +510,18 @@ switch($action) {
         }
         break;
 
+    // 2 = dismissed, NOT 0. The state is a tri-state (0 not triggered, 1 pending, 2 dismissed)
+    // and writing 0 here would put it back to "not triggered" -- so the next world update would
+    // promote it to pending again and the operator would meet this dialog once per world.
+    case 'dismissClientUpdateNotice':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $stmt = $pdo->prepare("UPDATE settings SET clientUpdateNoticeState = 2");
+            echo json_encode(['success' => (bool)$stmt->execute()]);
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
     case 'dismissAiOllamaNotice':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dismissAiOllamaNoticeJson($pdo);

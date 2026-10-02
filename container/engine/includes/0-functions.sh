@@ -780,6 +780,28 @@ function ensureModdedWorldPassword() {
         echo "`date` [NOTICE : phvalheim] World '$worldName' has been given a password, because an updated world can now be password protected and listed in the server browser. Players who join with the Launch button need to do nothing -- the Companion fills it in. Anyone joining by address, and console players on a crossplay world, need it by hand; it is on the world card and in the world's Settings modal."
 }
 
+#Raise the "your players need the new client" dialog, once, when the FIRST world is updated.
+#
+#An updated world has a password and no QuickConnect. A player on client 2.0.13 gets neither:
+#the old client does not pass the launch payload, so the Companion never learns the password
+#and cannot pre-fill it, and there is no server-list entry any more either. They can still join
+#by hand with the password off the world card, but the one-click path is gone until they update.
+#Nothing else tells the operator that, and they are the only one who can tell their players.
+#
+#The WHERE clause is what makes this fire exactly once, with no read-then-write race and no
+#second flag: it only promotes "not triggered" to "pending". A dismissed notice is state 2 and
+#this cannot touch it, so updating a second world does not bring the dialog back.
+function noticeClientUpdateRequired() {
+        worldName="$1"
+
+        SQL "UPDATE settings SET clientUpdateNoticeState = 1 WHERE clientUpdateNoticeState = 0;"
+
+        #Logged unconditionally rather than only when a row changed: `sql` does not report
+        #affected rows here, and a NOTICE that appears once per world update is cheap next to
+        #claiming something happened that did not.
+        echo "`date` [NOTICE : phvalheim] World '$worldName' has been updated to the new join path. Its players need the current PhValheim client -- an older client cannot hand the world's password to the Companion, so Launch will no longer take them all the way in."
+}
+
 function mergeRequiredTsMods() {
         worldName="$1"
 

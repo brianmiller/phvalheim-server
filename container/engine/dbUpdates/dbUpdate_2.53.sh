@@ -230,6 +230,31 @@ if [ "$blankPasswordRetired" -eq 0 ]; then
 	sql "UPDATE settings SET blankPasswordRetired = 1;"
 fi
 
+# --- "your players need the new client", fired by the FIRST world update ------------------
+#
+# A world that has been updated to 2.53 has a password and no QuickConnect. A player on client
+# 2.0.13 gets neither: the old client does not pass the launch payload, so the Companion never
+# sees the world's password and cannot pre-fill it, and there is no server-list entry any more
+# either. They can still join by hand with the password off the world card, but the one-click
+# path is gone until they update. The operator has to tell them, and nothing else does.
+#
+# THREE states, not a boolean, and that is deliberate -- "has not happened yet" and "the
+# operator dismissed it" are different answers and a 0/1 flag cannot hold both. Collapsing them
+# either shows the dialog on a server that has updated nothing, or re-shows it after every
+# subsequent world update.
+#
+#   0 = not triggered yet  (nothing has been updated under 2.53)
+#   1 = pending            (show the dialog)
+#   2 = dismissed          (never again)
+#
+# DEFAULT 0 so an upgrade is silent until an update actually happens, and so the PHP read
+# (?? 0) cannot accidentally mean "show" for a server that has not run this migration.
+sql "DESCRIBE settings"|awk '{print $1}'|grep -qx "clientUpdateNoticeState" > /dev/null 2>&1
+if [ ! $? = 0 ]; then
+	echo "`date` [NOTICE : phvalheim] Adding settings.clientUpdateNoticeState"
+	sql "ALTER TABLE settings ADD COLUMN clientUpdateNoticeState TINYINT NOT NULL DEFAULT 0;"
+fi
+
 ## END UPDATE ##
 
 exit 0

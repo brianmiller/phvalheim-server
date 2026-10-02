@@ -570,6 +570,14 @@ while [ true ]; do
 
 					#Packge client
 					packageClient "$worldName"
+
+					#This world has now moved to the new join path, so its players need
+					#the current client. Fires once, on the FIRST world updated -- see
+					#noticeClientUpdateRequired(). Here rather than earlier in the branch
+					#because everything above can still bail out: a failed mod install
+					#`continue`s, and a notice about a world that did not finish updating
+					#would be a lie the operator cannot act on.
+					noticeClientUpdateRequired "$worldName"
 				fi
 
 				if [ "$isVanilla" != "1" ]; then

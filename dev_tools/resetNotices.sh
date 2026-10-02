@@ -28,12 +28,18 @@ if [ -z "$CONTAINER" ]; then
 	exit 1
 fi
 
-# name:column:what it says. `connect` is the 2.53 "how players join has changed" notice.
-NOTICES='connect:connectNoticeShown:how players join your modded worlds has changed
-hugin:huginNoticeShown:Hugin can act on your server
-accessid:accessIdNoticeShown:access IDs were migrated to the V_ prefix
-accessswitch:accessSwitchNoticeShown:the access model switch
-migration:migrationNoticeShown:env vars were migrated into the database'
+# name:column:ARMED VALUE:what it says
+#
+# The armed value is per-notice and not decoration. Most of these are booleans where 0 means
+# "show me"; clientUpdate is a TRI-state (0 not triggered, 1 pending, 2 dismissed) and arming it
+# means 1. Writing 0 there would say "nothing has happened yet", which is not the same thing and
+# would make the next world update raise it again.
+NOTICES='connect:connectNoticeShown:0:how players join your modded worlds has changed
+clientUpdate:clientUpdateNoticeState:1:your players must update the PhValheim client (fires on the first world UPDATE)
+hugin:huginNoticeShown:0:Hugin can act on your server
+accessid:accessIdNoticeShown:0:access IDs were migrated to the V_ prefix
+accessswitch:accessSwitchNoticeShown:0:the access model switch
+migration:migrationNoticeShown:0:env vars were migrated into the database'
 
 sql() { docker exec "$CONTAINER" /opt/stateless/engine/tools/sql "$1"; }
 
@@ -48,14 +54,21 @@ have_column() {
 echo
 printf '%-14s %-26s %s\n' NOTICE COLUMN STATE
 echo "---------------------------------------------------------------"
-echo "$NOTICES" | while IFS=: read -r name col desc; do
+echo "$NOTICES" | while IFS=: read -r name col armed desc; do
 	if have_column "$col"; then
 		v=$(sql "SELECT IFNULL(MAX($col),0) FROM settings" 2>/dev/null | tr -d '[:space:]')
-		case "$v" in
-			0) state="ARMED (will show)" ;;
-			1) state="seen (dismissed)" ;;
-			*) state="? ($v)" ;;
-		esac
+		# Read against the notice's OWN armed value rather than assuming 0 means show.
+		if [ "$v" = "$armed" ]; then
+			state="ARMED (will show)"
+		elif [ "$col" = "clientUpdateNoticeState" ]; then
+			case "$v" in
+				0) state="not triggered yet (update a world to raise it)" ;;
+				2) state="seen (dismissed)" ;;
+				*) state="? ($v)" ;;
+			esac
+		else
+			state="seen (dismissed)"
+		fi
 	else
 		state="column absent -- migration not run here"
 	fi
@@ -71,16 +84,14 @@ echo
 # it deliberately:
 #   sql "UPDATE settings SET whatsNewShownVersion = '2.52'"    # replay 2.53's notes only
 
-changed=0
-echo "$NOTICES" | while IFS=: read -r name col desc; do
+echo "$NOTICES" | while IFS=: read -r name col armed desc; do
 	if [ "$WHICH" = "all" ] || [ "$WHICH" = "$name" ]; then
 		if have_column "$col"; then
-			sql "UPDATE settings SET $col = 0"
-			echo "  re-armed $name ($col = 0) -- $desc"
+			sql "UPDATE settings SET $col = $armed"
+			echo "  re-armed $name ($col = $armed) -- $desc"
 		else
 			echo "  SKIPPED $name: settings.$col does not exist in this container"
 		fi
-		changed=1
 	fi
 done
 
