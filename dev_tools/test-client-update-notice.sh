@@ -138,6 +138,19 @@ case "$body" in *QuickConnect*) pass "explains the server-list entry is gone" ;;
 case "$body" in *"shown once"*) pass "says it is shown once" ;;
 	*) fail "does not say it is shown once" ;; esac
 
+# NEGATIVE: it must not assert the OPERATOR did the update. Automatic updates run the same path
+# unattended, so on a server with autoupdate_mode set the dialog arrives having done nothing --
+# which is how Brian first met it, minutes after the container came up. Telling someone "you did
+# X" when they did not reads as a bug and buries the instruction.
+case "$body" in *"You have updated a world"*)
+	fail "claims the operator updated a world" \
+	     "auto-update fires this path too -- the dialog must not assert who did it" ;;
+	*) pass "does not claim the operator did the update" ;; esac
+case "$body" in *"automatic updates"*)
+	pass "names automatic updates as a way this happens on its own" ;;
+	*) fail "does not mention automatic updates" \
+	        "an operator who did nothing has no way to explain the dialog" ;; esac
+
 echo
 echo "== the reset tool knows its armed value =="
 

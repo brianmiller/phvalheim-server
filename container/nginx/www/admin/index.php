@@ -1473,12 +1473,24 @@ $totalCount = count($worlds);
                 </h3>
             </div>
             <div class="mods-modal-body">
+                <!-- Deliberately does NOT say "you have updated a world". Automatic updates run
+                     this same path unattended, so on a server with autoupdate_mode set the
+                     operator meets this dialog having done nothing at all -- which is exactly how
+                     Brian first saw it, after the engine auto-updated a world minutes after the
+                     container came up. A dialog that asserts the reader did something they did
+                     not reads as a bug and buries the part that matters. -->
                 <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
-                    You have updated a world to the new join path. <strong>Everyone who plays on it
+                    A world has been updated to the new join path &mdash; by you, or on its own if
+                    that world has automatic updates switched on. <strong>Everyone who plays on it
                     needs the current PhValheim client.</strong> An older client cannot hand the
                     world&rsquo;s details to the Companion, so it never learns the world&rsquo;s
                     password &mdash; and QuickConnect, which used to put the world in their in-game
                     server list, is gone.
+                </p>
+
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">
+                    Which world it was is in the server log &mdash; look for
+                    <em>&ldquo;has been updated to the new join path&rdquo;</em>.
                 </p>
 
                 <div style="background: var(--bg-tertiary); border-left: 3px solid var(--warning); padding: 0.75rem 1rem; margin-bottom: 1rem;">
