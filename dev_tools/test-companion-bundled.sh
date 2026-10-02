@@ -32,19 +32,36 @@ fail(){ printf '  \033[31mFAIL\033[0m  %s\n' "$1"; [ -n "$2" ] && printf '      
 echo
 echo "=== 1. the Companion is bundled, not resolved from a catalogue ==="
 
+# requiredMods is legitimately EMPTY from 2.53 -- the Companion is bundled and
+# serverblankpassword was retired -- so the key existing is what gets asserted, not its value
+# being non-empty. An earlier version of this test exited FATAL on an empty value, which would
+# have read as a broken harness rather than the intended state.
+grep -q '^requiredMods=' "$CONF" || { echo "FATAL: requiredMods not found in $CONF"; exit 1; }
 requiredMods=$(grep '^requiredMods=' "$CONF" | cut -d '"' -f2)
-[ -n "$requiredMods" ] || { echo "FATAL: requiredMods not found in $CONF"; exit 1; }
+
+# CONTROL, and it has to come first now. With requiredMods empty, every *content* check below
+# passes trivially, so something has to prove the extraction returns real values at all.
+# legacyConnectMods is read exactly the same way and is NOT empty, so a pass here means an
+# empty requiredMods is a real answer rather than a grep that silently matched nothing.
+legacyConnectMods=$(grep '^legacyConnectMods=' "$CONF" | cut -d '"' -f2)
+case "$legacyConnectMods" in
+    *QuickConnect*) pass "control: the conf extraction works (legacyConnectMods still reads back QuickConnect)" ;;
+    *) fail "control FAILED: legacyConnectMods did not read back QuickConnect" \
+        "the extraction is broken, so every requiredMods check below is vacuous -- fix this before trusting them" ;;
+esac
 
 case "$requiredMods" in
     *PhValheimCompanion*) fail "the Companion is still in requiredMods" \
         "bundled AND catalogue-resolved means two copies in BepInEx/plugins with the same GUID; one silently fails to load" ;;
     *) pass "the Companion is NOT in requiredMods" ;;
 esac
-# Control: requiredMods must still contain something, or the check above passes on an empty
-# string and proves nothing about the Companion specifically.
+
+# 2.53: serverblankpassword is retired. It suppressed a password requirement that -public 0
+# meant was never applied, and a modded world can now have a real password.
 case "$requiredMods" in
-    *serverblankpassword*) pass "requiredMods still carries serverblankpassword (the list is not simply empty)" ;;
-    *) fail "requiredMods no longer contains serverblankpassword" "the check above is vacuous against an empty list" ;;
+    *serverblankpassword*) fail "serverblankpassword is still in requiredMods" \
+        "it would be re-INSERTed into every world built from here, suppressing password enforcement on a world that can now be listed" ;;
+    *) pass "serverblankpassword is NOT in requiredMods" ;;
 esac
 
 [ -f "$DLL" ] && pass "PhValheimCompanion.dll is in the repo at the path the Dockerfile copies" \

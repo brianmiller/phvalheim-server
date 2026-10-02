@@ -67,26 +67,37 @@ set -- \
 
 if [ "$isVanilla" = "1" ]; then
 	echo "`date` [NOTICE : phvalheim] Vanilla world -- BepInEx will NOT be loaded."
-
-	# -public is the Steam server browser listing, driven by `listed` only.
-	set -- "$@" -public "$isListed"
-
-	# Valheim refuses to boot on `-password ""`, so the flag must be ABSENT rather
-	# than empty when no password is set.
-	if [ -n "$worldPasswordDb" ]; then
-		set -- "$@" -password "$worldPasswordDb"
-	elif [ "$isListed" = "1" ]; then
-		# Valheim requires a password on a listed server. Fail loudly here rather
-		# than let supervisor restart-loop on an error buried in the world log.
-		echo "`date` [ERROR : phvalheim] World '$worldName' is listed in the server browser but has no password. Set one in the world Settings modal."
-		exit 1
-	fi
-
-else
-	# Modded world: gated by the CITIZENS permittedlist, never listed in the server
-	# browser, never password protected.
-	set -- "$@" -public 0
 fi
+
+# Listing and password, on ANY world -- vanilla or modded (2.53).
+#
+# This used to sit inside the isVanilla branch above, with modded worlds hardcoded to
+# `-public 0` and no `-password`. Access control is no longer coupled to whether a world runs
+# mods: a modded world can be listed and password protected, and the CITIZENS permittedlist
+# still applies on top, because Valheim enforces permittedlist.txt server-side regardless of
+# what the client runs. The two compose; neither replaces the other.
+#
+# -public MUST always be passed explicitly. FejdStartup.ParseServerArguments initialises its
+# public flag to TRUE and only overwrites it when the argument carries a value, so dropping
+# this would both list every world and switch on Valheim's password validation for all of them.
+set -- "$@" -public "$isListed"
+
+# Valheim refuses to boot on `-password ""`, so the flag must be ABSENT rather
+# than empty when no password is set.
+if [ -n "$worldPasswordDb" ]; then
+	set -- "$@" -password "$worldPasswordDb"
+elif [ "$isListed" = "1" ]; then
+	# Valheim requires a password on a listed server. Fail loudly here rather
+	# than let supervisor restart-loop on an error buried in the world log.
+	echo "`date` [ERROR : phvalheim] World '$worldName' is listed in the server browser but has no password. Set one in the world Settings modal."
+	exit 1
+fi
+
+# An unlisted world needs no password at all, and that is Valheim's own rule rather than a
+# convenience: ParseServerArguments only calls IsPublicPasswordValid when the public flag is
+# set, so `-public 0` with no `-password` skips the validation entirely. That is why the
+# serverblankpassword mod was never doing anything on a PhValheim modded world, and why
+# removing it is safe for a world that still has no password.
 
 # Crossplay, on ANY world -- vanilla or modded (2.53).
 #
@@ -149,13 +160,15 @@ effectivePasswordHash=""
 # direct-connect link and no join code for a PlayFab server. That is the same one-card,
 # two-sources-of-truth bug this file was added to fix, just with the flags reversed.
 [ "$isCrossplay" = "1" ] && effectiveCrossplay=1
-# Listing and password stay vanilla-only: a modded world is started -public 0 with no
-# -password, gated by the CITIZENS permittedlist instead.
-if [ "$isVanilla" = "1" ]; then
-	effectiveListed=$isListed
-	if [ -n "$worldPasswordDb" ]; then
-		effectivePasswordHash=$(printf '%s' "$worldPasswordDb" | sha256sum | cut -d' ' -f1)
-	fi
+# Listing and password follow crossplay out of the isVanilla branch (2.53), and for the same
+# reason: this file has to describe what was actually HANDED to the server, and both are now
+# handed to any world. Leaving the gate here would have recorded listed=0 and an empty hash for
+# a modded world started -public 1 with a -password, so the restart-pending check would compare
+# a real password against "" and answer "nothing changed" -- a badge that no operator action
+# could ever clear, because the two sides were answering different questions.
+effectiveListed=$isListed
+if [ -n "$worldPasswordDb" ]; then
+	effectivePasswordHash=$(printf '%s' "$worldPasswordDb" | sha256sum | cut -d' ' -f1)
 fi
 # Written to a temp file and renamed so a reader never sees a half-written one.
 if {

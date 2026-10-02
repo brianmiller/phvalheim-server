@@ -117,7 +117,10 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
         // This used to be a hand-assembled copy kept in step by comment; the Companion's
         // crossplay fields made that a third place to forget.
         $vanilla = (int)$row['vanilla'];
-        $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
+        // The REAL password for any world as of 2.53 -- see the note on getLaunchString() in
+        // db_gets.php. The "hammertime" literal that used to go out for modded worlds would
+        // now pre-fill the WRONG password through the Companion.
+        $password = $row['password'] ?: "";
         list($lsCrossplay, $lsJoinCode) =
             phvLaunchCrossplayFields($pdo, $row['name'], $row['mode'] === 'running');
         $launchString = phvBuildLaunchString($row['name'], $password, $gameDNS, $row['port'],
@@ -2102,11 +2105,27 @@ $totalCount = count($worlds);
         const pw = document.getElementById('settingsWorldPassword');
         const listed = document.getElementById('settingsListedToggle');
         const note = document.getElementById('settingsListedBlocked');
+        const xpNote = document.getElementById('settingsListedCrossplayBlocked');
         if (!pw || !listed) { return; }
 
-        const blocked = pw.value.trim() === '';
+        // TWO independent reasons listing can be unavailable, and they get separate notes
+        // because the remedies are opposite: one is fixed by setting a password, the other by
+        // turning crossplay OFF. A single combined message would send half the operators who
+        // see it to the wrong control.
+        //
+        // A crossplay world is a PlayFab server with no address, so -public 1 lists it nowhere.
+        // Valheim does not error on the combination -- it just silently reaches no one, which
+        // is why this has to be refused in the UI rather than left to the game.
+        const crossplayToggle = document.getElementById('settingsCrossplayToggle');
+        const isCrossplay = crossplayToggle ? crossplayToggle.checked : false;
+        const noPassword = pw.value.trim() === '';
+        const blocked = noPassword || isCrossplay;
+
         listed.disabled = blocked;
-        if (note) { note.style.display = blocked ? '' : 'none'; }
+        // Crossplay wins the explanation when both apply: it is the harder blocker, since
+        // setting a password would not unblock it.
+        if (note)   { note.style.display   = (noPassword && !isCrossplay) ? '' : 'none'; }
+        if (xpNote) { xpNote.style.display = isCrossplay ? '' : 'none'; }
         const row = document.getElementById('settingsListedRow');
         if (row) { row.style.opacity = blocked ? '0.6' : ''; }
 
@@ -4174,13 +4193,31 @@ $totalCount = count($worlds);
                             </div>
                         </div>
                     </div>
-                    <div class="pv-section" id="vanillaOptionsBlock" style="display: ${isVanilla ? 'block' : 'none'};">
-                        <h6 class="pv-section-title">Unmodded Server Access</h6>
+                    <!--
+                        Shown on ANY world as of 2.53. This whole block used to be hidden
+                        unless "Vanilla world" was on, because startWorld.sh ignored password
+                        and listing for a modded world and showing settings the engine throws
+                        away is worse than not offering them.
+
+                        What changed is the Companion. A modded world's password had nowhere to
+                        go: the client cannot answer Valheim's password prompt, so the player
+                        would have been asked for something the UI had never shown them. The
+                        Companion pre-fills it from field 2 of the launch payload, so Launch
+                        joins without a prompt and the password composes with CITIZENS instead
+                        of replacing it.
+
+                        The id is left as vanillaOptionsBlock deliberately -- it is referenced
+                        from the settings JS below, and renaming it across every reference is a
+                        bigger change than this comment.
+                    -->
+                    <div class="pv-section" id="vanillaOptionsBlock">
+                        <h6 class="pv-section-title">Server Access</h6>
                         <div class="pv-panel">
                             <div class="pv-row pv-row-stack">
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">Server Password</span>
-                                    <span class="pv-row-desc">Optional. Leave it blank and anyone who can reach the server may join &mdash; but a world with no password cannot be listed in the server browser. At least 5 characters, and it cannot appear inside the world name.</span>
+                                    <span class="pv-row-desc">Optional. Leave it blank and anyone who can reach the server may join &mdash; but a world with no password cannot be listed in the server browser. At least 5 characters. It cannot contain a question mark, and it cannot appear inside the world name or the world seed &mdash; Valheim refuses to start a listed server in any of those cases.</span>
+                                    <span class="pv-row-desc" id="settingsPasswordModdedNote" style="display:none;">On a modded world, players who join with the <strong>Launch</strong> button never see a password prompt &mdash; the PhValheim Companion fills it in for them. Anyone joining by address or join code needs it by hand. Changing it requires a restart, and players need the world&rsquo;s payload again.</span>
                                 </div>
                                 <div class="pv-row-control" style="width: 100%;">
                                     <input type="text" id="settingsWorldPassword" class="form-control pv-input" style="font-family: var(--font-mono);" value="${worldPassword.replace(/"/g, '&quot;')}" placeholder="(no password)" oninput="syncListedAvailability()">
@@ -4189,7 +4226,7 @@ $totalCount = count($worlds);
                             <div class="pv-row">
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">Show password on public UI</span>
-                                    <span class="pv-row-desc">When off, the password row is removed from the world card entirely. Valheim cannot be handed a password at launch, so players will need it from you another way.</span>
+                                    <span class="pv-row-desc">When off, the password row is removed from the world card entirely. Players joining by hand will need it from you another way.</span>
                                 </div>
                                 <label class="switch pv-row-control">
                                     <input type="checkbox" id="settingsPasswordPublicToggle" ${passwordPublicChecked}>
@@ -4199,8 +4236,9 @@ $totalCount = count($worlds);
                             <div class="pv-row" id="settingsListedRow">
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">List in server browser</span>
-                                    <span class="pv-row-desc">Publish to the public Valheim community server list.</span>
+                                    <span class="pv-row-desc">Publish to the public Valheim community server list. The CITIZENS access list still applies &mdash; Valheim enforces it server-side, so a listed world with a restricted list is advertised to everyone and joinable only by the players on it.</span>
                                     <span class="pv-row-desc" id="settingsListedBlocked" style="display:none; color: var(--warning, #fbbf24);">Unavailable without a password &mdash; Valheim refuses to start a listed server that has none (&ldquo;bad password: the password is too short&rdquo;). Set one above to enable this.</span>
+                                    <span class="pv-row-desc" id="settingsListedCrossplayBlocked" style="display:none; color: var(--warning, #fbbf24);">Unavailable with crossplay on &mdash; the server browser lists Steam servers, and a crossplay world is a PlayFab server with no address to list. Players join it with its join code.</span>
                                 </div>
                                 <label class="switch pv-row-control">
                                     <input type="checkbox" id="settingsListedToggle" ${listedChecked}>
@@ -4534,6 +4572,9 @@ $totalCount = count($worlds);
                 // that is already modded+crossplay must show the console-mods warning the
                 // moment its settings are looked at, without anyone touching a switch.
                 syncCrossplayWarning();
+                // Same again: the Companion fills-in-the-password note has to be right on
+                // open, because a modded world shows it and a vanilla one must not.
+                syncModdedPasswordNote();
                 // Same reason: the Options tab's "show players publicly" switch and the
                 // Updates tab's fields only exist once the body above has been written.
                 loadWorldUpdateSettings(worldName);
@@ -4545,18 +4586,30 @@ $totalCount = count($worlds);
         }
     }
 
-    // Password / listing only apply to vanilla worlds -- modded worlds are gated by the
-    // CITIZENS list and startWorld.sh ignores these for them. Hide rather than disable so
-    // nobody sets a password on a modded world and wonders why nothing asks for it.
+    // Password and listing apply to ANY world as of 2.53, so this no longer hides the Server
+    // Access block -- it stays on screen for a modded world too, and startWorld.sh now honours
+    // both. The function is kept because the Vanilla switch still has two dependants: the
+    // crossplay modded-only warning, and the Companion note under the password field.
     //
-    // Crossplay is NOT in this group as of 2.53 -- #crossplayRow is always visible and is
-    // deliberately no longer touched here. Its modded-only warning does depend on this
-    // switch, though, so flipping vanilla has to re-evaluate it.
+    // It is called from the switch's onchange and must stay callable, so do not inline it.
     function toggleVanillaFields(checked) {
-        const block = document.getElementById('vanillaOptionsBlock');
-        if (block) block.style.display = checked ? 'block' : 'none';
-
         syncCrossplayWarning();
+        syncModdedPasswordNote();
+    }
+
+    // The Launch-button-fills-it-in note, shown only for a MODDED world. On a vanilla world
+    // there is no BepInEx, so no Companion, so nothing can pre-fill the password and the note
+    // would be a promise the world cannot keep.
+    //
+    // Driven from the switch rather than set when the modal is built, for the same reason as
+    // syncCrossplayWarning(): the operator can flip Vanilla before saving, and a note that
+    // only describes the state the modal opened in is wrong exactly when it matters.
+    function syncModdedPasswordNote() {
+        const note = document.getElementById('settingsPasswordModdedNote');
+        if (!note) return;
+        const vanillaToggle = document.getElementById('settingsVanillaToggle');
+        const isModded = vanillaToggle ? !vanillaToggle.checked : false;
+        note.style.display = isModded ? '' : 'none';
     }
 
     // The console-players-cannot-load-mods warning, shown only when BOTH are true: the world
@@ -4576,6 +4629,13 @@ $totalCount = count($worlds);
         const isCrossplay = crossplayToggle ? crossplayToggle.checked : false;
 
         warning.style.display = (isModded && isCrossplay) ? '' : 'none';
+
+        // Crossplay also decides whether listing is available, so flipping it has to
+        // re-evaluate that row. Without this the operator can turn crossplay on while
+        // "List in server browser" stays ticked and enabled, and the save then fails with an
+        // error the form was supposed to have prevented.
+        // One-way call: syncListedAvailability() does not call back here.
+        syncListedAvailability();
     }
 
     // A public world does not consult permittedlist.txt at all, so showing an editor for

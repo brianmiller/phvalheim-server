@@ -162,6 +162,92 @@ if [ "$quickConnectRetired" -eq 0 ]; then
 	sql "UPDATE settings SET quickConnectRetired = 1;"
 fi
 
+# --- serverblankpassword is retired, and modded worlds get a real password -------------
+#
+# What the mod was for, and why it was never doing it. serverblankpassword patches out
+# Valheim's server-side password requirement. PhValheim never needed that: the requirement
+# lives in FejdStartup.ParseServerArguments, which only calls IsPublicPasswordValid when the
+# -public flag is set, and startWorld.sh has always started a modded world with `-public 0`.
+# The validation it removes has therefore never run on a PhValheim modded world. It is dead
+# weight, and dropping it cannot break a world that still has no password.
+#
+# It was in requiredMods, so mergeRequiredTsMods() INSERTed it into every modded world. It has
+# been removed from phvalheim-static.conf, which stops NEW worlds getting it -- and does
+# nothing whatsoever to existing ones, because that function only ever INSERTs and world_mods
+# is the source of truth for what gets installed. Same shape as QuickConnect above, so the
+# same remedy: delete the rows exactly once, behind a settings flag, and let each world drop
+# the FILES on its next update.
+#
+# ONE-TIME rather than every boot, for the QuickConnect reason: nothing in the schema
+# distinguishes "PhValheim inserted this" from "the operator picked it", so re-deleting it
+# forever would be a policy pretending to be a migration.
+#
+# The password half. Access control stops being coupled to world type in 2.53, so a modded
+# world can now be password protected and listed in the server browser. Generating a password
+# here is what makes that reachable without the operator having to invent one, and it is the
+# half that is VISIBLE to players: it takes effect at the world's next restart, Launch-path
+# players get it automatically from field 2 of the client payload via the Companion, and anyone
+# joining by hand needs to read it out of World Settings or the world card. The What's New
+# entry says so, because this is the one change in 2.53 that alters how a player joins.
+sql "DESCRIBE settings"|awk '{print $1}'|grep -qx "blankPasswordRetired" > /dev/null 2>&1
+if [ ! $? = 0 ]; then
+	echo "`date` [NOTICE : phvalheim] Adding settings.blankPasswordRetired"
+	sql "ALTER TABLE settings ADD COLUMN blankPasswordRetired TINYINT NOT NULL DEFAULT 0;"
+fi
+
+blankPasswordRetired=$(sql "SELECT IFNULL(MAX(blankPasswordRetired),0) FROM settings;")
+case "$blankPasswordRetired" in
+	''|*[!0-9]*) blankPasswordRetired=0 ;;
+esac
+
+if [ "$blankPasswordRetired" -eq 0 ]; then
+	# Matched on owner AND name, never the name alone -- mod identity in this project is
+	# (source, owner, name), and the catalogues carry several differently-owned packages
+	# whose names also contain "password".
+	blankRows=$(sql "SELECT COUNT(*) FROM world_mods wm JOIN mods m ON m.id = wm.mod_id WHERE m.owner = '1010101110' AND m.name = 'serverblankpassword';")
+	case "$blankRows" in
+		''|*[!0-9]*) blankRows=0 ;;
+	esac
+
+	if [ "$blankRows" -gt 0 ]; then
+		echo "`date` [NOTICE : phvalheim] Modded worlds can now have a real password; retiring $blankRows serverblankpassword mod row(s). Worlds will drop it the next time they are updated."
+		sql "DELETE wm FROM world_mods wm JOIN mods m ON m.id = wm.mod_id WHERE m.owner = '1010101110' AND m.name = 'serverblankpassword';"
+	fi
+
+	# Generate a password for every MODDED world that has none. Vanilla worlds are untouched:
+	# they have always had a real password column and an operator who left it empty chose that.
+	#
+	# IFNULL + '' because the column is NULL on every world created before 2.40 and '' on
+	# anything the admin UI saved with the field blank. Both mean "no password".
+	moddedNoPassword=$(sql "SELECT name FROM worlds WHERE IFNULL(vanilla,0) = 0 AND IFNULL(password,'') = '';")
+
+	for pwWorld in $moddedNoPassword; do
+		# Ambiguous characters are left out so the password survives being read off a screen
+		# and typed somewhere else. '?' is excluded by construction, which matters: the client
+		# launch payload is '?'-delimited and positional, and the password is field 2.
+		#
+		# 16 characters of this alphabet cannot plausibly be a substring of a world name or
+		# seed, which is the other way Valheim rejects a password (IsPublicPasswordValid).
+		genPassword=$(tr -dc 'A-HJ-NP-Za-km-z2-9' < /dev/urandom 2>/dev/null | head -c 16)
+
+		# Never write a password we did not fully generate. A short read here would otherwise
+		# store something under Valheim's 5-character minimum, and the world would refuse to
+		# boot the moment it was listed.
+		if [ ${#genPassword} -ne 16 ]; then
+			echo "`date` [ERROR : phvalheim] Could not generate a password for world '$pwWorld' (got ${#genPassword} characters, wanted 16). Leaving it without one; set a password in the world Settings modal."
+			continue
+		fi
+
+		sql "UPDATE worlds SET password = '$genPassword' WHERE name = '$pwWorld';"
+		echo "`date` [NOTICE : phvalheim] World '$pwWorld' has been given a password. It applies at the world's next restart. Players who join with the Launch button need to do nothing; anyone joining by hand or from a console needs the password, which is in the world's Settings modal."
+	done
+
+	# Set regardless of whether anything was found, so a server with no modded worlds does
+	# not re-check forever, and so an operator who deliberately clears a password or adds
+	# serverblankpassword back is never second-guessed.
+	sql "UPDATE settings SET blankPasswordRetired = 1;"
+fi
+
 ## END UPDATE ##
 
 exit 0

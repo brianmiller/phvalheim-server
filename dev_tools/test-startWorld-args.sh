@@ -183,17 +183,43 @@ else
 	FAIL=$((FAIL+1))
 fi
 
-# ...and a modded world must STILL never be listed or password-protected, which stayed inside
-# the isVanilla branch. Guards against moving too much out of it along with crossplay.
+# ...and as of 2.53 a modded world DOES record its listing and password hash. This assertion
+# used to demand the opposite -- it pinned listed=0 and an empty hash for a modded world, which
+# was right while those two stayed inside the isVanilla branch and is now the bug.
+#
+# The hash matters more than the flag. The restart-pending check reads passwordhash to notice a
+# password changed; recorded empty, it would compare a real password against "" and answer
+# "nothing changed", leaving a badge no operator action could clear.
 run_case '0	1	1	hunter2secret	' 0 >/dev/null 2>&1
-if grep -qx 'listed=0' "$runopts" && grep -qx 'passwordhash=' "$runopts"; then
-	echo "  PASS: modded world still records listed=0 and no password hash"
+expectedHash=$(printf '%s' 'hunter2secret' | sha256sum | cut -d' ' -f1)
+if grep -qx 'listed=1' "$runopts" && grep -qx "passwordhash=$expectedHash" "$runopts"; then
+	echo "  PASS: modded world records its listing and the hash of its real password"
 	PASS=$((PASS+1))
 else
-	echo "  FAIL: modded world recorded a listing or a password it cannot have"
+	echo "  FAIL: modded world did not record its listing/password (2.53 decoupled these)"
+	echo "    want: listed=1 passwordhash=$expectedHash"
 	echo "    file: $(cat "$runopts" 2>/dev/null | tr '\n' ' ')"
 	FAIL=$((FAIL+1))
 fi
+
+# CONTROL for the pair above: a modded world with NEITHER set must still record listed=0 and an
+# EMPTY hash. Without this, the two greps above would also pass if the gate had been replaced by
+# something that hardcodes listed=1 -- and the untouched case is the one every existing world is
+# in, so it is the one that must not have moved.
+run_case '0	0	0		' 0 >/dev/null 2>&1
+if grep -qx 'listed=0' "$runopts" && grep -qx 'passwordhash=' "$runopts"; then
+	echo "  PASS: control: a modded world with no password/listing records neither"
+	PASS=$((PASS+1))
+else
+	echo "  FAIL: control: a plain modded world recorded a listing or password it does not have"
+	echo "    file: $(cat "$runopts" 2>/dev/null | tr '\n' ' ')"
+	FAIL=$((FAIL+1))
+fi
+
+# The argv half of the same change: a modded world that IS listed and password-protected must
+# actually be handed -public 1 and -password, not merely record them.
+expectedModdedListed=$(printf -- '-nographics\n-batchmode\n-name\ntestworld\n-port\n25000\n-world\ntestworld\n-oldconsole\n-public\n1\n-password\nhunter2secret\n-savedir\n%s' "$SAVEDIR")
+check "modded listed+password reaches argv" "$expectedModdedListed" "$(run_case '0	1	0	hunter2secret	' 0)"
 
 # --- 4. Vanilla, listed, password, crossplay ---
 expected=$(printf -- '-nographics\n-batchmode\n-name\ntestworld\n-port\n25000\n-world\ntestworld\n-oldconsole\n-public\n1\n-password\nhunter2secret\n-crossplay\n-savedir\n%s' "$SAVEDIR")

@@ -484,7 +484,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				# so on the card too. Leaving it off the modded card meant the one kind of world
 				# that is ALWAYS access-controlled was the one that never mentioned it.
 				$moddedBadgeDim = $worldDimmed ? "vanilla-badge-dimmed" : "";
-				$moddedBadges = accessBadges($pdo, $myWorld, $moddedBadgeDim);
+				# A modded world can have a real password as of 2.53, so it gets the same
+				# PASSWORD pill as a vanilla one. Passing the flag is what makes a modded world
+				# that IS password protected stop claiming otherwise on its own card.
+				$moddedPassword = getWorldPassword($pdo,$myWorld);
+				$moddedBadges = accessBadges($pdo, $myWorld, $moddedBadgeDim,
+					$moddedPassword !== '' && $moddedPassword !== NULL);
 
 				# Crossplay on a MODDED world, allowed as of 2.53.
 				#
@@ -529,6 +534,33 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <tr>";
 				}
 
+				# Password row, new in 2.53 because a modded world can now have one.
+				#
+				# A player who uses the Launch button never needs this -- the Companion pre-fills
+				# it from the client payload. It is here for the two cases that are not Launch:
+				# joining by address from the in-game browser, and a console player on a
+				# crossplay world, neither of which can run the Companion. Without this row that
+				# password exists only in the admin UI, and a world the upgrade just gave a
+				# generated password to would simply stop being joinable by hand with no
+				# explanation anywhere a player can see.
+				#
+				# Same password_public switch as the vanilla card, and the row is dropped whole
+				# rather than rendered empty for the same reason: a permanently blank
+				# "Password:" row reads as a bug.
+				$moddedShowPassword = (getPasswordPublic($pdo,$myWorld) != 0) && !empty($moddedPassword);
+				$moddedPasswordRow = "";
+				if ($moddedShowPassword) {
+					$moddedPasswordRow = "
+                                                        <td class='$worldDimmed card_worldInfo'>Password&nbsp;&nbsp;:</td>
+                                                        <td class='$worldDimmed card_worldInfo world-password'>"
+						. "<span class='vanilla-password' data-password=\"" . htmlspecialchars($moddedPassword) . "\">"
+						. "<span class='vanilla-password-mask'>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>"
+						. "<a href='#' class='vanilla-password-action' onclick='revealVanillaPassword(this); return false;'>show</a>"
+						. "<a href='#' class='vanilla-password-action' onclick='copyVanillaPassword(this); return false;'>copy</a>"
+						. "</span></td>
+                                                        <tr>";
+				}
+
 				# NO hint row on a modded crossplay card. There was one; it is gone.
 				#
 				# It said nothing the card does not already say. The CROSSPLAY pill states the
@@ -563,6 +595,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
                                                         <td class='$worldDimmed card_worldInfo'>$moddedBadges</td>
                                                         <tr>
                                                         $moddedJoinCodeRow
+                                                        $moddedPasswordRow
                                                         <td class='$worldDimmed card_worldInfo'>Seed&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:</td>
 							<td class='$worldDimmed card_worldInfo world-seed'>$seed</td>
                                                         <tr>

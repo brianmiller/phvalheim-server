@@ -225,10 +225,22 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
 
                 $vanilla = (int)getVanilla($pdo, $world);
 
-                # A modded world's password is inert -- startWorld.sh has never passed
-                # -password for one, and access is gated by the CITIZENS list instead.
-                # Keep sending the historical literal so older clients behave identically.
-                $password = $vanilla ? (getWorldPassword($pdo, $world) ?: "") : "hammertime";
+                # 2.53: the REAL password, for any world. The "hammertime" literal that used
+                # to be sent for modded worlds is gone.
+                #
+                # It was inert because startWorld.sh never passed -password for a modded world,
+                # so no server ever asked for one and nothing on the client side read field 2.
+                # Now that a modded world can have a real password, the Companion pre-fills
+                # FejdStartup.ServerPassword from this field and the player is never prompted.
+                #
+                # No payload change: the password has been field 2 since the format existed, so
+                # a 2.0.13 client forwards it untouched and a 2.52 server simply sends a
+                # different value into the same slot. Every client/server pair stays compatible.
+                #
+                # Sending "hammertime" now would be worse than useless -- it would pre-fill the
+                # WRONG password on a world that has a real one, and Valheim would reject the
+                # handshake with no prompt shown, because the Companion already answered it.
+                $password = getWorldPassword($pdo, $world) ?: "";
 
                 # mode, not status: status is written once at world creation and never
                 # updated by anything, so reading it here would call every world offline.

@@ -248,17 +248,19 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # is that the behaviour changed deliberately -- and the 2.53 block asserts the same two
   # things from the other side (ya, yh), so neither gate can come back unnoticed.
   #
-  # bb and bc are UNCHANGED at 2, which is not luck worth relying on: the ids still appear
-  # twice each, but they no longer appear in a display gate. What the ids are actually used
-  # for is pinned by the 2.53 UI negatives (yp, yq, yr), not here.
+  # bb and bc were 2 each, and that WAS luck, as the comment here used to half-admit. bb's
+  # second hit was a mention of #crossplayRow inside a comment in toggleVanillaFields(), and
+  # the access-control work rewrote that comment -- so a count of raw occurrences dropped to 1
+  # and failed the build over prose. bb now counts the id ATTRIBUTE, which is the thing that
+  # has to exist. What the ids are USED for is pinned by the 2.53 UI negatives (yp, yq, yr).
   #
   # The old NO APOSTROPHES rule for this section no longer applies: the verify body is a
   # quoted heredoc run from a file, not an sh -c argument. See the note at the top.
   ba=$(grep -c "crossplay set but is MODDED" /opt/stateless/games/valheim/scripts/startWorld.sh)
-  bb=$(grep -c "crossplayRow" /opt/stateless/nginx/www/admin/index.php)
+  bb=$(grep -c 'id="crossplayRow"' /opt/stateless/nginx/www/admin/index.php)
   bc=$(grep -c "crossplayOption" /opt/stateless/nginx/www/admin/new_world.php)
   bd=$(grep -c "isVanilla && !empty(.vanillaOptions..crossplay..)" /opt/stateless/nginx/www/admin/adminAPI.php)
-  echo "crossplay NOW ANY WORLD: launch gate gone=$ba (want 0, was 1 before 2.53)  settings row=$bb (want 2)  create option=$bc (want 2)  createWorld gate gone=$bd (want 0, was 1 before 2.53)"
+  echo "crossplay NOW ANY WORLD: launch gate gone=$ba (want 0, was 1 before 2.53)  settings row=$bb (want 1, now the id attribute only)  create option=$bc (want 2)  createWorld gate gone=$bd (want 0, was 1 before 2.53)"
   # World cards online-first, and the player id on its own line. The stale ORDER BY is a
   # NEGATIVE: the PHP sort would mask its return, so nothing would visibly break.
   be=$(grep -c "function sortWorldsOnlineFirst" /opt/stateless/nginx/www/includes/db_gets.php)
@@ -339,11 +341,16 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "version=$phvalheimVersion matches Dockerfile=$EXPECT_VER -> $ver (want 1)"
   echo "runtime snapshot: writer=$bp (want 1)  readers=$bq/$br/$bs/$bt (want 1 each)"
   echo "restart pending: ui=$bu (want 7)  poll=$bv (want 1)  css=$bw (want 1)"
-  # A vanilla world may run with no password; what it cannot do is run LISTED without one.
-  # Both surfaces gate the listing control.
-  bx=$(grep -c "syncListedAvailability" /opt/stateless/nginx/www/admin/index.php)
+  # A world may run with no password; what it cannot do is run LISTED without one. Both
+  # surfaces gate the listing control.
+  #
+  # Comment lines are stripped before counting. 2.53 added a fourth real call site (crossplay
+  # also blocks listing, so flipping that switch has to re-evaluate the row) AND a comment
+  # naming the function, which would have pushed a raw count to 5 and failed the build on prose.
+  # Three of these counts have now moved for comment edits rather than behaviour; strip first.
+  bx=$(grep -v '^[[:space:]]*//' /opt/stateless/nginx/www/admin/index.php | grep -c "syncListedAvailability")
   by=$(grep -c "syncListedAvailability" /opt/stateless/nginx/www/admin/new_world.php)
-  echo "listing gated: settings=$bx (want 3)  create=$by (want 2)"
+  echo "listing gated: settings=$bx (want 4, was 3 before 2.53 added the crossplay re-check)  create=$by (want 2)"
   # Access pills. The removed one is a NEGATIVE: counting only the new pills would pass on an
   # image that still carried the old IN SERVER BROWSER pill alongside them.
   bz=$(grep -c "function accessBadges" /opt/stateless/nginx/www/public/authenticated.php)
@@ -1418,9 +1425,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # run, where the probe was wrong and the code was not.
   yd=$(grep -cE "^\[ .+isCrossplay.+effectiveCrossplay=1" $ysw)
   ye=$(grep -cE "^[[:space:]]+\[ .+isCrossplay.+effectiveCrossplay=1" $ysw)
-  # Listing and password must STAY vanilla-only -- a modded world is started -public 0 with no
-  # -password. yf guards the blast radius: taking too much out of that block is invisible
-  # otherwise, and would start listing modded worlds in the public server browser.
+  # yf has REVERSED, the same way ba and bd did earlier in this release.
+  #
+  # It used to assert that listing and password STAYED vanilla-only, by pinning
+  # effectiveListed= as INDENTED (inside the isVanilla branch). Access control is now decoupled
+  # from world type, so that line is unindented and yf asserts the old gate is GONE. Kept
+  # pointing at the indented form rather than deleted: a marker that changes direction is the
+  # clearest record that the behaviour changed on purpose, and cou/cov below pin the new
+  # position from the other side, so neither the gate nor the line can move back unnoticed.
   yf=$(grep -cE "^[[:space:]]+effectiveListed=.isListed" $ysw)
 
   # The two API write paths. Both negatives: the forced-off assignment and the gated call.
@@ -1456,7 +1468,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # code that shows or hides it.
   ys2=$(grep -c "crossplayModdedWarning" $yix)
   yt=$(grep -c "crossplayModdedWarning" $ynw)
-  yu=$(grep -c "syncCrossplayWarning" $yix)
+  # Comments stripped before counting. This is the THIRD marker in this release to break on
+  # prose rather than behaviour (see bb and bx): the access-control work added a comment in
+  # syncModdedPasswordNote() that names syncCrossplayWarning(), pushing a raw count to 5. A
+  # count of a function name is a count of mentions unless you say otherwise.
+  yu=$(grep -v '^[[:space:]]*//' $yix | grep -c "syncCrossplayWarning")
   yv=$(grep -c "syncCrossplayWarning" $ynw)
   # The styles the warning and the code chip depend on. 2.51 shipped an icon that existed and
   # could not be drawn, so presence of the markup is not presence of the feature.
@@ -1885,6 +1901,63 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   echo "2.53 disconnect vs failure: success branch=$cor (want 1)  join observer=$cos (want 1)"
 
+  # --- 2.53 access control decoupled from world type ---------------------------------
+  #
+  # Every marker here is anchored on CODE, not on the comments that explain it. The first
+  # drafts of cot and coz matched prose -- "-public 0" and "hammertime" both still appear in
+  # this release, in the comments saying why they are gone -- so they would have passed on a
+  # file where the behaviour had been reverted and only the explanation survived.
+
+  # cot -- NEGATIVE: the hardcoded `-public 0` for modded worlds must be GONE from the argv
+  # build. Anchored on `set --` so the explanatory comments that still say "-public 0" cannot
+  # satisfy it.
+  cot=$(grep -cE '^[[:space:]]*set -- "\$@" -public 0' /opt/stateless/games/valheim/scripts/startWorld.sh)
+
+  # cpa -- and -public is still passed EXPLICITLY, for every world. This is the dangerous half:
+  # FejdStartup.ParseServerArguments initialises its public flag to TRUE and only overwrites it
+  # when the argument carries a value, so losing this line would list every world AND switch on
+  # Valheim's password validation for all of them. A deletion here is silent at build time.
+  cpa=$(grep -c '^set -- "\$@" -public "\$isListed"$' /opt/stateless/games/valheim/scripts/startWorld.sh)
+
+  # cou -- listing and the password hash are recorded for ANY world, which is expressed by the
+  # INDENTATION: unindented means outside the isVanilla branch they used to live in. Recorded
+  # empty for a modded world, the restart-pending check compares a real password against "" and
+  # answers "nothing changed" forever.
+  cou=$(grep -c '^effectiveListed=\$isListed$' /opt/stateless/games/valheim/scripts/startWorld.sh)
+  cov=$(grep -c '^if \[ -n "\$worldPasswordDb" \]; then$' /opt/stateless/games/valheim/scripts/startWorld.sh)
+
+  # cow -- NEGATIVE: serverblankpassword is out of the requiredMods ASSIGNMENT. Matching the
+  # bare word would hit the comment above it explaining the removal.
+  cow=$(grep -c '^requiredMods=.*serverblankpassword' $zconf)
+  cox=$(grep -c '^requiredMods=""$' $zconf)
+
+  # coy -- the two password rules Valheim enforces that this project did not. Both are live
+  # bugs before 2.53: a password inside the SEED makes a listed world Application.Quit() into a
+  # supervisor restart loop, and a '?' shifts every later field of the positional launch payload.
+  coy=$(grep -cF 'Password cannot be part of the world seed' /opt/stateless/nginx/www/admin/adminAPI.php)
+  coz=$(grep -cF 'Password cannot contain a question mark' /opt/stateless/nginx/www/admin/adminAPI.php)
+
+  # cpb -- the one-time retirement, both halves: the flag that makes it one-time, and the
+  # generated password. Without the second, a modded world can never be listed.
+  cpb=$(grep -cF 'UPDATE settings SET blankPasswordRetired = 1' $zmig)
+  cpc=$(grep -cF 'UPDATE worlds SET password' $zmig)
+
+  # cpd/cpe -- NEGATIVE: the `$vanilla ? ... : "hammertime"` ternary is gone from BOTH launch
+  # string builders. Two sites, because index.php renders its own copy for the dashboard and
+  # only db_gets.php was obvious; leaving one behind would pre-fill the WRONG password through
+  # the Companion on exactly the worlds this release gives a password to.
+  cpd=$(grep -cE '\$password *= *\$vanilla *\?' /opt/stateless/nginx/www/includes/db_gets.php)
+  cpe=$(grep -cE '\$password *= *\$vanilla *\?' $zidx)
+
+  # cpf -- listed+crossplay is refused at the form on BOTH write paths (create and save).
+  # Valheim does not error on the combination; it lists a PlayFab server nowhere and says
+  # nothing, so the UI is the only thing that can report it.
+  cpf=$(grep -cF 'A crossplay world cannot be listed in the server browser' /opt/stateless/nginx/www/admin/adminAPI.php)
+
+  echo "2.53 access decoupled: -public 0 gone=$cot (want 0)  explicit -public=$cpa (want 1)  listed recorded=$cou (want 1)  pw hash blocks=$cov (want 2)"
+  echo "2.53 access decoupled: blankpw in requiredMods=$cow (want 0)  requiredMods empty=$cox (want 1)  seed rule=$coy (want 1)  qmark rule=$coz (want 1)"
+  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated=$cpc (want 1)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused=$cpf (want 2)"
+
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
   # same count and a very different number of rendered lines. That is precisely how the body
@@ -1995,7 +2068,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.53 HEADLINE NEGATIVES: argv gate gone=$ya (want 0)  refusal notice gone=$yb (want 0)"
   echo "2.53 HEADLINE NEGATIVES: api force-off gone=$yg (want 0)  gated setCrossplay gone=$yh (want 0)"
   echo "2.53 startWorld: console caveat=$yc (want 1)  running-options unindented=$yd (want 1) indented=$ye (want 0)"
-  echo "2.53 startWorld blast radius: listed stays vanilla-only=$yf (want 1)"
+  echo "2.53 startWorld blast radius: old vanilla-only listing gate gone=$yf (want 0, was 1 before access control was decoupled)"
   echo "2.53 api: ungated setCrossplay=$yi (want 1)"
   echo "2.53 launch: getModdedJoinInfo def=$yj (want 1)  admin call sites=$yk/$yl (want 1/1)"
   echo "2.53 launch NEGATIVES: inline modded literal gone=$ym/$yn (want 0/0)"
@@ -2042,13 +2115,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$am" = "1" ] && [ "$an" = "1" ] && [ "$ao" = "1" ] \
     && [ "$ap" = "1" ] && [ "$aq" = "1" ] && [ "$ar" = "2" ] && [ "$as" = "1" ] && [ "$at" = "0" ] \
     && [ "$au" = "1" ] && [ "$av" = "3" ] && [ "$aw" = "1" ] && [ "$ax" = "1" ] && [ "$ay" = "0" ] && [ "$az" = "3" ] \
-    && [ "$ba" = "0" ] && [ "$bb" = "2" ] && [ "$bc" = "2" ] && [ "$bd" = "0" ] \
+    && [ "$ba" = "0" ] && [ "$bb" = "1" ] && [ "$bc" = "2" ] && [ "$bd" = "0" ] \
     && [ "$be" = "1" ] && [ "$bf" = "1" ] && [ "$bg" = "0" ] && [ "$bh" = "1" ] && [ "$bi" = "3" ] && [ "$bj" = "1" ] && [ "$bk" = "1" ] \
     && [ "$bl" = "2" ] && [ "$bm" = "1" ] && [ "$bn" = "1" ] && [ "$bo" = "2" ] \
     && [ "$ver" = "1" ] \
     && [ "$bp" = "1" ] && [ "$bq" = "1" ] && [ "$br" = "1" ] && [ "$bs" = "1" ] && [ "$bt" = "1" ] \
     && [ "$bu" = "7" ] && [ "$bv" = "1" ] && [ "$bw" = "1" ] \
-    && [ "$bx" = "3" ] && [ "$by" = "2" ] \
+    && [ "$bx" = "4" ] && [ "$by" = "2" ] \
     && [ "$bz" = "1" ] && [ "$ca" = "1" ] && [ "$cb" = "1" ] && [ "$cc" = "0" ] \
     && [ "$cd" = "0" ] && [ "$ce" = "1" ] && [ "$cf" = "2" ] \
     && [ "$cg" = "3" ] && [ "$ch" = "1" ] && [ "$ci" = "3" ] && [ "$cj" = "0" ] && [ "$ck" = "2" ] \
@@ -2156,7 +2229,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$xm" = "0" ] && [ "$xn" = "0" ] && [ "$xo" = "0" ] && [ "$xp" = "3" ] && [ "$xq" = "0" ] \
     && [ "$xr" = "1" ] && [ "$xs" = "1" ] \
     && [ "$ya" = "0" ] && [ "$yb" = "0" ] && [ "$yg" = "0" ] && [ "$yh" = "0" ] \
-    && [ "$yc" = "1" ] && [ "$yd" = "1" ] && [ "$ye" = "0" ] && [ "$yf" = "1" ] \
+    && [ "$yc" = "1" ] && [ "$yd" = "1" ] && [ "$ye" = "0" ] && [ "$yf" = "0" ] \
     && [ "$yi" = "1" ] && [ "$yj" = "1" ] && [ "$yk" = "1" ] && [ "$yl" = "1" ] \
     && [ "$ym" = "0" ] && [ "$yn" = "0" ] && [ "$yo" = "1" ] \
     && [ "$yp" = "0" ] && [ "$yq" = "0" ] && [ "$yr" = "0" ] \
@@ -2195,6 +2268,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$coh" = "1" ] && [ "$coi" = "1" ] && [ "$coj" = "1" ] && [ "$con" = "1" ] \
     && [ "$cok" = "0" ] && [ "$com" = "0" ] \
     && [ "$cop" = "1" ] && [ "$coq" = "1" ] && [ "$cor" = "1" ] && [ "$cos" = "1" ] \
+    && [ "$cot" = "0" ] && [ "$cpa" = "1" ] && [ "$cou" = "1" ] && [ "$cov" = "2" ] \
+    && [ "$cow" = "0" ] && [ "$cox" = "1" ] && [ "$coy" = "1" ] && [ "$coz" = "1" ] \
+    && [ "$cpb" = "1" ] && [ "$cpc" = "1" ] && [ "$cpd" = "0" ] && [ "$cpe" = "0" ] \
+    && [ "$cpf" = "2" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

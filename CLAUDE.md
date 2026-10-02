@@ -223,11 +223,24 @@ supervisorctl start valheimworld_myworld # Start world
 
 ## Notes
 
-- Modded worlds: access is gated by the CITIZENS list (`permittedlist.txt`); the server is
-  started with `-public 0` and no `-password`. The "hammertime" literal in the launch string
-  is historical and inert.
-- Vanilla worlds (2.40+): real per-world `password`, `crossplay` and `listed` columns, applied
-  by `startWorld.sh`. See `docs/RELEASE-2.40-DESIGN.md`.
+- **Access control is decoupled from world type as of 2.53.** `password`, `listed` and
+  `crossplay` apply to ANY world, modded or not, and `startWorld.sh` honours them for all of
+  them. A password **composes with** the CITIZENS list rather than replacing it — Valheim
+  enforces `permittedlist.txt` server-side regardless of the client. The `hammertime` literal
+  is gone from both launch-string builders (`db_gets.php` **and** `admin/index.php`); the real
+  password is sent, and the Companion pre-fills it so Launch never prompts.
+  See `docs/REVIEW-access-control-Q2C.md`.
+- **Valheim only enforces password rules when `-public` is 1**, and `-public` **defaults to 1
+  when the argument is absent** — so `startWorld.sh` must always pass it explicitly. That gate
+  is why the `serverblankpassword` mod was never doing anything here; it is retired, out of
+  `requiredMods`, and removed from existing worlds by a one-time block in `dbUpdate_2.53.sh`
+  which also generates a password for every modded world that had none.
+- `validateWorldPassword()` enforces Valheim's three rules **and** ours: min 5 characters, not
+  contained in the world name, **not contained in the seed name**, and no `?` (the launch
+  payload is `?`-delimited and positional, with the password at field 2). Guarded by
+  `dev_tools/test-password-rules.php`.
+- Vanilla worlds (2.40+) are where `password`/`crossplay`/`listed` started. See
+  `docs/RELEASE-2.40-DESIGN.md`.
 - `worlds.public` is the CITIZENS access-control flag, NOT Valheim's `-public` server browser
   argument — that is the separate `listed` column. Do not conflate them.
 - Access lists (`permittedlist.txt` / `adminlist.txt` / `bannedlist.txt`) live in the `-savedir`

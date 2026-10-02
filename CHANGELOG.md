@@ -199,6 +199,101 @@ Four did not on the first attempt: three build markers and one test regex used a
 stand for a quote in `[ "$isCrossplay"` and `'phvalheim://?' . $launchString`, where two
 characters sit before the name. They matched neither tree, so they could not fail.
 
+### Access control, decoupled from world type
+
+`password`, `listed` and `crossplay` now apply to any world. A modded world can be password
+protected and published in Valheim's server browser, and the CITIZENS allowlist still applies on
+top — Valheim enforces `permittedlist.txt` server-side regardless of what the client runs, so the
+two compose rather than one replacing the other.
+
+What unblocked it was the Companion, not a server change. A modded world's password had nowhere
+to go: nothing on the client side could answer Valheim's password prompt, so the player would be
+asked for something the UI had never shown them. `ConnectFlow` pre-fills
+`FejdStartup.ServerPassword` from field 2 of the launch payload — which has carried the password
+since the format existed — so Launch joins without a prompt. **No payload change**, and every
+client/server pair stays compatible: a 2.0.13 client forwards the field untouched.
+
+`startWorld.sh` loses the `isVanilla` gate around `-public`/`-password`, and `effectiveListed`
+and `effectivePasswordHash` follow crossplay out of that branch. Left inside, a modded world
+would have recorded `listed=0` and an empty hash, and the restart-pending check — which reads
+`passwordhash` — would compare a real password against `""` and answer "nothing changed". A badge
+no operator action could clear.
+
+### `serverblankpassword` was never doing anything
+
+Decompiled from the un-publicized assembly: `FejdStartup.ParseServerArguments` calls
+`IsPublicPasswordValid` **only when `-public` is set**, and answers a failure with
+`Application.Quit()`. `startWorld.sh` has always started a modded world `-public 0`, so the
+validation that mod patches out has never run on one.
+
+That makes its removal safe for a world that still has no password, and it is now actively wrong
+to keep: a world that *can* be published should not carry a mod suppressing the requirement
+publishing depends on. It is out of `requiredMods`, which leaves the list empty — the Companion
+left it in the same release. `mergeRequiredTsMods()` only ever INSERTs, so the conf change does
+nothing to existing worlds; a one-time block in `dbUpdate_2.53.sh`, modelled on the QuickConnect
+retirement above, deletes the rows and generates a 16-character password for every modded world
+that had none. One-time behind `settings.blankPasswordRetired`, for the QuickConnect reason:
+nothing in the schema distinguishes "PhValheim inserted this" from "the operator picked it".
+
+The generated password takes effect at the world's next restart. Launch-path players never see
+it; anyone joining by address, and console players on a crossplay world, need it — so the modded
+world card grew the same masked password row the vanilla card has, and the modded card now gets a
+PASSWORD pill.
+
+Two things `-public` also taught us, both recorded as markers rather than comments: it
+**defaults to 1 when absent**, so losing the explicit argument would list every world *and*
+switch on password validation for all of them.
+
+### Two password rules Valheim enforces and we did not
+
+`IsPublicPasswordValid` rejects a password contained in the world name **or in the seed name**.
+`validateWorldPassword()` had the first and not the second, so a password containing the seed
+passed the form and made a listed world `Application.Quit()` — a clean exit, so supervisor
+restart-loops it with the reason buried in the world log. Live for vanilla worlds before this
+release. The function now takes the seed; an empty one means Valheim has not written the `.fwl`
+yet, so the rule is skipped and re-applied on the next save.
+
+A `?` is refused too, and that one is ours. The launch payload is `?`-delimited and
+**positional**, with the password at field 2, so a `?` shifts `gameDNS`, `port`, `vanilla`,
+`crossplay` and `joinCode` by one for every parser. Nothing errors — each hands the wrong value
+to the wrong name. It was inert only while modded worlds sent the literal `hammertime`; sending
+real passwords makes it live.
+
+Listing is refused with crossplay on, at the form rather than as a warning: `-public` lists Steam
+servers, and a crossplay world is a PlayFab server with no address to list, so the listing reaches
+nobody and Valheim reports nothing.
+
+### Tests
+
+`test-password-rules.php` drives the real `validateWorldPassword()` out of `adminAPI.php` and
+covers all four rules. Checked by mutation: dropping the seed rule fails 3, dropping the `?` rule
+fails 3. It also carries a control that the function can say *yes*, without which a validator
+rejecting everything would pass every rejection case.
+
+`test-blankpassword-retirement.sh` executes the retirement block itself with `sql()` stubbed,
+and asserts on the statements it emits. This block writes passwords to live worlds and runs
+exactly once, so there is no second chance and no way to tell afterwards whether a world was
+skipped; nothing else in the suite touches it, because migrations only run inside a container
+against a real MariaDB. Checked by mutation: generating 8 characters instead of 16 fails 2,
+removing the one-time guard fails 1, and one password shared across every world fails 1 — that
+last mutant needed a second attempt, because the first used a 15-character constant that the
+length guard rejected before the uniqueness assertion could see it.
+
+`test-startWorld-args.sh` had an assertion demanding the opposite of this change — it pinned
+`listed=0` and an empty hash for a modded world. Replaced with the new expectation plus a control
+that a modded world with neither set still records neither, so the pair cannot both pass against
+something that hardcodes `listed=1`.
+
+`test-companion-bundled.sh` used `serverblankpassword` as its proof that `requiredMods` was not
+empty. With the list now legitimately empty, that control is dead: it reads `legacyConnectMods`
+the same way instead, so an empty `requiredMods` is a real answer rather than a grep that matched
+nothing. It also asserts `serverblankpassword` is gone.
+
+The build markers are anchored on code, not prose. The first drafts of two of them matched
+comments — `-public 0` and `hammertime` both still appear in this release, in the comments saying
+why they are gone — so they would have passed on a tree where the behaviour was reverted and only
+the explanation survived.
+
 ## v2.52
 
 ### The mod catalogue stopped refreshing after the first boot

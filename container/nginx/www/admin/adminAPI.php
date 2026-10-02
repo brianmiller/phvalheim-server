@@ -1418,16 +1418,45 @@ function getWorldOptionsJson($pdo, $world) {
  * which surfaces to the operator as a world that restart-loops with the reason buried
  * in the world log. Rejecting here makes it a form error instead.
  */
-function validateWorldPassword($password, $world) {
+function validateWorldPassword($password, $world, $seed = '') {
     if ($password === '') {
         return NULL;
     }
     if (strlen($password) < 5) {
         return 'Password must be at least 5 characters.';
     }
+
+    // Not Valheim's rule -- ours. The client launch payload is a '?'-delimited POSITIONAL
+    // string and the password is field 2, so a '?' inside it shifts gameDNS, port, vanilla,
+    // crossplay and joinCode by one for every client and Companion that parses it. Nothing
+    // would error; they would each hand the wrong value to the wrong name. Rejecting the
+    // character here is the whole fix and leaves the wire format alone.
+    // See phvBuildLaunchString() in includes/db_gets.php and the Companion's LaunchPayload.cs.
+    if (strpos($password, '?') !== false) {
+        return 'Password cannot contain a question mark (?).';
+    }
+
     if (stripos($world, $password) !== false) {
         return 'Password cannot be part of the world name.';
     }
+
+    // Valheim's THIRD rule, which this function missed until 2.53.
+    // FejdStartup.IsPublicPasswordValid rejects a password contained in the world name OR in
+    // the SEED name, and ParseServerArguments answers a failure with Application.Quit(). That
+    // is a clean exit, so supervisor restart-loops the world with the reason buried in its
+    // log -- exactly the outcome this function exists to prevent.
+    //
+    // An empty seed means Valheim has not written the .fwl yet (the engine reads the real seed
+    // back out of it after first start), so there is nothing to compare against. The rule is
+    // applied again on every later save, by which time the seed is known.
+    //
+    // stripos, not a case-sensitive match: Valheim's Contains is ordinal, so this rejects a
+    // little more than Valheim does. Stricter is the safe direction for a rule whose failure
+    // mode is a restart loop.
+    if ($seed !== '' && stripos($seed, $password) !== false) {
+        return 'Password cannot be part of the world seed.';
+    }
+
     return NULL;
 }
 
@@ -1460,7 +1489,7 @@ function saveWorldOptionsJson($pdo, $world, $input) {
     $password       = trim($input['password'] ?? '');
     $launchParams   = trim($input['launchParams'] ?? '');
 
-    if ($err = validateWorldPassword($password, $world)) {
+    if ($err = validateWorldPassword($password, $world, (string)getSeed($pdo, $world))) {
         echo json_encode(['success' => false, 'error' => $err]);
         return;
     }
@@ -1479,20 +1508,33 @@ function saveWorldOptionsJson($pdo, $world, $input) {
         return;
     }
 
-    // Password and server-browser listing are vanilla-only -- modded worlds are gated by
-    // the CITIZENS list instead. Storing them for a modded world would show settings in
-    // the UI that startWorld.sh deliberately ignores.
-    //
-    // Crossplay is NOT in that group as of 2.53. It used to be forced off here for a client
-    // reason: a crossplay world is a PlayFab server with no host:port, and QuickConnect's
-    // config file is host:port. But the client never needed to connect a modded world itself
-    // -- its job is the mod payload and the BepInEx injection, and the modded launch path
-    // passes no connect argument on any platform. The player joins from the in-game
-    // "Join by code" box. So crossplay is now stored for any world.
-    if (!$vanilla) {
-        $password = '';
-        $listed = 0;
+    // Listing and crossplay are mutually exclusive, and this is a form error rather than a
+    // warning because the combination cannot do what it says. -public lists on the STEAM
+    // server browser; a crossplay world is a PlayFab server with no host:port to list, so the
+    // listing silently reaches nobody. Refusing it is the only answer that does not leave the
+    // operator believing their world is advertised.
+    if ($listed && $crossplay) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'A crossplay world cannot be listed in the server browser. '
+                       . 'Crossplay worlds are joined by code only -- they have no address to list.'
+        ]);
+        return;
     }
+
+    // 2.53: password and listing are NO LONGER vanilla-only. Access control is decoupled from
+    // whether a world runs mods, so a modded world can have a real -password and appear in the
+    // server browser, composing with the CITIZENS allowlist rather than replacing it --
+    // permittedlist.txt is enforced server-side regardless of what the client runs.
+    //
+    // What made this possible is the Companion: until 2.53 a modded world's password could not
+    // reach the player, because nothing on the client side could answer Valheim's password
+    // prompt. The Companion pre-fills FejdStartup.ServerPassword from field 2 of the launch
+    // payload, so the player joins without being asked.
+    //
+    // Crossplay stopped being vanilla-only in the first half of 2.53, for a different reason:
+    // QuickConnect's config file was host:port and had nowhere to put a join code. The
+    // Companion replaced QuickConnect, so that constraint went with it.
 
     $wasVanilla = (int)getVanilla($pdo, $world);
 
@@ -1806,20 +1848,30 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
         }
     }
 
-    // Validate before creating anything, so a bad password doesn't leave a half made world
-    if ($isVanilla) {
-        $pw = trim($vanillaOptions['password'] ?? '');
-        if ($err = validateWorldPassword($pw, $world)) {
-            echo json_encode(['success' => false, 'error' => $err]);
-            return;
-        }
-        if (!empty($vanillaOptions['listed']) && $pw === '') {
-            echo json_encode([
-                'success' => false,
-                'error'   => 'A world listed in the server browser must have a password.'
-            ]);
-            return;
-        }
+    // Validate before creating anything, so a bad password doesn't leave a half made world.
+    //
+    // No longer gated on $isVanilla (2.53): password and listing apply to any world now, so
+    // the validation has to run for any world too. A modded world that supplies neither lands
+    // on the same empty password it always had -- validateWorldPassword() returns NULL for ''.
+    $pw = trim($vanillaOptions['password'] ?? '');
+    if ($err = validateWorldPassword($pw, $world, (string)$seed)) {
+        echo json_encode(['success' => false, 'error' => $err]);
+        return;
+    }
+    if (!empty($vanillaOptions['listed']) && $pw === '') {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'A world listed in the server browser must have a password.'
+        ]);
+        return;
+    }
+    if (!empty($vanillaOptions['listed']) && !empty($vanillaOptions['crossplay'])) {
+        echo json_encode([
+            'success' => false,
+            'error'   => 'A crossplay world cannot be listed in the server browser. '
+                       . 'Crossplay worlds are joined by code only -- they have no address to list.'
+        ]);
+        return;
     }
 
     $result = addWorld($pdo, $world, $gameDNS, $seed);
@@ -1857,12 +1909,16 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
             }
         }
 
+        // Password and listing apply to any world as of 2.53, so they are written outside the
+        // $isVanilla branch. A modded world that supplied neither gets '' and 0 -- byte for
+        // byte what every modded world has had until now.
+        setWorldPassword($pdo, $world, trim($vanillaOptions['password'] ?? ''));
+        setListed($pdo, $world, !empty($vanillaOptions['listed']) ? 1 : 0);
+
         if ($isVanilla) {
             // A vanilla world means ZERO mods -- ignore any mod selection outright
             // rather than storing mods the build path will never install.
             setVanilla($pdo, $world, 1);
-            setWorldPassword($pdo, $world, trim($vanillaOptions['password'] ?? ''));
-            setListed($pdo, $world, !empty($vanillaOptions['listed']) ? 1 : 0);
             $mods = [];
         }
 
