@@ -71,17 +71,15 @@ installs on the client, it installs on the client.
 This is why it is a pre-release:
 
 What **has** been confirmed, on a real client: joining a crossplay world through the Companion's
-Connect button, the Connect dialog itself, and disconnecting from a world cleanly. That was done
-on **Linux, with the Flatpak client**.
+Connect button, joining a world by **IP:PORT**, the Connect dialog itself, and disconnecting
+cleanly. That was done on **Linux, with the Flatpak client**.
 
 Still open:
 
 - **Only the Linux client has been exercised.** The Windows and macOS clients are the same code
-  and the same builders, but neither has been run against this release.
-- **Joining a world by IP:PORT through the Companion is built but not separately signed off.**
-  It shares the Connect path that does work, but it was not tested on its own.
+  through the same builders, but neither has been run against this release.
 - **No console player has actually joined a modded crossplay world.** The server side is
-  exercised; the thing the warning above is about is not.
+  exercised; the thing the warning further up is about is not.
 
 ## Upgrading
 
