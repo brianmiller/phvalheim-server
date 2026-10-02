@@ -235,10 +235,20 @@ retirement above, deletes the rows and generates a 16-character password for eve
 that had none. One-time behind `settings.blankPasswordRetired`, for the QuickConnect reason:
 nothing in the schema distinguishes "PhValheim inserted this" from "the operator picked it".
 
-The generated password takes effect at the world's next restart. Launch-path players never see
-it; anyone joining by address, and console players on a crossplay world, need it — so the modded
-world card grew the same masked password row the vanilla card has, and the modded card now gets a
-PASSWORD pill.
+**The password is generated when a world is UPDATED, not when PhValheim is upgraded**, by
+`ensureModdedWorldPassword()` in the update path. The first cut put it in the migration, and that
+was wrong in the way that hurts: a world is password protected at its next *restart*, while it is
+still running QuickConnect and its players are still on a client that cannot forward a password.
+Everyone is locked out of a world the operator has not touched, and it contradicts what the rest
+of 2.53 promises — nothing changes until you update a world. Brian hit it upgrading 2.52 → 2.53.
+
+Deleting the mod *row* at upgrade is not the same hazard and stays there: a row only decides what
+the next rebuild installs, so a world that merely restarts keeps the plugin files it already has.
+
+Launch-path players never see the password; anyone joining by address, and console players on a
+crossplay world, need it — so the modded world card grew the same masked password row the vanilla
+card has, and the modded card now gets a PASSWORD pill. A world that already has a password keeps
+it, and the function only ever fills an empty one.
 
 Two things `-public` also taught us, both recorded as markers rather than comments: it
 **defaults to 1 when absent**, so losing the explicit argument would list every world *and*

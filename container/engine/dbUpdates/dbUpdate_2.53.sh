@@ -183,12 +183,22 @@ fi
 # forever would be a policy pretending to be a migration.
 #
 # The password half. Access control stops being coupled to world type in 2.53, so a modded
-# world can now be password protected and listed in the server browser. Generating a password
-# here is what makes that reachable without the operator having to invent one, and it is the
-# half that is VISIBLE to players: it takes effect at the world's next restart, Launch-path
-# players get it automatically from field 2 of the client payload via the Companion, and anyone
-# joining by hand needs to read it out of World Settings or the world card. The What's New
-# entry says so, because this is the one change in 2.53 that alters how a player joins.
+# THE PASSWORD IS NOT GENERATED HERE. That is deliberate, and it was wrong once.
+#
+# The first cut generated a password for every modded world in this migration, i.e. at UPGRADE.
+# That breaks 2.53's central promise -- "nothing changes until you update a world" -- in the
+# way that hurts most: the world is password protected at its next RESTART, while it is still
+# running QuickConnect and its players are still on a client that cannot forward a password.
+# Every one of them is locked out of a world the operator has not touched yet. Brian hit this
+# upgrading 2.52 -> 2.53.
+#
+# Generation now lives in the world UPDATE path (ensureModdedWorldPassword in 0-functions.sh),
+# so the password, the loss of serverblankpassword and the Companion taking over joining all
+# land together, on one deliberate operator action.
+#
+# Deleting the rows HERE is still right, and is not the same hazard: the row only decides what
+# the next rebuild installs, so a world that merely restarts keeps the plugin FILES it already
+# has and goes on booting exactly as before. Same split as the QuickConnect retirement above.
 sql "DESCRIBE settings"|awk '{print $1}'|grep -qx "blankPasswordRetired" > /dev/null 2>&1
 if [ ! $? = 0 ]; then
 	echo "`date` [NOTICE : phvalheim] Adding settings.blankPasswordRetired"
@@ -213,34 +223,6 @@ if [ "$blankPasswordRetired" -eq 0 ]; then
 		echo "`date` [NOTICE : phvalheim] Modded worlds can now have a real password; retiring $blankRows serverblankpassword mod row(s). Worlds will drop it the next time they are updated."
 		sql "DELETE wm FROM world_mods wm JOIN mods m ON m.id = wm.mod_id WHERE m.owner = '1010101110' AND m.name = 'serverblankpassword';"
 	fi
-
-	# Generate a password for every MODDED world that has none. Vanilla worlds are untouched:
-	# they have always had a real password column and an operator who left it empty chose that.
-	#
-	# IFNULL + '' because the column is NULL on every world created before 2.40 and '' on
-	# anything the admin UI saved with the field blank. Both mean "no password".
-	moddedNoPassword=$(sql "SELECT name FROM worlds WHERE IFNULL(vanilla,0) = 0 AND IFNULL(password,'') = '';")
-
-	for pwWorld in $moddedNoPassword; do
-		# Ambiguous characters are left out so the password survives being read off a screen
-		# and typed somewhere else. '?' is excluded by construction, which matters: the client
-		# launch payload is '?'-delimited and positional, and the password is field 2.
-		#
-		# 16 characters of this alphabet cannot plausibly be a substring of a world name or
-		# seed, which is the other way Valheim rejects a password (IsPublicPasswordValid).
-		genPassword=$(tr -dc 'A-HJ-NP-Za-km-z2-9' < /dev/urandom 2>/dev/null | head -c 16)
-
-		# Never write a password we did not fully generate. A short read here would otherwise
-		# store something under Valheim's 5-character minimum, and the world would refuse to
-		# boot the moment it was listed.
-		if [ ${#genPassword} -ne 16 ]; then
-			echo "`date` [ERROR : phvalheim] Could not generate a password for world '$pwWorld' (got ${#genPassword} characters, wanted 16). Leaving it without one; set a password in the world Settings modal."
-			continue
-		fi
-
-		sql "UPDATE worlds SET password = '$genPassword' WHERE name = '$pwWorld';"
-		echo "`date` [NOTICE : phvalheim] World '$pwWorld' has been given a password. It applies at the world's next restart. Players who join with the Launch button need to do nothing; anyone joining by hand or from a console needs the password, which is in the world's Settings modal."
-	done
 
 	# Set regardless of whether anything was found, so a server with no modded worlds does
 	# not re-check forever, and so an operator who deliberately clears a password or adds

@@ -1940,7 +1940,12 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # cpb -- the one-time retirement, both halves: the flag that makes it one-time, and the
   # generated password. Without the second, a modded world can never be listed.
   cpb=$(grep -cF 'UPDATE settings SET blankPasswordRetired = 1' $zmig)
-  cpc=$(grep -cF 'UPDATE worlds SET password' $zmig)
+  # cpc has MOVED FILE, which is the record that the generation moved with it. It asserted the
+  # migration writes a password -- correct until that turned out to lock players out of worlds
+  # still on QuickConnect, and now the thing cpm forbids. It now asserts the generation exists
+  # in its new home, so the pair cannot both be satisfied by deleting the feature: cpm says it
+  # is not in the migration, cpc says it IS in the update path.
+  cpc=$(grep -cF 'UPDATE worlds SET password' $zfun)
 
   # cpd/cpe -- NEGATIVE: the `$vanilla ? ... : "hammertime"` ternary is gone from BOTH launch
   # string builders. Two sites, because index.php renders its own copy for the dashboard and
@@ -1967,7 +1972,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # mirror.sh is the end-to-end half: it runs the real startWorld.sh and the real comparison.
   cpg=$(grep -c '\$vanilla === 1' /opt/stateless/nginx/www/includes/db_gets.php)
 
-  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated=$cpc (want 1)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused=$cpf (want 2)"
+  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated in UPDATE path=$cpc (want 1, moved out of the migration)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused=$cpf (want 2)"
   echo "2.53 access decoupled: restart-pending mirror vanilla gates=$cpg (want 0, was 2 and shipped broken)"
 
   # cph/cpi/cpj -- the password reveal row must be styled on a MODDED card too.
@@ -2001,6 +2006,22 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   cpl=$(awk '/<!--/{c=1} !c{print} /-->/{c=0}' $zidx | tr '\n' ' ' | tr -s ' ' | grep -c 'available in your mod catalogue')
 
   echo "2.53 connect notice wording: ships-inside stated=$cpk (want 1)  old catalogue claim=$cpl (want 0, was 1)"
+
+  # cpm/cpn/cpo -- WHEN a modded world gets its generated password. This shipped wrong.
+  #
+  # Generated in the migration, i.e. at UPGRADE, it password protected every modded world at its
+  # next RESTART -- while the world was still running QuickConnect and its players were still on
+  # a client that cannot forward a password. Everyone was locked out of a world the operator had
+  # not touched, and it broke the promise the rest of 2.53 makes: nothing changes until you
+  # update a world. It belongs in the UPDATE path, with the other things that update changes.
+  #
+  # cpm is the negative and is anchored on the `sql "UPDATE ...` CALL, not the bare phrase: the
+  # migration still explains in a comment why it does not do this.
+  cpm=$(grep -cE '^[[:space:]]*sql "UPDATE worlds SET password' $zmig)
+  cpn=$(grep -c '^function ensureModdedWorldPassword()' $zfun)
+  cpo=$(grep -c 'ensureModdedWorldPassword "\$worldName"' $zeng)
+
+  echo "2.53 password timing: migration writes one=$cpm (want 0, was 1 and shipped)  update-path fn=$cpn (want 1)  engine calls it=$cpo (want 1)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2318,6 +2339,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpf" = "2" ] && [ "$cpg" = "0" ] \
     && [ "$cph" = "0" ] && [ "$cpi" = "1" ] && [ "$cpj" = "1" ] \
     && [ "$cpk" = "1" ] && [ "$cpl" = "0" ] \
+    && [ "$cpm" = "0" ] && [ "$cpn" = "1" ] && [ "$cpo" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

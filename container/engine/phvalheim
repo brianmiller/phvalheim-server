@@ -517,6 +517,15 @@ while [ true ]; do
 					#add required mods to final list
 					mergeRequiredTsMods "$worldName"
 
+					#Give this world a password if it has none. HERE, not in the 2.53
+					#migration, so it lands with everything else this update changes --
+					#serverblankpassword leaving and the Companion taking over joining.
+					#Generated at upgrade instead, it locked players out of worlds that
+					#were still on QuickConnect with clients that cannot send a password.
+					#Must come BEFORE $worldPassword is used below.
+					ensureModdedWorldPassword "$worldName"
+					worldPassword=$(SQL "SELECT IFNULL(password,'') FROM worlds WHERE name='$worldName';")
+
 					#Install mods
 					downloadAndInstallTsModsForWorld "$worldName"
 					if [ $? -ne 0 ]; then

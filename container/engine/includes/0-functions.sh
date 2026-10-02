@@ -730,6 +730,56 @@ function logConnectPathVerdict() {
 #Ensures PhValheim's own required mods are part of the world's selection. They are
 #recorded as normal is_dep=0 picks so the operator can see them in the mod list rather
 #than wondering where three unrequested plugins came from.
+#Give a MODDED world a generated password, at UPDATE time, if it has none.
+#
+#Why update time and not the 2.53 migration. The migration ran at UPGRADE, which password
+#protected every modded world at its next restart -- while it was still running QuickConnect
+#and its players were still on a client that cannot forward a password. They were locked out
+#of a world the operator had not touched. It also contradicted the promise 2.53 makes
+#everywhere else: nothing changes until you update a world.
+#
+#Updating a world is the moment everything else moves too: serverblankpassword stops being
+#reinstalled, the Companion takes over joining, and players are told to fetch the payload
+#again. The password belongs in that set, not ahead of it.
+#
+#Only ever FILLS AN EMPTY ONE. An operator who set a password keeps it, and one who
+#deliberately cleared it gets it back on the next update -- which is the compromise that makes
+#this safe to run on every update rather than once: the alternative is a flag that cannot tell
+#"never had one" from "cleared it on purpose", and silently leaving a world unjoinable by the
+#server browser forever.
+function ensureModdedWorldPassword() {
+        worldName="$1"
+
+        #Vanilla worlds are not ours to touch: they have had a real password column since 2.40
+        #and an empty one there is a choice the operator already made.
+        pwVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName' LIMIT 1;")
+        [ "$pwVanilla" = "1" ] && return 0
+
+        #IFNULL + '' because the column is NULL on every world created before 2.40 and '' on
+        #anything the admin UI saved with the field blank. Both mean "no password".
+        pwExisting=$(SQL "SELECT IFNULL(password,'') FROM worlds WHERE name='$worldName' LIMIT 1;")
+        [ -n "$pwExisting" ] && return 0
+
+        #Ambiguous characters are left out so the password survives being read off a screen and
+        #typed somewhere else. '?' is excluded by construction, which matters: the client launch
+        #payload is '?'-delimited and positional, and the password is field 2.
+        #
+        #16 characters of this alphabet cannot plausibly be a substring of a world name or seed,
+        #which is the other way Valheim rejects a password (IsPublicPasswordValid).
+        genPassword=$(tr -dc 'A-HJ-NP-Za-km-z2-9' < /dev/urandom 2>/dev/null | head -c 16)
+
+        #Never write a password we did not fully generate. A short read would otherwise store
+        #something under Valheim's 5-character minimum, and the world would refuse to boot the
+        #moment it was listed.
+        if [ ${#genPassword} -ne 16 ]; then
+                echo "`date` [ERROR : phvalheim] Could not generate a password for world '$worldName' (got ${#genPassword} characters, wanted 16). Leaving it without one; set a password in the world Settings modal."
+                return 1
+        fi
+
+        SQL "UPDATE worlds SET password = '$genPassword' WHERE name = '$worldName';"
+        echo "`date` [NOTICE : phvalheim] World '$worldName' has been given a password, because an updated world can now be password protected and listed in the server browser. Players who join with the Launch button need to do nothing -- the Companion fills it in. Anyone joining by address, and console players on a crossplay world, need it by hand; it is on the world card and in the world's Settings modal."
+}
+
 function mergeRequiredTsMods() {
         worldName="$1"
 
