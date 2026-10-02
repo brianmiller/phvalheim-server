@@ -1985,6 +1985,23 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   echo "2.53 password row styling: still vanilla-scoped=$cph (want 0, was 5)  unscoped action rule=$cpi (want 1)  unscoped dimmed rule=$cpj (want 1)"
 
+  # cpk/cpl -- the one-shot connect notice must not describe a CATALOGUE lookup.
+  #
+  # It told operators QuickConnect "will no longer be installed once a Companion that can do the
+  # job is available in your mod catalogue" -- true of the design, false of what shipped, since
+  # the Companion is inside this image. It asked them to wait for something already done.
+  #
+  # Both greps strip HTML comments and collapse whitespace, and both are necessary:
+  #   - the comment added next to the fix repeats the wrong phrases verbatim, so an unstripped
+  #     grep reports the broken text present on a FIXED file (the third time prose beat a
+  #     marker in this release -- see bb, bx, yu above);
+  #   - the original wraps "your mod / catalogue" across a line, so an uncollapsed grep finds
+  #     nothing and reports a BROKEN file clean. Each failure hides the opposite answer.
+  cpk=$(awk '/<!--/{c=1} !c{print} /-->/{c=0}' $zidx | tr '\n' ' ' | tr -s ' ' | grep -c 'ships inside PhValheim')
+  cpl=$(awk '/<!--/{c=1} !c{print} /-->/{c=0}' $zidx | tr '\n' ' ' | tr -s ' ' | grep -c 'available in your mod catalogue')
+
+  echo "2.53 connect notice wording: ships-inside stated=$cpk (want 1)  old catalogue claim=$cpl (want 0, was 1)"
+
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
   # same count and a very different number of rendered lines. That is precisely how the body
@@ -2300,6 +2317,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpb" = "1" ] && [ "$cpc" = "1" ] && [ "$cpd" = "0" ] && [ "$cpe" = "0" ] \
     && [ "$cpf" = "2" ] && [ "$cpg" = "0" ] \
     && [ "$cph" = "0" ] && [ "$cpi" = "1" ] && [ "$cpj" = "1" ] \
+    && [ "$cpk" = "1" ] && [ "$cpl" = "0" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

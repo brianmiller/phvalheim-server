@@ -145,7 +145,25 @@ echo "== what the notice says =="
 
 # The operator-facing facts that are not optional. Point 3 especially: someone who updates
 # five worlds at peak and finds them all stopped has learned it the worst way.
-body=$(awk '/connectNoticeOverlay/{f=1} f&&/<\/script>/{exit} f{print}' "$INDEX")
+# HTML COMMENTS ARE STRIPPED, and that is load-bearing rather than tidiness.
+#
+# The first cut of the negatives below failed against the FIXED file: the comment added above
+# the paragraph, explaining why the catalogue wording was wrong, contains the very phrases the
+# negatives search for. A comment documenting a removal is indistinguishable from the removed
+# thing to a grep -- the same trap that made three build markers in this release match prose
+# instead of behaviour. What the operator reads is the rendered text, so that is what is tested.
+# WHITESPACE IS COLLAPSED, and that is load-bearing too. The phrase this test must catch is
+# wrapped across a line in the source:
+#
+#     be installed once a Companion that can do the job is available in your mod
+#     catalogue.
+#
+# so a search for "mod catalogue" finds nothing and reports the file CLEAN. Caught by running
+# the negatives against the old wording and watching that one pass when it had to fail. Every
+# phrase assertion below reads a single normalised line, the way an operator reads the sentence.
+body=$(awk '/connectNoticeOverlay/{f=1} f&&/<\/script>/{exit} f{print}' "$INDEX" \
+	| awk '/<!--/{c=1} !c{print} /-->/{c=0}' \
+	| tr '\n' ' ' | tr -s ' ')
 case "$body" in *"must be updated once"*) pass "says each world must be updated once" ;;
 	*) fail "does not say each world must be updated once" ;; esac
 case "$body" in *"stops it"*) pass "warns that updating a world stops it" ;;
@@ -154,6 +172,25 @@ case "$body" in *"Nothing breaks by waiting"*) pass "says nothing breaks by wait
 	*) fail "does not reassure that waiting is safe" ;; esac
 case "$body" in *QuickConnect*) pass "names QuickConnect" ;;
 	*) fail "does not name QuickConnect" ;; esac
+
+# NEGATIVES -- claims that were TRUE of the design and FALSE of what shipped.
+#
+# The notice told operators QuickConnect "will no longer be installed once a Companion that can
+# do the job is available in your mod catalogue". That was written while the Companion was still
+# a Thunderstore package resolved at build time. It ships inside the image, so there is no
+# catalogue, no version to wait for, and no condition left to satisfy -- the text asked the
+# operator to wait for something that had already happened. Brian caught it; every assertion
+# above passed on it, because they all check what the notice SAYS and none checked what it
+# wrongly PROMISES.
+case "$body" in *"mod catalogue"*)
+	fail "still says the Companion comes from the mod catalogue -- it ships in the image" ;;
+	*) pass "does not claim the Companion comes from a catalogue" ;; esac
+case "$body" in *"once a Companion"*|*"will no longer be installed once"*)
+	fail "still makes QuickConnect's retirement conditional on a future event" ;;
+	*) pass "QuickConnect's retirement is stated as done, not pending" ;; esac
+case "$body" in *"ships inside PhValheim"*)
+	pass "says the Companion ships inside PhValheim" ;;
+	*) fail "does not say the Companion ships inside PhValheim -- the operator cannot tell where it comes from" ;; esac
 
 echo ""
 if [ "$fails" -eq 0 ]; then

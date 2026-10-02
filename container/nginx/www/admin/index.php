@@ -1393,11 +1393,19 @@ $totalCount = count($worlds);
                 </h3>
             </div>
             <div class="mods-modal-body">
+                <!-- Wording note: this described a CATALOGUE lookup -- "once a Companion that can
+                     do the job is available in your mod catalogue" -- which was true of the
+                     design where the Companion was still a Thunderstore package resolved at
+                     build time. It is not true of what shipped: the Companion is inside this
+                     image, so there is no catalogue, no version to wait for, and no condition
+                     left to satisfy. The old text told the operator to wait for something that
+                     had already happened. -->
                 <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
                     The <strong>PhValheim Companion</strong> now handles connecting players to your
-                    modded worlds. <strong>QuickConnect</strong> is being retired and will no longer
-                    be installed once a Companion that can do the job is available in your mod
-                    catalogue.
+                    modded worlds, and it <strong>ships inside PhValheim itself</strong> &mdash;
+                    there is nothing to download and no version to keep an eye on.
+                    <strong>QuickConnect</strong> is retired: it is no longer installed on any
+                    world, and it is removed from the worlds that have it as you update them.
                 </p>
 
                 <div style="background: var(--bg-tertiary); border-left: 3px solid var(--warning); padding: 0.75rem 1rem; margin-bottom: 1rem;">
