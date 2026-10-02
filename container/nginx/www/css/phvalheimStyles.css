@@ -4992,13 +4992,25 @@ input:checked + .slider:before {
 	word-break: break-all;
 }
 
-.catbox-vanilla .vanilla-password-mask {
+/* The password reveal row: mask, SHOW and COPY.
+ *
+ * NOT scoped to .catbox-vanilla as of 2.53, because a MODDED world can have a password now and
+ * a modded card is a plain .catbox. Scoped, these five rules applied to nothing on that card:
+ * the markup reused the vanilla classes and inherited none of their styling, so the row
+ * rendered as full-size default links with no spacing. The modded card's own code comment
+ * already warned about this exact trap, from when .vanilla-hint hit it.
+ *
+ * These five describe the password control itself, not the card around it, so de-scoping is
+ * the honest fix rather than adding a second set of selectors that has to be kept in step.
+ * The class NAME is now a misnomer; renaming it would touch the two JS handlers, both cards
+ * and the AJAX refresh, so it stays until there is a reason to move all of them at once. */
+.vanilla-password-mask {
 	font-family: monospace;
 	letter-spacing: 0.1em;
 	margin-right: 0.4rem;
 }
 
-.catbox-vanilla .vanilla-password-action {
+.vanilla-password-action {
 	font-size: 0.72rem;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
@@ -5007,17 +5019,17 @@ input:checked + .slider:before {
 	margin-left: 0.45rem;
 }
 
-.catbox-vanilla .vanilla-password-action:hover {
+.vanilla-password-action:hover {
 	opacity: 1;
 	text-decoration: underline;
 }
 
-.catbox-vanilla .vanilla-password-copied {
+.vanilla-password-copied {
 	color: var(--success, #4ade80);
 	opacity: 1;
 }
 
-.catbox-vanilla .vanilla-password-failed {
+.vanilla-password-failed {
 	color: var(--danger, #f87171);
 	opacity: 1;
 }
@@ -5175,8 +5187,11 @@ body:has(.google_header) .catbox td.vanilla-hint {
 	opacity: 0.6;
 }
 
+/* An offline card greys its password actions too. The second selector is unscoped for the same
+ * reason as the block above: a dimmed MODDED card is .catbox.card_dimmed, so a
+ * .catbox-vanilla-scoped rule left its SHOW/COPY links at full strength on a greyed-out card. */
 .catbox-vanilla.card_dimmed .world-endpoint code,
-.catbox-vanilla.card_dimmed .vanilla-password-action {
+.card_dimmed .vanilla-password-action {
 	color: var(--text-muted, #888) !important;
 	opacity: 0.6;
 }

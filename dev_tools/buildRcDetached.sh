@@ -1970,6 +1970,21 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated=$cpc (want 1)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused=$cpf (want 2)"
   echo "2.53 access decoupled: restart-pending mirror vanilla gates=$cpg (want 0, was 2 and shipped broken)"
 
+  # cph/cpi/cpj -- the password reveal row must be styled on a MODDED card too.
+  #
+  # The modded card reuses the vanilla card's classes, but five of the six rules were scoped
+  # `.catbox-vanilla .vanilla-password-*` and a modded card is a plain `.catbox`. The row
+  # inherited nothing: 14px lowercase "showcopy" with no spacing, against the vanilla card's
+  # 11.52px uppercase "SHOW COPY". Shipped in :rc and spotted by Brian on sight -- no marker or
+  # test could see it, because the markup was identical and correct and only the CSS selector
+  # was wrong. test-password-row-styling.js measures computed style on the real rendered page.
+  zcss=/opt/stateless/nginx/www/css/phvalheimStyles.css
+  cph=$(grep -c 'catbox-vanilla .vanilla-password' $zcss)
+  cpi=$(grep -c '^\.vanilla-password-action {$' $zcss)
+  cpj=$(grep -c '^\.card_dimmed \.vanilla-password-action {$' $zcss)
+
+  echo "2.53 password row styling: still vanilla-scoped=$cph (want 0, was 5)  unscoped action rule=$cpi (want 1)  unscoped dimmed rule=$cpj (want 1)"
+
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
   # same count and a very different number of rendered lines. That is precisely how the body
@@ -2284,6 +2299,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cow" = "0" ] && [ "$cox" = "1" ] && [ "$coy" = "1" ] && [ "$coz" = "1" ] \
     && [ "$cpb" = "1" ] && [ "$cpc" = "1" ] && [ "$cpd" = "0" ] && [ "$cpe" = "0" ] \
     && [ "$cpf" = "2" ] && [ "$cpg" = "0" ] \
+    && [ "$cph" = "0" ] && [ "$cpi" = "1" ] && [ "$cpj" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \
