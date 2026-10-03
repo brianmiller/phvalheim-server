@@ -32,9 +32,14 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 		// rather than guessing when it cannot find out. Say that instead of
 		// rendering an empty popover, which reads as a broken page -- and leave
 		// the 'other builds?' link below it as the way out.
+		//
+		// Deliberately NOT class='client_download_cell'. That class marks a
+		// download link and the build counts it: there are five, one per
+		// artifact, and marker wi pins that count. This row is a message, not a
+		// sixth download, so it borrows the 'other builds' text style instead.
 		if (empty($phValheimClientGitReleases)) {
 			echo "
-				<tr><td class='client_download_cell'>
+				<tr><td>
 					<p class='client_download_tooltip_otherbuilds'>No published release is available right now.</p>
 				</td></tr>
 			";
