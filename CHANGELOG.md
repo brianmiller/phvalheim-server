@@ -401,6 +401,18 @@ geometry disagreed with how the markup read. It also caught a non-oracle asserti
 `stripped.Contains(world)` passes vacuously when the world name is empty, which is exactly the
 state the parser refuses, so a mutant that accepted a nameless manifest reported four `ok`s.
 
+**The "Get the app" button is gone, and so is the URL that fed it.** It opened
+`settings.phvalheimClientURL`, which is a single text field whose default has pointed at
+`phvalheim-client-installer.exe` since `dbUpdate_2.31.sh` — so on Linux or macOS the button
+handed the player the wrong installer, and Brian did not recognise the file it offered him.
+Choosing the right artefact per platform is not something the server can do from one URL, so
+the button went and `clientUrl` left the manifest with it: a field nothing reads is an orphan,
+and an orphan here would invite the button back. The notice's left button is now hidden rather
+than given a second job — and the restore is asserted separately from the hide, because
+`UnifiedPopup` is a shared singleton and a left button left inactive would vanish from every
+later yes/no dialog in the game, vanilla's included. Dropping that restore fails
+`test-dialog-reachability.sh`.
+
 **It then shipped unreachable, and every cheap check passed.** Three gates decide whether the
 notice appears: `FejdStartupPatch.SetupGui` attaches the component, `ConnectDialog.Update`
 decides whether to call `Show()`, and `Show()` picks which dialog to build. Gates 1 and 3 were

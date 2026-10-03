@@ -1304,9 +1304,15 @@ function InstallCustomConfigSecureFiles() {
 #turning every client install into a copy of the world's credentials. The Companion tells the
 #player where to read it instead.
 #
-#Format is key=value, one per line, split on the FIRST = only -- phvalheimClientURL contains
-#query strings with their own = signs. Not JSON: Valheim ships no JSON parser this plugin can
-#rely on, and a hand-rolled one would be a parser bug waiting to happen for no gain.
+#Format is key=value, one per line, split on the FIRST = only, because a world name may itself
+#contain one. Not JSON: Valheim ships no JSON parser this plugin can rely on, and a hand-rolled
+#one would be a parser bug waiting to happen for no gain.
+#
+#No client download URL in here either. It used to carry settings.phvalheimClientURL so the
+#notice could offer a "Get the app" button, but that setting is ONE url and its default has
+#pointed at a Windows .exe since 2.31 -- on Linux or macOS the button handed the player the
+#wrong installer. Choosing per platform is not something the server can do from one text field,
+#so the button is gone and the field with it.
 function writeClientManifest() {
         worldName="$1"
 
@@ -1338,7 +1344,6 @@ function writeClientManifest() {
                 echo "vanilla=$isVanilla"
                 echo "crossplay=$isCrossplay"
                 echo "minClientVersion=$clientMinVersion"
-                echo "clientUrl=$phvalheimClientURL"
         } > "$tmp" 2>/dev/null
 
         if [ ! -s "$tmp" ]; then

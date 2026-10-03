@@ -127,10 +127,16 @@ if [ -f "$MAN" ]; then
 		|| fail "minClientVersion is not the configured value" \
 		        "a second hardcoded copy would drift from phvalheim-static.conf"
 
-	# The URL whole, query string and all.
-	grep -qx 'clientUrl=https://phv.example.com/download?os=win&v=2' "$MAN" \
-		&& pass "carries the client URL intact, '=' signs included" \
-		|| fail "the client URL was altered: $(grep '^clientUrl=' "$MAN")"
+	# NO client download URL. It was dropped when the "Get the app" button was: the setting is
+	# a single url whose default is a Windows .exe, so on any other platform the button handed
+	# the player the wrong installer. A field nothing reads is an orphan, and an orphan here
+	# would invite the button back.
+	if grep -qi '^clientUrl=' "$MAN"; then
+		fail "the manifest still carries a client download URL" \
+		     "nothing reads it since the Get the app button was removed"
+	else
+		pass "no client download URL (the button it fed is gone)"
+	fi
 
 	# THE ONE THAT MATTERS MOST. Negative checks pass trivially against a missing file, which
 	# is why this is inside the -f guard and why "a manifest was written" is asserted above.

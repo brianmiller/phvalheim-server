@@ -2071,7 +2071,15 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   cqa=0; grep -aqF -- "Nothing handed Valheim a world to join." $zdlltxt && cqa=1
   cqb=0; grep -aqF -- "ShowLaunchHelp" $zdlltxt && cqb=1
 
-  echo "2.53 client manifest: minVersion const=$cpu (want 1)  writer=$cpv (want 1)  written before zip=$cpw (want 1)  password in manifest=$cpx (want 0)  dll reads it=$cpz (want 1)  dll has the notice=$cqa (want 1)  dll has the off switch=$cqb (want 1)  dll says 'out of date'=$cpy (want 0)"
+  # NEGATIVE: no client-download button. settings.phvalheimClientURL is ONE url and its
+  # default has been a Windows .exe since dbUpdate_2.31, so on Linux or macOS that button
+  # handed the player the wrong installer. Dropped on Brian's call; this stops it coming back
+  # by accident. Checks the dll's string table, so it fails whether the button is restored in
+  # the Companion or the url is put back into the manifest.
+  cqc=0; grep -aqF -- "Get the app" $zdlltxt && cqc=1
+  cqd=$(awk '/^function writeClientManifest\(\)/,/^}/' $zfun | grep -c 'clientUrl=')
+
+  echo "2.53 client manifest: minVersion const=$cpu (want 1)  writer=$cpv (want 1)  written before zip=$cpw (want 1)  password in manifest=$cpx (want 0)  dll reads it=$cpz (want 1)  dll has the notice=$cqa (want 1)  dll has the off switch=$cqb (want 1)  dll says 'out of date'=$cpy (want 0)  download button=$cqc (want 0)  clientUrl in manifest=$cqd (want 0)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2393,6 +2401,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpp" = "1" ] && [ "$cpq" = "1" ] && [ "$cpr" = "1" ] && [ "$cps" = "1" ] && [ "$cpt" = "0" ] \
     && [ "$cpu" = "1" ] && [ "$cpv" = "1" ] && [ "$cpw" = "1" ] && [ "$cpx" = "0" ] \
     && [ "$cpy" = "0" ] && [ "$cpz" = "1" ] && [ "$cqa" = "1" ] && [ "$cqb" = "1" ] \
+    && [ "$cqc" = "0" ] && [ "$cqd" = "0" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \
