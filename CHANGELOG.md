@@ -328,6 +328,48 @@ comments — `-public 0` and `hammertime` both still appear in this release, in 
 why they are gone — so they would have passed on a tree where the behaviour was reverted and only
 the explanation survived.
 
+### The password is generated at world UPDATE, not at upgrade
+
+The first cut generated every modded world's password inside `dbUpdate_2.53.sh`, so it happened
+the moment the container came up. That breaks a server mid-flight: a world still running
+QuickConnect, with players on clients older than 2.0.14, acquires a password that nothing on the
+player's side can answer, and it acquires it before the operator has done anything or seen a
+single notice. The review document had argued for update-time and the implementation did
+upgrade-time anyway; Brian caught it on a live server.
+
+Generation moved out of the migration into `ensureModdedWorldPassword()`, called from the engine's
+update branch after `mergeRequiredTsMods`. The migration still deletes the retired mod rows, which
+is safe because those rows only take effect at a world's next rebuild. The rule for the whole
+release is now uniform: **nothing changes about a world until you update it.**
+
+### The notices, and two things they got wrong
+
+`clientUpdateNoticeState` is a **tri-state** — 0 not triggered, 1 pending, 2 dismissed — because
+"has not happened yet" and "the operator dismissed it" are different answers and a boolean cannot
+hold both. Collapsing them fails in one of two directions: the dialog appears on a server that has
+updated nothing, or it returns after every world update forever. `test-client-update-notice.sh`
+asserts both directions, and evaluates the real gate expression in PHP rather than grepping for it.
+
+Two wording defects shipped before the final build. The connect notice described QuickConnect as
+being retired "once a Companion that can do the job is available in your mod catalogue" — there is
+no such lookup; the Companion is bundled with the server. And the client-update dialog opened with
+"You have updated a world", which is false on any server with `autoupdate_mode` set: auto-update
+runs the same path unattended, so the dialog arrives having been triggered by nobody. Both are now
+agent-neutral, and the test carries a negative assertion against the "you did it" phrasing.
+
+`dev_tools/resetNotices.sh` re-arms these one-shot flags for testing. Each notice declares its own
+armed value, because arming the tri-state means writing 1 — writing 0 would say "nothing has
+happened yet" and the dialog would not appear.
+
+### The modded card's password row was unstyled
+
+Five of the password-row CSS rules were scoped to `.catbox-vanilla`. A modded world's card is a
+plain `.catbox`, so it matched none of them: the markup was correct and identical, and it rendered
+with no spacing and no show/hide or copy affordances. The second time this scoping has bitten in
+one release. The rules are de-scoped and the dimmed variant now keys on `.card_dimmed`;
+`test-password-row-styling.js` measures computed style on a rendered page rather than asserting on
+the stylesheet text.
+
 ## v2.52
 
 ### The mod catalogue stopped refreshing after the first boot
