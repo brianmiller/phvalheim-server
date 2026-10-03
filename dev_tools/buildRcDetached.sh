@@ -2128,7 +2128,23 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # presence in the image is what guarantees the decision is still testable.
   cqj=0; grep -aqF -- "WantsReopenButton" $zdlltxt && cqj=1
 
-  echo "2.53 dialog chrome: inserted backdrop=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)  testable button predicate=$cqj (want 1)"
+  # cqk: the cloned menu button must DISABLE THE HANDLER IT INHERITED.
+  #
+  # The clone is a copy of a live Valheim menu button, and Brian reported that clicking it took
+  # him to character selection -- it was running Valheim's handler as well as ours. The old code
+  # called onClick.RemoveAllListeners(), and an IL check asserting that call PASSED the whole
+  # time: RemoveAllListeners clears only RUNTIME listeners, while Valheim's are PERSISTENT ones
+  # serialized in the prefab. Present was not effective.
+  #
+  # SetPersistentListenerState is the only runtime way to switch those off, so its presence in
+  # the image is the thing worth gating on.
+  cqk=0; grep -aqF -- "SetPersistentListenerState" $zdlltxt && cqk=1
+
+  # cql: the menu entry's two-colour label. Magenta is Brian's explicit choice and is NOT in the
+  # stylesheet, so the palette drift check cannot cover it -- this is what does.
+  cql=0; grep -aqF -- "#ff00ff" $zdlltxt && cql=1
+
+  echo "2.53 dialog chrome: inserted backdrop=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)  testable button predicate=$cqj (want 1)  inherited handler off=$cqk (want 1)  magenta label=$cql (want 1)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2452,7 +2468,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpy" = "0" ] && [ "$cpz" = "1" ] && [ "$cqa" = "1" ] && [ "$cqb" = "1" ] \
     && [ "$cqc" = "0" ] && [ "$cqd" = "0" ] \
     && [ "$cqe" = "0" ] && [ "$cqf" = "1" ] && [ "$cqg" = "1" ] && [ "$cqh" = "0" ] \
-    && [ "$cqi" = "1" ] && [ "$cqj" = "1" ] \
+    && [ "$cqi" = "1" ] && [ "$cqj" = "1" ] && [ "$cqk" = "1" ] && [ "$cql" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

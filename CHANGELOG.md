@@ -17,8 +17,22 @@ full-screen overlay, and rendered as a full-screen box with a border and no text
 logs the popup's real Image tree instead — paths, sizes, sprites and sibling order — so a future
 reskin can target the background by name rather than by guessing at sizes.
 
-**Fixed: the main-menu button that reopens the notice never appeared, and the gray one that
-did appear was dead.** The predicate deciding whether to build the button included a term that
+The notice is reachable again from a **PhValheim: <world>** entry on the main menu, with the
+name in PhValheim's cyan.
+
+**Fixed: that entry never appeared, the plain button that appeared instead was dead, and once
+it did appear it started the game.** Three separate faults in the same small feature. The
+predicate deciding whether to build the entry contained a term that was always false once the
+dialog had been shown, so it was never built; an IMGUI fallback drew in its place, and IMGUI
+buttons do not receive clicks in Valheim; and the entry is cloned from a live menu button whose
+handler is wired in the Unity Inspector, which `RemoveAllListeners()` does not remove — so the
+clone also did whatever the button it was copied from did.
+
+Each of the three had a test asserting the right code was being called, and each of those
+assertions was true while the bug was live. The lesson taken into the test suite is that a call
+list proves a call happens, not that a branch runs or that the call has the effect assumed — so
+the decision is now a pure function driven by a truth table, and the handler check is anchored
+on the call that actually disables a persistent listener. The predicate deciding whether to build the button included a term that
 was always false once the dialog had been shown, so the real button was never created and an
 IMGUI fallback drew in its place — and IMGUI buttons do not receive clicks in Valheim. The
 decision is now a pure function driven by a truth table, because the previous test could only
