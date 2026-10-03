@@ -401,6 +401,30 @@ geometry disagreed with how the markup read. It also caught a non-oracle asserti
 `stripped.Contains(world)` passes vacuously when the world name is empty, which is exactly the
 state the parser refuses, so a mutant that accepted a nameless manifest reported four `ok`s.
 
+**The notice is a `WarningPopup` in a smaller panel.** Removing the second button left the
+first one off centre, because it was still the *right* button of a pair — and pulled further
+off by `ButtonPull`, which exists only to close the gap a scaled-down pair leaves. The fix was
+not another screen-space nudge: `UnifiedPopup.ShowWarning` activates `buttonCenter`, labels it
+from `UnifiedPopup.okText` and centres it itself — read out of its IL rather than assumed — so
+the notice uses Valheim's own single-button popup and needs no geometry of its own. The
+left-button hiding is gone with it, and so is the risk of leaving a vanilla dialog a button
+short.
+
+`PanelScale` is 2.0 because the connect dialog carries eight lines plus a scrolling mod list;
+the notice carries five and no list, so at 2.0 it was a vast box around a short sentence. It
+now lays out at `HelpPanelScale` 1.5, with every styling method reading a runtime `_activeScale`
+instead of the constant so the two dialogs share one copy of the arithmetic. The body budget
+has to move with the panel — the inner height scales while the text stays a fixed screen size —
+so `HelpBodyLineBudget` is 7, and `renderDialog` now asserts the *relation* between the three
+numbers rather than trusting them to be edited together. That check exists because the
+mutation found the gap: setting the help scale back to 2.0 produced **zero** failures, since the
+budget was a constant the harness took on faith.
+
+The restore checks got tighter for the same reason. `RestorePopupSkin calls SetPrivateField`
+passed a mutant with the `okText` restore deleted — it could not tell *which* field was being
+put back, and the method restores `yesText` and `noText` too. Anchored on `_savedOkText`, which
+nothing else reads, it fails.
+
 **The "Get the app" button is gone, and so is the URL that fed it.** It opened
 `settings.phvalheimClientURL`, which is a single text field whose default has pointed at
 `phvalheim-client-installer.exe` since `dbUpdate_2.31.sh` — so on Linux or macOS the button
