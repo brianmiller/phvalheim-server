@@ -2176,6 +2176,36 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   echo "2.53 dialog chrome: inserted backdrop=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)  testable button predicate=$cqj (want 1)  inherited handler off=$cqk (want 1)  magenta label=$cql (want 1)  per-frame guards=$cqm (want 1)  Connect: label=$cqn (want 1)"
 
+  # cqo-cqs -- the download menu offers PUBLISHED releases only.
+  #
+  # getGitReleases() read git TAGS, and a GitHub pre-release creates a tag, so
+  # the 2.0.14 pre-release was offered to every player on a live server while
+  # 2.0.13 was still the published release. "Is it published?" was asked nowhere.
+  #
+  # cqo/cqp are NEGATIVES on the old mechanism. Checking only that the API is
+  # called would pass on a file that still had the tag reader sitting in it, one
+  # edit from coming back.
+  zgit=/opt/stateless/nginx/www/includes/git.php
+  zdlbtn=/opt/stateless/nginx/www/includes/clientDownloadButton.php
+  # Comment lines are stripped first. git.php documents the old command verbatim
+  # so the next reader knows what was wrong with it, and a raw count therefore
+  # reads 1 and fails the build on its own explanation. Predicted locally before
+  # building, which is the only reason this was caught.
+  zgitcode=$(grep -v '^[[:space:]]*\(//\|/\*\|\*\)' $zgit)
+  cqo=$(printf '%s\n' "$zgitcode" | grep -c 'ls-remote')
+  cqp=$(printf '%s\n' "$zgitcode" | grep -c 'shell_exec')
+  cqq=$(grep -c 'api\.github\.com/repos/' $zgit)
+  # BOTH flags, and anchored on the subscript so a comment naming them is not
+  # enough: prose about prerelease filtering kept this green once already in the
+  # test file, and the same trap applies here.
+  cqr=0; grep -qE "\\\$r\['draft'\]" $zgit && grep -qE "\\\$r\['prerelease'\]" $zgit && cqr=1
+  # The empty-state row. Returning no versions is correct when nothing is
+  # published or the lookup failed; rendering a blank popover reads as a broken
+  # page, and that is indistinguishable from a crash to a player.
+  cqs=$(grep -c 'No published release is available right now' $zdlbtn)
+
+  echo "2.53 download source: ls-remote gone=$cqo (want 0)  shell_exec gone=$cqp (want 0)  releases API called=$cqq (want 1)  draft+prerelease filtered=$cqr (want 1)  empty state explained=$cqs (want 1)"
+
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
   # same count and a very different number of rendered lines. That is precisely how the body
@@ -2547,6 +2577,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cqe" = "0" ] && [ "$cqf" = "1" ] && [ "$cqg" = "1" ] && [ "$cqh" = "0" ] \
     && [ "$cqi" = "1" ] && [ "$cqj" = "1" ] && [ "$cqk" = "1" ] && [ "$cql" = "1" ] \
     && [ "$cqm" = "1" ] && [ "$cqn" = "1" ] \
+    && [ "$cqo" = "0" ] && [ "$cqp" = "0" ] && [ "$cqq" = "1" ] \
+    && [ "$cqr" = "1" ] && [ "$cqs" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

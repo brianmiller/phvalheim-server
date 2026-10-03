@@ -2,6 +2,40 @@
 
 ## v2.53
 
+### Fixed: the download menu could offer an unreleased client
+
+`getGitReleases()` was named for releases but read git **tags**:
+
+```
+git ls-remote --refs --tags $repo | cut -d/ -f3- | sort -V -r | head -N
+```
+
+A GitHub pre-release creates a tag, and the client build commits its artifacts to `master`, so
+a tag plus a committed file was enough to hand every player an unreleased build. The 2.0.14
+pre-release was being offered on a live server while 2.0.13 was still the published release.
+Nothing in the chain ever asked whether a version was published — the flag was not ignored, it
+was never consulted.
+
+It now reads the releases API and excludes `draft` and `prerelease`. Three states are kept
+distinct: a list of published versions, an **empty** list (a real answer — nothing is published
+yet), and a failure. A failure never renders as "none" and never falls back to tags, because
+falling back to tags is the bug. On a failed lookup a stale cache is served if one exists;
+otherwise the menu says no published release is available instead of rendering blank. The
+answer is cached for an hour, which is not optional: unauthenticated GitHub allows 60 requests
+an hour and this runs on every render of the player page.
+
+Guarded by `dev_tools/test-client-release-source.php` (20 checks) and five in-image markers
+(`cqo`–`cqs`). Two things that test found, both kept as comments:
+
+- only the API response was being sorted, not the cache read — and the cache is what callers hit
+  almost every time, so a patch to an old version published after a newer release would have gone
+  out as "the latest client". Every return path now goes through one sorter.
+- the pre-release filter was inlined in the HTTP function, so it could not be driven without a
+  network and the only coverage was a grep for the word `prerelease` — a check that passes
+  whether or not the flag is honoured. Split out as `phvPublishedVersionsFromApi()` and driven
+  with the recorded API response. Mutation-checked: deleting the `prerelease` check fails 3
+  assertions, the `draft` check 2, the sort 1.
+
 ### Fixed before release: crossplay no longer blocks listing in the server browser
 
 A pre-release of 2.53 refused `listed` together with `crossplay` — on both write paths and at

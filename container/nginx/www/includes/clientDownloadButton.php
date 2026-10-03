@@ -28,6 +28,18 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 	function populateDownloadLinks($operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 		$phValheimClientGitReleases = getGitReleases($phValheimClientGitRepo,$clientVersionsToRender);
 
+		// getGitReleases() returns PUBLISHED releases only, and returns none
+		// rather than guessing when it cannot find out. Say that instead of
+		// rendering an empty popover, which reads as a broken page -- and leave
+		// the 'other builds?' link below it as the way out.
+		if (empty($phValheimClientGitReleases)) {
+			echo "
+				<tr><td class='client_download_cell'>
+					<p class='client_download_tooltip_otherbuilds'>No published release is available right now.</p>
+				</td></tr>
+			";
+		}
+
 		foreach ($phValheimClientGitReleases as $release) {
 			if(!empty($release)) {
 
