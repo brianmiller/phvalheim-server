@@ -2039,6 +2039,40 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   echo "2.53 client-update notice: column=$cpp (want 1)  promote scoped to 0=$cpq (want 1)  engine fires it=$cpr (want 1)  dismiss writes 2=$cps (want 1)  dismiss writes 0=$cpt (want 0)"
 
+  # cpu..cpy -- the client manifest, and the Companion notice that reads it.
+  #
+  # The server half writes a manifest into the payload so the Companion can name the world
+  # when no --phvalheim-launch argument arrived. The client half is in a dll, so these check
+  # the dll's own string table rather than source that may not have been rebuilt -- the
+  # bundled dll going stale is the realistic failure, not the bash going missing.
+  #
+  # cpw is the ORDER check, and it is the one with teeth. Written after the zip, the manifest
+  # ships in the NEXT payload and describes the world as it was one update ago -- a bug that
+  # looks exactly like a server that forgot to update.
+  #
+  # cpy is a NEGATIVE on the dll: the notice must never claim the player's app is out of
+  # date. That state has two causes -- an old app, or a Steam launch of an install PhValheim
+  # set up -- and nothing in the game process can tell them apart.
+  cpu=$(grep -c '^clientMinVersion="' $zconf)
+  cpv=$(grep -c '^function writeClientManifest()' $zfun)
+
+  mancall=$(awk -v s="$(grep -n '^function packageClient()' $zfun | head -1 | cut -d: -f1)" \
+                'NR>s && /writeClientManifest "\$worldName"/{print NR; exit}' $zfun)
+  manzip=$(awk -v s="$(grep -n '^function packageClient()' $zfun | head -1 | cut -d: -f1)" \
+               'NR>s && /^[[:space:]]*zip "\$zipPath" -r/{print NR; exit}' $zfun)
+  cpw=0; [ -n "$mancall" ] && [ -n "$manzip" ] && [ "$mancall" -lt "$manzip" ] && cpw=1
+
+  # NEGATIVE: no password may be written into the manifest. argv carries the password for the
+  # life of one process; this file lives on every player's disk until the install is replaced.
+  cpx=$(awk '/^function writeClientManifest\(\)/,/^}/' $zfun | grep -ciE 'echo "password=|SELECT password')
+
+  cpy=0; grep -aq "is out of date" $zdlltxt && cpy=1
+  cpz=0; grep -aqF -- "phvalheim-world.cfg" $zdlltxt && cpz=1
+  cqa=0; grep -aqF -- "Nothing handed Valheim a world to join." $zdlltxt && cqa=1
+  cqb=0; grep -aqF -- "ShowLaunchHelp" $zdlltxt && cqb=1
+
+  echo "2.53 client manifest: minVersion const=$cpu (want 1)  writer=$cpv (want 1)  written before zip=$cpw (want 1)  password in manifest=$cpx (want 0)  dll reads it=$cpz (want 1)  dll has the notice=$cqa (want 1)  dll has the off switch=$cqb (want 1)  dll says 'out of date'=$cpy (want 0)"
+
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
   # same count and a very different number of rendered lines. That is precisely how the body
@@ -2357,6 +2391,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpk" = "1" ] && [ "$cpl" = "0" ] \
     && [ "$cpm" = "0" ] && [ "$cpn" = "1" ] && [ "$cpo" = "1" ] \
     && [ "$cpp" = "1" ] && [ "$cpq" = "1" ] && [ "$cpr" = "1" ] && [ "$cps" = "1" ] && [ "$cpt" = "0" ] \
+    && [ "$cpu" = "1" ] && [ "$cpv" = "1" ] && [ "$cpw" = "1" ] && [ "$cpx" = "0" ] \
+    && [ "$cpy" = "0" ] && [ "$cpz" = "1" ] && [ "$cqa" = "1" ] && [ "$cqb" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

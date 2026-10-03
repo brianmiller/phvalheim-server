@@ -235,6 +235,16 @@ supervisorctl start valheimworld_myworld # Start world
   is why the `serverblankpassword` mod was never doing anything here; it is retired, out of
   `requiredMods`, and removed from existing worlds by a one-time block in `dbUpdate_2.53.sh`
   which also generates a password for every modded world that had none.
+- **Every client payload carries a manifest** — `BepInEx/plugins/PhValheimCompanion/phvalheim-world.cfg`,
+  written by `writeClientManifest()` **before** `packageClient()` zips (written after, it ships one
+  update late). `key=value`, split on the FIRST `=` only, because `clientUrl` has a query string.
+  It exists so the Companion can name the world when no `--phvalheim-launch` arrived, and it
+  **never carries the password** — argv lives for one process, this file lives on every player's
+  disk. `clientMinVersion` comes from `phvalheim-static.conf`, not a second hardcoded copy.
+  "Manifest but no payload" has **two indistinguishable causes** (an app older than the handoff,
+  or a Steam launch of a PhValheim-managed install), so the notice states the requirement and
+  never asserts the player's app is out of date. Guarded by `dev_tools/test-client-manifest.sh`
+  and the launch-help cases in `phvalheim-companion/dev_tools/renderDialog`.
 - `validateWorldPassword()` enforces Valheim's three rules **and** ours: min 5 characters, not
   contained in the world name, **not contained in the seed name**, and no `?` (the launch
   payload is `?`-delimited and positional, with the password at field 2). Guarded by

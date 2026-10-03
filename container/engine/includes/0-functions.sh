@@ -1283,6 +1283,82 @@ function InstallCustomConfigSecureFiles() {
 
 
 #$1=worldName
+#
+#Writes the client manifest into the client staging tree, next to the Companion's own dll.
+#
+#WHY THIS EXISTS
+#The Companion learns everything about a world from the --phvalheim-launch argument. A client
+#older than $clientMinVersion does not pass it, so the Companion wakes up knowing nothing: it
+#cannot name the world, cannot connect, and -- this is the part that reached Brian -- cannot
+#say anything either, because FejdStartupPatch returns early when there is no payload. The
+#player gets silence and a world they can no longer one-click into.
+#
+#This manifest is the answer to "which world am I installed for?" when argv is empty. It is
+#written by the SERVER, so it cannot disagree with the server, and it ships inside the payload
+#zip, so an old client receives it on its next world update without needing a new client.
+#
+#NO PASSWORD IN HERE, EVER.
+#The password travels in argv (field 2 of the launch string) and nowhere else. argv lives for
+#the life of one process; this file lands on every player's disk in plaintext and stays there.
+#Those are not the same exposure, and the convenience of a prefilled password is not worth
+#turning every client install into a copy of the world's credentials. The Companion tells the
+#player where to read it instead.
+#
+#Format is key=value, one per line, split on the FIRST = only -- phvalheimClientURL contains
+#query strings with their own = signs. Not JSON: Valheim ships no JSON parser this plugin can
+#rely on, and a hand-rolled one would be a parser bug waiting to happen for no gain.
+function writeClientManifest() {
+        worldName="$1"
+
+        local stage; stage="$(clientStagingRoot "$worldName")"
+        local dest="$stage/BepInEx/plugins/PhValheimCompanion"
+
+        #The Companion is installed into BOTH trees by installSystemPlugins() ->
+        #installCustomModsConfigsPatchers(), so this directory normally exists already. It is
+        #created rather than required because a manifest with no Companion beside it is
+        #harmless, while a missing manifest is the bug this function exists to prevent.
+        mkdir -p "$dest" || {
+                echo "`date` [WARNING : phvalheim] Could not create '$dest' -- '$worldName' ships without a client manifest, so an outdated client will get silence instead of an explanation."
+                return 1
+        }
+
+        local port; port=$(SQL "SELECT port FROM worlds WHERE name='$worldName' LIMIT 1;")
+        local isVanilla; isVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName' LIMIT 1;")
+        local isCrossplay; isCrossplay=$(SQL "SELECT IFNULL(crossplay,0) FROM worlds WHERE name='$worldName' LIMIT 1;")
+
+        #Written to a temp file and moved into place. packageClient() zips this directory
+        #moments later, and a half-written manifest would be packaged and shipped -- the
+        #Companion would then parse a truncated line and report the wrong required version.
+        local tmp="$dest/.phvalheim-world.cfg.tmp"
+
+        {
+                echo "world=$worldName"
+                echo "host=$gameDNS"
+                echo "port=$port"
+                echo "vanilla=$isVanilla"
+                echo "crossplay=$isCrossplay"
+                echo "minClientVersion=$clientMinVersion"
+                echo "clientUrl=$phvalheimClientURL"
+        } > "$tmp" 2>/dev/null
+
+        if [ ! -s "$tmp" ]; then
+                rm -f "$tmp" > /dev/null 2>&1
+                echo "`date` [WARNING : phvalheim] Failed to write the client manifest for '$worldName' -- an outdated client will get silence instead of an explanation."
+                return 1
+        fi
+
+        mv -f "$tmp" "$dest/phvalheim-world.cfg" || {
+                rm -f "$tmp" > /dev/null 2>&1
+                echo "`date` [WARNING : phvalheim] Could not install the client manifest for '$worldName'."
+                return 1
+        }
+
+        echo "`date` [NOTICE : phvalheim] Client manifest written for '$worldName' (needs client $clientMinVersion or newer)."
+        return 0
+}
+
+
+#$1=worldName
 #$1=world name
 #
 #Zips the CLIENT STAGING tree, not the server's live one. Until 2.53 this function did
@@ -1330,6 +1406,13 @@ function packageClient() {
         #nothing else, so a client-only file belongs in it.
         mkdir -p "$stage/doorstop_libs"
         cp /opt/stateless/games/valheim/macos/libdoorstop.dylib "$stage/doorstop_libs/libdoorstop.dylib" > /dev/null 2>&1
+
+        #BEFORE the zip, or it ships in the next payload instead of this one -- which would
+        #make the manifest describe the world as it was one update ago. Its failure is not
+        #fatal: a payload with no manifest is exactly what 2.52 shipped, so the worst case is
+        #an outdated client staying as silent as it is today. Losing the whole payload over a
+        #missing explanatory file would be the larger harm.
+        writeClientManifest "$worldName"
 
         #|| return, because a failed cd would otherwise leave zip running in whatever
         #directory the engine happened to be in and packaging that instead.

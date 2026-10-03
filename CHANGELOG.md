@@ -361,6 +361,52 @@ agent-neutral, and the test carries a negative assertion against the "you did it
 armed value, because arming the tri-state means writing 1 — writing 0 would say "nothing has
 happened yet" and the dialog would not appear.
 
+### The client manifest, and an in-game notice for a client that cannot join
+
+Brian found the hole by playing the part: an updated 2.53 world, a 2.0.13 client, and no
+Companion dialog at all. Valheim started to a plain main menu with nothing on screen tying the
+silence to PhValheim.
+
+`FejdStartupPatch` returned early on `!LaunchPayload.Present`, which was right when the payload
+was the only reason the dialog existed — no `--phvalheim-launch` meant the game had not been
+started by PhValheim, and a single-player deserved no interruption. From 2.53 that same state
+also covers a player whose app is too old to pass the argument, and for them the world now has
+a password and no QuickConnect entry, so the silence is the difference between joining and not.
+
+The Companion is the only component that can still be fixed for an already-shipped client: it
+travels inside the world payload, so an old client receives a new one on its next world update
+without being updated itself. `writeClientManifest()` puts a `phvalheim-world.cfg` beside the
+dll in the client staging tree — world, host, port, crossplay, `clientMinVersion` and the
+client download URL — and `ClientManifest` reads it back. Written before the zip, or it would
+ship in the *next* payload and describe the world as it was one update ago.
+
+**No password in it, deliberately.** argv lives for one process; this file lands on every
+player's disk and stays there. The notice says where to read the password instead.
+
+**It cannot know whose fault it is, so it does not say.** "Manifest present, no payload" has two
+causes and nothing in the game process can separate them: an app older than the handoff, or any
+app at all plus a player launching Valheim from Steam on an install PhValheim set up — the
+client installs into `steamapps/common/Valheim`, so BepInEx loads the Companion either way. An
+"your app is out of date" banner is false for the second player, and telling someone something
+untrue about their own machine is how a helpful notice becomes a bug report. The body states the
+requirement — "start it from the PhValheim app, version 2.0.14 or newer" — which is true of
+both. A `ShowLaunchHelp` config entry turns it off for good, because no amount of cleverness in
+here can separate the two and the single-player should not have to care.
+
+`dev_tools/renderDialog` grew launch-help cases, and earned its keep immediately: the first
+draft of the body explained both causes in prose and rendered **fifteen** lines against a
+panel budget of eight. Without the harness that would have shipped as a screenshot of text
+running off the bottom of the panel — the third time this release that a dialog's real
+geometry disagreed with how the markup read. It also caught a non-oracle assertion of my own:
+`stripped.Contains(world)` passes vacuously when the world name is empty, which is exactly the
+state the parser refuses, so a mutant that accepted a nameless manifest reported four `ok`s.
+
+`dev_tools/test-client-manifest.sh` checks the server half, including that the call is not
+chained into the zip's control flow — a payload lost over a missing explanatory file would be
+worse than the silence it replaces. Mutation-checked in four directions: writing the manifest
+after the zip, adding a password line, hardcoding the version instead of reading the config,
+and shipping the previous Companion dll each fail it, and the dll mutation fails it three ways.
+
 ### The modded card's password row was unstyled
 
 Five of the password-row CSS rules were scoped to `.catbox-vanilla`. A modded world's card is a
