@@ -195,6 +195,65 @@ fi
 rm -rf "$TMP"
 
 echo
+echo "== the in-game dialog uses PhValheim's OWN palette =="
+
+# The Companion's colours are copied from :root in phvalheimStyles.css, and a copy drifts. This
+# re-reads the CSS and requires the shipped dll to carry the same hex, so re-theming the web UI
+# cannot quietly leave the in-game dialog on last year's accent.
+#
+# The dll is NUL-stripped first: .NET string literals are UTF-16 in the metadata, so a plain
+# grep returns a confident zero for a string that is demonstrably there. I handed Brian a probe
+# without this and it reported 0 for a string the game was printing at the time.
+CSS="$REPO/container/nginx/www/css/phvalheimStyles.css"
+if [ ! -f "$CSS" ]; then
+	fail "no stylesheet at $CSS -- the palette is unverified"
+elif [ ! -f "$DLL" ]; then
+	fail "no bundled dll -- the palette is unverified"
+else
+	dllText=$(tr -d '\000' < "$DLL")
+
+	cssvar() {
+		awk '/^:root/,/^}/' "$CSS" | grep -oE "^[[:space:]]*$1:[[:space:]]*#[0-9a-fA-F]{6}" \
+			| grep -oE '#[0-9a-fA-F]{6}' | head -1
+	}
+
+	# name:cssvar:what it is used for
+	for spec in \
+		"accent:--accent-primary:world name and address" \
+		"muted:--text-secondary:row labels" \
+		"warn:--warning:warnings" \
+		"button:--accent-secondary:the menu button label"
+	do
+		name=${spec%%:*}; rest=${spec#*:}; var=${rest%%:*}; what=${rest#*:}
+		want=$(cssvar "$var")
+
+		if [ -z "$want" ]; then
+			fail "could not read $var out of the stylesheet's :root" \
+			     "the palette check is blind for $what"
+			continue
+		fi
+
+		if echo "$dllText" | grep -qiF -- "$want"; then
+			pass "$what uses $var ($want)"
+		else
+			fail "$what does not use $var ($want)" \
+			     "the dll's colour has drifted from the stylesheet -- re-theme both or neither"
+		fi
+	done
+
+	# CONTROL: the old hand-picked Valheim-parchment colours must be GONE. Without this the
+	# checks above would pass on a dll that carried both palettes and rendered the old one.
+	for dead in "#E8D9A0" "#FFC083" "#9AA3B8"; do
+		if echo "$dllText" | grep -qiF -- "$dead"; then
+			fail "the dll still carries the pre-theme colour $dead" \
+			     "two palettes in one assembly; the one that renders is whichever the code reads"
+		else
+			pass "control: the pre-theme colour $dead is gone"
+		fi
+	done
+fi
+
+echo
 echo "== the dialog's code is REACHABLE, not merely present =="
 
 # Every check above this line asks "is it there?". None can ask "does anything run it?", and
