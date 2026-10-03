@@ -2,6 +2,34 @@
 
 ## v2.53
 
+### The in-game dialog is in PhValheim's colours, and its button works
+
+The Companion's dialog is PhValheim's voice inside Valheim, so it now uses PhValheim's palette
+rather than Valheim's. Every colour is read from `:root` in `phvalheimStyles.css` and lives in
+exactly one place in the mod (`Theme.cs`); `dev_tools/test-client-manifest.sh` re-reads the
+stylesheet and fails the build if the two drift, so re-theming the web UI cannot leave the
+in-game dialog behind. A control for the retired parchment colours is part of that check, and it
+earned its place: it caught two sites the first theming pass missed.
+
+The panel itself is drawn rather than tinted. `Image.color` multiplies against the sprite, so
+there is no tint that turns Valheim's brown parchment slate-blue — the background art is made
+transparent (its alpha only, which reverses exactly) and a solid PhValheim-coloured quad with a
+cyan border is inserted in the rect it vacated. Everything here is on the shared `UnifiedPopup`
+singleton, so all of it is put back when the dialog closes; a missed restore would leave
+Valheim's own popups rendering inside our panel with their art still invisible.
+
+**Fixed: the main-menu button that reopens the notice did nothing.** It had already been moved
+off IMGUI, which draws but never receives a click in Valheim; the native replacement then failed
+to be *created*, so the dead drawn button was still what players saw. Its single route to a
+template was one reflected field read, and the one failure path that took logged nothing at all.
+There are three routes now, every refusal says which gate it was, and the structural report is
+read back off the live object instead of echoing what the code intended.
+
+Also fixed, both caught by `dev_tools/test-dialog-layout.sh` rather than by shipping them: the
+launch-help notice ended with a dangling blank line that cost a real rendered line in a panel
+that only has six, and a long failure message wrapped onto a second line because the cap the
+layout test's own fixture was named after had never actually been written.
+
 ### The Companion ships with the server
 
 The PhValheim Companion is no longer published to Thunderstore or Hexium. It ships inside the

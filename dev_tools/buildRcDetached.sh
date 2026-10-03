@@ -2081,6 +2081,37 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   echo "2.53 client manifest: minVersion const=$cpu (want 1)  writer=$cpv (want 1)  written before zip=$cpw (want 1)  password in manifest=$cpx (want 0)  dll reads it=$cpz (want 1)  dll has the notice=$cqa (want 1)  dll has the off switch=$cqb (want 1)  dll says 'out of date'=$cpy (want 0)  download button=$cqc (want 0)  clientUrl in manifest=$cqd (want 0)"
 
+  # cqe..cqh -- the dialog's chrome, and the reopen button that reaches it.
+  #
+  # All four read the DLL IN THE IMAGE, which is the only copy that matters: the Companion is
+  # built in a separate repo and COPIED into container/games/valheim/custom_plugins, so a
+  # rebuilt dll that was never copied across leaves the server image shipping the old one. That
+  # is not hypothetical -- test-client-manifest.sh failed on exactly that this release.
+  #
+  # cqe anchors on the backdrop's GameObject name, which only PanelSkin has. Without it the
+  # dialog is Valheim's brown parchment with cyan text in it -- Brian's "the styling added to
+  # the dialog is really just the blue text".
+  cqe=0; grep -aqF -- "PhValheimPanelBackdrop" $zdlltxt && cqe=1
+
+  # cqf is the one with teeth. The reopen button drew and never received a click for four
+  # rounds, and then the native replacement silently failed to be created at all because its
+  # one route to a template was a single reflected field read. This is the fallback route's own
+  # message, so it can only be present if FindTemplate is still in the dll.
+  cqf=0; grep -aqF -- "no usable template anywhere" $zdlltxt && cqf=1
+
+  # cqg: the palette is PhValheim's, checked at the one colour that is hardest to fake --
+  # --bg-primary, the dialog's background. Theme.cs is the only place a hex lives, so this
+  # fails if that file is bypassed.
+  cqg=0; grep -aqF -- "#0f172a" $zdlltxt && cqg=1
+
+  # cqh is a NEGATIVE, and it is the retired-colour control that already caught two sites this
+  # release. #E8D9A0 was the Valheim-parchment cream the dialog used before the theming pass;
+  # present again means something reintroduced a second palette, and the one that renders is
+  # whichever the code happens to read.
+  cqh=0; grep -aqF -- "#E8D9A0" $zdlltxt && cqh=1
+
+  echo "2.53 dialog chrome: panel skin=$cqe (want 1)  button fallback route=$cqf (want 1)  bg-primary=$cqg (want 1)  retired cream=$cqh (want 0)"
+
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
   # same count and a very different number of rendered lines. That is precisely how the body
@@ -2402,6 +2433,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpu" = "1" ] && [ "$cpv" = "1" ] && [ "$cpw" = "1" ] && [ "$cpx" = "0" ] \
     && [ "$cpy" = "0" ] && [ "$cpz" = "1" ] && [ "$cqa" = "1" ] && [ "$cqb" = "1" ] \
     && [ "$cqc" = "0" ] && [ "$cqd" = "0" ] \
+    && [ "$cqe" = "1" ] && [ "$cqf" = "1" ] && [ "$cqg" = "1" ] && [ "$cqh" = "0" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

@@ -222,7 +222,11 @@ else
 		"accent:--accent-primary:world name and address" \
 		"muted:--text-secondary:row labels" \
 		"warn:--warning:warnings" \
-		"button:--accent-secondary:the menu button label"
+		"button:--accent-secondary:the menu button label" \
+		"accentHover:--accent-hover:the menu button's hover state" \
+		"panelFill:--bg-primary:the dialog's background" \
+		"buttonFill:--bg-tertiary:the dialog's button faces" \
+		"textBody:--text-primary:the dialog's body prose"
 	do
 		name=${spec%%:*}; rest=${spec#*:}; var=${rest%%:*}; what=${rest#*:}
 		want=$(cssvar "$var")
