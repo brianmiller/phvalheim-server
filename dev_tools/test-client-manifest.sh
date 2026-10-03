@@ -189,5 +189,39 @@ fi
 rm -rf "$TMP"
 
 echo
+echo "== the dialog's code is REACHABLE, not merely present =="
+
+# Every check above this line asks "is it there?". None can ask "does anything run it?", and
+# that distinction cost a release: the first :rc shipped with the notice unreachable because
+# ConnectDialog.Update still returned early on a missing payload. The dll held every string,
+# the manifest was in the zip, eight markers were green, and the player saw nothing.
+#
+# Reachability needs the IL, which needs the Companion source tree and the .NET SDK, so it
+# cannot run inside the image verify. It runs here, before the build, and a MISSING tree is
+# reported rather than skipped -- a silent skip is how this check would quietly stop existing.
+COMPANION=${PHVALHEIM_COMPANION:-$REPO/../phvalheim-companion}
+REACH="$COMPANION/dev_tools/test-dialog-reachability.sh"
+
+if [ ! -f "$REACH" ]; then
+	fail "cannot find the Companion reachability test" \
+	     "expected $REACH -- set PHVALHEIM_COMPANION, or the dialog ships unverified"
+elif ! command -v dotnet >/dev/null 2>&1; then
+	fail "no dotnet on this host, so the dialog's reachability is untested" \
+	     "the bundled dll could contain every string and still never run"
+else
+	# Against the dll this repo actually SHIPS, not the Companion's build output -- those are
+	# the same file only if someone remembered to copy it, which is exactly the step that
+	# fails silently.
+	TMPOUT=$(mktemp)
+	if bash "$REACH" "$DLL" >"$TMPOUT" 2>&1; then
+		pass "the bundled dll's dialog gates are all reachable ($(grep -c '^  PASS' "$TMPOUT") IL checks)"
+	else
+		fail "the bundled dll has an unreachable dialog gate" \
+		     "$(grep '^  FAIL' "$TMPOUT" | head -3)"
+	fi
+	rm -f "$TMPOUT"
+fi
+
+echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = "0" ] || exit 1

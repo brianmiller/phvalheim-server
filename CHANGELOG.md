@@ -401,6 +401,31 @@ geometry disagreed with how the markup read. It also caught a non-oracle asserti
 `stripped.Contains(world)` passes vacuously when the world name is empty, which is exactly the
 state the parser refuses, so a mutant that accepted a nameless manifest reported four `ok`s.
 
+**It then shipped unreachable, and every cheap check passed.** Three gates decide whether the
+notice appears: `FejdStartupPatch.SetupGui` attaches the component, `ConnectDialog.Update`
+decides whether to call `Show()`, and `Show()` picks which dialog to build. Gates 1 and 3 were
+updated. Gate 2 still read `if (!LaunchPayload.Present) return;` — four lines below a comment
+block describing the very feature it blocked — so the Companion loaded, found its manifest, and
+returned early forever. Brian updated a world, launched it on a 2.0.13 client, and got exactly
+the silence the feature exists to end.
+
+Nothing available at build time could see it. The dll contained every new string; the manifest
+was written and was inside the payload zip; eight verify markers were green. All of them ask *is
+the code present?* and none can ask *is it on a path that runs?* A source grep cannot answer it
+either, which is why `dev_tools/test-dialog-reachability.sh` reads the **IL** of the built
+assembly instead: a method that does not `call ClientManifest.get_Present` is not deciding
+anything about the manifest, whatever the source looks like. It asserts all three gates, plus
+three controls that the two modes have not been dissolved into each other (`OnConnect` must
+*not* consult the manifest; the help dialog must *not* read the payload, which in that mode is
+null). `apiProbe` gained an `APIPROBE_ASSEMBLY` override so it can dump IL from our own
+assembly rather than only the game's. The dll that shipped in the first `:rc` is the control:
+it fails the new test on exactly the one real defect, and passes the other eleven checks.
+
+`dev_tools/test-client-manifest.sh` runs that reachability test against the dll **this repo
+ships**, not the Companion's build output — those are the same file only if someone remembered
+to copy it, and that copy is precisely the step that fails silently. A missing Companion tree
+is reported as a failure rather than skipped.
+
 `dev_tools/test-client-manifest.sh` checks the server half, including that the call is not
 chained into the zip's control flow — a payload lost over a missing explanatory file would be
 worse than the silence it replaces. Mutation-checked in four directions: writing the manifest
