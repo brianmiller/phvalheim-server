@@ -344,13 +344,16 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # A world may run with no password; what it cannot do is run LISTED without one. Both
   # surfaces gate the listing control.
   #
-  # Comment lines are stripped before counting. 2.53 added a fourth real call site (crossplay
-  # also blocks listing, so flipping that switch has to re-evaluate the row) AND a comment
-  # naming the function, which would have pushed a raw count to 5 and failed the build on prose.
-  # Three of these counts have now moved for comment edits rather than behaviour; strip first.
+  # Comment lines are stripped before counting, because several of these counts have moved for
+  # comment edits rather than behaviour.
+  #
+  # Back to THREE: the definition, the password field's oninput, and the modal-open call. A
+  # pre-release of 2.53 briefly had a fourth, from syncCrossplayWarning(), when crossplay was
+  # wrongly made a blocker on listing. That call went when the gate did -- the password is the
+  # only input that changes this row, so nothing else needs to re-evaluate it.
   bx=$(grep -v '^[[:space:]]*//' /opt/stateless/nginx/www/admin/index.php | grep -c "syncListedAvailability")
   by=$(grep -c "syncListedAvailability" /opt/stateless/nginx/www/admin/new_world.php)
-  echo "listing gated: settings=$bx (want 4, was 3 before 2.53 added the crossplay re-check)  create=$by (want 2)"
+  echo "listing gated: settings=$bx (want 3; the 2.53 pre-release crossplay re-check made it 4)  create=$by (want 2)"
   # Access pills. The removed one is a NEGATIVE: counting only the new pills would pass on an
   # image that still carried the old IN SERVER BROWSER pill alongside them.
   bz=$(grep -c "function accessBadges" /opt/stateless/nginx/www/public/authenticated.php)
@@ -2317,6 +2320,53 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.45 ui: stream=$hp wizard=$hq diag css=$hr wiz css=$hs zindex=$ht (want >0 each)"
   echo "2.45 whatsnew entry=$hu (want >0)"
 
+  # On failure, NAME the marker. The gate below is one ~190-line && chain, so a bare
+  # "IMAGE VERIFY FAILED" says only that one of ~400 conditions is off, and finding which one
+  # meant hand-diffing every "(want N)" in the log against its value -- which I have now done
+  # twice. This re-reads the gate out of this very script ($0, the mounted payload) and
+  # re-evaluates each condition on its own, so the failure reports itself.
+  #
+  # It is a DIAGNOSTIC, not the gate: it never decides the exit status, and if its parsing
+  # misses a form the chain still fails correctly. Handles the two shapes in use, [ "$x" = "y" ]
+  # and [ "$x" -gt y ], including a right-hand side that is itself a variable.
+  #
+  # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
+  # process substitution, no `local`. Indirection is `eval`, and the loop is fed by a pipe,
+  # so the match counter has to live in a file rather than a variable: the pipe body is a
+  # subshell and any variable it sets is gone by the time the function returns.
+  nameTheFailures() {
+      echo "--- failing markers ---"
+      _hits=/tmp/phv-verify-hits
+      : > "$_hits"
+      # Anchor on the chain's own line shape -- a line that begins with `[ "$x"` or `&& [ "$x"`.
+      # Without the anchor this function finds its OWN comparison, `[ "$got" = "$wantVal" ]`,
+      # and reports a phantom failure of a variable named `got`. Caught by running it under
+      # dash against a fixture with one known-bad marker and three good ones as the control.
+      grep -E '^[[:space:]]*(&&[[:space:]]*)?\[ "\$[A-Za-z_]' "$0" \
+        | grep -oE '\[ "\$[A-Za-z_][A-Za-z0-9_]*" (=|-gt) "?\$?[A-Za-z0-9_]+"? *\]' \
+        | sed -E 's/\[ "\$([A-Za-z0-9_]+)" (=|-gt) "?(\$?[A-Za-z0-9_]+)"? *\]/\1 \2 \3/' \
+        | while read -r _v _o _w; do
+              # Every local here is _ prefixed. Marker names are short and lowercase -- `op`,
+              # `bx`, `a` -- and the first version of this loop read into `var op want`, whose
+              # `op` SHADOWED the real `op` marker and reported it as failing with the value
+              # '='. A diagnostic that invents failures is worse than none, since the next
+              # person chases a marker that was always fine.
+              eval "_got=\${$_v-}"
+              _wv=$_w
+              case "$_w" in '$'*) eval "_wv=\${${_w#\$}-}" ;; esac
+              case "$_o" in
+                  '=')   [ "$_got" = "$_wv" ] && continue ;;
+                  '-gt') [ "${_got:-0}" -gt "$_wv" ] 2>/dev/null && continue ;;
+                  *)     continue ;;
+              esac
+              echo x >> "$_hits"
+              echo "  FAILED  \$$_v = '$_got'  (gate wants $_o $_w)"
+              grep -n "[ 	]$_v=" "$0" | head -2 | sed 's/^/          set at /'
+          done
+      [ -s "$_hits" ] || echo "  (none -- the gate failed on a condition this parser cannot read)"
+      rm -f "$_hits"
+  }
+
   [ "$a" = "2" ] && [ "$b" = "1" ] && [ "$c" = "1" ] \
     && [ "$e" = "3" ] && [ "$f" = "0" ] && [ "$g" = "1" ] && [ "$h" = "0" ] \
     && [ "$i" = "2" ] && [ "$j" = "0" ] && [ "$k" = "3" ] && [ "$l" -gt 0 ] \
@@ -2336,7 +2386,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$ver" = "1" ] \
     && [ "$bp" = "1" ] && [ "$bq" = "1" ] && [ "$br" = "1" ] && [ "$bs" = "1" ] && [ "$bt" = "1" ] \
     && [ "$bu" = "7" ] && [ "$bv" = "1" ] && [ "$bw" = "1" ] \
-    && [ "$bx" = "4" ] && [ "$by" = "2" ] \
+    && [ "$bx" = "3" ] && [ "$by" = "2" ] \
     && [ "$bz" = "1" ] && [ "$ca" = "1" ] && [ "$cb" = "1" ] && [ "$cc" = "0" ] \
     && [ "$cd" = "0" ] && [ "$ce" = "1" ] && [ "$cf" = "2" ] \
     && [ "$cg" = "3" ] && [ "$ch" = "1" ] && [ "$ci" = "3" ] && [ "$cj" = "0" ] && [ "$ck" = "2" ] \
@@ -2503,7 +2553,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cnm" = "0" ] \
     && [ "$cnl" = "1" ] \
     && [ "$qca" -gt 0 ] && [ "$qcb" = "2" ] && [ "$qcc" = "1" ] \
-    && echo "IMAGE VERIFY OK" || echo "IMAGE VERIFY FAILED"
+    && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 
 # Refuse to proceed on a truncated payload rather than verify a fraction of it and pass.
