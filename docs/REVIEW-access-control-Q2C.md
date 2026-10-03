@@ -199,11 +199,21 @@ function does not currently receive.
 
 Works — `-public 1` is independent of BepInEx. Two things to decide rather than just allow:
 
-- **`listed` + `crossplay` are mutually exclusive in practice.** `-public 1` lists on the *Steam*
-  server browser; a crossplay world is a PlayFab server with no address to list. `startWorld.sh`
-  passes the two flags independently, so the combination is already reachable for vanilla and
-  almost certainly lists nothing. Disable it in the UI with a reason, or say plainly that it does
-  nothing.
+- ~~**`listed` + `crossplay` are mutually exclusive in practice.**~~ **WRONG — retracted
+  2026-10-03, after it shipped as a hard block in `:rc` and Brian caught it.** The claim was that
+  `-public 1` lists on the *Steam* browser and a PlayFab world has no address to advertise, so the
+  combination "almost certainly lists nothing". That hedge was the whole evidence: no crossplay
+  world was ever put in front of the in-game browser to check. Brian had been running crossplay
+  worlds listed successfully **before** 2.53, so the block removed a working feature.
+
+  Worse, the counterexample was already in his database — world 56 `BayArea`, `vanilla=1
+  crossplay=1 listed=1`, saved under the old rules. I found it, recorded it as a "pre-existing
+  combination the new rule blocks", and filed it as an anomaly to tidy up instead of reading it
+  as the rule being wrong. **A row that my new invariant says is impossible, on a system that
+  works, is evidence against the invariant — not a leftover.**
+
+  `listed` depends on the password and nothing else. Do not re-add a crossplay term; the `cpf`
+  and `cpfb` markers pin it out of both the PHP and the JS.
 - **`listed` + CITIZENS composes technically but reads badly.** `permittedlist.txt` is enforced
   server-side, so the two do compose exactly as §8.6 says. The *result* is a world that advertises
   itself to strangers and then refuses all of them. Legal, and worth a word in the UI.
@@ -253,8 +263,9 @@ downstream generates or forwards passwords.
 5. **`requiredMods`**: drop `thunderstore|1010101110|serverblankpassword` from
    `phvalheim-static.conf` so new worlds never get it.
 6. **UI**: password (set or generate) and `listed` in World Settings for modded worlds, same as
-   unmodded. Block listed-without-password and listed-with-crossplay **at the form**, not with a
-   warning. Surface the generated password where a hand-joining player can find it.
+   unmodded. Block listed-without-password **at the form**, not with a warning. (This step also
+   said to block listed-with-crossplay; that was retracted — see §above.) Surface the generated
+   password where a hand-joining player can find it.
 7. **Prove `SetServerPassword` against a world that actually has a password.** It has never run
    (§1). Until then the pre-fill is unverified, and a silent failure looks exactly like success.
 8. Verify markers: the `-public 0` argument on the modded branch (it defaults to **1** when

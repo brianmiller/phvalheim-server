@@ -1520,20 +1520,13 @@ function saveWorldOptionsJson($pdo, $world, $input) {
         return;
     }
 
-    // Listing and crossplay are mutually exclusive, and this is a form error rather than a
-    // warning because the combination cannot do what it says. -public lists on the STEAM
-    // server browser; a crossplay world is a PlayFab server with no host:port to list, so the
-    // listing silently reaches nobody. Refusing it is the only answer that does not leave the
-    // operator believing their world is advertised.
-    if ($listed && $crossplay) {
-        echo json_encode([
-            'success' => false,
-            'error'   => 'A crossplay world cannot be listed in the server browser. '
-                       . 'Crossplay worlds are joined by code only -- they have no address to list.'
-        ]);
-        return;
-    }
-
+    // There is NO listed+crossplay gate here, and adding one back would be a regression.
+    // 2.53 briefly refused the combination on the theory that -public only lists on the STEAM
+    // browser and a PlayFab world has no host:port to advertise. That theory was never
+    // measured, and it is wrong: Brian ran crossplay worlds listed in the in-game browser
+    // before 2.53 and the listing worked. A password is the ONLY gate on listing -- that one
+    // is real, because Valheim dies on "bad password: The password is too short".
+    //
     // 2.53: password and listing are NO LONGER vanilla-only. Access control is decoupled from
     // whether a world runs mods, so a modded world can have a real -password and appear in the
     // server browser, composing with the CITIZENS allowlist rather than replacing it --
@@ -1877,14 +1870,7 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
         ]);
         return;
     }
-    if (!empty($vanillaOptions['listed']) && !empty($vanillaOptions['crossplay'])) {
-        echo json_encode([
-            'success' => false,
-            'error'   => 'A crossplay world cannot be listed in the server browser. '
-                       . 'Crossplay worlds are joined by code only -- they have no address to list.'
-        ]);
-        return;
-    }
+    // No listed+crossplay gate on this path either -- see the note in saveWorldOptions().
 
     $result = addWorld($pdo, $world, $gameDNS, $seed);
 

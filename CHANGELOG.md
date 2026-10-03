@@ -2,6 +2,22 @@
 
 ## v2.53
 
+### Fixed before release: crossplay no longer blocks listing in the server browser
+
+A pre-release of 2.53 refused `listed` together with `crossplay` — on both write paths and at
+the form, where the switch greyed out with a note claiming a crossplay world has no address to
+advertise. That was never measured. Crossplay worlds have been listed successfully on real
+servers since 2.40, so the block removed a working feature, and the counterexample was sitting
+in the database the whole time: a world already saved with `crossplay=1 listed=1`, which the new
+rule declared impossible and which was written off as an anomaly instead of read as a refutation.
+
+A password remains listing's only requirement; Valheim genuinely refuses to start `-public 1`
+without one. Both layers of the removed block are now pinned out of existence by build markers
+(`cpf`, `cpfb`), and `dev_tools/test-crossplay-any-world.sh` asserts the three settings compose.
+That test had itself been passing for the wrong reason — it still carried the pre-2.53
+"listing is forced off on a modded world" assertions, which held only because the refusal meant
+nothing was saved.
+
 ### The in-game dialog is in PhValheim's colours, and its button works
 
 The Companion's dialog is PhValheim's voice inside Valheim, so it now uses PhValheim's palette
@@ -17,8 +33,8 @@ full-screen overlay, and rendered as a full-screen box with a border and no text
 logs the popup's real Image tree instead — paths, sizes, sprites and sibling order — so a future
 reskin can target the background by name rather than by guessing at sizes.
 
-The notice is reachable again from a **PhValheim: <world>** entry on the main menu, with the
-name in PhValheim's cyan.
+The notice is reachable again from a **Connect: <world>** entry on the main menu — the prefix in
+magenta, the world name in PhValheim's cyan.
 
 **Fixed: that entry never appeared, the plain button that appeared instead was dead, and once
 it did appear it started the game.** Three separate faults in the same small feature. The

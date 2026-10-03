@@ -2201,27 +2201,21 @@ $totalCount = count($worlds);
         const pw = document.getElementById('settingsWorldPassword');
         const listed = document.getElementById('settingsListedToggle');
         const note = document.getElementById('settingsListedBlocked');
-        const xpNote = document.getElementById('settingsListedCrossplayBlocked');
         if (!pw || !listed) { return; }
 
-        // TWO independent reasons listing can be unavailable, and they get separate notes
-        // because the remedies are opposite: one is fixed by setting a password, the other by
-        // turning crossplay OFF. A single combined message would send half the operators who
-        // see it to the wrong control.
+        // A MISSING PASSWORD IS THE ONLY THING THAT BLOCKS LISTING. Do not OR a crossplay
+        // term into the condition below: a pre-release of 2.53 did exactly that, reasoned
+        // from "a PlayFab world has no address for the Steam browser to advertise" and never
+        // measured. Crossplay worlds listed fine before 2.53, so that gate took away a
+        // working feature. The password gate stays because Valheim genuinely refuses to boot
+        // `-public 1` with an empty one.
         //
-        // A crossplay world is a PlayFab server with no address, so -public 1 lists it nowhere.
-        // Valheim does not error on the combination -- it just silently reaches no one, which
-        // is why this has to be refused in the UI rather than left to the game.
-        const crossplayToggle = document.getElementById('settingsCrossplayToggle');
-        const isCrossplay = crossplayToggle ? crossplayToggle.checked : false;
-        const noPassword = pw.value.trim() === '';
-        const blocked = noPassword || isCrossplay;
+        // The build's cpfb marker pins that term out of this file -- keep the prose free of
+        // the pattern it greps for, or the comment itself fails the check.
+        const blocked = pw.value.trim() === '';
 
         listed.disabled = blocked;
-        // Crossplay wins the explanation when both apply: it is the harder blocker, since
-        // setting a password would not unblock it.
-        if (note)   { note.style.display   = (noPassword && !isCrossplay) ? '' : 'none'; }
-        if (xpNote) { xpNote.style.display = isCrossplay ? '' : 'none'; }
+        if (note) { note.style.display = blocked ? '' : 'none'; }
         const row = document.getElementById('settingsListedRow');
         if (row) { row.style.opacity = blocked ? '0.6' : ''; }
 
@@ -4334,7 +4328,6 @@ $totalCount = count($worlds);
                                     <span class="pv-row-label">List in server browser</span>
                                     <span class="pv-row-desc">Publish to the public Valheim community server list. The CITIZENS access list still applies &mdash; Valheim enforces it server-side, so a listed world with a restricted list is advertised to everyone and joinable only by the players on it.</span>
                                     <span class="pv-row-desc" id="settingsListedBlocked" style="display:none; color: var(--warning, #fbbf24);">Unavailable without a password &mdash; Valheim refuses to start a listed server that has none (&ldquo;bad password: the password is too short&rdquo;). Set one above to enable this.</span>
-                                    <span class="pv-row-desc" id="settingsListedCrossplayBlocked" style="display:none; color: var(--warning, #fbbf24);">Unavailable with crossplay on &mdash; the server browser lists Steam servers, and a crossplay world is a PlayFab server with no address to list. Players join it with its join code.</span>
                                 </div>
                                 <label class="switch pv-row-control">
                                     <input type="checkbox" id="settingsListedToggle" ${listedChecked}>
@@ -4726,12 +4719,10 @@ $totalCount = count($worlds);
 
         warning.style.display = (isModded && isCrossplay) ? '' : 'none';
 
-        // Crossplay also decides whether listing is available, so flipping it has to
-        // re-evaluate that row. Without this the operator can turn crossplay on while
-        // "List in server browser" stays ticked and enabled, and the save then fails with an
-        // error the form was supposed to have prevented.
-        // One-way call: syncListedAvailability() does not call back here.
-        syncListedAvailability();
+        // Deliberately does NOT touch the listing row. Crossplay has no bearing on whether a
+        // world can be listed -- 2.53 wrongly made it a blocker and this function called
+        // syncListedAvailability() to keep the two in step. Listing depends on the password
+        // alone, so the password field is the only thing that drives that row.
     }
 
     // A public world does not consult permittedlist.txt at all, so showing an editor for

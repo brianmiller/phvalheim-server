@@ -38,8 +38,8 @@ check() {
 }
 sql() { docker exec "$CONTAINER" /opt/stateless/engine/tools/sql "$1"; }
 
-# $1=vanilla $2=crossplay -- the two flags under test. Password/listed stay empty so a modded
-# world is never asked for a combination it cannot have.
+# $1=vanilla $2=crossplay -- the two flags under test. Password/listed stay empty here to keep
+# this helper about crossplay alone; the combinations are exercised explicitly further down.
 saveOptions() {
     docker exec "$CONTAINER" curl -s -X POST "$BASE/adminAPI.php?action=saveWorldOptions" \
         -H 'Content-Type: application/json' \
@@ -50,8 +50,10 @@ storedListed()    { sql "SELECT IFNULL(listed,0) FROM worlds WHERE name='$WORLD'
 storedPassword()  { sql "SELECT IFNULL(password,'') FROM worlds WHERE name='$WORLD'"; }
 ok() { echo "$1" | grep -q '"success":true' && echo 1 || echo 0; }
 
-ORIG=$(sql "SELECT IFNULL(vanilla,0), IFNULL(crossplay,0) FROM worlds WHERE name='$WORLD'")
-trap 'sql "UPDATE worlds SET vanilla=$(echo "$ORIG" | cut -f1), crossplay=$(echo "$ORIG" | cut -f2) WHERE name='"'"'$WORLD'"'"'" >/dev/null 2>&1' EXIT
+# listed and password are restored too -- the listed+crossplay case below sets both, and
+# leaving a test password on a real world would change how players join it.
+ORIG=$(sql "SELECT IFNULL(vanilla,0), IFNULL(crossplay,0), IFNULL(listed,0), IFNULL(password,'') FROM worlds WHERE name='$WORLD'")
+trap 'sql "UPDATE worlds SET vanilla=$(echo "$ORIG" | cut -f1), crossplay=$(echo "$ORIG" | cut -f2), listed=$(echo "$ORIG" | cut -f3), password='"'"'$(echo "$ORIG" | cut -f4)'"'"' WHERE name='"'"'$WORLD'"'"'" >/dev/null 2>&1' EXIT
 
 echo "(container $CONTAINER, world \"$WORLD\")"
 
@@ -92,16 +94,32 @@ check "save succeeds" "$(ok "$r")" "$r"
 check "crossplay survives the switch to modded" "$([ "$(storedCrossplay)" = "1" ] && echo 1 || echo 0)" "stored $(storedCrossplay)"
 
 echo
-echo "saveWorldOptions: a modded world STILL cannot be listed or password-protected"
-# CONTROL on the blast radius. Crossplay came out of the `if (!$vanilla)` block; listing and
-# password did not, because a modded world is started -public 0 with no -password and is gated
-# by the CITIZENS list. Taking too much out of that block would be invisible without this.
+echo "saveWorldOptions: a modded world can be listed AND crossplay AND password-protected"
+# This block used to assert the opposite -- that listing and password were forced off on a
+# modded world -- which was true before Q2=C decoupled access control from world type. It kept
+# passing afterwards for the WRONG REASON: a pre-release of 2.53 refused listed+crossplay
+# outright, so the endpoint saved nothing and the stale "forced to 0" assertions still held.
+# Remove the refusal and they fail, which is how the regression was found. The assertion now
+# matches the shipped behaviour: all three compose, and a password is listing's only gate.
 r=$(docker exec "$CONTAINER" curl -s -X POST "$BASE/adminAPI.php?action=saveWorldOptions" \
     -H 'Content-Type: application/json' \
     -d "{\"world\":\"$WORLD\",\"vanilla\":0,\"crossplay\":1,\"listed\":1,\"password\":\"hunter2secret\",\"passwordPublic\":0,\"launchParams\":\"\"}" 2>/dev/null)
-check "listed forced to 0 on a modded world" "$([ "$(storedListed)" = "0" ] && echo 1 || echo 0)" "stored $(storedListed)"
-check "password forced empty on a modded world" "$([ -z "$(storedPassword)" ] && echo 1 || echo 0)" "stored '$(storedPassword)'"
-check "...while crossplay on the SAME request is kept" "$([ "$(storedCrossplay)" = "1" ] && echo 1 || echo 0)" "stored $(storedCrossplay)"
+check "save succeeds with listed+crossplay+password together" "$(ok "$r")" "$r"
+check "listed stored as 1 on a modded crossplay world" "$([ "$(storedListed)" = "1" ] && echo 1 || echo 0)" "stored $(storedListed)"
+check "password stored on a modded world" "$([ -n "$(storedPassword)" ] && echo 1 || echo 0)" "stored '$(storedPassword)'"
+check "crossplay on the SAME request is kept" "$([ "$(storedCrossplay)" = "1" ] && echo 1 || echo 0)" "stored $(storedCrossplay)"
+
+echo
+echo "saveWorldOptions: a password is STILL required to list"
+# The one real gate, and the control that proves the block above removed only the crossplay
+# term. Valheim dies on "bad password: The password is too short" with -public 1 and no
+# password, so this refusal must survive.
+r=$(docker exec "$CONTAINER" curl -s -X POST "$BASE/adminAPI.php?action=saveWorldOptions" \
+    -H 'Content-Type: application/json' \
+    -d "{\"world\":\"$WORLD\",\"vanilla\":0,\"crossplay\":1,\"listed\":1,\"password\":\"\",\"passwordPublic\":0,\"launchParams\":\"\"}" 2>/dev/null)
+check "listed with no password is refused" "$([ "$(ok "$r")" = "0" ] && echo 1 || echo 0)" "$r"
+check "...and the error names the password, not crossplay" \
+    "$(echo "$r" | grep -q 'must have a password' && echo 1 || echo 0)" "$r"
 
 echo
 echo "createWorld: the second write path is ungated too"

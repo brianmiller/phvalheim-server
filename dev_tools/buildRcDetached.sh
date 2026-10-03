@@ -1954,10 +1954,16 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   cpd=$(grep -cE '\$password *= *\$vanilla *\?' /opt/stateless/nginx/www/includes/db_gets.php)
   cpe=$(grep -cE '\$password *= *\$vanilla *\?' $zidx)
 
-  # cpf -- listed+crossplay is refused at the form on BOTH write paths (create and save).
-  # Valheim does not error on the combination; it lists a PlayFab server nowhere and says
-  # nothing, so the UI is the only thing that can report it.
+  # cpf/cpfb -- NEGATIVE. listed+crossplay must NOT be refused anywhere. A pre-release of 2.53
+  # blocked the combination on both write paths and in the form, reasoned from "-public lists
+  # on the Steam browser and a PlayFab world has no address" -- never measured, and wrong:
+  # Brian had crossplay worlds listed and working before 2.53. The gate removed a live feature.
+  #
+  # Pinned out of existence in BOTH layers, because they failed independently: the PHP refusal
+  # returned an error, and the JS `blocked = noPassword || isCrossplay` greyed the switch. Only
+  # a password gates listing, and that gate has its own markers (cov).
   cpf=$(grep -cF 'A crossplay world cannot be listed in the server browser' /opt/stateless/nginx/www/admin/adminAPI.php)
+  cpfb=$(grep -cE 'blocked *=.*isCrossplay' $zidx)
 
   echo "2.53 access decoupled: -public 0 gone=$cot (want 0)  explicit -public=$cpa (want 1)  listed recorded=$cou (want 1)  pw hash blocks=$cov (want 2)"
   echo "2.53 access decoupled: blankpw in requiredMods=$cow (want 0)  requiredMods empty=$cox (want 1)  seed rule=$coy (want 1)  qmark rule=$coz (want 1)"
@@ -1972,7 +1978,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # mirror.sh is the end-to-end half: it runs the real startWorld.sh and the real comparison.
   cpg=$(grep -c '\$vanilla === 1' /opt/stateless/nginx/www/includes/db_gets.php)
 
-  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated in UPDATE path=$cpc (want 1, moved out of the migration)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused=$cpf (want 2)"
+  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated in UPDATE path=$cpc (want 1, moved out of the migration)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused in php=$cpf (want 0, was a 2.53 pre-release regression)  blocked-by-crossplay in js=$cpfb (want 0)"
   echo "2.53 access decoupled: restart-pending mirror vanilla gates=$cpg (want 0, was 2 and shipped broken)"
 
   # cph/cpi/cpj -- the password reveal row must be styled on a MODDED card too.
@@ -2480,7 +2486,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cot" = "0" ] && [ "$cpa" = "1" ] && [ "$cou" = "1" ] && [ "$cov" = "2" ] \
     && [ "$cow" = "0" ] && [ "$cox" = "1" ] && [ "$coy" = "1" ] && [ "$coz" = "1" ] \
     && [ "$cpb" = "1" ] && [ "$cpc" = "1" ] && [ "$cpd" = "0" ] && [ "$cpe" = "0" ] \
-    && [ "$cpf" = "2" ] && [ "$cpg" = "0" ] \
+    && [ "$cpf" = "0" ] && [ "$cpfb" = "0" ] && [ "$cpg" = "0" ] \
     && [ "$cph" = "0" ] && [ "$cpi" = "1" ] && [ "$cpj" = "1" ] \
     && [ "$cpk" = "1" ] && [ "$cpl" = "0" ] \
     && [ "$cpm" = "0" ] && [ "$cpn" = "1" ] && [ "$cpo" = "1" ] \
