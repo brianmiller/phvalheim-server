@@ -2119,7 +2119,16 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # between the next attempt and another full-screen box is knowing the real Image tree.
   cqi=0; grep -aqF -- "PhValheim panel tree:" $zdlltxt && cqi=1
 
-  echo "2.53 dialog chrome: reverted panel skin=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)"
+  # cqj: the reopen button's predicate must be the PURE, TESTABLE one.
+  #
+  # The button failed on a real client four times. The cause was one term in an inline
+  # expression -- `&& !_shown` -- which was always false after a close, so MenuButton.Ensure was
+  # never called once. The IL reachability test could not see it: the call was there, the branch
+  # was not. WantsReopenButton exists so a truth table can drive the decision directly, and its
+  # presence in the image is what guarantees the decision is still testable.
+  cqj=0; grep -aqF -- "WantsReopenButton" $zdlltxt && cqj=1
+
+  echo "2.53 dialog chrome: inserted backdrop=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)  testable button predicate=$cqj (want 1)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2443,7 +2452,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpy" = "0" ] && [ "$cpz" = "1" ] && [ "$cqa" = "1" ] && [ "$cqb" = "1" ] \
     && [ "$cqc" = "0" ] && [ "$cqd" = "0" ] \
     && [ "$cqe" = "0" ] && [ "$cqf" = "1" ] && [ "$cqg" = "1" ] && [ "$cqh" = "0" ] \
-    && [ "$cqi" = "1" ] \
+    && [ "$cqi" = "1" ] && [ "$cqj" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

@@ -17,7 +17,14 @@ full-screen overlay, and rendered as a full-screen box with a border and no text
 logs the popup's real Image tree instead — paths, sizes, sprites and sibling order — so a future
 reskin can target the background by name rather than by guessing at sizes.
 
-**The notice can be brought back without a button.** Close it, leave the main menu and return,
+**Fixed: the main-menu button that reopens the notice never appeared, and the gray one that
+did appear was dead.** The predicate deciding whether to build the button included a term that
+was always false once the dialog had been shown, so the real button was never created and an
+IMGUI fallback drew in its place — and IMGUI buttons do not receive clicks in Valheim. The
+decision is now a pure function driven by a truth table, because the previous test could only
+prove the code was *called*, not that the branch was *reachable*.
+
+**The notice can also be brought back without a button.** Close it, leave the main menu and return,
 and it is offered again. This exists because the reopen button has failed on a real client in
 three forms — an IMGUI button that drew and never received a click, and twice a cloned native
 button that was never created — and every one of those depends on an input path, a canvas or a
