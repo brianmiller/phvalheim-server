@@ -2144,7 +2144,17 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # stylesheet, so the palette drift check cannot cover it -- this is what does.
   cql=0; grep -aqF -- "#ff00ff" $zdlltxt && cql=1
 
-  echo "2.53 dialog chrome: inserted backdrop=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)  testable button predicate=$cqj (want 1)  inherited handler off=$cqk (want 1)  magenta label=$cql (want 1)"
+  # cqm: the per-frame guards must be PREDICATES, not inline expressions.
+  #
+  # MenuButton.Ensure runs on every Update. The build before this one logged on every failure
+  # exit, which is ~60 LogWarning calls a second for as long as the main menu is open -- a
+  # diagnostic that became an unbounded allocation, in the build Brian saw his client run out
+  # of memory on. ShouldGiveUp and LabelNeedsApplying exist so a truth table can drive those
+  # two decisions; the IL checks written against the inline versions were NON-ORACLES that
+  # passed with the bug reinstated.
+  cqm=0; grep -aqF -- "ShouldGiveUp" $zdlltxt && grep -aqF -- "LabelNeedsApplying" $zdlltxt && cqm=1
+
+  echo "2.53 dialog chrome: inserted backdrop=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)  testable button predicate=$cqj (want 1)  inherited handler off=$cqk (want 1)  magenta label=$cql (want 1)  per-frame guards=$cqm (want 1)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2469,6 +2479,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cqc" = "0" ] && [ "$cqd" = "0" ] \
     && [ "$cqe" = "0" ] && [ "$cqf" = "1" ] && [ "$cqg" = "1" ] && [ "$cqh" = "0" ] \
     && [ "$cqi" = "1" ] && [ "$cqj" = "1" ] && [ "$cqk" = "1" ] && [ "$cql" = "1" ] \
+    && [ "$cqm" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \
