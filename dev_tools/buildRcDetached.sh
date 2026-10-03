@@ -2088,9 +2088,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # rebuilt dll that was never copied across leaves the server image shipping the old one. That
   # is not hypothetical -- test-client-manifest.sh failed on exactly that this release.
   #
-  # cqe anchors on the backdrop's GameObject name, which only PanelSkin has. Without it the
-  # dialog is Valheim's brown parchment with cyan text in it -- Brian's "the styling added to
-  # the dialog is really just the blue text".
+  # cqe is a NEGATIVE now, and it is the most important marker in this block.
+  #
+  # PhValheimPanelBackdrop was PanelSkin's inserted background quad. PanelSkin found the panel's
+  # art by taking the largest Image under the popup, which is a FULL-SCREEN overlay -- so it
+  # shipped a full-screen box with a cyan border and no text, and Brian's verdict was "much
+  # worse". It is reverted. This marker fails the build if it comes back, because the next
+  # attempt must target the panel's background by NAME against the tree PanelTree now logs,
+  # not by guessing at sizes again.
   cqe=0; grep -aqF -- "PhValheimPanelBackdrop" $zdlltxt && cqe=1
 
   # cqf is the one with teeth. The reopen button drew and never received a click for four
@@ -2099,10 +2104,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # message, so it can only be present if FindTemplate is still in the dll.
   cqf=0; grep -aqF -- "no usable template anywhere" $zdlltxt && cqf=1
 
-  # cqg: the palette is PhValheim's, checked at the one colour that is hardest to fake --
-  # --bg-primary, the dialog's background. Theme.cs is the only place a hex lives, so this
-  # fails if that file is bypassed.
-  cqg=0; grep -aqF -- "#0f172a" $zdlltxt && cqg=1
+  # cqg: the palette is PhValheim's. Anchored on --text-primary, the body prose colour, which
+  # is what survived the reskin revert -- the panel's own --bg-primary is deliberately gone
+  # (see cqe). Theme.cs is the only place a hex lives, so this fails if that file is bypassed.
+  cqg=0; grep -aqF -- "#f1f5f9" $zdlltxt && cqg=1
 
   # cqh is a NEGATIVE, and it is the retired-colour control that already caught two sites this
   # release. #E8D9A0 was the Valheim-parchment cream the dialog used before the theming pass;
@@ -2110,7 +2115,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # whichever the code happens to read.
   cqh=0; grep -aqF -- "#E8D9A0" $zdlltxt && cqh=1
 
-  echo "2.53 dialog chrome: panel skin=$cqe (want 1)  button fallback route=$cqf (want 1)  bg-primary=$cqg (want 1)  retired cream=$cqh (want 0)"
+  # cqi: the panel tree must be REPORTED. The reskin is reverted, so the only thing standing
+  # between the next attempt and another full-screen box is knowing the real Image tree.
+  cqi=0; grep -aqF -- "PhValheim panel tree:" $zdlltxt && cqi=1
+
+  echo "2.53 dialog chrome: reverted panel skin=$cqe (want 0)  button fallback route=$cqf (want 1)  text-primary=$cqg (want 1)  retired cream=$cqh (want 0)  panel tree logged=$cqi (want 1)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2433,7 +2442,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cpu" = "1" ] && [ "$cpv" = "1" ] && [ "$cpw" = "1" ] && [ "$cpx" = "0" ] \
     && [ "$cpy" = "0" ] && [ "$cpz" = "1" ] && [ "$cqa" = "1" ] && [ "$cqb" = "1" ] \
     && [ "$cqc" = "0" ] && [ "$cqd" = "0" ] \
-    && [ "$cqe" = "1" ] && [ "$cqf" = "1" ] && [ "$cqg" = "1" ] && [ "$cqh" = "0" ] \
+    && [ "$cqe" = "0" ] && [ "$cqf" = "1" ] && [ "$cqg" = "1" ] && [ "$cqh" = "0" ] \
+    && [ "$cqi" = "1" ] \
     && [ "$zjd" = "2" ] && [ "$zje" = "1" ] \
     && [ "$zja" = "3" ] && [ "$zjf" = "0" ] && [ "$zjb" = "1" ] && [ "$zjc" = "2" ] \
     && [ "$cni" = "0" ] && [ "$cnj" = "1" ] \

@@ -11,19 +11,20 @@ stylesheet and fails the build if the two drift, so re-theming the web UI cannot
 in-game dialog behind. A control for the retired parchment colours is part of that check, and it
 earned its place: it caught two sites the first theming pass missed.
 
-The panel itself is drawn rather than tinted. `Image.color` multiplies against the sprite, so
-there is no tint that turns Valheim's brown parchment slate-blue — the background art is made
-transparent (its alpha only, which reverses exactly) and a solid PhValheim-coloured quad with a
-cyan border is inserted in the rect it vacated. Everything here is on the shared `UnifiedPopup`
-singleton, so all of it is put back when the dialog closes; a missed restore would leave
-Valheim's own popups rendering inside our panel with their art still invisible.
+The panel keeps Valheim's own art. An attempt to repaint it was reverted before release: it
+identified the panel's background as the largest `Image` under the popup, which is in fact a
+full-screen overlay, and rendered as a full-screen box with a border and no text. The mod now
+logs the popup's real Image tree instead — paths, sizes, sprites and sibling order — so a future
+reskin can target the background by name rather than by guessing at sizes.
 
-**Fixed: the main-menu button that reopens the notice did nothing.** It had already been moved
-off IMGUI, which draws but never receives a click in Valheim; the native replacement then failed
-to be *created*, so the dead drawn button was still what players saw. Its single route to a
-template was one reflected field read, and the one failure path that took logged nothing at all.
-There are three routes now, every refusal says which gate it was, and the structural report is
-read back off the live object instead of echoing what the code intended.
+**The notice can be brought back without a button.** Close it, leave the main menu and return,
+and it is offered again. This exists because the reopen button has failed on a real client in
+three forms — an IMGUI button that drew and never received a click, and twice a cloned native
+button that was never created — and every one of those depends on an input path, a canvas or a
+reflected field that cannot be verified from a build host. Returning to the main menu depends
+only on the menu's own active state, which is the same read that already decides whether the
+notice may appear at all. The cloned button is still attempted, and now names in the log which
+gate refused when it cannot be made.
 
 Also fixed, both caught by `dev_tools/test-dialog-layout.sh` rather than by shipping them: the
 launch-help notice ended with a dangling blank line that cost a real rendered line in a panel
