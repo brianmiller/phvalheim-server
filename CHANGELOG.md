@@ -401,6 +401,25 @@ geometry disagreed with how the markup read. It also caught a non-oracle asserti
 `stripped.Contains(world)` passes vacuously when the world name is empty, which is exactly the
 state the parser refuses, so a mutant that accepted a nameless manifest reported four `ok`s.
 
+**Two things the smaller panel broke, both mine.**
+
+The header ended up half outside the box. `HeaderLiftScreen` and its two siblings were being
+divided by the *active* scale alongside the fonts, and a position does not scale like a size:
+`60/1.5` is **40** local units against `60/2.0`'s 30, so the smaller panel got the *bigger*
+shove and the title was pushed out of the top. These are offsets in the panel's own local
+space, which is identical at every scale, so the correct local value is a constant. They are
+now `HeaderLiftLocal`/`BodyLiftLocal`/`ButtonPullLocal`, and `renderDialog` calls each at both
+scales and requires the same answer — with a control that the two scales genuinely differ,
+without which the whole check would pass vacuously.
+
+And the reopen button stopped working for the no-payload player. `OnGUI` called `Show()`
+directly and set `_shown = true`, which has no retry in it: `UnifiedPopup` silently drops a
+push it is not ready to accept, and with `_shown` already true `Update()` never tried again —
+one click and the way back was gone for good. It now clears `_shown` and lets `Update()` show
+it on a frame when `IsReadyToShow()` says yes, which is the path that puts the notice up in the
+first place and the only one proven to work. Asserted as a negative: `OnGUI` must not call
+`Show`.
+
 **The notice is a `WarningPopup` in a smaller panel.** Removing the second button left the
 first one off centre, because it was still the *right* button of a pair — and pulled further
 off by `ButtonPull`, which exists only to close the gap a scaled-down pair leaves. The fix was
