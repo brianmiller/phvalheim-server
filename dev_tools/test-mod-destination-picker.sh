@@ -34,11 +34,23 @@ for page in new_world.php edit_world.php; do
         && ok "destSet exists" || no "no destSet in $page"
     grep -q "title: 'Installs on'" "$f" \
         && ok "the table has an Installs on column" || no "no Installs on column in $page"
-    grep -q "destinationCell(uuid, isChecked)\]" "$f" \
+    # Three arguments. This grep asked for destinationCell(uuid, isChecked)] -- the two-arg
+    # form with the cell array's closing bracket right after it -- and the function gained a
+    # third parameter, neededDeps, when the derived-dependency badge was added. The assertion
+    # had been failing on BOTH pages ever since, which is also why 2.55's Config column (which
+    # appends configCell after this one, so the ']' moved) looked like it had broken something
+    # it had not.
+    grep -q "destinationCell(uuid, isChecked, neededDeps)" "$f" \
         && ok "the row renders the destination cell" || no "the row has no destination cell"
     # The new column holds controls, so it must not be sortable -- clicking the header would
     # reorder rows under the operator mid-edit.
-    grep -q "orderable: false, targets: \[0, 5\]" "$f" \
+    #
+    # Prefix match, not an exact [0, 5]. 2.55 added a Config column at index 6 to
+    # edit_world.php -- which is also a control and also non-sortable -- so that page now reads
+    # [0, 5, 6] while new_world.php, which deliberately has no Config column, still reads
+    # [0, 5]. Pinning the exact list made a correct product change look like a regression; what
+    # this test exists to catch is column 5 becoming sortable, and that is what it now asserts.
+    grep -q "orderable: false, targets: \[0, 5" "$f" \
         && ok "the destination column is not sortable" || no "the destination column is sortable"
     grep -q "on('change', '.dest-toggle'" "$f" \
         && ok "the switches have a change handler" || no "no .dest-toggle handler"
@@ -102,11 +114,22 @@ chk(!/dest-toggle/.test(cell), 'an unselected mod renders no switches');
 
 // A dependency the operator did not tick is shown as derived, with no switches -- the engine
 // walks the whole closure and this page must not pretend to.
+// Passed as the THIRD ARGUMENT, not left to the global. destinationCell takes neededDeps as a
+// parameter, so the parameter shadows the global of the same name -- calling it with two
+// arguments made neededDeps undefined inside the function, the derived branch unreachable, and
+// these two assertions permanently red for a feature that works. Setting the global as well
+// keeps the rest of the harness consistent.
 neededDeps['77'] = true;
-cell = api.destinationCell('77', false);
+cell = api.destinationCell('77', false, neededDeps);
 chk(/derived/.test(cell) && !/dest-toggle/.test(cell),
     'an untaken dependency shows "derived" and no switches');
 chk(/title=/.test(cell), 'and explains itself on hover');
+
+// Control for the two above: the SAME uuid with no entry in neededDeps must NOT read as
+// derived. Without this, a destinationCell that returned the derived badge for every
+// unselected mod would pass, and the badge's whole job is to distinguish the two.
+cell = api.destinationCell('77', false, {});
+chk(!/derived/.test(cell), 'CONTROL: an unselected non-dependency is not shown as derived');
 
 // --- getSelectedMods ------------------------------------------------------------------
 Object.keys(checkedSet).forEach(k => delete checkedSet[k]);

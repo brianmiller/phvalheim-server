@@ -2585,7 +2585,13 @@ input:checked + .slider:before {
 .status-badge.creating,
 .status-badge.updating,
 .status-badge.deleting,
-.status-badge.backup {
+.status-badge.backup,
+/* 2.55: repackage is the command, repackaging the in-flight state. Both belong here, not
+   just in the two label maps in admin/index.php -- a mode with a label but no rule in this
+   group renders with the bare .status-badge style: no colour, no pulse, so a world that is
+   genuinely busy looks idle. */
+.status-badge.repackage,
+.status-badge.repackaging {
 	background: rgba(251, 191, 36, 0.2);
 	color: #fbbf24;
 	animation: status-pulse 1.2s ease-in-out infinite;

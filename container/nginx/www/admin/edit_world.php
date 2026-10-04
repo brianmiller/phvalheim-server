@@ -431,6 +431,12 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			// be overridden here is the one thing that can starve a mod of a dependency on a
 			// side where its parent runs. See section 8.2 of docs/RELEASE-2.53-DESIGN.md.
 			var destSet = {};
+			// mods.id -> how many config settings this world has saved for that mod (2.55).
+			// Empty until the summary call lands, and empty is a legitimate value -- the Config
+			// column shows no badge for 0 rather than a "0", because "nothing overridden" and
+			// "this mod has not written its config yet" are different states and only
+			// world_configs.php can tell them apart.
+			var cfgCountSet = {};
 			var versionCache = {};     // mods.id -> full version list, fetched on demand
 			var activeSources = {};    // source key -> true when that catalogue is shown
 			var catalogSourceDefs = [];
@@ -863,7 +869,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					var checkbox = '<input type="checkbox" class="form-check-input mod-checkbox" value="' + uuid + '" data-uuid="' + uuid + '"' + (isChecked ? ' checked' : '') + '>';
 
 					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.updated || '',
-					           versionCell(mod, isChecked), destinationCell(uuid, isChecked, neededDeps)];
+					           versionCell(mod, isChecked), destinationCell(uuid, isChecked, neededDeps),
+					           configCell(uuid, isChecked)];
 
 					if (isChecked || neededDeps[uuid]) {
 						activeRows.push(row);
@@ -892,14 +899,15 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 						scrollCollapse: true,
 						paging: true,
 						lengthMenu: [[20, 50, 75, -1], [20, 50, 75, 'All']],
-						columnDefs: [{ orderable: false, targets: [0, 5] }],
+						columnDefs: [{ orderable: false, targets: [0, 5, 6] }],
 						columns: [
 							{ title: 'Select', width: '50px', className: 'alt-color' },
 							{ title: 'Name', className: 'alt-color' },
 							{ title: 'Author', className: 'alt-color' },
 							{ title: 'Last Updated', className: 'alt-color' },
 							{ title: 'Version', className: 'alt-color', width: '150px' },
-								{ title: 'Installs on', className: 'alt-color', width: '150px' }
+								{ title: 'Installs on', className: 'alt-color', width: '150px' },
+								{ title: 'Config', className: 'alt-color', width: '90px' }
 						],
 						rowCallback: function(row, data, index) {
 							$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
@@ -982,6 +990,43 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				}
 				return '<div class="dest-pair">' + sw('server', d[0], 'Server')
 				     + sw('client', d[1], 'Client') + '</div>';
+			}
+
+			// 2.55: the Config column.
+			//
+			// A LINK, not an inline editor. This picker is already a dense state machine --
+			// checkedSet as the source of truth, two DataTables, redrawInPlace() so paging does
+			// not reset on every checkbox click, and a scroll restore inside
+			// requestAnimationFrame because DataTables re-measures after a draw. Every one of
+			// those is a bug fix. Expanding rows into forms here would re-open all of them, so
+			// the icon opens world_configs.php instead -- which, with the mod filter dropped, is
+			// also the all-configs view for the whole world.
+			//
+			// NOT mirrored into new_world.php, deliberately. A world that does not exist yet has
+			// no config files and no world_mods rows to attribute them to, so there would be
+			// nothing for the link to open. This is a real difference between the two pages, not
+			// an omission to be tidied up later.
+			//
+			// The count comes from the override rows, so an unconfigured mod shows the neutral
+			// "edit" affordance rather than a 0 badge -- zero overrides and "this mod has not
+			// written its config yet" are different states, and the page itself says which.
+			function configCell(uuid, isChecked) {
+				if (!isChecked) {
+					return '<span class="dest-off" title="Select this mod first -- a mod that is '
+					     + 'not installed on this world has no config to edit.">&mdash;</span>';
+				}
+				var n = cfgCountSet[uuid] || 0;
+				var badge = n > 0
+					? ' <span class="badge bg-warning text-dark">' + n + '</span>'
+					: '';
+				return '<a class="btn btn-sm btn-outline-info" style="padding:0 7px;" '
+				     + 'href="world_configs.php?world=' + encodeURIComponent(worldName)
+				     + '&mod=' + encodeURIComponent(uuid) + '" '
+				     + 'title="' + (n > 0
+						? n + ' saved setting(s) for this mod. They are re-applied on every world '
+						    + 'start and update, so a mod update will not wipe them.'
+						: 'Edit this mod\'s config. Settings you change here survive a mod update.')
+				     + '">Config' + badge + '</a>';
 			}
 
 			function getSelectedMods() {
@@ -1170,9 +1215,24 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					dataType: 'json'
 				});
 
-				Promise.all([modsPromise, selectionPromise]).then(function(results) {
+				// 2.55: per-mod override counts for the Config column badge.
+				//
+				// Resolved to an empty map on failure rather than rejecting, because this is
+				// decoration: a mod picker that refused to load because a BADGE COUNT was
+				// unavailable would be a far worse failure than a Config button with no number
+				// on it. Promise.all rejects as a unit, so an un-caught third promise here would
+				// take the whole table down with it.
+				var cfgCountPromise = $.ajax({
+					url: 'adminAPI.php?action=getModConfigSummary&world=' + encodeURIComponent(worldName),
+					method: 'GET',
+					dataType: 'json'
+				}).then(function (r) { return (r && r.counts) ? r.counts : {}; },
+				        function ()  { return {}; });
+
+				Promise.all([modsPromise, selectionPromise, cfgCountPromise]).then(function(results) {
 					var modsData = results[0];
 					var selData = results[1];
+					cfgCountSet = results[2] || {};
 
 					if (!modsData.success || !selData.success) {
 						alert('Error loading data');

@@ -1788,12 +1788,69 @@ if (isset($_GET['view'])) {
 }
 
 // file editor
+/**
+ * Is this path one the 2.55 mod config editor owns?
+ *
+ * Returns the world name when it is, or null.
+ *
+ * Why this guard exists: hand-editing a mod config here is silently undone. Every world
+ * update runs purgeWorldModsConfigsPatchers(), which deletes BepInEx/config/*, and both an
+ * update AND a plain world start then re-apply the saved overrides from the database over the
+ * top. So a file saved in this browser lasts until the next start of that world and then
+ * reverts with nothing logged -- which is indistinguishable from a bug, and is exactly the
+ * kind of thing that comes back as "the file manager does not save".
+ *
+ * Refusing with an explanation is the honest version of a change that has already happened.
+ * Note what this canNOT do: the data volume is mounted on the operator's own host, so a hand
+ * edit remains possible from outside the container. It cannot be prevented, only explained --
+ * which is why the message says the edit will be ignored rather than claiming it is blocked.
+ */
+function fm_phv_config_owned_path($relPath)
+{
+    $p = str_replace('\\', '/', (string)$relPath);
+    $segments = array_values(array_filter(explode('/', $p), function ($s) {
+        return $s !== '' && $s !== '.';
+    }));
+    if (count($segments) < 2) {
+        return null;
+    }
+    $world = $segments[0];
+    $rest = implode('/', array_slice($segments, 1));
+
+    // game/BepInEx/config and client/BepInEx/config are the live trees the editor writes to.
+    // custom_configs/ and custom_configs_secure/ are the retired pre-2.55 override layer --
+    // still distributed by the engine, but no longer where an operator should be working.
+    if (preg_match('#^(game|client)/BepInEx/config(/|$)#', $rest)
+        || preg_match('#^custom_configs(_secure)?(/|$)#', $rest)) {
+        return $world;
+    }
+    return null;
+}
+
 if (isset($_GET['edit'])) {
     $file = $_GET['edit'];
     $file = fm_clean_path($file, false);
     $file = str_replace('/', '', $file);
     if ($file == '' || !is_file($path . '/' . $file)) {
         fm_set_msg(lng('File not found'), 'error');
+        fm_redirect(FM_SELF_URL . '?p=' . urlencode(FM_PATH));
+    }
+
+    // 2.55: mod configs are edited in the config editor, not here.
+    //
+    // This check sits BEFORE the savedata handler below, which is inside this same branch, so
+    // one guard covers both opening the editor and POSTing a save to it. Guarding only the
+    // render would leave the write path reachable by a direct POST.
+    $phvConfigWorld = fm_phv_config_owned_path(FM_PATH);
+    if ($phvConfigWorld !== null) {
+        fm_set_msg(
+            'Mod configs are managed in the Mod Config editor, not in the file browser. '
+            . 'An edit saved here is overwritten the next time this world starts or updates, '
+            . 'because PhValheim re-applies the settings it has stored. '
+            . 'Open Admin UI -> ' . htmlspecialchars($phvConfigWorld) . ' -> Edit Mods -> Config, '
+            . 'or go straight to world_configs.php?world=' . urlencode($phvConfigWorld) . ' .',
+            'error'
+        );
         fm_redirect(FM_SELF_URL . '?p=' . urlencode(FM_PATH));
     }
     $editFile = ' : <i><b>'. $file. '</b></i>';

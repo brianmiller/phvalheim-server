@@ -90,6 +90,41 @@ function updateWorld($pdo,$world){
         }
 }
 
+/*
+ * Rebuild a world's client payload without a full update (2.55).
+ *
+ * Returns TRUE only if the command was actually accepted, so the caller can tell the operator
+ * the truth. updateWorld() above assigns to a $msg nothing reads and always "succeeds"; a
+ * button that reports success for a command the engine will never see is worse than an error.
+ *
+ * The mode guard is a WHITELIST and that is the load-bearing part. worlds.mode is a single
+ * column, and the engine's main loop reads it once per world per pass -- so writing
+ * 'repackage' over 'updating' does not queue behind the update, it REPLACES the command the
+ * engine is in the middle of acting on, and that update's own final write then clobbers this
+ * one. Only an idle world may be handed a new command.
+ *
+ * Named states rather than "anything that is not busy": a mode this code has never heard of
+ * (a future command, or 'broken') is precisely where guessing is wrong. Refusing is
+ * recoverable; corrupting an in-flight update is not.
+ *
+ * Vanilla is excluded here too, not only in the UI. A vanilla world has no client payload, so
+ * the engine would no-op -- but it would still have taken the world through a mode change for
+ * nothing.
+ */
+function repackageWorld($pdo,$world){
+        if (empty($world)) {
+                return false;
+        }
+
+        $sth = $pdo->prepare(
+                "UPDATE worlds SET mode='repackage' " .
+                "WHERE name = ? AND mode IN ('running','stopped') AND IFNULL(vanilla,0) = 0"
+        );
+        $sth->execute([$world]);
+
+        return $sth->rowCount() > 0;
+}
+
 function setCitizens($pdo,$world,$citizen){
         #$sql = "SELECT citizens FROM worlds WHERE name='$world'";
         #$result = $pdo->query($sql);

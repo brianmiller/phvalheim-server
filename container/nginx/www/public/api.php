@@ -37,6 +37,26 @@ if ($mode == "getMD5") {
 	print getMD5($pdo,$world);
 }
 
+# Both payload checksums for a world, in ONE response (2.55).
+#
+# One request, deliberately. Fetched as two separate calls, an operator who repackages between
+# them hands the client a full-payload checksum from one generation of the tree and a config
+# checksum from the next -- so it either re-syncs for nothing or believes it is current when
+# it is not. There is no way for the client to detect that split, so the server does not offer
+# the chance to create it.
+#
+# key=value lines, split on the FIRST '=' only -- the same convention as the client manifest
+# in BepInEx/plugins/PhValheimCompanion/phvalheim-world.cfg. Bare positional lines would work
+# today and break silently the first time anyone added or reordered a field.
+#
+# getMD5 above is left EXACTLY as it is. It is the contract every pre-2.55 client speaks, and
+# world_md5 must keep meaning "md5 of the real <world>.zip" -- see the note in dbUpdate_2.55.sh
+# about why a composite value would put old clients in a permanent re-download loop.
+if ($mode == "getSyncState") {
+	print "world=" . getMD5($pdo,$world) . "\n";
+	print "config=" . getConfigMD5($pdo,$world) . "\n";
+}
+
 if ($jsonIncoming->action) {
 	$action = $jsonIncoming->action;
 }

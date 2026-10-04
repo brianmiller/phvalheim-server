@@ -403,6 +403,22 @@ while [ true ]; do
 				SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
 			else
 				SQL "UPDATE worlds SET mode='starting' WHERE name='$worldName'"
+
+				#Re-apply the operator's mod config overrides before the world loads them.
+				#
+				#On START as well as on update, because every other config step in this engine
+				#runs only in the update branch -- purge, mod install, custom_configs copy and
+				#packageClient are all one block -- and startWorld.sh touches BepInEx/config
+				#not at all. Without this, saving a setting in the editor would do nothing
+				#visible until the operator happened to run a full world update, which is a
+				#long rebuild and not a thing anyone would guess they had to do. BepInEx reads
+				#its config at plugin load, so immediately before the process starts is the
+				#last moment the value can still take effect for this run.
+				#
+				#Idempotent and cheap: it reads the world's rows and rewrites only the matched
+				#value spans, so a start with no overrides does nothing at all.
+				materialiseModConfigs "$worldName"
+
 				/usr/bin/supervisorctl start valheimworld_$worldName > /dev/null 2>&1
 				if [ $? != 0 ]; then
 					# One world that will not start must NOT take the engine down with it.
@@ -562,6 +578,21 @@ while [ true ]; do
 					#Install custom mods and config
 					installCustomModsConfigsPatchers "$worldName"
 
+					#The operator's per-key mod config overrides (2.55), applied LAST of the
+					#config steps and deliberately so.
+					#
+					#installCustomModsConfigsPatchers() above copies custom_configs/* into both
+					#trees as whole files, and that directory is still the engine's own
+					#distribution mechanism -- createCustomSeedConfig() writes this world's SEED
+					#into it at creation and relies on every later update redistributing it, so
+					#it cannot just be retired. Running after it is what makes the database win
+					#over the directory where the two describe the same key.
+					#
+					#Before packageClient() too: an override destined for the client has to be
+					#in the staging tree before it is zipped, or it ships one update late --
+					#the same mistake writeClientManifest() was moved to avoid.
+					materialiseModConfigs "$worldName"
+
 					#The loader's own config, AFTER every config-touching step above and
 					#BEFORE the client is packaged. packageClient() zips ./BepInEx
 					#wholesale, so this is the last moment that decides whether the world
@@ -598,6 +629,12 @@ while [ true ]; do
 					#checksum. Clear it rather than leaving the md5 of a stale zip behind,
 					#which the client would otherwise treat as a payload worth syncing.
 					setMD5 "$worldName" ""
+
+					#The config archive's checksum goes the same way, and for the same
+					#reason. A world converted from modded to vanilla keeps both its old
+					#archives on disk, so leaving either checksum behind points clients
+					#at a payload this world no longer has.
+					setConfigMD5 "$worldName" ""
 				fi
 
 				#set last updated timestamp
@@ -616,6 +653,78 @@ while [ true ]; do
 								
 
 			fi
+		fi
+
+
+		#Rebuild this world's client payload WITHOUT a full update.
+		#
+		#What this is for: the operator changed a mod config in the editor and wants players to
+		#receive it. The update branch above would do that, but it stops the world, runs
+		#steamcmd validate, purges BepInEx/{config,plugins,patchers} on both trees and
+		#re-downloads every mod -- measured on a real world, 572 MB of plugins reinstalled and
+		#every player disconnected to move ~80 KB of config.
+		#
+		#This branch runs only the config-relevant steps and does NOT stop the world.
+		#packageClient() reads the client staging tree while the server process reads game/, so
+		#nothing contends and nobody is kicked off.
+		if [ "$worldMode" = "repackage" ]; then
+			echo "`date` [NOTICE : phvalheim] Repackage command recieved for world '$worldName':"
+
+			isVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName'")
+
+			#A vanilla world has no client payload by definition, so there is nothing to
+			#rebuild. A silent no-op rather than an error: the UI does not offer this for a
+			#vanilla world, and refusing loudly would be noise about a legitimate state.
+			if [ "$isVanilla" = "1" ]; then
+				echo "`date` [NOTICE : phvalheim] World '$worldName' is vanilla -- no client payload to rebuild."
+			else
+				SQL "UPDATE worlds SET mode='repackaging' WHERE name='$worldName'"
+
+				#Same order as the update branch and for the same reasons: the operator's
+				#overrides into both trees, then the loader's own config, then the zip.
+				#
+				#InstallCustomConfigSecureFiles is deliberately NOT called here. In the
+				#update branch it runs AFTER packageClient, but the custom_configs copy it
+				#belongs to runs BEFORE materialiseModConfigs -- that ordering is what makes
+				#the database win over the directory where both describe a key. Calling it
+				#here, after materialise, would invert that precedence and let a stale file
+				#overwrite the value the operator just saved. Those files are already in
+				#game/ from the last update and a repackage does not purge them.
+				materialiseModConfigs "$worldName"
+				ensureBepInExLoaderConfig "$worldName"
+				packageClient "$worldName"
+
+				#Only stamp a checksum we actually have. setMD5 "" means "no payload" and
+				#would tell every client there is nothing to sync -- which on a FAILED
+				#repackage is the one outcome that must not happen, because the previous
+				#payload is still on disk and still correct. Leave the old value instead.
+				worldMD5=$(getMD5 "/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip")
+				if [ -n "$worldMD5" ]; then
+					setMD5 "$worldName" "$worldMD5"
+				else
+					echo "`date` [WARNING : phvalheim] Repackage of '$worldName' produced no payload -- keeping the previous checksum so clients stay on the payload they have."
+				fi
+
+				#date_updated is deliberately NOT touched. It reads as "World last updated"
+				#and sorts the offline list; it means "mods last rebuilt", and a repackage
+				#rebuilt no mods. world_md5 and config_md5 are the sync triggers and are
+				#sufficient on their own.
+			fi
+
+			#Land on the TRUTH, never on a command. The update branch ends on mode='start'
+			#when it had stopped a running world; this branch never stopped anything, so
+			#'start' here would boot a world the operator had deliberately left stopped.
+			#
+			#And it must always land on something the loop RECOGNISES. 'repackaging' is not a
+			#command, so leaving it set would have the loop revisit this world every 2 seconds
+			#forever -- the failure the update branch's own comment records above.
+			if worldProcessRunning "$worldName"; then
+				SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
+			else
+				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
+			fi
+
+			echo "`date` [NOTICE : phvalheim] Repackage of '$worldName' finished."
 		fi
 
 

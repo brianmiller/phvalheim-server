@@ -20,6 +20,9 @@ require_once '/opt/stateless/nginx/www/includes/modcatalog.php';
 # surface. Absolute + require_once for the same reason as the two includes above.
 require_once '/opt/stateless/nginx/www/includes/aiproviders.php';
 require_once '/opt/stateless/nginx/www/includes/aicontext.php';
+# The 2.55 mod config editor (mod_config_overrides). Absolute + require_once for the same
+# reason as the three includes above; it requires modcatalog.php itself for worldIdByName().
+require_once '/opt/stateless/nginx/www/includes/modconfigs.php';
 
 header('Content-Type: application/json');
 
@@ -875,6 +878,35 @@ switch($action) {
         }
         break;
 
+    case 'repackageWorldNow':
+        // Rebuild the client payload so players receive saved config changes (2.55).
+        //
+        // This only sets worlds.mode; the engine's main loop picks it up within 2 seconds.
+        // No backgrounded helper, unlike updateWorldNow above -- there is no game download
+        // to outlive the request, and the engine already owns world state transitions.
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true);
+            $world = $input['world'] ?? '';
+            if (!$world) {
+                echo json_encode(['success' => false, 'error' => 'World name required']);
+                break;
+            }
+            if (repackageWorld($pdo, $world)) {
+                echo json_encode(['success' => true]);
+            } else {
+                // repackageWorld()'s whitelist refused. Report what the operator can act on
+                // instead of "failed": the overwhelmingly likely cause is that the world is
+                // mid-update, and the fix is to wait rather than to click again.
+                echo json_encode([
+                    'success' => false,
+                    'error'   => 'Could not start a repackage. The world must be a modded world and must be idle (running or stopped) -- if it is updating, wait for that to finish and try again.'
+                ]);
+            }
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST method required']);
+        }
+        break;
+
     case 'reconcileBackups':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $output = trim(shell_exec('/opt/stateless/engine/tools/worldBackupReconcile --json 2>&1'));
@@ -901,6 +933,74 @@ switch($action) {
     case 'getOrphanedBackupCount':
         $count = getOrphanedBackupCount($pdo);
         echo json_encode(['success' => true, 'count' => $count]);
+        break;
+
+    // --- 2.55: the mod config editor ------------------------------------------------
+    //
+    // The write endpoints are POST-only. A config change restarts-to-apply and is stored per
+    // key, so a GET that mutated would be replayable from a browser history entry or a
+    // prefetch -- and the thing it would silently re-apply is a value the operator may have
+    // deliberately reset since.
+    case 'getModConfigs':
+        $world = $_GET['world'] ?? '';
+        if ($world === '') {
+            echo json_encode(['error' => 'World name required']);
+        } else {
+            echo json_encode(modConfigEditorPayload($pdo, $world));
+        }
+        break;
+
+    case 'getModConfigSummary':
+        $world = $_GET['world'] ?? '';
+        if ($world === '') {
+            echo json_encode(['error' => 'World name required']);
+        } else {
+            echo json_encode(['success' => true, 'counts' => modConfigSummary($pdo, $world)]);
+        }
+        break;
+
+    case 'saveModConfigs':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['ok' => false, 'error' => 'POST method required']);
+            break;
+        }
+        $body  = json_decode(file_get_contents('php://input'), true);
+        $world = $body['world'] ?? '';
+        if ($world === '') {
+            echo json_encode(['ok' => false, 'error' => 'World name required']);
+        } else {
+            echo json_encode(modConfigSaveOverrides($pdo, $world, $body['items'] ?? null));
+        }
+        break;
+
+    case 'resetModConfigFile':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['ok' => false, 'error' => 'POST method required']);
+            break;
+        }
+        $body  = json_decode(file_get_contents('php://input'), true);
+        $world = $body['world'] ?? '';
+        $file  = $body['file'] ?? '';
+        if ($world === '' || $file === '') {
+            echo json_encode(['ok' => false, 'error' => 'World name and config file required']);
+        } else {
+            echo json_encode(modConfigResetFile($pdo, $world, $file));
+        }
+        break;
+
+    case 'diffPastedModConfig':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['ok' => false, 'error' => 'POST method required']);
+            break;
+        }
+        $body  = json_decode(file_get_contents('php://input'), true);
+        $world = $body['world'] ?? '';
+        $file  = $body['file'] ?? '';
+        if ($world === '' || $file === '') {
+            echo json_encode(['ok' => false, 'error' => 'World name and config file required']);
+        } else {
+            echo json_encode(modConfigDiffPasted($pdo, $world, $file, $body['text'] ?? ''));
+        }
         break;
 
     default:

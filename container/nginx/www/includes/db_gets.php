@@ -158,6 +158,22 @@ function getMD5($pdo,$world) {
         return $result;
 }
 
+/*
+ * Checksum of the CONFIG-ONLY client archive (2.55).
+ *
+ * Returns '' when the column is NULL, which means "this world has no config archive to
+ * compare against" -- NOT "its config is empty". A client that sees nothing here must fall
+ * back to comparing the full payload, which is exactly what every pre-2.55 client does.
+ * Collapsing unknown into a real answer is the bug "Unknown is not up to date" shipped three
+ * times in one release.
+ */
+function getConfigMD5($pdo,$world) {
+        $sth = $pdo->prepare("SELECT config_md5 FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
+        $result = $sth->fetchColumn();
+        return ($result === false || $result === null) ? '' : $result;
+}
+
 function getWorldMemory($pdo,$world) {
         $sth = $pdo->prepare("SELECT currentMemory FROM worlds WHERE name='$world'");
         $sth->execute();

@@ -1,5 +1,266 @@
 # Changelog
 
+## v2.55
+
+### Applying a config change no longer costs a full world update
+
+Saving in the editor wrote database rows and set no `worlds.mode`, so the engine never woke up.
+`materialiseModConfigs()` ran on world **start** and world **update** only, and the file players
+actually download is `<world>.zip`, which only `packageClient()` rebuilds — in the update branch
+alone. So for a mod that runs on players' clients, a start applied the value to a tree nobody
+downloads.
+
+Measured on a real world (VikingOutlaws): `Show Clock = Off` was saved at 17:29, the last
+`packageClient()` ran at 17:08, and the value was present in `game/`, present in the client
+staging tree, and **absent from the payload**. A natural control sat in the same file —
+`Clock Font Color = 1500FF`, saved *before* that update, and present in the payload. Same mod,
+same file; the only difference was which side of `packageClient()` each was saved on.
+
+A full update was the only way to ship it, and that stops the world, runs steamcmd `validate`,
+purges `BepInEx/{config,plugins,patchers}` on both trees and re-downloads every mod — 572 MB of
+plugins reinstalled, and every player disconnected, to move 80 KB of config.
+
+**New `worlds.mode = 'repackage'`**, driven by an **Apply to players** button on the Mod Configs
+page. It runs `materialiseModConfigs` → `ensureBepInExLoaderConfig` → `packageClient` and nothing
+else: no steamcmd, no purge, no mod re-download, and **no world stop** — `packageClient()` reads
+the client staging tree while the server process reads `game/`, so nothing contends and nobody is
+kicked. `worlds.mode` is `TEXT`, not an `ENUM`, so the new value needed no migration.
+
+Five things it gets right deliberately, each guarded by `test-client-payload-sync.sh` T8:
+it always lands on `running`/`stopped` read from the process table, because `repackaging` is not
+a command and leaving it set would have the 2-second loop revisit that world forever; it never
+sets `mode='start'`, which would boot a world the operator had deliberately left stopped; it
+keeps the **previous** `world_md5` when packaging fails, because `setMD5 ""` means "no payload"
+and would tell every client there is nothing to sync; it does not touch `date_updated`, which
+means "mods last rebuilt"; and it does **not** call `InstallCustomConfigSecureFiles`, which runs
+after `packageClient` in the update branch but whose `custom_configs` copy runs *before*
+`materialiseModConfigs` — calling it here would invert the database-wins-over-directory ordering
+and let a stale file overwrite the value just saved.
+
+### A config change now costs players 80 KB instead of 573 MB
+
+`packageClient()` additionally builds `<world>-config.zip` — `BepInEx/config` and nothing else —
+and stamps `worlds.config_md5`. Measured on the same world: **80,174 bytes against 577,604,688**,
+about 7,200× smaller. Of the 573 MB staging tree, 572 MB is `BepInEx/plugins` that a config edit
+cannot touch and 224 KB is config.
+
+Both checksums are written from the same tree state in the same pass, and
+`api.php?mode=getSyncState` returns both in **one** response. Fetched separately, an operator who
+repackages between the two calls hands a client a payload checksum from one generation of the
+tree and a config checksum from the next, with no way for the client to detect it.
+
+**`world_md5` is still exactly the md5 of the real `<world>.zip`, and that is load-bearing.**
+`Syncer.cs` compares it against `getMD5()` of the payload file on the player's own disk. Making
+it a composite of both archives — the obvious way to make an old client notice a config change —
+puts every old client in a *permanent* re-download loop: it fetches the zip, hashes what it got,
+still disagrees with the composite, and tries again on every launch forever. So `config_md5` is
+strictly additive, a repackage rebuilds **both** archives, and an old client degrades to exactly
+today's behaviour. `mode=getMD5` is untouched. Guarded by T1, which is first in the file because
+no assertion about the new client could ever see this.
+
+A failed rebuild keeps the last good archive and its checksum: the archive is written to a temp
+file and moved into place, because `rm -f` then `zip` destroys the good one the moment zip fails
+and the stored checksum then names a file that is not there — so every client would ask for a 404
+instead of falling back. A world with no staging config dir *clears* `config_md5` to `NULL`
+instead, which means "nothing to compare against"; `''` would read as a legitimate answer the
+first time anything compared it with `==`.
+
+### Client: three sync paths, and no more hashing 573 MB on every launch
+
+`Syncer.cs` ran `getMD5()` over the whole payload **on every single launch** just to answer "what
+version do I have" — a full read and MD5 of 573 MB, seconds of cold disk every time, to learn
+something it already knew. It now keeps a `<world>.sync` record of both checksums and hashes the
+payload in exactly two cases: the record is missing (first run after upgrading), or a download
+just finished.
+
+That second case is not optional. The old client's per-launch re-hash caught a truncated or
+corrupt download by accident on the next run; writing a record without verifying would turn that
+accidental self-healing into a permanent lie. A corrupt download is now discarded, the record
+deleted, and the player's existing install left untouched rather than half-replaced.
+
+Three paths: payload differs → full download, verify, extract (as before); only the config
+differs → fetch the 80 KB archive and **replace** `BepInEx/config` wholesale; both match → do
+nothing. Replaced, never merged: resetting a setting *removes* a key and can remove a whole file,
+and a file-by-file copy would leave the stale one behind so the reset never reached the player.
+This is no more destructive than the full path, which already deletes the entire world directory.
+
+A new client against an old server falls back to `mode=getMD5` and simply never takes the config
+path. An unknown remote config checksum is treated as "differs", never as "matches" — the
+fail-safe direction costs one 80 KB download; the other loses a config change forever.
+
+Also removed from that file: `localWorldVersionFile`, declared and never used — a vestige of this
+exact idea, whose name the sync record now takes over; `localMissing`, assigned in both branches
+and never read; and `doorstopExists`, computed, never read, and recomputed, with the
+`if (!doorstopExists)` guard around the doorstop copy commented out.
+
+### Also fixed: three assertions in `test-mod-destination-picker.sh` that had been red for a while
+
+Found by running the sibling suites rather than only the new ones. `destinationCell` gained a
+third parameter, `neededDeps`, when the derived-dependency badge was added, and the suite still
+grepped for the two-argument form and still *called* it with two arguments — so the parameter
+shadowed the global of the same name, the derived branch was unreachable, and three checks were
+permanently red for a feature that works. 2.55's Config column then appeared to break a fourth
+(`targets: [0, 5]` became `[0, 5, 6]` on `edit_world.php`, correctly, since the Config cell is
+also a control); that assertion is now a prefix match, which still catches column 5 becoming
+sortable — the regression it exists for — while allowing the new column. A control was added:
+the same uuid with no `neededDeps` entry must *not* render as derived, or a `destinationCell`
+that badged every unselected mod would pass.
+
+### Fixed before release: every override was inert on a world update
+
+The first 2.55 image applied **nothing**. On a live world it logged
+`0 applied, 78 not applicable`.
+
+`materialise` only rewrote keys in files that already existed, and never created one. But
+`purgeWorldModsConfigsPatchers()` empties `BepInEx/config` on every world update, and almost no
+mod ships a `config/` inside its zip — AzuClock does not. So at materialise time, during an
+update, the target file **does not exist yet**: the mod writes it afterwards, on first load,
+from its own defaults. Every stored setting was skipped and replaced by a default.
+
+The refusal was justified by a comment asserting that a pre-placed key would be disregarded by
+the loader and dropped on the next save. **That assertion was false.** BepInEx's `ConfigFile`
+parses the file into its entries plus an orphaned-entries table, and `Bind()` adopts a stored
+value when the key is present — which is exactly how the pre-2.55 `custom_configs/` copy
+worked, since those files were placed *before* the world had ever booted.
+
+`materialise` now creates the file (`render_new_cfg()`) when the mod has not written one, and
+injects a missing key into an existing file. A key the mod no longer binds is harmless: BepInEx
+keeps it as an orphaned entry and nothing reads it.
+
+**Why the tests missed it.** Every materialise test pre-created the target file — the one state
+in which the broken version works — and the live test exercised a world *start*, where the
+previous boot had left a file behind. `test-mod-config-editor.sh` now has T10, which starts
+from an **empty** directory, the state an update actually hands it. Reverting the fix turns T10
+red.
+
+Stale detection was re-based on **metadata** rather than key presence: now that missing keys
+are injected, a presence test would report nothing forever. A key the plugin bound carries
+`# Setting type:`; an injected orphan never gains it. Gated on the file having documented
+something, so a just-created file is not reported as broken.
+
+### Fixed: the apply-point was stated wrongly
+
+"Restart the world to apply" is only true server-side. A mod that runs on players' clients
+reads its config from the client payload zip, which only `packageClient()` rebuilds — and that
+runs on a world **update**, not a restart. The page, the save confirmation and the What's New
+entry now state both paths.
+
+### Fixed: a long documented default spilled out of the table
+
+A grid item defaults to `min-width: auto` and refuses to shrink below its content, so one long
+default — AzuClock documents a whole HTML template as its `Clock String` default — pushed the
+row outside its card. `min-width: 0` on the grid children is the actual fix; the value is also
+clamped to three lines, expands on hover and carries the full text in a `title`.
+
+### New: the mod config editor (issue #84)
+
+An operator can edit any mod's settings from the admin UI, and the changes survive a mod
+update. Entry points are a **Config** button on each selected mod's row in `edit_world.php`
+and the standalone `world_configs.php`, which is the same page with the mod filter dropped —
+one renderer, two entry points.
+
+### Per-key overrides, not whole files
+
+`purgeWorldModsConfigsPatchers()` deletes `BepInEx/config/*` on **every** world update, so a
+mod config is derived and never state. The pre-2.55 way to keep an edit was to copy the whole
+file into `custom_configs/`, which pins the config at the shape the mod had when it was
+copied: a setting the new version **adds** is lost, one it **removes** lingers forever, and
+"which values did the operator actually choose?" is unanswerable.
+
+2.55 stores sparse `(world, file, section, key) → value` rows in the new
+`mod_config_overrides` table and re-applies them onto whatever the new version generates.
+`dev_tools/test-mod-config-editor.sh` asserts all three outcomes directly.
+
+The table is keyed on the **config file**, not on `mod_id`; `mod_id` is nullable attribution.
+Three live classes of config file have no `world_mods` row to hang an override on — the
+engine-installed non-catalogue plugins (`ZeroBandwidth-CustomSeed`, `PhValheim-TickMonitor`),
+any DLL an operator drops into `custom_plugins/`, and the whole config tree `importWorld.sh`
+copies in. Keying on `mod_id` would have left every one of those uneditable.
+
+`cfg_file`, `section` and `ckey` are `COLLATE utf8mb4_0900_as_cs`, same hazard as 2.43's
+`mods.owner`/`name`: BepInEx keys are case-sensitive, and under the default `ai_ci` the unique
+key would collapse `Enabled` and `enabled` into one row.
+
+### The form is generated from the config file's own metadata
+
+BepInEx writes `# Setting type:`, `# Default value:`, `# Acceptable values:` and
+`# Acceptable value range:` above every entry, so a typed widget per setting needs no per-mod
+schema registry. `# Default value:` is also the baseline for every "modified" badge and for the
+legacy import diff — it travels inside the file, so it needs no catalogue lookup and no network.
+
+There is exactly **one** cfg parser, in `engine/tools/modConfigs.py`. The admin UI shells out
+to its two no-database modes (`--parse-dir`, `--parse-file`) rather than carrying a PHP parser,
+and hands the world's mods in via `--catalogue-file` rather than reimplementing attribution.
+php-fpm runs as `phvalheim` and reaches the database as `phvalheim_user`; the root-only modes
+(`--materialise`, `--import-legacy`, `--discover`) are called by the engine.
+
+### Applied on world START as well as on update
+
+Every other config step in the engine lives in the update branch, and `startWorld.sh` does not
+touch `BepInEx/config` at all. Without a start hook, saving a setting would sit inert until the
+operator happened to run a full rebuild. `materialiseModConfigs()` is called from both, and
+runs **after** `installCustomModsConfigsPatchers()` so the database outranks `custom_configs/`,
+and **before** `packageClient()` so a client-destined value does not ship one update late.
+
+`server_only` rows are withheld from the client by **naming the server tree** inside
+`modConfigs.py`, not by call ordering — 2.53 recorded why an undeclared ordering is not a
+guarantee.
+
+### The rewrite is surgical
+
+Only the value span of a matched line changes; the file stays byte-identical everywhere else,
+and a key that is not in the installed version is **reported, never injected** — BepInEx
+rewrites its config from the keys the plugin actually binds, so an injected key would be
+ignored on load and deleted on the next write while the UI claimed the override was in force.
+
+An early version of the rewriter captured the whitespace after the `=` but not before it, so
+`Weird   =    7` came back as `Weird=    99`. Nothing broke — BepInEx reads either form — and
+the "how many overrides applied" count read 3 both before and after the fix. Only the
+byte-identity assertion could see it.
+
+### `custom_configs/` and `custom_configs_secure/` are deprecated, not removed
+
+They are no longer the operator interface and the UI no longer points anyone at them, but the
+copy step stays, because it is also the **engine's own** persistence layer across the purge:
+`createCustomSeedConfig()` writes a world's seed into `custom_configs/` at creation and relies
+on every later update redistributing it. Removing the copy would have regenerated worlds with
+the wrong map.
+
+`dbUpdate_2.55.sh` runs `modConfigs.py --import-legacy --all` once, gated on
+`settings.configEditorMigrated` and only marked done on a zero exit.
+
+**The import takes only keys that differ from a documented default.** `importWorld.sh:143`
+copies an imported world's entire `BepInEx/config` tree into `custom_configs/`, so such a world
+is indistinguishable by directory listing from an operator who hand-copied hundreds of files,
+when almost all of them are untouched defaults. Importing those would have frozen that world at
+its import-time defaults permanently. A key with no documented default has no baseline at all
+and is imported as `origin='legacy-review'` and badged **needs review**, rather than silently
+kept or silently dropped.
+
+A consumed file is **moved** to `custom_configs/.imported-pre-2.55/`. Left in place, its stale
+non-overridden keys would keep landing underneath the overrides on every update — the same
+frozen config by another route. Nothing is deleted.
+
+`BepInEx.cfg` and `ZeroBandwidth.CustomSeed.cfg` are excluded from the editor and from the
+import, and are left where they are so the engine keeps distributing them. 2.49 swept the
+loader's config and silenced the world log and the client's console window together.
+
+### The file browser no longer edits mod configs
+
+An edit saved there was reverted on the next world start with nothing logged, which is
+indistinguishable from a bug. `fileBrowser.php` now refuses `BepInEx/config` and the retired
+`custom_configs*` paths and names the editor instead. The guard sits before the `savedata`
+handler, so it covers the POST and not just the render. It cannot *prevent* a hand edit — the
+data volume is mounted on the operator's own host — so the message says the edit will be
+ignored rather than claiming it was blocked.
+
+### Three states, not two
+
+"No config file yet" is reported explicitly and is not the same answer as "a config at all
+defaults". Most BepInEx mods do not ship a `.cfg`; the file appears on the first
+`Config.Bind()`, so a mod that was just added has nothing to edit until the world has booted
+once with it. A 0/false default doubling as a real answer has shipped here three times.
+
 ## v2.54
 
 ### Fixed: the dashboard's Launch button sent `hammertime` as the password

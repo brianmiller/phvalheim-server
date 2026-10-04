@@ -482,7 +482,14 @@ $totalCount = count($worlds);
                         'stop' => 'Stopping',
                         'starting' => 'Starting',
                         'stopping' => 'Stopping',
-                        'backup' => 'Backup'
+                        'backup' => 'Backup',
+                        // 2.55. Both the command and the in-flight state, mapped to one label
+                        // so the operator sees a single word rather than two. The JS copy of
+                        // this map below and the .status-badge rules in phvalheimStyles.css
+                        // need every mode listed here -- 2.53 shipped a bug that was exactly
+                        // a third caller nobody updated.
+                        'repackage' => 'Repackaging',
+                        'repackaging' => 'Repackaging'
                     ];
                     ?>
                     <?php
@@ -2020,7 +2027,12 @@ $totalCount = count($worlds);
             'stop': 'Stopping',
             'starting': 'Starting',
             'stopping': 'Stopping',
-            'backup': 'Backup'
+            'backup': 'Backup',
+            // 2.55 -- keep in step with the PHP map above and the .status-badge rules in
+            // phvalheimStyles.css. This is the copy the 5-second dashboard poll uses, so a
+            // mode missing HERE only shows up after the first refresh.
+            'repackage': 'Repackaging',
+            'repackaging': 'Repackaging'
         };
         return modeMap[mode] || mode;
     }

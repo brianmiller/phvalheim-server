@@ -1210,6 +1210,53 @@ function installCustomModsConfigsPatchers() {
 
 
 #$1=worldName
+#
+#Applies the operator's per-key mod config overrides (mod_config_overrides) onto this world's
+#BepInEx config trees. 2.55.
+#
+#Called from TWO places in the engine and both are load-bearing:
+#
+#  the UPDATE branch, AFTER installCustomModsConfigsPatchers() -- which copies custom_configs/*
+#  in as whole files -- so the database outranks the directory where both describe the same
+#  key; and BEFORE packageClient(), or a client-destined value ships one update late, the same
+#  mistake writeClientManifest() was moved to avoid.
+#
+#  the START branch, because nothing else in a world start touches BepInEx/config. Every other
+#  config step in this engine lives in the update block, and startWorld.sh does not touch the
+#  config tree at all, so without this a setting saved in the editor would sit inert until
+#  someone happened to run a full rebuild.
+#
+#server_only rows are withheld from the client by NAMING the server tree inside modConfigs.py,
+#not by running at a particular moment relative to packageClient(). 2.53 recorded why: an
+#ordering nothing declares is not a guarantee.
+#
+#The chown is not housekeeping. The engine runs as ROOT and the world process runs as
+#phvalheim, so a config file rewritten here is left root-owned -- and BepInEx failing to read
+#its own config surfaces as a plugin that silently does nothing, which is indistinguishable
+#from a wrong config value. Same failure shape as issue #80, which is why every install path
+#above ends the same way.
+function materialiseModConfigs() {
+        worldName="$1"
+        [ -z "$worldName" ] && return 0
+
+        #A vanilla world has no BepInEx tree and never will, so there is nothing to apply and
+        #nothing worth logging on every start of every vanilla world.
+        if [ ! -d "$worldsDirectoryRoot/$worldName/game/BepInEx" ]; then
+                return 0
+        fi
+
+        /opt/stateless/engine/tools/modConfigs.py --world "$worldName" --materialise
+
+        local treeRoot
+        for treeRoot in "$worldsDirectoryRoot/$worldName/game" "$(clientStagingRoot "$worldName")"; do
+                [ -d "$treeRoot/BepInEx/config" ] || continue
+                chown -R phvalheim:phvalheim "$treeRoot/BepInEx/config"
+                chmod -R u+rwX "$treeRoot/BepInEx/config"
+        done
+}
+
+
+#$1=worldName
 function installSystemPlugins() {
 	echo "`date` [NOTICE : phvalheim] Installing system plugins..."
 
@@ -1436,7 +1483,21 @@ function packageClient() {
         #zip's status, captured immediately. The old version ran `rm -f` and then returned
         #`$?` -- so it reported the rm's exit code, which is 0 essentially always, and a
         #genuinely failed zip returned success.
-        return $?
+        local zipStatus=$?
+
+        #The config-only archive, from the SAME staging tree in the SAME pass. That is the
+        #whole invariant: both checksums must describe one generation of the tree, or a client
+        #that takes the full payload can be handed a config_md5 belonging to a different one
+        #and will either re-sync for nothing or believe it is current when it is not.
+        #
+        #Its failure is deliberately NOT fatal to packaging, and does not change what this
+        #function returns. A world with a full payload and no config archive is exactly a 2.55
+        #world: every client falls back to comparing the full payload, which is what they all
+        #do today. Losing the payload over the small archive would be the larger harm -- the
+        #same judgement writeClientManifest() gets above.
+        packageClientConfig "$worldName"
+
+        return $zipStatus
 }
 
 #Is this world's server process actually alive?
@@ -1513,6 +1574,106 @@ function setMD5 () {
                 echo "`date` [NOTICE : phvalheim] Setting world md5sum for '$worldName' to '$worldMD5'"
         fi
         SQL "UPDATE worlds SET world_md5='$worldMD5' WHERE name='$worldName';"
+}
+
+
+#$1=world, $2=md5sum of the CONFIG-ONLY archive.
+#
+#Stored as NULL when empty, not ''. NULL means "this world has no config archive to compare
+#against", and a client that reads it must fall back to the full-payload comparison rather
+#than concluding there is nothing to sync. A '' would work today and read as a legitimate
+#answer the first time anything compared it with ==, which is the mistake
+#"Unknown is not up to date" shipped three times in one release.
+function setConfigMD5 () {
+        worldName="$1"
+        configMD5="$2"
+
+        if [ -z "$configMD5" ]; then
+                echo "`date` [NOTICE : phvalheim] Clearing config payload checksum for '$worldName' (no config archive)"
+                SQL "UPDATE worlds SET config_md5=NULL WHERE name='$worldName';"
+        else
+                echo "`date` [NOTICE : phvalheim] Setting config payload checksum for '$worldName' to '$configMD5'"
+                SQL "UPDATE worlds SET config_md5='$configMD5' WHERE name='$worldName';"
+        fi
+}
+
+
+#Build the CONFIG-ONLY client archive: BepInEx/config and nothing else.
+#$1=worldName
+#
+#Why this exists. A config edit changes ~80 KB of a 573 MB payload -- measured on a real
+#world, 572 MB of which is BepInEx/plugins that a config edit cannot touch. Shipping the whole
+#payload to every player to move one value is ~7,200x more bytes than the change. This archive
+#is the small one; a client new enough to ask for it takes 80 KB instead of 573 MB.
+#
+#Built from the CLIENT STAGING tree, so server_only overrides are absent for the same reason
+#they are absent from the full payload: materialiseModConfigs() never writes them there. The
+#filter is the tree, not a rule applied twice.
+#
+#Written to a temp file and moved into place. The obvious `rm -f` then `zip` loses the previous
+#archive the moment the new zip fails -- and the stored checksum would then point at a file
+#that no longer exists, so every client would ask for a 404 instead of falling back. Temp-then-
+#move leaves the archive and its checksum consistent whatever happens, which is the same
+#reason writeClientManifest() does it.
+function packageClientConfig() {
+        worldName="$1"
+        [ -z "$worldName" ] && return 1
+
+        local stage; stage="$(clientStagingRoot "$worldName")"
+
+        #$worldsDirectoryRoot, not the literal path packageClient() above uses. The two are the
+        #same string -- phvalheim-static.conf sets it to exactly that -- but going through the
+        #variable is what lets this function be driven from dev_tools/test-client-payload-sync.sh
+        #against a temporary tree, instead of only ever being observed inside a container.
+        local zipPath="$worldsDirectoryRoot/$worldName/$worldName-config.zip"
+        local tmpZip="$zipPath.tmp"
+
+        #No staging config dir: a vanilla world, or a tree that has never been built. Clear the
+        #checksum so clients fall back to the full payload instead of comparing against a stale
+        #value for an archive that is not there.
+        if [ ! -d "$stage/BepInEx/config" ]; then
+                rm -f "$tmpZip" > /dev/null 2>&1
+                setConfigMD5 "$worldName" ""
+                return 1
+        fi
+
+        rm -f "$tmpZip" > /dev/null 2>&1
+
+        #|| return, for the same reason packageClient guards its cd: a failed cd would leave
+        #zip packaging whatever directory the engine happened to be in.
+        cd "$stage" || {
+                echo "`date` [ERROR : phvalheim] Could not enter the client staging tree for '$worldName' ($stage) -- config archive not built."
+                return 1
+        }
+
+        zip -q -r "$tmpZip" ./BepInEx/config
+        local zipStatus=$?
+
+        #-s as well as the exit status: zip with nothing to add leaves no archive at all and
+        #still reports success, which would publish a checksum for a file of zero bytes.
+        if [ $zipStatus -ne 0 ] || [ ! -s "$tmpZip" ]; then
+                rm -f "$tmpZip" > /dev/null 2>&1
+                echo "`date` [WARNING : phvalheim] Could not build the config archive for '$worldName' (zip exit $zipStatus). Keeping the previous one; clients fall back to the full payload."
+                return 1
+        fi
+
+        mv -f "$tmpZip" "$zipPath" || {
+                rm -f "$tmpZip" > /dev/null 2>&1
+                echo "`date` [WARNING : phvalheim] Could not install the config archive for '$worldName'. Keeping the previous one."
+                return 1
+        }
+
+        chown phvalheim:phvalheim "$zipPath" > /dev/null 2>&1
+
+        local configMD5; configMD5=$(getMD5 "$zipPath")
+        if [ -z "$configMD5" ]; then
+                echo "`date` [WARNING : phvalheim] Built the config archive for '$worldName' but could not checksum it."
+                return 1
+        fi
+
+        echo "`date` [NOTICE : phvalheim] Config archive for '$worldName': $(stat -c %s "$zipPath" 2>/dev/null) bytes."
+        setConfigMD5 "$worldName" "$configMD5"
+        return 0
 }
 
 

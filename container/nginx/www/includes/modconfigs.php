@@ -1,0 +1,410 @@
+<?php
+/**
+ * The mod config editor's data layer (2.55).
+ *
+ * An operator's mod config edits live in `mod_config_overrides` as SPARSE PER-KEY rows, not as
+ * whole files. purgeWorldModsConfigsPatchers() deletes BepInEx/config/* on every world update,
+ * so a config file is DERIVED and never state; the pre-2.55 answer was to copy whole files into
+ * custom_configs/, which pins a config at the shape the mod had when it was copied. Per-key
+ * rows re-apply onto whatever the new version generates, so a setting the new version adds
+ * arrives at its new default instead of being silently overwritten by an old file.
+ *
+ * WHY THIS SHELLS OUT TO modConfigs.py RATHER THAN PARSING .cfg IN PHP
+ * There is exactly one cfg parser in this product and it is in engine/tools/modConfigs.py.
+ * Two parsers for one hand-written format drift apart, and the symptom of a drift here is the
+ * editor disagreeing with the engine about what the operator set -- which nobody can debug from
+ * the UI. The same applies to file-to-mod attribution: this file hands the world's mods to the
+ * tool and the tool attributes, rather than reimplementing its normalisation rules.
+ *
+ * WHICH MODES ARE SAFE TO CALL FROM HERE
+ * php-fpm runs as `phvalheim` and reaches the database as `phvalheim_user` through PDO.
+ * modConfigs.py's --materialise / --import-legacy / --discover modes talk to mysql as -uroot,
+ * so this file calls ONLY the two no-database modes (--parse-dir, --parse-file) and does every
+ * database read and write itself through $pdo.
+ */
+
+// Shared with modcatalog.php, which already resolves a world name to its id. Not redeclared
+// here -- adminAPI.php requires both, and a second copy would be a fatal redeclare.
+require_once '/opt/stateless/nginx/www/includes/modcatalog.php';
+
+define('MODCONFIG_TOOL', '/opt/stateless/engine/tools/modConfigs.py');
+
+// Never editable. The loader's own BepInEx.cfg is engine state, not a mod config -- 2.49
+// swept it and silenced the world log and the client's console window in one stroke. The seed
+// file is computed by the engine from worlds.seed, and an operator-editable copy would let
+// them fight the engine and lose the world's MAP on the next update. Kept in step with
+// EXCLUDED_FILES in modConfigs.py; both lists are short and both are load-bearing.
+function modConfigExcludedFiles() {
+    return ['BepInEx.cfg', 'ZeroBandwidth.CustomSeed.cfg', 'quick_connect_servers.cfg'];
+}
+
+/**
+ * The world's selected mods, in the shape modConfigs.py --catalogue-file expects.
+ */
+function modConfigCatalogueJson($pdo, $worldId) {
+    $st = $pdo->prepare(
+        "SELECT m.id, m.name, m.full_name FROM world_mods wm
+         JOIN mods m ON m.id = wm.mod_id WHERE wm.world_id = ?");
+    $st->execute([$worldId]);
+    return $st->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Parse the world's live config tree. Returns the tool's JSON decoded, or null on failure.
+ */
+function modConfigParseTree($pdo, $world, $worldId) {
+    $catalogue = modConfigCatalogueJson($pdo, $worldId);
+    $tmp = tempnam(sys_get_temp_dir(), 'phvcfg');
+    file_put_contents($tmp, json_encode($catalogue));
+
+    $cmd = MODCONFIG_TOOL . ' --world ' . escapeshellarg($world)
+         . ' --parse-dir --catalogue-file ' . escapeshellarg($tmp) . ' 2>&1';
+    $raw = shell_exec($cmd);
+    unlink($tmp);
+
+    $data = json_decode((string)$raw, true);
+    // A parse failure must not render as "this world has no configs" -- that is the same
+    // 0/false-doubling-as-a-real-answer that has shipped here three times. The caller
+    // distinguishes null (could not read) from an empty file list (nothing generated yet).
+    return is_array($data) ? $data : null;
+}
+
+/**
+ * Every override row for a world, indexed by "file\x1Fsection\x1Fkey".
+ */
+function modConfigOverrides($pdo, $worldId) {
+    $st = $pdo->prepare(
+        "SELECT cfg_file, section, ckey, cvalue, mod_id, server_only, locked, origin
+         FROM mod_config_overrides WHERE world_id = ?");
+    $st->execute([$worldId]);
+    $out = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $out[$r['cfg_file'] . "\x1F" . $r['section'] . "\x1F" . $r['ckey']] = $r;
+    }
+    return $out;
+}
+
+/**
+ * The editor's whole payload: parsed files merged with override rows, plus the override rows
+ * that no longer match anything.
+ *
+ * THREE STATES, and they are not interchangeable:
+ *   tree === null            the config tree could not be read at all
+ *   generated === false      the world has no config files yet. Most BepInEx mods do not ship
+ *                            a cfg -- it is written on the first Config.Bind() -- so a mod
+ *                            that was just added has nothing to edit until the world has
+ *                            booted once with it. This is NOT "all defaults".
+ *   generated === true       there are files, each entry carrying its own default
+ */
+function modConfigEditorPayload($pdo, $world) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) {
+        return ['error' => "No world named '$world'"];
+    }
+
+    $tree = modConfigParseTree($pdo, $world, $worldId);
+    if ($tree === null) {
+        return ['error' => 'Could not read this world&rsquo;s config directory.',
+                'world' => $world, 'world_id' => (int)$worldId, 'readable' => false];
+    }
+
+    $overrides = modConfigOverrides($pdo, $worldId);
+    $modNames = [];
+    foreach (modConfigCatalogueJson($pdo, $worldId) as $m) {
+        $modNames[(int)$m['id']] = $m['full_name'] ?: $m['name'];
+    }
+
+    $seenKeys = [];
+    $files = [];
+    // (file => true) when BepInEx has documented at least one setting in it, and the
+    // overridden entries in it that carry no documentation at all. See the $stale block below.
+    $fileDocumented = [];
+    $undocumentedOverrides = [];
+    foreach ($tree['files'] as $f) {
+        $entries = [];
+        $modifiedCount = 0;
+        foreach ($f['entries'] as $e) {
+            if ($e['type'] || $e['has_default']) {
+                $fileDocumented[$f['file']] = true;
+            }
+            $k = $f['file'] . "\x1F" . $e['section'] . "\x1F" . $e['key'];
+            $ov = $overrides[$k] ?? null;
+            if ($ov) {
+                $seenKeys[$k] = true;
+                if (!$e['type'] && !$e['has_default']) {
+                    $undocumentedOverrides[$f['file']][] = $ov;
+                }
+            }
+
+            $effective = $ov ? $ov['cvalue'] : $e['value'];
+            // "Modified" is measured against the file's OWN `# Default value:` comment, which
+            // travels inside the file and so needs no catalogue lookup and no network. An
+            // entry with no documented default has no baseline, and saying "modified" or
+            // "unmodified" about it would both be guesses.
+            $modified = $e['has_default'] && ($effective !== $e['default']);
+            if ($modified) { $modifiedCount++; }
+
+            $entries[] = [
+                'section'     => $e['section'],
+                'key'         => $e['key'],
+                'type'        => $e['type'],
+                'description' => $e['description'],
+                'default'     => $e['default'],
+                'has_default' => (bool)$e['has_default'],
+                'acceptable'  => $e['acceptable'],
+                'range'       => $e['range'],
+                'file_value'  => $e['value'],
+                'value'       => $effective,
+                'overridden'  => $ov !== null,
+                'modified'    => $modified,
+                'server_only' => $ov ? (int)$ov['server_only'] : 0,
+                'locked'      => $ov ? (int)$ov['locked'] : 0,
+                'origin'      => $ov ? $ov['origin'] : null,
+            ];
+        }
+        $modId = $f['mod_id'] !== null ? (int)$f['mod_id'] : null;
+        $files[] = [
+            'file'           => $f['file'],
+            'plugin'         => $f['plugin'],
+            'guid'           => $f['guid'],
+            'mod_id'         => $modId,
+            'mod_name'       => $modId !== null ? ($modNames[$modId] ?? null) : null,
+            'entry_count'    => count($entries),
+            'modified_count' => $modifiedCount,
+            'entries'        => $entries,
+        ];
+    }
+
+    // Rows that match nothing in the current tree. Surfaced, never dropped: when a mod update
+    // renames or removes a setting, the row will never apply again, and the operator is the
+    // only one who can decide whether to delete it or set the new key. Hiding it would let the
+    // editor imply an override is in force when it is not.
+    // Detected by METADATA, not by the key being absent.
+    //
+    // materialise() injects a missing key rather than refusing to write it -- that refusal was
+    // the 2.55 bug, because on a world update the config directory has just been purged and
+    // the mod has not written its file yet, so "absent" is the normal case. A consequence is
+    // that after any start or update every override's key IS present, so a presence test would
+    // report nothing at all, forever.
+    //
+    // What still separates them is what BepInEx writes. A key the plugin actually bound gets
+    // `# Setting type:` / `# Default value:` above it; a key we injected that nothing binds --
+    // because the mod renamed or dropped the setting -- keeps its bare `key = value` line and
+    // never gains metadata.
+    //
+    // Gated on the file having documented something, because a file this tool has just created
+    // has no metadata on anything: the mod has not booted with it yet. Without that gate every
+    // freshly-applied setting would be reported as broken.
+    $stale = [];
+    foreach ($overrides as $k => $ov) {
+        if (!isset($seenKeys[$k])) {
+            $stale[] = $ov + ['reason' => 'the mod has not written this config yet'];
+        }
+    }
+    foreach ($undocumentedOverrides as $file => $ovs) {
+        if (empty($fileDocumented[$file])) {
+            continue;
+        }
+        foreach ($ovs as $ov) {
+            $stale[] = $ov + ['reason' => 'this version of the mod does not use this setting'];
+        }
+    }
+
+    return [
+        'world'     => $world,
+        'world_id'  => (int)$worldId,
+        'readable'  => true,
+        'generated' => (bool)$tree['generated'],
+        'files'     => $files,
+        'stale'     => $stale,
+    ];
+}
+
+/**
+ * Per-mod override counts, for the Config column in the mod picker.
+ *
+ * Counts only rows attributed to a mod. The badge on a mod's row must not include the
+ * unattributed files, or every mod row would show the same inflated number.
+ */
+function modConfigSummary($pdo, $world) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return []; }
+    $st = $pdo->prepare(
+        "SELECT mod_id, COUNT(*) AS n FROM mod_config_overrides
+         WHERE world_id = ? AND mod_id IS NOT NULL GROUP BY mod_id");
+    $st->execute([$worldId]);
+    $out = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $out[(int)$r['mod_id']] = (int)$r['n'];
+    }
+    return $out;
+}
+
+/**
+ * Save a batch of edits.
+ *
+ * Each item: {file, section, key, value, server_only, mod_id, reset}
+ *
+ * `reset` deletes the row rather than storing the default as an override. Storing it would be
+ * wrong in a way that only shows up later: the stored value would pin that setting at today's
+ * default, so when the mod's own default changes in a later version the world would silently
+ * keep the old one -- the exact failure the per-key store exists to avoid.
+ *
+ * A `locked` row is refused. Those are engine-owned; the only one so far is the world seed,
+ * and letting an operator set it would change the map out from under a live world.
+ */
+function modConfigSaveOverrides($pdo, $world, $items) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return ['ok' => false, 'error' => "No world named '$world'"]; }
+    if (!is_array($items)) { return ['ok' => false, 'error' => 'No changes supplied']; }
+
+    $excluded = modConfigExcludedFiles();
+    $saved = $removed = 0;
+    $refused = [];
+
+    $lockSt = $pdo->prepare(
+        "SELECT locked FROM mod_config_overrides
+         WHERE world_id = ? AND cfg_file = ? AND section = ? AND ckey = ?");
+    $del = $pdo->prepare(
+        "DELETE FROM mod_config_overrides
+         WHERE world_id = ? AND cfg_file = ? AND section = ? AND ckey = ? AND locked = 0");
+    // ON DUPLICATE KEY so a re-save of the same setting updates in place. origin is forced to
+    // 'operator' on write: a value the operator has now set by hand is no longer a legacy
+    // import awaiting review, and leaving it as 'legacy-review' would keep nagging them
+    // about a decision they have already made.
+    $up = $pdo->prepare(
+        "INSERT INTO mod_config_overrides
+           (world_id, cfg_file, section, ckey, cvalue, mod_id, server_only, locked, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'operator')
+         ON DUPLICATE KEY UPDATE cvalue = VALUES(cvalue),
+                                 mod_id = VALUES(mod_id),
+                                 server_only = VALUES(server_only),
+                                 origin = 'operator',
+                                 date_set = CURRENT_TIMESTAMP");
+
+    foreach ($items as $it) {
+        $file    = (string)($it['file'] ?? '');
+        $section = (string)($it['section'] ?? '');
+        $key     = (string)($it['key'] ?? '');
+        if ($file === '' || $key === '') { continue; }
+        if (in_array($file, $excluded, true)) {
+            $refused[] = "$file is not an editable mod config";
+            continue;
+        }
+        // A path separator here would mean the caller is addressing something outside the
+        // world's own config directory. cfg_file is a bare filename by construction.
+        if (strpos($file, '/') !== false || strpos($file, '\\') !== false || strpos($file, '..') !== false) {
+            $refused[] = "$file is not a valid config file name";
+            continue;
+        }
+
+        $lockSt->execute([$worldId, $file, $section, $key]);
+        if ((int)$lockSt->fetchColumn() === 1) {
+            $refused[] = "[$section] $key in $file is managed by PhValheim and cannot be changed here";
+            continue;
+        }
+
+        if (!empty($it['reset'])) {
+            $del->execute([$worldId, $file, $section, $key]);
+            $removed += $del->rowCount();
+            continue;
+        }
+
+        $up->execute([
+            $worldId, $file, $section, $key, (string)($it['value'] ?? ''),
+            isset($it['mod_id']) && $it['mod_id'] !== '' && $it['mod_id'] !== null
+                ? (int)$it['mod_id'] : null,
+            !empty($it['server_only']) ? 1 : 0,
+        ]);
+        $saved++;
+    }
+
+    return ['ok' => true, 'saved' => $saved, 'removed' => $removed, 'refused' => $refused,
+            // BepInEx reads its config at plugin load, so a running world cannot pick this up.
+            // The side matters and the first version of this note ignored it: a client-side
+            // mod reads the config from the client payload zip, which only packageClient()
+            // rebuilds, which only runs on a world UPDATE. "Restart to apply" sent an operator
+            // looking for a change that a restart could not possibly have delivered.
+            'note' => 'Restart the world to apply. If the mod runs on players\' clients, '
+                    . 'use Apply to players so the client payload is rebuilt.'];
+}
+
+/**
+ * Drop every override for one file (the editor's "reset this mod to defaults").
+ * Locked rows survive deliberately -- see modConfigSaveOverrides().
+ */
+function modConfigResetFile($pdo, $world, $file) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return ['ok' => false, 'error' => "No world named '$world'"]; }
+    $st = $pdo->prepare(
+        "DELETE FROM mod_config_overrides
+         WHERE world_id = ? AND cfg_file = ? AND locked = 0");
+    $st->execute([$worldId, $file]);
+    return ['ok' => true, 'removed' => $st->rowCount(), 'note' => 'Restart the world to apply.'];
+}
+
+/**
+ * Diff a pasted .cfg against the world's installed copy.
+ *
+ * This replaces what the filesystem used to be for: operators share config files with each
+ * other, and before 2.55 the way to use one was to drop it into custom_configs/ whole. Pasting
+ * it here is strictly better, because the whole file is never adopted -- only the keys that
+ * actually differ from the installed default are offered, and the operator sees the list before
+ * anything is stored. A whole-file copy silently carried along every unrelated default too,
+ * which is how an imported world ends up frozen at someone else's config.
+ */
+function modConfigDiffPasted($pdo, $world, $file, $text) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return ['ok' => false, 'error' => "No world named '$world'"]; }
+
+    $tmp = tempnam(sys_get_temp_dir(), 'phvpaste');
+    file_put_contents($tmp, (string)$text);
+    $raw = shell_exec(MODCONFIG_TOOL . ' --parse-file ' . escapeshellarg($tmp) . ' 2>&1');
+    unlink($tmp);
+    $pasted = json_decode((string)$raw, true);
+    if (!is_array($pasted) || !isset($pasted['entries'])) {
+        return ['ok' => false, 'error' => 'That does not parse as a BepInEx config file.'];
+    }
+
+    $tree = modConfigParseTree($pdo, $world, $worldId);
+    if ($tree === null) {
+        return ['ok' => false, 'error' => 'Could not read this world&rsquo;s config directory.'];
+    }
+    $installed = [];
+    foreach ($tree['files'] as $f) {
+        if ($f['file'] !== $file) { continue; }
+        foreach ($f['entries'] as $e) {
+            $installed[$e['section'] . "\x1F" . $e['key']] = $e;
+        }
+    }
+    if (!$installed) {
+        return ['ok' => false,
+                'error' => "This world has no installed '$file' to compare against. "
+                         . 'Start the world once so the mod writes its config, then paste again.'];
+    }
+
+    $changes = $unknown = [];
+    foreach ($pasted['entries'] as $e) {
+        $k = $e['section'] . "\x1F" . $e['key'];
+        if (!isset($installed[$k])) {
+            // In the pasted file but not in the installed version: a different mod version, or
+            // a different mod. Listed rather than dropped, so the operator can see why a
+            // setting they expected did not come across.
+            $unknown[] = ['section' => $e['section'], 'key' => $e['key'], 'value' => $e['value']];
+            continue;
+        }
+        $cur = $installed[$k];
+        if ($e['value'] !== $cur['value']) {
+            $changes[] = [
+                'section'   => $e['section'],
+                'key'       => $e['key'],
+                'value'     => $e['value'],
+                'installed' => $cur['value'],
+                'default'   => $cur['default'],
+                'type'      => $cur['type'],
+            ];
+        }
+    }
+
+    return ['ok' => true, 'file' => $file, 'changes' => $changes, 'unknown' => $unknown];
+}

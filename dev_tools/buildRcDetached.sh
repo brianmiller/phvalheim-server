@@ -1007,7 +1007,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # pf asserts the list still runs straight into .backup with no at-rule between. pg asserts
   # auProgress is defined somewhere. Both are needed: moving the keyframes out without
   # rejoining the list would leave the pills grey and still pass pg.
-  pf=$(grep -A1 "status-badge.deleting," /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "status-badge.backup {")
+  # Asserts .backup is still INSIDE the transitional rule block, rather than that it is the
+  # line immediately after .deleting,. The original pinned that adjacency, so 2.55 adding
+  # .repackage/.repackaging to the same group -- which is exactly what a new busy mode is
+  # supposed to do -- turned `.status-badge.backup {` into `.status-badge.backup,` and failed a
+  # correct change. What this marker is for is "a busy mode still gets the pulse rule", and the
+  # range match says that directly. Verified to discriminate: blanking the .backup selector
+  # takes it to 0.
+  pf=$(awk '/^\.status-badge\.start,/,/animation: status-pulse/' /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -c "status-badge.backup")
   # The DEFINITION, with its brace -- the comment warning about this bug names auProgress too,
   # so a bare word count is 2 on the correct file.
   pg=$(grep -c "@keyframes auProgress {" /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -1042,6 +1049,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   pq=$(grep -c "Stopping it through supervisor" /opt/stateless/engine/phvalheim)
   # THREE sites: the reaper, and the update branch twice (is it running, and did it stop).
   # This said 1 and failed a build on correct code after the update branch grew two more.
+  # FOUR as of 2.55: the delete branch, the update branch's pre-flight guard, its post-stop
+  # confirmation, and the repackage branch's "what mode do I put this world back into".
   pr=$(grep -c "if worldProcessRunning" /opt/stateless/engine/phvalheim)
   pw=$(grep -c "RUNNING|STARTING|BACKOFF" /opt/stateless/engine/phvalheim)
   # NEGATIVES. Nothing writes worlds.pid, so both guards that read it always answered
@@ -1078,7 +1087,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.47 sync lock: fn=$qk (want 1)  used in main=$ql (want 1)  queue depth 1=$qm (want 1)  orphan retry=$qn (want 1)"
   echo "2.47 update banner: setters stamp=$qg (want 2)  errors unstamp=$qh (want 4)  rule=$qi (want 1)  age gate=$qj (want 1)"
   echo "2.47 vanilla mods: checker guard=$qc (want 1)  recorder guard=$qd (want 1)  empty plan=$qf (want 1)  engine calls it=$qe (want 1)"
-  echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 3)  states=$pw (want 1)"
+  echo "2.47 reaper: asks supervisor=$pq (want 1)  guarded=$pr (want 4)  states=$pw (want 1)"
   # Nothing that sets mode=update stops the world first, so the engine must do it. Refusing
   # instead left mode=update set and the 2s loop reprinted the refusal forever.
   px=$(grep -c "Stopping it for the update" /opt/stateless/engine/phvalheim)
@@ -1088,7 +1097,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   qb=$(grep -c "would not stop within 180s" /opt/stateless/engine/phvalheim)
   echo "2.47 update stop: stops it=$px (want 1)  remembers=$py (want 1)  restarts=$pz (want 1)  unstoppable=$qb (want 1)"
   echo "2.47 update NEGATIVE: spin-forever refusal=$qa (want 0)"
-  echo "2.47 reaper NEGATIVES: dead pid guard=$ps_ (want 0)  reads worlds.pid=$pt (want 0)  helper=$pu (want 1)  call sites=$pv (want 5)"
+  echo "2.47 reaper NEGATIVES: dead pid guard=$ps_ (want 0)  reads worlds.pid=$pt (want 0)  helper=$pu (want 1)  call sites=$pv (want 6)"
 
   # ---- 2.48: restore put the world back where the server reads it (issue #89) ------
   # worldRestore had NO markers at all before this release, so none of this was verified
@@ -2406,6 +2415,217 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # misses a form the chain still fails correctly. Handles the two shapes in use, [ "$x" = "y" ]
   # and [ "$x" -gt y ], including a right-hand side that is itself a variable.
   #
+  # ---- 2.55: the mod config editor -------------------------------------------------
+  #
+  # Apostrophes are safe here (quoted heredoc written to a file since 2026-10-01), and several
+  # appear below. What is still NOT safe is a bare "$" inside a double-quoted grep pattern --
+  # sh expands it before grep sees it -- so engine call sites are matched by name only and the
+  # dot-for-quote style is kept where a pattern needs a literal quote.
+  #
+  # The release is mostly ADDITIVE, so most of these are positives. The three that actually
+  # decide the feature are v55g, v55i and v55n, and all three are shaped to fail:
+  #
+  #   v55g  ORDERING, which no presence check can see. materialiseModConfigs must sit BETWEEN
+  #         installCustomModsConfigsPatchers and packageClient in the update branch. Before the
+  #         copy, custom_configs/ would overwrite the operator's overrides; after packageClient,
+  #         a client-destined value ships one update late. The marker walks the file and reports
+  #         whether it saw the call before reaching packageClient, so a correctly-present call
+  #         in the WRONG place still fails.
+  #   v55i  the legacy import must skip a value equal to its documented default. Without that
+  #         branch an imported world -- importWorld.sh copies its whole config tree into
+  #         custom_configs/ -- is frozen at its import-time defaults permanently. Anchored on
+  #         the comparison itself, not on a comment about it.
+  #   v55n  NEGATIVE, and deliberately asymmetric: new_world.php must NOT gain the Config
+  #         column. A world that does not exist yet has no config files and no world_mods rows
+  #         to attribute them to. This pins the asymmetry so a later "the two pages should
+  #         match" tidy-up is caught here rather than shipping a button that opens nothing.
+  v55a=$(grep -c "CREATE TABLE mod_config_overrides" /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+  # All THREE identity columns case-sensitive, counted as 3 rather than ">0": under the default
+  # ai_ci collation the unique key collapses Enabled and enabled into one row, so an operator
+  # sets one setting and watches a different one change. Same hazard as 2.43's mods.owner/name.
+  v55b=$(grep -cE "(cfg_file|section|ckey) +VARCHAR\([0-9]+\) COLLATE utf8mb4_0900_as_cs" /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+  # The +x trap: dbUpdate_2.45.sh shipped non-executable and its tables were never created.
+  v55c=$(test -x /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh && echo 1 || echo 0)
+  v55d=$(test -x /opt/stateless/engine/tools/modConfigs.py && echo 1 || echo 0)
+  # The rewriter must capture the whitespace on BOTH sides of the = . Without presep it
+  # reformatted every overridden line (Weird   =    7 became Weird=    99) -- harmless to
+  # BepInEx, invisible to any functional test, and it made the file stop matching the mod's own
+  # output on exactly the lines the operator touched.
+  v55e=$(grep -c "P<presep>" /opt/stateless/engine/tools/modConfigs.py)
+  v55f=$(grep -c "group(.presep.)" /opt/stateless/engine/tools/modConfigs.py)
+  # Anchored on CALL LINES -- leading whitespace, the name, then a space and a quote -- not on
+  # any occurrence of the names. The first cut matched bare names and read 0 against a tree
+  # that was correct, because the comment block above the materialise call mentions
+  # packageClient() by name and awk reached that comment first. RELEASING.md says to check the
+  # probe before believing the image is broken; this is that case, and counting a word that
+  # also appears in a nearby comment is the exact failure it warns about.
+  v55g=$(awk '/^[ \t]*installCustomModsConfigsPatchers "/{f=1} f && /^[ \t]*materialiseModConfigs "/{m=1} f && /^[ \t]*packageClient "/{print (m?1:0); exit}' /opt/stateless/engine/phvalheim)
+  # THREE call sites now: the start branch, the update branch, and 2.55's repackage branch.
+  # Any one missing is a real half-shipped state -- update-only means a saved setting does
+  # nothing until a full rebuild, start-only means it never reaches the client payload, and
+  # without the repackage call Apply to players ships the previous generation's config.
+  #
+  # Anchored on the CALL, not the bare name. As a bare name this counted 4 against a want of 2
+  # the moment the repackage branch added one call and one comment that mentions the function
+  # -- the same way v55g's own comment warns that matching a name a comment also contains is
+  # exactly the failure it exists to prevent. v55ak asserts the identical count, deliberately:
+  # if one of the two is ever loosened the other still holds the line.
+  v55h=$(grep -cE '^[[:space:]]*materialiseModConfigs "' /opt/stateless/engine/phvalheim)
+  v55i=$(grep -c 'e\["value"\] == e\["default"\]' /opt/stateless/engine/tools/modConfigs.py)
+  # The loader config and the engine's seed file, excluded by name. 2.49 swept BepInEx.cfg and
+  # silenced the world log and the client console together; the seed decides the world's MAP.
+  v55j=$(grep -c 'EXCLUDED_FILES = {"BepInEx.cfg", "ZeroBandwidth.CustomSeed.cfg", "quick_connect_servers.cfg"}' /opt/stateless/engine/tools/modConfigs.py)
+  # A key that is not already in the file must still be REPORTED, not silently swallowed.
+  #
+  # RE-ANCHORED by the 2.55 fix. This read "orphans.append" and asserted the opposite thing --
+  # that such a key was refused rather than written -- which was the bug. The concept is now
+  # "missing" (collected, then injected), and the assertion that survives is that the list is
+  # still built at all: a version that quietly dropped unmatched keys would report success
+  # while applying nothing, which is exactly the failure mode that shipped.
+  v55k=$(grep -c "missing.append(ov)" /opt/stateless/engine/tools/modConfigs.py)
+  v55l=$(grep -cE "case .(getModConfigs|getModConfigSummary|saveModConfigs|resetModConfigFile|diffPastedModConfig).:" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v55m=$(grep -c "includes/modconfigs.php" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v55n=$(grep -c "configCell" /opt/stateless/nginx/www/admin/new_world.php)
+  v55o=$(grep -c "configCell" /opt/stateless/nginx/www/admin/edit_world.php)
+  # The DataTables column count. The row builder now pushes 7 cells, so a columns array left at
+  # 6 throws on draw and the whole mod picker renders empty -- which looks like the catalogue
+  # failed to load, not like a column was forgotten.
+  v55p=$(grep -c "orderable: false, targets: \[0, 5, 6\]" /opt/stateless/nginx/www/admin/edit_world.php)
+  v55q=$(grep -c "title: .Config." /opt/stateless/nginx/www/admin/edit_world.php)
+  # The third state. An empty entry list must not render as "all defaults".
+  v55r=$(grep -c "No mod configs have been generated yet" /opt/stateless/nginx/www/admin/world_configs.php)
+  # The file browser guard: definition AND call, so a defined-but-never-called guard fails.
+  v55s=$(grep -c "fm_phv_config_owned_path" /opt/stateless/nginx/www/admin/fileBrowser.php)
+  v55t=$(grep -c "'2.55' =>" /opt/stateless/nginx/www/includes/whatsnew.php)
+  # The UI must call only the no-database parse modes. php-fpm runs as phvalheim and reaches
+  # the DB as phvalheim_user, while the root-only modes speak to mysql as -uroot. NEGATIVE, and
+  # scanned over the WHOLE served tree rather than per-file, so a new page cannot reintroduce
+  # one unnoticed.
+  #
+  # Anchored on the INVOCATION form -- the tool constant concatenated with a quoted argument
+  # string -- and not on the flag names alone. The first cut read 1 against a correct tree
+  # because modconfigs.php's own header comment names those three modes while explaining why it
+  # does not call them. A marker that fires on the documentation of a rule instead of on a
+  # breach of it is worse than no marker: it trains you to relax the number.
+  v55u=$(grep -rcE "MODCONFIG_TOOL *\. *.[^\"']*--(materialise|import-legacy|discover)" /opt/stateless/nginx/www/ 2>/dev/null | grep -vc ":0\$")
+  echo "2.55 migration: table=$v55a (want 1)  as_cs columns=$v55b (want 3)  migration +x=$v55c (want 1)  tool +x=$v55d (want 1)"
+  echo "2.55 rewriter: presep captured=$v55e (want 1)  presep used=$v55f (want 1)  orphan reported=$v55k (want 1)"
+  echo "2.55 ORDERING materialise between install and packageClient=$v55g (want 1)  engine call sites=$v55h (want 3)"
+  echo "2.55 import diffs against documented default=$v55i (want 1)  loader+seed excluded=$v55j (want 1)"
+  echo "2.55 api cases=$v55l (want 5)  include=$v55m (want 1)  whatsnew=$v55t (want 1)"
+  echo "2.55 picker: configCell in edit_world=$v55o (want 2)  columnDefs 0,5,6=$v55p (want 1)  Config header=$v55q (want 1)"
+  echo "2.55 NEGATIVES: configCell in new_world=$v55n (want 0)  root-only tool modes in served PHP=$v55u (want 0)"
+  echo "2.55 not-generated state=$v55r (want 1)  fileBrowser guard def+call=$v55s (want 2)"
+
+  # ---- 2.55 FIX: the materialiser must CREATE and INJECT ----------------------------
+  #
+  # These belong to 2.55 and sit in its block, but they are listed apart because they assert
+  # the fix for a bug the first 2.55 image shipped with: materialise only rewrote files that
+  # already existed. On a world UPDATE the purge has just emptied BepInEx/config and almost no
+  # mod ships a config/ in its zip, so there was nothing to rewrite and every override was
+  # inert -- the live log read "0 applied, 78 not applicable".
+  #
+  # v55w is the one that matters most. The bug was caused by a CLAIM written into a comment
+  # ("an injected key is ignored on load and deleted on the next write") which is false --
+  # BepInEx adopts a stored value when the plugin binds the key, which is exactly how the
+  # pre-2.55 custom_configs/ copy worked. Asserting the sentence is GONE stops the rule being
+  # reasoned back into existence from its own justification.
+  v55v=$(grep -c "def render_new_cfg" /opt/stateless/engine/tools/modConfigs.py)
+  v55w=$(grep -c "ignored on load and deleted on the next write" /opt/stateless/engine/tools/modConfigs.py)
+  # The symptom string itself. While this log line exists, the refusal path still exists.
+  v55x=$(grep -c "not applied" /opt/stateless/engine/tools/modConfigs.py)
+  v55y=$(grep -c "the mod had not written it yet" /opt/stateless/engine/tools/modConfigs.py)
+  # The apply-point wording. "Restart the world to apply" alone is wrong for a client-side mod:
+  # its config rides in the payload zip, which only packageClient() rebuilds, on UPDATE only.
+  # Anchored on the MARKUP, not the bare sentence. The plain phrase "rebuilds the client
+  # payload" also appears in this page's own JS comment explaining applyToPlayers(), so the
+  # marker counted 2 and the gate wanting 1 failed a correct tree. A pattern carrying <b> tags
+  # cannot be satisfied by a code comment.
+  v55z=$(grep -c "use <b>Apply to players</b>, which" /opt/stateless/nginx/www/admin/world_configs.php)
+  v55aa=$(grep -c "use Apply to players so the client payload is rebuilt" /opt/stateless/nginx/www/includes/modconfigs.php)
+  # The overflow fix: a grid item defaults to min-width:auto and refuses to shrink below its
+  # content, so one long documented default pushed the row outside the card.
+  v55ab=$(grep -c "cfg-entry > div { min-width: 0; }" /opt/stateless/nginx/www/admin/world_configs.php)
+  echo "2.55 FIX create path=$v55v (want 1)  create log=$v55y (want 1)"
+  echo "2.55 FIX NEGATIVES: wrong-claim comment gone=$v55w (want 0)  refusal log gone=$v55x (want 0)"
+  echo "2.55 FIX wording: page caveat=$v55z (want 1)  save note=$v55aa (want 1)  overflow css=$v55ab (want 1)"
+
+  # ---- 2.55: the config-only payload and the repackage mode -----------------------------
+  #
+  # Why this block exists at all: a config change used to need a full world UPDATE -- stop,
+  # steamcmd validate, purge both BepInEx trees, re-download every mod -- to move ~80 KB of
+  # config, and every player then re-downloaded the whole 573 MB payload. These markers pin the
+  # two halves of the fix: a second small archive beside the big one, and a mode that rebuilds
+  # the payload without stopping the world.
+
+  # The schema. Guarded by addColumn's own DESCRIBE check, so it is safe on a server that
+  # already ran an earlier revision of this migration.
+  v55ac=$(grep -c "addColumn worlds config_md5" /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+
+  # The archive builder and its checksum setter, matched on the DEFINITION -- never the bare
+  # name, which comments also contain. That is how v55h came to count 4 against a want of 2.
+  v55ad=$(grep -c "^function packageClientConfig()" /opt/stateless/engine/includes/0-functions.sh)
+  v55ae=$(grep -c "^function setConfigMD5 ()" /opt/stateless/engine/includes/0-functions.sh)
+
+  # Scoped to BepInEx/config. A glob that matched ./BepInEx instead would still produce a
+  # working archive -- just one as big as the payload, which defeats the entire release.
+  v55af=$(grep -c 'zip -q -r "$tmpZip" ./BepInEx/config' /opt/stateless/engine/includes/0-functions.sh)
+
+  # Temp-then-move. `rm -f` followed by `zip` destroys the last good archive the moment zip
+  # fails, and the stored checksum then names a file that is not there, so every client asks
+  # for a 404 instead of falling back to the full payload.
+  v55ag=$(grep -c 'mv -f "$tmpZip" "$zipPath"' /opt/stateless/engine/includes/0-functions.sh)
+
+  # Built inside packageClient, from the same staging tree in the same pass -- both checksums
+  # must describe ONE generation of the tree.
+  v55ah=$(grep -cE '^[[:space:]]*packageClientConfig "\$worldName"' /opt/stateless/engine/includes/0-functions.sh)
+
+  # NULL, not ''. NULL means "no config archive to compare against" and a client must fall back
+  # to the full payload; '' would read as a legitimate answer the first time anything compared
+  # it with ==, which is the "Unknown is not up to date" bug three times over.
+  v55ai=$(grep -c "config_md5=NULL" /opt/stateless/engine/includes/0-functions.sh)
+
+  # The engine branch, and the two terminal modes it must always land on. 'repackaging' is not
+  # a command, so a branch that could leave it set would have the main loop revisit that world
+  # every 2 seconds forever.
+  v55aj=$(grep -c '"$worldMode" = "repackage"' /opt/stateless/engine/phvalheim)
+  v55ak=$(grep -cE '^[[:space:]]*materialiseModConfigs "\$worldName"' /opt/stateless/engine/phvalheim)
+
+  # The trigger path. The whitelist is the load-bearing half: worlds.mode is a single column
+  # and the loop reads it once per world per pass, so writing 'repackage' over 'updating'
+  # replaces the command the engine is acting on rather than queueing behind it.
+  v55al=$(grep -c "function repackageWorld" /opt/stateless/nginx/www/includes/db_sets.php)
+  v55am=$(grep -c "mode IN ('running','stopped')" /opt/stateless/nginx/www/includes/db_sets.php)
+  v55an=$(grep -c "case 'repackageWorldNow'" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v55ao=$(grep -c "id=\"btn-apply-players\"" /opt/stateless/nginx/www/admin/world_configs.php)
+
+  # The sync contract. getSyncState returns both checksums in ONE response: fetched separately,
+  # a repackage between the two calls hands the client a full-payload checksum from one
+  # generation and a config checksum from the next, undetectably.
+  v55ap=$(grep -c 'mode == "getSyncState"' /opt/stateless/nginx/www/public/api.php)
+  v55aq=$(grep -c "function getConfigMD5" /opt/stateless/nginx/www/includes/db_gets.php)
+
+  # THE OLD-CLIENT CONTRACT, and the most important marker in this block. Every existing client
+  # speaks mode=getMD5 and compares what it returns against the md5 of the payload file on its
+  # own disk. Remove or rename it and every installed client breaks; make world_md5 a composite
+  # of both archives and every old client re-downloads 573 MB on every launch forever.
+  v55ar=$(grep -c 'mode == "getMD5"' /opt/stateless/nginx/www/public/api.php)
+
+  # Both mode-label maps AND the status-badge rule. A mode with a label but no CSS rule in the
+  # transitional group renders with the bare .status-badge style -- no colour, no pulse -- so a
+  # world that is genuinely busy looks idle. 2.53 shipped a bug that was exactly a third caller
+  # nobody updated.
+  v55as=$(grep -c "'repackaging' => 'Repackaging'" /opt/stateless/nginx/www/admin/index.php)
+  v55at=$(grep -c "'repackaging': 'Repackaging'" /opt/stateless/nginx/www/admin/index.php)
+  v55au=$(grep -c "status-badge.repackaging" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+
+  echo "2.55 CONFIG PAYLOAD: schema=$v55ac (want 1)  builder=$v55ad (want 1)  setter=$v55ae (want 1)"
+  echo "2.55 CONFIG PAYLOAD: config-scoped zip=$v55af (want 1)  tmp+move=$v55ag (want 1)  called by packageClient=$v55ah (want 1)  NULL clear=$v55ai (want 1)"
+  echo "2.55 REPACKAGE: branch=$v55aj (want 1)  materialise call sites=$v55ak (want 3)"
+  echo "2.55 REPACKAGE: db_sets=$v55al (want 1)  whitelist=$v55am (want 1)  api=$v55an (want 1)  button=$v55ao (want 1)"
+  echo "2.55 SYNC CONTRACT: getSyncState=$v55ap (want 1)  getConfigMD5=$v55aq (want 1)  getMD5 STILL THERE=$v55ar (want 1)"
+  echo "2.55 REPACKAGE UI: php map=$v55as (want 1)  js map=$v55at (want 1)  css badge=$v55au (want 1)"
+
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
   # process substitution, no `local`. Indirection is `eval`, and the loop is fed by a pipe,
   # so the match counter has to live in a file rather than a variable: the pipe body is a
@@ -2542,8 +2762,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$ph" = "0" ] && [ "$pi_" = "1" ] && [ "$pj" = "1" ] && [ "$pk" = "1" ] \
     && [ "$pl" = "1" ] && [ "$pm" = "1" ] && [ "$pn" = "1" ] \
     && [ "$po" = "1" ] && [ "$pp" = "1" ] \
-    && [ "$pq" = "1" ] && [ "$pr" = "3" ] && [ "$pw" = "1" ] \
-    && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "5" ] \
+    && [ "$pq" = "1" ] && [ "$pr" = "4" ] && [ "$pw" = "1" ] \
+    && [ "$ps_" = "0" ] && [ "$pt" = "0" ] && [ "$pu" = "1" ] && [ "$pv" = "6" ] \
     && [ "$qc" = "1" ] && [ "$qd" = "1" ] && [ "$qe" = "1" ] && [ "$qf" = "1" ] \
     && [ "$qg" = "2" ] && [ "$qh" = "4" ] && [ "$qi" = "1" ] && [ "$qj" = "1" ] \
     && [ "$qk" = "1" ] && [ "$ql" = "1" ] && [ "$qm" = "1" ] && [ "$qn" = "1" ] \
@@ -2632,6 +2852,22 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cnm" = "0" ] \
     && [ "$cnl" = "1" ] \
     && [ "$qca" -gt 0 ] && [ "$qcb" = "2" ] && [ "$qcc" = "1" ] \
+    && [ "$v55n" = "0" ] && [ "$v55u" = "0" ] \
+    && [ "$v55a" = "1" ] && [ "$v55b" = "3" ] && [ "$v55c" = "1" ] && [ "$v55d" = "1" ] \
+    && [ "$v55e" = "1" ] && [ "$v55f" = "1" ] && [ "$v55g" = "1" ] && [ "$v55h" = "3" ] \
+    && [ "$v55i" = "1" ] && [ "$v55j" = "1" ] && [ "$v55k" = "1" ] \
+    && [ "$v55l" = "5" ] && [ "$v55m" = "1" ] && [ "$v55o" = "2" ] \
+    && [ "$v55p" = "1" ] && [ "$v55q" = "1" ] && [ "$v55r" = "1" ] && [ "$v55s" = "2" ] \
+    && [ "$v55t" = "1" ] \
+    && [ "$v55w" = "0" ] && [ "$v55x" = "0" ] \
+    && [ "$v55v" = "1" ] && [ "$v55y" = "1" ] && [ "$v55z" = "1" ] \
+    && [ "$v55aa" = "1" ] && [ "$v55ab" = "1" ] \
+    && [ "$v55ac" = "1" ] && [ "$v55ad" = "1" ] && [ "$v55ae" = "1" ] \
+    && [ "$v55af" = "1" ] && [ "$v55ag" = "1" ] && [ "$v55ah" = "1" ] && [ "$v55ai" = "1" ] \
+    && [ "$v55aj" = "1" ] && [ "$v55ak" = "3" ] \
+    && [ "$v55al" = "1" ] && [ "$v55am" = "1" ] && [ "$v55an" = "1" ] && [ "$v55ao" = "1" ] \
+    && [ "$v55ap" = "1" ] && [ "$v55aq" = "1" ] && [ "$v55ar" = "1" ] \
+    && [ "$v55as" = "1" ] && [ "$v55at" = "1" ] && [ "$v55au" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 
