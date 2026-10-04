@@ -11,6 +11,12 @@
  */
 function whatsNewNotes() {
     return [
+        '2.54' => [
+            'Fixed: <b>the dashboard&rsquo;s Launch button handed players the wrong password</b>, so joining a modded world failed with a wrong-password error even for someone on the CITIZENS access list. This affected 2.53 only, and only worlds you had already updated &mdash; those are the worlds that were given a password.',
+            'What you would have seen: Launch worked if you clicked it the moment the page finished loading, and failed if you waited. The dashboard refreshes its world table every five seconds, and the refreshed table was rebuilding the Launch link with a placeholder password left over from before modded worlds could have one. The player was never shown a password prompt, because the Companion had already answered it &mdash; with the wrong value.',
+            'The <b>public world page was never affected</b>, so if you worked around this by sending players there, that was the right call and nothing you did needs undoing.',
+            '<b>If you cleared a world&rsquo;s password to get people connected, you can set one again.</b> Put it back in <b>Settings &rarr; Options</b> &mdash; any value you like, or generate your own &mdash; and restart the world. There is nothing else to do: no world needs updating and no player needs a new client for this fix.',
+        ],
         '2.53' => [
             'New: <b>crossplay can now be enabled on modded worlds.</b> Until now the switch was offered on unmodded worlds only. It is in the same place &mdash; a world&rsquo;s <b>Settings &rarr; Options</b>, and on the create-world form &mdash; and it now appears whether or not the world has mods. Existing worlds are unchanged.',
             '<b>Read this before you turn it on.</b> Only Steam players can load mods. Xbox, PlayStation and Nintendo Switch players <b>can join</b> a modded crossplay world, but the mod loader does not run on those platforms, so they will be playing unmodded against a modded server. Whether that works at all depends entirely on which mods you have: server-side mods are fine, but anything that adds items, creatures or recipes, or changes how the game talks over the network, can make the world unplayable for them or disconnect them as they join. <b>Use mods sparingly in this configuration.</b> Server-side networking mods, often run to improve play for a busy server on slow connections, are a good fit.',

@@ -227,8 +227,12 @@ supervisorctl start valheimworld_myworld # Start world
   `crossplay` apply to ANY world, modded or not, and `startWorld.sh` honours them for all of
   them. A password **composes with** the CITIZENS list rather than replacing it — Valheim
   enforces `permittedlist.txt` server-side regardless of the client. The `hammertime` literal
-  is gone from both launch-string builders (`db_gets.php` **and** `admin/index.php`); the real
-  password is sent, and the Companion pre-fills it so Launch never prompts.
+  is gone from **all three** callers of `phvBuildLaunchString()` — `db_gets.php`,
+  `admin/index.php` and `getWorldsJson()` in `admin/adminAPI.php`; the real password is sent,
+  and the Companion pre-fills it so Launch never prompts. 2.53 shipped with the third one
+  still sending `hammertime`: that endpoint is the dashboard's 5-second poll, so Launch worked
+  on page load and gave "wrong password" from the first refresh onwards. Do not enumerate the
+  callers when you check this — the `cpe2` marker scans the whole served tree for that reason.
   See `docs/REVIEW-access-control-Q2C.md`.
 - **Valheim only enforces password rules when `-public` is 1**, and `-public` **defaults to 1
   when the argument is absent** — so `startWorld.sh` must always pass it explicitly. That gate

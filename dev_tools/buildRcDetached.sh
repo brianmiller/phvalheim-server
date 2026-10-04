@@ -1950,10 +1950,15 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # is not in the migration, cpc says it IS in the update path.
   cpc=$(grep -cF 'UPDATE worlds SET password' $zfun)
 
-  # cpd/cpe -- NEGATIVE: the `$vanilla ? ... : "hammertime"` ternary is gone from BOTH launch
-  # string builders. Two sites, because index.php renders its own copy for the dashboard and
-  # only db_gets.php was obvious; leaving one behind would pre-fill the WRONG password through
-  # the Companion on exactly the worlds this release gives a password to.
+  # cpd/cpe -- NEGATIVE: the `$vanilla ? ... : "hammertime"` ternary is gone from the two
+  # launch string builders this marker was written for.
+  #
+  # READ THIS BEFORE TRUSTING THE PAIR. It said "gone from BOTH launch string builders" and
+  # grepped exactly two named files -- and that is how 2.53 shipped broken. There are THREE
+  # callers of phvBuildLaunchString(); the third, getWorldsJson() in adminAPI.php, still sent
+  # "hammertime" and no marker looked at it. Both of these read 0 on the broken build. The
+  # tree-wide replacement is v54a in the 2.54 section below; these two stay only as the
+  # named-site record of where it has actually been wrong.
   cpd=$(grep -cE '\$password *= *\$vanilla *\?' /opt/stateless/nginx/www/includes/db_gets.php)
   cpe=$(grep -cE '\$password *= *\$vanilla *\?' $zidx)
 
@@ -1981,7 +1986,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # mirror.sh is the end-to-end half: it runs the real startWorld.sh and the real comparison.
   cpg=$(grep -c '\$vanilla === 1' /opt/stateless/nginx/www/includes/db_gets.php)
 
-  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated in UPDATE path=$cpc (want 1, moved out of the migration)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0)  listed+crossplay refused in php=$cpf (want 0, was a 2.53 pre-release regression)  blocked-by-crossplay in js=$cpfb (want 0)"
+  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated in UPDATE path=$cpc (want 1, moved out of the migration)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0, and SEE v54a -- this pair read 0 on the build that shipped the bug)  listed+crossplay refused in php=$cpf (want 0, was a 2.53 pre-release regression)  blocked-by-crossplay in js=$cpfb (want 0)"
   echo "2.53 access decoupled: restart-pending mirror vanilla gates=$cpg (want 0, was 2 and shipped broken)"
 
   # cph/cpi/cpj -- the password reveal row must be styled on a MODDED card too.
@@ -2205,6 +2210,47 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   cqs=$(grep -c 'No published release is available right now' $zdlbtn)
 
   echo "2.53 download source: ls-remote gone=$cqo (want 0)  shell_exec gone=$cqp (want 0)  releases API called=$cqq (want 1)  draft+prerelease filtered=$cqr (want 1)  empty state explained=$cqs (want 1)"
+
+  # ---- 2.54 -------------------------------------------------------------------------------
+  #
+  # v54a -- NEGATIVE, tree-wide: NO launch string anywhere may carry the "hammertime" literal.
+  #
+  # This is the whole of 2.54. 2.53 decoupled access control from world type and gave every
+  # modded world a real password, and it fixed the launch-string password in two of the THREE
+  # callers of phvBuildLaunchString(). The one it missed -- getWorldsJson() in adminAPI.php --
+  # is the admin dashboard's 5-second poll, which redraws the world table and rewrites every
+  # launchHref. So the Launch button was correct when the page loaded and wrong from the first
+  # refresh onwards: the Companion pre-filled "hammertime", Valheim rejected the handshake with
+  # NO prompt shown (the Companion had already answered it), and the operator saw "wrong
+  # password" on a world they were a citizen of. Reported by an operator on 2.53's release day.
+  #
+  # Why this marker is shaped differently from cpd/cpe. Those name two files, and a
+  # count-the-known-sites check cannot see a site nobody counted -- both of them read 0 on the
+  # build that shipped the bug, and so did the repo's CLAUDE.md, which enumerated the same two.
+  # This one greps the whole SERVED tree, so a fourth caller cannot be added without tripping
+  # it. Vendor is excluded: third-party code never builds a launch string.
+  #
+  # Both spellings are matched, because the fix has two ways to regress: the ternary coming
+  # back, and the literal being passed straight into the builder by a new caller.
+  #
+  # PROVEN AS AN ORACLE BEFORE SHIPPING, which is the only reason it is trusted: run against
+  # `git show HEAD~:container/nginx/www/admin/adminAPI.php` it reads 1, and against the fix it
+  # reads 0. A negative marker that was never shown to fire is indistinguishable from one that
+  # cannot.
+  v54a=$(grep -rE --include=*.php '\$password *= *\$vanilla *\?|phvBuildLaunchString\([^)]*hammertime' \
+           /opt/stateless/nginx/www 2>/dev/null | grep -vc '/vendor/')
+
+  # v54b -- POSITIVE: the fixed caller actually sends the real password. The negative above
+  # only proves the literal is gone; deleting the line entirely would also satisfy it, and
+  # that would send an EMPTY password -- the same wrong-password failure with a different
+  # cause. Anchored inside getWorldsJson() by requiring all three callers to read the column.
+  # -F, not -E: the line is full of regex metacharacters ($ [ ] ? ") and every one of them
+  # would need escaping twice over -- once for the heredoc-written payload and once for grep.
+  # A fixed string cannot be got wrong, and this marker has nothing to match loosely.
+  v54b=$(grep -cF "\$password = \$row['password'] ?: \"\";" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v54c=$(grep -cF "\$password = \$row['password'] ?: \"\";" $zidx)
+
+  echo "2.54 hammertime: ANY caller tree-wide=$v54a (want 0, read 1 in adminAPI.php on 2.53)  adminAPI real password=$v54b (want 1)  index real password=$v54c (want 1)"
 
   # NEGATIVE: MaxModsListed must be GONE. It was a cap on the NUMBER of mods listed, and a
   # count cap cannot hold a height budget -- twelve short names and twelve long ones are the
@@ -2566,6 +2612,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cot" = "0" ] && [ "$cpa" = "1" ] && [ "$cou" = "1" ] && [ "$cov" = "2" ] \
     && [ "$cow" = "0" ] && [ "$cox" = "1" ] && [ "$coy" = "1" ] && [ "$coz" = "1" ] \
     && [ "$cpb" = "1" ] && [ "$cpc" = "1" ] && [ "$cpd" = "0" ] && [ "$cpe" = "0" ] \
+    && [ "$v54a" = "0" ] && [ "$v54b" = "1" ] && [ "$v54c" = "1" ] \
     && [ "$cpf" = "0" ] && [ "$cpfb" = "0" ] && [ "$cpg" = "0" ] \
     && [ "$cph" = "0" ] && [ "$cpi" = "1" ] && [ "$cpj" = "1" ] \
     && [ "$cpk" = "1" ] && [ "$cpl" = "0" ] \

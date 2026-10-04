@@ -932,7 +932,15 @@ function getWorldsJson($pdo) {
         // render and the public card, so the string the poll hands back cannot drift from
         // the one the page loaded with.
         $vanilla = (int)$row['vanilla'];
-        $password = $vanilla ? ($row['password'] ?: "") : "hammertime";
+        // The REAL password for any world as of 2.53, exactly as index.php:123 and
+        // getLaunchString() in db_gets.php send it. This was the THIRD caller, and it was
+        // the one left behind: the dashboard's PHP render was fixed, the public card was
+        // fixed, and this 5-second poll went on shipping "hammertime" -- so the Launch link
+        // was correct on page load and silently wrong from the first refresh onwards. The
+        // Companion pre-fills whatever arrives here, Valheim rejects the handshake with no
+        // prompt shown, and the player gets "wrong password" on a world they are a citizen
+        // of. Reported against 2.53 by an operator the day it shipped.
+        $password = $row['password'] ?: "";
         list($lsCrossplay, $lsJoinCode) =
             phvLaunchCrossplayFields($pdo, $row['name'], $row['mode'] === 'running');
         $launchString = phvBuildLaunchString($row['name'], $password, $gameDNS, $row['port'],

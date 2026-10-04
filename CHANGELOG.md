@@ -1,5 +1,44 @@
 # Changelog
 
+## v2.54
+
+### Fixed: the dashboard's Launch button sent `hammertime` as the password
+
+2.53 gave every updated modded world a real password and made the Companion pre-fill it. It
+updated the launch string in two of the **three** callers of `phvBuildLaunchString()` —
+`includes/db_gets.php` (the public card) and `admin/index.php` (the dashboard's server-side
+render). The third, `getWorldsJson()` in `admin/adminAPI.php`, kept the pre-2.53 line:
+
+```php
+$password = $vanilla ? ($row['password'] ?: "") : "hammertime";
+```
+
+That endpoint is the dashboard's **5-second poll**. It redraws the world table and rewrites
+every `launchHref`, so the Launch link was correct on page load and wrong from the first
+refresh onwards. The client forwarded the payload, the Companion set `FejdStartup.ServerPassword`
+to the literal, and Valheim rejected the handshake — with **no password prompt shown**, because
+the Companion had already answered it. The operator saw a wrong-password error on a world they
+were a citizen of, and clearing the world's password "fixed" it by making both sides empty.
+
+`db_gets.php:240` had predicted this failure in a comment, for the caller next to it.
+
+No schema change, no world update, no new client. A world whose password was cleared as a
+workaround can have one set again in Settings → Options.
+
+### The verify marker that let it through
+
+`cpd`/`cpe` read *"the ternary is gone from BOTH launch string builders"* and grepped two named
+files. Both read `0` on the build that shipped the bug, because neither looked at the third
+caller — and `CLAUDE.md` enumerated the same two files. A count-the-known-sites check cannot
+see a site nobody counted.
+
+Replaced by `v54a`, which greps the whole served tree (excluding `vendor/`) for either the
+ternary or the literal passed into the builder, so a fourth caller cannot be added without
+tripping it. `v54b`/`v54c` assert positively that the two admin callers read the real column,
+since deleting the line would satisfy the negative while sending an empty password — the same
+failure with a different cause. All three were checked against the broken original before
+shipping: `v54a` reads 1 and `v54b` reads 0 on 2.53's code.
+
 ## v2.53
 
 ### Fixed: the download menu could offer an unreleased client
