@@ -509,3 +509,68 @@ function modConfigDiffPasted($pdo, $world, $file, $text) {
 
     return ['ok' => true, 'file' => $file, 'changes' => $changes, 'unknown' => $unknown];
 }
+
+/**
+ * One row per MOD for the Configs picker, instead of every setting of every mod at once.
+ *
+ * The editor already accepts ?mod=<id> and has since 2.55 -- what was missing was anything
+ * that let an operator choose. Opening it unfiltered renders every setting a world has
+ * (VikingOutlaws: 80 overrides across 7 files, hundreds of documented entries), which is
+ * unusable as a starting point.
+ *
+ * Grouped from modConfigEditorPayload() rather than from world_mods, deliberately. A mod only
+ * belongs in this list once it has actually WRITTEN a config file -- most write theirs on
+ * first load -- so listing the world's mods would offer entries that open an empty editor.
+ * The payload is the same source the editor itself renders from, so the picker cannot offer
+ * a mod the editor would then show as empty.
+ *
+ * mod_id NULL is kept, not dropped: a file PhValheim could not match to an installed mod is
+ * still editable and still ships to players. It is collected under a single "unmatched"
+ * pseudo-entry so it cannot silently disappear from the only index into these files.
+ */
+function modConfigModSummary($pdo, $world) {
+    $payload = modConfigEditorPayload($pdo, $world);
+    if (isset($payload['error'])) {
+        return ['error' => $payload['error']];
+    }
+
+    $mods = [];
+    foreach (($payload['files'] ?? []) as $f) {
+        $id  = $f['mod_id'];
+        $key = $id === null ? 'unmatched' : (string)$id;
+
+        if (!isset($mods[$key])) {
+            $mods[$key] = [
+                'mod_id'         => $id,
+                'name'           => $id === null ? 'Unmatched config files' : ($f['mod_name'] ?: $f['plugin'] ?: 'Unknown mod'),
+                'files'          => 0,
+                'entry_count'    => 0,
+                'modified_count' => 0,
+                'file_names'     => [],
+            ];
+        }
+        $mods[$key]['files']          += 1;
+        $mods[$key]['entry_count']    += (int)$f['entry_count'];
+        $mods[$key]['modified_count'] += (int)$f['modified_count'];
+        $mods[$key]['file_names'][]    = $f['file'];
+    }
+
+    // Mods the operator has actually changed first -- that is what they come back to edit --
+    // then alphabetically. The unmatched bucket sinks to the bottom either way.
+    $out = array_values($mods);
+    usort($out, function ($a, $b) {
+        if ($a['mod_id'] === null) { return 1; }
+        if ($b['mod_id'] === null) { return -1; }
+        if ($a['modified_count'] !== $b['modified_count']) {
+            return $b['modified_count'] - $a['modified_count'];
+        }
+        return strcasecmp($a['name'], $b['name']);
+    });
+
+    return [
+        'world'     => $world,
+        'generated' => (bool)($payload['generated'] ?? false),
+        'mods'      => $out,
+        'total'     => count($out),
+    ];
+}

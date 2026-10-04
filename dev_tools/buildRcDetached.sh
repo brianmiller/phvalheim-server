@@ -2682,7 +2682,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # online -- so the one state the editor's own Apply button promises ("The world keeps running")
   # was the one state you could not open it from. Counts predicted against the tree before these
   # were written; a bare name grep would have counted the helper's own definition too.
+  # Was 3 while every card linked straight to the editor. The Configs button now opens a MOD
+  # PICKER instead, so the only world_configs.php references left in index.php are the two
+  # inside the modal: the per-mod link and the "show all settings" escape hatch.
   v55be=$(grep -c "world_configs.php" /opt/stateless/nginx/www/admin/index.php)
+  v55bj=$(grep -c "showConfigsModal" /opt/stateless/nginx/www/admin/index.php)
+  v55bk=$(grep -c "getWorldConfigMods" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v55bl=$(grep -c "function modConfigModSummary" /opt/stateless/nginx/www/includes/modconfigs.php)
   v55bf=$(grep -c "modConfigsButtonHtml(world, true)" /opt/stateless/nginx/www/admin/index.php)
   v55bg=$(grep -c "modConfigsButtonHtml(world, false)" /opt/stateless/nginx/www/admin/index.php)
   v55bh=$(grep -c "world.mode === 'running' || world.mode === 'stopped'" /opt/stateless/nginx/www/admin/index.php)
@@ -2694,7 +2700,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # backtick through this sh payload is not worth the risk of a marker that silently reads 0.
   v55bi=$(grep -c 'editModsBtn.outerHTML = .<span class="action-btn disabled" data-action="edit-mods">' /opt/stateless/nginx/www/admin/index.php)
 
-  echo "2.55 CONFIG ENTRY: world_configs hrefs=$v55be (want 3)  enabled branches=$v55bf (want 2)  disabled branch=$v55bg (want 1)  poll gate=$v55bh (want 1)"
+  echo "2.55 CONFIG ENTRY: world_configs hrefs=$v55be (want 2)  enabled branches=$v55bf (want 2)  disabled branch=$v55bg (want 1)  poll gate=$v55bh (want 1)"
+  echo "2.55 CONFIG PICKER: showConfigsModal=$v55bj (want 4)  api endpoint=$v55bk (want 1)  summary fn=$v55bl (want 1)"
   echo "2.55 CONFIG ENTRY CONTROL: Edit Mods still gated=$v55bi (want 1)"
 
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
@@ -2942,7 +2949,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55av" = "1" ] && [ "$v55aw" = "1" ] && [ "$v55ax" = "1" ] && [ "$v55ay" = "1" ] \
     && [ "$v55az" = "1" ] && [ "$v55ba" = "1" ] && [ "$v55bb" = "1" ] && [ "$v55bc" = "1" ] \
     && [ "$v55bd" = "0" ] \
-    && [ "$v55be" = "3" ] && [ "$v55bf" = "2" ] && [ "$v55bg" = "1" ] && [ "$v55bh" = "1" ] \
+    && [ "$v55be" = "2" ] && [ "$v55bf" = "2" ] && [ "$v55bg" = "1" ] && [ "$v55bh" = "1" ] \
+    && [ "$v55bj" = "4" ] && [ "$v55bk" = "1" ] && [ "$v55bl" = "1" ] \
     && [ "$v55bi" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

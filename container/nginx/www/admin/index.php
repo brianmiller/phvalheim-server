@@ -662,7 +662,7 @@ $totalCount = count($worlds);
                                                 <?php if ($world['vanilla']): ?>
                                                 <span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>
                                                 <?php else: ?>
-                                                <a href="world_configs.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="mod-configs">Configs</a>
+                                                <a href="#" onclick="showConfigsModal('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn" data-action="mod-configs">Configs</a>
                                                 <?php endif; ?>
                                                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
@@ -783,7 +783,7 @@ $totalCount = count($worlds);
                                                 <?php if ($world['vanilla']): ?>
                                                 <span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>
                                                 <?php else: ?>
-                                                <a href="world_configs.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="mod-configs">Configs</a>
+                                                <a href="#" onclick="showConfigsModal('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn" data-action="mod-configs">Configs</a>
                                                 <?php endif; ?>
                                                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
@@ -962,6 +962,29 @@ $totalCount = count($worlds);
                 <ul class="mods-list" id="modsModalList">
                     <li>Loading...</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configs: pick a mod first.
+         The editor has accepted ?mod=<id> since 2.55; what was missing was any way to choose.
+         Opening it unfiltered renders every setting of every mod at once, which on a real
+         modpack is hundreds of rows and unusable as a starting point. -->
+    <div class="mods-modal-overlay" id="cfgModalOverlay" onclick="closeConfigsModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title" id="cfgModalTitle">Mod Configs</h3>
+                <button class="mods-modal-close" onclick="closeConfigsModal()">&times;</button>
+            </div>
+            <div class="mods-modal-body">
+                <input type="text" id="cfgModalFilter" placeholder="Filter mods&hellip;"
+                       oninput="filterConfigMods()" autocomplete="off"
+                       style="width:100%;margin-bottom:10px;padding:7px 10px;background:var(--bg-tertiary);
+                              border:1px solid var(--border-color);border-radius:4px;color:var(--text-primary);">
+                <ul class="mods-list" id="cfgModalList">
+                    <li>Loading&hellip;</li>
+                </ul>
+                <div id="cfgModalAll" style="margin-top:12px;"></div>
             </div>
         </div>
     </div>
@@ -2302,7 +2325,9 @@ $totalCount = count($worlds);
         if (!reachable) {
             return `<span class="action-btn disabled" data-action="mod-configs" title="This world is mid-operation. Mod configs can be edited once it is running or stopped.">Configs</span>`;
         }
-        return `<a href="world_configs.php?world=${encodeURIComponent(world.name)}" class="action-btn" data-action="mod-configs">Configs</a>`;
+        // Opens the picker, not the editor. Going straight to the editor dumps every setting
+        // of every mod in one page; the operator almost always wants one mod.
+        return `<a href="#" onclick="showConfigsModal('${escapeAttr(world.name)}'); return false;" class="action-btn" data-action="mod-configs">Configs</a>`;
     }
 
     function launchButtonHtml(world) {
@@ -2680,6 +2705,72 @@ $totalCount = count($worlds);
             }
         } catch (error) {
             document.getElementById('modsModalList').innerHTML = '<li style="color: var(--danger);">Error loading mods</li>';
+        }
+    }
+
+    // ---- Configs: choose a mod, then edit only that mod's settings ----
+    let cfgModalWorld = '';
+
+    async function showConfigsModal(worldName) {
+        cfgModalWorld = worldName;
+        document.getElementById('cfgModalTitle').textContent = `Mod Configs - ${worldName}`;
+        document.getElementById('cfgModalList').innerHTML = '<li>Loading&hellip;</li>';
+        document.getElementById('cfgModalAll').innerHTML = '';
+        document.getElementById('cfgModalFilter').value = '';
+        document.getElementById('cfgModalOverlay').classList.add('show');
+
+        try {
+            const r = await fetch(`adminAPI.php?action=getWorldConfigMods&world=${encodeURIComponent(worldName)}`);
+            const d = await r.json();
+
+            if (d.error) {
+                document.getElementById('cfgModalList').innerHTML =
+                    `<li style="color: var(--danger);">${escapeHtml(d.error)}</li>`;
+                return;
+            }
+            // "No configs yet" is NOT an error and must not read like one: most mods write
+            // their config file the first time they load, so a world that has never started
+            // legitimately has nothing to show.
+            if (!d.mods || d.mods.length === 0) {
+                document.getElementById('cfgModalList').innerHTML =
+                    '<li style="color: var(--text-muted);">No mod configs yet. Most mods write their '
+                  + 'settings file the first time they load &mdash; start this world once, then look again.</li>';
+                return;
+            }
+
+            document.getElementById('cfgModalList').innerHTML = d.mods.map(m => {
+                const href = 'world_configs.php?world=' + encodeURIComponent(worldName)
+                           + (m.mod_id === null ? '' : '&mod=' + encodeURIComponent(m.mod_id));
+                const changed = m.modified_count > 0
+                    ? `<span class="mods-count-badge" title="settings you have changed">${m.modified_count} changed</span>`
+                    : '';
+                return `<li data-cfgname="${escapeAttr(m.name.toLowerCase())}">`
+                     + `<a href="${href}">${escapeHtml(m.name)}</a> ${changed}`
+                     + `<div style="font-size:.78rem;opacity:.6;">${m.entry_count} setting${m.entry_count === 1 ? '' : 's'}`
+                     + ` in ${m.files} file${m.files === 1 ? '' : 's'}</div></li>`;
+            }).join('');
+
+            // Deliberately kept: the unfiltered view is still the only way to see everything
+            // at once, which is what you want when hunting a setting whose mod you cannot name.
+            document.getElementById('cfgModalAll').innerHTML =
+                `<a href="world_configs.php?world=${encodeURIComponent(worldName)}"
+                    class="action-btn" style="font-size:.8rem;">Show all settings (${d.total} mods)</a>`;
+        } catch (e) {
+            document.getElementById('cfgModalList').innerHTML =
+                '<li style="color: var(--danger);">Error loading mod configs</li>';
+        }
+    }
+
+    function filterConfigMods() {
+        const q = document.getElementById('cfgModalFilter').value.toLowerCase().trim();
+        document.querySelectorAll('#cfgModalList li[data-cfgname]').forEach(li => {
+            li.style.display = (!q || li.dataset.cfgname.includes(q)) ? '' : 'none';
+        });
+    }
+
+    function closeConfigsModal(event) {
+        if (!event || event.target === document.getElementById('cfgModalOverlay')) {
+            document.getElementById('cfgModalOverlay').classList.remove('show');
         }
     }
 

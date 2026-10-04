@@ -878,6 +878,17 @@ switch($action) {
         }
         break;
 
+    case 'getWorldConfigMods':
+        // One row per mod for the Configs picker. Read-only, GET is fine.
+        require_once '/opt/stateless/nginx/www/includes/modconfigs.php';
+        $world = $_GET['world'] ?? '';
+        if (!$world) {
+            echo json_encode(['error' => 'World name required']);
+            break;
+        }
+        echo json_encode(modConfigModSummary($pdo, $world));
+        break;
+
     case 'repackageWorldNow':
         // Rebuild the client payload so players receive saved config changes (2.55).
         //

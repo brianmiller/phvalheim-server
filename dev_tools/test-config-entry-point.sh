@@ -29,13 +29,34 @@ run_suite() {
     #    Scoped to the online table's action group, not the whole file -- the offline card
     #    has always been able to reach it via Edit Mods, so a file-wide grep would pass
     #    on the broken tree and prove nothing.
+    #    The card now opens a MOD PICKER rather than linking straight to the editor -- going
+    #    direct renders every setting of every mod at once. So the online card must carry a
+    #    showConfigsModal() entry point, not a world_configs.php href.
     local onlineBlock
     onlineBlock=$(awk '/<table class="worlds-table" id="worldsTable">/,/<!-- Offline Worlds Section -->/' "$idx")
     local n
-    n=$(printf '%s' "$onlineBlock" | grep -c 'world_configs.php')
-    [ "$n" -ge 1 ] && ok "online world card links to world_configs.php" \
-                   || bad "online world card links to world_configs.php" \
-                          "at least one world_configs.php href in the online table (got $n)"
+    n=$(printf '%s' "$onlineBlock" | grep -c 'showConfigsModal')
+    [ "$n" -ge 1 ] && ok "online world card opens the Configs picker" \
+                   || bad "online world card opens the Configs picker" \
+                          "at least one showConfigsModal() call in the online table (got $n)"
+
+    # The picker is useless without something to populate it.
+    local api="$REPO/container/nginx/www/admin/adminAPI.php"
+    local inc="$REPO/container/nginx/www/includes/modconfigs.php"
+    if grep -q "case 'getWorldConfigMods'" "$api" && grep -q "function modConfigModSummary" "$inc"; then
+        ok "the picker has an endpoint and a summary function behind it"
+    else
+        bad "the picker has an endpoint and a summary function behind it" \
+            "getWorldConfigMods in adminAPI.php and modConfigModSummary in modconfigs.php"
+    fi
+
+    # CONTROL -- the per-mod link must actually carry &mod=, or the picker just reopens the
+    # same unfiltered page it exists to replace.
+    if grep -q "'&mod=' + encodeURIComponent(m.mod_id)" "$idx"; then
+        ok "CONTROL: the per-mod link filters by mod id"
+    else
+        bad "CONTROL: the per-mod link filters by mod id" "a &mod= parameter on the picker link"
+    fi
 
     # 2. The JS row template must enable it for running AND stopped, and only those.
     n=$(grep -c 'modConfigsButtonHtml(world, true)' "$idx")
