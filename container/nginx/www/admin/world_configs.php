@@ -399,6 +399,38 @@ $payload = modConfigEditorPayload($pdo, $world);
 			</div>
 		</div>
 
+		<!--
+			The save summary.
+
+			Saving used to write one line ("3 saved, 1 reset") and reload the page 700ms later,
+			which is exactly where "I saved it and nothing happened" came from: the operator was
+			never told that a saved value sits in the database until something pushes it, nor
+			which of their changes needed pushing. This says what changed, who still has to
+			receive it, and offers the one action that does it.
+		-->
+		<div class="modal fade" id="saveSummaryModal" tabindex="-1" aria-hidden="true" style="z-index:2100;">
+			<div class="modal-dialog modal-lg modal-dialog-scrollable">
+				<div class="modal-content" style="background-color: var(--bg-secondary); border-color: var(--border-color);">
+					<div class="modal-header" style="border-bottom-color: var(--border-color);">
+						<h5 class="modal-title" style="color: var(--text-primary);" id="ssTitle">Saved</h5>
+						<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+					</div>
+					<div class="modal-body" style="color: var(--text-primary);">
+						<div id="ssVerdict"></div>
+						<div id="ssChanges" style="margin-top:14px;"></div>
+						<div id="ssRefused" style="margin-top:14px;"></div>
+						<div id="ssProgress" style="margin-top:14px;"></div>
+					</div>
+					<div class="modal-footer" style="border-top-color: var(--border-color);">
+						<button type="button" class="btn btn-sm btn-outline-secondary" id="ssClose"
+						        data-bs-dismiss="modal">Close</button>
+						<button type="button" class="btn btn-sm btn-primary" id="ssApply"
+						        onclick="applyFromSummary()">Apply to players now</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<script src="/js/bootstrap.min.js"></script>
 		<script>
 		var WORLD = <?php echo json_encode($world); ?>;
@@ -492,6 +524,153 @@ $payload = modConfigEditorPayload($pdo, $world);
 			}).then(function (r) { return r.json(); });
 		}
 
+		// Config keys and values come from mod authors and from the operator, so they can
+		// legitimately contain < & and quotes. Everything interpolated into the summary below
+		// goes through this.
+		function esc(v) {
+			if (v === null || v === undefined) { return ''; }
+			return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+			                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+		}
+
+		var saveSummaryModal = null;
+		var reloadOnSummaryClose = false;
+
+		// A stored value and "no stored value" are different things, and the difference is the
+		// whole point of the per-key store: no override means the setting tracks the mod's own
+		// default, including when a later version changes it. An empty string is a real value.
+		function valCell(v, whenNull) {
+			if (v === null || v === undefined) {
+				return '<span style="opacity:.7;font-style:italic;">' + whenNull + '</span>';
+			}
+			if (v === '') {
+				return '<span style="opacity:.7;font-style:italic;">(empty)</span>';
+			}
+			return '<code style="overflow-wrap:anywhere;">' + esc(v) + '</code>';
+		}
+
+		function reachBadge(reach) {
+			if (reach === 'players') {
+				return '<span class="badge bg-warning text-dark" title="This mod runs on players&rsquo; '
+				     + 'clients, so they need a rebuilt payload before they see it.">players</span>';
+			}
+			if (reach === 'server') {
+				return '<span class="badge bg-secondary" title="Server-side only. Players never '
+				     + 'need to receive this.">server</span>';
+			}
+			return '<span class="badge bg-info text-dark" title="PhValheim could not match this '
+			     + 'config file to one of this world&rsquo;s mods, so it cannot tell whether '
+			     + 'anything on the player&rsquo;s side reads it. It is included in the push '
+			     + 'because that is the safe choice.">unknown</span>';
+		}
+
+		function renderSaveSummary(r) {
+			var t = r.tally || { players: 0, server: 0, unknown: 0 };
+			var changes = r.changes || [];
+			var pushCount = t.players + t.unknown;
+
+			document.getElementById('ssTitle').textContent =
+				changes.length === 1 ? 'Saved 1 change' : 'Saved ' + changes.length + ' changes';
+
+			// ---- the verdict: does anything still have to happen? ----
+			var v = '';
+			if (r.needsPush) {
+				v += '<div class="alert alert-warning" style="margin-bottom:10px;">'
+				  +  '<b>Players do not have these changes yet.</b><br>'
+				  +  pushCount + ' of these ' + (pushCount === 1 ? 'affects a mod' : 'affect mods')
+				  +  ' that players run. Saving stored the change; players receive it only once the '
+				  +  'client payload is rebuilt. Press <b>Apply to players now</b> &mdash; the world '
+				  +  'keeps running and nobody is disconnected.</div>';
+			} else if (changes.length) {
+				v += '<div class="alert alert-success" style="margin-bottom:10px;">'
+				  +  '<b>Nothing to push.</b> None of these changes alter what players download.</div>';
+			}
+
+			if (t.server > 0) {
+				// A stopped world needs no action at all, and saying "restart to apply" to
+				// someone whose world is already stopped is the kind of instruction that makes
+				// an operator distrust the rest of the message.
+				var running = (r.worldMode === 'running');
+				v += '<div style="font-size:.88rem;opacity:.9;margin-bottom:6px;">'
+				  +  '<b>' + t.server + ' server-side ' + (t.server === 1 ? 'setting' : 'settings')
+				  +  '.</b> Mods read their config when they load, so '
+				  +  (running
+				       ? 'restart <b>' + esc(WORLD) + '</b> from the <a href="index.php">dashboard</a> '
+				         + 'for these to take effect.'
+				       : '<b>' + esc(WORLD) + '</b> is ' + esc(r.worldMode || 'not running')
+						 + ' &mdash; it will pick these up the next time it starts. Nothing to do.')
+				  +  '</div>';
+			}
+
+			if (t.unknown > 0) {
+				v += '<div style="font-size:.88rem;opacity:.9;">'
+				  +  '<b>' + t.unknown + ' ' + (t.unknown === 1 ? 'setting is' : 'settings are')
+				  +  ' in a config file PhValheim could not match to one of this world&rsquo;s '
+				  +  'mods</b>, so it cannot say whether anything on the player&rsquo;s side reads '
+				  +  'them. They are included in the push, because an unnecessary push costs one '
+				  +  'small download while a missing one loses your change silently.</div>';
+			}
+			document.getElementById('ssVerdict').innerHTML = v;
+
+			// ---- what actually changed ----
+			var c = '';
+			if (changes.length) {
+				c += '<table class="table table-sm table-dark" style="font-size:.86rem;margin-bottom:0;">'
+				  +  '<thead><tr><th>Setting</th><th>Was</th><th>Now</th><th>Needed by</th></tr></thead><tbody>';
+				changes.forEach(function (ch) {
+					c += '<tr>'
+					  +  '<td><div><code>' + esc(ch.key) + '</code></div>'
+					  +  '<div style="opacity:.65;font-size:.8rem;">' + esc(ch.file)
+					  +  (ch.section ? ' &middot; [' + esc(ch.section) + ']' : '')
+					  +  (ch.mod ? ' &middot; ' + esc(ch.mod) : '') + '</div></td>'
+					  +  '<td>' + valCell(ch.from, 'mod default') + '</td>'
+					  +  '<td>' + (ch.action === 'reset'
+					        ? valCell(null, 'back to mod default')
+					        : valCell(ch.to, 'mod default')) + '</td>'
+					  +  '<td>' + reachBadge(ch.reach) + '</td>'
+					  +  '</tr>';
+				});
+				c += '</tbody></table>';
+			} else {
+				c = '<div class="alert alert-secondary" style="margin-bottom:0;">'
+				  + 'Nothing changed. Every setting you submitted already held that value.</div>';
+			}
+			document.getElementById('ssChanges').innerHTML = c;
+
+			// ---- refusals are REPORTED, never swallowed ----
+			// A save that silently dropped a locked row would leave the operator believing a
+			// value took effect. This used to be a browser alert() stacked on top of the page.
+			var ref = '';
+			if (r.refused && r.refused.length) {
+				ref = '<div class="alert alert-danger" style="margin-bottom:0;"><b>'
+				    + r.refused.length + ' not saved:</b><ul style="margin:6px 0 0 0;">';
+				r.refused.forEach(function (x) { ref += '<li>' + esc(x) + '</li>'; });
+				ref += '</ul></div>';
+			}
+			document.getElementById('ssRefused').innerHTML = ref;
+			document.getElementById('ssProgress').innerHTML = '';
+
+			// The Apply button exists only when there is something to apply. Offering it for a
+			// purely server-side change would invite a 573 MB rebuild that changes nothing for
+			// anyone.
+			var applyBtn = document.getElementById('ssApply');
+			applyBtn.style.display = r.needsPush ? '' : 'none';
+			applyBtn.disabled = false;
+
+			if (!saveSummaryModal) {
+				saveSummaryModal = new bootstrap.Modal(document.getElementById('saveSummaryModal'));
+				// Reload when the summary closes, not on a timer after the save. The old
+				// 700ms reload would have torn this modal down while the operator was reading
+				// it -- and the page has to re-render anyway to show the new stored values.
+				document.getElementById('saveSummaryModal')
+					.addEventListener('hidden.bs.modal', function () {
+						if (reloadOnSummaryClose) { location.reload(); }
+					});
+			}
+			reloadOnSummaryClose = true;
+			saveSummaryModal.show();
+		}
+
 		function saveAll() {
 			var items = Object.keys(dirty).map(function (k) { return dirty[k]; });
 			var msg = document.getElementById('cfgMsg');
@@ -501,13 +680,35 @@ $payload = modConfigEditorPayload($pdo, $world);
 				var bits = [];
 				if (r.saved)   { bits.push(r.saved + ' saved'); }
 				if (r.removed) { bits.push(r.removed + ' reset'); }
-				// Refusals are REPORTED, not swallowed. A save that silently dropped a locked
-				// row would leave the operator believing a value took effect.
 				if (r.refused && r.refused.length) { bits.push(r.refused.length + ' refused'); }
-				msg.textContent = bits.join(', ') + '. ' + (r.note || '') ;
-				if (r.refused && r.refused.length) { alert('Not saved:\n\n' + r.refused.join('\n')); }
+				msg.textContent = bits.join(', ') + '.';
 				dirty = {};
-				setTimeout(function () { location.reload(); }, 700);
+				renderSaveSummary(r);
+			});
+		}
+
+		// Apply from inside the summary. Shares applyToPlayers()' contract -- r.success, not
+		// r.ok -- and reports into the modal rather than the page behind it.
+		function applyFromSummary() {
+			var btn  = document.getElementById('ssApply');
+			var prog = document.getElementById('ssProgress');
+			btn.disabled = true;
+			prog.innerHTML = '<div class="alert alert-info" style="margin-bottom:0;">'
+			               + 'Rebuilding the client payload&hellip; this takes a moment for a large modpack.</div>';
+
+			post('repackageWorldNow', { world: WORLD }).then(function (r) {
+				if (!r.success) {
+					btn.disabled = false;
+					prog.innerHTML = '<div class="alert alert-danger" style="margin-bottom:0;">'
+					               + esc(r.error || 'Could not start a repackage.') + '</div>';
+					return;
+				}
+				prog.innerHTML = '<div class="alert alert-success" style="margin-bottom:0;">'
+				               + '<b>Repackaging started.</b> Players receive it the next time they '
+				               + 'launch through PhValheim. The world status on the '
+				               + '<a href="index.php">dashboard</a> shows when it finishes.</div>';
+				document.getElementById('ssApply').style.display = 'none';
+				document.getElementById('ssClose').textContent = 'Done';
 			});
 		}
 

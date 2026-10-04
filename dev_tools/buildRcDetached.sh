@@ -2626,6 +2626,40 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 SYNC CONTRACT: getSyncState=$v55ap (want 1)  getConfigMD5=$v55aq (want 1)  getMD5 STILL THERE=$v55ar (want 1)"
   echo "2.55 REPACKAGE UI: php map=$v55as (want 1)  js map=$v55at (want 1)  css badge=$v55au (want 1)"
 
+  # ---- 2.55: the save summary ------------------------------------------------------------
+  #
+  # Saving used to print one line and reload the page after 700ms, so an operator was never
+  # told that a stored value reaches nobody until something pushes it. These pin the parts that
+  # make the summary able to say anything true.
+
+  # The previous value, read BEFORE the write. Without this the summary can only report the new
+  # value twice, and a from/to table showing the same value in both columns looks plausible.
+  v55av=$(grep -c "SELECT cvalue, server_only, mod_id FROM mod_config_overrides" /opt/stateless/nginx/www/includes/modconfigs.php)
+
+  # The three-way reach classifier and the push decision. needsPush is computed server-side on
+  # purpose, so the button and the prose cannot disagree about whether a push is needed.
+  v55aw=$(grep -c '\$reachOf = function' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55ax=$(grep -c "'needsPush' =>" /opt/stateless/nginx/www/includes/modconfigs.php)
+
+  # 'unknown' must remain a real answer. On a live world 15 of 40 override rows have no mod_id,
+  # so collapsing unknown into either of the other two would mislabel most of them.
+  v55ay=$(grep -c "return 'unknown';" /opt/stateless/nginx/www/includes/modconfigs.php)
+
+  # The modal, its two handlers, and an escaper for values that come from mod authors.
+  v55az=$(grep -c 'id="saveSummaryModal"' /opt/stateless/nginx/www/admin/world_configs.php)
+  v55ba=$(grep -c "function renderSaveSummary" /opt/stateless/nginx/www/admin/world_configs.php)
+  v55bb=$(grep -c "function applyFromSummary" /opt/stateless/nginx/www/admin/world_configs.php)
+  v55bc=$(grep -c "hidden.bs.modal" /opt/stateless/nginx/www/admin/world_configs.php)
+
+  # NEGATIVE, and the most useful one here: the old 700ms auto-reload must stay gone. Put it
+  # back and the page tears the modal down while the operator is still reading it -- which
+  # looks like the modal "not working" rather than like a reload.
+  v55bd=$(grep -c "location.reload(); }, 700)" /opt/stateless/nginx/www/admin/world_configs.php)
+
+  echo "2.55 SAVE SUMMARY: prev-value read=$v55av (want 1)  reach classifier=$v55aw (want 1)  needsPush=$v55ax (want 1)  unknown kept=$v55ay (want 1)"
+  echo "2.55 SAVE SUMMARY: modal=$v55az (want 1)  render=$v55ba (want 1)  apply=$v55bb (want 1)  reload-on-close=$v55bc (want 1)"
+  echo "2.55 SAVE SUMMARY NEGATIVE: 700ms auto-reload gone=$v55bd (want 0)"
+
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
   # process substitution, no `local`. Indirection is `eval`, and the loop is fed by a pipe,
   # so the match counter has to live in a file rather than a variable: the pipe body is a
@@ -2868,6 +2902,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55al" = "1" ] && [ "$v55am" = "1" ] && [ "$v55an" = "1" ] && [ "$v55ao" = "1" ] \
     && [ "$v55ap" = "1" ] && [ "$v55aq" = "1" ] && [ "$v55ar" = "1" ] \
     && [ "$v55as" = "1" ] && [ "$v55at" = "1" ] && [ "$v55au" = "1" ] \
+    && [ "$v55av" = "1" ] && [ "$v55aw" = "1" ] && [ "$v55ax" = "1" ] && [ "$v55ay" = "1" ] \
+    && [ "$v55az" = "1" ] && [ "$v55ba" = "1" ] && [ "$v55bb" = "1" ] && [ "$v55bc" = "1" ] \
+    && [ "$v55bd" = "0" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 

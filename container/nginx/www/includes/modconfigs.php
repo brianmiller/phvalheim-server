@@ -261,9 +261,58 @@ function modConfigSaveOverrides($pdo, $world, $items) {
     $excluded = modConfigExcludedFiles();
     $saved = $removed = 0;
     $refused = [];
+    $changes = [];
+
+    // Which of this world's mods are installed on PLAYERS' clients.
+    //
+    // Read once, not per item: a batch save can carry dozens of settings and this is the same
+    // answer for all of them.
+    $modMap = [];
+    $mm = $pdo->prepare(
+        "SELECT wm.mod_id, IFNULL(wm.deploy_client,1) AS dc, m.owner, m.name
+           FROM world_mods wm JOIN mods m ON m.id = wm.mod_id
+          WHERE wm.world_id = ?");
+    $mm->execute([$worldId]);
+    foreach ($mm->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $modMap[(int)$r['mod_id']] = [
+            'client' => ((int)$r['dc'] === 1),
+            'label'  => $r['owner'] . '-' . $r['name'],
+        ];
+    }
+
+    /*
+     * Who has to receive a change for it to take effect. THREE answers, and the third one is
+     * not a cop-out -- on a real world 15 of 40 override rows have no mod_id at all.
+     *
+     *  'server'  - server_only, so it is never written into the client payload; or the mod is
+     *              not deployed to players' clients, so nothing there reads it. Note the
+     *              difference: a deploy_client=0 mod's config IS still written into the
+     *              payload (materialise filters on server_only alone), it simply has no
+     *              plugin on the player's side to read it. So no push is needed either way.
+     *  'players' - the mod runs on players' clients, so they need a rebuilt payload.
+     *  'unknown' - PhValheim could not attribute the config FILE to one of this world's mods.
+     *              Attribution matches the filename against installed mods and deliberately
+     *              refuses near-misses, so this is common and expected. The value ships
+     *              regardless; we just cannot say whether anything client-side reads it.
+     *
+     * Unknown is grouped WITH players for the purpose of "do you need to push", because the
+     * two errors are not symmetric: pushing unnecessarily costs one small download, while not
+     * pushing loses the operator's change with no symptom.
+     */
+    $reachOf = function ($serverOnly, $modId) use ($modMap) {
+        if ($serverOnly) { return 'server'; }
+        if ($modId === null || !isset($modMap[$modId])) { return 'unknown'; }
+        return $modMap[$modId]['client'] ? 'players' : 'server';
+    };
 
     $lockSt = $pdo->prepare(
         "SELECT locked FROM mod_config_overrides
+         WHERE world_id = ? AND cfg_file = ? AND section = ? AND ckey = ?");
+    // The row as it stands BEFORE this save, so the modal can show "from -> to" rather than
+    // just the new value. Nothing read the previous value before 2.55's save summary, which is
+    // why the old confirmation could only ever report a count.
+    $prevSt = $pdo->prepare(
+        "SELECT cvalue, server_only, mod_id FROM mod_config_overrides
          WHERE world_id = ? AND cfg_file = ? AND section = ? AND ckey = ?");
     $del = $pdo->prepare(
         "DELETE FROM mod_config_overrides
@@ -304,27 +353,79 @@ function modConfigSaveOverrides($pdo, $world, $items) {
             continue;
         }
 
+        // Read the previous state BEFORE mutating, for the from->to summary and so a reset
+        // can be classified from the row it is about to delete.
+        $prevSt->execute([$worldId, $file, $section, $key]);
+        $prev = $prevSt->fetch(PDO::FETCH_ASSOC);
+
+        $newModId = isset($it['mod_id']) && $it['mod_id'] !== '' && $it['mod_id'] !== null
+            ? (int)$it['mod_id'] : null;
+
         if (!empty($it['reset'])) {
             $del->execute([$worldId, $file, $section, $key]);
-            $removed += $del->rowCount();
+            $n = $del->rowCount();
+            $removed += $n;
+            // Only report a reset that actually removed something. A reset click on a setting
+            // with no stored override is a no-op, and listing it as a change would have the
+            // modal claim work that did not happen.
+            if ($n > 0) {
+                $prevModId = ($prev && $prev['mod_id'] !== null) ? (int)$prev['mod_id'] : null;
+                $changes[] = [
+                    'action'  => 'reset',
+                    'file'    => $file,
+                    'section' => $section,
+                    'key'     => $key,
+                    'from'    => $prev ? (string)$prev['cvalue'] : null,
+                    'to'      => null,   // null = back to the mod author's own default
+                    'reach'   => $reachOf(!empty($prev['server_only']), $prevModId),
+                    'mod'     => $prevModId !== null && isset($modMap[$prevModId])
+                                   ? $modMap[$prevModId]['label'] : null,
+                ];
+            }
             continue;
         }
 
+        $newValue   = (string)($it['value'] ?? '');
+        $newSrvOnly = !empty($it['server_only']) ? 1 : 0;
+
         $up->execute([
-            $worldId, $file, $section, $key, (string)($it['value'] ?? ''),
-            isset($it['mod_id']) && $it['mod_id'] !== '' && $it['mod_id'] !== null
-                ? (int)$it['mod_id'] : null,
-            !empty($it['server_only']) ? 1 : 0,
+            $worldId, $file, $section, $key, $newValue, $newModId, $newSrvOnly,
         ]);
         $saved++;
+
+        $changes[] = [
+            'action'  => $prev ? 'changed' : 'set',
+            'file'    => $file,
+            'section' => $section,
+            'key'     => $key,
+            // null from = there was no override before, so it was sitting at the mod's default.
+            // That is NOT the same as an empty string, which is a legitimate stored value.
+            'from'    => $prev ? (string)$prev['cvalue'] : null,
+            'to'      => $newValue,
+            'reach'   => $reachOf($newSrvOnly, $newModId),
+            'mod'     => $newModId !== null && isset($modMap[$newModId])
+                           ? $modMap[$newModId]['label'] : null,
+        ];
     }
 
+    $tally = ['players' => 0, 'server' => 0, 'unknown' => 0];
+    foreach ($changes as $c) { $tally[$c['reach']]++; }
+
     return ['ok' => true, 'saved' => $saved, 'removed' => $removed, 'refused' => $refused,
+            'changes' => $changes,
+            'tally'   => $tally,
+            // Whether a push is needed at all, decided here rather than in the browser so the
+            // button and the explanation cannot disagree about it.
+            'needsPush' => ($tally['players'] + $tally['unknown']) > 0,
+            // The world's mode right now, so the summary can say what a restart would even
+            // mean. A stopped world picks server-side changes up on its next start, with
+            // nothing for the operator to do.
+            'worldMode' => (string)getWorldMode($pdo, $world),
             // BepInEx reads its config at plugin load, so a running world cannot pick this up.
             // The side matters and the first version of this note ignored it: a client-side
             // mod reads the config from the client payload zip, which only packageClient()
-            // rebuilds, which only runs on a world UPDATE. "Restart to apply" sent an operator
-            // looking for a change that a restart could not possibly have delivered.
+            // rebuilds. "Restart to apply" sent an operator looking for a change that a
+            // restart could not possibly have delivered.
             'note' => 'Restart the world to apply. If the mod runs on players\' clients, '
                     . 'use Apply to players so the client payload is rebuilt.'];
 }

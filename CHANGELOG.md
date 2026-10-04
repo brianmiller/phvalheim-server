@@ -2,6 +2,56 @@
 
 ## v2.55
 
+### Saving now says what changed, and who still has to receive it
+
+Saving wrote one line — `3 saved, 1 reset` — and reloaded the page 700ms later. That is exactly
+where "I saved it and nothing happened" comes from: the operator was never told that a stored
+value sits in the database until something pushes it, nor which of their changes needed pushing.
+
+`modConfigSaveOverrides()` now returns a per-change summary and the page renders it as a modal:
+every setting touched, **what it was and what it is now**, and who needs it. The previous value
+required reading the row *before* writing it, which nothing did before — so the old confirmation
+could only ever report a count.
+
+Each change is classified three ways, and the third is not a cop-out: on a real world **15 of 40
+override rows have no `mod_id` at all**, because attribution matches a config filename against
+the world's installed mods and deliberately refuses near-misses.
+
+- **`server`** — `server_only`, so it is never written into the client payload; or the mod is not
+  deployed to players' clients, so nothing there reads it. Worth noting the difference: a
+  `deploy_client=0` mod's config *is* still written into the payload (materialise filters on
+  `server_only` alone) — it simply has no plugin on the player's side to read it. Either way no
+  push is needed.
+- **`players`** — the mod runs on players' clients.
+- **`unknown`** — the file could not be attributed. The value ships regardless; we just cannot
+  say whether anything client-side reads it.
+
+`unknown` is grouped **with** `players` for the push decision, because the two errors are not
+symmetric: an unnecessary push costs one 80 KB download, while a missed one loses the operator's
+change with no symptom. `needsPush` is computed server-side so the button and the prose cannot
+disagree, and the Apply button is hidden entirely when nothing needs pushing — offering a
+rebuild that changes nothing for anyone is its own kind of lie.
+
+The server-side note adapts to `worlds.mode`: a running world is told to restart, a stopped one
+is told it will pick the change up on its next start and there is nothing to do. Telling someone
+whose world is already stopped to "restart to apply" is the kind of instruction that makes an
+operator distrust the rest of the message.
+
+Three smaller things fell out of it. Refusals moved from a blocking `alert()` into the summary,
+where they sit next to the changes that *did* save. A reset that removes nothing is no longer
+reported as a change. And the 700ms auto-reload is gone — the page now reloads when the summary
+is closed, because the old timer would have torn the modal down while it was being read; marker
+`v55bd` asserts it stays gone.
+
+Config keys and values come from mod authors, so everything interpolated into the summary is
+escaped.
+
+Guarded by `dev_tools/test-save-summary.php` — 32 assertions against the **live** database inside
+a transaction that is always rolled back, so it exercises the real joins and collations without
+altering a stored override. It creates the `deploy_client=0` condition rather than skipping it
+when a world has no such mod. Mutation-verified: reporting the new value as the old one, always
+answering `players`, hardcoding `needsPush`, and reporting no-op resets each turn it red.
+
 ### Applying a config change no longer costs a full world update
 
 Saving in the editor wrote database rows and set no `worlds.mode`, so the engine never woke up.
