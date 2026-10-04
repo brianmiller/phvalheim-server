@@ -16,42 +16,47 @@ Design record for (2), including the measurements and the traps: `docs/DESIGN-2.
 
 | | |
 |---|---|
-| Docker tag | **`:rc` only** |
+| Docker tags | **`:rc` and `:2.55`**, both on one digest |
 | Digest | `sha256:6c4ad28d3c6c83851e67c1efc2d816d1dd3bbb88a3b2ebce1294c0d996096121` — `IMAGE VERIFY OK`, all 43 2.55 markers matching |
+| `:2.55` built how | **rebuilt** with `EXTRA_TAGS="2.55"`, never a retag — and it came out on the same digest as `:rc`, which is the expected result for an unchanged tree |
+| **`:latest`** | **UNTOUCHED**, still on `sha256:616d3fb3…` — a different digest. Verified with `imagetools inspect` per tag, not assumed |
 | Deployed on | the maintainer's test server — registry, local tag and running container all on `6c4ad28d` |
-| Git | **not committed.** No `v2.55` tag, no GitHub release |
-| `:latest` / `:2.55` | **untouched** |
-| Client (`phvalheim-client`) | `Syncer.cs` rewritten, **version 2.0.15** (pre-release), builds clean on net9.0 — **not committed, no tag, no packages built, not published** |
+| Git | committed and pushed (`064599f1`), tag **`v2.55`** pushed |
+| GitHub release | **`v2.55` published as a PRE-RELEASE.** `v2.54` is still marked Latest |
+| Client (`phvalheim-client`) | **2.0.15** committed (`4973445`), tag `2.0.15` pushed, published as a **PRE-RELEASE**; `2.0.14` is still marked Latest |
 | `clientMinVersion` | deliberately left at **2.0.14** — a 2.0.14 client still works against 2.55, so raising it would block players for nothing |
+
+**A 2.0.15 pre-release cannot reach players by accident.** `includes/git.php` excludes both
+`draft` and `prerelease` when choosing which client version the download UI offers, so the UI
+keeps offering 2.0.14 until someone promotes 2.0.15 to a full release. That filter is guarded by
+`dev_tools/test-client-release-source.php`.
 
 **`sha256:9a474d57…` was the first ever 2.55 `:rc` and it is BROKEN — never promote it.** It
 applied no overrides at all on a world update. See the CHANGELOG entry.
 
 ## What is left
 
-1. `git add` + commit, in **both** repos. `phvalheim-server` has ~26 changed/new files;
-   `phvalheim-client` has `Syncer.cs`.
-2. Tag `v2.55`, push the tag.
-3. `gh release create v2.55 --prerelease`.
-4. Promote by **rebuilding** with `EXTRA_TAGS="2.55"` (and `latest` when ready). Never
-   `docker tag` the tested `:rc` — see `docs/RELEASING.md`.
-5. **A client release is needed for the 80 KB config sync to do anything.** The server half is
-   backward compatible on its own: an old client sees `world_md5` change on a repackage and
-   downloads the full payload, exactly as it does today.
+Both repos are committed, tagged and published as pre-releases; `:2.55` is on DockerHub. What
+remains is all gated on the two untested paths below, plus Brian's call on promotion.
 
-   The client is now at **2.0.15**, to ship as a **pre-release** (Brian's call, 2026-10-04).
-   `phvalheim-client.csproj` is the single source of truth — all nine builders derive
-   `<Version>` from it, and `builds/build-all-2.0.15.sh` derives it too rather than carrying a
-   second copy, with a guard that refuses to run if the two disagree. Release notes:
-   `phvalheim-client/RELEASE-2.0.15.md`. Still to do there: commit, tag `2.0.15` (bare, no `v`
-   prefix — that is this repo's convention), build the four packages, obtain the macOS asset via
-   its own path, and publish as a pre-release.
-6. **Optional, Brian's call:** restore 12 override rows deleted by reset clicks during
+1. **Test the two paths nobody has run** — see "NOT exercised" below. A real client doing a
+   config-only sync, and an **old** client against the new server.
+2. **Promote the server to a full release**, when the above is satisfied: rebuild with
+   `EXTRA_TAGS="2.55 latest"`, then mark the GitHub release Latest. Never `docker tag` the
+   tested `:rc`.
+3. **Attach the macOS asset to the 2.0.15 client pre-release.** `builds/build-all-2.0.15.sh`
+   covers tgz/deb/rpm/msi; macOS comes through its own path (`prompts/macos-build.md`). Two
+   traps: do **not** rename a previous version's macOS asset under a 2.0.15 name (that is how
+   2.0.13 shipped 2.0.12's bits), and **rebuilding an artifact does not refresh an asset already
+   attached to a release** — it has to be re-uploaded.
+4. **Promote the client**, which is what actually turns the 80 KB sync on for players: the
+   download UI ignores pre-releases, so 2.0.15 reaches nobody until it is a full release.
+5. **Optional, Brian's call:** restore 12 override rows deleted by reset clicks during
    exploration — `Azumatt.SleepSkip.cfg` (4), `spectralmemories.fasterboats.cfg` (2),
    `zolantris.ValheimRAFT.cfg` (6). Originals are in `custom_configs/.imported-pre-2.55/`, so
    moving those three files back and re-running
    `modConfigs.py --import-legacy --world VikingOutlaws` would re-take them.
-7. **Optional polish:** the `modified` badge means "differs from the mod author's documented
+6. **Optional polish:** the `modified` badge means "differs from the mod author's documented
    default", which is not the same as "you changed this". Renaming it to *differs from default*
    would remove the ambiguity.
 
