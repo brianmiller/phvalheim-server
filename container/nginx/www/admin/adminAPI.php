@@ -880,7 +880,8 @@ switch($action) {
 
     case 'getWorldConfigMods':
         // One row per mod for the Configs picker. Read-only, GET is fine.
-        require_once '/opt/stateless/nginx/www/includes/modconfigs.php';
+        // modconfigs.php is already required at the top of this file -- a second require_once
+        // here is a no-op at runtime but tripped the v55m marker, which counts the includes.
         $world = $_GET['world'] ?? '';
         if (!$world) {
             echo json_encode(['error' => 'World name required']);
