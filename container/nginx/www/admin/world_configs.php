@@ -131,9 +131,26 @@ $payload = modConfigEditorPayload($pdo, $world);
 			<div style="margin:0 0 16px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
 				<button type="button" class="btn btn-sm btn-primary" id="btn-apply-players"
 				        onclick="applyToPlayers()">Apply to players</button>
+				<?php
+				// This note used to read "The world keeps running." unconditionally, which was
+				// wrong twice over. It printed the same sentence for a STOPPED world -- a promise
+				// about a state the world is not in -- and it never said WHAT this applies, so it
+				// read as though the mod list could be changed under a live world. It cannot:
+				// adding or removing mods rebuilds the modpack and still requires a stopped world.
+				// Only the settings on this page can be applied without stopping anything.
+				$wcMode = getWorldMode($pdo, $world);
+				?>
 				<span id="apply-players-note" style="opacity:.75;font-size:.84rem;">
-					Rebuilds the client payload for <b><?php echo htmlspecialchars($world); ?></b>.
-					The world keeps running.
+					Rebuilds the client payload for <b><?php echo htmlspecialchars($world); ?></b>
+					with the settings on this page. <b>Mod settings only</b> &mdash; adding or
+					removing mods is still done from Edit Mods, with the world stopped.
+					<?php if ($wcMode === 'running'): ?>
+						This world stays up and nobody is disconnected.
+					<?php elseif ($wcMode === 'stopped'): ?>
+						This world is stopped and stays stopped; players get the change next time they launch.
+					<?php else: ?>
+						This world is busy (<?php echo htmlspecialchars($wcMode); ?>) &mdash; wait for it to finish before applying.
+					<?php endif; ?>
 				</span>
 			</div>
 
@@ -579,8 +596,13 @@ $payload = modConfigEditorPayload($pdo, $world);
 				  +  '<b>Players do not have these changes yet.</b><br>'
 				  +  pushCount + ' of these ' + (pushCount === 1 ? 'affects a mod' : 'affect mods')
 				  +  ' that players run. Saving stored the change; players receive it only once the '
-				  +  'client payload is rebuilt. Press <b>Apply to players now</b> &mdash; the world '
-				  +  'keeps running and nobody is disconnected.</div>';
+				  +  'client payload is rebuilt. Press <b>Apply to players now</b> &mdash; '
+				  // Same correction as the static note above the button: do not promise "keeps
+				  // running" to a world that is stopped. r.worldMode is already in this payload.
+				  +  (r.worldMode === 'running'
+				        ? 'the world stays up and nobody is disconnected.'
+				        : 'this world is stopped, so players pick the change up next launch.')
+				  +  '</div>';
 			} else if (changes.length) {
 				v += '<div class="alert alert-success" style="margin-bottom:10px;">'
 				  +  '<b>Nothing to push.</b> None of these changes alter what players download.</div>';
