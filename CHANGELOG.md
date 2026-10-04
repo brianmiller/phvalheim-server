@@ -2,6 +2,30 @@
 
 ## v2.55
 
+### The config editor was unreachable from the one state it was built for
+
+The editor's Apply button says *"Rebuilds the client payload for &lt;world&gt;. The world keeps
+running."* The only link to that page was inside `edit_world.php`, which the dashboard gates
+behind **Edit Mods** — a button disabled whenever the world is online. So the page promised a
+running world and could only be opened from a stopped one.
+
+Nothing server-side was wrong, which is why nothing caught it: `repackageWorld()` has always
+accepted `mode IN ('running','stopped')`, and `world_configs.php` itself has no running-state
+guard at all — only a vanilla one. The feature worked; it just had no door.
+
+Each world card now carries its own **Configs** action, enabled for any non-vanilla world that
+is running or stopped, and disabled mid-operation (where `repackageWorld()` would refuse
+anyway). The markup comes from a single `modConfigsButtonHtml()` used by all three row branches
+*and* the 5-second poll updater — three hand-copied ternaries are how this dashboard's gates
+have gone stale before, and a button that is correct on page load and wrong four seconds later
+is worse than one that is simply absent.
+
+**Edit Mods is deliberately unchanged.** Editing the mod list rebuilds the modpack and must
+still require a stopped world; `dev_tools/test-config-entry-point.sh` carries that as an
+explicit control, so "make the page reachable" cannot be satisfied by loosening the wrong gate.
+That suite ships with a `--self-test` flag that runs it against the previous commit and refuses
+to pass unless the assertions actually fail on the broken tree.
+
 ### Saving now says what changed, and who still has to receive it
 
 Saving wrote one line — `3 saved, 1 reset` — and reloaded the page 700ms later. That is exactly

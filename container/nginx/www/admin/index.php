@@ -651,6 +651,19 @@ $totalCount = count($worlds);
                                         <td>
                                             <div class="action-group">
                                                 <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
+                                                <?php /* Configs is deliberately NOT gated on the world being stopped, unlike
+                                                   Edit Mods beside it. Changing the mod LIST rebuilds the modpack and must
+                                                   not happen under a running world; changing a mod's CONFIG only rewrites
+                                                   cfg files and repackages the client payload, which is exactly what
+                                                   'repackage' was added for -- it accepts mode IN ('running','stopped').
+                                                   2.55 shipped the page reachable only from Edit Mods, so the one state
+                                                   its own button promises ("The world keeps running") was the one state
+                                                   you could not reach it from. */ ?>
+                                                <?php if ($world['vanilla']): ?>
+                                                <span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>
+                                                <?php else: ?>
+                                                <a href="world_configs.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="mod-configs">Configs</a>
+                                                <?php endif; ?>
                                                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
                                                 </a>
@@ -766,6 +779,11 @@ $totalCount = count($worlds);
                                                 <span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>
                                                 <?php else: ?>
                                                 <a href="edit_world.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn primary" data-action="edit-mods">Edit Mods</a>
+                                                <?php endif; ?>
+                                                <?php if ($world['vanilla']): ?>
+                                                <span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>
+                                                <?php else: ?>
+                                                <a href="world_configs.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="mod-configs">Configs</a>
                                                 <?php endif; ?>
                                                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
                                                     View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
@@ -2268,6 +2286,25 @@ $totalCount = count($worlds);
         return `<span class="join-code-chip pending" data-action="joincode" title="${escapeAttr('Crossplay world: the lobby has not registered its join code yet. It usually appears within 30 seconds.')}">code waiting&hellip;</span>`;
     }
 
+    // The Mod Configs entry point. ONE definition, used by all three row branches and by the
+    // poll updater, because three hand-copied ternaries are how a gate like this goes stale.
+    //
+    // `reachable` is passed in rather than derived from world.mode here so each caller states
+    // its own case: running and stopped both reach it, every transitional mode does not.
+    // Editing a mod's config is not editing the mod LIST -- it rewrites cfg files and
+    // repackages the client payload, which is what 'repackage' exists for, and that accepts
+    // mode IN ('running','stopped'). Mid-update there is nothing coherent to repackage, and
+    // repackageWorld() would refuse anyway, so the button is disabled rather than lying.
+    function modConfigsButtonHtml(world, reachable) {
+        if (world.vanilla) {
+            return `<span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>`;
+        }
+        if (!reachable) {
+            return `<span class="action-btn disabled" data-action="mod-configs" title="This world is mid-operation. Mod configs can be edited once it is running or stopped.">Configs</span>`;
+        }
+        return `<a href="world_configs.php?world=${encodeURIComponent(world.name)}" class="action-btn" data-action="mod-configs">Configs</a>`;
+    }
+
     function launchButtonHtml(world) {
         if (!world.launchHref) {
             // No launch link, and TWO different worlds land here -- see the long comment on the
@@ -2318,6 +2355,7 @@ $totalCount = count($worlds);
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
                 <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
+                ${modConfigsButtonHtml(world, true)}
                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <span class="action-btn disabled" data-action="update">Update</span>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
@@ -2332,6 +2370,7 @@ $totalCount = count($worlds);
                 ${world.vanilla
                     ? `<span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>`
                     : `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`}
+                ${modConfigsButtonHtml(world, true)}
                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
@@ -2344,6 +2383,7 @@ $totalCount = count($worlds);
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
                 <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
+                ${modConfigsButtonHtml(world, false)}
                 <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
                 <span class="action-btn disabled" data-action="update">Update</span>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
@@ -2503,6 +2543,19 @@ $totalCount = count($worlds);
                 updateBtn.outerHTML = `<span class="action-btn disabled" data-action="update">Update</span>`;
                 deleteBtn.outerHTML = `<span class="action-btn disabled" data-action="delete">Delete</span>`;
             }
+        }
+
+        // Deliberately its own block, NOT folded into the && guard above: a page rendered
+        // before this button existed (a tab left open across the upgrade) has no mod-configs
+        // button, and widening that guard would make Edit Mods, Update and Delete stop
+        // updating on such a page instead of just this one button.
+        //
+        // Unlike Edit Mods, this stays live while the world is RUNNING -- that is the whole
+        // point, and the state the editor's own wording promises.
+        const modConfigsBtn = findBtn('mod-configs');
+        if (modConfigsBtn) {
+            modConfigsBtn.outerHTML = modConfigsButtonHtml(
+                world, world.mode === 'running' || world.mode === 'stopped');
         }
 
         // Re-run reflow after button state changes

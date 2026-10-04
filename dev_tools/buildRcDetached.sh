@@ -2660,6 +2660,26 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 SAVE SUMMARY: modal=$v55az (want 1)  render=$v55ba (want 1)  apply=$v55bb (want 1)  reload-on-close=$v55bc (want 1)"
   echo "2.55 SAVE SUMMARY NEGATIVE: 700ms auto-reload gone=$v55bd (want 0)"
 
+  # The config editor must be REACHABLE from a running world. 2.55 shipped it linked only from
+  # edit_world.php, which the dashboard gates behind Edit Mods -- disabled whenever the world is
+  # online -- so the one state the editor's own Apply button promises ("The world keeps running")
+  # was the one state you could not open it from. Counts predicted against the tree before these
+  # were written; a bare name grep would have counted the helper's own definition too.
+  v55be=$(grep -c "world_configs.php" /opt/stateless/nginx/www/admin/index.php)
+  v55bf=$(grep -c "modConfigsButtonHtml(world, true)" /opt/stateless/nginx/www/admin/index.php)
+  v55bg=$(grep -c "modConfigsButtonHtml(world, false)" /opt/stateless/nginx/www/admin/index.php)
+  v55bh=$(grep -c "world.mode === 'running' || world.mode === 'stopped'" /opt/stateless/nginx/www/admin/index.php)
+
+  # CONTROL, and the one that matters most: Edit Mods must STILL be disabled for a non-stopped
+  # world. Changing the mod list rebuilds the modpack. Without this marker, "make the config page
+  # reachable" could be satisfied by simply enabling Edit Mods while a world is up, which would be
+  # a far worse bug than the one being fixed. Matched with . for the backtick -- quoting a
+  # backtick through this sh payload is not worth the risk of a marker that silently reads 0.
+  v55bi=$(grep -c 'editModsBtn.outerHTML = .<span class="action-btn disabled" data-action="edit-mods">' /opt/stateless/nginx/www/admin/index.php)
+
+  echo "2.55 CONFIG ENTRY: world_configs hrefs=$v55be (want 3)  enabled branches=$v55bf (want 2)  disabled branch=$v55bg (want 1)  poll gate=$v55bh (want 1)"
+  echo "2.55 CONFIG ENTRY CONTROL: Edit Mods still gated=$v55bi (want 1)"
+
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
   # process substitution, no `local`. Indirection is `eval`, and the loop is fed by a pipe,
   # so the match counter has to live in a file rather than a variable: the pipe body is a
@@ -2905,6 +2925,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55av" = "1" ] && [ "$v55aw" = "1" ] && [ "$v55ax" = "1" ] && [ "$v55ay" = "1" ] \
     && [ "$v55az" = "1" ] && [ "$v55ba" = "1" ] && [ "$v55bb" = "1" ] && [ "$v55bc" = "1" ] \
     && [ "$v55bd" = "0" ] \
+    && [ "$v55be" = "3" ] && [ "$v55bf" = "2" ] && [ "$v55bg" = "1" ] && [ "$v55bh" = "1" ] \
+    && [ "$v55bi" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 
