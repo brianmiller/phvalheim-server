@@ -1156,14 +1156,31 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   sd=$(grep -c "mindepth 1" /opt/stateless/engine/includes/0-functions.sh)
   se=$(grep -c "bepinex_default.cfg" /opt/stateless/engine/includes/0-functions.sh)
   sf=$(grep -c "2.49. => ." /opt/stateless/nginx/www/includes/whatsnew.php)
-  # sb is the call site in the engine loop. It must sit AFTER installCustomModsConfigsPatchers
-  # and BEFORE packageClient -- a call in the wrong place verifies as present and still
-  # ships a client payload with no cfg in it.
-  # -A8, not -A4: the call carries a four-line comment, so it lands at +6. The first RC of
-  # 2.49 reported this as 0 against an image whose ordering was correct -- a marker whose
-  # window is too small is a false failure, and the next person reads it as a real one.
-  sg=$(grep -A8 "installCustomModsConfigsPatchers ." /opt/stateless/engine/phvalheim | grep -c "ensureBepInExLoaderConfig")
-  echo "2.49 loader cfg: helper+refs=$sa (want 3)  call site=$sb (want 1)  ordered before packaging=$sg (want 1)"
+  # sb counts the call sites in the engine loop. It was "want 1" until 2.55's repackage branch
+  # added a SECOND, correct one -- repackage must also write the loader cfg before it packages.
+  #
+  # sg asserts the ORDER: the loader cfg must be written AFTER installCustomModsConfigsPatchers
+  # and BEFORE packageClient. A call in the wrong place verifies as present and still ships a
+  # client payload with no cfg in it, which is the 2.49 bug itself.
+  #
+  # This used to be `grep -A8` from the install call. That fixed window was already known to be
+  # fragile -- the old comment here recorded it producing a false 0 on a correct image -- and
+  # 2.55 broke it for real: materialiseModConfigs and its comment block landed between the two,
+  # pushing the call to +21 and making the marker print 0 against correct code. A window that
+  # has to be widened every time a line is inserted is not an invariant.
+  #
+  # Compare LINE NUMBERS instead, which is what "ordered" actually means. Anchored with
+  # ^[[:space:]]* so a comment mentioning packageClient cannot match -- the "." here is a
+  # regex any-char standing in for a quote, so an unanchored "packageClient ." matches the
+  # word inside a comment too, and the first such comment sits ~170 lines ABOVE the real call.
+  sgI=$(grep -nE "^[[:space:]]*installCustomModsConfigsPatchers ." /opt/stateless/engine/phvalheim | head -1 | cut -d: -f1)
+  sgE=$(grep -nE "^[[:space:]]*ensureBepInExLoaderConfig ." /opt/stateless/engine/phvalheim | head -1 | cut -d: -f1)
+  sgP=$(grep -nE "^[[:space:]]*packageClient ." /opt/stateless/engine/phvalheim | head -1 | cut -d: -f1)
+  sg=0
+  if [ -n "$sgI" ] && [ -n "$sgE" ] && [ -n "$sgP" ]; then
+    if [ "$sgI" -lt "$sgE" ] && [ "$sgE" -lt "$sgP" ]; then sg=1; fi
+  fi
+  echo "2.49 loader cfg: helper+refs=$sa (want 3)  call sites=$sb (want 2)  ordered before packaging=$sg (want 1)"
   echo "2.49 loader cfg: purge keeps it=$sd (want 1)  pack stash=$se (want 2)"
   echo "2.49 loader cfg NEGATIVE: unconditional rm -rf of BepInEx/config gone=$sc (want 0)"
   echo "2.49 whatsnew entry=$sf (want 1)"
@@ -2927,6 +2944,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55bd" = "0" ] \
     && [ "$v55be" = "3" ] && [ "$v55bf" = "2" ] && [ "$v55bg" = "1" ] && [ "$v55bh" = "1" ] \
     && [ "$v55bi" = "1" ] \
+    && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 
