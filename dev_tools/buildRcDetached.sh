@@ -2694,7 +2694,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # Was 3 while every card linked straight to the editor. The Configs button now opens a MOD
   # PICKER instead, so the only world_configs.php references left in index.php are the two
   # inside the modal: the per-mod link and the "show all settings" escape hatch.
-  v55be=$(grep -c "world_configs.php" /opt/stateless/nginx/www/admin/index.php)
+  # Comment lines stripped FIRST. This counted 6 the moment the back-button work added comments
+  # that mention world_configs.php by name -- a marker that counts prose fails whenever someone
+  # explains the code, and passes when the link is deleted. Only the two real references count:
+  # the per-mod link and the "show all settings" escape hatch.
+  v55be=$(grep -v "^[[:space:]]*//" /opt/stateless/nginx/www/admin/index.php | grep -c "world_configs.php")
   v55bj=$(grep -c "showConfigsModal" /opt/stateless/nginx/www/admin/index.php)
   v55bk=$(grep -c "getWorldConfigMods" /opt/stateless/nginx/www/admin/adminAPI.php)
   v55bl=$(grep -c "function modConfigModSummary" /opt/stateless/nginx/www/includes/modconfigs.php)
@@ -2792,6 +2796,19 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The single mode reader both call sites now share.
   v56r=$(grep -c "function modConfigWorldMode" /opt/stateless/nginx/www/includes/modconfigs.php)
 
+  # ---- the picker is a HISTORY ENTRY ----
+  # Back from world_configs.php used to land on a bare dashboard, so editing a 29-mod world
+  # cost a fresh Mods -> Mod Configs -> find-your-place per mod. The state lives in the URL
+  # HASH, not only history.state, because Back from another page is a fresh page LOAD -- so
+  # the hash constant, the restore-on-load hook and the popstate handler are all load-bearing
+  # and each is silent when missing.
+  v56s=$(grep -c "const CFG_HASH = '#mods-configs='" /opt/stateless/nginx/www/admin/index.php)
+  v56t=$(grep -c "DOMContentLoaded', restoreConfigsFromHash" /opt/stateless/nginx/www/admin/index.php)
+  v56u=$(grep -c "addEventListener('popstate'" /opt/stateless/nginx/www/admin/index.php)
+  # pushState must happen in showConfigsModal and NOT in openConfigsModal -- the restore path
+  # calls the latter, and pushing there would need two Backs to leave the picker.
+  v56v=$(grep -c "history.pushState({ phvConfigs" /opt/stateless/nginx/www/admin/index.php)
+
   v56j=$(grep -c 'onclick="applyToPlayers()">Save &amp; apply to players' /opt/stateless/nginx/www/admin/world_configs.php)
   v56k=$(awk '/function applyToPlayers\(\)/,/^\t\t\}$/' /opt/stateless/nginx/www/admin/world_configs.php | grep -c "post('saveModConfigs'")
   # CONTROL: the confirm() that used to stand in for saving must be gone. While it was there,
@@ -2805,6 +2822,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
   echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
   echo "2.56 CONFIG COVERAGE: summary keys=$v56m (want 2)  getWorldMode calls=$v56n (want 0)  mode reader=$v56r (want 1)  renderer=$v56o (want 1)  unmatched php=$v56p (want 1) js=$v56q (want 3)"
+  echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
 
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
@@ -3060,6 +3078,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56j" = "1" ] && [ "$v56k" = "1" ] && [ "$v56l" = "0" ] \
     && [ "$v56m" = "2" ] && [ "$v56n" = "0" ] && [ "$v56r" = "1" ] && [ "$v56o" = "1" ] \
     && [ "$v56p" = "1" ] && [ "$v56q" = "3" ] \
+    && [ "$v56s" = "1" ] && [ "$v56t" = "1" ] && [ "$v56u" = "1" ] && [ "$v56v" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

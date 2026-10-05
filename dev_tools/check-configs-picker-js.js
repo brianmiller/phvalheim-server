@@ -5,7 +5,8 @@
 // and prose like "settings (" inside them otherwise read as calls.
 const fs = require('fs');
 const FNS = ['showConfigsModal', 'filterConfigMods', 'closeConfigsModal', 'modsButtonHtml',
-             'showModsHub', 'renderModsHubCards', 'loadModsHubInstalled', 'closeModsHub', 'renderConfigCoverage'];
+             'showModsHub', 'renderModsHubCards', 'loadModsHubInstalled', 'closeModsHub', 'renderConfigCoverage', 'openConfigsModal',
+             'restoreConfigsFromHash', 'cfgHashWorld'];
 const GLOBALS = new Set(['fetch','encodeURIComponent','decodeURIComponent','parseInt','String',
  'Number','JSON','Math','Set','Map','Array','Object','setTimeout','console','confirm','alert']);
 

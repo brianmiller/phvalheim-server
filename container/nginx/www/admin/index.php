@@ -2670,6 +2670,12 @@ $totalCount = count($worlds);
         }
     });
 
+    // Back from world_configs.php lands here as a normal page load carrying the picker's hash.
+    // Re-open it so the operator returns to the list they were working through rather than a
+    // bare dashboard. Deferred to DOMContentLoaded because the modal's elements and
+    // restoreConfigsFromHash() are both defined further down this script.
+    document.addEventListener('DOMContentLoaded', restoreConfigsFromHash);
+
     // Run reflow on load and resize
     reflowActionGroups();
     let reflowTimer;
@@ -2788,7 +2794,58 @@ $totalCount = count($worlds);
     // ---- Configs: choose a mod, then edit only that mod's settings ----
     let cfgModalWorld = '';
 
+    // The picker is a HISTORY ENTRY, not just a div with a class on it.
+    //
+    // Opening a mod from it navigates away to world_configs.php, so Back from that page
+    // returns to the dashboard -- and without this it returned to a bare dashboard, losing the
+    // list the operator was working through. On a 29-mod world that means re-opening Mods,
+    // re-opening Mod Configs and re-finding your place for every single mod you want to edit.
+    //
+    // Done with a URL hash rather than only history.state, because Back from world_configs.php
+    // is a fresh page LOAD (or a bfcache restore) of index.php, and state attached to the entry
+    // we pushed is not reliably readable then -- the hash always is. That also makes the picker
+    // linkable and survives a reload, which a state-only approach does not.
+    const CFG_HASH = '#mods-configs=';
+
+    function cfgHashWorld() {
+        const h = location.hash || '';
+        return h.startsWith(CFG_HASH) ? decodeURIComponent(h.slice(CFG_HASH.length)) : null;
+    }
+
+    // The public entry point: opens the picker AND records it in history.
     async function showConfigsModal(worldName) {
+        if (cfgHashWorld() !== worldName) {
+            history.pushState({ phvConfigs: worldName }, '', CFG_HASH + encodeURIComponent(worldName));
+        }
+        return openConfigsModal(worldName);
+    }
+
+    // Restore the picker from the URL on a page load -- which is what Back from
+    // world_configs.php actually is. Deliberately does NOT push a history entry: it is
+    // reflecting the current entry, and pushing here would need two Backs to leave.
+    function restoreConfigsFromHash() {
+        const w = cfgHashWorld();
+        if (w) { openConfigsModal(w); }
+    }
+
+    // Back/Forward within the dashboard. Leaving the picker's entry closes it; returning to it
+    // re-opens it, so the two buttons stay symmetric.
+    window.addEventListener('popstate', function () {
+        const w = cfgHashWorld();
+        if (w) {
+            openConfigsModal(w);
+        } else {
+            document.getElementById('cfgModalOverlay').classList.remove('show');
+        }
+    });
+
+    // A page restored from the back/forward cache does not re-run its scripts, so the modal
+    // would be whatever it was when the operator left. Re-sync it to the URL.
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) { restoreConfigsFromHash(); }
+    });
+
+    async function openConfigsModal(worldName) {
         cfgModalWorld = worldName;
         document.getElementById('cfgModalTitle').textContent = `Mod Configs - ${worldName}`;
         document.getElementById('cfgModalList').innerHTML = '<li>Loading&hellip;</li>';
@@ -2916,6 +2973,11 @@ $totalCount = count($worlds);
     function closeConfigsModal(event) {
         if (!event || event.target === document.getElementById('cfgModalOverlay')) {
             document.getElementById('cfgModalOverlay').classList.remove('show');
+            // Leave history consistent with what is on screen. Closing the picker by hand is
+            // the same outcome as pressing Back from it, so it should consume that entry --
+            // otherwise the hash stays behind, and a reload or a later Back re-opens a modal
+            // the operator had already dismissed.
+            if (cfgHashWorld()) { history.back(); }
         }
     }
 
