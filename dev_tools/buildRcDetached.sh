@@ -2825,7 +2825,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # the same enumeration that shipped 2.53's hammertime bug. Capture phase is load-bearing:
   # the controls carry inline onclick attributes, which fire at the target during bubbling, so
   # a bubble-phase listener would open the modal AFTER the thing it is meant to precede.
-  # Guarded live by dev_tools/test-config-migration-gate.js (15 assertions, including that
+  # Guarded live by dev_tools/test-config-migration-gate.js (20 assertions, including that
   # Start does not navigate and that the gate survives a poll rebuilding the row).
   v56ac=$(grep -cF 'data-action="start"], [data-action="mods"], [data-action="settings"]' /opt/stateless/nginx/www/admin/index.php)
   v56ad=$(grep -c "}, true);" /opt/stateless/nginx/www/admin/index.php)
@@ -2834,6 +2834,27 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # Continue must exist and must re-click the SAME element -- reimplementing the three actions
   # would be a second copy of three behaviours, and the copy is what goes stale.
   v56af=$(grep -c "el.click();" /opt/stateless/nginx/www/admin/index.php)
+
+  # ---- the two decisions sit side by side in the footer ----
+  # Delete moved out of the scrolling body and up next to Continue, destructive one on the LEFT,
+  # and Continue says which decision it is ("without deleting") -- next to a delete button a bare
+  # "Continue" is the one wording that makes the SAFE choice read as the vague one.
+  # v56am -- the footer button exists  v56an -- matched on the BUTTON TEXT, not the intro prose
+  #          that also names it (counting prose is how v56j broke)
+  # v56ao -- NEGATIVE: the old in-body button is gone, so there is only one delete control
+  # v56ap -- three cfgMigContinueWrap sites: the markup slot, the render, and the CLEAR. The
+  #          clear is load-bearing -- Continue used to live inside cfgMigMsg, so wiping that
+  #          text also wiped the button; with its own slot a gated visit would otherwise leave
+  #          a Continue behind for a later sidebar visit to show with nothing to continue to.
+  # v56aq -- two display writes: hidden while the report loads, revealed only by the render that
+  #          knows there is something to delete.
+  # Geometry (Delete really painted left of Continue, same row) is a browser fact a grep cannot
+  # reach -- dev_tools/test-config-migration-gate.js measures it from getBoundingClientRect.
+  v56am=$(grep -c 'id="cfgMigDeleteBtn"' /opt/stateless/nginx/www/admin/index.php)
+  v56an=$(grep -cF "'Continue without deleting</button>'" /opt/stateless/nginx/www/admin/index.php)
+  v56ao=$(grep -cF 'btn-danger" onclick="deleteConfigMigrationBackups()"' /opt/stateless/nginx/www/admin/index.php)
+  v56ap=$(grep -c 'cfgMigContinueWrap' /opt/stateless/nginx/www/admin/index.php)
+  v56aq=$(grep -cF "getElementById('cfgMigDeleteBtn').style.display" /opt/stateless/nginx/www/admin/index.php)
 
   # ---- the 2.55 migration review: the OPERATOR decides about the originals ----
   # The import parked each consumed file. Deleting those is irreversible, and on a real server
@@ -2883,6 +2904,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 CONFIG COVERAGE: summary keys=$v56m (want 2)  getWorldMode calls=$v56n (want 0)  mode reader=$v56r (want 1)  renderer=$v56o (want 1)  unmatched php=$v56p (want 1) js=$v56q (want 3)"
   echo "2.56 CFG ACCORDION: php gate=$v56ag (want 1)  toggle fn=$v56ah (want 1)  body wrapper=$v56ai (want 3)  buttons exempt=$v56aj (want 1)  edited fn=$v56ak (want 1)  edited calls=$v56al (want 4)"
   echo "2.56 MIGRATION GATE: delegated listener=$v56ac (want 1)  capture phase=$v56ad (want 1)  per-world map=$v56ae (want 1)  re-click=$v56af (want 1)"
+  echo "2.56 MIGRATION FOOTER: delete btn=$v56am (want 1)  continue label=$v56an (want 1)  in-body btn gone=$v56ao (want 0)  continue slot=$v56ap (want 3)  reveal writes=$v56aq (want 2)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 1)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
@@ -3146,6 +3168,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56ac" = "1" ] && [ "$v56ad" = "1" ] && [ "$v56ae" = "1" ] && [ "$v56af" = "1" ] \
     && [ "$v56ag" = "1" ] && [ "$v56ah" = "1" ] && [ "$v56ai" = "3" ] \
     && [ "$v56aj" = "1" ] && [ "$v56ak" = "1" ] && [ "$v56al" = "4" ] \
+    && [ "$v56am" = "1" ] && [ "$v56an" = "1" ] && [ "$v56ao" = "0" ] \
+    && [ "$v56ap" = "3" ] && [ "$v56aq" = "2" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

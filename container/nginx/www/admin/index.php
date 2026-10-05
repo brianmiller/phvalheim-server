@@ -992,7 +992,17 @@ $totalCount = count($worlds);
             </div>
             <div class="mods-modal-footer">
                 <span id="cfgMigMsg" style="font-size:.82rem;opacity:.8;"></span>
-                <button class="btn btn-sm btn-secondary" onclick="closeConfigMigration()">Close</button>
+                <!-- Both decisions sit side by side, destructive one first, so the operator reads
+                     them as the two answers to the same question rather than finding the delete
+                     at the bottom of a scrolling list and Continue down here. cfgMigMsg is text
+                     ONLY now -- Continue has its own slot, so a status note and the button no
+                     longer overwrite each other. -->
+                <div style="display:flex;align-items:center;gap:.5rem;flex:0 0 auto;">
+                    <button id="cfgMigDeleteBtn" class="btn btn-sm btn-danger" style="display:none;"
+                            onclick="deleteConfigMigrationBackups()">Delete ticked originals</button>
+                    <span id="cfgMigContinueWrap"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="closeConfigMigration()">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2911,6 +2921,14 @@ $totalCount = count($worlds);
         document.getElementById('cfgMigOverlay').classList.add('show');
         document.getElementById('cfgMigMsg').textContent = '';
         document.getElementById('cfgMigIntro').innerHTML = '';
+        // Hide Delete while loading, and again on every re-render: the report decides whether
+        // there is anything left to delete, so an unconditionally visible button would offer
+        // to destroy a list that is empty or not yet known.
+        document.getElementById('cfgMigDeleteBtn').style.display = 'none';
+        // Continue lived in cfgMigMsg before, so clearing that text also cleared the button.
+        // With its own slot it has to be cleared explicitly, or a gated visit would leave a
+        // Continue behind that a later sidebar visit shows with nothing to continue to.
+        document.getElementById('cfgMigContinueWrap').innerHTML = '';
         document.getElementById('cfgMigBody').innerHTML = '<div style="opacity:.7;">Loading&hellip;</div>';
         try {
             const r = await fetch('adminAPI.php?action=getConfigMigrationReport');
@@ -2937,9 +2955,11 @@ $totalCount = count($worlds);
 
     function renderConfigMigrationContinue() {
         if (!cfgMigContinue) { return; }
-        const msg = document.getElementById('cfgMigMsg');
-        msg.innerHTML = '<button class="btn btn-sm btn-primary" onclick="continueAfterConfigMigration()">'
-                      + 'Continue</button>';
+        // "Continue without deleting" rather than "Continue": sitting next to a delete button it
+        // has to say which of the two decisions it is, or the safe choice reads as the vague one.
+        const wrap = document.getElementById('cfgMigContinueWrap');
+        wrap.innerHTML = '<button class="btn btn-sm btn-primary" onclick="continueAfterConfigMigration()">'
+                       + 'Continue without deleting</button>';
     }
 
     function continueAfterConfigMigration() {
@@ -2964,7 +2984,7 @@ $totalCount = count($worlds);
           + '<code>custom_configs</code> was read out and stored <b>per setting</b> in the '
           + 'database, so a mod update can no longer wipe it. The original files were moved '
           + 'aside rather than deleted, and this is where you decide whether to remove them.'
-          + (onlyWorld ? ' You can deal with it now or press <b>Continue</b>.' : '')
+          + (onlyWorld ? ' You can deal with it now or press <b>Continue without deleting</b>.' : '')
           + '</p>';
 
         renderConfigMigrationContinue();
@@ -3019,12 +3039,13 @@ $totalCount = count($worlds);
             html += '</ul></div>';
         }
 
-        html += '<div style="margin-top:1rem;display:flex;gap:.5rem;align-items:center;">'
-              + '<button class="btn btn-sm btn-danger" onclick="deleteConfigMigrationBackups()">'
-              + 'Delete ticked originals</button>'
-              + '<span style="font-size:.78rem;opacity:.7;">This cannot be undone.</span></div>';
+        html += '<div style="margin-top:1rem;font-size:.78rem;opacity:.7;">Ticked files are '
+              + 'removed when you press <b>Delete ticked originals</b>. This cannot be undone.</div>';
 
         body.innerHTML = html;
+        // The button is in the footer next to Continue, but it is this render that knows there
+        // is something to delete -- so this is where it is revealed.
+        document.getElementById('cfgMigDeleteBtn').style.display = '';
     }
 
     async function deleteConfigMigrationBackups() {

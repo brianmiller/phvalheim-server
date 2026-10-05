@@ -6,6 +6,10 @@
 // sites is exactly the enumeration that shipped 2.53's hammertime bug -- and because an
 // attached handler would not survive the poll replacing every row.
 //
+// The footer carries both decisions: "Delete ticked originals" on the LEFT and "Continue
+// without deleting" beside it. Which one paints to the left of the other is a flex-layout fact,
+// so it is measured from getBoundingClientRect rather than read off the source order.
+//
 // Neither of those properties can be checked by reading the code: whether a capture listener
 // really pre-empts an inline onclick, and whether the gate still fires on a row the poll has
 // just rebuilt, are browser facts. So this clicks the real controls, and clicks one of them
@@ -153,12 +157,42 @@ const gateShown = (page) => page.evaluate(
 
 			// Continue must exist and must not be a dead end.
 			const hasContinue = await page.evaluate(() =>
-				!!document.querySelector('#cfgMigMsg button'));
+				!!document.querySelector('#cfgMigContinueWrap button'));
 			if (hasContinue) {
 				ok(`the ${action} gate offers Continue`);
 			} else {
 				bad(`the ${action} gate offers Continue`,
 					'no Continue button — the operator is stuck behind a chore');
+			}
+
+			// The two decisions must read as a pair: the destructive one on the LEFT, and the
+			// safe one must say WHICH decision it is. A bare "Continue" sitting next to a
+			// delete button is the one wording where the safe choice looks like the vague one.
+			// Measured as GEOMETRY, not DOM order -- a flex container can paint them in an
+			// order the source does not show.
+			const pair = await page.evaluate(() => {
+				const del = document.getElementById('cfgMigDeleteBtn');
+				const con = document.querySelector('#cfgMigContinueWrap button');
+				if (!del || !con) { return null; }
+				const d = del.getBoundingClientRect(), c = con.getBoundingClientRect();
+				return {
+					delVisible: !!(del.offsetWidth || del.offsetHeight),
+					delLeft: Math.round(d.left), conLeft: Math.round(c.left),
+					sameRow: Math.abs(d.top - c.top) < 8,
+					conText: con.textContent.trim(),
+					delText: del.textContent.trim(),
+				};
+			});
+			if (!pair) {
+				bad(`the ${action} gate shows Delete beside Continue`,
+					'one of the two buttons is missing from the footer');
+			} else if (pair.delVisible && pair.delLeft < pair.conLeft && pair.sameRow
+					&& pair.conText === 'Continue without deleting') {
+				ok(`the ${action} gate puts Delete left of "Continue without deleting"`);
+			} else {
+				bad(`the ${action} gate puts Delete left of "Continue without deleting"`,
+					`delVisible=${pair.delVisible} delLeft=${pair.delLeft} conLeft=${pair.conLeft} `
+					+ `sameRow=${pair.sameRow} conText="${pair.conText}" delText="${pair.delText}"`);
 			}
 		}
 	}
@@ -168,7 +202,7 @@ const gateShown = (page) => page.evaluate(
 	await clearOverlays();
 	await page.click(`tr[data-world="${WORLD}"] [data-action="mods"]`);
 	await page.waitForTimeout(900);
-	await page.evaluate(() => document.querySelector('#cfgMigMsg button').click());
+	await page.evaluate(() => document.querySelector('#cfgMigContinueWrap button').click());
 	await page.waitForSelector('#modsHubOverlay.show', { timeout: 6000 }).catch(() => {});
 	const hubOpen = await page.evaluate(() =>
 		document.getElementById('modsHubOverlay').classList.contains('show'));
@@ -236,6 +270,50 @@ const gateShown = (page) => page.evaluate(
 	} else {
 		bad('the gate still fires on a row the 5-second poll has rebuilt',
 			'the poll replaced the row and the gate stopped working — a delegated listener should survive this');
+	}
+
+	// ---- the SIDEBAR path: same footer, but nothing to continue to ----
+	// Continue used to be rendered into cfgMigMsg, so clearing that text cleared the button too.
+	// Now it has its own slot, which means a gated visit can leave a Continue behind for this
+	// visit to show -- a button that would carry on to an action the operator never clicked.
+	await resetGate();
+	await clearOverlays();
+	await page.click('[data-nav="cfg-migration"]');
+	await page.waitForTimeout(1200);
+	const sidebar = await page.evaluate(() => {
+		const del = document.getElementById('cfgMigDeleteBtn');
+		return {
+			shown: document.getElementById('cfgMigOverlay').classList.contains('show'),
+			delVisible: !!(del.offsetWidth || del.offsetHeight),
+			continueBtns: document.querySelectorAll('#cfgMigContinueWrap button').length,
+		};
+	});
+	if (sidebar.shown && sidebar.delVisible && sidebar.continueBtns === 0) {
+		ok('opened from the sidebar: Delete is offered, and no stale Continue is left over');
+	} else {
+		bad('opened from the sidebar: Delete is offered, and no stale Continue is left over',
+			`shown=${sidebar.shown} delVisible=${sidebar.delVisible} continueBtns=${sidebar.continueBtns}`
+			+ ' — a Continue here would carry on to something nobody clicked');
+	}
+
+	// ---- deleting the last original hides the button ----
+	// Offering "delete" over an empty list is an action that cannot do anything.
+	page.once('dialog', d => d.accept());
+	await page.evaluate(() => document.getElementById('cfgMigDeleteBtn').click());
+	await page.waitForTimeout(2500);
+	const after = await page.evaluate(() => {
+		const del = document.getElementById('cfgMigDeleteBtn');
+		return {
+			delVisible: !!(del.offsetWidth || del.offsetHeight),
+			note: document.getElementById('cfgMigMsg').textContent.trim(),
+			body: document.getElementById('cfgMigBody').textContent.trim().slice(0, 80),
+		};
+	});
+	if (!after.delVisible && /deleted/.test(after.note)) {
+		ok(`after deleting the last original the button is gone and the count is reported ("${after.note}")`);
+	} else {
+		bad('after deleting the last original the button is gone and the count is reported',
+			`delVisible=${after.delVisible} note="${after.note}" body="${after.body}"`);
 	}
 
 	if (errors.length === 0) {
