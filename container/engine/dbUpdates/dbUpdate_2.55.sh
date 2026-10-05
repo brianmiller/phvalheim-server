@@ -53,6 +53,27 @@ echo "`date` [NOTICE : phvalheim] Applying database schema update for phvalheim-
 addColumn worlds config_md5 "TEXT NULL"
 
 
+# --- worlds.mods_md5: which MODS the payload holds, config excluded --------------------
+#
+# config_md5 alone was not enough, and the reason is the paragraph above. world_md5 must equal
+# the md5 of the real zip, so it cannot also mean "the same mods" -- re-zipping an unchanged
+# tree yields different bytes, and a repackage rebuilds the zip (deliberately: a NEW player
+# downloads the full payload and must find the current settings inside it). So world_md5 moved
+# on every config edit, the client's first question is "does the payload match", and the answer
+# was always no. The 80 KB path could not be reached by any route. Measured live on
+# VikingOutlaws: three repackages, three different world_md5 values, three full downloads.
+#
+# mods_md5 is the missing identity: md5 of the payload's per-entry CRC-32s and sizes, sorted,
+# with BepInEx/config excluded (engine/tools/payloadKey.py). Stable across re-zips of the same
+# mods, moves when a plugin does. The client asks mods_md5 "do I need the payload" and
+# config_md5 "do I need the 80 KB"; world_md5 is left to verify a finished download.
+#
+# NULL for the same load-bearing reason as config_md5: a world not packaged since this column
+# existed is UNKNOWN, and a client reading unknown must fall back to comparing the full
+# payload. Costly, correct, and self-correcting on the next package.
+addColumn worlds mods_md5 "TEXT NULL"
+
+
 # --- mod_config_overrides -------------------------------------------------------------
 #
 # An operator's mod config edits, stored as SPARSE PER-KEY rows rather than whole files.

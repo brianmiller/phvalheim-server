@@ -174,6 +174,16 @@ function getConfigMD5($pdo,$world) {
         return ($result === false || $result === null) ? '' : $result;
 }
 
+# The payload's MOD identity, config excluded. '' means unknown -- never packaged since the
+# column existed -- and a client must read that as "fall back to comparing the full payload",
+# not as "nothing to do". See dbUpdate_2.55.sh for why this is separate from world_md5.
+function getModsMD5($pdo,$world) {
+        $sth = $pdo->prepare("SELECT mods_md5 FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
+        $result = $sth->fetchColumn();
+        return ($result === false || $result === null) ? '' : $result;
+}
+
 function getWorldMemory($pdo,$world) {
         $sth = $pdo->prepare("SELECT currentMemory FROM worlds WHERE name='$world'");
         $sth->execute();

@@ -54,6 +54,7 @@ if ($mode == "getMD5") {
 # about why a composite value would put old clients in a permanent re-download loop.
 if ($mode == "getSyncState") {
 	print "world=" . getMD5($pdo,$world) . "\n";
+	print "mods=" . getModsMD5($pdo,$world) . "\n";
 	print "config=" . getConfigMD5($pdo,$world) . "\n";
 }
 

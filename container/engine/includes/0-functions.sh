@@ -1497,6 +1497,13 @@ function packageClient() {
         #same judgement writeClientManifest() gets above.
         packageClientConfig "$worldName"
 
+        #The mod identity of the payload we just wrote, from the SAME pass for the same reason
+        #the config archive is. Only when the zip actually succeeded: on a failure the previous
+        #payload is still on disk and still correct, so its previous key is still true.
+        if [ $zipStatus -eq 0 ]; then
+                setModsMD5 "$worldName" "$zipPath"
+        fi
+
         return $zipStatus
 }
 
@@ -1595,6 +1602,42 @@ function setConfigMD5 () {
                 echo "`date` [NOTICE : phvalheim] Setting config payload checksum for '$worldName' to '$configMD5'"
                 SQL "UPDATE worlds SET config_md5='$configMD5' WHERE name='$worldName';"
         fi
+}
+
+
+#$1=world, $2=path to the world's FULL client payload zip.
+#
+#Stamps worlds.mods_md5: the identity of the payload's mod content, config excluded. This is
+#the value a 2.55+ client decides "do I need the 573 MB" on, and world_md5 cannot serve that
+#purpose -- re-zipping an unchanged tree is different bytes, so world_md5 moves on every
+#repackage and a client comparing it re-downloads the whole modpack for an 80 KB config edit.
+#That is what 2.55 shipped doing. world_md5 keeps its own job: verifying a finished download.
+#
+#NULL, never '', when we cannot answer -- same reasoning as setConfigMD5. A client reads NULL
+#as "unknown" and falls back to comparing the full payload, which is correct but costly; a ''
+#would be a real-looking value that compares equal to another world's.
+function setModsMD5 () {
+        worldName="$1"
+        payloadPath="$2"
+
+        #Overridable so dev_tools/test-client-payload-sync.sh can drive this against a
+        #temporary tree, the same reason packageClientConfig goes through $worldsDirectoryRoot
+        #instead of the literal path. Invoked through python3 explicitly, so the tool does not
+        #depend on an execute bit surviving a checkout or a COPY.
+        local modsMD5
+        modsMD5=$(python3 "${payloadKeyTool:-/opt/stateless/engine/tools/payloadKey.py}" "$payloadPath" 2>/dev/null)
+
+        if [ -z "$modsMD5" ]; then
+                #Deliberately NOT cleared. The previous key still describes the payload that is
+                #still on disk; clearing it would tell every client "unknown" and buy a fleet
+                #of 573 MB downloads for a transient failure to read one zip.
+                echo "`date` [WARNING : phvalheim] Could not compute the mod payload key for '$worldName' -- keeping the previous one."
+                return 1
+        fi
+
+        echo "`date` [NOTICE : phvalheim] Setting mod payload key for '$worldName' to '$modsMD5'"
+        SQL "UPDATE worlds SET mods_md5='$modsMD5' WHERE name='$worldName';"
+        return 0
 }
 
 

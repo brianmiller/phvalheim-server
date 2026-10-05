@@ -2943,6 +2943,34 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # Whether the link really reopens the Mod Configs list is a browser fact, including from a
   # route whose previous entry has no hash:
   # dev_tools/test-configs-unmatched-back.js (9 assertions, with an unfiltered control).
+  # 2.55 MODS KEY -- the payload identity the config-only sync was missing.
+  #
+  # The client's first question is "do I need the 573 MB", and 2.55 asked it of world_md5 --
+  # the md5 of the zip. A repackage rebuilds the zip (it must: a NEW player downloads the full
+  # payload and has to find the current settings inside it), so that value moves on every
+  # config edit and the 80 KB branch was unreachable by any route. Measured live on
+  # VikingOutlaws: three repackages, three different world_md5, three full downloads.
+  #
+  # v55ca/cb -- the tool, anchored on its exclusion prefix and its sort. Sorting is what makes
+  #             the key independent of the order zip walked the tree; without it the key moves
+  #             on a re-zip and nothing is fixed. `ls` is not a check -- see the 2.51 icon.
+  # v55cc/cd -- the stamp, and the fact packageClient calls it in the same pass as the zip
+  # v55ce -- the column exists (revising 2.55's own migration is correct: dbUpdater has no
+  #          version gate, so an installed 2.55 re-runs it)
+  # v55cf/cg -- the server publishes it, through a getter that maps NULL to ''
+  # v55ch -- NEGATIVE, tree-wide: NOTHING may write mods_md5=NULL. Unknown costs every client
+  #          a full download, so a transient failure to read one zip must leave the old key.
+  # Whether the key actually survives a repackage is behaviour, not text:
+  # dev_tools/test-payload-key.sh (11 assertions) and T7b in test-client-payload-sync.sh,
+  # both carrying a control that world_md5 really did move.
+  v55ca=$(grep -cF 'CONFIG_PREFIX = "BepInEx/config/"' /opt/stateless/engine/tools/payloadKey.py)
+  v55cb=$(grep -cF 'for row in sorted(rows):' /opt/stateless/engine/tools/payloadKey.py)
+  v55cc=$(grep -c 'function setModsMD5' /opt/stateless/engine/includes/0-functions.sh)
+  v55cd=$(grep -cF 'setModsMD5 "$worldName" "$zipPath"' /opt/stateless/engine/includes/0-functions.sh)
+  v55ce=$(grep -cF 'addColumn worlds mods_md5' /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+  v55cf=$(grep -cF 'print "mods=" . getModsMD5' /opt/stateless/nginx/www/public/api.php)
+  v55cg=$(grep -c 'function getModsMD5' /opt/stateless/nginx/www/includes/db_gets.php)
+  v55ch=$(grep -rlF 'mods_md5=NULL' /opt/stateless 2>/dev/null | wc -l | tr -d ' ')
   v56bq=$(grep -cF '$unmatchedOnly = isset($_GET[' /opt/stateless/nginx/www/admin/world_configs.php)
   v56br=$(grep -cF "return \$f['mod_id'] === null;" /opt/stateless/nginx/www/admin/world_configs.php)
   v56bs=$(grep -cF "m.mod_id === null ? '&unmatched=1'" /opt/stateless/nginx/www/admin/index.php)
@@ -3011,6 +3039,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
   echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
+  echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
@@ -3283,6 +3312,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bd" = "1" ] && [ "$v56be" = "1" ] && [ "$v56bf" = "1" ] && [ "$v56bg" = "1" ] \
     && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] \
     && [ "$v56bl" = "1" ] && [ "$v56bn" = "1" ] && [ "$v56bo" = "1" ] && [ "$v56bp" = "1" ] \
+    && [ "$v55ca" = "1" ] && [ "$v55cb" = "1" ] && [ "$v55cc" = "1" ] && [ "$v55cd" = "1" ] \
+    && [ "$v55ce" = "1" ] && [ "$v55cf" = "1" ] && [ "$v55cg" = "1" ] && [ "$v55ch" = "0" ] \
     && [ "$v56bq" = "1" ] && [ "$v56br" = "1" ] && [ "$v56bs" = "1" ] && [ "$v56bt" = "0" ] \
     && [ "$v56bu" = "0" ] && [ "$v56bv" = "0" ] && [ "$v56bw" = "1" ] && [ "$v56bx" = "0" ] \
     && [ "$v56by" = "1" ] \

@@ -266,6 +266,70 @@ if grep -q "config_md5=NULL" "$SQL_LOG"; then ok "empty -> NULL"; else bad "empt
 setConfigMD5 "$WORLD" "deadbeef" > /dev/null 2>&1
 if grep -q "config_md5='deadbeef'" "$SQL_LOG"; then ok "value -> quoted literal"; else bad "value not written"; fi
 
+# ---- T7b: setModsMD5 survives a repackage, and never clears on failure -------------------
+#
+# The bug this exists for, measured live on VikingOutlaws before the fix: three repackages,
+# three different world_md5 values, three 573 MB downloads. world_md5 has to move -- it is the
+# md5 of a rebuilt zip, and it is what verifies a download -- so the "do I need the payload"
+# question needs its own answer that does NOT move. This drives the real function through a
+# real repackage: config rewritten, payload re-zipped, mods untouched.
+echo
+echo "T7b setModsMD5 stamps a key that a repackage does not move"
+payloadKeyTool="$REPO/container/engine/tools/payloadKey.py"
+
+mkzip() {   # $1=output zip -- the FULL payload, built from the staging tree
+	rm -f "$1"
+	( cd "$STAGE" && zip -q -r "$1" ./BepInEx )
+}
+stamped() { sed -n "s/.*mods_md5='\([^']*\)'.*/\1/p" "$SQL_LOG" | tail -1; }
+
+build_tree
+mkzip "$TMP/p1.zip"
+: > "$SQL_LOG"; setModsMD5 "$WORLD" "$TMP/p1.zip" > /dev/null 2>&1
+K_BEFORE="$(stamped)"
+
+# The repackage: materialiseModConfigs rewrites BepInEx/config, then the zip is rebuilt.
+sleep 1.1
+printf '[1 - General]\n\n## Show the clock\n# Default value: On\nShow Clock = On\n' \
+	> "$STAGE/BepInEx/config/Azumatt.AzuClock.cfg"
+mkzip "$TMP/p2.zip"
+: > "$SQL_LOG"; setModsMD5 "$WORLD" "$TMP/p2.zip" > /dev/null 2>&1
+K_AFTER="$(stamped)"
+
+W_BEFORE="$(getMD5 "$TMP/p1.zip")"
+W_AFTER="$(getMD5 "$TMP/p2.zip")"
+
+# The control. If world_md5 did NOT move, this fixture is not a repackage and the assertion
+# after it would pass against a key that is simply constant.
+if [ -n "$K_BEFORE" ] && [ "$W_BEFORE" != "$W_AFTER" ]; then
+	ok "CONTROL: the repackage moved world_md5 (${W_BEFORE:0:8} -> ${W_AFTER:0:8})"
+else
+	bad "CONTROL: the repackage did not move world_md5 -- the next assertion proves nothing"
+fi
+check "the mod key is unchanged by the repackage" "$K_BEFORE" "$K_AFTER"
+
+# And it must still notice a real mod change, or "unchanged" above is just a constant.
+head -c 200000 /dev/urandom > "$STAGE/BepInEx/plugins/BigMod/BigMod.dll"
+mkzip "$TMP/p3.zip"
+: > "$SQL_LOG"; setModsMD5 "$WORLD" "$TMP/p3.zip" > /dev/null 2>&1
+if [ -n "$(stamped)" ] && [ "$(stamped)" != "$K_AFTER" ]; then
+	ok "a changed plugin DOES move the mod key"
+else
+	bad "a changed plugin did not move the mod key -- it is a constant, not an identity"
+fi
+
+# A key we cannot compute must leave the column alone. Clearing it says "unknown" to every
+# client, and unknown costs a full download each -- too expensive to pay for one unreadable
+# zip when the previous payload is still on disk and its previous key is still true.
+: > "$SQL_LOG"; setModsMD5 "$WORLD" "$TMP/does-not-exist.zip" > /dev/null 2>&1
+if [ ! -s "$SQL_LOG" ]; then
+	ok "an unreadable payload writes NO sql (the previous key stands)"
+else
+	bad "an unreadable payload wrote '$(cat "$SQL_LOG")' -- a transient failure buys a fleet of 573 MB downloads"
+fi
+
+build_tree   # leave the tree as the later tests expect it
+
 # ---- T8: the engine's repackage branch cannot park a world in a dead mode ---------------
 echo
 echo "T8  the repackage branch always lands on a mode the loop recognises"
@@ -375,10 +439,11 @@ else
 	bad "getMD5 was removed or renamed -- every existing client breaks"
 fi
 sync_block=$(awk '/mode == "getSyncState"/,/^}/' "$API")
-if echo "$sync_block" | grep -q 'world=' && echo "$sync_block" | grep -q 'config='; then
-	ok "getSyncState returns both world= and config= in one response"
+if echo "$sync_block" | grep -q 'world=' && echo "$sync_block" | grep -q 'config=' \
+   && echo "$sync_block" | grep -q 'mods='; then
+	ok "getSyncState returns world=, mods= and config= in one response"
 else
-	bad "getSyncState does not return both keys"
+	bad "getSyncState does not return all three keys -- without mods= the client cannot tell a repackage from a mod change"
 fi
 
 # ---- T11: the client never treats an unknown config checksum as a match -----------------
@@ -390,10 +455,33 @@ if [ ! -f "$SYNCER" ]; then
 else
 	# The config branch must require a non-empty remote checksum. Without that test, a server
 	# that publishes none would be compared against "" and the branch could fire every launch.
-	if grep -q "remote.ConfigMd5.Length > 0 && localConfigMD5 != remote.ConfigMd5" "$SYNCER"; then
+	if grep -q "remote.ConfigMd5.Length > 0 && heldConfigMD5 != remote.ConfigMd5" "$SYNCER"; then
 		ok "config sync requires a published remote checksum AND a mismatch"
 	else
 		bad "the config-sync condition does not guard on a published remote checksum"
+	fi
+	# The payload question is asked of the MOD identity, not the zip's md5. Asked of the md5,
+	# the answer is "differs" after every repackage and the config branch is unreachable --
+	# which is what 2.55 shipped. The fallback must still exist for a pre-2.55 server.
+	if grep -q "canCompareMods ? (localModsMD5 != remote.ModsMd5)" "$SYNCER" && \
+	   grep -q ": (localWorldMD5 != remote.WorldMd5)" "$SYNCER"; then
+		ok "the payload decision is the mod identity, with the zip md5 as the fallback"
+	else
+		bad "the payload decision still rests on the zip's md5 -- a repackage forces a full download"
+	fi
+	if grep -q "remote.ModsMd5.Length > 0 && localModsMD5.Length > 0" "$SYNCER"; then
+		ok "an unknown mod identity on EITHER side falls back instead of guessing"
+	else
+		bad "the mod identity is compared without checking both sides are known"
+	fi
+	# After a config-only sync our payload is NOT the server's -- the server rebuilt its zip
+	# and we did not. Recording the server's world_md5 would be a false claim about our own
+	# file, and that value is what the next download's integrity check compares against.
+	if grep -q "WriteSyncRecord(syncRecordFile, heldWorldMD5, remote.ModsMd5, remote.ConfigMd5)" "$SYNCER" && \
+	   ! grep -q "WriteSyncRecord(syncRecordFile, remote.WorldMd5" "$SYNCER"; then
+		ok "the record stores the payload md5 we HOLD, never the server's"
+	else
+		bad "the record copies the server's world_md5 for a payload we did not download"
 	fi
 	# A full download must be verified before the sync record is written, or a corrupt payload
 	# is recorded as good and never re-fetched -- the self-healing the old client got by
