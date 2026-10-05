@@ -2942,6 +2942,7 @@ $totalCount = count($worlds);
                 d.totals = {
                     files: kept.reduce((a, w) => a + w.files.length, 0),
                     at_risk: kept.reduce((a, w) => a + w.at_risk, 0),
+                    orphaned: kept.reduce((a, w) => a + (w.orphaned || 0), 0),
                 };
             }
             renderConfigMigration(d, onlyWorld);
@@ -2995,16 +2996,30 @@ $totalCount = count($worlds);
             return;
         }
 
-        const risk = (d.totals && d.totals.at_risk) || 0;
+        const risk   = (d.totals && d.totals.at_risk) || 0;
+        const orphan = (d.totals && d.totals.orphaned) || 0;
         let html = '';
         if (risk > 0) {
             html += `<div class="cfg-coverage warn"><b>${risk} file${risk === 1 ? '' : 's'} `
                   + `cannot be accounted for.</b> ${risk === 1 ? 'It holds' : 'They hold'} `
-                  + 'settings that are not in the database, so deleting '
-                  + `${risk === 1 ? 'it' : 'them'} would lose those settings. `
+                  + 'settings that are not in the database, for a mod this world still has, '
+                  + `so deleting ${risk === 1 ? 'it' : 'them'} would lose those settings. `
                   + `${risk === 1 ? 'It is' : 'They are'} left unticked &mdash; tick only if you `
                   + 'are sure you no longer want them.</div>';
-        } else {
+        }
+        // Orphans get their own banner rather than being folded into "accounted for". They are
+        // safe for a DIFFERENT reason, and the reason is the whole answer to "why wasn't this
+        // migrated?" -- the mod left the world, so nothing can read the file again.
+        if (orphan > 0) {
+            html += `<div class="cfg-coverage ok"><b>${orphan} file${orphan === 1 ? '' : 's'} `
+                  + `belong${orphan === 1 ? 's' : ''} to a mod this world no longer has.</b> `
+                  + `${orphan === 1 ? 'It is' : 'They are'} safe to delete: nothing installed `
+                  + `here reads ${orphan === 1 ? 'that file' : 'those files'}, so `
+                  + `${orphan === 1 ? 'its' : 'their'} settings cannot apply to anything. `
+                  + `${orphan === 1 ? 'It is' : 'They are'} ticked. If you ever add the mod `
+                  + 'back you would re-enter the values by hand.</div>';
+        }
+        if (risk === 0 && orphan === 0) {
             html += '<div class="cfg-coverage ok">Every original is accounted for in the '
                   + 'database. Deleting them loses nothing.</div>';
         }
@@ -3017,17 +3032,28 @@ $totalCount = count($worlds);
                   + `${w.db_files === 1 ? '' : 's'}</span></div><ul class="cfg-mig-list">`;
 
             for (const f of w.files) {
-                const safe = f.state === 'accounted' || f.state === 'empty';
+                // orphaned is SAFE and pre-ticked: no mod in this world owns the file, so the
+                // settings in it cannot be applied by anything. Leaving it unticked alongside
+                // the genuinely risky ones is what made three files on a real server look like
+                // settings the migration had dropped.
+                const safe = f.state === 'accounted' || f.state === 'empty'
+                          || f.state === 'orphaned';
                 let why;
                 if (f.state === 'accounted') {
                     why = `${f.rows_in_db} setting${f.rows_in_db === 1 ? '' : 's'} saved in the database`;
                 } else if (f.state === 'empty') {
                     why = 'nothing in it differs from the mod&rsquo;s own defaults';
+                } else if (f.state === 'orphaned') {
+                    why = 'no mod in this world uses this config &mdash; nothing can read it, '
+                        + `safe to delete (it holds ${f.changed} changed setting`
+                        + `${f.changed === 1 ? '' : 's'})`;
                 } else if (f.changed === -1) {
                     why = '<b>could not be read</b> &mdash; left unticked';
                 } else {
                     why = `<b>${f.changed} changed setting${f.changed === 1 ? '' : 's'} NOT in the `
-                        + 'database</b> &mdash; this file is the only copy';
+                        + 'database</b>, and '
+                        + (f.owner ? `<b>${escapeHtmlBasic(f.owner)}</b> is still installed` : 'its mod is still here')
+                        + ' &mdash; this file is the only copy';
                 }
                 html += `<li><label class="cfg-mig-row">`
                       + `<input type="checkbox" data-mig-world="${escapeAttr(w.world)}" `

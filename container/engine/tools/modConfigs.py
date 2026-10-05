@@ -709,8 +709,14 @@ def catalogue_from_json(path):
     return out
 
 
-def parse_dir(world, catalogue=None):
-    """Every editable cfg in a world's SERVER tree, parsed. NO DATABASE.
+def parse_dir(world, catalogue=None, directory=None):
+    """Every editable cfg in a directory, parsed. NO DATABASE.
+
+    `directory` defaults to the world's SERVER tree. The migration review passes the parked
+    .imported-pre-2.55/ directory instead, because it needs the SAME attribution the editor
+    uses -- "does a mod this world still has claim this config file?" -- and reimplementing
+    _norm()/attribute() in PHP would create a second attributor that drifts from this one.
+    See catalogue_from_json().
 
     This is the mode the admin UI calls, and the absence of a database connection is the
     whole point. php-fpm runs as the `phvalheim` user and reaches the database as
@@ -727,7 +733,7 @@ def parse_dir(world, catalogue=None):
     have never loaded has nothing to edit, and that is a different answer from "a config with
     all defaults". A 0/false default doubling as a real answer has shipped here three times.
     """
-    directory = server_config_dir(world)
+    directory = directory or server_config_dir(world)
     catalogue = catalogue or {}
     files = []
     for name in editable_cfgs(directory):
@@ -755,6 +761,10 @@ def main():
     ap.add_argument("--materialise", action="store_true")
     ap.add_argument("--parse-file")
     ap.add_argument("--parse-dir", action="store_true")
+    ap.add_argument("--dir",
+                    help="with --parse-dir: parse THIS directory instead of the world's "
+                         "server config tree (the migration review points it at the parked "
+                         "pre-2.55 originals)")
     ap.add_argument("--catalogue-file",
                     help="JSON [{id,name,full_name}] for attribution, for callers that "
                          "cannot use the DB modes (the admin UI)")
@@ -769,7 +779,7 @@ def main():
         if not args.world:
             raise SystemExit("ERROR: --parse-dir needs --world NAME")
         cat = catalogue_from_json(args.catalogue_file) if args.catalogue_file else None
-        print(json.dumps(parse_dir(args.world, cat), indent=1))
+        print(json.dumps(parse_dir(args.world, cat, args.dir), indent=1))
         return 0
 
     if args.import_legacy:

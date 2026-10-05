@@ -2859,6 +2859,32 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56ap=$(grep -c 'cfgMigContinueWrap' /opt/stateless/nginx/www/admin/index.php)
   v56aq=$(grep -cF "getElementById('cfgMigDeleteBtn').style.display" /opt/stateless/nginx/www/admin/index.php)
 
+  # ---- a leftover whose mod the world no longer has is SAFE, and says so ----
+  # VikingOutlaws listed three parked files as "cannot be accounted for, deleting them would
+  # lose those settings", all unticked. Two of those mods are not in that world, so nothing on
+  # that server can read those files ever again -- the modal said the opposite of the truth.
+  # 'orphaned' is now its own state: ticked, its own banner, and a reason in words.
+  #
+  # v56ar -- the classifier itself: no owner => orphaned, an owner => still at_risk
+  # v56as -- attribution runs in the TOOL, via a new --parse-dir --dir pointed at the parked
+  #          directory. A PHP copy of _norm()/attribute() would drift, and a drift here calls a
+  #          file safe because the copy failed to recognise the mod that owns it.
+  # v56at/au -- the --dir argument exists on both sides of that call
+  # v56av -- FAIL-CLOSED: an unreadable tool answer must not read as "nobody owns anything",
+  #          which would tick every leftover on the server. It downgrades to at_risk instead.
+  # v56aw -- the JS treats orphaned as safe (so it is pre-ticked)
+  # v56ax/ba -- the separate banner and the per-file reason, matched on the emitted strings
+  # Whether the rows really render ticked/unticked is a browser fact:
+  # dev_tools/test-config-migration-orphan.js (12 assertions, both classes side by side).
+  v56ar=$(grep -cF "\$state = \$owner === null ? 'orphaned' : 'at_risk';" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56as=$(grep -c "function modConfigParkedOwners" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56at=$(grep -cF "args.dir" /opt/stateless/engine/tools/modConfigs.py)
+  v56au=$(grep -cF " --parse-dir --dir " /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56av=$(grep -cF '!is_array($owners)' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56aw=$(grep -cF "|| f.state === 'orphaned';" /opt/stateless/nginx/www/admin/index.php)
+  v56ax=$(grep -cF "to a mod this world no longer has.</b>" /opt/stateless/nginx/www/admin/index.php)
+  v56ba=$(grep -cF "'no mod in this world uses this config" /opt/stateless/nginx/www/admin/index.php)
+
   # ---- the 2.55 migration review: the OPERATOR decides about the originals ----
   # The import parked each consumed file. Deleting those is irreversible, and on a real server
   # three parked files held 12 settings the database had since lost -- so nothing deletes on
@@ -2908,6 +2934,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 CFG ACCORDION: php gate=$v56ag (want 1)  toggle fn=$v56ah (want 1)  body wrapper=$v56ai (want 3)  buttons exempt=$v56aj (want 1)  edited fn=$v56ak (want 1)  edited calls=$v56al (want 4)"
   echo "2.56 MIGRATION GATE: delegated listener=$v56ac (want 1)  capture phase=$v56ad (want 1)  per-world map=$v56ae (want 1)  re-click=$v56af (want 1)"
   echo "2.56 MIGRATION FOOTER: delete btn=$v56am (want 1)  continue label=$v56an (want 1)  in-body btn gone=$v56ao (want 0)  continue slot=$v56ap (want 3)  reveal writes=$v56aq (want 2)"
+  echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 1)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
@@ -3173,6 +3200,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56aj" = "1" ] && [ "$v56ak" = "1" ] && [ "$v56al" = "4" ] \
     && [ "$v56am" = "1" ] && [ "$v56an" = "1" ] && [ "$v56ao" = "0" ] \
     && [ "$v56ap" = "3" ] && [ "$v56aq" = "2" ] \
+    && [ "$v56ar" = "1" ] && [ "$v56as" = "1" ] && [ "$v56at" = "1" ] && [ "$v56au" = "1" ] \
+    && [ "$v56av" = "1" ] && [ "$v56aw" = "1" ] && [ "$v56ax" = "1" ] && [ "$v56ba" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

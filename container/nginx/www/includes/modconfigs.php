@@ -667,8 +667,20 @@ function modConfigModSummary($pdo, $world) {
  *
  *   accounted  -- the database has rows for this file. Safe to delete.
  *   empty      -- the file has no non-default values left to lose. Safe to delete.
- *   AT RISK    -- the file holds non-default settings the database does not have. The modal
- *                 must say so, per file, and must not pre-select it for deletion.
+ *   orphaned   -- it holds non-default settings the database lacks, but NO mod this world
+ *                 still has claims this config file. The settings cannot apply to anything
+ *                 here, so the file is safe to delete. Named separately because the operator
+ *                 cannot tell this apart from AT RISK by looking, and conflating them was the
+ *                 actual complaint: all three of VikingOutlaws' leftovers are this case.
+ *   AT RISK    -- non-default settings the database lacks, for a mod the world STILL has.
+ *                 The modal must say so, per file, and must not pre-select it for deletion.
+ *
+ * The orphan test is attribution, not "is the .cfg on disk". Absent-from-disk has a second,
+ * innocent cause -- a mod that is installed but has never run writes no config -- and calling
+ * that one safe would invite deleting the only copy of settings a first world start is about
+ * to need. So it asks the TOOL whether any of this world's current mods owns the filename,
+ * which is the same question, the same normalisation, and the same answer as the Config icon
+ * in the mod picker.
  *
  * The only-parse-what-we-must shape is deliberate: parsing is a subprocess per file, and a file
  * the database already covers needs no parse to be judged safe.
@@ -676,10 +688,14 @@ function modConfigModSummary($pdo, $world) {
 function modConfigMigrationReport($pdo) {
     $worlds = [];
     $root = MODCONFIG_WORLDS_ROOT;
-    if (!is_dir($root)) { return ['worlds' => [], 'totals' => ['files' => 0, 'at_risk' => 0]]; }
+    if (!is_dir($root)) {
+        return ['worlds' => [],
+                'totals' => ['files' => 0, 'at_risk' => 0, 'orphaned' => 0]];
+    }
 
-    $totalFiles = 0;
-    $totalRisk  = 0;
+    $totalFiles  = 0;
+    $totalRisk   = 0;
+    $totalOrphan = 0;
 
     foreach (scandir($root) as $world) {
         if ($world === '.' || $world === '..' || !is_dir("$root/$world")) { continue; }
@@ -699,12 +715,18 @@ function modConfigMigrationReport($pdo) {
             $parked = "$root/$world/$sub/" . MODCONFIG_IMPORTED_DIR;
             if (!is_dir($parked)) { continue; }
 
+            // Attribution for the whole parked directory in ONE subprocess, and only when a
+            // file might actually need it. Keyed by filename; a null/absent mod_id means no
+            // mod this world still has owns that config.
+            $owners = null;
+
             foreach (scandir($parked) as $name) {
                 if (substr($name, -4) !== '.cfg' || !is_file("$parked/$name")) { continue; }
 
                 $inDb = $rows[$name] ?? 0;
                 $changed = null;
                 $state = 'accounted';
+                $owner = null;
 
                 if ($inDb === 0) {
                     // Only now is a parse worth its subprocess. The file's own
@@ -712,7 +734,23 @@ function modConfigMigrationReport($pdo) {
                     // used and the same one the editor's modified badge uses, so this cannot
                     // disagree with either.
                     $changed = modConfigCountChangedFromDefault("$parked/$name");
-                    $state = $changed > 0 ? 'at_risk' : 'empty';
+                    if ($changed > 0) {
+                        if ($owners === null) {
+                            $owners = modConfigParkedOwners($pdo, $world, $wid, $parked);
+                        }
+                        // A tool failure cannot be allowed to answer "nobody owns it" for
+                        // every file -- that reads as "all your leftovers are orphans, delete
+                        // them" and would be the most expensive possible way to be wrong. An
+                        // unreadable answer only ever downgrades to at_risk.
+                        if (!is_array($owners)) {
+                            $state = 'at_risk';
+                        } else {
+                            $owner = $owners[$name] ?? null;
+                            $state = $owner === null ? 'orphaned' : 'at_risk';
+                        }
+                    } else {
+                        $state = 'empty';
+                    }
                 }
 
                 $files[] = [
@@ -722,29 +760,77 @@ function modConfigMigrationReport($pdo) {
                     'rows_in_db' => $inDb,
                     'changed'    => $changed,
                     'state'      => $state,
+                    'owner'      => $owner,
                     'bytes'      => (int)filesize("$parked/$name"),
                 ];
                 $totalFiles++;
-                if ($state === 'at_risk') { $totalRisk++; }
+                if ($state === 'at_risk')  { $totalRisk++; }
+                if ($state === 'orphaned') { $totalOrphan++; }
             }
         }
 
         if ($files) {
-            usort($files, function ($a, $b) {
-                if ($a['state'] !== $b['state']) { return $a['state'] === 'at_risk' ? -1 : 1; }
+            // at_risk first (it is the only state that needs a decision), then orphaned (safe,
+            // but it carries an explanation worth reading), then the rest alphabetically.
+            $rank = ['at_risk' => 0, 'orphaned' => 1];
+            usort($files, function ($a, $b) use ($rank) {
+                $ra = $rank[$a['state']] ?? 2;
+                $rb = $rank[$b['state']] ?? 2;
+                if ($ra !== $rb) { return $ra - $rb; }
                 return strcasecmp($a['file'], $b['file']);
             });
             $worlds[] = [
                 'world'      => $world,
                 'files'      => $files,
                 'at_risk'    => count(array_filter($files, fn($f) => $f['state'] === 'at_risk')),
+                'orphaned'   => count(array_filter($files, fn($f) => $f['state'] === 'orphaned')),
                 'db_files'   => count($rows),
                 'db_rows'    => array_sum($rows),
             ];
         }
     }
 
-    return ['worlds' => $worlds, 'totals' => ['files' => $totalFiles, 'at_risk' => $totalRisk]];
+    return ['worlds' => $worlds,
+            'totals' => ['files' => $totalFiles, 'at_risk' => $totalRisk,
+                         'orphaned' => $totalOrphan]];
+}
+
+/**
+ * filename -> the name of the mod this world STILL has that owns it, for a parked directory.
+ *
+ * Returns an array (filename => mod name, missing key = no owner) or null when the tool could
+ * not be read. Null is not "nobody owns anything" -- see the caller, which refuses to call a
+ * file an orphan on an unreadable answer.
+ *
+ * Attribution runs in modConfigs.py, never here. Its _norm() folds case and punctuation and
+ * matches the GUID's last dotted segment; a PHP copy of those rules would drift, and the
+ * symptom of a drift here is a file called safe to delete because the copy failed to recognise
+ * the mod that owns it.
+ */
+function modConfigParkedOwners($pdo, $world, $worldId, $parkedDir) {
+    $catalogue = modConfigCatalogueJson($pdo, $worldId);
+    $names = [];
+    foreach ($catalogue as $m) { $names[(int)$m['id']] = $m['name']; }
+
+    $tmp = tempnam(sys_get_temp_dir(), 'phvcfg');
+    file_put_contents($tmp, json_encode($catalogue));
+    $raw = shell_exec(MODCONFIG_TOOL . ' --world ' . escapeshellarg($world)
+                    . ' --parse-dir --dir ' . escapeshellarg($parkedDir)
+                    . ' --catalogue-file ' . escapeshellarg($tmp) . ' 2>/dev/null');
+    unlink($tmp);
+
+    $d = json_decode((string)$raw, true);
+    if (!is_array($d) || !isset($d['files']) || !is_array($d['files'])) { return null; }
+
+    $out = [];
+    foreach ($d['files'] as $f) {
+        if (!isset($f['file'])) { continue; }
+        $mid = $f['mod_id'] ?? null;
+        if ($mid !== null) {
+            $out[$f['file']] = $names[(int)$mid] ?? ('mod #' . (int)$mid);
+        }
+    }
+    return $out;
 }
 
 /**
