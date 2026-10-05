@@ -103,8 +103,11 @@ $payload = modConfigEditorPayload($pdo, $world);
 				A mod that runs on PLAYERS' clients reads its config from the client payload
 				zip, and that zip is only rebuilt by packageClient(). Before 2.55 that meant a
 				full world UPDATE -- stop, steamcmd validate, purge, reinstall every mod. The
-				Apply to players button below sets mode='repackage' instead, which rebuilds the
-				payload from the staging tree WITHOUT stopping the world or touching a mod.
+				Save & apply to players button below saves this page's edits and THEN sets
+				mode='repackage', which rebuilds the payload from the staging tree WITHOUT
+				stopping the world or touching a mod. It used to repackage only, from whatever
+				was already saved, which made it a button named for an intent it did not carry
+				out.
 			-->
 			<p style="opacity:.8;font-size:.9rem;">
 				Changes are stored per setting and re-applied every time this world starts or
@@ -113,10 +116,11 @@ $payload = modConfigEditorPayload($pdo, $world);
 			<p style="opacity:.8;font-size:.9rem;">
 				<b>Server-side mods:</b> restart the world.
 				<b>Mods that run on players&rsquo; clients</b> (anything they see or interact
-				with &mdash; HUDs, clocks, inventory tweaks): use <b>Apply to players</b>, which
-				rebuilds the client payload without stopping the world or disconnecting anyone.
-				Players receive it the next time they launch through PhValheim. Saving alone
-				will not reach them.
+				with &mdash; HUDs, clocks, inventory tweaks): use
+				<b>Save &amp; apply to players</b>, which saves your edits and rebuilds the
+				client payload without stopping the world or disconnecting anyone. Players
+				receive it the next time they launch through PhValheim. <b>Save changes</b> on
+				its own stores the settings but does not reach them.
 			</p>
 
 			<!--
@@ -130,7 +134,7 @@ $payload = modConfigEditorPayload($pdo, $world);
 			-->
 			<div style="margin:0 0 16px 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
 				<button type="button" class="btn btn-sm btn-primary" id="btn-apply-players"
-				        onclick="applyToPlayers()">Apply to players</button>
+				        onclick="applyToPlayers()">Save &amp; apply to players</button>
 				<?php
 				// This note used to read "The world keeps running." unconditionally, which was
 				// wrong twice over. It printed the same sentence for a STOPPED world -- a promise
@@ -734,8 +738,20 @@ $payload = modConfigEditorPayload($pdo, $world);
 			});
 		}
 
-		// "Apply to players" -- sets mode='repackage', which rebuilds the client payload
-		// without stopping the world.
+		// "Save & apply to players" -- SAVES this page's edits, then sets mode='repackage',
+		// which rebuilds the client payload without stopping the world.
+		//
+		// It used to repackage ONLY, from whatever was already saved, and warn via confirm()
+		// that unsaved edits would not reach anyone. That is a button whose name describes
+		// the operator's intent and whose behaviour does not: the one thing they wanted
+		// applied was the thing on screen. So it saves first, every time.
+		//
+		// Both halves are the paths already used elsewhere on this page, not reimplementations:
+		// the save is saveModConfigs + renderSaveSummary (so refusals are still reported and
+		// the operator still gets a receipt of what changed), and the apply is the summary
+		// modal's own button, invoked for them. That also preserves the needsPush gate --
+		// a purely server-side change does not trigger a client rebuild that changes nothing
+		// for anyone, and the modal says so instead.
 		//
 		// Reads r.success, NOT r.ok. repackageWorldNow is a world-lifecycle action and matches
 		// updateWorldNow's shape, while the config endpoints on this page return {ok:...}.
@@ -745,16 +761,34 @@ $payload = modConfigEditorPayload($pdo, $world);
 			var btn  = document.getElementById('btn-apply-players');
 			var note = document.getElementById('apply-players-note');
 
-			// A repackage ships what is SAVED. Unsaved edits on this page are invisible to it,
-			// and an operator who clicked Apply with a half-edited form would reasonably
-			// believe those edits had gone out.
-			if (Object.keys(dirty).length) {
-				if (!confirm('You have unsaved changes on this page.\n\n' +
-				             'Apply to players rebuilds the payload from what is already ' +
-				             'SAVED, so those unsaved edits will not reach anyone.\n\n' +
-				             'Continue anyway?')) { return; }
-			}
+			// Nothing to save: go straight to the repackage. Re-shipping the saved state is a
+			// legitimate thing to want -- it is how an operator recovers from a payload that
+			// was built before their last save.
+			if (!Object.keys(dirty).length) { repackageOnly(btn, note); return; }
 
+			btn.disabled = true;
+			note.innerHTML = 'Saving&hellip;';
+
+			var items = Object.keys(dirty).map(function (k) { return dirty[k]; });
+			post('saveModConfigs', { world: WORLD, items: items }).then(function (r) {
+				btn.disabled = false;
+				if (!r.ok) {
+					note.innerHTML = '<span style="color:var(--danger)">' +
+					                 esc(r.error || 'Save failed — nothing was applied.') + '</span>';
+					return;
+				}
+				note.innerHTML = '';
+				dirty = {};
+				document.getElementById('cfgSave').disabled = true;
+				renderSaveSummary(r);
+				// Hand straight off to the summary's own Apply. When needsPush is false that
+				// button is hidden and this does nothing, which is the correct outcome.
+				if (r.needsPush) { applyFromSummary(); }
+			});
+		}
+
+		// The repackage half on its own, reporting into the page rather than the modal.
+		function repackageOnly(btn, note) {
 			btn.disabled = true;
 			note.innerHTML = 'Rebuilding the client payload… this takes a moment for a large modpack.';
 

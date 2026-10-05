@@ -2708,9 +2708,60 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The negative lookahead is grep -P: match escapeHtml( but not escapeHtmlBasic/Ms.
   v55bm=$(grep -coP 'escapeHtml(?!Basic|Ms)\(' /opt/stateless/nginx/www/admin/index.php)
 
+  # ---- the Mods hub: three row buttons became one ----
+  # Edit Mods / Configs / View N were three doors to one subject with three availability rules.
+  # These count the OLD actions across the whole served admin tree rather than naming the five
+  # render sites, for the same reason the cpe2 marker does: 2.53 shipped with a third caller
+  # nobody had updated, and an enumeration cannot catch the one you forgot to enumerate.
+  v56a=$(grep -rcE 'data-action="(edit-mods|mod-configs|view-mods)"' /opt/stateless/nginx/www/ 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')
+  v56b=$(grep -c 'data-action="mods"' /opt/stateless/nginx/www/admin/index.php)
+  v56c=$(grep -c 'function modsButtonHtml\|function showModsHub\|function renderModsHubCards\|function loadModsHubInstalled\|function closeModsHub' /opt/stateless/nginx/www/admin/index.php)
+  # The gate the consolidation absorbed, and the one it must NOT absorb. Mod Catalog stays
+  # stopped-only (saving a mod list calls updateWorld(), which always ends stopped and would
+  # drop every connected player); Mod Configs stays live on a running world, which is the
+  # entire reason 2.55 added the repackage path.
+  v56d=$(grep -c "card(stopped," /opt/stateless/nginx/www/admin/index.php)
+  v56e=$(grep -c "card(live," /opt/stateless/nginx/www/admin/index.php)
+  # The old View modal is gone; its endpoint is NOT orphaned -- the hub's installed list is
+  # the one caller left.
+  v56f=$(grep -c "action=getWorldMods&" /opt/stateless/nginx/www/admin/index.php)
+
+  # ---- the status pill can no longer paint over the world name ----
+  # .worlds-table is table-layout:fixed, so a pill wider than its column's share does not
+  # widen the column -- it overlaps the next one. Measured at a 1557px window: "Repackaging"
+  # wanted 118px in an 89px cell. Both halves of the fix are checked: the column's new share,
+  # and the pill's own inability to exceed it whatever a future label says.
+  v56g=$(grep -c 'td:nth-child(1) { width: 10%; }' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  v56h=$(awk '/^\.status-badge \{/,/^\}/' /opt/stateless/nginx/www/css/phvalheimStyles.css | grep -cE 'max-width: 100%|text-overflow: ellipsis')
+  # The 1024-1366px breakpoint carries its OWN copy of the column widths and was left on the
+  # old 7% when the default rule was re-budgeted -- the exact trap its own comment warns
+  # about. Both copies must be off 7%, or the fix works at one window size.
+  v56i=$(grep -c 'td:nth-child(1) { width: 7%; }' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # Apply to players now SAVES first. It used to repackage from whatever was already stored
+  # and warn, via confirm(), that the edits on screen would not reach anyone.
+  #
+  # Both of these were predicted locally before being written here, and both were wrong on the
+  # first attempt -- which is the whole reason for predicting:
+  #   - a bare label grep read 2, because the page's own explanatory prose names the button.
+  #     Matched on the BUTTON DEFINITION instead. A marker that counts prose is a marker that
+  #     breaks when someone rewords a sentence, and passes when the button is deleted.
+  #   - a bare count of saveModConfigs posts read 4, not 2: saveAll(), applyToPlayers(),
+  #     dropStale() and the paste-import path all post it. A total is the wrong shape of
+  #     question. What matters is that applyToPlayers' OWN BODY saves, so the awk range below
+  #     scopes the count to that function.
+  v56j=$(grep -c 'onclick="applyToPlayers()">Save &amp; apply to players' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56k=$(awk '/function applyToPlayers\(\)/,/^\t\t\}$/' /opt/stateless/nginx/www/admin/world_configs.php | grep -c "post('saveModConfigs'")
+  # CONTROL: the confirm() that used to stand in for saving must be gone. While it was there,
+  # the honest reading of the button was "apply something other than what you are looking at".
+  v56l=$(awk '/function applyToPlayers\(\)/,/^\t\t\}$/' /opt/stateless/nginx/www/admin/world_configs.php | grep -c 'confirm(')
+
   echo "2.55 CONFIG ENTRY: world_configs hrefs=$v55be (want 2)  enabled branches=$v55bf (want 2)  disabled branch=$v55bg (want 1)  poll gate=$v55bh (want 1)"
   echo "2.55 CONFIG PICKER: showConfigsModal=$v55bj (want 4)  api endpoint=$v55bk (want 1)  summary fn=$v55bl (want 1)  undefined escapeHtml=$v55bm (want 0)"
   echo "2.55 CONFIG ENTRY CONTROL: Edit Mods still gated=$v55bi (want 1)"
+  echo "2.56 MODS HUB: old actions tree-wide=$v56a (want 0)  mods buttons=$v56b (want 7)  hub fns=$v56c (want 5)  getWorldMods caller=$v56f (want 1)"
+  echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
+  echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
+  echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
 
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
   # process substitution, no `local`. Indirection is `eval`, and the loop is fed by a pipe,
@@ -2959,6 +3010,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55bd" = "0" ] \
     && [ "$v55be" = "2" ] && [ "$v55bf" = "2" ] && [ "$v55bg" = "1" ] && [ "$v55bh" = "1" ] \
     && [ "$v55bj" = "4" ] && [ "$v55bk" = "1" ] && [ "$v55bl" = "1" ] && [ "$v55bm" = "0" ] \
+    && [ "$v56a" = "0" ] && [ "$v56b" = "7" ] && [ "$v56c" = "5" ] && [ "$v56f" = "1" ] \
+    && [ "$v56d" = "1" ] && [ "$v56e" = "1" ] \
+    && [ "$v56g" = "1" ] && [ "$v56h" = "2" ] && [ "$v56i" = "0" ] \
+    && [ "$v56j" = "1" ] && [ "$v56k" = "1" ] && [ "$v56l" = "0" ] \
     && [ "$v55bi" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

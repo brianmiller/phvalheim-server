@@ -650,23 +650,20 @@ $totalCount = count($worlds);
                                         </td>
                                         <td>
                                             <div class="action-group">
-                                                <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
-                                                <?php /* Configs is deliberately NOT gated on the world being stopped, unlike
-                                                   Edit Mods beside it. Changing the mod LIST rebuilds the modpack and must
-                                                   not happen under a running world; changing a mod's CONFIG only rewrites
-                                                   cfg files and repackages the client payload, which is exactly what
-                                                   'repackage' was added for -- it accepts mode IN ('running','stopped').
-                                                   2.55 shipped the page reachable only from Edit Mods, so the one state
-                                                   its own button promises ("The world keeps running") was the one state
-                                                   you could not reach it from. */ ?>
+                                                <?php /* ONE Mods door, for a RUNNING world. Edit Mods / Configs / View N
+                                                   were three buttons on one subject with three different availability
+                                                   rules, and the row could not say which rule was greying which button.
+                                                   The hub behind this button states both rules on its two cards: the mod
+                                                   LIST rebuilds the modpack and needs the world stopped, a mod's CONFIG
+                                                   only rewrites cfg files and repackages the payload, which accepts
+                                                   mode IN ('running','stopped'). Keep this branch in step with the JS
+                                                   modsButtonHtml() -- the server renders the row once and the 5-second
+                                                   poll replaces it, so a button in only one of them flickers. */ ?>
                                                 <?php if ($world['vanilla']): ?>
-                                                <span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>
+                                                <span class="action-btn disabled" data-action="mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Mods</span>
                                                 <?php else: ?>
-                                                <a href="#" onclick="showConfigsModal('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn" data-action="mod-configs">Configs</a>
+                                                <a href="#" onclick="showModsHub('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn primary" data-action="mods">Mods <span class="mods-count-badge"><?php echo $world['modCount']; ?></span></a>
                                                 <?php endif; ?>
-                                                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
-                                                    View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
-                                                </a>
                                                 <span class="action-btn disabled" data-action="update">Update</span>
                                                 <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
                                                 <span class="action-btn disabled" data-action="delete">Delete</span>
@@ -775,19 +772,13 @@ $totalCount = count($worlds);
                                         </td>
                                         <td>
                                             <div class="action-group">
+                                                <?php /* ONE Mods door, for a STOPPED world -- see the matching comment on
+                                                   the online card above. Both cards in the hub are available here. */ ?>
                                                 <?php if ($world['vanilla']): ?>
-                                                <span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>
+                                                <span class="action-btn disabled" data-action="mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Mods</span>
                                                 <?php else: ?>
-                                                <a href="edit_world.php?world=<?php echo urlencode($world['name']); ?>" class="action-btn primary" data-action="edit-mods">Edit Mods</a>
+                                                <a href="#" onclick="showModsHub('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn primary" data-action="mods">Mods <span class="mods-count-badge"><?php echo $world['modCount']; ?></span></a>
                                                 <?php endif; ?>
-                                                <?php if ($world['vanilla']): ?>
-                                                <span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>
-                                                <?php else: ?>
-                                                <a href="#" onclick="showConfigsModal('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn" data-action="mod-configs">Configs</a>
-                                                <?php endif; ?>
-                                                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;">
-                                                    View <span class="mods-count-badge"><?php echo $world['modCount']; ?></span>
-                                                </a>
                                                 <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="update">Update</a>
                                                 <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
                                                 <a href="?delete_world=<?php echo urlencode($world['name']); ?>" class="action-btn danger" data-action="delete">Delete</a>
@@ -952,16 +943,31 @@ $totalCount = count($worlds);
         </div>
     </div>
 
-    <div class="mods-modal-overlay" id="modsModalOverlay" onclick="closeModsModal(event)">
-        <div class="mods-modal" onclick="event.stopPropagation()">
+    <!-- The Mods hub: ONE door per world for everything mod-related.
+         Replaces three buttons on every row (Edit Mods / Configs / View N) with one, because
+         the three were indistinguishable at a glance and two of them were usually greyed out.
+         The two cards say what they do and when they can be used, which the greyed-out buttons
+         never did -- an operator could not tell whether Edit Mods was disabled because of the
+         world's state or because the world was vanilla.
+         The installed list stays here rather than being deleted with the old View modal: it is
+         the only read-only view of what a world actually runs, and it is the only caller of
+         getWorldMods. -->
+    <div class="mods-modal-overlay" id="modsHubOverlay" onclick="closeModsHub(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 720px;">
             <div class="mods-modal-header">
-                <h3 class="mods-modal-title" id="modsModalTitle">Running Mods</h3>
-                <button class="mods-modal-close" onclick="closeModsModal()">&times;</button>
+                <h3 class="mods-modal-title" id="modsHubTitle">Mods</h3>
+                <button class="mods-modal-close" onclick="closeModsHub()">&times;</button>
             </div>
             <div class="mods-modal-body">
-                <ul class="mods-list" id="modsModalList">
-                    <li>Loading...</li>
-                </ul>
+                <div id="modsHubCards" class="mods-hub-cards">
+                    <div style="opacity:.7;">Loading&hellip;</div>
+                </div>
+                <details id="modsHubInstalled" class="mods-hub-installed">
+                    <summary id="modsHubInstalledSummary">Installed mods</summary>
+                    <ul class="mods-list" id="modsHubList">
+                        <li style="opacity:.7;">Loading&hellip;</li>
+                    </ul>
+                </details>
             </div>
         </div>
     </div>
@@ -2309,25 +2315,27 @@ $totalCount = count($worlds);
         return `<span class="join-code-chip pending" data-action="joincode" title="${escapeAttr('Crossplay world: the lobby has not registered its join code yet. It usually appears within 30 seconds.')}">code waiting&hellip;</span>`;
     }
 
-    // The Mod Configs entry point. ONE definition, used by all three row branches and by the
-    // poll updater, because three hand-copied ternaries are how a gate like this goes stale.
+    // The single Mods entry point. ONE definition, used by all three row branches and by the
+    // poll updater, because hand-copied ternaries are how a gate like this goes stale.
+    //
+    // This replaces three separate buttons -- Edit Mods, Configs and View N. They were three
+    // doors to one subject, sitting next to each other, with different availability rules and
+    // no way to tell from the row why any of them was grey. Now the row has one door and the
+    // modal behind it explains the rules.
     //
     // `reachable` is passed in rather than derived from world.mode here so each caller states
-    // its own case: running and stopped both reach it, every transitional mode does not.
-    // Editing a mod's config is not editing the mod LIST -- it rewrites cfg files and
-    // repackages the client payload, which is what 'repackage' exists for, and that accepts
-    // mode IN ('running','stopped'). Mid-update there is nothing coherent to repackage, and
-    // repackageWorld() would refuse anyway, so the button is disabled rather than lying.
-    function modConfigsButtonHtml(world, reachable) {
+    // its own case: running and stopped both reach the hub, every transitional mode does not.
+    // Mid-update there is nothing coherent to show or change -- the mod list is being rewritten
+    // and there is nothing to repackage -- so the button is disabled rather than lying.
+    function modsButtonHtml(world, reachable) {
         if (world.vanilla) {
-            return `<span class="action-btn disabled" data-action="mod-configs" title="This is a vanilla world — it runs no mods, so it has no mod configs.">Configs</span>`;
+            return `<span class="action-btn disabled" data-action="mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Mods</span>`;
         }
         if (!reachable) {
-            return `<span class="action-btn disabled" data-action="mod-configs" title="This world is mid-operation. Mod configs can be edited once it is running or stopped.">Configs</span>`;
+            return `<span class="action-btn disabled" data-action="mods" title="This world is mid-operation. Mods can be viewed and changed once it is running or stopped.">Mods</span>`;
         }
-        // Opens the picker, not the editor. Going straight to the editor dumps every setting
-        // of every mod in one page; the operator almost always wants one mod.
-        return `<a href="#" onclick="showConfigsModal('${escapeAttr(world.name)}'); return false;" class="action-btn" data-action="mod-configs">Configs</a>`;
+        return `<a href="#" onclick="showModsHub('${escapeAttr(world.name)}'); return false;" class="action-btn primary" data-action="mods">`
+             + `Mods <span class="mods-count-badge">${world.modCount}</span></a>`;
     }
 
     function launchButtonHtml(world) {
@@ -2379,9 +2387,7 @@ $totalCount = count($worlds);
                 <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
-                <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
-                ${modConfigsButtonHtml(world, true)}
-                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
+                ${modsButtonHtml(world, true)}
                 <span class="action-btn disabled" data-action="update">Update</span>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
                 <span class="action-btn disabled" data-action="delete">Delete</span>`;
@@ -2392,11 +2398,7 @@ $totalCount = count($worlds);
                 <span class="action-btn disabled" data-action="stop">Stop</span>
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
-                ${world.vanilla
-                    ? `<span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>`
-                    : `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`}
-                ${modConfigsButtonHtml(world, true)}
-                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
+                ${modsButtonHtml(world, true)}
                 <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
                 <a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
@@ -2407,9 +2409,7 @@ $totalCount = count($worlds);
                 <span class="action-btn disabled" data-action="stop">Stop</span>
                 <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
             configHtml = `
-                <span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>
-                ${modConfigsButtonHtml(world, false)}
-                <a href="#" class="action-btn" data-action="view-mods" onclick="showModsModal('${world.name}'); return false;">View <span class="mods-count-badge">${world.modCount}</span></a>
+                ${modsButtonHtml(world, false)}
                 <span class="action-btn disabled" data-action="update">Update</span>
                 <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
                 <span class="action-btn disabled" data-action="delete">Delete</span>`;
@@ -2549,37 +2549,30 @@ $totalCount = count($worlds);
             }
         }
 
-        const editModsBtn = findBtn('edit-mods');
         const updateBtn = findBtn('update');
         const deleteBtn = findBtn('delete');
 
-        if (editModsBtn && updateBtn && deleteBtn) {
+        if (updateBtn && deleteBtn) {
             if (world.mode === 'stopped') {
-                // A vanilla world runs no mods, so Edit Mods stays disabled even when the
-                // world is stopped. This runs on every poll, so without the check here the
-                // PHP-rendered gating would be undone a few seconds after page load.
-                editModsBtn.outerHTML = world.vanilla
-                    ? `<span class="action-btn disabled" data-action="edit-mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Edit Mods</span>`
-                    : `<a href="edit_world.php?world=${encodeURIComponent(world.name)}" class="action-btn primary" data-action="edit-mods">Edit Mods</a>`;
                 updateBtn.outerHTML = `<a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>`;
                 deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
             } else {
-                editModsBtn.outerHTML = `<span class="action-btn disabled" data-action="edit-mods">Edit Mods</span>`;
                 updateBtn.outerHTML = `<span class="action-btn disabled" data-action="update">Update</span>`;
                 deleteBtn.outerHTML = `<span class="action-btn disabled" data-action="delete">Delete</span>`;
             }
         }
 
         // Deliberately its own block, NOT folded into the && guard above: a page rendered
-        // before this button existed (a tab left open across the upgrade) has no mod-configs
-        // button, and widening that guard would make Edit Mods, Update and Delete stop
-        // updating on such a page instead of just this one button.
+        // before this button existed (a tab left open across an upgrade) has no mods button,
+        // and widening that guard would make Update and Delete stop updating on such a page
+        // instead of just this one button.
         //
-        // Unlike Edit Mods, this stays live while the world is RUNNING -- that is the whole
-        // point, and the state the editor's own wording promises.
-        const modConfigsBtn = findBtn('mod-configs');
-        if (modConfigsBtn) {
-            modConfigsBtn.outerHTML = modConfigsButtonHtml(
+        // Unlike Update and Delete, the hub stays reachable while the world is RUNNING -- its
+        // Mod Configs card is the whole point, and that is the state the editor's own wording
+        // promises. The hub decides per-card what a running world may do.
+        const modsBtn = findBtn('mods');
+        if (modsBtn) {
+            modsBtn.outerHTML = modsButtonHtml(
                 world, world.mode === 'running' || world.mode === 'stopped');
         }
 
@@ -2685,26 +2678,104 @@ $totalCount = count($worlds);
         fetch(`setters.php?type=autostart&value=${value}&worldName=${encodeURIComponent(worldName)}`);
     }
 
-    // Mods Modal
-    async function showModsModal(worldName) {
-        document.getElementById('modsModalTitle').textContent = `Mods - ${worldName}`;
-        document.getElementById('modsModalList').innerHTML = '<li>Loading...</li>';
-        document.getElementById('modsModalOverlay').classList.add('show');
+    // ---- The Mods hub ----
+    // Two cards, because there are exactly two things an operator does with a world's mods and
+    // they have different rules. The cards state those rules; the old row buttons only greyed
+    // out, which told the operator nothing about why.
+    //
+    // The world's mode is read LIVE from getWorlds when the hub opens rather than being passed
+    // in from the clicked button. The button's own availability is refreshed by the 5-second
+    // poll, but a hub left open across a state change would otherwise keep offering Mod Catalog
+    // on a world that has since started -- and saving a mod list calls updateWorld(), which
+    // sets mode='update'. That path ALWAYS ends stopped, so it would silently drop every
+    // connected player. The row button is the only thing enforcing that rule today, so this
+    // must not become a second, weaker copy of it.
+    async function showModsHub(worldName) {
+        document.getElementById('modsHubTitle').textContent = `Mods - ${worldName}`;
+        document.getElementById('modsHubCards').innerHTML = '<div style="opacity:.7;">Loading&hellip;</div>';
+        document.getElementById('modsHubList').innerHTML = '<li style="opacity:.7;">Loading&hellip;</li>';
+        document.getElementById('modsHubInstalled').open = false;
+        document.getElementById('modsHubOverlay').classList.add('show');
 
+        renderModsHubCards(worldName, null);
+        loadModsHubInstalled(worldName);
+
+        try {
+            const r = await fetch('adminAPI.php?action=getWorlds');
+            const d = await r.json();
+            const list = d.worlds || d || [];
+            const w = (Array.isArray(list) ? list : []).find(x => x.name === worldName);
+            renderModsHubCards(worldName, w || null);
+        } catch (e) {
+            // Keep the cards from the unknown-state render rather than blanking the hub: the
+            // Mod Configs card is safe in every state, and Mod Catalog stays closed.
+            renderModsHubCards(worldName, null);
+        }
+    }
+
+    // `world` null means "state not known yet, or could not be read". Mod Catalog is closed in
+    // that case -- fail closed, since the whole point of the gate is that it must not open on a
+    // running world.
+    function renderModsHubCards(worldName, world) {
+        const mode    = world ? world.mode : null;
+        const stopped = mode === 'stopped';
+        const live    = mode === 'running' || mode === 'stopped';
+
+        const catalogBody =
+            'Choose which mods this world runs, and pin versions. Saving rebuilds the modpack, '
+          + 'so the world has to be stopped first &mdash; and it stays stopped when the rebuild '
+          + 'finishes.';
+        const catalogWhy = stopped
+            ? ''
+            : (mode === null
+                ? '<div class="mods-hub-why">Checking this world&rsquo;s state&hellip;</div>'
+                : `<div class="mods-hub-why">Unavailable: this world is <b>${escapeHtmlBasic(getModeDisplayText(mode))}</b>. Stop it first.</div>`);
+
+        const configsBody =
+            'Change the settings inside the mods this world already runs &mdash; one mod at a '
+          + 'time. Nothing is reinstalled and nobody is disconnected; players pick the new '
+          + 'settings up the next time they launch through PhValheim.';
+        const configsWhy = live
+            ? ''
+            : '<div class="mods-hub-why">Unavailable until this world is running or stopped.</div>';
+
+        const card = (enabled, onclick, icon, title, body, why) => enabled
+            ? `<a href="#" class="mods-hub-card" onclick="${onclick}">`
+              + `<div class="mods-hub-card-title">${icon} ${title}</div>`
+              + `<div class="mods-hub-card-body">${body}</div></a>`
+            : `<div class="mods-hub-card disabled">`
+              + `<div class="mods-hub-card-title">${icon} ${title}</div>`
+              + `<div class="mods-hub-card-body">${body}</div>${why}</div>`;
+
+        document.getElementById('modsHubCards').innerHTML =
+            card(stopped,
+                 `location.href='edit_world.php?world=${encodeURIComponent(worldName)}'; return false;`,
+                 '&#128230;', 'Mod Catalog', catalogBody, catalogWhy)
+          + card(live,
+                 `closeModsHub(); showConfigsModal('${escapeAttr(worldName)}'); return false;`,
+                 '&#9881;&#65039;', 'Mod Configs', configsBody, configsWhy);
+    }
+
+    // The installed list -- what the old View modal showed, kept because it is the only
+    // read-only answer to "what does this world actually run".
+    async function loadModsHubInstalled(worldName) {
+        const list = document.getElementById('modsHubList');
+        const sum  = document.getElementById('modsHubInstalledSummary');
         try {
             const response = await fetch(`adminAPI.php?action=getWorldMods&world=${encodeURIComponent(worldName)}`);
             const data = await response.json();
 
             if (data.success && data.mods.length > 0) {
-                const listHtml = data.mods.map(mod =>
-                    `<li><a href="${mod.url}" target="_blank" rel="noopener">${mod.name}</a></li>`
+                sum.textContent = `Installed mods (${data.mods.length})`;
+                list.innerHTML = data.mods.map(mod =>
+                    `<li><a href="${mod.url}" target="_blank" rel="noopener">${escapeHtmlBasic(mod.name)}</a></li>`
                 ).join('');
-                document.getElementById('modsModalList').innerHTML = listHtml;
             } else {
-                document.getElementById('modsModalList').innerHTML = '<li style="color: var(--text-muted);">No mods installed</li>';
+                sum.textContent = 'Installed mods (0)';
+                list.innerHTML = '<li style="color: var(--text-muted);">No mods installed</li>';
             }
         } catch (error) {
-            document.getElementById('modsModalList').innerHTML = '<li style="color: var(--danger);">Error loading mods</li>';
+            list.innerHTML = '<li style="color: var(--danger);">Error loading mods</li>';
         }
     }
 
@@ -2774,9 +2845,9 @@ $totalCount = count($worlds);
         }
     }
 
-    function closeModsModal(event) {
-        if (!event || event.target === document.getElementById('modsModalOverlay')) {
-            document.getElementById('modsModalOverlay').classList.remove('show');
+    function closeModsHub(event) {
+        if (!event || event.target === document.getElementById('modsHubOverlay')) {
+            document.getElementById('modsHubOverlay').classList.remove('show');
         }
     }
 
@@ -2827,7 +2898,10 @@ $totalCount = count($worlds);
     // Close modal on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            closeModsModal();
+            closeModsHub();
+            // The Configs picker was missing from this list when it shipped -- it is opened
+            // from the hub, so Escape has to close it too or the operator is stuck behind it.
+            closeConfigsModal();
             closeSettingsModal();
             closeSteamIdModal();
             closeJoinCodeModal();

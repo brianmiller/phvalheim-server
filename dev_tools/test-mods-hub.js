@@ -1,0 +1,332 @@
+// Oracle test: an operator can actually OPEN the Mods hub and get where it promises.
+//
+// 2.55 shipped a working mod-config editor with no entry point, and then an entry point that
+// threw a ReferenceError the moment it rendered a row. Both passed every grep-based check
+// written for them, because a string in a file says nothing about whether the page runs. So
+// this clicks the button like a person and asserts what appears.
+//
+// Requires the dev container with the admin UI on :8081 and at least one modded world in each
+// of 'stopped' and a non-stopped mode:
+//   dev_tools/devUp.sh
+//   docker exec phvalheim-dev /opt/stateless/engine/tools/sql \
+//     "UPDATE worlds SET mode='repackaging' WHERE name='<some modded world>'"
+//
+// Usage:
+//   docker run --rm --network host -v "$PWD":/repo -w /repo/dev_tools \
+//     mcr.microsoft.com/playwright:v1.47.0-jammy bash -c \
+//     'npm i --silent --prefix /tmp/pw playwright@1.47.0 >/dev/null 2>&1;
+//      NODE_PATH=/tmp/pw/node_modules node test-mods-hub.js http://127.0.0.1:8081'
+
+const { chromium } = require('playwright');
+
+const BASE = process.argv[2] || 'http://127.0.0.1:8081';
+let pass = 0, fail = 0;
+const ok  = (m) => { console.log('  PASS  ' + m); pass++; };
+const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d); fail++; };
+
+(async () => {
+	const browser = await chromium.launch();
+	const page = await browser.newPage();
+	const errors = [];
+	// A ReferenceError inside a modal's own try/catch is reported to the operator as a
+	// friendly "could not load" and leaves no trace anywhere else. Collect them.
+	page.on('pageerror', e => errors.push(e.message));
+	page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+
+	// A fresh dev database greets you with the What's New and Hugin notices, which are
+	// full-screen overlays and swallow every click aimed at the table behind them. That is the
+	// harness getting in the way, not the product failing -- but a click that silently retries
+	// for 30s and then times out looks exactly like a broken button, so clear them explicitly
+	// before each interaction rather than once at the start (the 5s poll can re-raise them).
+	const clearOverlays = async () => {
+		await page.evaluate(() => {
+			document.querySelectorAll('.mods-modal-overlay.show').forEach((o) => {
+				if (o.id !== 'modsHubOverlay' && o.id !== 'cfgModalOverlay') o.classList.remove('show');
+			});
+			document.querySelectorAll('.modal.show, .modal-backdrop').forEach(o => o.remove());
+		});
+	};
+
+	await page.setViewportSize({ width: 1557, height: 1000 });
+	await page.goto(BASE + '/index.php', { waitUntil: 'networkidle' });
+	// Let the 5-second poll replace the server-rendered rows at least once, so this exercises
+	// the JS row template and not only the PHP one. They have disagreed before.
+	await page.waitForTimeout(6500);
+
+	// ---- the row offers exactly one mods door ----
+	const counts = await page.evaluate(() => ({
+		mods: document.querySelectorAll('.worlds-table [data-action="mods"]').length,
+		editMods: document.querySelectorAll('.worlds-table [data-action="edit-mods"]').length,
+		modConfigs: document.querySelectorAll('.worlds-table [data-action="mod-configs"]').length,
+		viewMods: document.querySelectorAll('.worlds-table [data-action="view-mods"]').length,
+		rows: document.querySelectorAll('.worlds-table tbody tr[data-world]').length,
+	}));
+
+	if (counts.rows > 0 && counts.mods === counts.rows) {
+		ok(`every world row has a Mods button (${counts.mods}/${counts.rows})`);
+	} else {
+		bad('every world row has a Mods button', JSON.stringify(counts));
+	}
+
+	const leftovers = counts.editMods + counts.modConfigs + counts.viewMods;
+	if (leftovers === 0) {
+		ok('the three old buttons are gone from every row');
+	} else {
+		bad('the three old buttons are gone from every row',
+			`edit-mods=${counts.editMods} mod-configs=${counts.modConfigs} view-mods=${counts.viewMods} — a row rendered by the OTHER template still has them`);
+	}
+
+	// ---- opening the hub on a STOPPED world: both cards usable ----
+	const stoppedWorld = await page.evaluate(() => {
+		const a = document.querySelector('.worlds-table tr[data-section="offline"] a[data-action="mods"]');
+		return a ? a.closest('tr').getAttribute('data-world') : null;
+	});
+
+	if (!stoppedWorld) {
+		bad('a stopped modded world is available to test', 'no enabled Mods anchor in the offline table');
+	} else {
+		await clearOverlays();
+		await page.click(`tr[data-world="${stoppedWorld}"] a[data-action="mods"]`);
+		await page.waitForSelector('#modsHubOverlay.show', { timeout: 5000 });
+		// The cards re-render once the live mode arrives from getWorlds.
+		await page.waitForFunction(
+			() => !/Checking this world/.test(document.getElementById('modsHubCards').innerHTML),
+			{ timeout: 8000 }
+		).catch(() => {});
+
+		const hub = await page.evaluate(() => {
+			const cards = Array.from(document.querySelectorAll('#modsHubCards .mods-hub-card'));
+			return {
+				title: document.getElementById('modsHubTitle').textContent,
+				cards: cards.map(c => ({
+					title: c.querySelector('.mods-hub-card-title').textContent.trim(),
+					enabled: c.tagName === 'A' && !c.classList.contains('disabled'),
+					body: c.querySelector('.mods-hub-card-body').textContent.trim().length,
+					why: (c.querySelector('.mods-hub-why') || {}).textContent || '',
+				})),
+				installedSummary: document.getElementById('modsHubInstalledSummary').textContent,
+			};
+		});
+
+		if (hub.cards.length === 2) {
+			ok('the hub shows exactly two cards');
+		} else {
+			bad('the hub shows exactly two cards', `got ${hub.cards.length}: ${JSON.stringify(hub.cards)}`);
+		}
+
+		const named = hub.cards.map(c => c.title).join(' | ');
+		if (/Mod Catalog/.test(named) && /Mod Configs/.test(named)) {
+			ok(`both cards are named: ${named}`);
+		} else {
+			bad('both cards are named Mod Catalog and Mod Configs', named);
+		}
+
+		// Brian asked for "simple information explaining what each card will do" -- an empty
+		// card body is the thing this is here to catch.
+		const empty = hub.cards.filter(c => c.body < 40);
+		if (empty.length === 0) {
+			ok('both cards explain themselves (>=40 chars of body text)');
+		} else {
+			bad('both cards explain themselves', `${empty.map(c => c.title).join(', ')} has too little text`);
+		}
+
+		const bothOn = hub.cards.every(c => c.enabled);
+		if (bothOn) {
+			ok(`both cards are usable on a stopped world (${stoppedWorld})`);
+		} else {
+			bad(`both cards are usable on a stopped world (${stoppedWorld})`,
+				hub.cards.map(c => `${c.title}=${c.enabled ? 'on' : 'off: ' + c.why}`).join('; '));
+		}
+
+		if (/\(\d+\)/.test(hub.installedSummary)) {
+			ok(`the installed list is present and counted: "${hub.installedSummary.trim()}"`);
+		} else {
+			bad('the installed list is present and counted', `summary read "${hub.installedSummary}"`);
+		}
+
+		// ---- Mod Configs must actually open the picker, populated ----
+		await clearOverlays();
+		await page.click('#modsHubCards .mods-hub-card:nth-child(2)');
+		await page.waitForSelector('#cfgModalOverlay.show', { timeout: 5000 });
+		await page.waitForFunction(
+			() => !/Loading/.test(document.getElementById('cfgModalList').textContent),
+			{ timeout: 10000 }
+		).catch(() => {});
+
+		const picker = await page.evaluate(() => ({
+			text: document.getElementById('cfgModalList').textContent.trim().slice(0, 160),
+			rows: document.querySelectorAll('#cfgModalList li[data-cfgname]').length,
+			modLinks: document.querySelectorAll('#cfgModalList a[href*="&mod="]').length,
+			hubClosed: !document.getElementById('modsHubOverlay').classList.contains('show'),
+		}));
+
+		if (picker.hubClosed) {
+			ok('the hub closes when the Configs picker opens');
+		} else {
+			bad('the hub closes when the Configs picker opens', 'both overlays are showing at once');
+		}
+
+		// A world that has never started has no cfg files yet, which is a legitimate empty
+		// state and must NOT read as an error. Either populated rows, or that exact message.
+		if (picker.rows > 0 && picker.modLinks === picker.rows) {
+			ok(`the picker lists ${picker.rows} mods, each filtered by &mod=`);
+		} else if (/No mod configs yet/.test(picker.text)) {
+			ok('the picker shows the "no configs yet" empty state (world has never started)');
+		} else {
+			bad('the picker lists mods or shows its empty state',
+				`rows=${picker.rows} modLinks=${picker.modLinks} text="${picker.text}"`);
+		}
+	}
+
+	// ---- a non-stopped world must NOT be offered the catalogue ----
+	const busyWorld = await page.evaluate(() => {
+		const rows = Array.from(document.querySelectorAll('.worlds-table tr[data-world]'));
+		for (const tr of rows) {
+			const badge = tr.querySelector('.status-badge');
+			const a = tr.querySelector('a[data-action="mods"]');
+			if (a && badge && /Repackaging|Running/.test(badge.textContent)) {
+				return tr.getAttribute('data-world');
+			}
+		}
+		return null;
+	});
+
+	if (!busyWorld) {
+		console.log('  SKIP  non-stopped world gating (no running/repackaging modded world in the dev data)');
+	} else {
+		await page.evaluate(() => document.getElementById('cfgModalOverlay').classList.remove('show'));
+		await clearOverlays();
+		await page.click(`tr[data-world="${busyWorld}"] a[data-action="mods"]`);
+		await page.waitForSelector('#modsHubOverlay.show', { timeout: 5000 });
+		await page.waitForFunction(
+			() => !/Checking this world/.test(document.getElementById('modsHubCards').innerHTML),
+			{ timeout: 8000 }
+		).catch(() => {});
+
+		const gate = await page.evaluate(() => {
+			const cards = Array.from(document.querySelectorAll('#modsHubCards .mods-hub-card'));
+			return cards.map(c => ({
+				title: c.querySelector('.mods-hub-card-title').textContent.trim(),
+				enabled: c.tagName === 'A' && !c.classList.contains('disabled'),
+				why: ((c.querySelector('.mods-hub-why') || {}).textContent || '').trim(),
+			}));
+		});
+
+		const cat = gate.find(c => /Catalog/.test(c.title));
+		const cfg = gate.find(c => /Configs/.test(c.title));
+
+		// THE RULE. Saving a mod list calls updateWorld(), and mode='update' always ends
+		// stopped -- so offering this on a live world would drop every connected player.
+		if (cat && !cat.enabled && cat.why.length > 0) {
+			ok(`Mod Catalog is closed on a ${busyWorld} that is not stopped, and says why: "${cat.why}"`);
+		} else {
+			bad('Mod Catalog is closed on a non-stopped world and says why',
+				cat ? `enabled=${cat.enabled} why="${cat.why}"` : 'no Mod Catalog card found');
+		}
+
+		// ...and the other card must still be open, which is the whole reason 2.55 added the
+		// repackage path. Gating both would put back the bug this replaced.
+		if (cfg && cfg.enabled) {
+			ok('Mod Configs stays open on a running world');
+		} else {
+			bad('Mod Configs stays open on a running world',
+				cfg ? `enabled=${cfg.enabled} why="${cfg.why}"` : 'no Mod Configs card found');
+		}
+	}
+
+	// ---- the POPULATED branch, which the live dev data cannot reach ----
+	//
+	// The dev worlds have no mods and have never started, so every list above took its
+	// empty-state branch. That is exactly the branch that was NOT broken: the bug Brian hit
+	// was escapeHtml() inside the .map() that renders a mod row, which only runs when there is
+	// at least one row. An all-green run against empty data would have said nothing about it.
+	//
+	// So stub the two endpoints with real-shaped payloads and drive the same render functions.
+	// Nothing about the rendering code is replaced -- only the data source -- so a missing
+	// helper or a bad template still throws here.
+	await clearOverlays();
+	const populated = await page.evaluate(async () => {
+		const realFetch = window.fetch;
+		window.fetch = (url, ...rest) => {
+			if (String(url).includes('getWorldConfigMods')) {
+				return Promise.resolve({ json: () => Promise.resolve({
+					world: 'stub', generated: true, total: 2,
+					mods: [
+						{ mod_id: 27850, name: 'Azumatt-AzuClock', files: 1, entry_count: 18, modified_count: 3 },
+						// A name with characters that must be escaped, and the unmatched bucket,
+						// whose mod_id is null and must render WITHOUT a &mod= parameter.
+						{ mod_id: null, name: 'Unmatched <config> & "files"', files: 5, entry_count: 929, modified_count: 15 },
+					],
+				}) });
+			}
+			if (String(url).includes('getWorldMods')) {
+				return Promise.resolve({ json: () => Promise.resolve({
+					success: true,
+					mods: [
+						{ name: 'Therzie-Wizardry', url: 'https://example.invalid/a' },
+						{ name: 'Smoothbrain & <co>', url: 'https://example.invalid/b' },
+					],
+				}) });
+			}
+			return realFetch(url, ...rest);
+		};
+
+		await window.loadModsHubInstalled('stub');
+		await window.showConfigsModal('stub');
+		window.fetch = realFetch;
+
+		const listed = Array.from(document.querySelectorAll('#cfgModalList li[data-cfgname]'));
+		return {
+			cfgRows: listed.length,
+			withModParam: document.querySelectorAll('#cfgModalList a[href*="&mod="]').length,
+			unmatchedHasNoModParam: listed.some(li => {
+				const a = li.querySelector('a');
+				return a && /Unmatched/.test(a.textContent) && !a.getAttribute('href').includes('&mod=');
+			}),
+			// If a name were interpolated raw, the "<config>" would have become an element.
+			escaped: !!document.querySelector('#cfgModalList li a') &&
+				document.querySelector('#cfgModalList').innerHTML.includes('&lt;config&gt;'),
+			changedBadges: document.querySelectorAll('#cfgModalList .mods-count-badge').length,
+			installedRows: document.querySelectorAll('#modsHubList li').length,
+			installedEscaped: document.getElementById('modsHubList').innerHTML.includes('&lt;co&gt;'),
+			installedSummary: document.getElementById('modsHubInstalledSummary').textContent,
+		};
+	});
+
+	if (populated.cfgRows === 2 && populated.changedBadges === 2) {
+		ok('the picker renders a populated list (2 mods, both "changed" badges)');
+	} else {
+		bad('the picker renders a populated list', JSON.stringify(populated));
+	}
+
+	if (populated.withModParam === 1 && populated.unmatchedHasNoModParam) {
+		ok('a matched mod links with &mod=, the unmatched bucket links without it');
+	} else {
+		bad('a matched mod links with &mod=, the unmatched bucket links without it',
+			`withModParam=${populated.withModParam} unmatchedClean=${populated.unmatchedHasNoModParam}`);
+	}
+
+	if (populated.escaped) {
+		ok('a mod name containing markup is escaped, not injected');
+	} else {
+		bad('a mod name containing markup is escaped, not injected',
+			'"<config>" did not survive as text — the name is being interpolated raw');
+	}
+
+	if (populated.installedRows === 2 && populated.installedEscaped
+	    && /\(2\)/.test(populated.installedSummary)) {
+		ok('the installed list renders, counts and escapes a populated payload');
+	} else {
+		bad('the installed list renders, counts and escapes a populated payload', JSON.stringify(populated));
+	}
+
+	if (errors.length === 0) {
+		ok('no page errors while driving the hub');
+	} else {
+		bad('no page errors while driving the hub', errors.slice(0, 5).join(' | '));
+	}
+
+	await browser.close();
+	console.log(`\n${pass} passed, ${fail} failed`);
+	process.exit(fail === 0 ? 0 : 1);
+})().catch((e) => { console.error('HARNESS ERROR: ' + e.message); process.exit(2); });

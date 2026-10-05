@@ -4,7 +4,8 @@
 // Scans only code -- string and template literals are stripped first, because CSS var(--x)
 // and prose like "settings (" inside them otherwise read as calls.
 const fs = require('fs');
-const FNS = ['showConfigsModal', 'filterConfigMods', 'closeConfigsModal', 'modConfigsButtonHtml'];
+const FNS = ['showConfigsModal', 'filterConfigMods', 'closeConfigsModal', 'modsButtonHtml',
+             'showModsHub', 'renderModsHubCards', 'loadModsHubInstalled', 'closeModsHub'];
 const GLOBALS = new Set(['fetch','encodeURIComponent','decodeURIComponent','parseInt','String',
  'Number','JSON','Math','Set','Map','Array','Object','setTimeout','console','confirm','alert']);
 
