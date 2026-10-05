@@ -2736,7 +2736,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # render sites, for the same reason the cpe2 marker does: 2.53 shipped with a third caller
   # nobody had updated, and an enumeration cannot catch the one you forgot to enumerate.
   v56a=$(grep -rcE 'data-action="(edit-mods|mod-configs|view-mods)"' /opt/stateless/nginx/www/ 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')
-  v56b=$(grep -c 'data-action="mods"' /opt/stateless/nginx/www/admin/index.php)
+  # The GATE's selector also contains data-action="mods", which pushed this from 7 to 8 --
+  # my own change breaking my own marker, the same way the new comments broke v55be. Count
+  # only the RENDER sites: the gate line is identified by e.target.closest, which no rendered
+  # button has.
+  v56b=$(grep -v "e.target.closest" /opt/stateless/nginx/www/admin/index.php | grep -c 'data-action="mods"')
   v56c=$(grep -c 'function modsButtonHtml\|function showModsHub\|function renderModsHubCards\|function loadModsHubInstalled\|function closeModsHub' /opt/stateless/nginx/www/admin/index.php)
   # The gate the consolidation absorbed, and the one it must NOT absorb. Mod Catalog stays
   # stopped-only (saving a mod list calls updateWorld(), which always ends stopped and would
@@ -2796,6 +2800,22 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The single mode reader both call sites now share.
   v56r=$(grep -c "function modConfigWorldMode" /opt/stateless/nginx/www/includes/modconfigs.php)
 
+  # ---- the review GATES Mods / Start / Settings ----
+  # ONE delegated capture-phase listener, not an onclick per control: those three are rendered
+  # in five places (two PHP cards, three JS branches) and a sixth would be the poll updater --
+  # the same enumeration that shipped 2.53's hammertime bug. Capture phase is load-bearing:
+  # the controls carry inline onclick attributes, which fire at the target during bubbling, so
+  # a bubble-phase listener would open the modal AFTER the thing it is meant to precede.
+  # Guarded live by dev_tools/test-config-migration-gate.js (15 assertions, including that
+  # Start does not navigate and that the gate survives a poll rebuilding the row).
+  v56ac=$(grep -cF 'data-action="start"], [data-action="mods"], [data-action="settings"]' /opt/stateless/nginx/www/admin/index.php)
+  v56ad=$(grep -c "}, true);" /opt/stateless/nginx/www/admin/index.php)
+  # Per-world counts, or the gate fires for a world with nothing parked.
+  v56ae=$(grep -c "const cfgMigByWorld = " /opt/stateless/nginx/www/admin/index.php)
+  # Continue must exist and must re-click the SAME element -- reimplementing the three actions
+  # would be a second copy of three behaviours, and the copy is what goes stale.
+  v56af=$(grep -c "el.click();" /opt/stateless/nginx/www/admin/index.php)
+
   # ---- the 2.55 migration review: the OPERATOR decides about the originals ----
   # The import parked each consumed file. Deleting those is irreversible, and on a real server
   # three parked files held 12 settings the database had since lost -- so nothing deletes on
@@ -2842,6 +2862,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
   echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
   echo "2.56 CONFIG COVERAGE: summary keys=$v56m (want 2)  getWorldMode calls=$v56n (want 0)  mode reader=$v56r (want 1)  renderer=$v56o (want 1)  unmatched php=$v56p (want 1) js=$v56q (want 3)"
+  echo "2.56 MIGRATION GATE: delegated listener=$v56ac (want 1)  capture phase=$v56ad (want 1)  per-world map=$v56ae (want 1)  re-click=$v56af (want 1)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 1)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
@@ -3102,6 +3123,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56s" = "1" ] && [ "$v56t" = "1" ] && [ "$v56u" = "1" ] && [ "$v56v" = "1" ] \
     && [ "$v56w" = "2" ] && [ "$v56x" = "1" ] && [ "$v56y" = "1" ] && [ "$v56z" = "3" ] \
     && [ "$v56aa" = "1" ] && [ "$v56ab" = "1" ] \
+    && [ "$v56ac" = "1" ] && [ "$v56ad" = "1" ] && [ "$v56ae" = "1" ] && [ "$v56af" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

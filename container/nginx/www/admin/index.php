@@ -218,9 +218,16 @@ $totalCount = count($worlds);
                     // one-shot notice they can dismiss and never find again.
                     // Counted with glob() rather than by asking the report: this runs on every
                     // dashboard render and the report shells out a parser per unaccounted file.
+                    // Also counted PER WORLD, because the review is offered as a gate in front
+                    // of Mods / Start / Settings and that gate must only fire for a world that
+                    // actually has something parked.
                     $cfgMigPending = 0;
+                    $cfgMigByWorld = [];
                     foreach (glob('/opt/stateful/games/valheim/worlds/*/custom_configs*/.imported-pre-2.55/*.cfg') ?: [] as $__f) {
                         $cfgMigPending++;
+                        // .../worlds/<world>/custom_configs*/.imported-pre-2.55/<file>
+                        $__w = basename(dirname(dirname(dirname($__f))));
+                        $cfgMigByWorld[$__w] = ($cfgMigByWorld[$__w] ?? 0) + 1;
                     }
                     ?>
                     <?php if ($cfgMigPending > 0): ?>
@@ -2838,6 +2845,48 @@ $totalCount = count($worlds);
         }
     }
 
+    // Which worlds still have pre-2.55 originals parked, and how many. Rendered by PHP because
+    // it is a filesystem fact, and the gate below needs it before any fetch completes.
+    const cfgMigByWorld = <?php echo json_encode($cfgMigByWorld ?? [], JSON_UNESCAPED_SLASHES); ?>;
+
+    // Worlds whose review the operator has already seen this page-load. The gate is a prompt,
+    // not a lock: it must never stand between an operator and starting their world twice.
+    const cfgMigSeen = {};
+
+    // THE GATE. Clicking Mods, Start or Settings on a world with parked originals shows the
+    // review first, then continues to what was clicked.
+    //
+    // ONE delegated listener rather than an onclick on each control. Those three actions are
+    // rendered in five places between the PHP cards, the three JS row branches and the poll
+    // updater, and threading a handler through all of them is exactly the enumeration that
+    // shipped 2.53's hammertime bug -- a caller nobody updated. A listener on document also
+    // survives the 5-second poll replacing every row, which an attached handler would not.
+    //
+    // CAPTURE phase, deliberately: the controls carry inline onclick attributes, which fire at
+    // the target during bubbling. A capture listener on document runs first, so stopPropagation
+    // here prevents the inline handler ever seeing the click. Bubble phase would be too late --
+    // the modal would open on top of the thing it was supposed to come before.
+    document.addEventListener('click', function (e) {
+        const el = e.target.closest('[data-action="start"], [data-action="mods"], [data-action="settings"]');
+        if (!el || el.classList.contains('disabled')) { return; }
+
+        const row = el.closest('tr[data-world]');
+        const world = row ? row.getAttribute('data-world') : null;
+        if (!world || !cfgMigByWorld[world] || cfgMigSeen[world]) { return; }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Re-click the SAME element to continue. Re-implementing what each action does would
+        // be a second copy of three behaviours -- including the Start link's href and the two
+        // modal openers -- and the copy is what goes stale. cfgMigSeen lets the second click
+        // through this gate untouched.
+        showConfigMigration(world, function () {
+            cfgMigSeen[world] = true;
+            el.click();
+        });
+    }, true);
+
     // ---- The 2.55 config migration review ----
     //
     // Three states per parked file, and they are NOT interchangeable:
@@ -2849,32 +2898,76 @@ $totalCount = count($worlds);
     //              "delete everything" button would have destroyed the only copy.
     //   unreadable the parser failed. Also not pre-ticked -- a file we cannot read is not a
     //              file we can call empty.
-    async function showConfigMigration() {
+    // `onlyWorld` scopes the review to the world the operator was acting on, so a gate in front
+    // of Start does not confront them with every other world's leftovers. `onContinue` is the
+    // gate's "carry on to what I clicked" -- present only when it was a gate, so the sidebar
+    // entry point does not grow a button that continues to nothing.
+    let cfgMigContinue = null;
+    let cfgMigScope = null;
+
+    async function showConfigMigration(onlyWorld, onContinue) {
+        cfgMigContinue = onContinue || null;
+        cfgMigScope = onlyWorld || null;
         document.getElementById('cfgMigOverlay').classList.add('show');
         document.getElementById('cfgMigMsg').textContent = '';
         document.getElementById('cfgMigIntro').innerHTML = '';
         document.getElementById('cfgMigBody').innerHTML = '<div style="opacity:.7;">Loading&hellip;</div>';
         try {
             const r = await fetch('adminAPI.php?action=getConfigMigrationReport');
-            renderConfigMigration(await r.json());
+            const d = await r.json();
+            if (onlyWorld && d && d.worlds) {
+                const kept = d.worlds.filter(w => w.world === onlyWorld);
+                // Recount the totals for the narrowed set. Passing the server's global totals
+                // with a filtered world list would print "3 files cannot be accounted for"
+                // above a world that has none -- a true number about the wrong thing.
+                d.worlds = kept;
+                d.totals = {
+                    files: kept.reduce((a, w) => a + w.files.length, 0),
+                    at_risk: kept.reduce((a, w) => a + w.at_risk, 0),
+                };
+            }
+            renderConfigMigration(d, onlyWorld);
         } catch (e) {
             document.getElementById('cfgMigBody').innerHTML =
                 '<div class="cfg-coverage warn">Could not read the migration report.</div>';
+            // A failed report must not strand the operator behind the gate.
+            if (cfgMigContinue) { renderConfigMigrationContinue(); }
         }
     }
 
-    function renderConfigMigration(d) {
+    function renderConfigMigrationContinue() {
+        if (!cfgMigContinue) { return; }
+        const msg = document.getElementById('cfgMigMsg');
+        msg.innerHTML = '<button class="btn btn-sm btn-primary" onclick="continueAfterConfigMigration()">'
+                      + 'Continue</button>';
+    }
+
+    function continueAfterConfigMigration() {
+        const go = cfgMigContinue;
+        cfgMigContinue = null;
+        document.getElementById('cfgMigOverlay').classList.remove('show');
+        if (go) { go(); }
+    }
+
+    function renderConfigMigration(d, onlyWorld) {
         const intro = document.getElementById('cfgMigIntro');
         const body  = document.getElementById('cfgMigBody');
         const worlds = (d && d.worlds) || [];
 
         intro.innerHTML =
             '<p style="font-size:.85rem;line-height:1.5;opacity:.85;margin:0 0 .8rem 0;">'
+          + (onlyWorld
+                ? `Before you carry on with <b>${escapeHtmlBasic(onlyWorld)}</b>: this world still `
+                  + 'has pre-2.55 config files set aside. '
+                : '')
           + 'When this server upgraded to 2.55, every setting you had changed in '
           + '<code>custom_configs</code> was read out and stored <b>per setting</b> in the '
           + 'database, so a mod update can no longer wipe it. The original files were moved '
           + 'aside rather than deleted, and this is where you decide whether to remove them.'
+          + (onlyWorld ? ' You can deal with it now or press <b>Continue</b>.' : '')
           + '</p>';
+
+        renderConfigMigrationContinue();
 
         if (!worlds.length) {
             body.innerHTML = '<div class="cfg-coverage ok">Nothing left to review &mdash; no '
@@ -2973,15 +3066,33 @@ $totalCount = count($worlds);
             }
         }
 
-        msg.textContent = `${deleted} deleted${failed ? `, ${failed} failed` : ''}.`;
+        // Keep the gate's own bookkeeping honest: cfgMigByWorld came from the page load, so
+        // without this the gate would keep firing for a world the operator has just cleared.
+        for (const [world, files] of Object.entries(byWorld)) {
+            if (cfgMigByWorld[world]) {
+                cfgMigByWorld[world] = Math.max(0, cfgMigByWorld[world] - files.length);
+                if (!cfgMigByWorld[world]) { delete cfgMigByWorld[world]; }
+            }
+        }
+
+        const note = `${deleted} deleted${failed ? `, ${failed} failed` : ''}.`;
         // Re-read rather than patching the list in place: the report is the authority on what
         // is still on disk, and a hand-patched list would be a second opinion that can drift.
-        showConfigMigration();
+        // The scope and the gate's Continue are both carried through -- re-rendering without
+        // them would drop an operator's "carry on to what I clicked" on the floor.
+        await showConfigMigration(cfgMigScope, cfgMigContinue);
+        document.getElementById('cfgMigMsg').textContent = note;
+        renderConfigMigrationContinue();
     }
 
+    // Closing is a CANCEL, not a dismissal: it does not mark the world seen, so the gate
+    // offers the review again next time. Continue is the only way past it, and Continue also
+    // performs the action that was clicked -- so there is no path that silently swallows it.
     function closeConfigMigration(event) {
         if (!event || event.target === document.getElementById('cfgMigOverlay')) {
             document.getElementById('cfgMigOverlay').classList.remove('show');
+            cfgMigContinue = null;
+            cfgMigScope = null;
         }
     }
 
