@@ -2933,14 +2933,15 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # Unmatched cannot be expressed as ?mod=, so it gets its own parameter.
   # v56bq/br/bs -- the page reads ?unmatched=, filters on a NULL mod_id, and the picker sends it
   # v56by -- the filtered page NAMES the filter; a silent filter reads as the whole world
-  # v56bt/bu/bv -- Back to Mods is the browser's Back, guarded on the referrer being ours.
-  #                NOT history.length: that counts the whole tab, so it is already >1 in a tab
-  #                that visited anything else while Back leads somewhere that is not ours.
-  # v56bw -- the href fallback for a direct hit, pointing where Back would land
-  # v56bx -- NEGATIVE: it no longer diverts to edit_world.php, which was a different page from
-  #          the one the operator came from
-  # Whether the onclick really suppresses its href is a browser fact, and so is the forward
-  # entry that proves Back ran rather than the link:
+  # v56bw -- Back to Mods is a PLAIN LINK to the picker hash, so it opens Mods > Mod Configs
+  #          from every route in.
+  # v56bt/bu/bv -- NEGATIVE: no history.back() shim, no onclick, no referrer guard. Back was
+  #          whatever the previous entry happened to be, and arriving from the migration review
+  #          modal or from "show all configs" on this same page made that a dashboard with no
+  #          picker hash -- so the button landed on a bare dashboard.
+  # v56bx -- NEGATIVE: it no longer diverts to edit_world.php, which is the mod PICKER page
+  # Whether the link really reopens the Mod Configs list is a browser fact, including from a
+  # route whose previous entry has no hash:
   # dev_tools/test-configs-unmatched-back.js (9 assertions, with an unfiltered control).
   v56bq=$(grep -cF '$unmatchedOnly = isset($_GET[' /opt/stateless/nginx/www/admin/world_configs.php)
   v56br=$(grep -cF "return \$f['mod_id'] === null;" /opt/stateless/nginx/www/admin/world_configs.php)
@@ -3010,7 +3011,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
   echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
-  echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  goBack fn=$v56bt (want 1)  onclick=$v56bu (want 1)  referrer guard=$v56bv (want 1)  fallback href=$v56bw (want 1)  edit_world link gone=$v56bx (want 0)"
+  echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
@@ -3282,8 +3283,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bd" = "1" ] && [ "$v56be" = "1" ] && [ "$v56bf" = "1" ] && [ "$v56bg" = "1" ] \
     && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] \
     && [ "$v56bl" = "1" ] && [ "$v56bn" = "1" ] && [ "$v56bo" = "1" ] && [ "$v56bp" = "1" ] \
-    && [ "$v56bq" = "1" ] && [ "$v56br" = "1" ] && [ "$v56bs" = "1" ] && [ "$v56bt" = "1" ] \
-    && [ "$v56bu" = "1" ] && [ "$v56bv" = "1" ] && [ "$v56bw" = "1" ] && [ "$v56bx" = "0" ] \
+    && [ "$v56bq" = "1" ] && [ "$v56br" = "1" ] && [ "$v56bs" = "1" ] && [ "$v56bt" = "0" ] \
+    && [ "$v56bu" = "0" ] && [ "$v56bv" = "0" ] && [ "$v56bw" = "1" ] && [ "$v56bx" = "0" ] \
     && [ "$v56by" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \

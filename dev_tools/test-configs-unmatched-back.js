@@ -7,13 +7,14 @@
 //      null -- so it appended NOTHING and the row opened every config in the world. The row
 //      says "unmatched" and showed the opposite. Unmatched cannot be expressed as ?mod=, so it
 //      needs its own parameter.
-//   2. "Back to Mods" was a plain link to edit_world.php, which is a different page from the
-//      one the operator came from. It is now the browser's Back when the referrer is ours, so
-//      the Configs modal comes back with its filter and scroll intact, and falls back to
-//      index.php#mods-configs=<world> on a direct hit.
+//   2. "Back to Mods" pointed at edit_world.php (the mod PICKER), then at history.back().
+//      Back is whatever the previous entry happens to be: arriving from the migration review
+//      modal, or from "show all configs" on this page, leaves a previous entry with no picker
+//      hash, so it landed on a bare dashboard. It is now a plain link to
+//      index.php#mods-configs=<world>, which opens Mods > Mod Configs from every route in.
 //
-// Whether a link lands on the right SET of cards, and whether an onclick really suppresses its
-// own href, are browser facts -- so this clicks the real controls on the real pages.
+// Whether a link lands on the right SET of cards, and whether the dashboard really reopens the
+// list from a hash, are browser facts -- so this clicks the real controls on the real pages.
 //
 // Fixture (dev container): one world with BOTH a matched mod config and >=2 unmatched ones.
 //   docker exec phvalheim-dev sh -c '
@@ -114,57 +115,80 @@ const cards = (page) => page.evaluate(() =>
 			`banner was "${escape}" — a silent filter looks like the whole world`);
 	}
 
-	// ---- Back to Mods really goes BACK ----
+	// ---- Back to Mods opens the Mod Configs LIST ----
+	// Deliberately NOT measured on the route we just took. The previous entry here IS the
+	// picker, so history.back() and a link to the picker hash are indistinguishable -- the
+	// assertion would pass either way. The route that tells them apart is one whose previous
+	// entry has no picker hash, which is every other way into this page (the migration review
+	// modal, "show all configs" on this page, a bookmark). That is the control below; this
+	// first click only establishes the happy path still works.
 	const urlBefore = page.url();
-	await Promise.all([
+	const clickBack = () => Promise.all([
 		page.waitForNavigation({ waitUntil: 'domcontentloaded' }).catch(() => {}),
 		page.evaluate(() => Array.from(document.querySelectorAll('a'))
 			.find(x => /back to mods/i.test(x.textContent)).click()),
 	]);
-	await page.waitForTimeout(1200);
-
-	const landed = page.url();
-	if (/index\.php/.test(landed) && landed !== urlBefore) {
-		ok(`Back to Mods returns to the dashboard (${landed.replace(BASE, '')})`);
-	} else {
-		bad('Back to Mods returns to the dashboard', `landed on ${landed}`);
-	}
-	// It must NOT be edit_world.php: that is the mod PICKER, a different page from the one the
-	// operator came from, which is what "back" was doing before.
-	if (!/edit_world\.php/.test(landed)) {
-		ok('Back to Mods does not divert to edit_world.php');
-	} else {
-		bad('Back to Mods does not divert to edit_world.php',
-			'it still navigates to the mod picker instead of going back');
-	}
-	// Landing on index.php does NOT prove Back was used: the href fallback points at the same
-	// URL on purpose, so the two are indistinguishable by location alone. The discriminator is
-	// the FORWARD entry -- history.back() leaves one, an href navigation does not. Without this
-	// the suite would pass with the onclick removed entirely.
-	const wentForward = await page.goForward({ waitUntil: 'domcontentloaded' })
-		.then(() => page.url()).catch(() => null);
-	if (wentForward && /world_configs\.php/.test(wentForward)) {
-		ok('it really used history.back() — Forward returns to the config page');
-	} else {
-		bad('it really used history.back()',
-			`Forward went to ${wentForward} — a plain href navigation leaves no forward entry, `
-			+ 'so the modal\'s filter and scroll position are lost even though the URL looks right');
-	}
-	// Back again, to leave the page where the remaining assertions expect it.
-	await page.goBack({ waitUntil: 'domcontentloaded' }).catch(() => {});
-	await page.waitForTimeout(1200);
-
-	// The real payoff: the Configs modal is open again.
-	const modalBack = await page.evaluate(() => {
+	const pickerState = () => page.evaluate(() => {
 		const o = document.getElementById('cfgModalOverlay');
-		return { shown: !!o && o.classList.contains('show'),
+		return { url: location.href,
+		         shown: !!o && o.classList.contains('show'),
 		         rows: document.querySelectorAll('#cfgModalList a').length };
 	});
-	if (modalBack.shown) {
-		ok(`the Configs modal is open again after Back (${modalBack.rows} rows)`);
+
+	await clickBack();
+	await page.waitForTimeout(1200);
+	let st = await pickerState();
+
+	if (/index\.php/.test(st.url) && st.url !== urlBefore && !/edit_world\.php/.test(st.url)) {
+		ok(`Back to Mods returns to the dashboard (${st.url.replace(BASE, '')})`);
 	} else {
-		bad('the Configs modal is open again after Back',
-			'it landed on a bare dashboard — the whole point of Back is not having to re-open it');
+		bad('Back to Mods returns to the dashboard',
+			`landed on ${st.url} — edit_world.php is the mod PICKER, not the config list`);
+	}
+	if (st.shown && st.rows > 0) {
+		ok(`the Mod Configs list is open (${st.rows} rows)`);
+	} else {
+		bad('the Mod Configs list is open',
+			'it landed on a bare dashboard — the operator has to re-open Mods > Mod Configs by hand');
+	}
+
+	// ---- the control: a route whose previous entry is NOT the picker ----
+	// It must be a REAL in-app click, not page.goto: goto sends no Referer, so the old
+	// referrer-guarded history.back() fell straight through to its href and this case passed on
+	// the broken code. "Show all configs for this world" is a genuine same-site click, so the
+	// referrer IS ours and the previous entry is the FILTERED config page -- exactly the shape
+	// the migration review modal produces. history.back() returns to that page and never leaves
+	// world_configs.php at all; the link goes to the Mod Configs list from anywhere.
+	await page.goto(BASE + '/index.php', { waitUntil: 'networkidle' });
+	await page.evaluate((w) => showConfigsModal(w), WORLD);
+	await page.waitForFunction(
+		() => document.querySelectorAll('#cfgModalList a').length > 0, { timeout: 8000 })
+		.catch(() => {});
+	await Promise.all([
+		page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+		page.evaluate(() => Array.from(document.querySelectorAll('#cfgModalList a'))
+			.find(x => /unmatched/i.test(x.textContent)).click()),
+	]);
+	await Promise.all([
+		page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+		page.evaluate(() => Array.from(document.querySelectorAll('a'))
+			.find(x => /show all configs for this world/i.test(x.textContent)).click()),
+	]);
+	await clickBack();
+	await page.waitForTimeout(1200);
+	st = await pickerState();
+
+	if (/index\.php/.test(st.url) && st.shown && st.rows > 0) {
+		ok(`it reaches the list from a route whose Back is the previous config page (${st.rows} rows)`);
+	} else {
+		bad('it reaches the list from a route whose Back is the previous config page',
+			`url=${st.url} modal=${st.shown} rows=${st.rows} — Back here returns to the config `
+			+ 'page the operator just left, so the button never reaches Mods > Mod Configs');
+	}
+	if (st.url.includes('#mods-configs=')) {
+		ok('the landing URL carries the picker hash, so a reload still shows the list');
+	} else {
+		bad('the landing URL carries the picker hash', `url=${st.url}`);
 	}
 
 	if (errors.length === 0) {

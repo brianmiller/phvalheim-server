@@ -133,13 +133,19 @@ $payload = modConfigEditorPayload($pdo, $world);
 				<span class="badge bg-secondary"><?php echo htmlspecialchars($world); ?></span>
 				<div style="margin-left:auto;display:flex;gap:8px;">
 					<!--
+						A PLAIN LINK to the Mod Configs list, never history.back(). Back is
+						whatever the previous entry happens to be, and that is frequently not
+						this world's config list: arriving from the migration review modal, or
+						from "show all configs" on this same page, leaves a previous entry with
+						no picker hash at all, so Back landed on a bare dashboard. The hash
+						always opens Mods > Mod Configs for this world, from any route in.
+
 						rawurlencode, not urlencode: the hash is read back with
 						decodeURIComponent, which turns urlencode's "+" into a literal plus
 						rather than a space. A world name with a space would not match.
 					-->
 					<a class="btn btn-sm btn-outline-secondary"
-					   href="index.php#mods-configs=<?php echo rawurlencode($world); ?>"
-					   onclick="return cfgGoBack();">Back to Mods</a>
+					   href="index.php#mods-configs=<?php echo rawurlencode($world); ?>">Back to Mods</a>
 					<a class="btn btn-sm btn-outline-secondary" href="index.php">Dashboard</a>
 				</div>
 			</div>
@@ -536,27 +542,8 @@ $payload = modConfigEditorPayload($pdo, $world);
 
 		function keyOf(f, s, k) { return f + "\u001F" + s + "\u001F" + k; }
 
-		// "Back to Mods" IS the browser's Back when we arrived from inside the admin UI. That
-	// restores the Configs modal with its filter, its search box and its scroll position --
-	// none of which a fresh navigation can reproduce.
-	//
-	// Guarded on the REFERRER, not history.length: length counts the whole tab's history, so in
-	// a tab that visited anything else first it is already > 1 while Back leads somewhere that
-	// is not ours. The href is the fallback for a direct hit (typed URL, bookmark, new tab) and
-	// points at the same place Back would land, so both routes agree.
-	function cfgGoBack() {
-		try {
-			if (document.referrer
-			    && new URL(document.referrer).origin === location.origin
-			    && history.length > 1) {
-				history.back();
-				return false;
-			}
-		} catch (e) {
-			// Unparsable referrer: fall through and let the href navigate.
-		}
-		return true;
-	}
+		// "Back to Mods" is a plain href to index.php#mods-configs=<world>; see the comment on
+	// the link itself for why it is deliberately NOT history.back().
 
 	function refreshBar() {
 			var n = Object.keys(dirty).length;
