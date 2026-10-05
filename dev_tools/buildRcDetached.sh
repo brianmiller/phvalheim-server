@@ -2854,7 +2854,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # Geometry (Delete really painted left of Continue, same row) is a browser fact a grep cannot
   # reach -- dev_tools/test-config-migration-gate.js measures it from getBoundingClientRect.
   v56am=$(grep -c 'id="cfgMigDeleteBtn"' /opt/stateless/nginx/www/admin/index.php)
-  v56an=$(grep -cF "'Continue without deleting</button>'" /opt/stateless/nginx/www/admin/index.php)
+  # The label is CONDITIONAL now: "Continue without deleting" only while a delete is still on
+  # offer, plain "Continue" once nothing is left to delete. This used to anchor on the bare
+  # literal and went to zero the moment it became a ternary -- the fifth time this session my
+  # own change broke my own marker. Anchored on the ternary, which carries both labels.
+  v56an=$(grep -cF "(cfgMigHasFiles ? 'Continue without deleting' : 'Continue')" /opt/stateless/nginx/www/admin/index.php)
   v56ao=$(grep -cF 'btn-danger" onclick="deleteConfigMigrationBackups()"' /opt/stateless/nginx/www/admin/index.php)
   v56ap=$(grep -c 'cfgMigContinueWrap' /opt/stateless/nginx/www/admin/index.php)
   v56aq=$(grep -cF "getElementById('cfgMigDeleteBtn').style.display" /opt/stateless/nginx/www/admin/index.php)
@@ -2911,6 +2915,17 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56bh=$(grep -c "async function importConfigMigrationFile" /opt/stateless/nginx/www/admin/index.php)
   v56bi=$(grep -cF "INSERT IGNORE INTO mod_config_overrides" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56bj=$(grep -cF "const missing = risk + orphan;" /opt/stateless/nginx/www/admin/index.php)
+
+  # ---- the review knows when it is FINISHED ----
+  # After the last original is deleted the modal still said "Continue without deleting" over an
+  # empty list, and the intro still described files kept aside that no longer existed.
+  # v56bl/bn -- the flag and the single place that sets it from the report (before the Continue
+  #             renderer reads it; set it after and the label is one render stale)
+  # v56bo/bp -- the finished state says so, and drops the now-false intro
+  v56bl=$(grep -cF "let cfgMigHasFiles = true;" /opt/stateless/nginx/www/admin/index.php)
+  v56bn=$(grep -cF "cfgMigHasFiles = worlds.length > 0;" /opt/stateless/nginx/www/admin/index.php)
+  v56bo=$(grep -cF "<b>Migration complete.</b>" /opt/stateless/nginx/www/admin/index.php)
+  v56bp=$(grep -cF "intro.innerHTML = '';" /opt/stateless/nginx/www/admin/index.php)
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -2969,6 +2984,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION FOOTER: delete btn=$v56am (want 1)  continue label=$v56an (want 1)  in-body btn gone=$v56ao (want 0)  continue slot=$v56ap (want 3)  reveal writes=$v56aq (want 2)"
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
   echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
+  echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
@@ -3239,6 +3255,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bb" = "1" ] && [ "$v56bc" = "0" ] \
     && [ "$v56bd" = "1" ] && [ "$v56be" = "1" ] && [ "$v56bf" = "1" ] && [ "$v56bg" = "1" ] \
     && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] \
+    && [ "$v56bl" = "1" ] && [ "$v56bn" = "1" ] && [ "$v56bo" = "1" ] && [ "$v56bp" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

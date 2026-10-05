@@ -2914,10 +2914,17 @@ $totalCount = count($worlds);
     // entry point does not grow a button that continues to nothing.
     let cfgMigContinue = null;
     let cfgMigScope = null;
+    // Is there anything left to delete? Drives the Continue label: "Continue without deleting"
+    // is only meaningful while a delete is still on the table. Once the last original is gone
+    // there is nothing to not-do, and the qualifier reads as an unfinished chore.
+    // Starts true (pessimistic): an unread report has not deleted anything, so the explicit
+    // wording is the honest one until renderConfigMigration says otherwise.
+    let cfgMigHasFiles = true;
 
     async function showConfigMigration(onlyWorld, onContinue) {
         cfgMigContinue = onContinue || null;
         cfgMigScope = onlyWorld || null;
+        cfgMigHasFiles = true;
         document.getElementById('cfgMigOverlay').classList.add('show');
         document.getElementById('cfgMigMsg').textContent = '';
         document.getElementById('cfgMigIntro').innerHTML = '';
@@ -2956,11 +2963,13 @@ $totalCount = count($worlds);
 
     function renderConfigMigrationContinue() {
         if (!cfgMigContinue) { return; }
-        // "Continue without deleting" rather than "Continue": sitting next to a delete button it
-        // has to say which of the two decisions it is, or the safe choice reads as the vague one.
+        // "Continue without deleting" ONLY while a delete is still on offer: next to a live
+        // delete button the safe choice has to say which of the two decisions it is. With
+        // nothing left to delete the qualifier describes a choice that no longer exists, and
+        // after a successful delete it reads as though the job is unfinished.
         const wrap = document.getElementById('cfgMigContinueWrap');
         wrap.innerHTML = '<button class="btn btn-sm btn-primary" onclick="continueAfterConfigMigration()">'
-                       + 'Continue without deleting</button>';
+                       + (cfgMigHasFiles ? 'Continue without deleting' : 'Continue') + '</button>';
     }
 
     function continueAfterConfigMigration() {
@@ -2974,6 +2983,8 @@ $totalCount = count($worlds);
         const intro = document.getElementById('cfgMigIntro');
         const body  = document.getElementById('cfgMigBody');
         const worlds = (d && d.worlds) || [];
+        // Set BEFORE renderConfigMigrationContinue() below, which reads it to pick its label.
+        cfgMigHasFiles = worlds.length > 0;
 
         intro.innerHTML =
             '<p style="font-size:.85rem;line-height:1.5;opacity:.85;margin:0 0 .8rem 0;">'
@@ -2995,8 +3006,13 @@ $totalCount = count($worlds);
         renderConfigMigrationContinue();
 
         if (!worlds.length) {
-            body.innerHTML = '<div class="cfg-coverage ok">Nothing left to review &mdash; no '
-                           + 'pre-2.55 originals are still on disk.</div>';
+            // Nothing parked any more, so the intro above is describing files that do not
+            // exist. Replace it rather than leaving "these are the original files, kept aside"
+            // over an empty list.
+            intro.innerHTML = '';
+            body.innerHTML = '<div class="cfg-coverage ok"><b>Migration complete.</b> No '
+                           + 'pre-2.55 originals are left on disk, and your settings are in '
+                           + 'the database.</div>';
             return;
         }
 

@@ -316,6 +316,44 @@ const gateShown = (page) => page.evaluate(
 			`delVisible=${after.delVisible} note="${after.note}" body="${after.body}"`);
 	}
 
+	// ---- the Continue label drops "without deleting" once there is nothing to delete ----
+	// Next to a live delete button the qualifier is what tells the two decisions apart. With
+	// the list empty it describes a choice that no longer exists, and right after a successful
+	// delete it reads as an unfinished chore. Driven by re-opening WITH a continue callback,
+	// because the gate itself no longer fires for a world whose files are gone.
+	const labels = {};
+	for (const [phase, world] of [['empty', WORLD]]) {
+		await page.evaluate((w) => showConfigMigration(w, function () {}), world);
+		await page.waitForFunction(
+			() => !!document.querySelector('#cfgMigContinueWrap button'), { timeout: 8000 })
+			.catch(() => {});
+		labels[phase] = await page.evaluate(() => {
+			const b = document.querySelector('#cfgMigContinueWrap button');
+			return b ? b.textContent.trim() : null;
+		});
+	}
+	if (labels.empty === 'Continue') {
+		ok('with nothing left to delete the button is just "Continue"');
+	} else {
+		bad('with nothing left to delete the button is just "Continue"',
+			`label was "${labels.empty}" — it still offers to not do something that cannot be done`);
+	}
+	const doneText = await page.evaluate(() =>
+		document.getElementById('cfgMigBody').textContent.trim());
+	if (/Migration complete/i.test(doneText)) {
+		ok('the finished review says the migration is complete');
+	} else {
+		bad('the finished review says the migration is complete', `body read: "${doneText.slice(0, 120)}"`);
+	}
+	const introLeft = await page.evaluate(() =>
+		document.getElementById('cfgMigIntro').textContent.trim());
+	if (introLeft === '') {
+		ok('the finished review drops the intro about files kept aside');
+	} else {
+		bad('the finished review drops the intro about files kept aside',
+			`it still describes files that no longer exist: "${introLeft.slice(0, 120)}"`);
+	}
+
 	if (errors.length === 0) {
 		ok('no page errors while driving the gate');
 	} else {
