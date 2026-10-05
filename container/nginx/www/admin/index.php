@@ -3299,8 +3299,12 @@ $totalCount = count($worlds);
             }
 
             document.getElementById('cfgModalList').innerHTML = d.mods.map(m => {
+                // mod_id null IS the unmatched bucket -- it cannot be expressed as &mod=, and
+                // sending no filter at all made that row open the whole world's configs, the
+                // opposite of what it says. &unmatched=1 narrows to exactly those files.
                 const href = 'world_configs.php?world=' + encodeURIComponent(worldName)
-                           + (m.mod_id === null ? '' : '&mod=' + encodeURIComponent(m.mod_id));
+                           + (m.mod_id === null ? '&unmatched=1'
+                                                : '&mod=' + encodeURIComponent(m.mod_id));
                 const changed = m.modified_count > 0
                     ? `<span class="mods-count-badge" title="settings you have changed">${m.modified_count} changed</span>`
                     : '';

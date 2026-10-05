@@ -2926,6 +2926,31 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56bn=$(grep -cF "cfgMigHasFiles = worlds.length > 0;" /opt/stateless/nginx/www/admin/index.php)
   v56bo=$(grep -cF "<b>Migration complete.</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bp=$(grep -cF "intro.innerHTML = '';" /opt/stateless/nginx/www/admin/index.php)
+
+  # ---- the Unmatched row narrows, and Back to Mods goes BACK ----
+  # The picker built its href as "&mod=<id>" and the unmatched bucket's mod_id is NULL, so it
+  # appended nothing and that row opened every config in the world -- the opposite of its label.
+  # Unmatched cannot be expressed as ?mod=, so it gets its own parameter.
+  # v56bq/br/bs -- the page reads ?unmatched=, filters on a NULL mod_id, and the picker sends it
+  # v56by -- the filtered page NAMES the filter; a silent filter reads as the whole world
+  # v56bt/bu/bv -- Back to Mods is the browser's Back, guarded on the referrer being ours.
+  #                NOT history.length: that counts the whole tab, so it is already >1 in a tab
+  #                that visited anything else while Back leads somewhere that is not ours.
+  # v56bw -- the href fallback for a direct hit, pointing where Back would land
+  # v56bx -- NEGATIVE: it no longer diverts to edit_world.php, which was a different page from
+  #          the one the operator came from
+  # Whether the onclick really suppresses its href is a browser fact, and so is the forward
+  # entry that proves Back ran rather than the link:
+  # dev_tools/test-configs-unmatched-back.js (9 assertions, with an unfiltered control).
+  v56bq=$(grep -cF '$unmatchedOnly = isset($_GET[' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56br=$(grep -cF "return \$f['mod_id'] === null;" /opt/stateless/nginx/www/admin/world_configs.php)
+  v56bs=$(grep -cF "m.mod_id === null ? '&unmatched=1'" /opt/stateless/nginx/www/admin/index.php)
+  v56bt=$(grep -c "function cfgGoBack" /opt/stateless/nginx/www/admin/world_configs.php)
+  v56bu=$(grep -cF 'onclick="return cfgGoBack();"' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56bv=$(grep -cF "new URL(document.referrer).origin === location.origin" /opt/stateless/nginx/www/admin/world_configs.php)
+  v56bw=$(grep -cF 'href="index.php#mods-configs=' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56bx=$(grep -cF 'edit_world.php?world=<?php echo urlencode($world); ?>">Back to Mods' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56by=$(grep -cF "Showing unmatched files only" /opt/stateless/nginx/www/admin/world_configs.php)
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -2985,6 +3010,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
   echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
+  echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  goBack fn=$v56bt (want 1)  onclick=$v56bu (want 1)  referrer guard=$v56bv (want 1)  fallback href=$v56bw (want 1)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
@@ -3256,6 +3282,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bd" = "1" ] && [ "$v56be" = "1" ] && [ "$v56bf" = "1" ] && [ "$v56bg" = "1" ] \
     && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] \
     && [ "$v56bl" = "1" ] && [ "$v56bn" = "1" ] && [ "$v56bo" = "1" ] && [ "$v56bp" = "1" ] \
+    && [ "$v56bq" = "1" ] && [ "$v56br" = "1" ] && [ "$v56bs" = "1" ] && [ "$v56bt" = "1" ] \
+    && [ "$v56bu" = "1" ] && [ "$v56bv" = "1" ] && [ "$v56bw" = "1" ] && [ "$v56bx" = "0" ] \
+    && [ "$v56by" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
