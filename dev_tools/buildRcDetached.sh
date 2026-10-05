@@ -1887,8 +1887,15 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # TWO markers because there are TWO rule sets: fixing only the default one leaves every
   # window between 1024 and 1366 still wrapping, and a single marker would have passed anyway.
   # That is the same mistake as editing one of four render sites.
-  coi=$(grep -c "width: 29%" /opt/stateless/nginx/www/css/phvalheimStyles.css)
-  coj=$(grep -c "width: 34%" /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  # 2.56 re-measured the whole budget, so these two no longer name live values: Actions went
+  # 29% -> 24% (default) and 34% -> 23% (this breakpoint). What they were REALLY asserting is
+  # the thing above -- that both rule sets were touched, not just the default one -- so they
+  # now count the five-column budget in each, which is the invariant rather than one number
+  # that moves every time the table is measured again.
+  # 5 widths in the default rule, 5 in the 1024-1366 breakpoint, and nothing else in this
+  # stylesheet sets a .worlds-table column width.
+  coi=$(grep -c "^\.worlds-table td:nth-child([0-9]) { width: " /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  coj=$(grep -c "^	\.worlds-table td:nth-child([0-9]) { width: " /opt/stateless/nginx/www/css/phvalheimStyles.css)
   # NEGATIVES: the two old Configure widths. These are the shape of the bug, and they are the
   # only two occurrences of either literal in the stylesheet -- verified before they were used.
   cok=$(grep -c "width: 40%" /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -2558,7 +2565,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # payload" also appears in this page's own JS comment explaining applyToPlayers(), so the
   # marker counted 2 and the gate wanting 1 failed a correct tree. A pattern carrying <b> tags
   # cannot be satisfied by a code comment.
-  v55z=$(grep -c "use <b>Apply to players</b>, which" /opt/stateless/nginx/www/admin/world_configs.php)
+  # 2.56 renamed the button to "Save & apply to players" because it now saves first, so this
+  # sentence was reworded with it. Still anchored on the MARKUP for the reason above.
+  v55z=$(grep -c "<b>Save &amp; apply to players</b>, which saves your edits" /opt/stateless/nginx/www/admin/world_configs.php)
   v55aa=$(grep -c "use Apply to players so the client payload is rebuilt" /opt/stateless/nginx/www/includes/modconfigs.php)
   # The overflow fix: a grid item defaults to min-width:auto and refuses to shrink below its
   # content, so one long documented default pushed the row outside the card.
@@ -2689,8 +2698,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55bj=$(grep -c "showConfigsModal" /opt/stateless/nginx/www/admin/index.php)
   v55bk=$(grep -c "getWorldConfigMods" /opt/stateless/nginx/www/admin/adminAPI.php)
   v55bl=$(grep -c "function modConfigModSummary" /opt/stateless/nginx/www/includes/modconfigs.php)
-  v55bf=$(grep -c "modConfigsButtonHtml(world, true)" /opt/stateless/nginx/www/admin/index.php)
-  v55bg=$(grep -c "modConfigsButtonHtml(world, false)" /opt/stateless/nginx/www/admin/index.php)
+  # RETIRED in 2.56. modConfigsButtonHtml() no longer exists: the Configs button became one of
+  # two cards inside the Mods hub, so the per-branch gating these two counted now lives in
+  # v56b (button present in all 7 render branches) and v56d/v56e (the two card gates). They
+  # are kept as zero-checks rather than deleted, because a reintroduced copy of the old helper
+  # would mean someone had re-split the hub back into row buttons without updating the rest.
+  v55bf=$(grep -c "modConfigsButtonHtml" /opt/stateless/nginx/www/admin/index.php)
+  v55bg=$(grep -c "data-action=\"edit-mods\"" /opt/stateless/nginx/www/admin/index.php)
   v55bh=$(grep -c "world.mode === 'running' || world.mode === 'stopped'" /opt/stateless/nginx/www/admin/index.php)
 
   # CONTROL, and the one that matters most: Edit Mods must STILL be disabled for a non-stopped
@@ -2698,7 +2712,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # reachable" could be satisfied by simply enabling Edit Mods while a world is up, which would be
   # a far worse bug than the one being fixed. Matched with . for the backtick -- quoting a
   # backtick through this sh payload is not worth the risk of a marker that silently reads 0.
-  v55bi=$(grep -c 'editModsBtn.outerHTML = .<span class="action-btn disabled" data-action="edit-mods">' /opt/stateless/nginx/www/admin/index.php)
+  # RETIRED in 2.56 with the Edit Mods row button. The rule it protected -- the mod LIST may
+  # only be changed on a stopped world -- did NOT go away, it moved into the hub's Mod Catalog
+  # card, and v56d is now the marker that holds it. Checked as a zero so a resurrected poll
+  # line cannot quietly reintroduce a second, weaker copy of the gate.
+  v55bi=$(grep -c "editModsBtn" /opt/stateless/nginx/www/admin/index.php)
 
   # The picker shipped calling escapeHtml(), which this file does not define -- the first mod
   # row threw ReferenceError and the modal's own catch told the operator "Error loading mod
@@ -2755,9 +2773,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # the honest reading of the button was "apply something other than what you are looking at".
   v56l=$(awk '/function applyToPlayers\(\)/,/^\t\t\}$/' /opt/stateless/nginx/www/admin/world_configs.php | grep -c 'confirm(')
 
-  echo "2.55 CONFIG ENTRY: world_configs hrefs=$v55be (want 2)  enabled branches=$v55bf (want 2)  disabled branch=$v55bg (want 1)  poll gate=$v55bh (want 1)"
-  echo "2.55 CONFIG PICKER: showConfigsModal=$v55bj (want 4)  api endpoint=$v55bk (want 1)  summary fn=$v55bl (want 1)  undefined escapeHtml=$v55bm (want 0)"
-  echo "2.55 CONFIG ENTRY CONTROL: Edit Mods still gated=$v55bi (want 1)"
+  echo "2.55 CONFIG ENTRY: world_configs hrefs=$v55be (want 2)  old helper gone=$v55bf (want 0)  old edit-mods action gone=$v55bg (want 0)  poll gate=$v55bh (want 1)"
+  echo "2.55 CONFIG PICKER: showConfigsModal=$v55bj (want 2)  api endpoint=$v55bk (want 1)  summary fn=$v55bl (want 1)  undefined escapeHtml=$v55bm (want 0)"
+  echo "2.55 CONFIG ENTRY CONTROL: old editModsBtn poll line gone=$v55bi (want 0) -- superseded by v56d"
   echo "2.56 MODS HUB: old actions tree-wide=$v56a (want 0)  mods buttons=$v56b (want 7)  hub fns=$v56c (want 5)  getWorldMods caller=$v56f (want 1)"
   echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
   echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
@@ -2963,7 +2981,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cnx" = "1" ] && [ "$cny" = "1" ] \
     && [ "$cnz" = "1" ] && [ "$cob" = "1" ] && [ "$coc" = "1" ] \
     && [ "$coe" = "1" ] && [ "$cof" = "1" ] && [ "$cog" = "1" ] && [ "$cod" = "1" ] \
-    && [ "$coh" = "1" ] && [ "$coi" = "1" ] && [ "$coj" = "1" ] && [ "$con" = "1" ] \
+    && [ "$coh" = "1" ] && [ "$coi" = "5" ] && [ "$coj" = "5" ] && [ "$con" = "1" ] \
     && [ "$cok" = "0" ] && [ "$com" = "0" ] \
     && [ "$cop" = "1" ] && [ "$coq" = "1" ] && [ "$cor" = "1" ] && [ "$cos" = "1" ] \
     && [ "$cot" = "0" ] && [ "$cpa" = "1" ] && [ "$cou" = "1" ] && [ "$cov" = "2" ] \
@@ -3008,13 +3026,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55av" = "1" ] && [ "$v55aw" = "1" ] && [ "$v55ax" = "1" ] && [ "$v55ay" = "1" ] \
     && [ "$v55az" = "1" ] && [ "$v55ba" = "1" ] && [ "$v55bb" = "1" ] && [ "$v55bc" = "1" ] \
     && [ "$v55bd" = "0" ] \
-    && [ "$v55be" = "2" ] && [ "$v55bf" = "2" ] && [ "$v55bg" = "1" ] && [ "$v55bh" = "1" ] \
-    && [ "$v55bj" = "4" ] && [ "$v55bk" = "1" ] && [ "$v55bl" = "1" ] && [ "$v55bm" = "0" ] \
+    && [ "$v55be" = "2" ] && [ "$v55bf" = "0" ] && [ "$v55bg" = "0" ] && [ "$v55bh" = "1" ] \
+    && [ "$v55bj" = "2" ] && [ "$v55bk" = "1" ] && [ "$v55bl" = "1" ] && [ "$v55bm" = "0" ] \
     && [ "$v56a" = "0" ] && [ "$v56b" = "7" ] && [ "$v56c" = "5" ] && [ "$v56f" = "1" ] \
     && [ "$v56d" = "1" ] && [ "$v56e" = "1" ] \
     && [ "$v56g" = "1" ] && [ "$v56h" = "2" ] && [ "$v56i" = "0" ] \
     && [ "$v56j" = "1" ] && [ "$v56k" = "1" ] && [ "$v56l" = "0" ] \
-    && [ "$v55bi" = "1" ] \
+    && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
