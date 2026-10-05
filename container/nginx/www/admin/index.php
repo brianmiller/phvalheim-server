@@ -2981,10 +2981,18 @@ $totalCount = count($worlds);
                 ? `Before you carry on with <b>${escapeHtmlBasic(onlyWorld)}</b>: this world still `
                   + 'has pre-2.55 config files set aside. '
                 : '')
-          + 'When this server upgraded to 2.55, every setting you had changed in '
-          + '<code>custom_configs</code> was read out and stored <b>per setting</b> in the '
-          + 'database, so a mod update can no longer wipe it. The original files were moved '
-          + 'aside rather than deleted, and this is where you decide whether to remove them.'
+          + 'When this server upgraded to 2.55, the settings you had changed in '
+          + '<code>custom_configs</code> were read out and stored <b>per setting</b> in the '
+          + 'database, so a mod update can no longer wipe them. The original files were moved '
+          + 'aside rather than deleted, and this is where you decide whether to remove them. '
+          // Do NOT claim "every setting". The list below is checked against the database as it
+          // stands NOW, and a file can hold settings the database no longer has -- a reset in
+          // the editor, a "forget" on a stale override, a mod dropped from the world. Claiming
+          // completeness here and then listing counter-examples underneath is what made the
+          // whole modal unreadable: it looked like the migration had lied.
+          + 'Each file below is compared against the database <b>as it stands now</b>, not '
+          + 'against what the upgrade wrote &mdash; so anything reset, forgotten or dropped '
+          + 'since then shows up here as missing, because it is.'
           + (onlyWorld ? ' You can deal with it now or press <b>Continue without deleting</b>.' : '')
           + '</p>';
 
@@ -3007,17 +3015,24 @@ $totalCount = count($worlds);
                   + `${risk === 1 ? 'It is' : 'They are'} left unticked &mdash; tick only if you `
                   + 'are sure you no longer want them.</div>';
         }
-        // Orphans get their own banner rather than being folded into "accounted for". They are
-        // safe for a DIFFERENT reason, and the reason is the whole answer to "why wasn't this
-        // migrated?" -- the mod left the world, so nothing can read the file again.
+        // Orphans get their own banner rather than being folded into "accounted for", because
+        // they are safe for a DIFFERENT reason and the difference matters. An orphan is TWO
+        // facts at once: the database has none of its settings, AND no mod here reads the file.
+        // The first banner for this said only the second fact and then "you would re-enter the
+        // values by hand" -- which is unanswerable if you believe everything was migrated.
+        // Both facts, or the advice looks like it contradicts the migration.
         if (orphan > 0) {
-            html += `<div class="cfg-coverage ok"><b>${orphan} file${orphan === 1 ? '' : 's'} `
-                  + `belong${orphan === 1 ? 's' : ''} to a mod this world no longer has.</b> `
-                  + `${orphan === 1 ? 'It is' : 'They are'} safe to delete: nothing installed `
-                  + `here reads ${orphan === 1 ? 'that file' : 'those files'}, so `
-                  + `${orphan === 1 ? 'its' : 'their'} settings cannot apply to anything. `
-                  + `${orphan === 1 ? 'It is' : 'They are'} ticked. If you ever add the mod `
-                  + 'back you would re-enter the values by hand.</div>';
+            const it = orphan === 1;
+            html += `<div class="cfg-coverage ok"><b>${orphan} file${it ? '' : 's'} `
+                  + `hold${it ? 's' : ''} settings the database does not have, but `
+                  + `belong${it ? 's' : ''} to a mod this world no longer has.</b> `
+                  + `Nothing installed here reads ${it ? 'that file' : 'those files'}, so `
+                  + `${it ? 'its' : 'their'} settings cannot apply to anything &mdash; safe to `
+                  + `delete, and ${it ? 'it is' : 'they are'} ticked. Deleting is final though: `
+                  + `${it ? 'this file is' : 'these files are'} the only copy left of those `
+                  + `values, so re-adding the mod later would start it from its own defaults. `
+                  + `Keep ${it ? 'it' : 'them'} unticked if you want the values for reference.`
+                  + '</div>';
         }
         if (risk === 0 && orphan === 0) {
             html += '<div class="cfg-coverage ok">Every original is accounted for in the '
@@ -3044,9 +3059,13 @@ $totalCount = count($worlds);
                 } else if (f.state === 'empty') {
                     why = 'nothing in it differs from the mod&rsquo;s own defaults';
                 } else if (f.state === 'orphaned') {
-                    why = 'no mod in this world uses this config &mdash; nothing can read it, '
-                        + `safe to delete (it holds ${f.changed} changed setting`
-                        + `${f.changed === 1 ? '' : 's'})`;
+                    // Lead with the same fact the at-risk row leads with -- N settings the
+                    // database does not have -- then the reason it is safe anyway. Naming only
+                    // the reason read as "these were fine all along", which is not what
+                    // happened to them.
+                    why = `${f.changed} changed setting${f.changed === 1 ? '' : 's'} NOT in the `
+                        + 'database, but no mod in this world uses this config any more '
+                        + '&mdash; nothing can read it, so it is safe to delete';
                 } else if (f.changed === -1) {
                     why = '<b>could not be read</b> &mdash; left unticked';
                 } else {

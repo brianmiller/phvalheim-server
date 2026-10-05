@@ -2882,8 +2882,15 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56au=$(grep -cF " --parse-dir --dir " /opt/stateless/nginx/www/includes/modconfigs.php)
   v56av=$(grep -cF '!is_array($owners)' /opt/stateless/nginx/www/includes/modconfigs.php)
   v56aw=$(grep -cF "|| f.state === 'orphaned';" /opt/stateless/nginx/www/admin/index.php)
-  v56ax=$(grep -cF "to a mod this world no longer has.</b>" /opt/stateless/nginx/www/admin/index.php)
-  v56ba=$(grep -cF "'no mod in this world uses this config" /opt/stateless/nginx/www/admin/index.php)
+  # The orphan banner and row must BOTH name the missing database rows, not only the reassuring
+  # half. Saying just "nothing can read it, safe to delete" made the banner's own advice -- a
+  # re-added mod starts from its defaults -- unanswerable: if everything was migrated, why would
+  # anything need re-entering? And v56bc is the negative that keeps the intro from claiming
+  # "every setting" was migrated, which is the sentence the list underneath contradicts.
+  v56ax=$(grep -cF "settings the database does not have, but " /opt/stateless/nginx/www/admin/index.php)
+  v56ba=$(grep -cF "'database, but no mod in this world uses this config any more '" /opt/stateless/nginx/www/admin/index.php)
+  v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
+  v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
   # ---- the 2.55 migration review: the OPERATOR decides about the originals ----
   # The import parked each consumed file. Deleting those is irreversible, and on a real server
@@ -2934,7 +2941,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 CFG ACCORDION: php gate=$v56ag (want 1)  toggle fn=$v56ah (want 1)  body wrapper=$v56ai (want 3)  buttons exempt=$v56aj (want 1)  edited fn=$v56ak (want 1)  edited calls=$v56al (want 4)"
   echo "2.56 MIGRATION GATE: delegated listener=$v56ac (want 1)  capture phase=$v56ad (want 1)  per-world map=$v56ae (want 1)  re-click=$v56af (want 1)"
   echo "2.56 MIGRATION FOOTER: delete btn=$v56am (want 1)  continue label=$v56an (want 1)  in-body btn gone=$v56ao (want 0)  continue slot=$v56ap (want 3)  reveal writes=$v56aq (want 2)"
-  echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)"
+  echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 1)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
@@ -3202,6 +3209,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56ap" = "3" ] && [ "$v56aq" = "2" ] \
     && [ "$v56ar" = "1" ] && [ "$v56as" = "1" ] && [ "$v56at" = "1" ] && [ "$v56au" = "1" ] \
     && [ "$v56av" = "1" ] && [ "$v56aw" = "1" ] && [ "$v56ax" = "1" ] && [ "$v56ba" = "1" ] \
+    && [ "$v56bb" = "1" ] && [ "$v56bc" = "0" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

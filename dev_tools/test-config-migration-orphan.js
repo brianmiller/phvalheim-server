@@ -100,11 +100,17 @@ const rowOf = (page, file) => page.evaluate((f) => {
 		bad(`${ORPHAN} (mod gone) is ticked for deletion`,
 			'left unticked — this is the exact complaint: a file nothing can read, presented as a risk');
 	}
-	if (/no mod in this world uses this config/i.test(orphan.why)
+	// BOTH facts, not just the reassuring one. An orphan is "the database does not have these"
+	// AND "nothing here can read them". Saying only the second made the banner's own advice --
+	// you would set the mod up from its defaults again -- unanswerable: if it was all migrated,
+	// why would anything need re-entering? That question is what sent me back to this wording.
+	if (/NOT in the database/i.test(orphan.why)
+	    && /no mod in this world uses this config/i.test(orphan.why)
 	    && /safe to delete/i.test(orphan.why)) {
-		ok('the orphan row explains WHY it is safe, in words');
+		ok('the orphan row states the database lacks the settings AND why it is still safe');
 	} else {
-		bad('the orphan row explains WHY it is safe, in words', `reason was: "${orphan.why}"`);
+		bad('the orphan row states the database lacks the settings AND why it is still safe',
+			`reason was: "${orphan.why}"`);
 	}
 	if (!orphan.flaggedRisky) {
 		ok('the orphan row is not styled as a risk');
@@ -144,11 +150,22 @@ const rowOf = (page, file) => page.evaluate((f) => {
 		bad('the review shows both a warning banner and a safe banner',
 			`banners: ${JSON.stringify(banners.map(b => b.warn))} — one verdict cannot describe both cases`);
 	}
-	if (okBanner && /no longer has/i.test(okBanner.text) && /safe to delete/i.test(okBanner.text)) {
-		ok('the safe banner says the mod is gone and the files are safe');
+	if (okBanner && /does not have/i.test(okBanner.text) && /no longer has/i.test(okBanner.text)
+	    && /safe to delete/i.test(okBanner.text) && /only copy/i.test(okBanner.text)) {
+		ok('the safe banner names both facts and warns the delete is final');
 	} else {
-		bad('the safe banner says the mod is gone and the files are safe',
-			`text was: "${okBanner ? okBanner.text.slice(0, 160) : '(none)'}"`);
+		bad('the safe banner names both facts and warns the delete is final',
+			`text was: "${okBanner ? okBanner.text.slice(0, 220) : '(none)'}"`);
+	}
+	// The intro must not claim EVERY setting was migrated -- it is the sentence that makes the
+	// list underneath look like a contradiction.
+	const intro = await page.evaluate(() =>
+		document.getElementById('cfgMigIntro').textContent);
+	if (!/every setting/i.test(intro) && /as it stands now/i.test(intro)) {
+		ok('the intro says the comparison is against the database as it stands now');
+	} else {
+		bad('the intro says the comparison is against the database as it stands now',
+			'it still claims every setting was migrated, which the list below contradicts');
 	}
 	// The warning must be scoped to the still-installed case now, or it still over-claims.
 	if (warnBanner && /still has/i.test(warnBanner.text)) {
