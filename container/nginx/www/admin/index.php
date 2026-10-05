@@ -983,6 +983,11 @@ $totalCount = count($worlds);
                 <button class="mods-modal-close" onclick="closeConfigsModal()">&times;</button>
             </div>
             <div class="mods-modal-body">
+                <!-- Coverage FIRST, above the list. A picker showing 6 of 29 installed mods is
+                     telling the truth about the config files on disk and lying by omission
+                     about the world; the operator reads it as a broken feature. This banner is
+                     what makes the list's own scope visible. -->
+                <div id="cfgModalCoverage"></div>
                 <input type="text" id="cfgModalFilter" placeholder="Filter mods&hellip;"
                        oninput="filterConfigMods()" autocomplete="off"
                        style="width:100%;margin-bottom:10px;padding:7px 10px;background:var(--bg-tertiary);
@@ -990,6 +995,7 @@ $totalCount = count($worlds);
                 <ul class="mods-list" id="cfgModalList">
                     <li>Loading&hellip;</li>
                 </ul>
+                <div id="cfgModalWaiting"></div>
                 <div id="cfgModalAll" style="margin-top:12px;"></div>
             </div>
         </div>
@@ -2787,6 +2793,11 @@ $totalCount = count($worlds);
         document.getElementById('cfgModalTitle').textContent = `Mod Configs - ${worldName}`;
         document.getElementById('cfgModalList').innerHTML = '<li>Loading&hellip;</li>';
         document.getElementById('cfgModalAll').innerHTML = '';
+        // Cleared on open, not just rewritten on success: the coverage banner names a count and
+        // a world, so leaving the previous world's one on screen while this one loads would
+        // state a specific falsehood rather than merely being stale.
+        document.getElementById('cfgModalCoverage').innerHTML = '';
+        document.getElementById('cfgModalWaiting').innerHTML = '';
         document.getElementById('cfgModalFilter').value = '';
         document.getElementById('cfgModalOverlay').classList.add('show');
 
@@ -2799,6 +2810,8 @@ $totalCount = count($worlds);
                     `<li style="color: var(--danger);">${escapeHtmlBasic(d.error)}</li>`;
                 return;
             }
+            renderConfigCoverage(worldName, d);
+
             // "No configs yet" is NOT an error and must not read like one: most mods write
             // their config file the first time they load, so a world that has never started
             // legitimately has nothing to show.
@@ -2830,6 +2843,67 @@ $totalCount = count($worlds);
             document.getElementById('cfgModalList').innerHTML =
                 '<li style="color: var(--danger);">Error loading mod configs</li>';
         }
+    }
+
+    // What this list does and does NOT cover, stated before the list itself.
+    //
+    // The case that made this necessary: 29 mods installed, 6 in the picker. Both numbers were
+    // correct -- a world update purges BepInEx/config, materialise rebuilt only the 8 files it
+    // had saved settings for, and the world had not been restarted since, so 23 mods had
+    // written nothing. The picker showed 6 with no hint that it was a partial view, and the
+    // feature read as broken. The advice depends on the world's live mode, which is why the
+    // endpoint sends it rather than the browser assuming.
+    function renderConfigCoverage(worldName, d) {
+        const cov  = document.getElementById('cfgModalCoverage');
+        const wait = document.getElementById('cfgModalWaiting');
+        cov.innerHTML = '';
+        wait.innerHTML = '';
+
+        // Older servers' payloads have no coverage fields. Say nothing rather than render
+        // "undefined of undefined" -- a tab left open across an upgrade hits this.
+        if (typeof d.installed !== 'number' || typeof d.configured !== 'number') { return; }
+
+        const waiting = d.waiting || [];
+        const full = waiting.length === 0;
+
+        // The unmatched bucket is a row in the list but not an installed mod, so the counts
+        // below would otherwise be one short of what the operator can see and count.
+        const unmatched = d.unmatched_files > 0
+            ? ` One extra row covers <b>${d.unmatched_files}</b> config file`
+              + `${d.unmatched_files === 1 ? '' : 's'} PhValheim could not match to an installed `
+              + `mod &mdash; still editable, still sent to players.`
+            : '';
+
+        if (full) {
+            cov.innerHTML = `<div class="cfg-coverage ok">All <b>${d.installed}</b> of this `
+                          + `world&rsquo;s mods have written a config file.${unmatched}</div>`;
+            return;
+        }
+
+        // Two genuinely different situations, and the wrong advice for either is worse than
+        // none. Stopped: the mods have not had the chance to write yet, so starting the world
+        // fixes it. Running: they HAVE had the chance, so the honest answer is that some mods
+        // simply have no settings -- telling an operator to restart a live world to chase
+        // configs that will never appear would be a disconnect for nothing.
+        const advice = d.mode === 'stopped'
+            ? '<b>Start this world once</b> and the rest will appear &mdash; most mods write '
+              + 'their settings file the first time they load. A world update clears these '
+              + 'files, so this is normal right after one.'
+            : (d.mode === 'running'
+                ? 'This world is running, so these have already had the chance to write one. '
+                  + 'Some mods genuinely have no settings; the rest will appear after their '
+                  + 'next load.'
+                : 'They will appear once this world has started and the mods have loaded.');
+
+        cov.innerHTML = `<div class="cfg-coverage warn">`
+                      + `<b>${d.configured} of ${d.installed}</b> installed mods have written a `
+                      + `config file. ${advice}${unmatched}</div>`;
+
+        wait.innerHTML = `<details class="cfg-waiting"><summary>`
+                       + `${waiting.length} mod${waiting.length === 1 ? '' : 's'} with no config file yet`
+                       + `</summary><ul class="mods-list">`
+                       + waiting.map(m => `<li style="opacity:.75;">${escapeHtmlBasic(m.name)}</li>`).join('')
+                       + `</ul></details>`;
     }
 
     function filterConfigMods() {

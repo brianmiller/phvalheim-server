@@ -2767,6 +2767,31 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   #     dropStale() and the paste-import path all post it. A total is the wrong shape of
   #     question. What matters is that applyToPlayers' OWN BODY saves, so the awk range below
   #     scopes the count to that function.
+  # ---- the picker states its own COVERAGE ----
+  # It showed 6 rows for a world with 29 installed mods and nothing marked it as a partial
+  # view, so a correct list read as a broken feature. Four parts, each its own marker because
+  # three of the four are silent when absent:
+  #   v56m -- the summary reports installed/configured/waiting, not just the matched list
+  #   v56n -- it reads worlds.mode through $pdo, NOT getWorldMode() from db_gets.php. That
+  #           first version was a fatal everywhere except adminAPI.php, which happens to
+  #           include both files. Checked as a ZERO so it cannot come back.
+  #   v56o -- the browser renders it, and both the banner and the named waiting list exist
+  #   v56p -- the unmatched bucket is counted separately, or the banner says "5 of 29" over a
+  #           list of 6 rows and invites a hunt for the difference
+  # 'installed' is deliberately NOT in this pattern: an unrelated tally elsewhere in the file
+  # uses the same key, so including it read 4 against a want of 3 -- caught by predicting
+  # locally. These two keys are unique to the coverage block.
+  v56m=$(grep -cE "'(configured|waiting)' *=>" /opt/stateless/nginx/www/includes/modconfigs.php)
+  # ZERO, and it covers the comments too: the only mentions of getWorldMode left in this file
+  # must be the ones explaining why it is not called. Predicting this locally is what found the
+  # PRE-EXISTING call in modConfigSave() -- the same hazard, live since 2.55.
+  v56n=$(grep -c "getWorldMode(\$pdo" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56o=$(grep -c "function renderConfigCoverage" /opt/stateless/nginx/www/admin/index.php)
+  v56p=$(grep -c "unmatched_files" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56q=$(grep -c "unmatched_files" /opt/stateless/nginx/www/admin/index.php)
+  # The single mode reader both call sites now share.
+  v56r=$(grep -c "function modConfigWorldMode" /opt/stateless/nginx/www/includes/modconfigs.php)
+
   v56j=$(grep -c 'onclick="applyToPlayers()">Save &amp; apply to players' /opt/stateless/nginx/www/admin/world_configs.php)
   v56k=$(awk '/function applyToPlayers\(\)/,/^\t\t\}$/' /opt/stateless/nginx/www/admin/world_configs.php | grep -c "post('saveModConfigs'")
   # CONTROL: the confirm() that used to stand in for saving must be gone. While it was there,
@@ -2779,6 +2804,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MODS HUB: old actions tree-wide=$v56a (want 0)  mods buttons=$v56b (want 7)  hub fns=$v56c (want 5)  getWorldMods caller=$v56f (want 1)"
   echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
   echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
+  echo "2.56 CONFIG COVERAGE: summary keys=$v56m (want 2)  getWorldMode calls=$v56n (want 0)  mode reader=$v56r (want 1)  renderer=$v56o (want 1)  unmatched php=$v56p (want 1) js=$v56q (want 3)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
 
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
@@ -3032,6 +3058,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56d" = "1" ] && [ "$v56e" = "1" ] \
     && [ "$v56g" = "1" ] && [ "$v56h" = "2" ] && [ "$v56i" = "0" ] \
     && [ "$v56j" = "1" ] && [ "$v56k" = "1" ] && [ "$v56l" = "0" ] \
+    && [ "$v56m" = "2" ] && [ "$v56n" = "0" ] && [ "$v56r" = "1" ] && [ "$v56o" = "1" ] \
+    && [ "$v56p" = "1" ] && [ "$v56q" = "3" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

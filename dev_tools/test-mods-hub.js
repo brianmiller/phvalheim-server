@@ -320,6 +320,77 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 		bad('the installed list renders, counts and escapes a populated payload', JSON.stringify(populated));
 	}
 
+	// ---- COVERAGE. The 6-of-29 case, driven with the real numbers off Brian's server ----
+	//
+	// The picker was correct and still read as broken: it showed 6 rows for a world with 29
+	// installed mods, with nothing saying the other 23 had simply not written a config file
+	// yet. These cases pin the three things that has to get right -- the counts, the advice
+	// (which differs by world mode and must not tell someone to restart a live world to chase
+	// configs that will never appear), and the unmatched row being accounted for so the banner
+	// and the visible list cannot disagree.
+	const covCases = [
+		{ name: 'stopped, partial', mode: 'stopped', installed: 29, configured: 5, waiting: 24,
+		  unmatched_files: 3,
+		  wantClass: 'warn', want: [/5 of 29/, /Start this world once/, /3<\/b> config files/],
+		  notWant: [/All 29/] },
+		{ name: 'running, partial', mode: 'running', installed: 29, configured: 5, waiting: 24,
+		  unmatched_files: 0,
+		  wantClass: 'warn', want: [/5 of 29/, /already had the chance/],
+		  // Telling an operator to restart a RUNNING world would disconnect players to chase
+		  // configs that may not exist. This is the case that assertion exists for.
+		  notWant: [/Start this world once/] },
+		{ name: 'complete', mode: 'running', installed: 12, configured: 12, waiting: 0,
+		  unmatched_files: 0,
+		  wantClass: 'ok', want: [/All <b>12<\/b>/], notWant: [/have written a config file\. /, /no config file yet/] },
+	];
+
+	for (const c of covCases) {
+		const got = await page.evaluate((c) => {
+			const waiting = Array.from({length: c.waiting}, (_, i) => ({mod_id: 1000 + i, name: `Waiting-Mod-${i}`}));
+			window.renderConfigCoverage('stub', {
+				installed: c.installed, configured: c.configured, mode: c.mode,
+				waiting, unmatched_files: c.unmatched_files,
+			});
+			const box = document.querySelector('#cfgModalCoverage .cfg-coverage');
+			return {
+				html: box ? box.innerHTML : null,
+				cls: box ? (box.classList.contains('ok') ? 'ok' : (box.classList.contains('warn') ? 'warn' : '?')) : null,
+				waitingRows: document.querySelectorAll('#cfgModalWaiting .mods-list li').length,
+				summary: (document.querySelector('#cfgModalWaiting summary') || {}).textContent || '',
+			};
+		}, c);
+
+		if (!got.html) { bad(`coverage [${c.name}] renders a banner`, 'no .cfg-coverage element'); continue; }
+
+		const missing = c.want.filter(re => !re.test(got.html));
+		const leaked  = c.notWant.filter(re => re.test(got.html));
+		if (got.cls === c.wantClass && missing.length === 0 && leaked.length === 0) {
+			ok(`coverage [${c.name}]: ${c.wantClass} banner, correct counts and advice`);
+		} else {
+			bad(`coverage [${c.name}]: ${c.wantClass} banner, correct counts and advice`,
+				`class=${got.cls} missing=${missing} leaked=${leaked} html="${got.html.slice(0, 180)}"`);
+		}
+
+		if (got.waitingRows === c.waiting) {
+			ok(`coverage [${c.name}]: ${c.waiting} mod(s) named in the waiting list`);
+		} else {
+			bad(`coverage [${c.name}]: ${c.waiting} mod(s) named in the waiting list`,
+				`rendered ${got.waitingRows} rows, summary "${got.summary}"`);
+		}
+	}
+
+	// An older server's payload has no coverage fields. Saying nothing is correct; rendering
+	// "undefined of undefined" is the failure mode this guards.
+	const legacy = await page.evaluate(() => {
+		window.renderConfigCoverage('stub', { mods: [], total: 0 });
+		return document.getElementById('cfgModalCoverage').innerHTML;
+	});
+	if (legacy.trim() === '') {
+		ok('a payload with no coverage fields renders no banner (old server, tab left open)');
+	} else {
+		bad('a payload with no coverage fields renders no banner', `rendered "${legacy}"`);
+	}
+
 	if (errors.length === 0) {
 		ok('no page errors while driving the hub');
 	} else {

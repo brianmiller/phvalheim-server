@@ -39,6 +39,24 @@ function modConfigExcludedFiles() {
 }
 
 /**
+ * This world's running state, read through $pdo.
+ *
+ * NOT getWorldMode() from db_gets.php. This file does every database read itself, on purpose
+ * (see the header), and it does not include db_gets.php -- so the getWorldMode() call that used
+ * to be in modConfigSave() only worked because adminAPI.php happens to include both files. Any
+ * other caller requiring just modconfigs.php got "Call to undefined function", which is how the
+ * coverage summary first died. A helper that works because of a caller's include list is a fatal
+ * waiting for the next caller.
+ *
+ * `mode`, NOT `status`: status is a human-facing label ("Down"), mode is the running state.
+ */
+function modConfigWorldMode($pdo, $world) {
+    $st = $pdo->prepare("SELECT mode FROM worlds WHERE name = ?");
+    $st->execute([$world]);
+    return (string)($st->fetchColumn() ?: 'unknown');
+}
+
+/**
  * The world's selected mods, in the shape modConfigs.py --catalogue-file expects.
  */
 function modConfigCatalogueJson($pdo, $worldId) {
@@ -420,7 +438,7 @@ function modConfigSaveOverrides($pdo, $world, $items) {
             // The world's mode right now, so the summary can say what a restart would even
             // mean. A stopped world picks server-side changes up on its next start, with
             // nothing for the operator to do.
-            'worldMode' => (string)getWorldMode($pdo, $world),
+            'worldMode' => modConfigWorldMode($pdo, $world),
             // BepInEx reads its config at plugin load, so a running world cannot pick this up.
             // The side matters and the first version of this note ignored it: a client-side
             // mod reads the config from the client payload zip, which only packageClient()
@@ -567,10 +585,54 @@ function modConfigModSummary($pdo, $world) {
         return strcasecmp($a['name'], $b['name']);
     });
 
+    // ---- COVERAGE: how much of the world this list actually covers ----
+    //
+    // Brian opened this picker on a world with 29 installed mods and saw 6. The list was
+    // correct -- a world update had purged BepInEx/config and the world had not been started
+    // since, so only the files materialise rebuilt from saved overrides existed -- but the
+    // modal presented 6 as though it were all there was. A partial answer rendered as a
+    // complete one reads as a broken feature, and this is the second time that exact shape has
+    // bitten this project: see "Unknown is not up to date".
+    //
+    // So the picker now states its own coverage and names what is missing. The counts come
+    // from world_mods (what the world installs) against the payload (what has written a file).
+    $worldId   = worldIdByName($pdo, $world);
+    $catalogue = $worldId ? modConfigCatalogueJson($pdo, $worldId) : [];
+
+    $haveConfig = [];
+    foreach ($out as $m) {
+        if ($m['mod_id'] !== null) { $haveConfig[(int)$m['mod_id']] = true; }
+    }
+
+    $waiting = [];
+    foreach ($catalogue as $m) {
+        if (!isset($haveConfig[(int)$m['id']])) {
+            $waiting[] = ['mod_id' => (int)$m['id'], 'name' => $m['full_name'] ?: $m['name']];
+        }
+    }
+    usort($waiting, function ($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
+    // The live mode decides which ADVICE is true, so it is read here rather than guessed in
+    // the browser. A stopped world needs "start it once"; a running one has already had the
+    // chance, so the honest reading there is "these may simply have no settings".
+    //
+    $mode = modConfigWorldMode($pdo, $world);
+
     return [
         'world'     => $world,
         'generated' => (bool)($payload['generated'] ?? false),
         'mods'      => $out,
         'total'     => count($out),
+        // Coverage. 'installed' counts the world's mods; 'configured' counts those with at
+        // least one config file. They are reported separately rather than as a percentage
+        // because the gap itself is the thing the operator needs to act on.
+        'installed'  => count($catalogue),
+        'configured' => count($haveConfig),
+        'waiting'    => $waiting,
+        'mode'       => $mode,
+        // The unmatched bucket is a LIST ROW but not an installed mod, so without this the
+        // banner says "5 of 29" above a list of 6 and invites the operator to go looking for
+        // the discrepancy. Counted separately so the banner can name it for what it is.
+        'unmatched_files' => (int)($mods['unmatched']['files'] ?? 0),
     ];
 }
