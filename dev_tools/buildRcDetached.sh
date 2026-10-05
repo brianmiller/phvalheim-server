@@ -2901,8 +2901,6 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # v56bg/bh -- the per-row button and its handler
   # v56bi -- INSERT IGNORE, not REPLACE: a row the operator has since set by hand outranks the
   #          file, which also makes pressing Import twice a no-op rather than a revert
-  # v56bk -- TWO realpath containment checks now (delete and import), both resolving the file
-  #          and requiring it under the parked directory. basename() alone is not enough.
   # v56bj -- ONE banner for the whole missing-settings case, not one paragraph per state
   # Driven live by dev_tools/test-config-migration-orphan.js (17 assertions), which presses
   # Import and checks the row moves to "in the database" and becomes ticked.
@@ -2913,7 +2911,6 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56bh=$(grep -c "async function importConfigMigrationFile" /opt/stateless/nginx/www/admin/index.php)
   v56bi=$(grep -cF "INSERT IGNORE INTO mod_config_overrides" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56bj=$(grep -cF "const missing = risk + orphan;" /opt/stateless/nginx/www/admin/index.php)
-  v56bk=$(grep -cF "strpos(\$real, \$base . '/') !== 0" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -2932,6 +2929,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   #   v56ab -- at-risk files are not pre-ticked (the checked attribute is conditional)
   v56w=$(grep -c "function modConfigMigrationReport\|function modConfigDeleteMigrationBackups" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56x=$(grep -c "deleteConfigMigrationBackups" /opt/stateless/nginx/www/admin/adminAPI.php)
+  # TWO containment checks as of the Import button: the delete path and the import path both
+  # resolve the file and require it under the parked directory. This wanted 1 and the second
+  # check failed the build -- the fourth time this session that my own code collided with my
+  # own marker. v56bk measured the same string and is retired; one name per measurement.
   v56y=$(grep -cF "strpos(\$real, \$base . '/') !== 0" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56z=$(grep -c "return -1;" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56aa=$(grep -c 'data-nav="cfg-migration"' /opt/stateless/nginx/www/admin/index.php)
@@ -2967,8 +2968,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION GATE: delegated listener=$v56ac (want 1)  capture phase=$v56ad (want 1)  per-world map=$v56ae (want 1)  re-click=$v56af (want 1)"
   echo "2.56 MIGRATION FOOTER: delete btn=$v56am (want 1)  continue label=$v56an (want 1)  in-body btn gone=$v56ao (want 0)  continue slot=$v56ap (want 3)  reveal writes=$v56aq (want 2)"
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
-  echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)  containment checks=$v56bk (want 2)"
-  echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 1)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
+  echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
+  echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
 
@@ -3226,7 +3227,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56m" = "2" ] && [ "$v56n" = "0" ] && [ "$v56r" = "1" ] && [ "$v56o" = "1" ] \
     && [ "$v56p" = "1" ] && [ "$v56q" = "3" ] \
     && [ "$v56s" = "1" ] && [ "$v56t" = "1" ] && [ "$v56u" = "1" ] && [ "$v56v" = "1" ] \
-    && [ "$v56w" = "2" ] && [ "$v56x" = "1" ] && [ "$v56y" = "1" ] && [ "$v56z" = "3" ] \
+    && [ "$v56w" = "2" ] && [ "$v56x" = "1" ] && [ "$v56y" = "2" ] && [ "$v56z" = "3" ] \
     && [ "$v56aa" = "1" ] && [ "$v56ab" = "1" ] \
     && [ "$v56ac" = "1" ] && [ "$v56ad" = "1" ] && [ "$v56ae" = "1" ] && [ "$v56af" = "1" ] \
     && [ "$v56ag" = "1" ] && [ "$v56ah" = "1" ] && [ "$v56ai" = "3" ] \
@@ -3237,7 +3238,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56av" = "1" ] && [ "$v56aw" = "1" ] && [ "$v56ax" = "1" ] && [ "$v56ba" = "1" ] \
     && [ "$v56bb" = "1" ] && [ "$v56bc" = "0" ] \
     && [ "$v56bd" = "1" ] && [ "$v56be" = "1" ] && [ "$v56bf" = "1" ] && [ "$v56bg" = "1" ] \
-    && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] && [ "$v56bk" = "2" ] \
+    && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
