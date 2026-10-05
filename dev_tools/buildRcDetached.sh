@@ -1905,7 +1905,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   con=$(grep -c "nth-child(2) .world-name" /opt/stateless/nginx/www/css/phvalheimStyles.css)
 
   echo "2.53 ADMIN COLUMN NEGATIVES: old Configure 40%=$cok (want 0)  old Configure 41%=$com (want 0)"
-  echo "2.53 admin columns: actions default=$coi (want 1)  actions narrow=$coj (want 1)  name nowrap=$con (want 1)"
+  # The wants here said "1" long after the 2.56 re-budget made both of these FIVE (one width
+  # rule per column) and the && chain was updated to match. The gate was right and the printout
+  # was lying, which reads in the log exactly like a failing marker that somehow passed.
+  echo "2.53 admin columns: actions default=$coi (want 5)  actions narrow=$coj (want 5)  name nowrap=$con (want 1)"
   echo "2.53 mod list geometry: measured log=$coh (want 1)"
 
   # cop/coq -- the scroll fix and the panel geometry nudges.
