@@ -211,6 +211,27 @@ $totalCount = count($worlds);
                         </svg>
                         Add World
                     </a>
+                    <?php
+                    // The migration review's PERMANENT door. Rendered only while there is
+                    // something parked to review, and it disappears once the operator has
+                    // cleared it -- but while it exists it is always here, not only in a
+                    // one-shot notice they can dismiss and never find again.
+                    // Counted with glob() rather than by asking the report: this runs on every
+                    // dashboard render and the report shells out a parser per unaccounted file.
+                    $cfgMigPending = 0;
+                    foreach (glob('/opt/stateful/games/valheim/worlds/*/custom_configs*/.imported-pre-2.55/*.cfg') ?: [] as $__f) {
+                        $cfgMigPending++;
+                    }
+                    ?>
+                    <?php if ($cfgMigPending > 0): ?>
+                    <a href="#" onclick="showConfigMigration(); return false;" class="nav-item" data-nav="cfg-migration">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-5l-2-2H6a2 2 0 00-2 2z"/>
+                        </svg>
+                        Config Migration
+                        <span class="mods-count-badge"><?php echo $cfgMigPending; ?></span>
+                    </a>
+                    <?php endif; ?>
                 </div>
 
                 <div class="nav-section">
@@ -939,6 +960,32 @@ $totalCount = count($worlds);
                     <li>Paste the code above and join.</li>
                 </ol>
                 <p class="joincode-note">The code changes every time the world restarts &mdash; come back here for the current one.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- The 2.55 config migration review.
+         The import lifted each world's custom_configs into the database and parked the
+         originals. Whether those originals get deleted is the OPERATOR's call, not ours: on a
+         real server three parked files held 12 non-default settings the database had since
+         lost, so a blanket cleanup would have destroyed the only copy. This modal shows what
+         came across, flags per file anything the database cannot account for, and deletes only
+         what is ticked.
+         Reachable from the sidebar permanently, not only as a one-shot notice -- a dialog an
+         operator dismisses once and can never find again is a feature with no door. -->
+    <div class="mods-modal-overlay" id="cfgMigOverlay" onclick="closeConfigMigration(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 780px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">Mod config migration (2.55)</h3>
+                <button class="mods-modal-close" onclick="closeConfigMigration()">&times;</button>
+            </div>
+            <div class="mods-modal-body">
+                <div id="cfgMigIntro"></div>
+                <div id="cfgMigBody"><div style="opacity:.7;">Loading&hellip;</div></div>
+            </div>
+            <div class="mods-modal-footer">
+                <span id="cfgMigMsg" style="font-size:.82rem;opacity:.8;"></span>
+                <button class="btn btn-sm btn-secondary" onclick="closeConfigMigration()">Close</button>
             </div>
         </div>
     </div>
@@ -2788,6 +2835,153 @@ $totalCount = count($worlds);
             }
         } catch (error) {
             list.innerHTML = '<li style="color: var(--danger);">Error loading mods</li>';
+        }
+    }
+
+    // ---- The 2.55 config migration review ----
+    //
+    // Three states per parked file, and they are NOT interchangeable:
+    //   accounted  the database holds rows for it -> safe, pre-ticked
+    //   empty      it has no non-default values left to lose -> safe, pre-ticked
+    //   at_risk    it holds settings the database does not have -> NOT pre-ticked, and the
+    //              reason is spelled out. This is the case that made the whole modal
+    //              necessary: on a real server three files held 12 such settings, so a
+    //              "delete everything" button would have destroyed the only copy.
+    //   unreadable the parser failed. Also not pre-ticked -- a file we cannot read is not a
+    //              file we can call empty.
+    async function showConfigMigration() {
+        document.getElementById('cfgMigOverlay').classList.add('show');
+        document.getElementById('cfgMigMsg').textContent = '';
+        document.getElementById('cfgMigIntro').innerHTML = '';
+        document.getElementById('cfgMigBody').innerHTML = '<div style="opacity:.7;">Loading&hellip;</div>';
+        try {
+            const r = await fetch('adminAPI.php?action=getConfigMigrationReport');
+            renderConfigMigration(await r.json());
+        } catch (e) {
+            document.getElementById('cfgMigBody').innerHTML =
+                '<div class="cfg-coverage warn">Could not read the migration report.</div>';
+        }
+    }
+
+    function renderConfigMigration(d) {
+        const intro = document.getElementById('cfgMigIntro');
+        const body  = document.getElementById('cfgMigBody');
+        const worlds = (d && d.worlds) || [];
+
+        intro.innerHTML =
+            '<p style="font-size:.85rem;line-height:1.5;opacity:.85;margin:0 0 .8rem 0;">'
+          + 'When this server upgraded to 2.55, every setting you had changed in '
+          + '<code>custom_configs</code> was read out and stored <b>per setting</b> in the '
+          + 'database, so a mod update can no longer wipe it. The original files were moved '
+          + 'aside rather than deleted, and this is where you decide whether to remove them.'
+          + '</p>';
+
+        if (!worlds.length) {
+            body.innerHTML = '<div class="cfg-coverage ok">Nothing left to review &mdash; no '
+                           + 'pre-2.55 originals are still on disk.</div>';
+            return;
+        }
+
+        const risk = (d.totals && d.totals.at_risk) || 0;
+        let html = '';
+        if (risk > 0) {
+            html += `<div class="cfg-coverage warn"><b>${risk} file${risk === 1 ? '' : 's'} `
+                  + `cannot be accounted for.</b> ${risk === 1 ? 'It holds' : 'They hold'} `
+                  + 'settings that are not in the database, so deleting '
+                  + `${risk === 1 ? 'it' : 'them'} would lose those settings. `
+                  + `${risk === 1 ? 'It is' : 'They are'} left unticked &mdash; tick only if you `
+                  + 'are sure you no longer want them.</div>';
+        } else {
+            html += '<div class="cfg-coverage ok">Every original is accounted for in the '
+                  + 'database. Deleting them loses nothing.</div>';
+        }
+
+        for (const w of worlds) {
+            html += `<div class="cfg-mig-world"><div class="cfg-mig-world-head">`
+                  + `<b>${escapeHtmlBasic(w.world)}</b>`
+                  + `<span style="opacity:.7;font-size:.8rem;"> &mdash; ${w.db_rows} setting`
+                  + `${w.db_rows === 1 ? '' : 's'} in the database across ${w.db_files} file`
+                  + `${w.db_files === 1 ? '' : 's'}</span></div><ul class="cfg-mig-list">`;
+
+            for (const f of w.files) {
+                const safe = f.state === 'accounted' || f.state === 'empty';
+                let why;
+                if (f.state === 'accounted') {
+                    why = `${f.rows_in_db} setting${f.rows_in_db === 1 ? '' : 's'} saved in the database`;
+                } else if (f.state === 'empty') {
+                    why = 'nothing in it differs from the mod&rsquo;s own defaults';
+                } else if (f.changed === -1) {
+                    why = '<b>could not be read</b> &mdash; left unticked';
+                } else {
+                    why = `<b>${f.changed} changed setting${f.changed === 1 ? '' : 's'} NOT in the `
+                        + 'database</b> &mdash; this file is the only copy';
+                }
+                html += `<li><label class="cfg-mig-row">`
+                      + `<input type="checkbox" data-mig-world="${escapeAttr(w.world)}" `
+                      + `data-mig-file="${escapeAttr(f.file)}"${safe ? ' checked' : ''}>`
+                      + `<span><code>${escapeHtmlBasic(f.file)}</code>`
+                      + `<span class="cfg-mig-why ${safe ? '' : 'risk'}">${why}</span></span>`
+                      + `</label></li>`;
+            }
+            html += '</ul></div>';
+        }
+
+        html += '<div style="margin-top:1rem;display:flex;gap:.5rem;align-items:center;">'
+              + '<button class="btn btn-sm btn-danger" onclick="deleteConfigMigrationBackups()">'
+              + 'Delete ticked originals</button>'
+              + '<span style="font-size:.78rem;opacity:.7;">This cannot be undone.</span></div>';
+
+        body.innerHTML = html;
+    }
+
+    async function deleteConfigMigrationBackups() {
+        const boxes = Array.from(document.querySelectorAll('#cfgMigBody input[data-mig-file]:checked'));
+        const msg = document.getElementById('cfgMigMsg');
+        if (!boxes.length) { msg.textContent = 'Nothing ticked.'; return; }
+
+        // Name the count AND the risky ones in the confirm. An operator who ticked an at-risk
+        // file deserves to be told again at the point of no return, not only in the list above.
+        const risky = boxes.filter(b => b.closest('label').querySelector('.cfg-mig-why.risk'));
+        let prompt = `Delete ${boxes.length} original file(s)? This cannot be undone.`;
+        if (risky.length) {
+            prompt += `\n\n${risky.length} of them hold settings that are NOT in the database:\n`
+                    + risky.slice(0, 8).map(b => '  ' + b.dataset.migFile).join('\n')
+                    + '\n\nThose settings will be gone for good.';
+        }
+        if (!confirm(prompt)) { return; }
+
+        const byWorld = {};
+        for (const b of boxes) {
+            (byWorld[b.dataset.migWorld] = byWorld[b.dataset.migWorld] || []).push(b.dataset.migFile);
+        }
+
+        msg.textContent = 'Deleting…';
+        let deleted = 0, failed = 0;
+        for (const [world, files] of Object.entries(byWorld)) {
+            try {
+                const r = await fetch('adminAPI.php?action=deleteConfigMigrationBackups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ world, files }),
+                });
+                const d = await r.json();
+                if (d.error) { failed += files.length; continue; }
+                deleted += d.deleted || 0;
+                failed  += (d.results || []).filter(x => !x.deleted).length;
+            } catch (e) {
+                failed += files.length;
+            }
+        }
+
+        msg.textContent = `${deleted} deleted${failed ? `, ${failed} failed` : ''}.`;
+        // Re-read rather than patching the list in place: the report is the authority on what
+        // is still on disk, and a hand-patched list would be a second opinion that can drift.
+        showConfigMigration();
+    }
+
+    function closeConfigMigration(event) {
+        if (!event || event.target === document.getElementById('cfgMigOverlay')) {
+            document.getElementById('cfgMigOverlay').classList.remove('show');
         }
     }
 

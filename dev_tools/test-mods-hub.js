@@ -391,6 +391,131 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 		bad('a payload with no coverage fields renders no banner', `rendered "${legacy}"`);
 	}
 
+	// ---- the 2.55 migration review modal ----
+	//
+	// Driven with the LIVE numbers off Brian's server: 10 parked files, 3 of which hold 12
+	// settings the database does not have. The report endpoint is stubbed rather than
+	// fixtured because the at-risk state is the whole point and it cannot be produced on
+	// demand -- it exists because something deleted override rows after the import wrote them.
+	//
+	// What must hold: safe files pre-ticked, at-risk files NOT pre-ticked, and the REASON
+	// visible per file. An unticked checkbox on its own does not tell an operator that the
+	// file is the last copy of 6 settings.
+	await clearOverlays();
+	const mig = await page.evaluate(() => {
+		window.renderConfigMigration({
+			totals: { files: 10, at_risk: 3 },
+			worlds: [{
+				world: 'VikingOutlaws', db_rows: 40, db_files: 7, at_risk: 3,
+				files: [
+					{ file: 'zolantris.ValheimRAFT.cfg', state: 'at_risk', rows_in_db: 0, changed: 6 },
+					{ file: 'Azumatt.SleepSkip.cfg', state: 'at_risk', rows_in_db: 0, changed: 4 },
+					{ file: 'spectralmemories.fasterboats.cfg', state: 'at_risk', rows_in_db: 0, changed: 2 },
+					{ file: 'Azumatt.AzuClock.cfg', state: 'accounted', rows_in_db: 4, changed: null },
+					{ file: 'ValheimFoodConfig.cfg', state: 'accounted', rows_in_db: 11, changed: null },
+					{ file: 'unreadable.cfg', state: 'at_risk', rows_in_db: 0, changed: -1 },
+					{ file: 'alldefaults.cfg', state: 'empty', rows_in_db: 0, changed: 0 },
+				],
+			}],
+		});
+		const rows = Array.from(document.querySelectorAll('#cfgMigBody input[data-mig-file]'));
+		const byFile = {};
+		for (const r of rows) {
+			byFile[r.dataset.migFile] = {
+				checked: r.checked,
+				risk: !!r.closest('label').querySelector('.cfg-mig-why.risk'),
+				why: r.closest('label').querySelector('.cfg-mig-why').textContent.trim(),
+			};
+		}
+		return {
+			count: rows.length,
+			byFile,
+			banner: (document.querySelector('#cfgMigBody .cfg-coverage') || {}).className || '',
+			bannerText: (document.querySelector('#cfgMigBody .cfg-coverage') || {}).textContent || '',
+			intro: document.getElementById('cfgMigIntro').textContent.trim().length,
+		};
+	});
+
+	if (mig.count === 7) {
+		ok('the migration review lists every parked file (7)');
+	} else {
+		bad('the migration review lists every parked file', `rendered ${mig.count} rows`);
+	}
+
+	const risky = ['zolantris.ValheimRAFT.cfg', 'Azumatt.SleepSkip.cfg',
+	               'spectralmemories.fasterboats.cfg', 'unreadable.cfg'];
+	const wrongTick = risky.filter(f => !mig.byFile[f] || mig.byFile[f].checked);
+	if (wrongTick.length === 0) {
+		ok('no at-risk or unreadable file is pre-ticked for deletion');
+	} else {
+		bad('no at-risk or unreadable file is pre-ticked for deletion',
+			`pre-ticked: ${wrongTick.join(', ')} — a careless click would destroy the only copy`);
+	}
+
+	const safe = ['Azumatt.AzuClock.cfg', 'ValheimFoodConfig.cfg', 'alldefaults.cfg'];
+	const notTicked = safe.filter(f => !mig.byFile[f] || !mig.byFile[f].checked);
+	if (notTicked.length === 0) {
+		ok('every accounted-for and empty file IS pre-ticked');
+	} else {
+		bad('every accounted-for and empty file IS pre-ticked', `not ticked: ${notTicked.join(', ')}`);
+	}
+
+	// The reason must name the number of settings at stake, not just say "at risk".
+	const raft = mig.byFile['zolantris.ValheimRAFT.cfg'] || {};
+	if (raft.risk && /6 changed setting/.test(raft.why) && /only copy/.test(raft.why)) {
+		ok(`an at-risk file states what is at stake ("${raft.why.slice(0, 64)}…")`);
+	} else {
+		bad('an at-risk file states what is at stake', `risk=${raft.risk} why="${raft.why}"`);
+	}
+
+	const unread = mig.byFile['unreadable.cfg'] || {};
+	if (/could not be read/.test(unread.why)) {
+		ok('an unreadable file says so rather than being called empty');
+	} else {
+		bad('an unreadable file says so rather than being called empty', `why="${unread.why}"`);
+	}
+
+	if (/warn/.test(mig.banner) && /3 files cannot be accounted for/.test(mig.bannerText)) {
+		ok('the banner warns, with the count');
+	} else {
+		bad('the banner warns, with the count', `class="${mig.banner}" text="${mig.bannerText.slice(0, 90)}"`);
+	}
+
+	if (mig.intro > 120) {
+		ok('the modal explains that a migration happened');
+	} else {
+		bad('the modal explains that a migration happened', `intro is only ${mig.intro} chars`);
+	}
+
+	// All-clear state: green, and no waiting list.
+	const clear = await page.evaluate(() => {
+		window.renderConfigMigration({ totals: { files: 2, at_risk: 0 }, worlds: [{
+			world: 'w', db_rows: 9, db_files: 2, at_risk: 0,
+			files: [{ file: 'a.cfg', state: 'accounted', rows_in_db: 5, changed: null },
+			        { file: 'b.cfg', state: 'accounted', rows_in_db: 4, changed: null }],
+		}] });
+		const b = document.querySelector('#cfgMigBody .cfg-coverage');
+		return { cls: b ? b.className : '', text: b ? b.textContent : '',
+		         ticked: document.querySelectorAll('#cfgMigBody input:checked').length };
+	});
+	if (/ok/.test(clear.cls) && clear.ticked === 2 && /loses nothing/.test(clear.text)) {
+		ok('an all-accounted-for server gets the green all-clear with everything ticked');
+	} else {
+		bad('an all-accounted-for server gets the green all-clear', JSON.stringify(clear));
+	}
+
+	// Nothing parked at all -- the done state, which must not read as an error.
+	const none = await page.evaluate(() => {
+		window.renderConfigMigration({ totals: { files: 0, at_risk: 0 }, worlds: [] });
+		const b = document.querySelector('#cfgMigBody .cfg-coverage');
+		return { cls: b ? b.className : '', text: b ? b.textContent : '' };
+	});
+	if (/ok/.test(none.cls) && /Nothing left to review/.test(none.text)) {
+		ok('a server with nothing parked says so, in the non-alarming style');
+	} else {
+		bad('a server with nothing parked says so', JSON.stringify(none));
+	}
+
 	if (errors.length === 0) {
 		ok('no page errors while driving the hub');
 	} else {

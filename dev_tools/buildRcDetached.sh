@@ -2796,6 +2796,26 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The single mode reader both call sites now share.
   v56r=$(grep -c "function modConfigWorldMode" /opt/stateless/nginx/www/includes/modconfigs.php)
 
+  # ---- the 2.55 migration review: the OPERATOR decides about the originals ----
+  # The import parked each consumed file. Deleting those is irreversible, and on a real server
+  # three parked files held 12 settings the database had since lost -- so nothing deletes on
+  # its own. Six parts, and the dangerous one is the endpoint:
+  #   v56w -- the report + the per-file delete both exist
+  #   v56x -- the delete endpoint is POST-gated
+  #   v56y -- containment: the resolved path must sit inside the parked dir. basename() alone
+  #           is not enough and an absolute path must not escape either. Guarded by
+  #           dev_tools/test-config-migration-delete.php (8 assertions, traversal + absolute).
+  #   v56z -- a parse failure counts as -1, never 0: zero means "safe to delete", so an
+  #           unreadable file answering zero would mark itself disposable.
+  #   v56aa -- the modal has a PERMANENT door in the sidebar, not just a one-shot notice
+  #   v56ab -- at-risk files are not pre-ticked (the checked attribute is conditional)
+  v56w=$(grep -c "function modConfigMigrationReport\|function modConfigDeleteMigrationBackups" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56x=$(grep -c "deleteConfigMigrationBackups" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v56y=$(grep -cF "strpos(\$real, \$base . '/') !== 0" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56z=$(grep -c "return -1;" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56aa=$(grep -c 'data-nav="cfg-migration"' /opt/stateless/nginx/www/admin/index.php)
+  v56ab=$(grep -c "safe ? . checked. : ..}" /opt/stateless/nginx/www/admin/index.php)
+
   # ---- the picker is a HISTORY ENTRY ----
   # Back from world_configs.php used to land on a bare dashboard, so editing a 29-mod world
   # cost a fresh Mods -> Mod Configs -> find-your-place per mod. The state lives in the URL
@@ -2822,6 +2842,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
   echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
   echo "2.56 CONFIG COVERAGE: summary keys=$v56m (want 2)  getWorldMode calls=$v56n (want 0)  mode reader=$v56r (want 1)  renderer=$v56o (want 1)  unmatched php=$v56p (want 1) js=$v56q (want 3)"
+  echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 1)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
   echo "2.56 SAVE+APPLY: button=$v56j (want 1)  saves first=$v56k (want 1)  confirm() gone=$v56l (want 0)"
 
@@ -3079,6 +3100,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56m" = "2" ] && [ "$v56n" = "0" ] && [ "$v56r" = "1" ] && [ "$v56o" = "1" ] \
     && [ "$v56p" = "1" ] && [ "$v56q" = "3" ] \
     && [ "$v56s" = "1" ] && [ "$v56t" = "1" ] && [ "$v56u" = "1" ] && [ "$v56v" = "1" ] \
+    && [ "$v56w" = "2" ] && [ "$v56x" = "1" ] && [ "$v56y" = "1" ] && [ "$v56z" = "3" ] \
+    && [ "$v56aa" = "1" ] && [ "$v56ab" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

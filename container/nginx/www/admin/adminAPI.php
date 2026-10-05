@@ -878,6 +878,26 @@ switch($action) {
         }
         break;
 
+    case 'getConfigMigrationReport':
+        // What the 2.55 import did and which originals are safe to remove. Read-only.
+        echo json_encode(modConfigMigrationReport($pdo));
+        break;
+
+    case 'deleteConfigMigrationBackups':
+        // POST only, and it deletes files. The operator chooses which, in the review modal --
+        // nothing here deletes on its own, because three parked files on a real server held
+        // settings the database had lost and rm is not reversible.
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['error' => 'POST method required']);
+            break;
+        }
+        $in = json_decode(file_get_contents('php://input'), true);
+        $world = $in['world'] ?? '';
+        $files = $in['files'] ?? [];
+        if (!$world) { echo json_encode(['error' => 'World name required']); break; }
+        echo json_encode(modConfigDeleteMigrationBackups($pdo, $world, $files));
+        break;
+
     case 'getWorldConfigMods':
         // One row per mod for the Configs picker. Read-only, GET is fine.
         // modconfigs.php is already required at the top of this file -- a second require_once

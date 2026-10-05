@@ -28,6 +28,10 @@
 require_once '/opt/stateless/nginx/www/includes/modcatalog.php';
 
 define('MODCONFIG_TOOL', '/opt/stateless/engine/tools/modConfigs.py');
+define('MODCONFIG_WORLDS_ROOT', '/opt/stateful/games/valheim/worlds');
+// Where --import-legacy parked each file it consumed. Kept in step with IMPORTED_DIR in
+// modConfigs.py -- two spellings of this name would silently stop the review finding anything.
+define('MODCONFIG_IMPORTED_DIR', '.imported-pre-2.55');
 
 // Never editable. The loader's own BepInEx.cfg is engine state, not a mod config -- 2.49
 // swept it and silenced the world log and the client's console window in one stroke. The seed
@@ -635,4 +639,190 @@ function modConfigModSummary($pdo, $world) {
         // the discrepancy. Counted separately so the banner can name it for what it is.
         'unmatched_files' => (int)($mods['unmatched']['files'] ?? 0),
     ];
+}
+
+/**
+ * What the 2.55 config import did, per world, and whether its originals are safe to delete.
+ *
+ * WHY THIS EXISTS AS A REPORT RATHER THAN AS A CLEANUP
+ * --import-legacy parks each consumed file in a `.imported-pre-2.55` folder inside
+ * custom_configs and custom_configs_secure, and it only parks a file AFTER inserting at least
+ * one row (the move lives inside `if took:`). So a parked file means "its settings reached the
+ * database" -- at the time of the import.
+ *
+ * (That sentence originally wrote the pair as `custom_configs*` with a slash after the star.
+ * Inside a docblock that two-character sequence ENDS the comment, and everything after it was
+ * parsed as code. Same family as the `--` that made an SVG comment undrawable.)
+ *
+ * On a real server that stopped being true. Three parked files on VikingOutlaws hold 12
+ * non-default settings between them -- ValheimRAFT alone has 6, including MaxSailSpeed 45
+ * against a default of 30 -- and the database now holds NONE of them. Rows that the import
+ * demonstrably wrote are gone, and nothing here can say what removed them: a reset in the
+ * editor is harmless and expected, a mod-removal sweep taking rows for a still-installed mod
+ * is not.
+ *
+ * Deleting those originals would therefore destroy the only remaining copy of settings the
+ * product itself dropped, and rm is not reversible. So this function REPORTS and the operator
+ * decides. Each file is classified by comparing what it holds against what the database holds:
+ *
+ *   accounted  -- the database has rows for this file. Safe to delete.
+ *   empty      -- the file has no non-default values left to lose. Safe to delete.
+ *   AT RISK    -- the file holds non-default settings the database does not have. The modal
+ *                 must say so, per file, and must not pre-select it for deletion.
+ *
+ * The only-parse-what-we-must shape is deliberate: parsing is a subprocess per file, and a file
+ * the database already covers needs no parse to be judged safe.
+ */
+function modConfigMigrationReport($pdo) {
+    $worlds = [];
+    $root = MODCONFIG_WORLDS_ROOT;
+    if (!is_dir($root)) { return ['worlds' => [], 'totals' => ['files' => 0, 'at_risk' => 0]]; }
+
+    $totalFiles = 0;
+    $totalRisk  = 0;
+
+    foreach (scandir($root) as $world) {
+        if ($world === '.' || $world === '..' || !is_dir("$root/$world")) { continue; }
+
+        $wid = worldIdByName($pdo, $world);
+        if (!$wid) { continue; }
+
+        // One query per world rather than one per file.
+        $st = $pdo->prepare("SELECT cfg_file, COUNT(*) n FROM mod_config_overrides
+                             WHERE world_id = ? GROUP BY cfg_file");
+        $st->execute([$wid]);
+        $rows = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $rows[$r['cfg_file']] = (int)$r['n']; }
+
+        $files = [];
+        foreach ([['custom_configs', 0], ['custom_configs_secure', 1]] as [$sub, $secure]) {
+            $parked = "$root/$world/$sub/" . MODCONFIG_IMPORTED_DIR;
+            if (!is_dir($parked)) { continue; }
+
+            foreach (scandir($parked) as $name) {
+                if (substr($name, -4) !== '.cfg' || !is_file("$parked/$name")) { continue; }
+
+                $inDb = $rows[$name] ?? 0;
+                $changed = null;
+                $state = 'accounted';
+
+                if ($inDb === 0) {
+                    // Only now is a parse worth its subprocess. The file's own
+                    // `# Default value:` comments are the baseline -- the same one the import
+                    // used and the same one the editor's modified badge uses, so this cannot
+                    // disagree with either.
+                    $changed = modConfigCountChangedFromDefault("$parked/$name");
+                    $state = $changed > 0 ? 'at_risk' : 'empty';
+                }
+
+                $files[] = [
+                    'file'       => $name,
+                    'dir'        => $sub,
+                    'secure'     => $secure,
+                    'rows_in_db' => $inDb,
+                    'changed'    => $changed,
+                    'state'      => $state,
+                    'bytes'      => (int)filesize("$parked/$name"),
+                ];
+                $totalFiles++;
+                if ($state === 'at_risk') { $totalRisk++; }
+            }
+        }
+
+        if ($files) {
+            usort($files, function ($a, $b) {
+                if ($a['state'] !== $b['state']) { return $a['state'] === 'at_risk' ? -1 : 1; }
+                return strcasecmp($a['file'], $b['file']);
+            });
+            $worlds[] = [
+                'world'      => $world,
+                'files'      => $files,
+                'at_risk'    => count(array_filter($files, fn($f) => $f['state'] === 'at_risk')),
+                'db_files'   => count($rows),
+                'db_rows'    => array_sum($rows),
+            ];
+        }
+    }
+
+    return ['worlds' => $worlds, 'totals' => ['files' => $totalFiles, 'at_risk' => $totalRisk]];
+}
+
+/**
+ * How many settings in this .cfg differ from the default documented inside it.
+ *
+ * Returns -1 when the file could not be parsed. NOT 0: zero means "nothing to lose, safe to
+ * delete", and a parse failure answering zero would mark an unreadable file safe. That is the
+ * same class of bug as a 0/false default doubling as a real answer.
+ */
+function modConfigCountChangedFromDefault($path) {
+    $raw = shell_exec(MODCONFIG_TOOL . ' --parse-file ' . escapeshellarg($path) . ' 2>/dev/null');
+    $d = json_decode((string)$raw, true);
+    if (!is_array($d)) { return -1; }
+
+    $entries = $d['entries'] ?? null;
+    if ($entries === null) {
+        $f = $d['files'][0] ?? null;
+        $entries = $f['entries'] ?? null;
+    }
+    if (!is_array($entries)) { return -1; }
+
+    $n = 0;
+    foreach ($entries as $e) {
+        if (!empty($e['has_default']) && ($e['value'] ?? null) !== ($e['default'] ?? null)) { $n++; }
+    }
+    return $n;
+}
+
+/**
+ * Delete named parked originals for one world, after the operator has chosen them.
+ *
+ * Every name is reduced to a basename and the resolved path is required to sit inside this
+ * world's parked directory. The caller is the admin UI, but a delete endpoint that trusts a
+ * filename is a delete endpoint that can be pointed at the save files -- which live inside
+ * game/ on this very tree, where clearing the wrong directory has destroyed worlds here before.
+ *
+ * Returns per-file outcomes rather than a count. "3 deleted" cannot tell the operator WHICH
+ * three, and this is the one action in the feature that cannot be undone.
+ */
+function modConfigDeleteMigrationBackups($pdo, $world, $names) {
+    if (!worldIdByName($pdo, $world)) { return ['error' => "No world named '$world'"]; }
+    if (!is_array($names) || !$names) { return ['error' => 'No files selected.']; }
+
+    $results = [];
+    foreach ($names as $raw) {
+        $name = basename((string)$raw);
+        $done = false;
+
+        foreach (['custom_configs', 'custom_configs_secure'] as $sub) {
+            $parked = MODCONFIG_WORLDS_ROOT . "/$world/$sub/" . MODCONFIG_IMPORTED_DIR;
+            $real   = realpath("$parked/$name");
+            $base   = realpath($parked);
+            if (!$real || !$base || strpos($real, $base . '/') !== 0) { continue; }
+            if (!is_file($real)) { continue; }
+
+            if (@unlink($real)) {
+                $results[] = ['file' => $name, 'dir' => $sub, 'deleted' => true];
+                error_log("[modConfigs] $world: $sub/" . MODCONFIG_IMPORTED_DIR . "/$name deleted by operator");
+            } else {
+                $results[] = ['file' => $name, 'dir' => $sub, 'deleted' => false,
+                              'error' => 'could not delete'];
+            }
+            $done = true;
+            break;
+        }
+
+        if (!$done) {
+            $results[] = ['file' => $name, 'deleted' => false, 'error' => 'not found in this world'];
+        }
+    }
+
+    // Tidy the now-empty parked dirs, and nothing above them. rmdir refuses a non-empty
+    // directory, which is the safety here: a file the operator kept also keeps its folder.
+    foreach (['custom_configs', 'custom_configs_secure'] as $sub) {
+        $parked = MODCONFIG_WORLDS_ROOT . "/$world/$sub/" . MODCONFIG_IMPORTED_DIR;
+        if (is_dir($parked)) { @rmdir($parked); }
+    }
+
+    $ok = count(array_filter($results, fn($r) => !empty($r['deleted'])));
+    return ['ok' => true, 'deleted' => $ok, 'results' => $results];
 }
