@@ -2700,8 +2700,16 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # backtick through this sh payload is not worth the risk of a marker that silently reads 0.
   v55bi=$(grep -c 'editModsBtn.outerHTML = .<span class="action-btn disabled" data-action="edit-mods">' /opt/stateless/nginx/www/admin/index.php)
 
+  # The picker shipped calling escapeHtml(), which this file does not define -- the first mod
+  # row threw ReferenceError and the modal's own catch told the operator "Error loading mod
+  # configs" while the endpoint answered 200 with correct JSON. Only escapeAttr,
+  # escapeHtmlBasic and escapeHtmlMs exist, so a bare `escapeHtml(` is ALWAYS a bug here.
+  # -o counts occurrences, not lines, and the two call sites were on separate lines anyway.
+  # The negative lookahead is grep -P: match escapeHtml( but not escapeHtmlBasic/Ms.
+  v55bm=$(grep -coP 'escapeHtml(?!Basic|Ms)\(' /opt/stateless/nginx/www/admin/index.php)
+
   echo "2.55 CONFIG ENTRY: world_configs hrefs=$v55be (want 2)  enabled branches=$v55bf (want 2)  disabled branch=$v55bg (want 1)  poll gate=$v55bh (want 1)"
-  echo "2.55 CONFIG PICKER: showConfigsModal=$v55bj (want 4)  api endpoint=$v55bk (want 1)  summary fn=$v55bl (want 1)"
+  echo "2.55 CONFIG PICKER: showConfigsModal=$v55bj (want 4)  api endpoint=$v55bk (want 1)  summary fn=$v55bl (want 1)  undefined escapeHtml=$v55bm (want 0)"
   echo "2.55 CONFIG ENTRY CONTROL: Edit Mods still gated=$v55bi (want 1)"
 
   # STRICTLY POSIX -- this payload runs under `sh` (dash), not bash. No ${!indirect}, no
@@ -2950,7 +2958,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55az" = "1" ] && [ "$v55ba" = "1" ] && [ "$v55bb" = "1" ] && [ "$v55bc" = "1" ] \
     && [ "$v55bd" = "0" ] \
     && [ "$v55be" = "2" ] && [ "$v55bf" = "2" ] && [ "$v55bg" = "1" ] && [ "$v55bh" = "1" ] \
-    && [ "$v55bj" = "4" ] && [ "$v55bk" = "1" ] && [ "$v55bl" = "1" ] \
+    && [ "$v55bj" = "4" ] && [ "$v55bk" = "1" ] && [ "$v55bl" = "1" ] && [ "$v55bm" = "0" ] \
     && [ "$v55bi" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

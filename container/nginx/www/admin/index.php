@@ -2725,7 +2725,7 @@ $totalCount = count($worlds);
 
             if (d.error) {
                 document.getElementById('cfgModalList').innerHTML =
-                    `<li style="color: var(--danger);">${escapeHtml(d.error)}</li>`;
+                    `<li style="color: var(--danger);">${escapeHtmlBasic(d.error)}</li>`;
                 return;
             }
             // "No configs yet" is NOT an error and must not read like one: most mods write
@@ -2745,7 +2745,7 @@ $totalCount = count($worlds);
                     ? `<span class="mods-count-badge" title="settings you have changed">${m.modified_count} changed</span>`
                     : '';
                 return `<li data-cfgname="${escapeAttr(m.name.toLowerCase())}">`
-                     + `<a href="${href}">${escapeHtml(m.name)}</a> ${changed}`
+                     + `<a href="${href}">${escapeHtmlBasic(m.name)}</a> ${changed}`
                      + `<div style="font-size:.78rem;opacity:.6;">${m.entry_count} setting${m.entry_count === 1 ? '' : 's'}`
                      + ` in ${m.files} file${m.files === 1 ? '' : 's'}</div></li>`;
             }).join('');

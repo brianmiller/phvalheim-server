@@ -88,7 +88,21 @@ run_suite() {
             "the poll updater still disabling edit-mods when mode is not stopped"
     fi
 
-    # 5. CONTROL -- a vanilla world has no mods and therefore no mod configs, in every branch.
+    # 5. The picker's JS must only call names that EXIST. It shipped calling escapeHtml(),
+    #    which is not defined in this file -- so the first mod row threw ReferenceError and
+    #    the modal's own catch reported it to the operator as "Error loading mod configs",
+    #    with the endpoint answering 200 and correct JSON the whole time. Every assertion
+    #    above passed on that tree, because they all grep for strings and a string cannot
+    #    tell you whether the code around it can run.
+    if node "$REPO/dev_tools/check-configs-picker-js.js" "$idx" --control > /tmp/cfgjs.$$ 2>&1; then
+        ok "the picker's JS calls only defined names (with its own control)"
+    else
+        bad "the picker's JS calls only defined names (with its own control)" \
+            "$(cat /tmp/cfgjs.$$)"
+    fi
+    rm -f /tmp/cfgjs.$$
+
+    # 6. CONTROL -- a vanilla world has no mods and therefore no mod configs, in every branch.
     if grep -q 'if (world.vanilla)' "$idx" && \
        grep -q 'vanilla world — it runs no mods, so it has no mod configs' "$idx"; then
         ok "CONTROL: a vanilla world still gets no Configs link"
