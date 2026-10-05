@@ -898,6 +898,20 @@ switch($action) {
         echo json_encode(modConfigDeleteMigrationBackups($pdo, $world, $files));
         break;
 
+    case 'importConfigMigrationFile':
+        // POST only -- it writes override rows. The repair for "the database does not have
+        // these settings", which the review used to report with no way to act on it.
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['error' => 'POST method required']);
+            break;
+        }
+        $in = json_decode(file_get_contents('php://input'), true);
+        $world = $in['world'] ?? '';
+        $file  = $in['file'] ?? '';
+        if (!$world || !$file) { echo json_encode(['error' => 'World and file required']); break; }
+        echo json_encode(modConfigImportParkedFile($pdo, $world, $file));
+        break;
+
     case 'getWorldConfigMods':
         // One row per mod for the Configs picker. Read-only, GET is fine.
         // modconfigs.php is already required at the top of this file -- a second require_once

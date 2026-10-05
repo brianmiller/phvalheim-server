@@ -745,7 +745,7 @@ function modConfigMigrationReport($pdo) {
                         if (!is_array($owners)) {
                             $state = 'at_risk';
                         } else {
-                            $owner = $owners[$name] ?? null;
+                            $owner = isset($owners[$name]) ? $owners[$name]['name'] : null;
                             $state = $owner === null ? 'orphaned' : 'at_risk';
                         }
                     } else {
@@ -827,10 +827,86 @@ function modConfigParkedOwners($pdo, $world, $worldId, $parkedDir) {
         if (!isset($f['file'])) { continue; }
         $mid = $f['mod_id'] ?? null;
         if ($mid !== null) {
-            $out[$f['file']] = $names[(int)$mid] ?? ('mod #' . (int)$mid);
+            $out[$f['file']] = ['id'   => (int)$mid,
+                                'name' => $names[(int)$mid] ?? ('mod #' . (int)$mid)];
         }
     }
     return $out;
+}
+
+/**
+ * Import ONE parked pre-2.55 original into mod_config_overrides, now.
+ *
+ * The review used to report a file as holding settings the database does not have and then
+ * offer nothing but delete-or-keep. There was never a reason for that: these files parse, they
+ * carry their own `# Default value:` comments, and the upgrade already imported them once by
+ * exactly this rule. "The database is missing these" is a repairable state, not a verdict.
+ *
+ * Same rule as import_legacy_world(): a key is taken only when it DIFFERS from the default
+ * documented inside the file, because an imported world's custom_configs/ is mostly untouched
+ * defaults and adopting those would freeze the world at its import-time values forever. A key
+ * with no documented default has no baseline, so it lands as origin='legacy-review' for the
+ * operator to confirm rather than being silently kept or silently dropped.
+ *
+ * INSERT IGNORE, not REPLACE: a row the operator has since set by hand outranks anything on
+ * disk. That also makes this idempotent -- pressing Import twice is a no-op, not a revert.
+ *
+ * PARSING is the tool's job (one parser, one set of rules); the INSERT is PDO's, because
+ * php-fpm reaches the database as phvalheim_user and cannot use the root-only --import-legacy.
+ */
+function modConfigImportParkedFile($pdo, $world, $file) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return ['error' => "No world named '$world'"]; }
+
+    $name = basename((string)$file);
+    foreach (['custom_configs' => 0, 'custom_configs_secure' => 1] as $sub => $serverOnly) {
+        $parked = MODCONFIG_WORLDS_ROOT . "/$world/$sub/" . MODCONFIG_IMPORTED_DIR;
+        $real   = realpath("$parked/$name");
+        $base   = realpath($parked);
+        // Same containment check as the delete path: resolve both, then require the file to sit
+        // UNDER the parked directory. A bare basename() is not enough on its own.
+        if (!$real || !$base || strpos($real, $base . '/') !== 0 || !is_file($real)) { continue; }
+
+        $raw = shell_exec(MODCONFIG_TOOL . ' --parse-file ' . escapeshellarg($real) . ' 2>/dev/null');
+        $parsed = json_decode((string)$raw, true);
+        if (!is_array($parsed) || !isset($parsed['entries'])) {
+            return ['error' => "Could not parse $name."];
+        }
+
+        $owners = modConfigParkedOwners($pdo, $world, $worldId, $base);
+        $modId  = is_array($owners) && isset($owners[$name]) ? $owners[$name]['id'] : null;
+
+        $st = $pdo->prepare(
+            "INSERT IGNORE INTO mod_config_overrides
+               (world_id, cfg_file, section, ckey, cvalue, mod_id, server_only, locked, origin)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)");
+
+        $imported = $review = $skipped = 0;
+        foreach ($parsed['entries'] as $e) {
+            if (!empty($e['has_default'])) {
+                if ((string)$e['value'] === (string)$e['default']) { $skipped++; continue; }
+                $origin = 'legacy';
+            } else {
+                $origin = 'legacy-review';
+                $review++;
+            }
+            $st->execute([$worldId, $name, $e['section'], $e['key'], $e['value'],
+                          $modId, $serverOnly, $origin]);
+            $imported++;
+        }
+
+        error_log("[modConfigs] $world: imported $imported setting(s) from $sub/"
+                . MODCONFIG_IMPORTED_DIR . "/$name on operator request");
+        return ['ok' => true, 'file' => $name, 'dir' => $sub, 'imported' => $imported,
+                'review' => $review, 'skipped' => $skipped,
+                'mod' => $modId === null ? null : $owners[$name]['name'],
+                'note' => $modId === null
+                    ? 'Saved. No mod here uses this config yet, so it will apply if you add '
+                    . 'the mod back.'
+                    : 'Saved. Restart the world to apply.'];
+    }
+
+    return ['error' => "$name is not a parked original in this world."];
 }
 
 /**

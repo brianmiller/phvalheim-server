@@ -2981,19 +2981,15 @@ $totalCount = count($worlds);
                 ? `Before you carry on with <b>${escapeHtmlBasic(onlyWorld)}</b>: this world still `
                   + 'has pre-2.55 config files set aside. '
                 : '')
-          + 'When this server upgraded to 2.55, the settings you had changed in '
-          + '<code>custom_configs</code> were read out and stored <b>per setting</b> in the '
-          + 'database, so a mod update can no longer wipe them. The original files were moved '
-          + 'aside rather than deleted, and this is where you decide whether to remove them. '
-          // Do NOT claim "every setting". The list below is checked against the database as it
-          // stands NOW, and a file can hold settings the database no longer has -- a reset in
-          // the editor, a "forget" on a stale override, a mod dropped from the world. Claiming
-          // completeness here and then listing counter-examples underneath is what made the
-          // whole modal unreadable: it looked like the migration had lied.
-          + 'Each file below is compared against the database <b>as it stands now</b>, not '
-          + 'against what the upgrade wrote &mdash; so anything reset, forgotten or dropped '
-          + 'since then shows up here as missing, because it is.'
-          + (onlyWorld ? ' You can deal with it now or press <b>Continue without deleting</b>.' : '')
+          // Short. Three facts and no history lesson: where the settings live now, what these
+          // files are, and that the comparison is against the database AS IT STANDS -- which is
+          // why a file can show as missing (reset in the editor, forgotten from the stale
+          // panel, dropped with its mod). Do NOT claim every setting was migrated and then
+          // list counter-examples underneath.
+          + '2.55 moved your <code>custom_configs</code> settings into the database, one row '
+          + 'per setting, so a mod update cannot wipe them. These are the original files, kept '
+          + 'aside. Each is checked against the database <b>as it stands now</b> &mdash; '
+          + 'anything missing can be imported here.'
           + '</p>';
 
         renderConfigMigrationContinue();
@@ -3007,35 +3003,29 @@ $totalCount = count($worlds);
         const risk   = (d.totals && d.totals.at_risk) || 0;
         const orphan = (d.totals && d.totals.orphaned) || 0;
         let html = '';
-        if (risk > 0) {
-            html += `<div class="cfg-coverage warn"><b>${risk} file${risk === 1 ? '' : 's'} `
-                  + `cannot be accounted for.</b> ${risk === 1 ? 'It holds' : 'They hold'} `
-                  + 'settings that are not in the database, for a mod this world still has, '
-                  + `so deleting ${risk === 1 ? 'it' : 'them'} would lose those settings. `
-                  + `${risk === 1 ? 'It is' : 'They are'} left unticked &mdash; tick only if you `
-                  + 'are sure you no longer want them.</div>';
-        }
-        // Orphans get their own banner rather than being folded into "accounted for", because
-        // they are safe for a DIFFERENT reason and the difference matters. An orphan is TWO
-        // facts at once: the database has none of its settings, AND no mod here reads the file.
-        // The first banner for this said only the second fact and then "you would re-enter the
-        // values by hand" -- which is unanswerable if you believe everything was migrated.
-        // Both facts, or the advice looks like it contradicts the migration.
-        if (orphan > 0) {
-            const it = orphan === 1;
-            html += `<div class="cfg-coverage ok"><b>${orphan} file${it ? '' : 's'} `
-                  + `hold${it ? 's' : ''} settings the database does not have, but `
-                  + `belong${it ? 's' : ''} to a mod this world no longer has.</b> `
-                  + `Nothing installed here reads ${it ? 'that file' : 'those files'}, so `
-                  + `${it ? 'its' : 'their'} settings cannot apply to anything &mdash; safe to `
-                  + `delete, and ${it ? 'it is' : 'they are'} ticked. Deleting is final though: `
-                  + `${it ? 'this file is' : 'these files are'} the only copy left of those `
-                  + `values, so re-adding the mod later would start it from its own defaults. `
-                  + `Keep ${it ? 'it' : 'them'} unticked if you want the values for reference.`
+        // ONE banner for the whole "database is missing settings" case, not one per state. The
+        // states differ in urgency, not in what to do: Import, on the row, for either. Two
+        // paragraphs explaining two flavours of the same repair is what made this unreadable.
+        const missing = risk + orphan;
+        if (missing > 0) {
+            const it = missing === 1;
+            html += `<div class="cfg-coverage ${risk > 0 ? 'warn' : 'ok'}">`
+                  + `<b>${missing} file${it ? '' : 's'} hold${it ? 's' : ''} settings the `
+                  + `database does not have.</b> Press <b>Import</b> to save `
+                  + `${it ? 'them' : 'those'} &mdash; then the file is a duplicate and deleting `
+                  + 'it loses nothing.'
+                  + (risk > 0
+                        ? ` ${risk} ${risk === 1 ? 'is' : 'are'} for a mod still installed here,`
+                          + ' so left unticked.'
+                        : '')
+                  + (orphan > 0
+                        ? ` ${orphan} belong${orphan === 1 ? 's' : ''} to a mod this world no `
+                          + 'longer has: nothing reads '
+                          + (orphan === 1 ? 'it' : 'them') + ', so ticked as safe.'
+                        : '')
                   + '</div>';
-        }
-        if (risk === 0 && orphan === 0) {
-            html += '<div class="cfg-coverage ok">Every original is accounted for in the '
+        } else {
+            html += '<div class="cfg-coverage ok">Every setting in these files is in the '
                   + 'database. Deleting them loses nothing.</div>';
         }
 
@@ -3053,44 +3043,86 @@ $totalCount = count($worlds);
                 // settings the migration had dropped.
                 const safe = f.state === 'accounted' || f.state === 'empty'
                           || f.state === 'orphaned';
+                // One short clause each. The long versions said the same thing three ways.
                 let why;
                 if (f.state === 'accounted') {
-                    why = `${f.rows_in_db} setting${f.rows_in_db === 1 ? '' : 's'} saved in the database`;
+                    why = `${f.rows_in_db} setting${f.rows_in_db === 1 ? '' : 's'} in the database`;
                 } else if (f.state === 'empty') {
-                    why = 'nothing in it differs from the mod&rsquo;s own defaults';
+                    why = 'nothing differs from the mod&rsquo;s defaults';
                 } else if (f.state === 'orphaned') {
-                    // Lead with the same fact the at-risk row leads with -- N settings the
-                    // database does not have -- then the reason it is safe anyway. Naming only
-                    // the reason read as "these were fine all along", which is not what
-                    // happened to them.
-                    why = `${f.changed} changed setting${f.changed === 1 ? '' : 's'} NOT in the `
-                        + 'database, but no mod in this world uses this config any more '
-                        + '&mdash; nothing can read it, so it is safe to delete';
+                    why = `${f.changed} setting${f.changed === 1 ? '' : 's'} not in the database `
+                        + '&mdash; no mod here reads this file';
                 } else if (f.changed === -1) {
-                    why = '<b>could not be read</b> &mdash; left unticked';
+                    why = '<b>could not be read</b>';
                 } else {
-                    why = `<b>${f.changed} changed setting${f.changed === 1 ? '' : 's'} NOT in the `
-                        + 'database</b>, and '
-                        + (f.owner ? `<b>${escapeHtmlBasic(f.owner)}</b> is still installed` : 'its mod is still here')
-                        + ' &mdash; this file is the only copy';
+                    why = `<b>${f.changed} setting${f.changed === 1 ? '' : 's'} not in the `
+                        + 'database</b> &mdash; '
+                        + (f.owner ? `${escapeHtmlBasic(f.owner)} is installed` : 'its mod is installed')
+                        + ', this file is the only copy';
                 }
+                // Import is offered for exactly the files the database is missing. There was
+                // never a reason to withhold it: these parse, they carry their own documented
+                // defaults, and the upgrade already imported them once by the same rule.
+                // Reporting a repairable gap with no way to repair it is what made the operator
+                // ask why the settings "can't" be migrated -- they can.
+                const canImport = f.state === 'at_risk' || f.state === 'orphaned';
                 html += `<li><label class="cfg-mig-row">`
                       + `<input type="checkbox" data-mig-world="${escapeAttr(w.world)}" `
                       + `data-mig-file="${escapeAttr(f.file)}"${safe ? ' checked' : ''}>`
                       + `<span><code>${escapeHtmlBasic(f.file)}</code>`
+                      + (canImport
+                            ? ` <button class="btn btn-sm btn-primary cfg-mig-import"`
+                              + ` style="padding:0 .45rem;font-size:.72rem;"`
+                              + ` onclick="importConfigMigrationFile(this, '${escapeAttr(w.world)}',`
+                              + ` '${escapeAttr(f.file)}'); return false;">Import</button>`
+                            : '')
                       + `<span class="cfg-mig-why ${safe ? '' : 'risk'}">${why}</span></span>`
                       + `</label></li>`;
             }
             html += '</ul></div>';
         }
 
-        html += '<div style="margin-top:1rem;font-size:.78rem;opacity:.7;">Ticked files are '
-              + 'removed when you press <b>Delete ticked originals</b>. This cannot be undone.</div>';
+        html += '<div style="margin-top:.8rem;font-size:.78rem;opacity:.7;">Deleting ticked '
+              + 'files cannot be undone.</div>';
 
         body.innerHTML = html;
         // The button is in the footer next to Continue, but it is this render that knows there
         // is something to delete -- so this is where it is revealed.
         document.getElementById('cfgMigDeleteBtn').style.display = '';
+    }
+
+    // Save one parked original's settings into the database, right here. The review knew the
+    // database was missing them and could do nothing about it, which left the operator with a
+    // choice between losing the values and keeping a file forever.
+    async function importConfigMigrationFile(btn, world, file) {
+        const msg = document.getElementById('cfgMigMsg');
+        btn.disabled = true;
+        btn.textContent = 'Importing…';
+        try {
+            const r = await fetch('adminAPI.php?action=importConfigMigrationFile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ world, file }),
+            });
+            const d = await r.json();
+            if (d.error) {
+                msg.textContent = d.error;
+                btn.disabled = false;
+                btn.textContent = 'Import';
+                return;
+            }
+            // Re-read the report rather than patching the row: the import changed what the
+            // database holds, so the file's state, its tick and the banner counts all move
+            // together. A hand-patched row would be a second opinion that can drift.
+            const note = `${d.imported} setting(s) imported from ${d.file}. ${d.note || ''}`;
+            await showConfigMigration(cfgMigScope, cfgMigContinue);
+            document.getElementById('cfgMigMsg').textContent = note;
+            renderConfigMigrationContinue();
+        } catch (e) {
+            msg.textContent = 'Import failed.';
+            btn.disabled = false;
+            btn.textContent = 'Import';
+        }
     }
 
     async function deleteConfigMigrationBackups() {

@@ -58,6 +58,7 @@ const rowOf = (page, file) => page.evaluate((f) => {
 		checked: box.checked,
 		why: (why ? why.textContent : '').trim(),
 		flaggedRisky: !!(why && why.classList.contains('risk')),
+		hasImport: !!label.querySelector('.cfg-mig-import'),
 	};
 }, file);
 
@@ -104,9 +105,7 @@ const rowOf = (page, file) => page.evaluate((f) => {
 	// AND "nothing here can read them". Saying only the second made the banner's own advice --
 	// you would set the mod up from its defaults again -- unanswerable: if it was all migrated,
 	// why would anything need re-entering? That question is what sent me back to this wording.
-	if (/NOT in the database/i.test(orphan.why)
-	    && /no mod in this world uses this config/i.test(orphan.why)
-	    && /safe to delete/i.test(orphan.why)) {
+	if (/not in the database/i.test(orphan.why) && /no mod here reads/i.test(orphan.why)) {
 		ok('the orphan row states the database lacks the settings AND why it is still safe');
 	} else {
 		bad('the orphan row states the database lacks the settings AND why it is still safe',
@@ -126,7 +125,10 @@ const rowOf = (page, file) => page.evaluate((f) => {
 		bad(`${KEPT} (mod still installed) is left unticked`,
 			'pre-ticked — one click would destroy the only copy of a live setting');
 	}
-	if (/still installed/i.test(kept.why) && /only copy/i.test(kept.why)) {
+	// The MOD NAME has to be in there, not just the word "installed" -- naming it is what tells
+	// the operator which live mod would lose settings.
+	if (/not in the database/i.test(kept.why) && /is installed/i.test(kept.why)
+	    && /only copy/i.test(kept.why) && /SkyheimExtended/.test(kept.why)) {
 		ok('the at-risk row names the installed mod and says it is the only copy');
 	} else {
 		bad('the at-risk row names the installed mod and says it is the only copy',
@@ -138,24 +140,32 @@ const rowOf = (page, file) => page.evaluate((f) => {
 		bad('the at-risk row is styled as a risk', 'no .risk class — it looks as safe as the orphan');
 	}
 
-	// ---- two separate banners, not one verdict for both ----
+	// ---- ONE banner, naming the repair and both flavours ----
+	// It used to print two paragraphs, one per state. The states differ in urgency, not in what
+	// to do about them, and two explanations of the same repair is what made this unreadable.
 	const banners = await page.evaluate(() =>
 		Array.from(document.querySelectorAll('#cfgMigBody .cfg-coverage'))
 			.map(b => ({ warn: b.classList.contains('warn'), text: b.textContent.trim() })));
-	const warnBanner = banners.find(b => b.warn);
-	const okBanner   = banners.find(b => !b.warn);
-	if (warnBanner && okBanner) {
-		ok('the review shows both a warning banner and a safe banner');
+	if (banners.length === 1) {
+		ok('the review shows a single banner, not one per state');
 	} else {
-		bad('the review shows both a warning banner and a safe banner',
-			`banners: ${JSON.stringify(banners.map(b => b.warn))} — one verdict cannot describe both cases`);
+		bad('the review shows a single banner, not one per state',
+			`${banners.length} banners: ${banners.map(b => b.text.slice(0, 50)).join(' || ')}`);
 	}
-	if (okBanner && /does not have/i.test(okBanner.text) && /no longer has/i.test(okBanner.text)
-	    && /safe to delete/i.test(okBanner.text) && /only copy/i.test(okBanner.text)) {
-		ok('the safe banner names both facts and warns the delete is final');
+	const banner = banners[0];
+	if (banner && /does not have/i.test(banner.text) && /Import/.test(banner.text)
+	    && /still installed/i.test(banner.text) && /no longer has/i.test(banner.text)) {
+		ok('the banner names the gap, the Import fix, and both flavours of file');
 	} else {
-		bad('the safe banner names both facts and warns the delete is final',
-			`text was: "${okBanner ? okBanner.text.slice(0, 220) : '(none)'}"`);
+		bad('the banner names the gap, the Import fix, and both flavours of file',
+			`text was: "${banner ? banner.text.slice(0, 260) : '(none)'}"`);
+	}
+	// It must be a WARNING while a still-installed mod's only copy is on the line.
+	if (banner && banner.warn) {
+		ok('the banner is a warning while a still-installed mod has settings only in a file');
+	} else {
+		bad('the banner is a warning while a still-installed mod has settings only in a file',
+			'it rendered as the safe variant');
 	}
 	// The intro must not claim EVERY setting was migrated -- it is the sentence that makes the
 	// list underneath look like a contradiction.
@@ -167,14 +177,6 @@ const rowOf = (page, file) => page.evaluate((f) => {
 		bad('the intro says the comparison is against the database as it stands now',
 			'it still claims every setting was migrated, which the list below contradicts');
 	}
-	// The warning must be scoped to the still-installed case now, or it still over-claims.
-	if (warnBanner && /still has/i.test(warnBanner.text)) {
-		ok('the warning banner is scoped to mods the world still has');
-	} else {
-		bad('the warning banner is scoped to mods the world still has',
-			`text was: "${warnBanner ? warnBanner.text.slice(0, 160) : '(none)'}"`);
-	}
-
 	// ---- and the delete button starts with exactly the safe ones selected ----
 	const ticked = await page.evaluate(() =>
 		Array.from(document.querySelectorAll('#cfgMigBody input[data-mig-file]:checked'))
@@ -183,6 +185,51 @@ const rowOf = (page, file) => page.evaluate((f) => {
 		ok(`a Delete now would take ${ticked.length} file(s), including the orphan and not the risky one`);
 	} else {
 		bad('a Delete now would take the orphan and not the risky one', `ticked: ${ticked.join(', ')}`);
+	}
+
+	// ---- Import: the repair the review used to withhold ----
+	// "N settings not in the database" is a fixable state, not a verdict. The files parse and
+	// carry their own documented defaults -- the same rule the upgrade imported them by. A
+	// review that reports the gap and offers only delete-or-keep is what made the operator ask
+	// why they "can't" be migrated.
+	if (orphan.hasImport && kept.hasImport) {
+		ok('both files the database is missing offer Import');
+	} else {
+		bad('both files the database is missing offer Import',
+			`orphan=${orphan.hasImport} stillInstalled=${kept.hasImport}`);
+	}
+
+	await page.evaluate((f) => document.querySelector(
+		`#cfgMigBody input[data-mig-file="${f}"]`).closest('label')
+		.querySelector('.cfg-mig-import').click(), KEPT);
+	// The handler re-reads the report, so wait for the row to change state rather than a timer.
+	await page.waitForFunction((f) => {
+		const b = document.querySelector(`#cfgMigBody input[data-mig-file="${f}"]`);
+		return b && !b.closest('label').querySelector('.cfg-mig-import');
+	}, KEPT, { timeout: 10000 }).catch(() => {});
+
+	const afterImport = await rowOf(page, KEPT);
+	if (afterImport && /in the database/i.test(afterImport.why)
+	    && !/not in the database/i.test(afterImport.why)) {
+		ok(`importing ${KEPT} moves it to "settings in the database" ("${afterImport.why}")`);
+	} else {
+		bad(`importing ${KEPT} moves it to "settings in the database"`,
+			`row now reads: "${afterImport ? afterImport.why : '(gone)'}" — the import did not take`);
+	}
+	// And now that the values are saved, the file is a duplicate: it must become safe AND
+	// ticked. An import that leaves the file still flagged has not finished the job.
+	if (afterImport && afterImport.checked && !afterImport.flaggedRisky) {
+		ok('once imported the file is ticked and no longer flagged as a risk');
+	} else {
+		bad('once imported the file is ticked and no longer flagged as a risk',
+			`checked=${afterImport && afterImport.checked} risky=${afterImport && afterImport.flaggedRisky}`);
+	}
+	const msg = await page.evaluate(() =>
+		document.getElementById('cfgMigMsg').textContent.trim());
+	if (/\d+ setting\(s\) imported/.test(msg)) {
+		ok(`the import reports what it saved ("${msg}")`);
+	} else {
+		bad('the import reports what it saved', `status said: "${msg}"`);
 	}
 
 	if (errors.length === 0) {
