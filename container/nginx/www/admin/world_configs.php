@@ -52,6 +52,44 @@ $payload = modConfigEditorPayload($pdo, $world);
 			.cfg-file-head   { padding: 10px 14px; border-bottom: 1px solid var(--border-color);
 			                   display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 			.cfg-file-name   { font-weight: 600; }
+
+			/* ---- Accordion, only when there is more than one mod on the page ---- */
+			/* With "Show all settings" on a real modpack this page is 23 cards and 2,700 rows;
+			   every card open at once is why the picker was added in front of it. One mod open
+			   at a time makes the list navigable. A SINGLE card is never collapsible -- the
+			   ?mod= view is one card, and making the operator click to see the only thing they
+			   asked for would be a step for nothing. */
+			.cfg-file-card.collapsible > .cfg-file-head { cursor: pointer; user-select: none; }
+			.cfg-file-card.collapsible > .cfg-file-head:hover { background: var(--bg-tertiary); }
+			/* The head keeps its bottom border only while the body is showing; on a collapsed
+			   card it would read as an empty row hanging under the title. */
+			.cfg-file-card.collapsible.collapsed > .cfg-file-head { border-bottom: none; }
+			.cfg-file-card.collapsible.collapsed > .cfg-file-body { display: none; }
+			/* More room between cards once they are collapsed: the page becomes a short list of
+			   headers, and 18px between them reads as one dense block. */
+			.cfg-file-card.collapsible { margin-bottom: 10px; }
+			.cfg-file-card.collapsible.collapsed { margin-bottom: 12px; }
+
+			.cfg-chevron     { display: inline-block; width: 1em; flex: 0 0 auto;
+			                   transition: transform 0.15s ease; opacity: 0.7; }
+			.cfg-file-card.collapsed .cfg-chevron { transform: rotate(-90deg); }
+			/* A count of what is inside, so a collapsed card still says whether it is worth
+			   opening. Without it the operator has to open every card to find the settings. */
+			.cfg-entry-count { font-size: 0.78rem; opacity: 0.6; }
+
+			/* A card with UNSAVED edits says so on its header, because collapsing it hides
+			   every per-field marker inside it. Shown whether open or closed -- on an open
+			   card it still answers "which of these did I touch" on a 1,026-row mod. */
+			.cfg-file-card.cfg-card-edited > .cfg-file-head { border-left: 3px solid var(--warning, #fbbf24); }
+			.cfg-file-card.cfg-card-edited > .cfg-file-head::after {
+				content: "unsaved";
+				font-size: 0.72rem;
+				color: var(--warning, #fbbf24);
+				border: 1px solid var(--warning, #fbbf24);
+				border-radius: 999px;
+				padding: 1px 7px;
+				order: 99;
+			}
 			.cfg-section     { padding: 8px 14px; background: var(--bg-tertiary);
 			                   border-top: 1px solid var(--border-color); font-size: 0.85rem;
 			                   text-transform: uppercase; letter-spacing: 0.04em; }
@@ -230,9 +268,21 @@ $payload = modConfigEditorPayload($pdo, $world);
 			</div>
 	<?php endif; ?>
 
+	<?php
+	// Collapsible ONLY when there is more than one card. Decided in PHP, from the same $files
+	// the loop renders, so the class and the number of cards cannot disagree -- a JS-side count
+	// would be a second opinion about something already known here.
+	$cfgCollapsible = count($files) > 1;
+	?>
 	<?php foreach ($files as $fi => $f): ?>
-			<div class="cfg-file-card" data-file="<?php echo htmlspecialchars($f['file']); ?>">
-				<div class="cfg-file-head">
+			<div class="cfg-file-card<?php echo $cfgCollapsible ? ' collapsible' . ($fi === 0 ? '' : ' collapsed') : ''; ?>"
+			     data-file="<?php echo htmlspecialchars($f['file']); ?>">
+				<?php // The first card starts open, so the page never opens as a wall of
+				      // closed headers with nothing showing. ?>
+				<div class="cfg-file-head"<?php if ($cfgCollapsible): ?> onclick="toggleCfgCard(this, event)"<?php endif; ?>>
+					<?php if ($cfgCollapsible): ?>
+					<span class="cfg-chevron">&#9662;</span>
+					<?php endif; ?>
 					<span class="cfg-file-name"><?php
 						echo htmlspecialchars($f['plugin'] ?: $f['file']);
 					?></span>
@@ -245,6 +295,9 @@ $payload = modConfigEditorPayload($pdo, $world);
 					<span class="badge bg-dark" data-modcount="<?php echo htmlspecialchars($f['file']); ?>">
 						<?php echo (int)$f['modified_count']; ?> modified
 					</span>
+					<?php if ($cfgCollapsible): ?>
+					<span class="cfg-entry-count"><?php echo count($f['entries']); ?> setting<?php echo count($f['entries']) === 1 ? '' : 's'; ?></span>
+					<?php endif; ?>
 					<span style="margin-left:auto;display:flex;gap:6px;">
 						<button class="btn btn-sm btn-outline-secondary"
 						        onclick="openPaste(<?php echo htmlspecialchars(json_encode($f['file'])); ?>)">Paste a config&hellip;</button>
@@ -253,6 +306,12 @@ $payload = modConfigEditorPayload($pdo, $world);
 					</span>
 				</div>
 
+				<?php // Everything below the head is ONE element, so collapsing is a single
+				      // display:none on it. The inputs stay in the DOM while collapsed -- the
+				      // save path collects edits from `dirty`, which is keyed as the operator
+				      // types, so a value edited and then collapsed still saves. Removing the
+				      // body from the DOM instead would silently drop those edits. ?>
+				<div class="cfg-file-body">
 				<?php
 				$lastSection = null;
 				foreach ($f['entries'] as $e):
@@ -376,6 +435,7 @@ $payload = modConfigEditorPayload($pdo, $world);
 						</div>
 					</div>
 				<?php endforeach; ?>
+				</div><!-- /.cfg-file-body -->
 			</div>
 	<?php endforeach; ?>
 
@@ -480,7 +540,21 @@ $payload = modConfigEditorPayload($pdo, $world);
 				dirty[k] = item;
 				el.classList.add('cfg-dirty');
 			}
+			markCardEdited(el);
 			refreshBar();
+		}
+
+		// Carry the edited state up to the card HEADER, because a collapsed card hides its own
+		// cfg-dirty markers entirely. Collapse a card you have been editing and the unsaved
+		// work becomes invisible -- the operator's only remaining clue would be the Save
+		// button, which does not say WHERE. Recomputed from `dirty` rather than toggled on,
+		// so undoing the last edit in a card clears the badge instead of leaving it stuck.
+		function markCardEdited(el) {
+			var card = el.closest && el.closest('.cfg-file-card');
+			if (!card) { return; }
+			var file = card.dataset.file;
+			var has = Object.keys(dirty).some(function (k) { return dirty[k].file === file; });
+			card.classList.toggle('cfg-card-edited', has);
 		}
 
 		document.addEventListener('input', function (ev) {
@@ -514,6 +588,7 @@ $payload = modConfigEditorPayload($pdo, $world);
 						server_only: el.checked ? 1 : 0
 					};
 					input.classList.add('cfg-dirty');
+					markCardEdited(input);
 					refreshBar();
 				}
 			}
@@ -534,6 +609,9 @@ $payload = modConfigEditorPayload($pdo, $world);
 			};
 			btn.disabled = true;
 			btn.textContent = 'will reset';
+			// A pending reset is an unsaved change too, and this is the one that is easiest to
+			// forget: the button relabels itself and then the card gets collapsed over it.
+			markCardEdited(btn);
 			refreshBar();
 		}
 
@@ -807,6 +885,34 @@ $payload = modConfigEditorPayload($pdo, $world);
 				// would be a third place that has to agree what 'repackaging' means, which is
 				// how 2.53's hammertime bug happened.
 			});
+		}
+
+		// One card open at a time. Clicking an open card's header closes it, so there is a way
+		// to collapse everything -- an accordion that always keeps one open gives the operator
+		// no way to see the whole list of mods at once, which is the view they came for.
+		//
+		// The header also carries "Paste a config..." and "Reset all to defaults". A click on
+		// either must NOT toggle the card: the operator would press Reset, confirm a
+		// destructive action, and watch the card they were working in fold up. Buttons are
+		// ignored by walking up from the click target rather than by stopPropagation on each,
+		// so a button added to this header later is covered without anyone remembering to.
+		function toggleCfgCard(head, event) {
+			if (event && event.target.closest('button, a, input, select, textarea')) { return; }
+
+			var card = head.closest('.cfg-file-card');
+			if (!card || !card.classList.contains('collapsible')) { return; }
+
+			var wasOpen = !card.classList.contains('collapsed');
+			document.querySelectorAll('.cfg-file-card.collapsible').forEach(function (c) {
+				c.classList.add('collapsed');
+			});
+			if (!wasOpen) {
+				card.classList.remove('collapsed');
+				// Bring the header to the top when opening a card further down the page: the
+				// cards above it have just collapsed, so the content the operator asked for
+				// would otherwise have jumped somewhere off screen.
+				card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+			}
 		}
 
 		function resetFile(file) {

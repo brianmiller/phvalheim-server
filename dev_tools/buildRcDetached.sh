@@ -2800,6 +2800,25 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The single mode reader both call sites now share.
   v56r=$(grep -c "function modConfigWorldMode" /opt/stateless/nginx/www/includes/modconfigs.php)
 
+  # ---- the config editor is an ACCORDION when it shows more than one mod ----
+  # "Show all settings" is 23 cards and 2,700+ rows on a real modpack. Collapsible is decided
+  # in PHP from count($files) so the class and the number of cards cannot disagree; a single
+  # card is never collapsible, because the ?mod= view is one card and a click to reveal the
+  # only thing you asked for is a step for nothing.
+  # Guarded live by dev_tools/test-config-accordion.js (14 assertions, both the multi-card and
+  # the single-card page).
+  v56ag=$(grep -c 'count($files) > 1' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56ah=$(grep -c "function toggleCfgCard" /opt/stateless/nginx/www/admin/world_configs.php)
+  # The body is ONE element so collapsing is one display:none, and the inputs stay in the DOM
+  # while collapsed -- removing them would silently drop an edit made before collapsing.
+  v56ai=$(grep -c "cfg-file-body" /opt/stateless/nginx/www/admin/world_configs.php)
+  # A header button must not toggle the card: Reset all to defaults is destructive, and the
+  # card folding up mid-confirm is how that gets mis-clicked.
+  v56aj=$(grep -cF "event.target.closest('button, a, input, select, textarea')" /opt/stateless/nginx/www/admin/world_configs.php)
+  # Unsaved edits are carried to the HEADER, which is the only marker a collapsed card shows.
+  v56ak=$(grep -c "function markCardEdited" /opt/stateless/nginx/www/admin/world_configs.php)
+  v56al=$(grep -c "markCardEdited(" /opt/stateless/nginx/www/admin/world_configs.php)
+
   # ---- the review GATES Mods / Start / Settings ----
   # ONE delegated capture-phase listener, not an onclick per control: those three are rendered
   # in five places (two PHP cards, three JS branches) and a sixth would be the poll updater --
@@ -2862,6 +2881,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
   echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
   echo "2.56 CONFIG COVERAGE: summary keys=$v56m (want 2)  getWorldMode calls=$v56n (want 0)  mode reader=$v56r (want 1)  renderer=$v56o (want 1)  unmatched php=$v56p (want 1) js=$v56q (want 3)"
+  echo "2.56 CFG ACCORDION: php gate=$v56ag (want 1)  toggle fn=$v56ah (want 1)  body wrapper=$v56ai (want 3)  buttons exempt=$v56aj (want 1)  edited fn=$v56ak (want 1)  edited calls=$v56al (want 4)"
   echo "2.56 MIGRATION GATE: delegated listener=$v56ac (want 1)  capture phase=$v56ad (want 1)  per-world map=$v56ae (want 1)  re-click=$v56af (want 1)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 1)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
@@ -3124,6 +3144,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56w" = "2" ] && [ "$v56x" = "1" ] && [ "$v56y" = "1" ] && [ "$v56z" = "3" ] \
     && [ "$v56aa" = "1" ] && [ "$v56ab" = "1" ] \
     && [ "$v56ac" = "1" ] && [ "$v56ad" = "1" ] && [ "$v56ae" = "1" ] && [ "$v56af" = "1" ] \
+    && [ "$v56ag" = "1" ] && [ "$v56ah" = "1" ] && [ "$v56ai" = "3" ] \
+    && [ "$v56aj" = "1" ] && [ "$v56ak" = "1" ] && [ "$v56al" = "4" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
