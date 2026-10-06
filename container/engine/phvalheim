@@ -690,6 +690,14 @@ while [ true ]; do
 				#here, after materialise, would invert that precedence and let a stale file
 				#overwrite the value the operator just saved. Those files are already in
 				#game/ from the last update and a repackage does not purge them.
+				#Also learned here, not only after an install. A repackage installs no
+				#mods, but the zips are still cached and world_mods still says which
+				#packages this world has -- so an existing world picks up GUID
+				#attribution from an "Apply to players" instead of having to wait for
+				#its next full rebuild. Costs a few zip central-directory reads.
+				/opt/stateless/engine/tools/pluginGuids.py --world "$worldName" --learn \
+					|| echo "`date` [WARN : phvalheim] Could not learn plugin GUIDs for '$worldName'; config attribution falls back to name matching."
+
 				materialiseModConfigs "$worldName"
 				ensureBepInExLoaderConfig "$worldName"
 				packageClient "$worldName"

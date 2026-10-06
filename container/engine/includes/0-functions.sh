@@ -1073,6 +1073,21 @@ function downloadAndInstallTsModsForWorld() {
                 --record-installed "${modsInstalledIds%,}" \
                 || echo "`date` [WARN : phvalheim] Could not record installed mod versions for '$worldName'; its Updates tab will read 'waiting for data' until the next rebuild."
 
+        #Which plugin GUIDs this world's packages declare, read out of the zips we just
+        #installed from. This is what lets a mod's config file be attributed to its package:
+        #BepInEx names the file after the plugin's GUID, an author-chosen string that routinely
+        #differs from the package name, and before this the editor could only compare the two
+        #and hope. Package SkillInjector declaring GUID com.pipakin.SkillInjectorMod is the
+        #whole bug in one line.
+        #
+        #Here, not at world start, because the ZIPS are the evidence and this is where they are
+        #known to be present and to belong to a known mod_id. Non-fatal and backgrounded is
+        #NOT used: it is a few zip central-directory reads, it must be done before the admin UI
+        #can render the Configs modal for this rebuild, and a failure only costs the old
+        #name-matching behaviour.
+        /opt/stateless/engine/tools/pluginGuids.py --world "$worldName" --learn \
+                || echo "`date` [WARN : phvalheim] Could not learn plugin GUIDs for '$worldName'; its config files fall back to name matching and some may show as unmatched."
+
         #echo
         echo "`date` [NOTICE : phvalheim] Mods download and installation sequence complete. Note: This does NOT indicate success."
 

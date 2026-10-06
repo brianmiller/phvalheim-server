@@ -62,13 +62,34 @@ function modConfigWorldMode($pdo, $world) {
 
 /**
  * The world's selected mods, in the shape modConfigs.py --catalogue-file expects.
+ *
+ * Each row carries the BepInEx plugin GUIDs that package declares, learned at install time by
+ * pluginGuids.py. That is the EXACT half of attribution: BepInEx names a config file after the
+ * plugin's GUID, so a GUID the catalogue knows the owner of answers "whose config is this"
+ * outright, where comparing the filename to package names can only guess. Passing them here
+ * rather than matching in PHP keeps one attributor -- attribute() in the tool -- for both the
+ * live editor and the migration review.
  */
 function modConfigCatalogueJson($pdo, $worldId) {
     $st = $pdo->prepare(
         "SELECT m.id, m.name, m.full_name FROM world_mods wm
          JOIN mods m ON m.id = wm.mod_id WHERE wm.world_id = ?");
     $st->execute([$worldId]);
-    return $st->fetchAll(PDO::FETCH_ASSOC);
+    $mods = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    $gs = $pdo->prepare(
+        "SELECT g.mod_id, g.guid FROM mod_plugin_guids g
+         JOIN world_mods wm ON wm.mod_id = g.mod_id AND wm.world_id = ?");
+    $gs->execute([$worldId]);
+    $byMod = [];
+    foreach ($gs->fetchAll(PDO::FETCH_ASSOC) as $g) {
+        $byMod[(int)$g['mod_id']][] = $g['guid'];
+    }
+
+    foreach ($mods as &$m) {
+        $m['guids'] = $byMod[(int)$m['id']] ?? [];
+    }
+    return $mods;
 }
 
 /**

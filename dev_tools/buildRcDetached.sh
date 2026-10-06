@@ -2963,6 +2963,39 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # Whether the key actually survives a repackage is behaviour, not text:
   # dev_tools/test-payload-key.sh (11 assertions) and T7b in test-client-payload-sync.sh,
   # both carrying a control that world_md5 really did move.
+  # 2.55 GUID ATTRIBUTION -- which package owns a config file, exactly rather than by name.
+  #
+  # A config file is named after the plugin's BepInEx GUID, a string the mod AUTHOR chose, and
+  # the catalogue knows the PACKAGE name. attribute() could only compare the two: package
+  # SkillInjector declares GUID com.pipakin.SkillInjectorMod, so its config showed as
+  # "could not match to an installed mod". 7 of 58 files on a real world, 4 from this cause.
+  #
+  # v55ci/cj/ck/cl -- the reader. It parses the BepInPlugin ATTRIBUTE BLOB (prolog, three
+  #           SerStrings, no named arguments) rather than grepping for text, and the two
+  #           guards are the whole difference: without the version check and the trailing
+  #           00 00, any three-string attribute reads as a plugin declaration, and a plain
+  #           text search also matches a SOFT DEPENDENCY on another mod's GUID -- which would
+  #           file that mod's config under whichever package merely mentioned it. cl keeps a
+  #           bundled BepInEx pack from claiming the loader's GUIDs.
+  # v55cm -- the table
+  # v55cn/co -- the lookup, and that it is tried BEFORE the name guessing
+  # v55cp -- the admin UI ships the GUIDs with the catalogue, so the editor and the migration
+  #          review attribute through the same function instead of a second PHP copy
+  # v55cq/cr -- learned after an install (where the zips are) AND on a repackage, so an
+  #          existing world gets it from "Apply to players" without a full rebuild
+  # The blob parsing is behaviour, and the near-misses are the point:
+  # dev_tools/test-plugin-guids.sh (10 assertions, 5 of them NEGATIVE, plus a control that
+  # the pre-fix name match still returns None for the same fixture).
+  v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
+  v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
+  v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
+  v55cl=$(grep -cF '"bepinexpack" in n.lower()' /opt/stateless/engine/tools/pluginGuids.py)
+  v55cm=$(grep -cF 'tableExists mod_plugin_guids' /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+  v55cn=$(grep -c 'def guid_owners' /opt/stateless/engine/tools/modConfigs.py)
+  v55co=$(grep -cF 'if g and g in guids:' /opt/stateless/engine/tools/modConfigs.py)
+  v55cp=$(grep -cF "\$m['guids'] = \$byMod" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55cq=$(grep -cF 'pluginGuids.py --world "$worldName" --learn' /opt/stateless/engine/includes/0-functions.sh)
+  v55cr=$(grep -cF 'pluginGuids.py --world "$worldName" --learn' /opt/stateless/engine/phvalheim)
   v55ca=$(grep -cF 'CONFIG_PREFIX = "BepInEx/config/"' /opt/stateless/engine/tools/payloadKey.py)
   v55cb=$(grep -cF 'for row in sorted(rows):' /opt/stateless/engine/tools/payloadKey.py)
   v55cc=$(grep -c 'function setModsMD5' /opt/stateless/engine/includes/0-functions.sh)
@@ -3039,6 +3072,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
   echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
+  echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
@@ -3312,6 +3346,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bd" = "1" ] && [ "$v56be" = "1" ] && [ "$v56bf" = "1" ] && [ "$v56bg" = "1" ] \
     && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] \
     && [ "$v56bl" = "1" ] && [ "$v56bn" = "1" ] && [ "$v56bo" = "1" ] && [ "$v56bp" = "1" ] \
+    && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
+    && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
+    && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \
     && [ "$v55ca" = "1" ] && [ "$v55cb" = "1" ] && [ "$v55cc" = "1" ] && [ "$v55cd" = "1" ] \
     && [ "$v55ce" = "1" ] && [ "$v55cf" = "1" ] && [ "$v55cg" = "1" ] && [ "$v55ch" = "0" ] \
     && [ "$v56bq" = "1" ] && [ "$v56br" = "1" ] && [ "$v56bs" = "1" ] && [ "$v56bt" = "0" ] \

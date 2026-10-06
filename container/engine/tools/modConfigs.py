@@ -361,7 +361,47 @@ def _norm(s):
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
-def attribute(cfg_name, parsed, catalogue):
+def guid_owners(wid):
+    """BepInEx plugin GUID -> mod_id, for the mods THIS world installs.
+
+    The exact half of attribution, learned at install time by pluginGuids.py from the
+    BepInPlugin attribute inside each package's assemblies. BepInEx names a config file after
+    the plugin's GUID, so this answers "which package wrote this file" outright, where the
+    name matching below can only guess.
+
+    Scoped to the world, not global: the same GUID learned from a package this world does not
+    have must not attribute its file here. And a GUID declared by TWO of this world's packages
+    is dropped rather than guessed between -- same rule the name match uses, for the same
+    reason (a wrong owner is worse than none: it files the setting under a mod that never
+    reads it).
+    """
+    seen = {}
+    for guid, mod_id in rows(
+            "SELECT g.guid, g.mod_id FROM mod_plugin_guids g "
+            f"JOIN world_mods wm ON wm.mod_id = g.mod_id AND wm.world_id = {wid};"):
+        if guid in seen and seen[guid] != int(mod_id):
+            seen[guid] = None
+        elif guid not in seen:
+            seen[guid] = int(mod_id)
+    return {g: m for g, m in seen.items() if m is not None}
+
+
+def attribute(cfg_name, parsed, catalogue, guids=None):
+    # The GUID first, because it is evidence rather than resemblance. The file's own header
+    # states the GUID that wrote it, and guid_owners() knows which package declares that GUID
+    # -- so this is exact where everything below is a string guess. Only its ABSENCE falls
+    # through to the guessing: a world that has not been packaged since this existed, or a
+    # file whose header carries no GUID at all.
+    if guids:
+        g = (parsed.get("guid") or "").strip()
+        if g and g in guids:
+            return guids[g]
+        # The filename IS the GUID whenever BepInEx created the file, so a config whose header
+        # we could not parse is still answerable.
+        stem_guid = cfg_name[:-4] if cfg_name.endswith(".cfg") else cfg_name
+        if stem_guid in guids:
+            return guids[stem_guid]
+
     stem = cfg_name[:-4] if cfg_name.endswith(".cfg") else cfg_name
     handles = {_norm(stem), _norm(parsed.get("plugin")), _norm(parsed.get("guid"))}
     # The GUID is usually dotted and prefixed; its last segment is the part that resembles a
@@ -450,13 +490,14 @@ def discover(world):
     wid = world_id(world)
     directory = server_config_dir(world)
     catalogue = world_catalogue(wid)
+    guids = guid_owners(wid)
     overrides = load_overrides(wid)
 
     files, seen = [], set()
     for name in editable_cfgs(directory):
         text = read_text(os.path.join(directory, name))
         parsed = parse_cfg(text)
-        mod_id = attribute(name, parsed, catalogue)
+        mod_id = attribute(name, parsed, catalogue, guids)
         ov_index = {(o["section"], o["ckey"]): o for o in overrides.get(name, [])}
         seen.add(name)
 
@@ -652,7 +693,7 @@ def import_legacy_world(world):
                 print(f"[modConfigs] {world}: {subdir}/{name}: no parsable entries, left in place")
                 continue
 
-            mod_id = attribute(name, parsed, catalogue)
+            mod_id = attribute(name, parsed, catalogue, guid_owners(wid))
             took = 0
             for e in parsed["entries"]:
                 if e["has_default"]:
@@ -697,19 +738,30 @@ def catalogue_from_json(path):
     a second attributor that drifts from this one, and the symptom of a drift is a mod's config
     appearing under the wrong mod's Config icon, which an operator has no way to detect.
 
-    Accepts [{"id": 1, "name": "...", "full_name": "..."}, ...].
+    Accepts [{"id": 1, "name": "...", "full_name": "...", "guids": ["com.x.y", ...]}, ...].
+    Returns (name_handles, guid_owners) -- the same two lookups the DB modes build, so
+    attribute() behaves identically whichever side called it. `guids` is optional; an older
+    caller that omits it gets name matching alone, which is what 2.55 shipped with.
     """
     out = {}
+    guids = {}
     with open(path, "r", encoding="utf-8") as fh:
         for row in json.load(fh):
+            mod_id = int(row["id"])
             for handle in (row.get("name"), row.get("full_name")):
                 k = _norm(handle)
                 if k:
-                    out[k] = int(row["id"])
-    return out
+                    out[k] = mod_id
+            for g in (row.get("guids") or []):
+                g = (g or "").strip()
+                if not g:
+                    continue
+                # Ambiguity is dropped, not resolved -- see guid_owners().
+                guids[g] = None if (g in guids and guids[g] != mod_id) else mod_id
+    return out, {g: m for g, m in guids.items() if m is not None}
 
 
-def parse_dir(world, catalogue=None, directory=None):
+def parse_dir(world, catalogue=None, directory=None, guids=None):
     """Every editable cfg in a directory, parsed. NO DATABASE.
 
     `directory` defaults to the world's SERVER tree. The migration review passes the parked
@@ -742,7 +794,7 @@ def parse_dir(world, catalogue=None, directory=None):
             "file": name,
             "plugin": parsed["plugin"],
             "guid": parsed["guid"],
-            "mod_id": attribute(name, parsed, catalogue),
+            "mod_id": attribute(name, parsed, catalogue, guids),
             "entries": parsed["entries"],
         })
     return {
@@ -778,8 +830,9 @@ def main():
     if args.parse_dir:
         if not args.world:
             raise SystemExit("ERROR: --parse-dir needs --world NAME")
-        cat = catalogue_from_json(args.catalogue_file) if args.catalogue_file else None
-        print(json.dumps(parse_dir(args.world, cat, args.dir), indent=1))
+        cat, cat_guids = (catalogue_from_json(args.catalogue_file)
+                          if args.catalogue_file else (None, None))
+        print(json.dumps(parse_dir(args.world, cat, args.dir, cat_guids), indent=1))
         return 0
 
     if args.import_legacy:

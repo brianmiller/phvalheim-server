@@ -150,6 +150,44 @@ if ! tableExists mod_config_overrides; then
 fi
 
 
+# --- mod_plugin_guids: which PACKAGE declares which BepInEx plugin GUID ----------------
+#
+# The missing half of config attribution. A mod's config file is not in its zip -- BepInEx
+# writes config/<Plugin GUID>.cfg on first run, and that GUID is a string the mod AUTHOR typed
+# into [BepInPlugin(...)]. The catalogue knows the PACKAGE (owner/name). Nothing in the .cfg
+# and nothing in the catalogue connects them, so attribute() could only compare the file's
+# name against package names and hope.
+#
+# It misses whenever an author named the plugin differently from the package, which is common:
+# package SkillInjector declares GUID com.pipakin.SkillInjector*Mod*; package
+# InstantMonster*Loot*Drop ships plugin InstantMonsterDrop; package Smart*er*Containers ships
+# SmartContainers; and one package can ship several plugins, which no single name can match.
+# Measured on a real world: 7 of 58 files unmatched, four of them from exactly this.
+#
+# The link exists in the DLL, which the zip DOES contain, and the zip is downloaded for a
+# known mod_id. pluginGuids.py reads the BepInPlugin attribute blob out of each assembly at
+# install time and fills this table; attribute() then does an exact lookup instead of a guess.
+#
+# guid is case-sensitive (as_cs) because it is matched against a FILENAME: BepInEx names the
+# file after the GUID verbatim, so folding case here would let two different plugins collide.
+#
+# No foreign key, matching mod_config_overrides: a mod row being deleted must not silently
+# take learned facts with it, and re-learning costs one zip read.
+if ! tableExists mod_plugin_guids; then
+	echo "`date` [NOTICE : phvalheim] Creating table 'mod_plugin_guids'"
+	sql "CREATE TABLE mod_plugin_guids (
+		id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+		mod_id      INT UNSIGNED NOT NULL,
+		guid        VARCHAR(191) COLLATE utf8mb4_0900_as_cs NOT NULL,
+		plugin_name VARCHAR(191) COLLATE utf8mb4_0900_as_cs NOT NULL DEFAULT '',
+		date_seen   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (id),
+		UNIQUE KEY uk_mod_guid (mod_id, guid),
+		KEY idx_guid (guid)
+	) ENGINE=InnoDB;"
+fi
+
+
 # --- the one-shot legacy import -------------------------------------------------------
 #
 # 0 = custom_configs*/ has not been imported yet, 1 = it has (or there was nothing to take).
