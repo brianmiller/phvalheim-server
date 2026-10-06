@@ -46,6 +46,15 @@ import shutil
 import subprocess
 import sys
 
+# Imported by PATH, not as a package: engine/tools is not on sys.path when the
+# engine invokes this script directly, and a bare `import pluginGuids` then fails
+# at runtime while looking perfectly fine in a checkout.
+import importlib.util as _ilu
+_pg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pluginGuids.py")
+_pg_spec = _ilu.spec_from_file_location("pluginGuids", _pg_path)
+pluginGuids = _ilu.module_from_spec(_pg_spec)
+_pg_spec.loader.exec_module(pluginGuids)
+
 DB = "phvalheim"
 MYSQL = "/usr/bin/mysql"
 WORLDS_ROOT = "/opt/stateful/games/valheim/worlds"
@@ -361,6 +370,45 @@ def _norm(s):
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
 
+def cfg_is_claimed(cfg_file, catalogue, guids, disk_guids):
+    """Is anything on this world able to READ this config file?
+
+    Only asked when the file does not exist and materialise() is about to invent it from saved
+    rows. That branch is needed -- during an update the purge has just emptied the directory
+    and a mod gets its settings before its first run -- but it cannot tell "has not run yet"
+    from "is not installed at all", and the difference matters:
+
+    A pre-2.55 custom_configs/ file for a mod the world no longer has imported into rows with
+    no owner. materialise then re-created the file on every update, the purge deleted it, and
+    materialise wrote it back: a permanent config for a mod that does not exist, listed in the
+    editor as live and shipped to every player. Confirmed on a real world -- 40 such creations
+    in one log, including zolantris.ValheimRAFT.cfg on a world with no RAFT assembly anywhere.
+
+    Three kinds of evidence, any one of which is enough:
+
+      disk_guids   an assembly UNDER THIS WORLD declares the GUID. The strongest answer, and
+                   the only one that covers the engine-installed plugins -- the Companion and
+                   anything from custom_plugins/ have no world_mods row, so judging by the
+                   catalogue alone would call their configs unclaimed and stop writing them.
+      guids        a package this world installs declares it (learned from the zips).
+      catalogue    the filename resembles a package name, the pre-GUID match, kept so a world
+                   whose GUIDs have not been learned yet still behaves as it did.
+
+    FAILS OPEN. Knowing nothing about this world -- no assemblies read, no catalogue -- is not
+    evidence of absence, and the cost of being wrong is asymmetric: a file wrongly created is
+    one stale config an operator can delete, while a file wrongly withheld silently drops a
+    setting they saved. Same rule as every other unknown in this release.
+    """
+    if not disk_guids and not guids and not catalogue:
+        return True
+
+    stem = cfg_file[:-4] if cfg_file.endswith(".cfg") else cfg_file
+    if stem in (disk_guids or set()):
+        return True
+
+    return attribute(cfg_file, {}, catalogue, guids) is not None
+
+
 def guid_owners(wid):
     """BepInEx plugin GUID -> mod_id, for the mods THIS world installs.
 
@@ -591,7 +639,15 @@ def materialise(world):
         print(f"[modConfigs] {world}: no overrides to apply")
         return 0
 
-    total_applied = total_created = total_injected = 0
+    # What this world can actually read, gathered once. The disk scan is the authority (it
+    # sees engine-installed plugins the catalogue has never heard of); the other two are the
+    # fallbacks cfg_is_claimed() documents.
+    catalogue = world_catalogue(wid)
+    guids = guid_owners(wid)
+    disk_guids = pluginGuids.guids_on_disk(
+        os.path.join(WORLDS_ROOT, world, "game", "BepInEx"))
+
+    total_applied = total_created = total_injected = total_unclaimed = 0
     for tree, directory in (("server", server_config_dir(world)),
                             ("client", client_config_dir(world))):
         if not os.path.isdir(directory):
@@ -610,6 +666,18 @@ def materialise(world):
             path = os.path.join(directory, cfg_file)
 
             if not os.path.isfile(path):
+                # Not if nothing here can read it. Rows for a mod the world does not have --
+                # a pre-2.55 custom_configs/ leftover, or a mod since removed -- would
+                # otherwise be re-invented on every update forever and shipped to players.
+                # The rows are KEPT: install that mod again and this branch writes the file
+                # on the next update, with the operator's settings intact.
+                if not cfg_is_claimed(cfg_file, catalogue, guids, disk_guids):
+                    total_unclaimed += 1
+                    print(f"[modConfigs] {world}: {tree}: {cfg_file}: NOT created -- no mod "
+                          f"on this world reads it ({len(ovs)} saved setting(s) kept in the "
+                          f"database in case it is installed again)")
+                    continue
+
                 # CREATE it. During an update the purge has just emptied this directory and
                 # the mod has not run yet, so this is the normal case rather than an edge
                 # case -- see render_new_cfg(). Skipping it here is what made every override
@@ -636,7 +704,9 @@ def materialise(world):
                       f"applied {len(applied)} override(s)")
 
     print(f"[modConfigs] {world}: {total_applied} applied, {total_injected} added, "
-          f"{total_created} written into new files")
+          f"{total_created} written into new files"
+          + (f", {total_unclaimed} file(s) NOT created (no mod reads them)"
+             if total_unclaimed else ""))
     return 0
 
 

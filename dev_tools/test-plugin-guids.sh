@@ -202,6 +202,71 @@ fi
 # The CONTROL is `name_only None` above: it is the pre-fix behaviour, so if it ever starts
 # returning 7 the fixture has stopped reproducing the bug and the first case proves nothing.
 
+# ---- 11. guids_on_disk() reads the world's own assemblies -------------------------------
+# This is what covers the engine-installed plugins: the Companion and anything from
+# custom_plugins/ have no catalogue row at all.
+mkdir -p "$TMP/tree/plugins/SomeMod" "$TMP/tree/patchers" "$TMP/tree/core"
+cp "$TMP/good.bin" "$TMP/tree/plugins/SomeMod/SomeMod.dll"
+cp "$TMP/two.bin"  "$TMP/tree/patchers/Patch.dll"
+cp "$TMP/two.bin"  "$TMP/tree/core/BepInEx.dll"      # loader: must be ignored
+got=$(python3 - "$TOOL" "$TMP/tree" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("pg", sys.argv[1])
+pg = importlib.util.module_from_spec(spec); spec.loader.exec_module(pg)
+print(",".join(sorted(pg.guids_on_disk(sys.argv[2]))))
+PY
+)
+if [ "$got" = "a.b.One,a.b.Two,com.pipakin.SkillInjectorMod" ]; then
+	ok "guids_on_disk reads plugins/ and patchers/ and ignores core/"
+else
+	bad "guids_on_disk reads plugins and patchers, not core" "got '$got'"
+fi
+
+# ---- 12. the manufactured-config fix, with its control ----------------------------------
+# materialise() invents a cfg file from saved rows when the file is missing -- correct for a
+# mod that has not run yet, wrong for a mod the world does not have. On a real world that
+# re-created zolantris.ValheimRAFT.cfg on every update, for a RAFT that is not installed,
+# and shipped it to every player: 40 such creations in one log.
+#
+# The CONTROL is `unrun_mod True`. It is the case the fix must not break, and a fix that
+# simply stopped creating files would fail it while passing every other assertion here.
+python3 - "$MC" > "$TMP/claim.out" 2>&1 <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("mc", sys.argv[1])
+mc = importlib.util.module_from_spec(spec); spec.loader.exec_module(mc)
+
+cat  = {"skillinjector": 7}                       # the world has package SkillInjector
+guids = {"com.pipakin.SkillInjectorMod": 7}       # which declares this GUID
+disk = {"posixone_PhValheimCompanion"}            # engine-installed, in no catalogue
+
+# The mod is installed but has not written its config yet -- MUST still be created.
+print("unrun_mod", mc.cfg_is_claimed("com.pipakin.SkillInjectorMod.cfg", cat, guids, disk))
+# Engine-installed plugin, no catalogue row, no learned GUID: the assembly on disk is the
+# only evidence there is.
+print("companion", mc.cfg_is_claimed("posixone_PhValheimCompanion.cfg", cat, guids, disk))
+# The bug: rows for a mod this world does not have.
+print("orphan", mc.cfg_is_claimed("zolantris.ValheimRAFT.cfg", cat, guids, disk))
+# Knowing nothing is not evidence of absence -- fail open.
+print("no_knowledge", mc.cfg_is_claimed("zolantris.ValheimRAFT.cfg", {}, {}, set()))
+PY
+exp=$'unrun_mod True\ncompanion True\norphan False\nno_knowledge True'
+if [ "$(cat "$TMP/claim.out")" = "$exp" ]; then
+	ok "cfg_is_claimed: unrun mod yes, engine plugin yes, orphan NO, unknown fails open"
+else
+	bad "cfg_is_claimed decisions" "got:
+$(sed 's/^/          /' "$TMP/claim.out")
+        want:
+$(echo "$exp" | sed 's/^/          /')"
+fi
+
+# And materialise must actually consult it, on the create path.
+if grep -q "if not cfg_is_claimed(cfg_file, catalogue, guids, disk_guids):" \
+     "$(dirname "$MC")/modConfigs.py"; then
+	ok "materialise() gates the create branch on cfg_is_claimed"
+else
+	bad "materialise() gates the create branch" "the decision function is never called"
+fi
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

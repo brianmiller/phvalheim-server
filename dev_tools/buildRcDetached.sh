@@ -2986,6 +2986,32 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The blob parsing is behaviour, and the near-misses are the point:
   # dev_tools/test-plugin-guids.sh (10 assertions, 5 of them NEGATIVE, plus a control that
   # the pre-fix name match still returns None for the same fixture).
+  # 2.55 NO MANUFACTURED CONFIGS -- materialise() must not invent a config for a mod that is
+  # not installed.
+  #
+  # Its create-a-missing-file branch is needed (the update purge empties the directory, so a
+  # mod gets its saved settings before its first run) but could not tell "has not run yet"
+  # from "is not installed". A pre-2.55 custom_configs/ leftover imported into ownerless rows
+  # was therefore re-invented on EVERY update, deleted by the purge, written back again --
+  # a permanent config for a mod that does not exist, listed in the editor as live and shipped
+  # to every player. Measured on a real world: 40 such creations in one log, including
+  # zolantris.ValheimRAFT.cfg on a world whose only *ValheimRAFT* file IS that config.
+  #
+  # v55cs/ct -- the decision, and that the create branch actually calls it
+  # v55cu -- it FAILS OPEN on no evidence. Withholding a file silently drops a setting the
+  #          operator saved; creating one they can delete is the cheaper way to be wrong.
+  # v55cv -- the disk scan, which is what covers the ENGINE-INSTALLED plugins: the Companion
+  #          and anything from custom_plugins/ have no world_mods row at all, so a
+  #          catalogue-only test would stop writing their configs
+  # v55cw -- the skip is logged with the row count, because a silent withhold is the one
+  #          outcome an operator cannot otherwise see
+  # The decision table, including the control that a claimed-but-not-yet-run mod STILL gets
+  # its file: dev_tools/test-plugin-guids.sh (13 assertions).
+  v55cs=$(grep -c 'def cfg_is_claimed' /opt/stateless/engine/tools/modConfigs.py)
+  v55ct=$(grep -cF 'if not cfg_is_claimed(cfg_file, catalogue, guids, disk_guids):' /opt/stateless/engine/tools/modConfigs.py)
+  v55cu=$(grep -cF 'if not disk_guids and not guids and not catalogue:' /opt/stateless/engine/tools/modConfigs.py)
+  v55cv=$(grep -c 'def guids_on_disk' /opt/stateless/engine/tools/pluginGuids.py)
+  v55cw=$(grep -cF 'NOT created -- no mod ' /opt/stateless/engine/tools/modConfigs.py)
   v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
   v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
   v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
@@ -3072,6 +3098,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
   echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
+  echo "2.55 NO FAKE CFGS: decision=$v55cs (want 1)  gated=$v55ct (want 1)  fails open=$v55cu (want 1)  disk scan=$v55cv (want 1)  skip logged=$v55cw (want 1)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
@@ -3346,6 +3373,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bd" = "1" ] && [ "$v56be" = "1" ] && [ "$v56bf" = "1" ] && [ "$v56bg" = "1" ] \
     && [ "$v56bh" = "1" ] && [ "$v56bi" = "1" ] && [ "$v56bj" = "1" ] \
     && [ "$v56bl" = "1" ] && [ "$v56bn" = "1" ] && [ "$v56bo" = "1" ] && [ "$v56bp" = "1" ] \
+    && [ "$v55cs" = "1" ] && [ "$v55ct" = "1" ] && [ "$v55cu" = "1" ] \
+    && [ "$v55cv" = "1" ] && [ "$v55cw" = "1" ] \
     && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
     && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
     && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \

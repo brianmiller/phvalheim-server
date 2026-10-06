@@ -174,6 +174,39 @@ def guids_in_zip(path):
     return out
 
 
+def guids_on_disk(tree_root):
+    """Every plugin GUID declared by an assembly actually present under a BepInEx tree.
+
+    The direct answer to "can anything here read this config file", and it covers the cases
+    the catalogue cannot: the PhValheim Companion and anything else from custom_plugins/ is
+    engine-installed and has no world_mods row, so judging by the catalogue alone would call
+    its config unclaimed.
+
+    patchers/ as well as plugins/: a preloader patcher binds its own config the same way.
+    core/ is skipped -- that is the loader, whose BepInEx.cfg is excluded from all of this.
+    """
+    found = set()
+    for sub in ("plugins", "patchers"):
+        base = os.path.join(tree_root, sub)
+        if not os.path.isdir(base):
+            continue
+        for dirpath, _dirnames, filenames in os.walk(base):
+            for fn in filenames:
+                if not fn.lower().endswith(".dll"):
+                    continue
+                p = os.path.join(dirpath, fn)
+                try:
+                    if os.path.getsize(p) > 32 * 1024 * 1024:
+                        continue
+                    with open(p, "rb") as fh:
+                        data = fh.read()
+                except OSError:
+                    continue
+                for guid, _name, _version in guids_in_assembly(data):
+                    found.add(guid)
+    return found
+
+
 def world_zips(world):
     """[(mod_id, cached zip path)] for the mods this world installs.
 
