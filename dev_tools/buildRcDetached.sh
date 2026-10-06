@@ -2470,7 +2470,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # All THREE identity columns case-sensitive, counted as 3 rather than ">0": under the default
   # ai_ci collation the unique key collapses Enabled and enabled into one row, so an operator
   # sets one setting and watches a different one change. Same hazard as 2.43's mods.owner/name.
-  v55b=$(grep -cE "(cfg_file|section|ckey) +VARCHAR\([0-9]+\) COLLATE utf8mb4_0900_as_cs" /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+  # DISTINCT column names, not a line count. This counted lines until mod_config_shapes added
+  # a second `cfg_file ... as_cs` declaration and it read 4 against a want of 3 -- while the
+  # thing it checks was still perfectly true. Worse, a bare count of 4 would then be satisfied
+  # by one of the three LOSING its collation and the new table declaring two, which is the
+  # mixed-collation join error this marker exists to prevent. Deduplicating by name makes the
+  # answer "all three override key columns are case-sensitive", whatever else declares them.
+  v55b=$(grep -oE "(cfg_file|section|ckey) +VARCHAR\([0-9]+\) COLLATE utf8mb4_0900_as_cs" /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh | awk '{print $1}' | sort -u | wc -l)
   # The +x trap: dbUpdate_2.45.sh shipped non-executable and its tables were never created.
   v55c=$(test -x /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh && echo 1 || echo 0)
   v55d=$(test -x /opt/stateless/engine/tools/modConfigs.py && echo 1 || echo 0)
@@ -2883,7 +2889,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56ar=$(grep -cF "\$state = \$owner === null ? 'orphaned' : 'at_risk';" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56as=$(grep -c "function modConfigParkedOwners" /opt/stateless/nginx/www/includes/modconfigs.php)
   v56at=$(grep -cF "args.dir" /opt/stateless/engine/tools/modConfigs.py)
-  v56au=$(grep -cF " --parse-dir --dir " /opt/stateless/nginx/www/includes/modconfigs.php)
+  # Anchored on $parkedDir, which is unique to the migration review's call. A bare count of
+  # " --parse-dir --dir " read 2 the moment the remembered-shape fallback became a second
+  # legitimate caller of the same mode -- and bumping the want to 2 would just move the
+  # collision to whenever a third arrives, while no longer asserting that THIS call survives.
+  # Quote-free fragment on purpose: the full call line contains a single quote, and smuggling
+  # one through this script's own `sh -c` layer is how a marker ends up red forever while
+  # proving nothing. escapeshellarg($parkedDir) appears nowhere else.
+  v56au=$(grep -cF 'escapeshellarg($parkedDir)' /opt/stateless/nginx/www/includes/modconfigs.php)
   v56av=$(grep -cF '!is_array($owners)' /opt/stateless/nginx/www/includes/modconfigs.php)
   # This was anchored on "|| f.state === 'orphaned';" and went from 1 to 2 the moment the
   # Import button added a second line ending that way. Anchored on the `safe` assignment now.
