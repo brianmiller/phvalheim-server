@@ -113,6 +113,87 @@ function modConfigParseTree($pdo, $world, $worldId) {
 }
 
 /**
+ * The last SHAPE each of this world's config files had, for files that are not there now.
+ *
+ * WHY THIS EXISTS
+ * The editor renders from the files on disk and purgeWorldModsConfigsPatchers() empties
+ * BepInEx/config on every update, so after an update a world shows only the handful of files
+ * materialise() rebuilt from saved overrides. On a real world that was 8 of 29 mods, down from
+ * 26, and it stays that way until each mod next loads -- and `mode='update'` always ends
+ * stopped, so that can be a long time. Nothing is lost (the overrides are rows and they
+ * re-apply) but the operator's editable surface collapses.
+ *
+ * snapshotModConfigs() remembers each file's text before the purge takes it. This reads those
+ * bytes back and hands them to the SAME parser through the SAME --parse-dir mode, pointed at a
+ * temp directory instead of the world's tree -- exactly the trick the migration review uses for
+ * the parked pre-2.55 originals. One parser, one attributor, no second representation of what a
+ * config's shape is.
+ *
+ * WHAT IS DELIBERATELY NOT DONE: these bytes are never written back into the world's tree.
+ * Restoring the old FILE is the pre-2.55 custom_configs/ behaviour this release exists to undo
+ * -- BepInEx keeps a key the new version dropped as an orphaned entry forever, and the file's
+ * own `# Default value:` lines would be the OLD version's, which is the baseline every
+ * modified-from-default badge is measured against. An edit made here becomes a sparse per-key
+ * override row, the same as an edit made against a live file.
+ *
+ * A world that has not been updated since this shipped has nothing remembered yet, and gets
+ * today's behaviour until its first update. There is deliberately no refresh from this side:
+ * the pre-purge snapshot already reads the complete tree at the only moment that matters, and a
+ * page render has no business writing to the database.
+ */
+function modConfigRememberedTree($pdo, $world, $worldId, $onDisk) {
+    $st = $pdo->prepare(
+        "SELECT cfg_file, cfg_text, date_seen FROM mod_config_shapes WHERE world_id = ?");
+    $st->execute([$worldId]);
+
+    $missing = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        // A file on disk always wins. Its own existence outranks anything remembered about it,
+        // and the live copy is the one the world is actually running.
+        if (isset($onDisk[$r['cfg_file']])) { continue; }
+        // Guard the basename: cfg_file comes from the database and is about to become a path.
+        if ($r['cfg_file'] !== basename($r['cfg_file'])) { continue; }
+        if (in_array($r['cfg_file'], modConfigExcludedFiles(), true)) { continue; }
+        $missing[$r['cfg_file']] = $r['date_seen'];
+    }
+    if (!$missing) { return []; }
+
+    $dir = rtrim(sys_get_temp_dir(), '/') . '/phvshape' . getmypid() . bin2hex(random_bytes(4));
+    if (!@mkdir($dir, 0700)) { return []; }
+
+    $st2 = $pdo->prepare(
+        "SELECT cfg_file, cfg_text FROM mod_config_shapes WHERE world_id = ? AND cfg_file = ?");
+    foreach (array_keys($missing) as $name) {
+        $st2->execute([$worldId, $name]);
+        $row = $st2->fetch(PDO::FETCH_ASSOC);
+        if ($row) { file_put_contents($dir . '/' . $name, (string)$row['cfg_text']); }
+    }
+
+    $catalogue = modConfigCatalogueJson($pdo, $worldId);
+    $tmp = tempnam(sys_get_temp_dir(), 'phvcfg');
+    file_put_contents($tmp, json_encode($catalogue));
+    $cmd = MODCONFIG_TOOL . ' --world ' . escapeshellarg($world)
+         . ' --parse-dir --dir ' . escapeshellarg($dir)
+         . ' --catalogue-file ' . escapeshellarg($tmp) . ' 2>&1';
+    $raw = shell_exec($cmd);
+    unlink($tmp);
+
+    foreach (glob($dir . '/*') as $f) { @unlink($f); }
+    @rmdir($dir);
+
+    $data = json_decode((string)$raw, true);
+    if (!is_array($data) || !isset($data['files'])) { return []; }
+
+    $out = [];
+    foreach ($data['files'] as $f) {
+        $f['remembered']    = true;
+        $f['remembered_at'] = $missing[$f['file']] ?? null;
+        $out[] = $f;
+    }
+    return $out;
+}
+
+/**
  * Every override row for a world, indexed by "file\x1Fsection\x1Fkey".
  */
 function modConfigOverrides($pdo, $worldId) {
@@ -157,17 +238,39 @@ function modConfigEditorPayload($pdo, $world) {
         $modNames[(int)$m['id']] = $m['full_name'] ?: $m['name'];
     }
 
+    // Files on disk, then the remembered shapes of files that are not. Both go through the one
+    // loop below so a remembered file is merged with its override rows, attributed and counted
+    // by exactly the same code -- the only difference is the `remembered` flag it carries out.
+    //
+    // Gated on the config directory existing. A vanilla world has no BepInEx tree and never
+    // will, and a world converted to vanilla keeps whatever it had remembered; without this
+    // gate its editor would offer the settings of mods it no longer runs. (Those rows are not
+    // orphaned forever: convert it back and the next update's prune drops the unclaimed ones.)
+    $treeFiles = $tree['files'];
+    if (!empty($tree['config_dir_exists'])) {
+        $onDisk = [];
+        foreach ($tree['files'] as $f) { $onDisk[$f['file']] = true; }
+        foreach (modConfigRememberedTree($pdo, $world, $worldId, $onDisk) as $f) {
+            $treeFiles[] = $f;
+        }
+    }
+
     $seenKeys = [];
     $files = [];
     // (file => true) when BepInEx has documented at least one setting in it, and the
     // overridden entries in it that carry no documentation at all. See the $stale block below.
     $fileDocumented = [];
     $undocumentedOverrides = [];
-    foreach ($tree['files'] as $f) {
+    foreach ($treeFiles as $f) {
         $entries = [];
         $modifiedCount = 0;
         foreach ($f['entries'] as $e) {
-            if ($e['type'] || $e['has_default']) {
+            // Only a LIVE file may mark itself documented, and so only a live file can make an
+            // override look orphaned. The orphan test below asks "does this version of the mod
+            // still use this setting", and a remembered shape is the version BEFORE the last
+            // update -- answering from it would accuse the operator's setting of being dead on
+            // the authority of a file the installed mod has never written.
+            if (empty($f['remembered']) && ($e['type'] || $e['has_default'])) {
                 $fileDocumented[$f['file']] = true;
             }
             $k = $f['file'] . "\x1F" . $e['section'] . "\x1F" . $e['key'];
@@ -214,6 +317,12 @@ function modConfigEditorPayload($pdo, $world) {
             'mod_name'       => $modId !== null ? ($modNames[$modId] ?? null) : null,
             'entry_count'    => count($entries),
             'modified_count' => $modifiedCount,
+            // Never conflated with a live file. The settings are real and editing them is
+            // real, but this is the shape the mod had BEFORE the last update and it has not
+            // confirmed it since -- so the UI says so rather than implying the world is
+            // running these entries right now.
+            'remembered'     => !empty($f['remembered']),
+            'remembered_at'  => $f['remembered_at'] ?? null,
             'entries'        => $entries,
         ];
     }
@@ -590,8 +699,12 @@ function modConfigModSummary($pdo, $world) {
                 'entry_count'    => 0,
                 'modified_count' => 0,
                 'file_names'     => [],
+                // A mod counts as REMEMBERED only while none of its files is live. One live
+                // file means the mod has loaded and written, which is the stronger claim.
+                'remembered'     => true,
             ];
         }
+        if (empty($f['remembered'])) { $mods[$key]['remembered'] = false; }
         $mods[$key]['files']          += 1;
         $mods[$key]['entry_count']    += (int)$f['entry_count'];
         $mods[$key]['modified_count'] += (int)$f['modified_count'];
@@ -624,15 +737,28 @@ function modConfigModSummary($pdo, $world) {
     $worldId   = worldIdByName($pdo, $world);
     $catalogue = $worldId ? modConfigCatalogueJson($pdo, $worldId) : [];
 
+    // THREE states, not two, and collapsing any pair of them puts back the misreport this
+    // banner exists to prevent:
+    //   written     the mod has loaded and written its own config. The live article.
+    //   remembered  editable, from the shape it had before the last update. It has not
+    //               confirmed that shape since, so it is NOT counted as written -- a banner
+    //               saying "26 of 29 have written a config" the moment after a purge would be
+    //               a flat lie, and the operator would stop looking for the reason a setting
+    //               they expected is missing.
+    //   waiting     nothing at all: never seen, or seen before this release shipped.
     $haveConfig = [];
+    $remembered = [];
     foreach ($out as $m) {
-        if ($m['mod_id'] !== null) { $haveConfig[(int)$m['mod_id']] = true; }
+        if ($m['mod_id'] === null) { continue; }
+        $id = (int)$m['mod_id'];
+        if (!empty($m['remembered'])) { $remembered[$id] = true; } else { $haveConfig[$id] = true; }
     }
 
     $waiting = [];
     foreach ($catalogue as $m) {
-        if (!isset($haveConfig[(int)$m['id']])) {
-            $waiting[] = ['mod_id' => (int)$m['id'], 'name' => $m['full_name'] ?: $m['name']];
+        $id = (int)$m['id'];
+        if (!isset($haveConfig[$id]) && !isset($remembered[$id])) {
+            $waiting[] = ['mod_id' => $id, 'name' => $m['full_name'] ?: $m['name']];
         }
     }
     usort($waiting, function ($a, $b) { return strcasecmp($a['name'], $b['name']); });
@@ -653,6 +779,10 @@ function modConfigModSummary($pdo, $world) {
         // because the gap itself is the thing the operator needs to act on.
         'installed'  => count($catalogue),
         'configured' => count($haveConfig),
+        // Mods whose settings are on offer from their remembered shape alone. Reported as its
+        // own number so the banner can say what it is instead of folding it into either of the
+        // other two, where it would read as a lie in one direction or a gap in the other.
+        'remembered' => count($remembered),
         'waiting'    => $waiting,
         'mode'       => $mode,
         // The unmatched bucket is a LIST ROW but not an installed mod, so without this the

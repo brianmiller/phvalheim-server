@@ -527,6 +527,13 @@ while [ true ]; do
 					#Update BepInEx
 					InstallAndUpdateBepInEx "$worldName"
 
+					#Remember what each config file looks like BEFORE the purge takes it, so
+					#the editor can still offer those settings during the gap between this
+					#update and each mod's next load. Ordering is the whole correctness
+					#argument here and it is one line: after the purge there is nothing left
+					#to read, and the snapshot would quietly remember nothing.
+					snapshotModConfigs "$worldName"
+
 					#Delete mods+configs, before downloading, installing and packaging. This is needed when a mod is removed.
 					purgeWorldModsConfigsPatchers "$worldName"
 

@@ -5,6 +5,7 @@
   modConfigs.py --parse-file PATH                JSON of one cfg file            (NO DATABASE)
   modConfigs.py --world NAME --discover          the above plus override state         (root)
   modConfigs.py --world NAME --materialise       apply DB overrides onto the trees     (root)
+  modConfigs.py --world NAME --snapshot          remember each cfg's shape pre-purge   (root)
   modConfigs.py --import-legacy --all            one-time lift of custom_configs*/     (root)
   modConfigs.py --import-legacy --world NAME     the same, one world                   (root)
 
@@ -522,6 +523,123 @@ def load_overrides(wid):
 
 
 # ---------------------------------------------------------------------------------------
+# --snapshot: remember each config file's SHAPE so the editor survives the purge
+# ---------------------------------------------------------------------------------------
+#
+# purgeWorldModsConfigsPatchers() empties BepInEx/config on every update, and the editor
+# renders from the files on disk. So after an update a world drops to the handful of files
+# materialise() rebuilt from saved overrides -- 26 mods with configs became 8 on a real world
+# -- and stays there until each mod next loads. The overrides are safe, but the operator's
+# editable SURFACE collapses for everything they had not already edited.
+#
+# So the text of each config file is remembered BEFORE the purge takes it, and the editor
+# falls back to the remembered copy for a file that is absent. The remembered bytes are never
+# written into a world's tree: restoring the old FILE is the pre-2.55 custom_configs/ bug this
+# release exists to undo. See the mod_config_shapes comment in dbUpdate_2.55.sh.
+
+def cfg_is_documented(parsed):
+    """Has BepInEx itself written this file, or did we?
+
+    A file BepInEx generated carries `# Setting type:` / `# Default value:` above its entries.
+    One render_new_cfg() produced carries bare `key = value` lines and nothing else, because
+    the mod has not booted with it yet.
+
+    This is the load-bearing distinction in the whole snapshot. On the second update of a
+    world that was never started in between, the only files on disk are the thin ones
+    materialise() wrote -- and remembering those would overwrite a rich remembered shape with
+    a bare key list, costing exactly the surface this is here to keep. Same test discover()
+    uses to tell an orphaned override from a fresh one; stated once, used for both.
+    """
+    return any(e["type"] or e["has_default"] for e in parsed["entries"])
+
+
+def shapes_to_remember(directory):
+    """(name, text) for each config file in `directory` worth remembering, and the skip count.
+
+    Split out from remember_shapes() so the decision is testable without a database: what
+    gets remembered is the part worth being sure about, and the INSERT around it is not.
+    """
+    keep, skipped = [], 0
+    for name in editable_cfgs(directory):
+        text = read_text(os.path.join(directory, name))
+        if not cfg_is_documented(parse_cfg(text)):
+            # Not an error, and not worth a line each: this is the normal state of a file
+            # materialise() created on the previous update.
+            skipped += 1
+            continue
+        keep.append((name, text))
+    return keep, skipped
+
+
+def remember_shapes(world):
+    """Store the text of every DOCUMENTED config file on this world's server tree.
+
+    The server tree only. The client tree is a copy of it (packageClient() zips ./BepInEx
+    whole), so a second snapshot of the same bytes would only be a second thing to keep in
+    step.
+    """
+    wid = world_id(world)
+    directory = server_config_dir(world)
+    if not os.path.isdir(directory):
+        print(f"[modConfigs] {world}: no config directory -- nothing to remember")
+        return 0
+
+    keep, skipped = shapes_to_remember(directory)
+    for name, text in keep:
+        # One statement per file rather than one giant multi-row INSERT: a cfg can be well
+        # over 100 KB and a world can have 60 of them, and a single oversized statement would
+        # fail as a whole, losing every shape instead of one.
+        #
+        # An UPSERT, not an INSERT: this runs on every update, so the second one would fail on
+        # uk_world_cfg and leave the editor holding a shape two versions out of date.
+        sql(f"INSERT INTO mod_config_shapes (world_id, cfg_file, cfg_text) "
+            f"VALUES ({wid}, {q(name)}, {q(text)}) "
+            f"ON DUPLICATE KEY UPDATE cfg_text=VALUES(cfg_text), date_seen=NOW();")
+
+    print(f"[modConfigs] {world}: remembered {len(keep)} config shape(s)"
+          + (f", skipped {skipped} the mod has not written yet" if skipped else ""))
+    return 0
+
+
+def forget_unreadable_shapes(world, wid, catalogue, guids, disk_guids):
+    """Drop remembered shapes for config files nothing on this world can read any more.
+
+    A remembered shape outlives the file, so without this a mod the operator REMOVED would
+    keep its settings on offer in the editor forever -- the display-side version of the bug
+    where materialise() re-invented a config for a mod the world does not have.
+
+    Conservative on purpose, and asymmetric with that fix. cfg_is_claimed() fails OPEN, so a
+    shape is only dropped when there is positive evidence the world cannot read it: no
+    assembly under its tree declares the GUID, no package it installs declares it, and the
+    name resembles nothing it has. A shape wrongly dropped collapses the very surface this
+    feature exists to keep; a shape wrongly kept is one stale entry in a list.
+
+    A file still ON DISK is never forgotten, whatever the claim test says -- the file's own
+    existence outranks any inference about it.
+    """
+    remembered = [r[0] for r in rows(
+        f"SELECT cfg_file FROM mod_config_shapes WHERE world_id = {wid};")]
+    if not remembered:
+        return 0
+
+    directory = server_config_dir(world)
+    dropped = []
+    for name in remembered:
+        if os.path.isfile(os.path.join(directory, name)):
+            continue
+        if cfg_is_claimed(name, catalogue, guids, disk_guids):
+            continue
+        dropped.append(name)
+
+    for name in dropped:
+        sql(f"DELETE FROM mod_config_shapes "
+            f"WHERE world_id = {wid} AND cfg_file = {q(name)};")
+        print(f"[modConfigs] {world}: forgot the remembered shape of {name} "
+              f"-- no mod on this world reads it any more")
+    return len(dropped)
+
+
+# ---------------------------------------------------------------------------------------
 # --discover
 # ---------------------------------------------------------------------------------------
 
@@ -634,10 +752,6 @@ def materialise(world):
     an ordering nothing declares is not a guarantee.
     """
     wid = world_id(world)
-    overrides = load_overrides(wid)
-    if not overrides:
-        print(f"[modConfigs] {world}: no overrides to apply")
-        return 0
 
     # What this world can actually read, gathered once. The disk scan is the authority (it
     # sees engine-installed plugins the catalogue has never heard of); the other two are the
@@ -646,6 +760,17 @@ def materialise(world):
     guids = guid_owners(wid)
     disk_guids = pluginGuids.guids_on_disk(
         os.path.join(WORLDS_ROOT, world, "game", "BepInEx"))
+
+    # ABOVE the no-overrides return, not below it. This is the pass that notices a mod has
+    # been removed, and the install that removed it does not care whether the world happens to
+    # have any override rows -- a world with none at all would otherwise keep offering the
+    # remembered settings of mods it no longer has, forever.
+    forget_unreadable_shapes(world, wid, catalogue, guids, disk_guids)
+
+    overrides = load_overrides(wid)
+    if not overrides:
+        print(f"[modConfigs] {world}: no overrides to apply")
+        return 0
 
     total_applied = total_created = total_injected = total_unclaimed = 0
     for tree, directory in (("server", server_config_dir(world)),
@@ -881,6 +1006,10 @@ def main():
     ap.add_argument("--all", action="store_true")
     ap.add_argument("--discover", action="store_true")
     ap.add_argument("--materialise", action="store_true")
+    ap.add_argument("--snapshot", action="store_true",
+                    help="remember each config file's text before the purge deletes it, so "
+                         "the editor can still offer its settings until the mod writes it "
+                         "again. Must run BEFORE purgeWorldModsConfigsPatchers().")
     ap.add_argument("--parse-file")
     ap.add_argument("--parse-dir", action="store_true")
     ap.add_argument("--dir",
@@ -923,9 +1052,11 @@ def main():
         return 0
     if args.materialise:
         return materialise(args.world)
+    if args.snapshot:
+        return remember_shapes(args.world)
 
     raise SystemExit("ERROR: pick one of --parse-dir, --parse-file, --discover, "
-                     "--materialise, --import-legacy")
+                     "--materialise, --snapshot, --import-legacy")
 
 
 if __name__ == "__main__":

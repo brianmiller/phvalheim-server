@@ -3012,6 +3012,42 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55cu=$(grep -cF 'if not disk_guids and not guids and not catalogue:' /opt/stateless/engine/tools/modConfigs.py)
   v55cv=$(grep -c 'def guids_on_disk' /opt/stateless/engine/tools/pluginGuids.py)
   v55cw=$(grep -cF 'NOT created -- no mod ' /opt/stateless/engine/tools/modConfigs.py)
+
+  # ---- 2.55: the editor survives a world update (mod_config_shapes) --------------------
+  # The purge empties BepInEx/config and the editor renders from disk, so after an update a
+  # world dropped from 26 mods with configs to 8 and stayed there until it was started. Each
+  # config file's TEXT is now remembered before the purge takes it.
+  #
+  # v55cx -- the snapshot mode exists at all
+  # v55cy -- and the engine runs it. Checked separately from v55cz because a mode nothing
+  #          calls is the "shipped without a door" failure: every unit test passes and the
+  #          operator still sees 8 of 29.
+  # v55cz -- ORDERING, and the only marker here that catches a SILENT failure: run the
+  #          snapshot after the purge and it succeeds having remembered nothing. Anchored on
+  #          the two call lines' numbers via awk, not on their order in the file text.
+  # v55da -- only a DOCUMENTED file is remembered. This is the load-bearing one: on the
+  #          second update of a world nobody started in between, the only files on disk are
+  #          the thin ones materialise() wrote, and remembering those replaces a rich
+  #          remembered shape with a bare key list -- losing the exact surface this keeps.
+  # v55db -- an UPSERT. A plain INSERT would fail on uk_world_cfg from the second update on,
+  #          leaving the editor holding a shape two versions out of date.
+  # v55dc -- the prune, so a REMOVED mod stops being offered forever (the display-side twin
+  #          of the manufactured-config bug above)
+  # v55dd -- the editor merges the remembered shapes
+  # v55de -- a file on disk beats its remembered copy
+  # v55df -- the table, with the uniqueness constraint the upsert needs
+  # Round-trip, controls and the ordering check: dev_tools/test-config-shape-memory.sh (15).
+  v55cx=$(grep -c 'def remember_shapes' /opt/stateless/engine/tools/modConfigs.py)
+  v55cy=$(grep -cF -- '--world "$worldName" --snapshot' /opt/stateless/engine/includes/0-functions.sh)
+  v55cz=$(awk '/snapshotModConfigs "\$worldName"/{s=NR} /purgeWorldModsConfigsPatchers "\$worldName"/{if(s&&NR>s){print "1";exit}}' /opt/stateless/engine/phvalheim)
+  v55da=$(grep -cF 'if not cfg_is_documented(parse_cfg(text)):' /opt/stateless/engine/tools/modConfigs.py)
+  v55db=$(grep -cF 'ON DUPLICATE KEY UPDATE cfg_text=VALUES(cfg_text)' /opt/stateless/engine/tools/modConfigs.py)
+  v55dc=$(grep -cF 'def forget_unreadable_shapes' /opt/stateless/engine/tools/modConfigs.py)
+  # Anchored on `foreach (` -- the bare call expression also matches the function's own
+  # DEFINITION, so a marker without it reads 1 for a function nothing ever calls.
+  v55dd=$(grep -cF 'foreach (modConfigRememberedTree($pdo, $world, $worldId, $onDisk) as $f)' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55de=$(grep -cF 'if (isset($onDisk[$r[' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55df=$(grep -cF 'UNIQUE KEY uk_world_cfg (world_id, cfg_file)' /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
   v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
   v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
   v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
@@ -3099,6 +3135,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION IMPORT: php fn=$v56bd (want 1)  api=$v56be (want 1)  args required=$v56bf (want 1)  button=$v56bg (want 1)  handler=$v56bh (want 1)  INSERT IGNORE=$v56bi (want 1)  one banner=$v56bj (want 1)"
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
   echo "2.55 NO FAKE CFGS: decision=$v55cs (want 1)  gated=$v55ct (want 1)  fails open=$v55cu (want 1)  disk scan=$v55cv (want 1)  skip logged=$v55cw (want 1)"
+  echo "2.55 CFG MEMORY: mode=$v55cx (want 1)  engine calls=$v55cy (want 1)  before purge=$v55cz (want 1)  documented only=$v55da (want 1)  upsert=$v55db (want 1)  prune=$v55dc (want 1)  editor reads=$v55dd (want 1)  disk wins=$v55de (want 1)  table=$v55df (want 1)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
@@ -3375,6 +3412,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bl" = "1" ] && [ "$v56bn" = "1" ] && [ "$v56bo" = "1" ] && [ "$v56bp" = "1" ] \
     && [ "$v55cs" = "1" ] && [ "$v55ct" = "1" ] && [ "$v55cu" = "1" ] \
     && [ "$v55cv" = "1" ] && [ "$v55cw" = "1" ] \
+    && [ "$v55cx" = "1" ] && [ "$v55cy" = "1" ] && [ "$v55cz" = "1" ] \
+    && [ "$v55da" = "1" ] && [ "$v55db" = "1" ] && [ "$v55dc" = "1" ] \
+    && [ "$v55dd" = "1" ] && [ "$v55de" = "1" ] && [ "$v55df" = "1" ] \
     && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
     && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
     && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \

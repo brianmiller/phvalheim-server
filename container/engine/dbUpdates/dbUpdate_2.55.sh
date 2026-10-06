@@ -188,6 +188,47 @@ if ! tableExists mod_plugin_guids; then
 fi
 
 
+# --- mod_config_shapes: the last SHAPE each config file had ---------------------------
+#
+# The editor renders from the files on disk, and purgeWorldModsConfigsPatchers() empties
+# BepInEx/config on every update. So after an update a world drops to just the handful of
+# files materialise() rebuilt from saved overrides -- measured on a real world, 26 mods with
+# configs became 8 -- and stays there until each mod next loads and writes its own file again.
+# Nothing is LOST (the overrides are rows, and they re-apply), but the operator's editable
+# SURFACE collapses, and an editor that can only offer 8 of 29 mods looks broken.
+#
+# This remembers the TEXT of each config file while it is still there, so the editor can
+# offer its settings during the gap. It is a cache for rendering and nothing else:
+#
+#   - It is never written back to a world's tree. Restoring the old FILE is the pre-2.55
+#     custom_configs/ bug this whole release exists to undo -- BepInEx keeps a key the new
+#     version dropped as an orphaned entry forever, and the file's `# Default value:` lines
+#     would be the OLD version's, which is what every modified-from-default badge compares
+#     against. An edit made from a remembered shape still becomes a sparse per-key override
+#     row, exactly as an edit made from a live file does.
+#   - A file on disk always wins. This is only consulted for a file that is absent.
+#
+# cfg_text, not a parsed schema: there is exactly one cfg parser in this product
+# (modConfigs.py) and a second representation of a config's shape would be a second thing to
+# keep in step with it. Remembering the bytes means the remembered shape is parsed by the same
+# parser, through the same --parse-dir mode, with the same attribution.
+#
+# cfg_file matches mod_config_overrides.cfg_file in both length and collation -- the two are
+# compared to each other, and a mixed-collation comparison is a hard error in MySQL.
+if ! tableExists mod_config_shapes; then
+	echo "`date` [NOTICE : phvalheim] Creating table 'mod_config_shapes'"
+	sql "CREATE TABLE mod_config_shapes (
+		id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+		world_id  INT UNSIGNED NOT NULL,
+		cfg_file  VARCHAR(160) COLLATE utf8mb4_0900_as_cs NOT NULL,
+		cfg_text  LONGTEXT     NOT NULL,
+		date_seen DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (id),
+		UNIQUE KEY uk_world_cfg (world_id, cfg_file)
+	) ENGINE=InnoDB;"
+fi
+
+
 # --- the one-shot legacy import -------------------------------------------------------
 #
 # 0 = custom_configs*/ has not been imported yet, 1 = it has (or there was nothing to take).

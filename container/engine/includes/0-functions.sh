@@ -1250,6 +1250,35 @@ function installCustomModsConfigsPatchers() {
 #its own config surfaces as a plugin that silently does nothing, which is indistinguishable
 #from a wrong config value. Same failure shape as issue #80, which is why every install path
 #above ends the same way.
+#Remember every config file's SHAPE before the purge deletes it.
+#
+#Why: the Mod Configs editor renders from the files on disk, and purgeWorldModsConfigsPatchers()
+#empties BepInEx/config on every update. A mod writes its config on its first Config.Bind(), and
+#`mode='update'` always ends STOPPED, so after an update the only files left are the few
+#materialise() rebuilt from saved overrides. Measured on a real world: 26 mods with configs
+#became 8, and stayed there until the operator started the world. Nothing was lost -- the
+#overrides are rows and they re-apply -- but the editable surface collapsed, and an editor
+#offering 8 of 29 mods reads as broken.
+#
+#MUST run BEFORE purgeWorldModsConfigsPatchers(). After it there is nothing left to read, and
+#the failure mode is silent: the snapshot would succeed, remember nothing, and the editor would
+#collapse exactly as it does today.
+#
+#Never fatal. A world whose shapes could not be remembered gets the old behaviour -- a thin
+#editor until its mods next load -- which is worse than this release intends but is not a
+#reason to abandon an update the operator asked for.
+function snapshotModConfigs() {
+        worldName="$1"
+        [ -z "$worldName" ] && return 0
+
+        if [ ! -d "$worldsDirectoryRoot/$worldName/game/BepInEx" ]; then
+                return 0
+        fi
+
+        /opt/stateless/engine/tools/modConfigs.py --world "$worldName" --snapshot \
+                || echo "`date` [WARN : phvalheim] Could not remember the config shapes for '$worldName'; its Mod Configs editor will show only the files its mods have written until each one next loads."
+}
+
 function materialiseModConfigs() {
         worldName="$1"
         [ -z "$worldName" ] && return 0

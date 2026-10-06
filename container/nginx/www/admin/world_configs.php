@@ -315,6 +315,25 @@ $payload = modConfigEditorPayload($pdo, $world);
 						<span class="badge bg-secondary" title="This config file could not be matched to a mod in the catalogue. Engine-installed plugins and any DLL you dropped into custom_plugins/ have no catalogue entry, so their configs land here.">Unattributed</span>
 					<?php endif; ?>
 					<code style="font-size:.78rem;opacity:.65;"><?php echo htmlspecialchars($f['file']); ?></code>
+					<?php
+					      // This card has no file behind it right now. A world update clears
+					      // BepInEx/config and a mod only writes its config the next time it
+					      // loads, so these entries are the shape PhValheim remembered before
+					      // that update. Said on the card, not just in a banner somewhere: the
+					      // operator is about to change a value, and "what am I looking at"
+					      // has to be answerable where they are looking.
+					      //
+					      // It is fully editable and that is the point. The edit becomes a
+					      // per-setting override row, exactly as it would against a live file,
+					      // and materialise() applies it to whatever the mod writes next. The
+					      // remembered bytes are never put back on disk -- see
+					      // modConfigRememberedTree().
+					      if (!empty($f['remembered'])):
+						$cfgSeenAt = $f['remembered_at'] ? ' Last seen ' . $f['remembered_at'] . '.' : '';
+					?>
+						<span class="badge bg-warning text-dark"
+						      title="This mod has not written its config file since the last world update, so these are the settings it had before it.<?php echo htmlspecialchars($cfgSeenAt); ?> Editing is safe: your changes are stored per setting and re-applied when the mod next writes its file.">from memory</span>
+					<?php endif; ?>
 					<span class="badge bg-dark" data-modcount="<?php echo htmlspecialchars($f['file']); ?>">
 						<?php echo (int)$f['modified_count']; ?> modified
 					</span>

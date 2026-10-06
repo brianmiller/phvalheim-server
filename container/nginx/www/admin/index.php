@@ -3308,8 +3308,19 @@ $totalCount = count($worlds);
                 const changed = m.modified_count > 0
                     ? `<span class="mods-count-badge" title="settings you have changed">${m.modified_count} changed</span>`
                     : '';
+                // Per-mod, not only in the banner. A mod shown from its remembered shape is
+                // fully editable, but the operator deserves to know on the row they are about
+                // to click that these entries are the ones it had before the last update, not
+                // ones it has confirmed since.
+                const memory = m.remembered
+                    ? `<span class="mods-count-badge" title="These settings are the ones this `
+                      + `mod had before the last world update. It has not written its config `
+                      + `file again yet, so this is the last shape PhValheim saw. Editing is `
+                      + `safe -- your changes are stored per setting and re-applied whenever `
+                      + `the mod next writes.">from memory</span>`
+                    : '';
                 return `<li data-cfgname="${escapeAttr(m.name.toLowerCase())}">`
-                     + `<a href="${href}">${escapeHtmlBasic(m.name)}</a> ${changed}`
+                     + `<a href="${href}">${escapeHtmlBasic(m.name)}</a> ${changed}${memory}`
                      + `<div style="font-size:.78rem;opacity:.6;">${m.entry_count} setting${m.entry_count === 1 ? '' : 's'}`
                      + ` in ${m.files} file${m.files === 1 ? '' : 's'}</div></li>`;
             }).join('');
@@ -3354,9 +3365,22 @@ $totalCount = count($worlds);
               + `mod &mdash; still editable, still sent to players.`
             : '';
 
+        // Mods whose settings are on offer from their REMEMBERED shape -- the one they had
+        // before the last update, kept so a purge does not empty this list. Named separately
+        // from the written count in every branch below: folding them in would claim the world
+        // is running settings it has not regenerated yet, and that is the exact
+        // partial-answer-as-a-complete-one shape this banner was added to kill.
+        const remembered = (typeof d.remembered === 'number') ? d.remembered : 0;
+        const fromMemory = remembered > 0
+            ? ` <b>${remembered}</b> of them ${remembered === 1 ? 'is' : 'are'} shown from the `
+              + `settings it had before the last update, because the mod has not written its `
+              + `file again yet &mdash; editing those is safe, and your changes apply either way.`
+            : '';
+
         if (full) {
             cov.innerHTML = `<div class="cfg-coverage ok">All <b>${d.installed}</b> of this `
-                          + `world&rsquo;s mods have written a config file.${unmatched}</div>`;
+                          + `world&rsquo;s mods have settings you can edit.${fromMemory}`
+                          + `${unmatched}</div>`;
             return;
         }
 
@@ -3376,8 +3400,8 @@ $totalCount = count($worlds);
                 : 'They will appear once this world has started and the mods have loaded.');
 
         cov.innerHTML = `<div class="cfg-coverage warn">`
-                      + `<b>${d.configured} of ${d.installed}</b> installed mods have written a `
-                      + `config file. ${advice}${unmatched}</div>`;
+                      + `<b>${d.configured + remembered} of ${d.installed}</b> installed mods have `
+                      + `settings you can edit.${fromMemory} ${advice}${unmatched}</div>`;
 
         wait.innerHTML = `<details class="cfg-waiting"><summary>`
                        + `${waiting.length} mod${waiting.length === 1 ? '' : 's'} with no config file yet`

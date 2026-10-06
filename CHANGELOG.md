@@ -2,6 +2,48 @@
 
 ## v2.55
 
+### A world update emptied the settings list
+
+`purgeWorldModsConfigsPatchers()` deletes `BepInEx/config/*` on every update, and the editor
+renders from the files on disk. A mod writes its config on its first `Config.Bind()`, and
+`mode='update'` always ends **stopped**, so the moment an update finished the only files left
+were the handful `materialise()` rebuilt from saved overrides. On VikingOutlaws that was **8 of
+29** mods, down from 26, and it stayed that way until someone started the world.
+
+Nothing was lost — the overrides are rows in `mod_config_overrides` and they re-apply — but the
+operator's *reachable* surface collapsed, which is indistinguishable from the feature breaking.
+
+`snapshotModConfigs()` now remembers each config file's **text** in `mod_config_shapes` before
+the purge takes it, and `modConfigEditorPayload()` falls back to that for a file that is absent,
+marked **from memory** on the card and in the picker. Those entries are fully editable: an edit
+becomes a per-key override row exactly as it would against a live file.
+
+Three things this deliberately does **not** do:
+
+- **It never writes the remembered bytes back onto a world's tree.** Restoring the whole file is
+  the pre-2.55 `custom_configs/` behaviour this release exists to undo — BepInEx keeps a key the
+  new version dropped as an orphaned entry forever, and the file's own `# Default value:` lines
+  would be the *old* version's, which is the baseline every modified-from-default badge is
+  measured against. `test-config-shape-memory.sh` asserts this by enumerating everything
+  `modConfigs.py` writes to disk, rather than by grepping for the absence of a word.
+- **It only remembers a file BepInEx wrote.** `cfg_is_documented()` is the load-bearing
+  distinction: on the second update of a world nobody started in between, the only files on disk
+  are the thin ones `materialise()` produced, and remembering those would replace a rich
+  remembered shape with a bare key list — losing the exact surface this keeps.
+- **It forgets a removed mod's shape.** A remembered shape outlives the file, so without
+  `forget_unreadable_shapes()` a mod the operator removed would keep its settings on offer
+  forever — the display-side twin of the manufactured-config bug fixed earlier in this release.
+  It reuses `cfg_is_claimed()`, which fails open, and never forgets a file still on disk.
+
+The ordering is the whole correctness argument and it is one line: run the snapshot *after* the
+purge and it succeeds having remembered nothing. No unit test can see that, so marker `v55cz`
+and the suite both assert it by line number in `container/engine/phvalheim`.
+
+The coverage banner now reports three states instead of two — written, remembered, never seen.
+Folding "remembered" into "written" would claim the world is running settings it has not
+regenerated yet, which is the same partial-answer-as-a-complete-one shape the banner was added
+to kill.
+
 ### The config editor was unreachable from the one state it was built for
 
 The editor's Apply button says *"Rebuilds the client payload for &lt;world&gt;. The world keeps
