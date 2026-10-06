@@ -267,6 +267,92 @@ else
 	bad "materialise() gates the create branch" "the decision function is never called"
 fi
 
+# ---- 14. --local: GUIDs declared by the world's OWN dropped DLLs -------------------------
+# A config file is named for its plugin's GUID, and a DLL dropped into custom_plugins/ has no
+# catalogue entry at all -- so attribution can never match it and the editor said "Unattributed"
+# forever. That badge cannot tell an operator's own working plugin from a config left behind by
+# a mod that is gone, and those want opposite actions: on a real world ValheimFoodConfig.cfg sat
+# under a heading inviting deletion while its 11 settings were all applying.
+#
+# The CONTROL is `catalogue_pkg`: a DLL under game/BepInEx/plugins (what a catalogue package
+# installs) must NOT be reported. Reporting it would relabel every ordinary mod's config as
+# "a plugin you installed yourself", which is the opposite claim.
+mkdir -p "$TMP/w/custom_plugins/Nested" "$TMP/w/custom_patchers" \
+         "$TMP/w/game/BepInEx/plugins/SomePackage"
+cp "$TMP/good.bin" "$TMP/w/custom_plugins/ValheimFoodConfig.dll"
+cp "$TMP/two.bin"  "$TMP/w/custom_plugins/Nested/Nested.dll"
+cp "$TMP/good.bin" "$TMP/w/game/BepInEx/plugins/SomePackage/SomePackage.dll"
+got=$(python3 - "$TOOL" "$TMP/w" <<'PY2'
+import importlib.util, sys, os
+spec = importlib.util.spec_from_file_location("pg", sys.argv[1])
+pg = importlib.util.module_from_spec(spec); spec.loader.exec_module(pg)
+pg.WORLDS_ROOT = os.path.dirname(sys.argv[2])
+for guid, path in sorted(pg.local_guids(os.path.basename(sys.argv[2])).items()):
+    print(f"{guid}={path}")
+PY2
+)
+want=$'a.b.One=custom_plugins/Nested/Nested.dll\na.b.Two=custom_plugins/Nested/Nested.dll\ncom.pipakin.SkillInjectorMod=custom_plugins/ValheimFoodConfig.dll'
+if [ "$got" = "$want" ]; then
+	ok "--local names the dropped DLL for each GUID, and recurses into subdirectories"
+else
+	bad "--local maps guid -> dropped dll" "got:
+$(echo "$got" | sed 's/^/          /')
+        want:
+$(echo "$want" | sed 's/^/          /')"
+fi
+if ! echo "$got" | grep -q "SomePackage"; then
+	ok "CONTROL: a catalogue package's DLL under game/BepInEx is NOT called a local plugin"
+else
+	bad "CONTROL: only custom_plugins/ and custom_patchers/ count" \
+	    "a DLL from an ordinary installed mod was reported as operator-dropped, which would
+        relabel every mod's config as 'a plugin you installed yourself'"
+fi
+# A world with nothing dropped, and one that does not exist, must both be empty and quiet --
+# this runs on every editor render.
+for w in empty NoSuchWorld; do
+	mkdir -p "$TMP/$w" 2>/dev/null
+	n=$(python3 "$TOOL" --world "$w" --local 2>&1 | wc -l)
+	if [ "$n" = "0" ]; then ok "--local is empty and silent for '$w'"
+	else bad "--local on '$w'" "printed $n line(s)"; fi
+done
+
+# ---- 15. the editor actually marks the file, and only when unattributed -----------------
+MCP="$(cd "$(dirname "$0")/.." && pwd)/container/nginx/www/includes/modconfigs.php"
+if grep -qF 'function modConfigLocalPluginGuids($world)' "$MCP" \
+   && grep -qF '$localGuids = modConfigLocalPluginGuids($world);' "$MCP"; then
+	ok "the payload looks up the world's local plugin GUIDs"
+else
+	bad "modconfigs.php resolves local plugin GUIDs" \
+	    "the mode exists but nothing calls it, so no file is ever marked"
+fi
+if grep -qF 'if ($modId === null) {' "$MCP" && grep -qF "'local_dll'      => \$localDll," "$MCP"; then
+	ok "local_dll is set only for a file no catalogue mod owns"
+else
+	bad "local_dll is scoped to unattributed files" \
+	    "claiming an already-attributed file for a local DLL is a second, vaguer answer"
+fi
+if grep -qF "'local_dll' => \$localFor(\$ov['cfg_file'])" "$MCP"; then
+	ok "stale rows carry it too -- that list is the one with a delete button per row"
+else
+	bad "stale rows are marked" \
+	    "the panel asserts 'no mod uses this', which is the opposite of the truth for a file
+        one of the operator's own plugins reads"
+fi
+if grep -qF 'Local plugin' "$(cd "$(dirname "$0")/.." && pwd)/container/nginx/www/admin/world_configs.php"; then
+	ok "the editor renders the Local plugin badge"
+else
+	bad "world_configs.php shows the badge" "the payload carries local_dll and nothing displays it"
+fi
+# The heading must no longer assert one reason for both buckets.
+if [ "$(grep -cF 'no longer exist in the installed version of their mod' \
+        "$(cd "$(dirname "$0")/.." && pwd)/container/nginx/www/admin/world_configs.php")" = "0" ]; then
+	ok "NEGATIVE: the stale heading no longer claims every row is a removed setting"
+else
+	bad "the stale heading is split by reason" \
+	    "it still asserts 'no longer exist / not being applied' over rows whose mod simply has
+        not written its config yet -- those ARE applied, and there is a delete button beside them"
+fi
+
 echo
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1

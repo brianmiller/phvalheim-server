@@ -265,8 +265,11 @@ $payload = modConfigEditorPayload($pdo, $world);
 				when it is not.
 			-->
 			<div class="alert alert-warning">
-				<b>These saved settings no longer exist in the installed version of their mod.</b>
-				They are not being applied. Either the mod renamed them or it removed them.
+				<b>These saved settings did not match anything when this page was built.</b>
+				Each one says why below &mdash; and the two reasons are not the same thing.
+				A setting the mod <i>renamed or removed</i> will never apply again and is safe to
+				forget. A setting whose mod <i>has not written its config yet</i> is still being
+				applied; it will match again the next time that mod loads, so leave it alone.
 				<ul style="margin:8px 0 0 0;">
 				<?php foreach ($payload['stale'] as $s): ?>
 					<li>
@@ -275,6 +278,23 @@ $payload = modConfigEditorPayload($pdo, $world);
 						= <code><?php echo htmlspecialchars($s['cvalue']); ?></code>
 						<button class="btn btn-sm btn-outline-danger" style="padding:0 6px;margin-left:6px;"
 						        onclick="dropStale(<?php echo htmlspecialchars(json_encode([$s['cfg_file'], $s['section'], $s['ckey']])); ?>)">forget</button>
+						<?php
+						      // The row's OWN reason, printed. The heading above states one of the
+						      // two and this list carries both: a row can be here because the mod
+						      // dropped the setting (the heading's claim) or because the mod has
+						      // not written its config since the last update, which is normal and
+						      // temporary and whose setting IS still applied. They read
+						      // identically without this, and there is a delete button beside each.
+						?>
+						<span style="display:block;font-size:.76rem;opacity:.7;">
+							<?php echo htmlspecialchars($s['reason'] ?? ''); ?>
+							<?php if (!empty($s['local_dll'])): ?>
+								&mdash; but <code><?php echo htmlspecialchars($s['local_dll']); ?></code>
+								is a plugin you installed yourself and it reads this file, so this
+								setting is very likely still in use. <b>Do not forget it</b> unless
+								you know that plugin dropped the setting.
+							<?php endif; ?>
+						</span>
 					</li>
 				<?php endforeach; ?>
 				</ul>
@@ -311,8 +331,19 @@ $payload = modConfigEditorPayload($pdo, $world);
 					?></span>
 					<?php if ($f['mod_name']): ?>
 						<span class="badge bg-info"><?php echo htmlspecialchars($f['mod_name']); ?></span>
+					<?php elseif (!empty($f['local_dll'])): ?>
+						<?php
+						      // Unattributable BUT demonstrably read by something. A DLL in this
+						      // world's custom_plugins/ declares this file's GUID, so naming it
+						      // answers the question "Unattributed" leaves open: is this a live
+						      // plugin of mine, or a leftover from a mod that is gone? Those want
+						      // opposite actions, and the plain badge could not tell them apart.
+						?>
+						<span class="badge bg-success"
+						      title="No catalogue mod owns this file, because you installed its plugin yourself: <?php echo htmlspecialchars($f['local_dll']); ?> declares the plugin GUID this file is named after. Its settings are live and are sent to players like any other.">Local plugin</span>
+						<code style="font-size:.72rem;opacity:.6;"><?php echo htmlspecialchars($f['local_dll']); ?></code>
 					<?php else: ?>
-						<span class="badge bg-secondary" title="This config file could not be matched to a mod in the catalogue. Engine-installed plugins and any DLL you dropped into custom_plugins/ have no catalogue entry, so their configs land here.">Unattributed</span>
+						<span class="badge bg-secondary" title="This config file could not be matched to a mod in the catalogue, and no DLL in this world's custom_plugins/ claims it either. That can mean the mod was removed, or that it is installed under a plugin GUID nothing here has learned yet. Its settings are still editable and still sent to players.">Unattributed</span>
 					<?php endif; ?>
 					<code style="font-size:.78rem;opacity:.65;"><?php echo htmlspecialchars($f['file']); ?></code>
 					<?php

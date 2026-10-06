@@ -194,6 +194,37 @@ function modConfigRememberedTree($pdo, $world, $worldId, $onDisk) {
 }
 
 /**
+ * GUID => the dropped DLL that declares it, for this world's own custom_plugins/.
+ *
+ * WHY: a config file is named after its plugin's GUID, and a DLL an operator dropped into
+ * custom_plugins/ has no catalogue entry at all -- so attribution can never match it and the
+ * editor labels it "Unattributed" permanently. That badge is true and useless: it cannot
+ * distinguish the operator's own working plugin from a config a removed mod left behind, and
+ * those two want opposite actions.
+ *
+ * The assembly is right there and states which GUID it binds, so the answer is exact rather
+ * than inferred. Measured on a real world: ValheimFoodConfig.cfg is claimed by
+ * custom_plugins/ValheimFoodConfig.dll and its 11 settings are all applying, while sitting
+ * under a heading that invited deleting them.
+ *
+ * Shelled out rather than reimplemented: reading a BepInPlugin attribute blob in PHP would be
+ * a second copy of the one byte-scanner, and a drift between them would silently mislabel a
+ * live plugin's config as an orphan. Cheap enough to call per render -- a handful of DLLs.
+ */
+function modConfigLocalPluginGuids($world) {
+    $cmd = '/opt/stateless/engine/tools/pluginGuids.py --world '
+         . escapeshellarg($world) . ' --local 2>/dev/null';
+    $raw = shell_exec($cmd);
+    $out = [];
+    foreach (explode("\n", (string)$raw) as $line) {
+        if ($line === '') { continue; }
+        $parts = explode("\t", $line, 2);
+        if (count($parts) === 2 && $parts[0] !== '') { $out[$parts[0]] = $parts[1]; }
+    }
+    return $out;
+}
+
+/**
  * Every override row for a world, indexed by "file\x1Fsection\x1Fkey".
  */
 function modConfigOverrides($pdo, $worldId) {
@@ -255,6 +286,10 @@ function modConfigEditorPayload($pdo, $world) {
         }
     }
 
+    // Looked up ONCE, not per file: this shells out, and a 58-file world would otherwise run
+    // the scan 58 times for one unchanging answer.
+    $localGuids = modConfigLocalPluginGuids($world);
+
     $seenKeys = [];
     $files = [];
     // (file => true) when BepInEx has documented at least one setting in it, and the
@@ -309,12 +344,34 @@ function modConfigEditorPayload($pdo, $world) {
             ];
         }
         $modId = $f['mod_id'] !== null ? (int)$f['mod_id'] : null;
+
+        // Which dropped DLL reads this file, if one does. Matched on the GUID in the file's
+        // own header first and the filename stem second -- the same two keys attribute() uses,
+        // because BepInEx names the file after the GUID but a file it has not rewritten yet
+        // carries no header to read.
+        //
+        // Only asked for an unattributed file. A file a catalogue mod owns is already named;
+        // claiming it for a local DLL as well would just be a second, vaguer answer.
+        $localDll = null;
+        if ($modId === null) {
+            $guid = trim((string)($f['guid'] ?? ''));
+            $stem = preg_replace('/\.cfg$/', '', $f['file']);
+            foreach ([$guid, $stem] as $k) {
+                if ($k !== '' && isset($localGuids[$k])) { $localDll = $localGuids[$k]; break; }
+            }
+        }
+
         $files[] = [
             'file'           => $f['file'],
             'plugin'         => $f['plugin'],
             'guid'           => $f['guid'],
             'mod_id'         => $modId,
             'mod_name'       => $modId !== null ? ($modNames[$modId] ?? null) : null,
+            // Set only when a DLL in this world's custom_plugins/ declares this file's GUID.
+            // NOT a weaker kind of mod_id: there is no catalogue row to point at, which is the
+            // whole reason these go unattributed. It is evidence that something here READS the
+            // file, which is the question an operator looking at this list actually has.
+            'local_dll'      => $localDll,
             'entry_count'    => count($entries),
             'modified_count' => $modifiedCount,
             // Never conflated with a live file. The settings are real and editing them is
@@ -347,10 +404,28 @@ function modConfigEditorPayload($pdo, $world) {
     // Gated on the file having documented something, because a file this tool has just created
     // has no metadata on anything: the mod has not booted with it yet. Without that gate every
     // freshly-applied setting would be reported as broken.
+    // The dropped DLL that reads a given cfg_file, keyed by file, so a stale row can say so
+    // too. The panel these rows render in asserts "no mod uses this any more", and for a file
+    // one of the operator's own plugins demonstrably reads, that assertion is the opposite of
+    // the truth -- which matters most here, because this is the list with a delete button
+    // beside every row.
+    $localByFile = [];
+    foreach ($files as $ff) {
+        if (!empty($ff['local_dll'])) { $localByFile[$ff['file']] = $ff['local_dll']; }
+    }
+    $localFor = function ($cfgFile) use ($localByFile, $localGuids) {
+        if (isset($localByFile[$cfgFile])) { return $localByFile[$cfgFile]; }
+        // A row whose file is not on disk at all has no parsed header to match, so the
+        // filename stem is the only key left -- and it is the one BepInEx actually used.
+        $stem = preg_replace('/\.cfg$/', '', $cfgFile);
+        return $localGuids[$stem] ?? null;
+    };
+
     $stale = [];
     foreach ($overrides as $k => $ov) {
         if (!isset($seenKeys[$k])) {
-            $stale[] = $ov + ['reason' => 'the mod has not written this config yet'];
+            $stale[] = $ov + ['reason' => 'the mod has not written this config yet',
+                              'local_dll' => $localFor($ov['cfg_file'])];
         }
     }
     foreach ($undocumentedOverrides as $file => $ovs) {
@@ -358,7 +433,8 @@ function modConfigEditorPayload($pdo, $world) {
             continue;
         }
         foreach ($ovs as $ov) {
-            $stale[] = $ov + ['reason' => 'this version of the mod does not use this setting'];
+            $stale[] = $ov + ['reason' => 'this version of the mod does not use this setting',
+                              'local_dll' => $localFor($ov['cfg_file'])];
         }
     }
 

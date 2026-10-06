@@ -3061,6 +3061,31 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55dd=$(grep -cF 'foreach (modConfigRememberedTree($pdo, $world, $worldId, $onDisk) as $f)' /opt/stateless/nginx/www/includes/modconfigs.php)
   v55de=$(grep -cF 'if (isset($onDisk[$r[' /opt/stateless/nginx/www/includes/modconfigs.php)
   v55df=$(grep -cF 'UNIQUE KEY uk_world_cfg (world_id, cfg_file)' /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+
+  # ---- 2.55: name the dropped DLL behind an "Unattributed" config ----------------------
+  # A config is named for its plugin GUID, and a DLL in custom_plugins/ has no catalogue entry,
+  # so attribution could never match it and the badge said "Unattributed" permanently. That
+  # cannot distinguish the operator's own working plugin from a removed mod's leftover, and the
+  # two want opposite actions: on a real world ValheimFoodConfig.cfg sat under a heading
+  # inviting deletion while all 11 of its settings were applying.
+  #
+  # v55dg -- the --local mode
+  # v55dh -- and the payload calls it. Separate marker: a mode nothing calls marks nothing.
+  # v55di -- scoped to files no catalogue mod owns
+  # v55dj -- STALE ROWS carry it too. That is the list with a delete button on every row, so
+  #          it is the one place the wrong label actually costs something.
+  # v55dk -- the badge is rendered
+  # v55dl -- NEGATIVE: the stale heading no longer asserts "no longer exist / not being
+  #          applied" over every row, when half of them are settings that ARE applied and
+  #          whose mod has simply not rewritten its config since the last update.
+  # Decision table + the control that a catalogue package's own DLL is NOT called local:
+  # dev_tools/test-plugin-guids.sh (22 assertions).
+  v55dg=$(grep -c 'def local_guids' /opt/stateless/engine/tools/pluginGuids.py)
+  v55dh=$(grep -cF '$localGuids = modConfigLocalPluginGuids($world);' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55di=$(grep -cF 'if ($modId === null) {' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55dj=$(grep -cF "'local_dll' => \$localFor(\$ov['cfg_file'])" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55dk=$(grep -cF 'Local plugin' /opt/stateless/nginx/www/admin/world_configs.php)
+  v55dl=$(grep -cF 'no longer exist in the installed version of their mod' /opt/stateless/nginx/www/admin/world_configs.php)
   v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
   v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
   v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
@@ -3149,6 +3174,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
   echo "2.55 NO FAKE CFGS: decision=$v55cs (want 1)  gated=$v55ct (want 1)  fails open=$v55cu (want 1)  disk scan=$v55cv (want 1)  skip logged=$v55cw (want 1)"
   echo "2.55 CFG MEMORY: mode=$v55cx (want 1)  engine calls=$v55cy (want 1)  before purge=$v55cz (want 1)  documented only=$v55da (want 1)  upsert=$v55db (want 1)  prune=$v55dc (want 1)  editor reads=$v55dd (want 1)  disk wins=$v55de (want 1)  table=$v55df (want 1)"
+  echo "2.55 LOCAL PLUGIN: mode=$v55dg (want 1)  payload calls=$v55dh (want 1)  unattributed only=$v55di (want 1)  stale rows=$v55dj (want 2)  badge=$v55dk (want 1)"
+  echo "2.55 LOCAL PLUGIN NEGATIVE: one-reason stale heading gone=$v55dl (want 0)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
@@ -3428,6 +3455,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55cx" = "1" ] && [ "$v55cy" = "1" ] && [ "$v55cz" = "1" ] \
     && [ "$v55da" = "1" ] && [ "$v55db" = "1" ] && [ "$v55dc" = "1" ] \
     && [ "$v55dd" = "1" ] && [ "$v55de" = "1" ] && [ "$v55df" = "1" ] \
+    && [ "$v55dg" = "1" ] && [ "$v55dh" = "1" ] && [ "$v55di" = "1" ] \
+    && [ "$v55dj" = "2" ] && [ "$v55dk" = "1" ] && [ "$v55dl" = "0" ] \
     && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
     && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
     && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \

@@ -2,6 +2,7 @@
 """Which mod package owns which BepInEx plugin GUID.
 
   pluginGuids.py --world NAME [--learn]   read the world's mod zips, record every GUID
+  pluginGuids.py --world NAME --local     GUIDs declared by the world's OWN dropped DLLs
   pluginGuids.py --dll PATH               print the GUIDs found in ONE assembly (diagnostic)
   pluginGuids.py --zip PATH               print the GUIDs found in one mod zip (diagnostic)
 
@@ -50,6 +51,10 @@ import zipfile
 DB = "phvalheim"
 MYSQL = "/usr/bin/mysql"
 TS_MODS_DIR = "/opt/stateful/games/valheim/mods/ts"
+# For --local only. Kept in step with WORLDS_ROOT in modConfigs.py; this file deliberately
+# does not import that one, since modConfigs.py imports THIS one and the cycle would break
+# both at runtime while looking fine in a checkout.
+WORLDS_ROOT = "/opt/stateful/games/valheim/worlds"
 
 # A version as BepInEx accepts it: 1, 1.1, 1.1.1, 1.1.1.1. Deliberately strict -- this is the
 # field that tells a BepInPlugin blob apart from any other attribute taking three strings.
@@ -255,10 +260,59 @@ def learn(world, write=True):
     return learned
 
 
+def local_guids(world):
+    """GUID -> the path of the dropped DLL that declares it, relative to the world directory.
+
+    The world's OWN custom_plugins/ and custom_patchers/ -- the DLLs an operator put there by
+    hand, plus the ones the engine installs (the Companion, CustomSeed, TickMonitor). None of
+    them has a catalogue entry, so attribution by package name cannot ever match their config
+    files and they show up as "Unattributed" forever.
+
+    That badge is honest but useless: it cannot tell an operator's own working plugin from a
+    config left behind by a mod that is gone. This is the exact answer -- the assembly is
+    right there and it says which GUID it binds -- so the editor can name the DLL instead of
+    shrugging. On a real world: config/ValheimFoodConfig.cfg <- custom_plugins/
+    ValheimFoodConfig.dll, 11 settings, all applying.
+
+    Scanned from the SOURCE directories, not from game/BepInEx/plugins. Both would answer the
+    same question most of the time, but only this one distinguishes "you dropped this in" from
+    "a catalogue package shipped it", and that is the distinction being drawn.
+
+    No database, so the admin UI may call this directly -- php-fpm reaches MySQL as
+    phvalheim_user and every DB mode in this file speaks as -uroot.
+    """
+    root = os.path.join(WORLDS_ROOT, world)
+    out = {}
+    for sub in ("custom_plugins", "custom_patchers"):
+        base = os.path.join(root, sub)
+        if not os.path.isdir(base):
+            continue
+        for dirpath, _dirnames, filenames in os.walk(base):
+            for fn in sorted(filenames):
+                if not fn.lower().endswith(".dll"):
+                    continue
+                p = os.path.join(dirpath, fn)
+                try:
+                    if os.path.getsize(p) > 32 * 1024 * 1024:
+                        continue
+                    with open(p, "rb") as fh:
+                        data = fh.read()
+                except OSError:
+                    continue
+                for guid, _name, _version in guids_in_assembly(data):
+                    # First declarer wins, and the walk is sorted, so the answer is stable
+                    # rather than depending on readdir order.
+                    out.setdefault(guid, os.path.relpath(p, root))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--world")
     ap.add_argument("--learn", action="store_true")
+    ap.add_argument("--local", action="store_true",
+                    help="print GUID<TAB>path for the world's own custom_plugins/ and "
+                         "custom_patchers/ DLLs. No database.")
     ap.add_argument("--dll")
     ap.add_argument("--zip")
     args = ap.parse_args()
@@ -276,6 +330,11 @@ def main():
 
     if not args.world:
         ap.error("--world, --dll or --zip is required")
+
+    if args.local:
+        for guid, path in sorted(local_guids(args.world).items()):
+            print(f"{guid}\t{path}")
+        return 0
 
     found = learn(args.world, write=args.learn)
     if args.learn:
