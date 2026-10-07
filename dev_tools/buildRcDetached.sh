@@ -3086,6 +3086,24 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55dj=$(grep -cF "'local_dll' => \$localFor(\$ov['cfg_file'])" /opt/stateless/nginx/www/includes/modconfigs.php)
   v55dk=$(grep -cF 'Local plugin' /opt/stateless/nginx/www/admin/world_configs.php)
   v55dl=$(grep -cF 'no longer exist in the installed version of their mod' /opt/stateless/nginx/www/admin/world_configs.php)
+
+  # ---- 2.55: the Companion DLL that ships in the image --------------------------------
+  # The Companion is engine-installed from custom_plugins/, so a fix to it only reaches a
+  # player through a server image. The DLL is a build artifact -- nothing else in this verify
+  # can tell a rebuilt one from the version before it, and a stale copy here means the fix is
+  # committed, released, and not in anyone's game.
+  #
+  # Strings live in the assembly's string heap as UTF-16, hence tr -d '\000'.
+  #
+  # v55dm -- the cancel notice is IN the shipped DLL
+  # v55dn -- the observer's field is too, so the branch can actually fire
+  # v55do -- NEGATIVE: the old wording must not be the ONLY connect message left. The real
+  #          failure string stays (a cancel is not the only way back), so this counts the
+  #          cancel path's presence rather than the failure's absence -- an absence test here
+  #          would pass just as happily on a DLL with no connect flow at all.
+  v55dm=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -c 'Cancelled. Click Connect')
+  v55dn=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -c '_reachedCharacterSelect')
+  v55do=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -c 'Could not connect. The world may still be starting')
   v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
   v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
   v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
@@ -3176,6 +3194,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 CFG MEMORY: mode=$v55cx (want 1)  engine calls=$v55cy (want 1)  before purge=$v55cz (want 1)  documented only=$v55da (want 1)  upsert=$v55db (want 1)  prune=$v55dc (want 1)  editor reads=$v55dd (want 1)  disk wins=$v55de (want 1)  table=$v55df (want 1)"
   echo "2.55 LOCAL PLUGIN: mode=$v55dg (want 1)  payload calls=$v55dh (want 1)  unattributed only=$v55di (want 1)  stale rows=$v55dj (want 2)  badge=$v55dk (want 1)"
   echo "2.55 LOCAL PLUGIN NEGATIVE: one-reason stale heading gone=$v55dl (want 0)"
+  echo "2.55 COMPANION DLL: cancel notice=$v55dm (want 1)  observer field=$v55dn (want 1)  real failure kept=$v55do (want 1)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
@@ -3457,6 +3476,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55dd" = "1" ] && [ "$v55de" = "1" ] && [ "$v55df" = "1" ] \
     && [ "$v55dg" = "1" ] && [ "$v55dh" = "1" ] && [ "$v55di" = "1" ] \
     && [ "$v55dj" = "2" ] && [ "$v55dk" = "1" ] && [ "$v55dl" = "0" ] \
+    && [ "$v55dm" = "1" ] && [ "$v55dn" = "1" ] && [ "$v55do" = "1" ] \
     && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
     && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
     && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \
