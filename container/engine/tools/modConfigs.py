@@ -639,6 +639,64 @@ def forget_unreadable_shapes(world, wid, catalogue, guids, disk_guids):
     return len(dropped)
 
 
+def reattribute_unowned(world, wid, catalogue, guids):
+    """Fill in mod_id for rows that could not be attributed at the moment they were written.
+
+    mod_id is written ONCE, by attribute(), when a row is saved -- and nothing recomputes it.
+    mod_plugin_guids is populated at mod INSTALL time, so the legacy import on a world whose
+    GUIDs had not been learned yet had no exact evidence to attribute with and stored NULL. The
+    rows work (they are keyed on the file, not the mod) but they file under "Unattributed" in
+    the editor and are absent from their mod's Config badge, which counts the stored column:
+    SELECT mod_id ... WHERE mod_id IS NOT NULL GROUP BY mod_id. Measured on a real world:
+    flueno.SmartContainers.cfg, whose GUID now maps to an installed mod, still read Unattributed.
+
+    NOT "fill in the blanks". NULL is a LEGITIMATE, permanent state for three classes of file
+    -- a custom_plugins/ drop, the loader, an operator file with no catalogue entry -- see the
+    WHY block in dbUpdate_2.55.sh. This asks attribute() exactly the question a save would ask
+    today and takes its answer, which is None whenever two candidates match: a wrong owner is
+    worse than none, because it files a setting under a mod that never reads it.
+
+    NULL -> a value only, never a value -> a DIFFERENT value. The operator can see attribution
+    in the editor, so silently moving a row they have already filed under one mod is a worse
+    failure than leaving it where it is. The UPDATE repeats `AND mod_id IS NULL` for that
+    reason and not merely as an optimisation.
+
+    The header comes from the file on disk when it is there; otherwise attribute() falls back
+    to the filename stem, which IS the GUID for any file BepInEx wrote. The remembered shape is
+    deliberately not consulted: rows() splits mysql's tab output, and a multi-line cfg_text
+    comes back with escaped newlines -- parsing that to recover a GUID the stem already carries
+    would be a second, lossy representation of the same answer.
+    """
+    unowned = [r[0] for r in rows(
+        "SELECT DISTINCT cfg_file FROM mod_config_overrides "
+        f"WHERE world_id = {wid} AND mod_id IS NULL ORDER BY cfg_file;")]
+    if not unowned:
+        return 0
+
+    directory = server_config_dir(world)
+    fixed = 0
+    for name in unowned:
+        path = os.path.join(directory, name)
+        parsed = parse_cfg(read_text(path)) if os.path.isfile(path) else {}
+        mod_id = attribute(name, parsed, catalogue, guids)
+        if mod_id is None:
+            continue
+        sql(f"UPDATE mod_config_overrides SET mod_id = {int(mod_id)} "
+            f"WHERE world_id = {wid} AND cfg_file = {q(name)} AND mod_id IS NULL;")
+        print(f"[modConfigs] {world}: attributed {name} to mod {mod_id} "
+              f"-- its settings now show under that mod instead of Unattributed")
+        fixed += 1
+    return fixed
+
+
+def reattribute_world(world):
+    """--reattribute: the standalone pass, for the migration and for an operator by hand."""
+    wid = world_id(world)
+    fixed = reattribute_unowned(world, wid, world_catalogue(wid), guid_owners(wid))
+    print(f"[modConfigs] {world}: attributed {fixed} config file(s) that had no owner")
+    return 0
+
+
 # ---------------------------------------------------------------------------------------
 # --discover
 # ---------------------------------------------------------------------------------------
@@ -766,6 +824,12 @@ def materialise(world):
     # have any override rows -- a world with none at all would otherwise keep offering the
     # remembered settings of mods it no longer has, forever.
     forget_unreadable_shapes(world, wid, catalogue, guids, disk_guids)
+
+    # Same pass, same reason, the other direction: an install that just taught
+    # mod_plugin_guids a GUID is the moment a row written before that becomes attributable.
+    # Nothing else ever revisits mod_id, so if this does not run here a world that is never
+    # updated again keeps those settings under "Unattributed" permanently.
+    reattribute_unowned(world, wid, catalogue, guids)
 
     overrides = load_overrides(wid)
     if not overrides:
@@ -1020,6 +1084,10 @@ def main():
                     help="JSON [{id,name,full_name}] for attribution, for callers that "
                          "cannot use the DB modes (the admin UI)")
     ap.add_argument("--import-legacy", action="store_true")
+    ap.add_argument("--reattribute", action="store_true",
+                    help="fill in mod_id for override rows that had no owner when they were "
+                         "written, now that the world's plugin GUIDs are known. NULL -> a "
+                         "value only; a row with an owner is never moved.")
     args = ap.parse_args()
 
     if args.parse_file:
@@ -1045,6 +1113,17 @@ def main():
             import_legacy_world(name)
         return 0
 
+    if args.reattribute:
+        if args.all:
+            names = [r[0] for r in rows("SELECT name FROM worlds ORDER BY id;")]
+        elif args.world:
+            names = [args.world]
+        else:
+            raise SystemExit("ERROR: --reattribute needs --world NAME or --all")
+        for name in names:
+            reattribute_world(name)
+        return 0
+
     if not args.world:
         raise SystemExit("ERROR: --world NAME is required")
     if args.discover:
@@ -1056,7 +1135,7 @@ def main():
         return remember_shapes(args.world)
 
     raise SystemExit("ERROR: pick one of --parse-dir, --parse-file, --discover, "
-                     "--materialise, --snapshot, --import-legacy")
+                     "--materialise, --snapshot, --import-legacy, --reattribute")
 
 
 if __name__ == "__main__":

@@ -2,6 +2,32 @@
 
 ## v2.55
 
+### A config file whose owner became knowable later stayed "Unattributed"
+
+`mod_config_overrides.mod_id` is attribution and it is written **once**, by `attribute()`, at
+the moment a row is saved. The exact half of that answer lives in `mod_plugin_guids`, which is
+populated when a mod is **installed** — so every row the legacy import created on a world whose
+GUIDs were not yet learned stored `NULL`, and nothing ever revisited it.
+
+Those rows were always being applied — the table is keyed on the file, not the mod — but they
+filed under *Unattributed* in the editor and were absent from their mod's Config badge, which
+counts the stored column. Measured on VikingOutlaws: `flueno.SmartContainers.cfg`, whose GUID
+now maps to an installed mod, still read Unattributed.
+
+`reattribute_unowned()` asks `attribute()` the same question a save would ask today and takes
+its answer. It runs inside `materialise()` (so a world heals on its next update) and from
+`dbUpdate_2.55.sh` on **every** boot — deliberately not behind the one-shot import flag, since
+a GUID can become knowable at any later install, which makes "has this been done" not a
+property of the installation.
+
+`NULL` → a value only, never a value → a *different* value; the `UPDATE` repeats
+`AND mod_id IS NULL` so the guard is in the statement, not just in the row list it was handed.
+And this is **not** "fill in the blanks": `NULL` is a legitimate permanent state for a
+`custom_plugins/` drop, the loader, and any operator file with no catalogue entry, and
+`attribute()` returns `None` rather than choosing between two candidates — a wrong owner is
+worse than none, because it files a setting under a mod that never reads it. Guarded by
+`dev_tools/test-config-reattribution.sh` (8 checks, all 8 fail on the pre-fix tree).
+
 ### A world update emptied the settings list
 
 `purgeWorldModsConfigsPatchers()` deletes `BepInEx/config/*` on every update, and the editor

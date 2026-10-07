@@ -3104,6 +3104,30 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55dm=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -c 'Cancelled. Click Connect')
   v55dn=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -c '_reachedCharacterSelect')
   v55do=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -c 'Could not connect. The world may still be starting')
+  # --- 2.55 re-attribution: a row whose owner became knowable later -------------------
+  #
+  # mod_id is written once, by attribute(), when a row is saved; mod_plugin_guids is learned at
+  # INSTALL time. Rows written before their world's GUIDs were known stored NULL and nothing
+  # revisited them, so they filed under "Unattributed" and were missing from the mod's badge.
+  #
+  # Semantics -- the ambiguity and legitimate-NULL controls, and the three doors:
+  # dev_tools/test-config-reattribution.sh (8; all 8 fail on the pre-fix tree).
+  #
+  # v55dp -- the pass itself
+  # v55dq -- materialise() calls it. Anchored on the indented CALL, not the shared name: the
+  #          definition line contains the same argument list, so a bare name count would read
+  #          1 for a function nothing ever runs.
+  # v55dr -- it is reachable from the CLI, which is what the migration invokes
+  # v55ds -- and the migration invokes it
+  # v55dt -- the UPDATE's own NULL guard. The SELECT already filters, so this is belt AND
+  #          braces on purpose: without it the statement could move a row that already has an
+  #          owner, silently re-filing settings the operator has seen. Ends in a semicolon,
+  #          which the SELECT's clause does not, so this counts the UPDATE alone.
+  v55dp=$(grep -c 'def reattribute_unowned' /opt/stateless/engine/tools/modConfigs.py)
+  v55dq=$(grep -c '^    reattribute_unowned(' /opt/stateless/engine/tools/modConfigs.py)
+  v55dr=$(grep -cF '"--reattribute"' /opt/stateless/engine/tools/modConfigs.py)
+  v55ds=$(grep -cF -- '--reattribute --all' /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+  v55dt=$(grep -cF 'AND mod_id IS NULL;' /opt/stateless/engine/tools/modConfigs.py)
   v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
   v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
   v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
@@ -3195,6 +3219,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 LOCAL PLUGIN: mode=$v55dg (want 1)  payload calls=$v55dh (want 1)  unattributed only=$v55di (want 1)  stale rows=$v55dj (want 2)  badge=$v55dk (want 1)"
   echo "2.55 LOCAL PLUGIN NEGATIVE: one-reason stale heading gone=$v55dl (want 0)"
   echo "2.55 COMPANION DLL: cancel notice=$v55dm (want 1)  observer field=$v55dn (want 1)  real failure kept=$v55do (want 1)"
+  echo "2.55 REATTRIBUTION: pass=$v55dp (want 1)  materialise calls=$v55dq (want 1)  cli=$v55dr (want 1)  migration calls=$v55ds (want 1)  update guard=$v55dt (want 1)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
@@ -3477,6 +3502,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55dg" = "1" ] && [ "$v55dh" = "1" ] && [ "$v55di" = "1" ] \
     && [ "$v55dj" = "2" ] && [ "$v55dk" = "1" ] && [ "$v55dl" = "0" ] \
     && [ "$v55dm" = "1" ] && [ "$v55dn" = "1" ] && [ "$v55do" = "1" ] \
+    && [ "$v55dp" = "1" ] && [ "$v55dq" = "1" ] && [ "$v55dr" = "1" ] \
+    && [ "$v55ds" = "1" ] && [ "$v55dt" = "1" ] \
     && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
     && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
     && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \

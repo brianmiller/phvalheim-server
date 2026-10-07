@@ -272,3 +272,27 @@ if [ "${configMigrated:-0}" = "0" ]; then
 		echo "`date` [ERROR : phvalheim] Legacy mod config import FAILED -- leaving configEditorMigrated=0 so the next boot retries. The operator's custom_configs/ files are untouched and still on disk."
 	fi
 fi
+
+# --- re-attribute rows that had no owner when they were written -----------------------
+#
+# NOT gated on configEditorMigrated, and deliberately run on EVERY boot rather than once.
+#
+# mod_id is attribution and it is written once, by attribute(), at the moment a row is saved.
+# mod_plugin_guids -- the exact half of that answer -- is only learned when a mod is
+# INSTALLED, so any row written before its world's GUIDs were known got NULL and nothing ever
+# revisited it. Those rows still apply (mod_config_overrides is keyed on the file, not the
+# mod), but they file under "Unattributed" in the editor and are missing from their mod's
+# Config badge, which counts the stored column.
+#
+# A one-shot flag would be wrong here: the GUID for a given file can become knowable at any
+# later install, so "has this been done" is not a property of the installation. It is cheap
+# and idempotent -- one SELECT per world, and a world with nothing unowned returns at once.
+#
+# NULL -> a value only. A row that already has an owner is never moved, and a file whose owner
+# is genuinely unknowable (a custom_plugins/ drop, the loader, an operator file with no
+# catalogue entry) is left NULL, which is a legitimate state -- see the WHY block above.
+#
+# Never fatal. Failing to improve a label must not stop an upgrade.
+if ! /opt/stateless/engine/tools/modConfigs.py --reattribute --all; then
+	echo "`date` [WARNING : phvalheim] Could not re-attribute unowned mod config files. Their settings still apply; they will show under Unattributed in the editor until the next boot retries."
+fi
