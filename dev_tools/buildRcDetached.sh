@@ -2022,7 +2022,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # mirror.sh is the end-to-end half: it runs the real startWorld.sh and the real comparison.
   cpg=$(grep -c '\$vanilla === 1' /opt/stateless/nginx/www/includes/db_gets.php)
 
-  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generated in UPDATE path=$cpc (want 1, moved out of the migration)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0, and SEE v54a -- this pair read 0 on the build that shipped the bug)  listed+crossplay refused in php=$cpf (want 0, was a 2.53 pre-release regression)  blocked-by-crossplay in js=$cpfb (want 0)"
+  echo "2.53 access decoupled: retire flag=$cpb (want 1)  pw generation exists in 0-functions=$cpc (want 1; 2.55 moved its CALL to create -- see v55dv/v55dw)  hammertime gets=$cpd (want 0)  hammertime idx=$cpe (want 0, and SEE v54a -- this pair read 0 on the build that shipped the bug)  listed+crossplay refused in php=$cpf (want 0, was a 2.53 pre-release regression)  blocked-by-crossplay in js=$cpfb (want 0)"
   echo "2.53 access decoupled: restart-pending mirror vanilla gates=$cpg (want 0, was 2 and shipped broken)"
 
   # cph/cpi/cpj -- the password reveal row must be styled on a MODDED card too.
@@ -2067,11 +2067,15 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   #
   # cpm is the negative and is anchored on the `sql "UPDATE ...` CALL, not the bare phrase: the
   # migration still explains in a comment why it does not do this.
+  # 2.55 renamed the function to ensureNewWorldPassword and moved the call from the UPDATE block
+  # to the CREATE block -- see the 2.55 PASSWORD IS NEW-WORLD-ONLY markers below, which are what
+  # actually pin the placement. These two keep checking the function and the call still EXIST,
+  # under the current name; left at the old name they would have read 0 and failed the build.
   cpm=$(grep -cE '^[[:space:]]*sql "UPDATE worlds SET password' $zmig)
-  cpn=$(grep -c '^function ensureModdedWorldPassword()' $zfun)
-  cpo=$(grep -c 'ensureModdedWorldPassword "\$worldName"' $zeng)
+  cpn=$(grep -c '^function ensureNewWorldPassword()' $zfun)
+  cpo=$(grep -c 'ensureNewWorldPassword "\$worldName"' $zeng)
 
-  echo "2.53 password timing: migration writes one=$cpm (want 0, was 1 and shipped)  update-path fn=$cpn (want 1)  engine calls it=$cpo (want 1)"
+  echo "2.53 password timing: migration writes one=$cpm (want 0, was 1 and shipped)  generator fn=$cpn (want 1)  engine calls it=$cpo (want 1)"
 
   # cpp..cpt -- "your players must update the client", raised by the FIRST world update.
   #
@@ -3128,6 +3132,39 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55dr=$(grep -cF '"--reattribute"' /opt/stateless/engine/tools/modConfigs.py)
   v55ds=$(grep -cF -- '--reattribute --all' /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
   v55dt=$(grep -cF 'AND mod_id IS NULL;' /opt/stateless/engine/tools/modConfigs.py)
+
+  # --- 2.55: a password is generated for a NEW world ONLY (v55du..v55dx) --------------------
+  #
+  # 2.53 moved generation out of the migration and into the UPDATE path, for the right reason
+  # and to a place that is only NARROWER: the create block ends with `mode='update'`, so that
+  # one call site served new worlds AND every rebuild of an existing one -- a mod-list save, the
+  # Rebuild Mods button, Hugin. An operator deliberately running without a password got one the
+  # first time they touched a world's mods, and learned about it from their players.
+  #
+  # A plain "does the call exist" count (cpo above) reads 1 either way, so the markers that
+  # matter here are POSITIONAL and one of them is a ZERO. Semantics, with the two controls that
+  # fail on the old behaviour: dev_tools/test-blankpassword-retirement.sh.
+  #
+  # v55du -- the generator refuses a world that has already been PUBLISHED. The guard lives in
+  #          the function, not only at the call site, because the 2.53 bug WAS a correct
+  #          function at the wrong call site and nothing in it could tell.
+  # v55dv -- the call is inside the create block: strictly between the two mode tests. Computed
+  #          from line numbers rather than grepped, because "in the file" is what was already
+  #          true when this was broken.
+  # v55dw -- THE REGRESSION MARKER, and it wants 0: no generating call at or below the update
+  #          block. This is the one that goes red if the call ever drifts back.
+  # v55dx -- the generated value is re-read next to the call, or the supervisor config is written
+  #          with the empty password the world had a moment earlier.
+  v55du=$(grep -cF "IFNULL(world_md5,'') FROM worlds WHERE name='\$worldName'" $zfun)
+  zpwCreate=$(grep -n 'if \[ "\$worldMode" = "create" \]' $zeng | head -1 | cut -d: -f1)
+  zpwUpdate=$(grep -n 'if \[ "\$worldMode" = "update" \]' $zeng | head -1 | cut -d: -f1)
+  zpwCall=$(grep -n 'ensureNewWorldPassword "\$worldName"' $zeng | head -1 | cut -d: -f1)
+  v55dv=0
+  if [ -n "$zpwCreate" ] && [ -n "$zpwUpdate" ] && [ -n "$zpwCall" ]; then
+    [ "$zpwCall" -gt "$zpwCreate" ] && [ "$zpwCall" -lt "$zpwUpdate" ] && v55dv=1
+  fi
+  v55dw=$(tail -n +"${zpwUpdate:-1}" $zeng | grep -c 'ensureNewWorldPassword\|ensureModdedWorldPassword')
+  v55dx=$(awk -v c="${zpwCall:-0}" 'c>0 && NR>c && NR<=c+3 && /worldPassword=\$\(SQL "SELECT IFNULL\(password/{n++} END{print n+0}' $zeng)
   v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
   v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
   v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
@@ -3220,6 +3257,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 LOCAL PLUGIN NEGATIVE: one-reason stale heading gone=$v55dl (want 0)"
   echo "2.55 COMPANION DLL: cancel notice=$v55dm (want 1)  observer field=$v55dn (want 1)  real failure kept=$v55do (want 1)"
   echo "2.55 REATTRIBUTION: pass=$v55dp (want 1)  materialise calls=$v55dq (want 1)  cli=$v55dr (want 1)  migration calls=$v55ds (want 1)  update guard=$v55dt (want 1)"
+  echo "2.55 PASSWORD NEW-WORLD ONLY: published guard=$v55du (want 1)  call in create block=$v55dv (want 1)  re-read=$v55dx (want 1)   [create=$zpwCreate call=$zpwCall update=$zpwUpdate]"
+  echo "2.55 PASSWORD NEGATIVE: generating calls at/below the update block=$v55dw (want 0, was 1 and shipped in 2.53)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
@@ -3504,6 +3543,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55dm" = "1" ] && [ "$v55dn" = "1" ] && [ "$v55do" = "1" ] \
     && [ "$v55dp" = "1" ] && [ "$v55dq" = "1" ] && [ "$v55dr" = "1" ] \
     && [ "$v55ds" = "1" ] && [ "$v55dt" = "1" ] \
+    && [ "$v55du" = "1" ] && [ "$v55dv" = "1" ] && [ "$v55dw" = "0" ] && [ "$v55dx" = "1" ] \
     && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
     && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
     && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \

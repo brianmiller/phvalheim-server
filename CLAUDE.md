@@ -237,8 +237,18 @@ supervisorctl start valheimworld_myworld # Start world
 - **Valheim only enforces password rules when `-public` is 1**, and `-public` **defaults to 1
   when the argument is absent** — so `startWorld.sh` must always pass it explicitly. That gate
   is why the `serverblankpassword` mod was never doing anything here; it is retired, out of
-  `requiredMods`, and removed from existing worlds by a one-time block in `dbUpdate_2.53.sh`
-  which also generates a password for every modded world that had none.
+  `requiredMods`, and removed from existing worlds by a one-time block in `dbUpdate_2.53.sh`.
+  That block does **not** touch passwords, and neither does anything else on an existing world.
+- **A password is generated for a NEW world only** — `ensureNewWorldPassword()`, called from the
+  engine's **create** block and nowhere else. 2.53 called it from the **update** block, which is
+  not the same set: `create` ends by setting `mode='update'`, so every rebuild of an existing
+  world (mod-list save, Rebuild Mods, Hugin) imposed a password the operator never chose. 2.55
+  stopped that; for an existing world it is the operator's decision in the Settings modal, and
+  **"no password" is a supported state** (`startWorld.sh` omits the flag; Valheim only validates
+  under `-public 1`). The function refuses any world with a `world_md5` — already published to
+  players — so the policy survives a future caller added in the wrong place. Guarded by
+  `dev_tools/test-blankpassword-retirement.sh`, whose packaged-world control and
+  "nothing below the update block generates" assertion are the two that encode it.
 - **Every client payload carries a manifest** — `BepInEx/plugins/PhValheimCompanion/phvalheim-world.cfg`,
   written by `writeClientManifest()` **before** `packageClient()` zips (written after, it ships one
   update late). `key=value`, split on the FIRST `=` only, because `clientUrl` has a query string.

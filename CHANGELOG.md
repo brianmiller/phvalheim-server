@@ -2,6 +2,42 @@
 
 ## v2.55
 
+### An existing world had a password imposed on it by rebuilding its mods
+
+2.53 generated a password for any modded world that had none. The first cut did it in the
+migration, at upgrade, which password protected every world at its next restart while its
+players were still on a client that could not forward one — so the fix moved generation into the
+world UPDATE path, where it would land with everything else an update changes.
+
+That was narrower and still wrong. The create block ends by setting `mode='update'`, so the one
+call site served new worlds **and** every rebuild of an existing one: a mod-list save, the
+Rebuild Mods button, Hugin. An operator deliberately running without a password got one anyway,
+the first time they touched that world's mods, and found out when a player was asked for it.
+
+`ensureModdedWorldPassword()` is now `ensureNewWorldPassword()` and is called from the engine's
+**create** block only. For an existing world, whether it has a password is the operator's
+decision in the Settings modal, and empty is a supported answer — `startWorld.sh` omits the flag
+entirely, and Valheim only validates passwords under `-public 1`. The one genuine requirement,
+a world listed in the server browser, is still enforced where the operator can act on it:
+`saveWorldOptionsJson()` refuses the save and `startWorld.sh` logs a named ERROR.
+
+Two guards rather than one, because the 2.53 bug was a correct function at the wrong call site
+and nothing inside it could tell: it still only ever fills an **empty** password, and it now
+also refuses any world with a `world_md5` — one that has been published to players at least
+once. The policy lives in the function, so a future caller added in the wrong place cannot
+reintroduce this.
+
+Passwords already generated are **left alone**. Nothing records whether a stored password was
+generated or chosen, so clearing them would be guessing at the operator's intent in the same
+way that caused this; What's New says so and points at the Settings modal.
+
+`dev_tools/test-blankpassword-retirement.sh` is 21 assertions. The two that carry the change
+are an already-published control (an established world with an empty password must come away
+with nothing, paired with proof that `world_md5` was actually queried, or its silence means
+nothing) and a line-number assertion that no generating call exists at or below the update
+block. Both fail on the pre-fix behaviour; every other assertion in the file passes either way.
+Markers `v55du`–`v55dx`, with `v55dw` wanting **0**.
+
 ### A config file whose owner became knowable later stayed "Unattributed"
 
 `mod_config_overrides.mod_id` is attribution and it is written **once**, by `attribute()`, at

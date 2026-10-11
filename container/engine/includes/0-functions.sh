@@ -730,30 +730,46 @@ function logConnectPathVerdict() {
 #Ensures PhValheim's own required mods are part of the world's selection. They are
 #recorded as normal is_dep=0 picks so the operator can see them in the mod list rather
 #than wondering where three unrequested plugins came from.
-#Give a MODDED world a generated password, at UPDATE time, if it has none.
+#Give a BRAND NEW modded world a generated password if the operator set none on the form.
 #
-#Why update time and not the 2.53 migration. The migration ran at UPGRADE, which password
-#protected every modded world at its next restart -- while it was still running QuickConnect
-#and its players were still on a client that cannot forward a password. They were locked out
-#of a world the operator had not touched. It also contradicted the promise 2.53 makes
-#everywhere else: nothing changes until you update a world.
+#NEW ONLY, and that word is the whole function. 2.53 generated the password at UPGRADE, which
+#password protected every modded world at its next restart while its players were still on a
+#client that could not forward one -- so they were locked out of a world the operator had not
+#touched. The fix moved it into the UPDATE path, which is narrower and still wrong for the same
+#reason: create ends by setting mode='update', so that one call site served new worlds AND
+#every rebuild of an existing one -- a mod-list save, the Rebuild Mods button, Hugin. An
+#operator who had deliberately run without a password got one anyway, the first time they
+#touched that world's mods, and found out when their players hit a prompt.
 #
-#Updating a world is the moment everything else moves too: serverblankpassword stops being
-#reinstalled, the Companion takes over joining, and players are told to fetch the payload
-#again. The password belongs in that set, not ahead of it.
+#So the rule is now: a new world may have a password chosen for it, because it has no players
+#to lock out. An existing world's password is the operator's decision, in the Settings modal,
+#and "none" is a supported answer -- startWorld.sh omits the flag and Valheim only validates
+#passwords under -public 1. The one case it must still be set for is a world LISTED in the
+#server browser, and that is enforced where the operator can act on it: saveWorldOptionsJson()
+#refuses the save, and startWorld.sh logs a named ERROR.
 #
-#Only ever FILLS AN EMPTY ONE. An operator who set a password keeps it, and one who
-#deliberately cleared it gets it back on the next update -- which is the compromise that makes
-#this safe to run on every update rather than once: the alternative is a flag that cannot tell
-#"never had one" from "cleared it on purpose", and silently leaving a world unjoinable by the
-#server browser forever.
-function ensureModdedWorldPassword() {
+#Two guards, because this is a function whose whole job is to not fire when it must not:
+#  - it only ever FILLS AN EMPTY password, never replaces one;
+#  - it refuses any world that has ever been PACKAGED (world_md5 set). That is the durable
+#    definition of "someone could have joined this", and it holds even if a future caller
+#    reintroduces the 2.53 mistake -- the policy lives in the function, not in one call site.
+function ensureNewWorldPassword() {
         worldName="$1"
 
         #Vanilla worlds are not ours to touch: they have had a real password column since 2.40
         #and an empty one there is a choice the operator already made.
         pwVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName' LIMIT 1;")
         [ "$pwVanilla" = "1" ] && return 0
+
+        #Never on an established world. A world_md5 means packageClient() has published a
+        #payload for it at least once, so a player may hold it and be joining with it. Checked
+        #here rather than trusted from the call site for the reason above: the 2.53 bug WAS a
+        #correct function at the wrong call site, and nothing in it could tell.
+        pwPackaged=$(SQL "SELECT IFNULL(world_md5,'') FROM worlds WHERE name='$worldName' LIMIT 1;")
+        if [ -n "$pwPackaged" ]; then
+                echo "`date` [NOTICE : phvalheim] Not generating a password for world '$worldName' -- it has already been published to players, so whether it has one is yours to decide in its Settings modal."
+                return 0
+        fi
 
         #IFNULL + '' because the column is NULL on every world created before 2.40 and '' on
         #anything the admin UI saved with the field blank. Both mean "no password".
@@ -777,7 +793,7 @@ function ensureModdedWorldPassword() {
         fi
 
         SQL "UPDATE worlds SET password = '$genPassword' WHERE name = '$worldName';"
-        echo "`date` [NOTICE : phvalheim] World '$worldName' has been given a password, because an updated world can now be password protected and listed in the server browser. Players who join with the Launch button need to do nothing -- the Companion fills it in. Anyone joining by address, and console players on a crossplay world, need it by hand; it is on the world card and in the world's Settings modal."
+        echo "`date` [NOTICE : phvalheim] New world '$worldName' has been given a password, because a world can be password protected and listed in the server browser and no password was set when it was created. Players who join with the Launch button need to do nothing -- the Companion fills it in. Anyone joining by address, and console players on a crossplay world, need it by hand; it is on the world card and in the world's Settings modal. Change or clear it there."
 }
 
 #Raise the "your players need the new client" dialog, once, when the FIRST world is updated.

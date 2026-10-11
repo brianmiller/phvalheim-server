@@ -12,8 +12,19 @@
 # So there are two populations and they must not be confused:
 #   - the mod ROW is deleted at upgrade. Safe: the row only decides what the next REBUILD
 #     installs, so a world that merely restarts keeps the plugin files it already has.
-#   - the PASSWORD is generated at update, by ensureModdedWorldPassword(), so it lands with
-#     everything else that update changes.
+#   - the PASSWORD is generated for a NEW world only (2.55), by ensureNewWorldPassword().
+#
+# 2.55 moved that second one AGAIN, and this file is the reason it cannot drift back. The 2.53
+# fix put generation in the UPDATE path, which is narrower than the migration and still wrong:
+# create ends with `mode='update'`, so the single call site served new worlds AND every rebuild
+# of an existing one -- a mod-list save, the Rebuild Mods button, Hugin. An operator running
+# deliberately without a password got one imposed the first time they touched that world's
+# mods. Brian: "We need to stop doing this and allow the operator to make the decision. New
+# worlds--fine, but not existing."
+#
+# The assertions that carry that are part 2's packaged-world control and part 3's "the update
+# block does not call it". Both are "nothing happened" claims, so both are paired with proof
+# that the thing which must stay silent was actually reached.
 #
 # Usage:  sh dev_tools/test-blankpassword-retirement.sh
 
@@ -69,7 +80,7 @@ grep -q "DELETE wm FROM world_mods wm JOIN mods m ON m.id = wm.mod_id WHERE m.ow
 # password for either. This is the assertion the shipped bug would have failed.
 pwWrites=$(grep -c 'UPDATE worlds SET password' "$SQLLOG")
 [ "$pwWrites" = "0" ] \
-	&& pass "the migration writes NO password (generation belongs to the update path)" \
+	&& pass "the migration writes NO password (only a NEW world gets one, at create)" \
 	|| fail "the migration wrote $pwWrites password(s) at UPGRADE" \
 	        "this locks players out of worlds still on QuickConnect, with clients that cannot send one"
 
@@ -89,22 +100,22 @@ grep -q 'DELETE wm FROM world_mods' "$SQLLOG" \
 	&& fail "issued a DELETE with zero matching rows" || pass "skips the DELETE when no rows match"
 
 echo
-echo "== part 2: ensureModdedWorldPassword(), which runs at UPDATE =="
+echo "== part 2: ensureNewWorldPassword(), which runs for a NEW world only =="
 
-grep -q '^function ensureModdedWorldPassword()' "$FUNCS" \
-	&& pass "ensureModdedWorldPassword() exists in 0-functions.sh" \
-	|| { fail "ensureModdedWorldPassword() is missing"; echo; echo "$PASS passed, $FAIL failed"; exit 1; }
+grep -q '^function ensureNewWorldPassword()' "$FUNCS" \
+	&& pass "ensureNewWorldPassword() exists in 0-functions.sh" \
+	|| { fail "ensureNewWorldPassword() is missing"; echo; echo "$PASS passed, $FAIL failed"; exit 1; }
 
 # Extract the REAL function and drive it with SQL() stubbed.
 FN=/tmp/phv-ensurepw.sh
-awk '/^function ensureModdedWorldPassword\(\)/{f=1} f{print} f&&/^}$/{exit}' "$FUNCS" > "$FN"
+awk '/^function ensureNewWorldPassword\(\)/{f=1} f{print} f&&/^}$/{exit}' "$FUNCS" > "$FN"
 grep -q 'UPDATE worlds SET password' "$FN" || { echo "FATAL: extraction is stale"; exit 1; }
 
-# $1=vanilla $2=existing password
+# $1=vanilla $2=existing password $3=world_md5 (non-empty = already published to players)
 call_fn() {
-	FN_VANILLA="$1"; FN_PW="$2"; FNLOG=/tmp/phv-ensurepw-sql.log
+	FN_VANILLA="$1"; FN_PW="$2"; FN_MD5="$3"; FNLOG=/tmp/phv-ensurepw-sql.log
 	: > "$FNLOG"
-	export FN_VANILLA FN_PW FNLOG
+	export FN_VANILLA FN_PW FN_MD5 FNLOG
 	# bash, not sh. 0-functions.sh declares `function name()`, which dash rejects outright --
 	# and the first cut of this harness used sh, so the function never ran at all. The two
 	# "is untouched" controls below PASSED on that, because nothing writing a password looks
@@ -113,21 +124,22 @@ call_fn() {
 		SQL() {
 			printf "%s\n" "$1" >> "$FNLOG"
 			case "$1" in
-				*"IFNULL(vanilla,0)"*)  echo "$FN_VANILLA" ;;
-				*"IFNULL(password,"*)   echo "$FN_PW" ;;
+				*"IFNULL(vanilla,0)"*)   echo "$FN_VANILLA" ;;
+				*"IFNULL(world_md5,"*)   echo "$FN_MD5" ;;
+				*"IFNULL(password,"*)    echo "$FN_PW" ;;
 				*) : ;;
 			esac
 		}
 		. "$1"
-		ensureModdedWorldPassword testworld
+		ensureNewWorldPassword testworld
 	' _ "$FN" > /tmp/phv-ensurepw-out.log 2>&1
 }
 
-# The case that must act.
-call_fn 0 ""
+# The case that must act: a brand new world, never packaged, no password on the form.
+call_fn 0 "" ""
 written=$(grep 'UPDATE worlds SET password' "$FNLOG" | sed "s/.*password = '\([^']*\)'.*/\1/")
 if [ -n "$written" ]; then
-	pass "a modded world with no password GETS one"
+	pass "a NEW modded world with no password GETS one"
 	len=$(printf '%s' "$written" | wc -c | tr -d ' ')
 	[ "$len" = "16" ] && pass "it is 16 characters ($written)" || fail "wrong length: $len ($written)"
 	printf '%s' "$written" | grep -q '^[A-HJ-NP-Za-km-z2-9]\{16\}$' \
@@ -139,7 +151,7 @@ fi
 
 # Two calls must not produce the same password -- a shared one is a single credential for the
 # whole server, and the code reads identically either way.
-call_fn 0 ""
+call_fn 0 "" ""
 second=$(grep 'UPDATE worlds SET password' "$FNLOG" | sed "s/.*password = '\([^']*\)'.*/\1/")
 [ -n "$second" ] && [ "$written" != "$second" ] \
 	&& pass "each call generates a DIFFERENT password" \
@@ -158,14 +170,14 @@ ran() {
 	return 1
 }
 
-call_fn 0 "alreadySet123"
+call_fn 0 "alreadySet123" ""
 if ran "existing-password control"; then
 	grep -q 'UPDATE worlds SET password' "$FNLOG" \
 		&& fail "overwrote an existing password" "an operator's own password must survive an update" \
 		|| pass "a modded world that ALREADY has a password is untouched"
 fi
 
-call_fn 1 ""
+call_fn 1 "" ""
 if ran "vanilla control"; then
 	grep -q 'UPDATE worlds SET password' "$FNLOG" \
 		&& fail "gave a VANILLA world a password" \
@@ -173,28 +185,67 @@ if ran "vanilla control"; then
 		|| pass "a vanilla world with no password is untouched"
 fi
 
-echo
-echo "== part 3: the engine calls it, in the right place =="
-
-grep -q 'ensureModdedWorldPassword "\$worldName"' "$ENGINE" \
-	&& pass "the engine calls ensureModdedWorldPassword in the update path" \
-	|| fail "nothing calls ensureModdedWorldPassword -- no world would ever get a password"
-
-# It has to run before $worldPassword is consumed, or the QuickConnect cfg (still written when
-# the Companion cannot connect) would carry the OLD empty value for the world that just got one.
-callLine=$(grep -n 'ensureModdedWorldPassword "\$worldName"' "$ENGINE" | head -1 | cut -d: -f1)
-qcLine=$(grep -n 'createQuickConnectConfig "\$worldName"' "$ENGINE" | head -1 | cut -d: -f1)
-if [ -n "$callLine" ] && [ -n "$qcLine" ]; then
-	[ "$callLine" -lt "$qcLine" ] \
-		&& pass "it runs BEFORE the QuickConnect cfg is written (line $callLine < $qcLine)" \
-		|| fail "it runs after createQuickConnectConfig (line $callLine > $qcLine)" \
-		        "the cfg would be written with the password the world had before this update"
+# THE 2.55 CONTROL. An ESTABLISHED world -- one that has been packaged, so players may hold its
+# payload -- must come away with nothing even though its password is empty and it is modded.
+# This is the exact row the 2.53 code wrote to, and the only difference between the two
+# behaviours is this single case: every other assertion in this file passes either way.
+call_fn 0 "" "d41d8cd98f00b204e9800998ecf8427e"
+if ran "already-published control"; then
+	if grep -q 'UPDATE worlds SET password' "$FNLOG"; then
+		fail "gave a PUBLISHED world a password" \
+		     "its players already hold a payload; a password here is the operator's decision, not ours"
+	else
+		pass "a world already published to players is untouched, even with an empty password"
+		grep -q 'IFNULL(world_md5,' "$FNLOG" \
+			&& pass "and it reached that decision by ASKING (world_md5 was queried)" \
+			|| fail "it never queried world_md5 -- it stayed silent for some other reason" \
+			        "this control cannot distinguish the guard from an unrelated early return"
+	fi
 fi
 
-# And the generated value must be re-read, or everything downstream uses the stale empty one.
-grep -q 'worldPassword=\$(SQL "SELECT IFNULL(password' "$ENGINE" \
-	&& pass "worldPassword is re-read after generation" \
-	|| fail "worldPassword is not re-read -- downstream still sees the pre-update value"
+echo
+echo "== part 3: the engine calls it from CREATE, and NOT from update =="
+
+grep -q 'ensureNewWorldPassword "\$worldName"' "$ENGINE" \
+	&& pass "the engine calls ensureNewWorldPassword" \
+	|| fail "nothing calls ensureNewWorldPassword -- no new world would ever get a password"
+
+# WHERE it is called is the entire 2.55 fix, so locate the two mode blocks and place the call.
+# Line numbers, not "is it in the file": the 2.53 bug was a correct function at the wrong site.
+createLine=$(grep -n 'if \[ "\$worldMode" = "create" \]' "$ENGINE" | head -1 | cut -d: -f1)
+updateLine=$(grep -n 'if \[ "\$worldMode" = "update" \]' "$ENGINE" | head -1 | cut -d: -f1)
+callLine=$(grep -n 'ensureNewWorldPassword "\$worldName"' "$ENGINE" | head -1 | cut -d: -f1)
+if [ -n "$createLine" ] && [ -n "$updateLine" ] && [ -n "$callLine" ]; then
+	if [ "$callLine" -gt "$createLine" ] && [ "$callLine" -lt "$updateLine" ]; then
+		pass "the call sits in the CREATE block (line $createLine < $callLine < $updateLine)"
+	else
+		fail "the call is outside the create block (create $createLine, call $callLine, update $updateLine)" \
+		     "anywhere at or after $updateLine and every rebuild of an existing world generates a password again"
+	fi
+else
+	fail "could not locate the create/update mode blocks or the call" \
+	     "create=$createLine update=$updateLine call=$callLine -- this check is blind, treat it as failing"
+fi
+
+# The regression itself, stated directly: no generation call anywhere from the update block on.
+tail -n +"$updateLine" "$ENGINE" | grep -q 'ensureNewWorldPassword\|ensureModdedWorldPassword' \
+	&& fail "a password-generating call still exists at or below the update block" \
+	        "that is the 2.53 behaviour Brian asked to stop: it fires on every mod-list save and Rebuild Mods" \
+	|| pass "nothing from the update block onwards generates a password"
+
+# It must run before the supervisor config consumes $worldPassword, and the value must be
+# re-read -- otherwise the new world is deployed with the empty password it had a moment ago.
+supLine=$(grep -n 'createSupervisorWorldConfig "\$worldName" "\$worldPassword"' "$ENGINE" | head -1 | cut -d: -f1)
+if [ -n "$callLine" ] && [ -n "$supLine" ]; then
+	[ "$callLine" -lt "$supLine" ] \
+		&& pass "it runs BEFORE createSupervisorWorldConfig (line $callLine < $supLine)" \
+		|| fail "it runs after createSupervisorWorldConfig (line $callLine > $supLine)" \
+		        "the supervisor config would carry the empty password the world had at create"
+fi
+
+awk -v c="$callLine" 'NR>c && NR<=c+3 && /worldPassword=\$\(SQL "SELECT IFNULL\(password/{found=1} END{exit !found}' "$ENGINE" \
+	&& pass "worldPassword is re-read immediately after generation" \
+	|| fail "worldPassword is not re-read next to the call -- downstream sees the pre-create value"
 
 echo
 echo "$PASS passed, $FAIL failed"

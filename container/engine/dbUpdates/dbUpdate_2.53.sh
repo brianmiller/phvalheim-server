@@ -192,9 +192,11 @@ fi
 # Every one of them is locked out of a world the operator has not touched yet. Brian hit this
 # upgrading 2.52 -> 2.53.
 #
-# Generation now lives in the world UPDATE path (ensureModdedWorldPassword in 0-functions.sh),
-# so the password, the loss of serverblankpassword and the Companion taking over joining all
-# land together, on one deliberate operator action.
+# 2.53 moved generation to the world UPDATE path. 2.55 moved it again, to the CREATE block, and
+# that is where it lives now: ensureNewWorldPassword() in 0-functions.sh. The update path was
+# narrower than this migration and still not right -- create ends by setting mode='update', so
+# every rebuild of an EXISTING world ran it too. An existing world's password is the operator's
+# decision; only a brand new world gets one chosen for it.
 #
 # Deleting the rows HERE is still right, and is not the same hazard: the row only decides what
 # the next rebuild installs, so a world that merely restarts keeps the plugin FILES it already

@@ -303,6 +303,21 @@ while [ true ]; do
 					createCustomSeedConfig "$worldName" "$worldSeed"
 				fi
 
+				#Give a BRAND NEW modded world a password if the operator did not
+				#set one on the create form. HERE, and deliberately nowhere else:
+				#a world nobody has ever joined has no players to lock out, so
+				#choosing a safe default for it costs nothing.
+				#
+				#2.53 put this in the UPDATE path instead, which looked like the
+				#same thing and was not: create ends by setting mode='update', so
+				#every EXISTING world being rebuilt ran it too and had a password
+				#imposed on it. That is the operator's decision, not ours (2.55).
+				#
+				#Must come BEFORE $worldPassword is read below, or the supervisor
+				#config is written with the empty value this just replaced.
+				ensureNewWorldPassword "$worldName"
+				worldPassword=$(SQL "SELECT IFNULL(password,'') FROM worlds WHERE name='$worldName';")
+
 				#create supervisor config file for this world
 				createSupervisorWorldConfig "$worldName" "$worldPassword" "$worldPort"
 
@@ -540,13 +555,22 @@ while [ true ]; do
 					#add required mods to final list
 					mergeRequiredTsMods "$worldName"
 
-					#Give this world a password if it has none. HERE, not in the 2.53
-					#migration, so it lands with everything else this update changes --
-					#serverblankpassword leaving and the Companion taking over joining.
-					#Generated at upgrade instead, it locked players out of worlds that
-					#were still on QuickConnect with clients that cannot send a password.
-					#Must come BEFORE $worldPassword is used below.
-					ensureModdedWorldPassword "$worldName"
+					#NO PASSWORD IS GENERATED HERE, and that is the 2.55 fix.
+					#
+					#2.53 generated one in this block, having moved it out of the
+					#migration for exactly the right reason -- don't change a world the
+					#operator has not touched -- and then landed somewhere that is only
+					#NARROWER, not safe. Every path that rebuilds a world comes through
+					#here: the mod-list save, the Rebuild Mods button, Hugin, and the
+					#create handoff. So an existing world that had deliberately never had
+					#a password acquired one the first time its mods were touched, and
+					#its players met a password prompt the operator never set.
+					#
+					#A new world still gets one, in the create block above, where the
+					#world provably has no players yet. For an existing world a password
+					#is now the operator's call alone, in the world Settings modal.
+					#"No password" is a valid, supported state: startWorld.sh omits the
+					#flag entirely and Valheim only validates passwords under -public 1.
 					worldPassword=$(SQL "SELECT IFNULL(password,'') FROM worlds WHERE name='$worldName';")
 
 					#Install mods
