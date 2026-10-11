@@ -6,6 +6,9 @@ include '../includes/db_gets.php';
 # Absolute + require_once: a relative include would redeclare its functions fatally.
 require_once '/opt/stateless/nginx/www/includes/whatsnew.php';
 require_once '/opt/stateless/nginx/www/includes/hugin.php';
+# For modConfigPendingLabels() in the worlds loop below. Without this the dashboard -- the
+# admin UI's front page -- dies with "Call to undefined function" before rendering anything.
+require_once '/opt/stateless/nginx/www/includes/modconfigs.php';
 
 // Release notes, resolved up here because the header button (rendered long before the modal)
 // has to know whether there is anything to open.
@@ -162,7 +165,13 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
             'modCount' => getTotalModCountOfWorld($pdo, $row['name']),
             // Saved settings that Valheim will not see until the world restarts. Empty for a
             // stopped world -- there is nothing running for them to be pending against.
-            'restartPending' => worldRestartPending($pdo, $row['name'], $isRunning),
+            //
+            // TWO sources, merged into one badge: the launch options Valheim was handed, and
+            // the mod settings its plugins were handed. Kept as separate checks because they
+            // are mirrored against different files -- see modConfigPendingLabels().
+            'restartPending' => array_merge(
+                worldRestartPending($pdo, $row['name'], $isRunning),
+                modConfigPendingLabels($pdo, $row['name'], $isRunning)),
             'dateUpdated' => $row['date_updated']
         ];
     }

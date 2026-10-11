@@ -2,6 +2,63 @@
 
 ## v2.55
 
+### A running world gave no sign it was not using the mod settings that were saved
+
+BepInEx hands a plugin its config at load, so a server-side setting saved while the world is up
+is stored, will be applied, and is not in effect. The only thing that ever said so was the save
+summary modal — gone the moment it was closed. Reload the page, return the next day, or have a
+second admin save a value, and nothing anywhere said this world was running on settings that
+were no longer the saved ones. The dashboard's own `restart pending` badge sat beside it looking
+authoritative while comparing only four launch options.
+
+`modConfigPending()` compares the saved overrides against `.applied-configs`, written by
+`materialise()` at the moment those values went onto the world's tree — the same device as
+`.running-options`, for the same reason: the database holds the saved state and has no column
+for the applied one.
+
+**`date_set` cannot serve as that oracle, which is the whole reason for the snapshot.** The
+column has no `ON UPDATE` clause and the save path never writes it, so editing an *existing*
+override leaves the original insert timestamp. A check built on it would report a brand new
+override correctly and be silently blind to the commonest case there is.
+
+Four states, because the fourth is the one worth having: `na` (not running), `unknown` (running
+with nothing to compare against — a world last started before this release), `clean`, and
+`pending`. A missing snapshot is **not** `clean`; that conflation is the 0-means-two-things bug
+this project shipped three times in one release.
+
+Only `server` reach counts. A change only players read is waiting on *Apply to players*, not on
+a restart, and a badge telling an operator to restart for something a restart cannot deliver is
+worse than no badge. `$reachOf` was a closure inside `modConfigSaveOverrides()`; it is now
+`modConfigReachOf()`, so the badge and the save modal cannot disagree about the same setting.
+
+Deliberately **not** folded into `worldRestartPending()`: that function is one half of a mirror
+against `startWorld.sh`, and `test-restart-pending-mirror.sh` fails if either side grows a key
+the other lacks. The labels are merged at the two call sites instead — both of them, since the
+dashboard renders the badge server-side on load and from the 5-second poll after.
+
+`dev_tools/test-config-restart-pending.sh` — 18 assertions. Four mutations were each caught by
+exactly one of them: reporting a missing snapshot as clean (T2), dropping the reach filter (T6),
+deleting the reset branch (T8), and moving the snapshot write below `materialise()`'s
+no-overrides return (T14, the stale-snapshot trap that would make the badge unclearable).
+Markers `v55dy`–`v55ee`, with `v55ee` wanting **0**.
+
+Two notes for whoever edits this next. The fixture is produced by the real `record_applied()`
+after a hand-written one made every case read `unknown`: the snapshot keys are joined with
+`0x1F`, and a raw control byte inside a JSON string is invalid JSON, so `json_decode` returned
+NULL — a fixture the parser silently rejected, which would have proved the opposite of the
+truth. And `v55eb` uses `grep -F` because the call site contains `$pdo`: a `$` mid-pattern is
+literal in BRE but an end-of-line anchor under `-P`, and the same marker read 1 under dash and
+0 under a bash whose grep defaults to PCRE, on an unchanged file.
+
+### Apply to players left the operator to find the progress themselves
+
+The repackage's progress is the world's *Repackaging* status pill, on a different page from the
+button that starts it, so the modal said "the dashboard shows when it finishes" and left the
+looking to them. It now hands off: a visible countdown, a "go now" link, and `Stay here` to
+cancel — the save receipt stays on screen rather than being yanked away. Applied to **both**
+paths of that button, including the one taken when there is nothing unsaved; they are the same
+button to the operator and must end in the same place.
+
 ### An existing world had a password imposed on it by rebuilding its mods
 
 2.53 generated a password for any modded world that had none. The first cut did it in the

@@ -510,6 +510,58 @@ def read_text(path):
         return fh.read()
 
 
+def applied_configs_path(world):
+    return os.path.join(WORLDS_ROOT, world, ".applied-configs")
+
+
+def record_applied(world, overrides):
+    """Record WHICH override values this pass just put on disk, for the restart-pending check.
+
+    The world's plugins read their config at load, so a setting saved after the world started
+    is not in effect yet and nothing in the database can say so: mod_config_overrides holds the
+    SAVED state and has no column for the applied one. date_set cannot stand in for it either
+    -- the save path upserts and never writes that column, so editing an existing override
+    leaves the original timestamp. A check built on it would be blind to the commonest case.
+
+    So this is the same device as .running-options: write down what was handed over, and let
+    the UI diff it against what is saved now. It is a DUMB DUMP on purpose -- no classifying of
+    which side needs a change, because that answer depends on whether a mod is deployed to
+    clients, and the one implementation of it lives in modconfigs.php. Anything decided here
+    would be a second copy of it, free to drift.
+
+    JSON rather than a delimited file because a cvalue can contain anything, including tabs and
+    newlines; the two sides would otherwise need to agree on an escaping scheme.
+
+    Written for EVERY materialise, including one with no overrides at all -- hence its call
+    site above the no-overrides return. Skipping the empty case would leave the last non-empty
+    snapshot in place, so a world whose overrides were all reset would report settings pending
+    forever, with no action an operator could take to clear it.
+    """
+    path = applied_configs_path(world)
+    payload = {}
+    for ovs in overrides.values():
+        for o in ovs:
+            key = f"{o['cfg_file']}\x1f{o['section']}\x1f{o['ckey']}"
+            payload[key] = {"value": o["cvalue"], "server_only": int(o["server_only"])}
+
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, sort_keys=True)
+        os.replace(tmp, path)
+        shutil.chown(path, "phvalheim", "phvalheim")
+    except OSError as exc:
+        # Never fatal. The settings themselves are applied either way; losing this file only
+        # costs the badge, and modConfigPending() reports a missing one as "cannot tell"
+        # rather than as "nothing pending".
+        print(f"[modConfigs] {world}: could not record applied configs ({exc}) "
+              f"-- the admin UI will not be able to say whether a restart is pending")
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
 def load_overrides(wid):
     out = {}
     for cfg_file, section, ckey, cvalue, server_only, locked, origin in rows(
@@ -832,6 +884,12 @@ def materialise(world):
     reattribute_unowned(world, wid, catalogue, guids)
 
     overrides = load_overrides(wid)
+
+    # ABOVE the no-overrides return, deliberately. See record_applied(): an empty snapshot is a
+    # real answer ("this world started with no overrides"), and not writing one leaves the
+    # previous run's file to claim settings are pending that no longer exist.
+    record_applied(world, overrides)
+
     if not overrides:
         print(f"[modConfigs] {world}: no overrides to apply")
         return 0

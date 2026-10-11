@@ -3165,6 +3165,50 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   fi
   v55dw=$(tail -n +"${zpwUpdate:-1}" $zeng | grep -c 'ensureNewWorldPassword\|ensureModdedWorldPassword')
   v55dx=$(awk -v c="${zpwCall:-0}" 'c>0 && NR>c && NR<=c+3 && /worldPassword=\$\(SQL "SELECT IFNULL\(password/{n++} END{print n+0}' $zeng)
+  # --- 2.55: a running world says when its mod settings are not the ones it loaded ----------
+  #
+  # BepInEx hands a plugin its config at load, so a setting saved while the world is up is not
+  # in effect -- and the only thing that said so was the save modal, gone the moment it closed.
+  # The dashboard's own "restart pending" badge compared four launch options and was blind to
+  # every mod setting.
+  #
+  # Semantics, incl. why date_set cannot serve as the oracle and the reach control:
+  # dev_tools/test-config-restart-pending.sh (18; four mutations each caught by one assertion).
+  #
+  # v55dy -- the snapshot writer. .applied-configs is what the comparison is AGAINST; without
+  #          it modConfigPending() can only ever answer 'unknown'.
+  # v55dz -- recorded ABOVE materialise()'s no-overrides return. Positional, because a world
+  #          whose overrides were all reset would otherwise keep the previous run's snapshot
+  #          and report settings pending forever, with no action that clears it.
+  # v55ea -- the reader, and the state that makes it honest: a missing snapshot is 'unknown',
+  #          never 'clean'.
+  # v55eb -- BOTH payload sites merge the labels (want 2). The dashboard renders this badge
+  #          server-side on load and from the 5s poll after; one site without the merge is a
+  #          badge that appears on load and vanishes on the first poll.
+  # v55ec -- index.php requires modconfigs.php. It calls modConfigPendingLabels() in its worlds
+  #          loop, so without this the admin front page is a fatal, not a missing badge.
+  # v55ed -- the repackage hand-off: one definition, two call sites (want 3). Both apply paths
+  #          are the same button to the operator and must end on the dashboard.
+  v55dy=$(grep -c '^def record_applied' /opt/stateless/engine/tools/modConfigs.py)
+  zrecLine=$(grep -n '^    record_applied(world, overrides)' /opt/stateless/engine/tools/modConfigs.py | head -1 | cut -d: -f1)
+  zretLine=$(awk '/^    if not overrides:/{print NR; exit}' /opt/stateless/engine/tools/modConfigs.py)
+  v55dz=0
+  if [ -n "$zrecLine" ] && [ -n "$zretLine" ]; then
+    [ "$zrecLine" -lt "$zretLine" ] && v55dz=1
+  fi
+  v55ea=$(grep -c "^function modConfigPending(" /opt/stateless/nginx/www/includes/modconfigs.php)
+  # -F, not a regex. The call site contains '$pdo', and a '$' mid-pattern is literal in BRE but
+  # an end-of-line anchor under -P -- so the same marker read 1 under dash and 0 under a bash
+  # whose grep defaults to PCRE, on an unchanged file. A fixed string cannot have that argument.
+  v55eb=$(grep -cF 'modConfigPendingLabels($pdo, $row[' \
+            /opt/stateless/nginx/www/admin/index.php /opt/stateless/nginx/www/admin/adminAPI.php \
+            | awk -F: '{n+=$2} END{print n+0}')
+  v55ec=$(grep -cF "require_once '/opt/stateless/nginx/www/includes/modconfigs.php'" /opt/stateless/nginx/www/admin/index.php)
+  v55ed=$(grep -c 'handOffToDashboard' /opt/stateless/nginx/www/admin/world_configs.php)
+  # The dead end this replaced: a modal that told the operator where to look instead of taking
+  # them there. Wants 0 -- if it comes back, one of the two apply paths has been reverted.
+  v55ee=$(grep -cF 'dashboard</a> shows when it finishes' /opt/stateless/nginx/www/admin/world_configs.php)
+
   v55ci=$(grep -cF 'data.find(b"\x01\x00", i)' /opt/stateless/engine/tools/pluginGuids.py)
   v55cj=$(grep -cF 'RE_VERSION = re.compile' /opt/stateless/engine/tools/pluginGuids.py)
   v55ck=$(grep -cF 'data[j3:j3 + 2] ==' /opt/stateless/engine/tools/pluginGuids.py)
@@ -3259,6 +3303,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 REATTRIBUTION: pass=$v55dp (want 1)  materialise calls=$v55dq (want 1)  cli=$v55dr (want 1)  migration calls=$v55ds (want 1)  update guard=$v55dt (want 1)"
   echo "2.55 PASSWORD NEW-WORLD ONLY: published guard=$v55du (want 1)  call in create block=$v55dv (want 1)  re-read=$v55dx (want 1)   [create=$zpwCreate call=$zpwCall update=$zpwUpdate]"
   echo "2.55 PASSWORD NEGATIVE: generating calls at/below the update block=$v55dw (want 0, was 1 and shipped in 2.53)"
+  echo "2.55 CONFIG RESTART PENDING: writer=$v55dy (want 1)  above the early return=$v55dz (want 1)  reader=$v55ea (want 1)  payload sites=$v55eb (want 2)  index require=$v55ec (want 1)  hand-off=$v55ed (want 3)"
+  echo "2.55 CONFIG RESTART NEGATIVE: old look-there-yourself wording=$v55ee (want 0)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
@@ -3544,6 +3590,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55dp" = "1" ] && [ "$v55dq" = "1" ] && [ "$v55dr" = "1" ] \
     && [ "$v55ds" = "1" ] && [ "$v55dt" = "1" ] \
     && [ "$v55du" = "1" ] && [ "$v55dv" = "1" ] && [ "$v55dw" = "0" ] && [ "$v55dx" = "1" ] \
+    && [ "$v55dy" = "1" ] && [ "$v55dz" = "1" ] && [ "$v55ea" = "1" ] && [ "$v55eb" = "2" ] \
+    && [ "$v55ec" = "1" ] && [ "$v55ed" = "3" ] && [ "$v55ee" = "0" ] \
     && [ "$v55ci" = "1" ] && [ "$v55cj" = "1" ] && [ "$v55ck" = "1" ] && [ "$v55cl" = "1" ] \
     && [ "$v55cm" = "1" ] && [ "$v55cn" = "1" ] && [ "$v55co" = "1" ] && [ "$v55cp" = "1" ] \
     && [ "$v55cq" = "1" ] && [ "$v55cr" = "1" ] \

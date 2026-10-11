@@ -1133,7 +1133,15 @@ function getWorldsJson($pdo) {
             // Same contract note as launchHref above: the dashboard renders this badge from PHP
             // on load and from this payload on every poll. Saving an option has to light it
             // within a poll, and restarting the world has to clear it.
-            'restartPending' => worldRestartPending($pdo, $row['name'], $isRunning),
+            //
+            // MUST stay identical to index.php's version of this line, mod settings included.
+            // The page renders the badge server-side on load and from this payload every five
+            // seconds after; a merge in one place and not the other is a badge that appears on
+            // load and vanishes on the first poll -- which is precisely how 2.53's hammertime
+            // bug presented.
+            'restartPending' => array_merge(
+                worldRestartPending($pdo, $row['name'], $isRunning),
+                modConfigPendingLabels($pdo, $row['name'], $isRunning)),
             'dateUpdated' => $row['date_updated']
         ];
     }

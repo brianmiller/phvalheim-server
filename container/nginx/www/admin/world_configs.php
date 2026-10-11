@@ -883,13 +883,50 @@ $payload = modConfigEditorPayload($pdo, $world);
 					               + esc(r.error || 'Could not start a repackage.') + '</div>';
 					return;
 				}
-				prog.innerHTML = '<div class="alert alert-success" style="margin-bottom:0;">'
-				               + '<b>Repackaging started.</b> Players receive it the next time they '
-				               + 'launch through PhValheim. The world status on the '
-				               + '<a href="index.php">dashboard</a> shows when it finishes.</div>';
 				document.getElementById('ssApply').style.display = 'none';
-				document.getElementById('ssClose').textContent = 'Done';
+				document.getElementById('ssClose').textContent = 'Stay here';
+				handOffToDashboard(prog);
 			});
+		}
+
+		// Take the operator to the dashboard to WATCH it, rather than telling them where to
+		// look. The repackage is the one action on this page whose progress is shown somewhere
+		// else -- the world's Repackaging status pill -- and leaving them on a modal that says
+		// "the dashboard shows when it finishes" made finding it their job. The engine picks
+		// the mode up within two seconds, so by the time they arrive the pill is already up.
+		//
+		// Not an instant redirect: the modal is also the receipt for what was just saved, and
+		// yanking it away the moment the request returns would destroy the one record of it.
+		// So it counts down visibly and "Stay here" cancels -- the operator keeps the choice,
+		// and the default is the thing they almost always want.
+		//
+		// clearInterval on cancel AND a guard on the element still being in the document: the
+		// first version kept ticking after the modal closed and redirected a page the operator
+		// had gone back to editing.
+		function handOffToDashboard(prog) {
+			var left = 4;
+			var tick = null;
+			var draw = function () {
+				prog.innerHTML = '<div class="alert alert-success" style="margin-bottom:0;">'
+				               + '<b>Repackaging started.</b> Players receive it the next time '
+				               + 'they launch through PhValheim.<br>'
+				               + 'Taking you to the dashboard to watch it &mdash; '
+				               + '<b>' + left + '</b>&hellip; '
+				               + '<a href="index.php">go now</a></div>';
+			};
+			var stop = function () {
+				if (tick) { clearInterval(tick); tick = null; }
+			};
+			draw();
+			tick = setInterval(function () {
+				// The operator pressed "Stay here" (or Escape, or the backdrop): the modal is
+				// gone, so this countdown no longer has consent to navigate.
+				if (!document.body.contains(prog) || !prog.offsetParent) { stop(); return; }
+				left -= 1;
+				if (left <= 0) { stop(); window.location.href = 'index.php'; return; }
+				draw();
+			}, 1000);
+			document.getElementById('ssClose').addEventListener('click', stop, { once: true });
 		}
 
 		// "Save & apply to players" -- SAVES this page's edits, then sets mode='repackage',
@@ -953,9 +990,11 @@ $payload = modConfigEditorPayload($pdo, $world);
 					                 (r.error || 'Could not start a repackage.') + '</span>';
 					return;
 				}
-				note.innerHTML = 'Repackaging started. Players receive it the next time they ' +
-				                 'launch through PhValheim. The world status on the ' +
-				                 '<a href="index.php">dashboard</a> shows when it finishes.';
+				// Same hand-off as the summary's Apply. This is the no-unsaved-edits path of
+				// the SAME button, so it must end in the same place -- one of the two reaching
+				// the dashboard and the other not is the kind of split that makes an operator
+				// think the button did something different.
+				handOffToDashboard(note);
 				// Deliberately not polled from here. The engine picks the mode up within two
 				// seconds and the dashboard already renders it; a second poller on this page
 				// would be a third place that has to agree what 'repackaging' means, which is

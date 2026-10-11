@@ -240,6 +240,173 @@ function modConfigOverrides($pdo, $worldId) {
 }
 
 /**
+ * Which of a world's mods are installed on PLAYERS' clients, keyed by mod_id.
+ *
+ * Read once per request, not per item: a batch save can carry dozens of settings and this is
+ * the same answer for all of them.
+ */
+function modConfigReachMap($pdo, $worldId) {
+    $out = [];
+    $mm = $pdo->prepare(
+        "SELECT wm.mod_id, IFNULL(wm.deploy_client,1) AS dc, m.owner, m.name
+           FROM world_mods wm JOIN mods m ON m.id = wm.mod_id
+          WHERE wm.world_id = ?");
+    $mm->execute([$worldId]);
+    foreach ($mm->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $out[(int)$r['mod_id']] = [
+            'client' => ((int)$r['dc'] === 1),
+            'label'  => $r['owner'] . '-' . $r['name'],
+        ];
+    }
+    return $out;
+}
+
+/**
+ * Who has to receive a change for it to take effect. THREE answers, and the third one is
+ * not a cop-out -- on a real world 15 of 40 override rows have no mod_id at all.
+ *
+ *  'server'  - server_only, so it is never written into the client payload; or the mod is
+ *              not deployed to players' clients, so nothing there reads it. Note the
+ *              difference: a deploy_client=0 mod's config IS still written into the
+ *              payload (materialise filters on server_only alone), it simply has no
+ *              plugin on the player's side to read it. So no push is needed either way.
+ *  'players' - the mod runs on players' clients, so they need a rebuilt payload.
+ *  'unknown' - PhValheim could not attribute the config FILE to one of this world's mods.
+ *              Attribution matches the filename against installed mods and deliberately
+ *              refuses near-misses, so this is common and expected. The value ships
+ *              regardless; we just cannot say whether anything client-side reads it.
+ *
+ * Unknown is grouped WITH players for the purpose of "do you need to push", because the
+ * two errors are not symmetric: pushing unnecessarily costs one small download, while not
+ * pushing loses the operator's change with no symptom.
+ *
+ * ONE implementation, used by the save summary AND by modConfigPending(). It was a closure
+ * inside modConfigSaveOverrides() until 2.55 needed the same answer for the restart badge;
+ * a second copy there would have been free to disagree with the modal about the very same
+ * setting, which is the shape of the bug this project keeps finding in mirrored logic.
+ */
+function modConfigReachOf($modMap, $serverOnly, $modId) {
+    if ($serverOnly) { return 'server'; }
+    if ($modId === null || !isset($modMap[$modId])) { return 'unknown'; }
+    return $modMap[$modId]['client'] ? 'players' : 'server';
+}
+
+/**
+ * Server-side mod settings a RUNNING world has not loaded yet.
+ *
+ * BepInEx hands a plugin its config at load, so a setting saved while the world is up is
+ * stored, will be applied, and is not in effect -- and until 2.55 the only thing that ever
+ * said so was the save modal, which is gone the moment it is closed. Reload the page, come
+ * back tomorrow, or have a second admin save a value, and nothing anywhere said this world was
+ * running on settings that are no longer the saved ones.
+ *
+ * The comparison is against .applied-configs, written by modConfigs.py materialise() at the
+ * moment those values went onto the world's tree -- the same device as .running-options, and
+ * for the same reason: the database holds the SAVED state and has no column for the applied
+ * one. See record_applied() for why date_set cannot stand in for this.
+ *
+ * FOUR states, and the last one is the one worth having:
+ *   ['state' => 'na']       nothing to say -- the world is not running, so its next start
+ *                           applies everything and there is no pending anything.
+ *   ['state' => 'unknown']  the world is running but there is no snapshot to compare against:
+ *                           a world last started before this release, or a materialise that
+ *                           could not write the file. NOT "nothing pending" -- that is the
+ *                           0-means-two-things bug this project has shipped three times in one
+ *                           release. The caller says "cannot tell", or says nothing at all.
+ *   ['state' => 'clean']    compared, and the world is running what is saved.
+ *   ['state' => 'pending']  compared, and these named settings differ.
+ *
+ * Only 'server' reach is counted. A change that only players read is not waiting on a restart
+ * -- it is waiting on Apply to players, which the editor already says - and a badge telling an
+ * operator to restart for something a restart cannot deliver is worse than no badge.
+ */
+function modConfigPending($pdo, $world, $isOnline) {
+    if (!$isOnline) { return ['state' => 'na', 'settings' => []]; }
+
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return ['state' => 'unknown', 'settings' => []]; }
+
+    $path = "/opt/stateful/games/valheim/worlds/" . $world . "/.applied-configs";
+    if (!is_readable($path)) { return ['state' => 'unknown', 'settings' => []]; }
+    $raw = @file_get_contents($path);
+    if ($raw === false) { return ['state' => 'unknown', 'settings' => []]; }
+    $applied = json_decode($raw, true);
+    // A half-written or truncated file decodes to null. That is "cannot tell", not "clean".
+    if (!is_array($applied)) { return ['state' => 'unknown', 'settings' => []]; }
+
+    $modMap   = modConfigReachMap($pdo, $worldId);
+    $saved    = modConfigOverrides($pdo, $worldId);
+    $excluded = modConfigExcludedFiles();
+    $pending  = [];
+
+    // Saved now but different from -- or absent from -- what was applied.
+    foreach ($saved as $key => $row) {
+        if (in_array($row['cfg_file'], $excluded, true)) { continue; }
+        $was = $applied[$key] ?? null;
+        if ($was !== null && (string)$was['value'] === (string)$row['cvalue']
+            && (int)$was['server_only'] === (int)$row['server_only']) {
+            continue;
+        }
+        $modId = $row['mod_id'] !== null ? (int)$row['mod_id'] : null;
+        if (modConfigReachOf($modMap, !empty($row['server_only']), $modId) !== 'server') {
+            continue;
+        }
+        $pending[] = [
+            'file'    => $row['cfg_file'],
+            'section' => $row['section'],
+            'key'     => $row['ckey'],
+            'action'  => $was === null ? 'set' : 'changed',
+        ];
+    }
+
+    // Applied at start but no longer saved -- a reset. The world is still running the old
+    // value, so this is pending in exactly the same way an edit is, and leaving it out would
+    // make "reset it and restart" a step the UI never admits was needed. Classified from the
+    // SNAPSHOT's own server_only, because the row that carried mod_id is gone.
+    foreach ($applied as $key => $was) {
+        if (isset($saved[$key])) { continue; }
+        $parts = explode("\x1f", $key);
+        if (count($parts) !== 3) { continue; }
+        if (in_array($parts[0], $excluded, true)) { continue; }
+        // No mod_id survives a deleted row, so an attributed client-side mod's reset reads as
+        // 'unknown' here and is skipped unless it was server_only. Deliberate: the server-side
+        // claim has to be one we can still make honestly.
+        if (!(int)($was['server_only'] ?? 0)) { continue; }
+        $pending[] = [
+            'file' => $parts[0], 'section' => $parts[1], 'key' => $parts[2],
+            'action' => 'reset',
+        ];
+    }
+
+    usort($pending, function ($a, $b) {
+        return [$a['file'], $a['section'], $a['key']] <=> [$b['file'], $b['section'], $b['key']];
+    });
+    return ['state' => $pending ? 'pending' : 'clean', 'settings' => $pending];
+}
+
+/**
+ * modConfigPending() as badge labels, to be merged into worldRestartPending()'s list.
+ *
+ * Deliberately NOT folded into worldRestartPending() itself. That function is one half of a
+ * mirror: every key it compares must also be written into .running-options by startWorld.sh,
+ * and test-restart-pending-mirror.sh fails if either side grows a key the other lacks. Mod
+ * settings come from a different file written by a different program, so putting them in there
+ * would have broken that invariant -- and that mirror exists because this exact pair of
+ * functions has been caught lagging startWorld.sh twice. Composing at the call site keeps both
+ * truths: one badge for the operator, two independent checks behind it.
+ *
+ * 'unknown' contributes NOTHING. The dashboard is the wrong place to say "I cannot tell" about
+ * every world at once, and the only way to reach that state is a world still running from
+ * before this release, which its next restart resolves.
+ */
+function modConfigPendingLabels($pdo, $world, $isOnline) {
+    $p = modConfigPending($pdo, $world, $isOnline);
+    if ($p['state'] !== 'pending') { return []; }
+    $n = count($p['settings']);
+    return [$n === 1 ? '1 mod setting' : $n . ' mod settings'];
+}
+
+/**
  * The editor's whole payload: parsed files merged with override rows, plus the override rows
  * that no longer match anything.
  *
@@ -491,46 +658,9 @@ function modConfigSaveOverrides($pdo, $world, $items) {
     $refused = [];
     $changes = [];
 
-    // Which of this world's mods are installed on PLAYERS' clients.
-    //
-    // Read once, not per item: a batch save can carry dozens of settings and this is the same
-    // answer for all of them.
-    $modMap = [];
-    $mm = $pdo->prepare(
-        "SELECT wm.mod_id, IFNULL(wm.deploy_client,1) AS dc, m.owner, m.name
-           FROM world_mods wm JOIN mods m ON m.id = wm.mod_id
-          WHERE wm.world_id = ?");
-    $mm->execute([$worldId]);
-    foreach ($mm->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $modMap[(int)$r['mod_id']] = [
-            'client' => ((int)$r['dc'] === 1),
-            'label'  => $r['owner'] . '-' . $r['name'],
-        ];
-    }
-
-    /*
-     * Who has to receive a change for it to take effect. THREE answers, and the third one is
-     * not a cop-out -- on a real world 15 of 40 override rows have no mod_id at all.
-     *
-     *  'server'  - server_only, so it is never written into the client payload; or the mod is
-     *              not deployed to players' clients, so nothing there reads it. Note the
-     *              difference: a deploy_client=0 mod's config IS still written into the
-     *              payload (materialise filters on server_only alone), it simply has no
-     *              plugin on the player's side to read it. So no push is needed either way.
-     *  'players' - the mod runs on players' clients, so they need a rebuilt payload.
-     *  'unknown' - PhValheim could not attribute the config FILE to one of this world's mods.
-     *              Attribution matches the filename against installed mods and deliberately
-     *              refuses near-misses, so this is common and expected. The value ships
-     *              regardless; we just cannot say whether anything client-side reads it.
-     *
-     * Unknown is grouped WITH players for the purpose of "do you need to push", because the
-     * two errors are not symmetric: pushing unnecessarily costs one small download, while not
-     * pushing loses the operator's change with no symptom.
-     */
+    $modMap  = modConfigReachMap($pdo, $worldId);
     $reachOf = function ($serverOnly, $modId) use ($modMap) {
-        if ($serverOnly) { return 'server'; }
-        if ($modId === null || !isset($modMap[$modId])) { return 'unknown'; }
-        return $modMap[$modId]['client'] ? 'players' : 'server';
+        return modConfigReachOf($modMap, $serverOnly, $modId);
     };
 
     $lockSt = $pdo->prepare(
