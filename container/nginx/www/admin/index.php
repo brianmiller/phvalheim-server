@@ -526,7 +526,19 @@ $totalCount = count($worlds);
                         // need every mode listed here -- 2.53 shipped a bug that was exactly
                         // a third caller nobody updated.
                         'repackage' => 'Repackaging',
-                        'repackaging' => 'Repackaging'
+                        'repackaging' => 'Repackaging',
+                        // The in-flight twins of create/update, and the engine's terminal
+                        // "a human should look at this" state. All three were MISSING, and
+                        // the fallback below is the raw column value -- so a world the engine
+                        // had set to 'updating' showed a pulsing lowercase "updating" pill
+                        // with no capital letter and no explanation. That is precisely what
+                        // the operator whose container restarted mid-update reported as
+                        // "stuck updating". The mode is now cleared at boot by
+                        // reconcileStrandedWorlds(), but it is still a legitimate live state
+                        // for the minutes an update actually takes, so it needs a label.
+                        'creating' => 'Creating',
+                        'updating' => 'Updating',
+                        'broken' => 'Needs attention'
                     ];
                     ?>
                     <?php
@@ -2158,7 +2170,13 @@ $totalCount = count($worlds);
             // phvalheimStyles.css. This is the copy the 5-second dashboard poll uses, so a
             // mode missing HERE only shows up after the first refresh.
             'repackage': 'Repackaging',
-            'repackaging': 'Repackaging'
+            'repackaging': 'Repackaging',
+            // Same three additions as the PHP map. This is the copy the 5-second poll uses,
+            // so omitting them here would put the capitalised label on the page and then
+            // replace it with the raw lowercase mode on the first refresh.
+            'creating': 'Creating',
+            'updating': 'Updating',
+            'broken': 'Needs attention'
         };
         return modeMap[mode] || mode;
     }
@@ -5294,8 +5312,21 @@ $totalCount = count($worlds);
                         </div>
 
                         <details style="margin-bottom:1rem;background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem 1rem;">
-                            <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-secondary);user-select:none;">Per-World Update Settings</summary>
+                            <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-secondary);user-select:none;">Per-World Update Settings <span style="background:rgba(248,113,113,0.15);color:var(--danger);font-size:0.6rem;padding:0.1rem 0.35rem;border-radius:3px;vertical-align:middle;font-weight:700;">BETA</span></summary>
                             <div style="margin-top:0.75rem;">
+                                <!-- The second of the two places auto-updates can be switched on, so it
+                                     carries the same warning as the Server Settings modal. An operator who
+                                     only ever opens this panel must not be the one who finds out the hard
+                                     way. See docs/BACKLOG.md for the Companion-based detection that would
+                                     let this badge come off. -->
+                                <div style="font-size:0.7rem;color:var(--danger);line-height:1.5;margin-bottom:0.75rem;">
+                                    <b>Beta, and off by default.</b> Valheim gives servers no reliable live
+                                    player count, so PhValheim reads one out of this world's log. A world is
+                                    only updated automatically once it has recently reported <b>zero</b>
+                                    players, which is deliberately cautious: a world whose count never clears
+                                    waits instead of restarting. Use &ldquo;If players never leave&rdquo; to
+                                    put a ceiling on that wait.
+                                </div>
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
                                     <div>
                                         <span style="font-size:0.85rem;">Use Global Defaults</span>
@@ -5306,10 +5337,10 @@ $totalCount = count($worlds);
                                 <div id="au-overrideFields" style="display:none;">
                                     <div class="row mb-2">
                                         <div class="col-6">
-                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Automatic Updates <span class="backup-info-icon" data-tip="When on, this world is updated on its own once it looks quiet. When off, nothing is applied automatically and you can still use Update Now.">&#9432;</span></label>
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Automatic Updates <span class="backup-info-icon" data-tip="BETA. When on, this world is updated on its own once it has recently reported zero players. When off (the default), nothing is applied automatically and you can still use Update Now.">&#9432;</span></label>
                                             <select class="form-control form-control-sm" id="au-mode">
-                                                <option value="0">Off</option>
-                                                <option value="1">On</option>
+                                                <option value="0">Off (default)</option>
+                                                <option value="1">On (beta)</option>
                                             </select>
                                         </div>
                                         <div class="col-6">
@@ -6671,13 +6702,35 @@ $totalCount = count($worlds);
                 </div>
 
                 <div style="margin-bottom: 1.5rem;">
-                    ${sectionHead('Automatic Updates', 'var(--text-muted)')}
+                    ${sectionHead('Automatic Updates &nbsp;<span style="background:rgba(248,113,113,0.15);color:var(--danger);font-size:0.6rem;padding:0.1rem 0.35rem;border-radius:3px;vertical-align:middle;">BETA</span>', 'var(--text-muted)')}
+                    <!-- Why this carries a BETA badge and an explicit warning.
+                         Deciding WHEN a world is idle enough to restart depends on a live
+                         player count, and Valheim exposes none -- the count is scraped out of
+                         the world log. On a crossplay world the only signal is a line PlayFab
+                         emits on join and on leave, so a player who joins and keeps playing
+                         produces one line and then silence. 2.47 read that silence as "the
+                         world went quiet" and stopped the server underneath them; a Discord
+                         operator lost their players to exactly that. 2.55 made the rule refuse
+                         instead of guess, which removes the kick but also means a world can
+                         now decline to auto-update until it is provably empty.
+                         Accurate detection needs the server-side Companion (docs/BACKLOG.md).
+                         Until then the operator deserves to be told this is not finished. -->
+                    <div style="font-size:0.7rem;color:var(--danger);line-height:1.5;margin-bottom:0.6rem;">
+                        <b>Automatic updates are a beta feature and are off by default.</b>
+                        Valheim gives servers no reliable live player count, so PhValheim reads one
+                        out of each world's log. It is good enough to tell an empty world from a busy
+                        one most of the time, and not good enough to promise nobody is ever
+                        disconnected. A world is only updated automatically once it has reported
+                        <b>zero</b> players recently &mdash; which also means a world whose count never
+                        clears will wait rather than restart. Set a maximum wait with
+                        &ldquo;If players never leave&rdquo; below if you would rather it went ahead.
+                    </div>
                     <div class="row mb-2">
                         <div class="col-md-6">
                             <label style="font-size:0.8rem;color:orchid">Automatic Updates</label>
-                            <select class="form-control form-control-sm" id="ss-autoUpdateMode" ${tip('Off: nothing is ever updated automatically. Per-world: each world decides for itself. On for all worlds: the default for every world that has not set its own override.')}>
-                                <option value="0" ${s.autoUpdateMode == 0 ? 'selected' : ''}>Off</option>
-                                <option value="1" ${s.autoUpdateMode == 1 ? 'selected' : ''}>On for all worlds</option>
+                            <select class="form-control form-control-sm" id="ss-autoUpdateMode" ${tip('BETA. Off (the default): nothing is ever updated automatically. On for all worlds: the default for every world that has not set its own override. A world is only updated once it has recently reported zero players.')}>
+                                <option value="0" ${s.autoUpdateMode == 0 ? 'selected' : ''}>Off (default)</option>
+                                <option value="1" ${s.autoUpdateMode == 1 ? 'selected' : ''}>On for all worlds (beta)</option>
                             </select>
                         </div>
                         <div class="col-md-6">

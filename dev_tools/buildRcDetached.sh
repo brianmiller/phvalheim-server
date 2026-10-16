@@ -3227,6 +3227,89 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55cf=$(grep -cF 'print "mods=" . getModsMD5' /opt/stateless/nginx/www/public/api.php)
   v55cg=$(grep -c 'function getModsMD5' /opt/stateless/nginx/www/includes/db_gets.php)
   v55ch=$(grep -rlF 'mods_md5=NULL' /opt/stateless 2>/dev/null | wc -l | tr -d ' ')
+
+  # --- 2.55: a restart no longer strands a world mid-update (v55ef..v55ek) ------------------
+  #
+  # Reported from Discord: an operator restarted the container during a world update and the
+  # world was stuck "updating" for good. worlds.mode carries COMMANDS (which the main loop has
+  # a branch for, so they survive a restart) and IN-FLIGHT states (which nothing in the loop
+  # matches, deliberately, so only the code that set them clears them). Kill that code and the
+  # world is unreachable: the loop skips it every 2 seconds forever.
+  #
+  # Semantics and the mutation proofs: dev_tools/test-stranded-world-recovery.sh (42).
+  #
+  # v55ef -- the reconciler exists.
+  # v55eg -- and the engine actually calls it. "In the file" is not the claim.
+  # v55eh -- POSITIONAL, and the one with teeth: it must run BEFORE autoStart. The flag it sets
+  #          is what stops autoStart publishing a world whose mods were purged but not
+  #          reinstalled; run the other way round the refusal arrives too late to matter.
+  # v55ei -- THE REGRESSION MARKER, wants 0: no command mode may appear in the stranded list.
+  #          'update' in there would silently rebuild every pending world on every boot.
+  # v55ej -- autoStart consults the flag.
+  # v55ek -- the column exists and defaults to 0. DEFAULT 1 would refuse to autostart every
+  #          existing world on the first boot after the upgrade.
+  v55ef=$(grep -cE '^function reconcileStrandedWorlds *\(\)' $zfun)
+  v55eg=$(grep -c '^reconcileStrandedWorlds' $zeng)
+  zRec=$(grep -n '^reconcileStrandedWorlds' $zeng | head -1 | cut -d: -f1)
+  zAut=$(grep -n '^autoStart' $zeng | head -1 | cut -d: -f1)
+  v55eh=0
+  if [ -n "$zRec" ] && [ -n "$zAut" ]; then
+    [ "$zRec" -lt "$zAut" ] && v55eh=1
+  fi
+  v55ei=$(grep -o "strandedModes=.*" $zfun | grep -cE "'(update|start|stop|create|delete|repackage|broken)'")
+  v55ej=$(grep -cF 'IFNULL(update_interrupted,0)' $zfun)
+  v55ek=$(grep -cF 'addColumn worlds update_interrupted "TINYINT DEFAULT 0"' /opt/stateless/engine/dbUpdates/dbUpdate_2.55.sh)
+
+  # --- 2.55: an auto-update never restarts a world with players on it (v55el..v55eq) --------
+  #
+  # Reported from Discord: "players got kicked because phvalheim shutdown the world for an
+  # update". 2.47's isIdle() treated a NONZERO player count as idle once the observation aged
+  # past autoupdate_idle_minutes. On a crossplay world the count comes from PlayFab's
+  # "... now N player(s)", emitted on join and on leave and at no other time -- so a player who
+  # joins and keeps playing leaves one line behind, and 30 minutes later their world is
+  # declared quiet and stopped underneath them.
+  #
+  # Semantics and the 2.47 re-introduction proof: dev_tools/test-autoupdate-idle-gate.sh (19).
+  #
+  # v55el -- THE REGRESSION MARKER, wants 0: no 'return 0' within three lines of a
+  #          'player_count_at <' comparison. That pairing IS the staleness arm.
+  # v55em -- a deferred world records a readable reason. TWO of them, and the count is the
+  #          point: "N players are on it" and "this world has not reported a count at all" are
+  #          different situations with different remedies, and collapsing them to one message
+  #          would tell an operator with a broken playerMonitor that their world is busy.
+  #          Predicted locally before building; the first draft of this marker wanted 1.
+  # v55en -- POSITIONAL: the force-on-timeout escape hatch is checked before the idle gate.
+  #          isIdle now always refuses a busy world, so max-wait+force is the operator's only
+  #          way to update one -- and it is unreachable if the gate runs first.
+  # v55eo -- both auto-update surfaces carry the BETA badge, on the heading's own line.
+  #          NOT a count of "BETA" in the file: the per-world beta pill already put 8 in there.
+  # v55ep -- the selects name Off as the default.
+  # v55eq -- wants 0: nothing in the tree turns auto-update on by itself.
+  v55el=$(awk '/player_count_at </{f=NR} f&&NR>f&&NR<=f+3&&/return 0/{n++} END{print n+0}' /opt/stateless/engine/tools/updateApplier)
+  v55em=$(grep -cF "update_last_result='Waiting:" /opt/stateless/engine/tools/updateApplier)
+  zFrc=$(grep -n 'onTimeout" = "force"' /opt/stateless/engine/tools/updateApplier | head -1 | cut -d: -f1)
+  zIdl=$(grep -n 'if ! isIdle' /opt/stateless/engine/tools/updateApplier | head -1 | cut -d: -f1)
+  v55en=0
+  if [ -n "$zFrc" ] && [ -n "$zIdl" ]; then
+    [ "$zFrc" -lt "$zIdl" ] && v55en=1
+  fi
+  v55eo=$(( $(grep -c 'Per-World Update Settings.*BETA' /opt/stateless/nginx/www/admin/index.php) \
+          + $(grep -c "sectionHead('Automatic Updates.*BETA" /opt/stateless/nginx/www/admin/index.php) ))
+  v55ep=$(grep -c 'Off (default)' /opt/stateless/nginx/www/admin/index.php)
+  v55eq=$(grep -rlE "autoUpdateMode[ ]*=[ ]*1|autoupdate_mode[ ]*=[ ]*1" /opt/stateless/engine /opt/stateless/nginx/www/admin 2>/dev/null | grep -v vendor | grep -v gridphp | wc -l | tr -d ' ')
+
+  # --- 2.55: the in-flight pills have labels (v55er..v55es) ---------------------------------
+  #
+  # 'creating', 'updating' and 'broken' were in NEITHER label map, and the fallback is the raw
+  # column value -- so the stuck world above showed a pulsing lowercase "updating" with no
+  # capital letter. Two maps, because the JS copy is what the 5-second poll uses: a mode in
+  # only the PHP map renders correctly on load and reverts on the first refresh.
+  #
+  # v55er -- 6 = three modes x two maps.
+  # v55es -- 'broken' has a CSS rule. A label with no rule renders as a bare grey pill, so a
+  #          world needing attention looks merely stopped.
+  v55er=$(grep -cE "'(creating|updating|broken)' *(=>|:) *'" /opt/stateless/nginx/www/admin/index.php)
+  v55es=$(grep -c '^\.status-badge\.broken' $zcss)
   v56bq=$(grep -cF '$unmatchedOnly = isset($_GET[' /opt/stateless/nginx/www/admin/world_configs.php)
   v56br=$(grep -cF "return \$f['mod_id'] === null;" /opt/stateless/nginx/www/admin/world_configs.php)
   v56bs=$(grep -cF "m.mod_id === null ? '&unmatched=1'" /opt/stateless/nginx/www/admin/index.php)
@@ -3307,6 +3390,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 CONFIG RESTART NEGATIVE: old look-there-yourself wording=$v55ee (want 0)"
   echo "2.55 GUID ATTRIB: blob scan=$v55ci (want 1)  version check=$v55cj (want 1)  named-arg guard=$v55ck (want 1)  pack skipped=$v55cl (want 1)  table=$v55cm (want 1)  guid_owners=$v55cn (want 1)  guid first=$v55co (want 1)  php sends guids=$v55cp (want 1)  learn on install=$v55cq (want 1)  learn on repackage=$v55cr (want 1)"
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
+  echo "2.55 STRANDED RECOVERY: reconciler=$v55ef (want 1)  called=$v55eg (want 1)  before autoStart=$v55eh (want 1)  autoStart reads flag=$v55ej (want 1)  column DEFAULT 0=$v55ek (want 1)   [rec=$zRec auto=$zAut]"
+  echo "2.55 STRANDED NEGATIVE: command modes in the stranded list=$v55ei (want 0 -- 'update' there rebuilds every world on every boot)"
+  echo "2.55 AUTOUPDATE IDLE: waiting reasons=$v55em (want 2)  force before gate=$v55en (want 1)  BETA badges=$v55eo (want 2)  Off-is-default=$v55ep (want 2)   [force=$zFrc gate=$zIdl]"
+  echo "2.55 AUTOUPDATE NEGATIVE: staleness arm (return 0 after a player_count_at< test)=$v55el (want 0 -- this is what kicked a real operator's players)  self-enablers=$v55eq (want 0)"
+  echo "2.55 MODE PILLS: creating/updating/broken labelled in both maps=$v55er (want 6)  broken css rule=$v55es (want 1)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
@@ -3601,6 +3689,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bu" = "0" ] && [ "$v56bv" = "0" ] && [ "$v56bw" = "1" ] && [ "$v56bx" = "0" ] \
     && [ "$v56by" = "1" ] \
     && [ "$v55bi" = "0" ] \
+    && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \
+    && [ "$v55ej" = "1" ] && [ "$v55ek" = "1" ] \
+    && [ "$v55el" = "0" ] && [ "$v55em" = "2" ] && [ "$v55en" = "1" ] \
+    && [ "$v55eo" = "2" ] && [ "$v55ep" = "2" ] && [ "$v55eq" = "0" ] \
+    && [ "$v55er" = "6" ] && [ "$v55es" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

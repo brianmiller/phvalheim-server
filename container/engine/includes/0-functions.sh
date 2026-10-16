@@ -1910,6 +1910,74 @@ function generateModViewerJson () {
         /opt/stateless/engine/tools/worldMods.py --world "$worldName" --viewer-json
 }
 
+# no input required. Clears worlds left in an IN-FLIGHT mode by a container restart.
+#
+# worlds.mode carries two different kinds of value, and only one of them is self-healing:
+#
+#   COMMANDS      create, start, stop, update, delete, repackage
+#                 The main loop has a branch for each, so it picks them up on its next tick.
+#                 A restart with one of these pending just means the command runs late.
+#
+#   IN-FLIGHT     creating, updating, starting, stopping, repackaging, backup
+#                 States the engine sets on ITSELF while work is running, so the UI can say
+#                 what is happening and so the next 2s tick cannot re-enter work already
+#                 under way. NOTHING in the loop matches them -- that is the point -- so they
+#                 are only ever cleared by the very code that set them.
+#
+# Which means an interruption while any of them is set strands the world forever: the loop
+# reads a mode it has no branch for, skips the world, and does that again every two seconds
+# for as long as the container lives. Reported from Discord -- an operator restarted the
+# container during a world update and was left with a world stuck "updating" and no button
+# in the UI that could clear it. Only hand-editing the database could.
+#
+# Land on the TRUTH, taken from the PROCESS TABLE, and never on a command. mode='start' here
+# would start a world the operator had deliberately stopped; mode='update' would silently
+# rebuild a world nobody asked to rebuild, once per boot, forever.
+#
+# 'broken' is deliberately NOT in the list. It is a terminal state the engine chooses when it
+# wants a human to look, and re-deciding it here would undo that on the next restart.
+function reconcileStrandedWorlds () {
+	local strandedModes="'creating','updating','starting','stopping','repackaging','backup'"
+	local WORLDS=$(SQL "SELECT id FROM worlds WHERE mode IN ($strandedModes);")
+
+	[ -z "$WORLDS" ] && return 0
+
+	local worldID worldName worldMode landedOn
+	for worldID in $WORLDS; do
+		worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldID';")
+		worldMode=$(SQL "SELECT mode FROM worlds WHERE id='$worldID';")
+
+		if worldProcessRunning "$worldName"; then
+			landedOn="running"
+		else
+			landedOn="stopped"
+		fi
+
+		SQL "UPDATE worlds SET mode='$landedOn' WHERE id='$worldID';"
+		echo "`date` [WARN : phvalheim] World '$worldName' was left mid-'$worldMode' by a restart. It is actually $landedOn, so that is what it now says."
+
+		# Three of those modes were WRITING the world's files when they stopped, so the
+		# world is not merely mislabelled -- its game tree, its mod set or its client
+		# payload is half-built. Say so, and refuse to autostart it this boot.
+		#
+		# The refusal is the load-bearing half. purgeWorldModsConfigsPatchers() runs
+		# early in the update, so the most likely interruption point leaves a MODDED
+		# world with no plugins at all -- and autoStart() would then publish it to
+		# players as an effectively vanilla server. That is the exact outcome the update
+		# path already refuses to produce on its own ("a modded world with no plugins
+		# must NOT be published"); it must not arrive by the back door either.
+		case "$worldMode" in
+			creating|updating|repackaging)
+				SQL "UPDATE worlds SET update_interrupted=1, status='failed', \
+					update_state='failed', update_phase=NULL, update_phase_at=NULL, \
+					update_last_result='Interrupted by a restart while $worldMode. The world was not left in a known state, so it has not been started. Press Update to rebuild it.' \
+					WHERE id='$worldID';"
+				echo "`date` [WARN : phvalheim] World '$worldName' will NOT be autostarted: its files were being rewritten when the restart happened. Press Update in the admin UI to rebuild it."
+				;;
+		esac
+	done
+}
+
 # no input required, sets world engine modes to 'start' on engine start if autostart flag is set
 function autoStart () {
         WORLDS=$(SQL "SELECT id FROM worlds;")
@@ -1918,7 +1986,26 @@ function autoStart () {
                 worldID=$WORLD
 		worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldID';")
 		autoStart=$(SQL "SELECT autostart FROM worlds WHERE id='$worldID';")
+
 		if [ "$autoStart" -eq 1 ]; then
+			# A world whose files were half-written by an interrupted update is not
+			# startable, whatever its autostart flag says. reconcileStrandedWorlds()
+			# sets this immediately above, and the engine's update path clears it on
+			# success, so the flag only ever survives for a world that genuinely needs
+			# rebuilding. Without this, the most common interruption point -- after the
+			# mod purge and before the reinstall -- autostarts a modded world carrying
+			# zero plugins.
+			#
+			# Read INSIDE the autostart branch, not before it. Checked first, a world
+			# with autostart=0 and the flag set was told it "is set to autostart, but
+			# ..." -- a warning about a thing that was never going to happen, on a
+			# world the operator had deliberately left stopped.
+			interrupted=$(SQL "SELECT IFNULL(update_interrupted,0) FROM worlds WHERE id='$worldID';")
+			if [ "${interrupted:-0}" = "1" ]; then
+				echo "`date` [WARN : phvalheim] World '$worldName' is set to autostart, but an interrupted update left its files in an unknown state. NOT starting it; press Update in the admin UI to rebuild it."
+				continue
+			fi
+
 			echo "`date` [NOTICE : phvalheim] World '$worldName' is set to autostart, starting world..."
 			SQL "UPDATE worlds SET mode='start' WHERE id='$worldID'"
 		fi

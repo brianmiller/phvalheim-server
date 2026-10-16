@@ -145,6 +145,14 @@ echo "`date` [NOTICE : phvalheim] timezone: $TZ"
 # start the engine
 echo "`date` [NOTICE : phvalheim] PhValheim engine started..."
 
+# Clear any world the last shutdown caught mid-flight, BEFORE autoStart.
+#
+# The order is the whole point and it is one line of code: reconcileStrandedWorlds() is what
+# sets update_interrupted, and autoStart() is what reads it. Run the other way round, a world
+# whose mods were purged but not reinstalled is started first and the refusal arrives too late
+# to matter. It also has to come after dbUpdater.sh, which is what creates the column.
+reconcileStrandedWorlds
+
 # autostart routine
 autoStart
 
@@ -671,6 +679,12 @@ while [ true ]; do
 				#set last updated timestamp
 				SQL "UPDATE worlds SET date_updated='`date +'%F %T'`' WHERE name='$worldName'"
 
+				#A completed update is what clears an interrupted one. Reached only by
+				#falling all the way through this branch -- every failure above does a
+				#`continue`, so a rebuild that failed leaves the flag set and the world
+				#stays un-autostartable, which is the whole point of it.
+				SQL "UPDATE worlds SET update_interrupted=0 WHERE name='$worldName'"
+
 				#finally, put the world back the way we found it. Stopped is the
 				#default on purpose -- a hand-edited mod list must not start a world
 				#the operator left stopped -- but one that WAS running is restarted.
@@ -762,6 +776,10 @@ while [ true ]; do
 			else
 				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 			fi
+
+			#A finished repackage clears an interrupted one, for the same reason the
+			#update branch above does.
+			SQL "UPDATE worlds SET update_interrupted=0 WHERE name='$worldName'"
 
 			echo "`date` [NOTICE : phvalheim] Repackage of '$worldName' finished."
 		fi

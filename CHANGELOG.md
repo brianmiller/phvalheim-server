@@ -2,6 +2,88 @@
 
 ## v2.55
 
+### A container restart during an update left the world stuck "updating" forever
+
+Reported from Discord. `worlds.mode` carries two different kinds of value and only one of them
+survives an interruption. **Commands** — `create`, `start`, `stop`, `update`, `delete`,
+`repackage` — each have a branch in the engine's main loop, so a restart with one pending only
+means the command runs late. **In-flight states** — `creating`, `updating`, `starting`,
+`stopping`, `repackaging`, `backup` — are set by the engine on itself while work is running, so
+the UI can say what is happening and the next 2-second tick cannot re-enter work already going.
+Nothing in the loop matches them, deliberately, which means they are cleared only by the very
+code that set them. Kill that code and the world is unreachable: the loop reads a mode it has no
+branch for and skips the world, every two seconds, for as long as the container lives. Nothing
+short of editing the database by hand could clear it.
+
+`reconcileStrandedWorlds()` runs at boot and lands every in-flight world on the **truth**, taken
+from the process table — `running` or `stopped`, never on a command. Landing on `start` would
+boot a world the operator had deliberately stopped; landing on `update` would silently rebuild a
+world nobody touched, once per boot, forever. `broken` is excluded: it is a terminal state the
+engine chooses when it wants a human to look, and re-deciding it at every restart would undo
+that.
+
+Three of those states were **writing the world's files** when they stopped, so for
+`creating`/`updating`/`repackaging` the world is not merely mislabelled — its game tree, mod set
+or client payload is half-built. Those are flagged `update_interrupted=1`, and `autoStart()`
+refuses them. That refusal is the load-bearing half:
+`purgeWorldModsConfigsPatchers()` runs early in an update, so the most likely interruption point
+leaves a **modded world with no plugins at all**, and autostart would then publish it to players
+as an effectively vanilla server. The update path already refuses to produce that outcome on its
+own; it must not arrive by the back door either. A completed update clears the flag — reached
+only by falling through every failure `continue`, so a rebuild that failed leaves the world
+un-autostartable, which is the point.
+
+Separately: `creating`, `updating` and `broken` were in **neither** label map, and the fallback
+is the raw column value — so the stuck world above showed a pulsing lowercase `updating` with no
+capital letter and no explanation. That is literally what the operator was looking at. All three
+now have labels in both maps (the JS copy is what the 5-second poll uses, so a mode present only
+in the PHP map renders correctly on load and reverts on the first refresh), and `broken` has its
+own CSS rule that deliberately does **not** pulse — a pulse means work is happening, and the
+whole meaning of that state is that nothing is happening until someone acts.
+
+`dev_tools/test-stranded-world-recovery.sh` is 42 assertions. Six targeted mutations were each
+caught by exactly the assertion that should catch them, and every "nothing happened" claim is
+paired with a world that must have moved in the same run.
+
+### An automatic update restarted a world with players on it
+
+Reported from Discord: "players got kicked because phvalheim shutdown the world for an update".
+
+Valheim exposes no live player count, so `playerMonitor` scrapes one out of each world's log. On
+a crossplay world the only signal is PlayFab's `... now N player(s)`, which is emitted **on join
+and on leave and at no other time**. A player who joins and then plays for two hours therefore
+leaves exactly one line behind, two hours old, reading `1`.
+
+2.47's `isIdle()` had a second arm: a nonzero count counted as idle once its observation aged
+past `autoupdate_idle_minutes`. That arm existed for a real failure — a count can stick nonzero
+after an unclean disconnect, verified on a production world that logged `now 1 player(s)` and
+then nothing for 39 minutes while empty — but a stale nonzero count has **two** causes the count
+cannot tell apart: everyone left and the leave was never logged, or someone joined and is still
+playing. The second is not an edge case, it is what an ordinary session looks like, and with the
+threshold defaulting to 30 minutes any session longer than half an hour qualified.
+
+The arm is gone. A nonzero count is never idle, at any age — this script's own stated rule
+("anything it cannot establish counts as a no") applied to the one place that broke it. The cost
+is real and is the correct trade: a world whose count sticks nonzero will not auto-update on the
+idle path. It is not stuck, because the operator already has an explicit escape hatch that does
+not require guessing on their behalf — `autoupdate_max_wait_hours` with
+`autoupdate_on_timeout='force'`, checked *before* the idle gate. Accepting a disconnection after
+N hours is a decision an operator can make; having it made for them silently, 30 minutes into
+someone's session, is not. A held-back world now also records **why** it is waiting, in two
+distinct messages, because "players are on it" and "this world has not reported a count at all"
+have different remedies.
+
+**Automatic updates are now marked BETA** in both places they can be switched on, with the
+reason stated plainly, and they remain **off by default** — `settings.autoUpdateMode` and
+`worlds.autoupdate_mode` are both `DEFAULT 0`, and nothing in the tree sets either to 1 (there
+is a marker that wants 0 for exactly that). Accurate detection via the server-side Companion —
+`ZNet.GetConnectedPeers()`, a heartbeat rather than an event — is written up in
+`docs/BACKLOG.md` and is what would let the badge come off.
+
+`dev_tools/test-autoupdate-idle-gate.sh` is 19 assertions. Re-introducing 2.47's arm turns three
+of them red, including both behavioural ones; the fresh-zero positive control is what stops
+"not idle" passing because the function refuses everything.
+
 ### A running world gave no sign it was not using the mod settings that were saved
 
 BepInEx hands a plugin its config at load, so a server-side setting saved while the world is up

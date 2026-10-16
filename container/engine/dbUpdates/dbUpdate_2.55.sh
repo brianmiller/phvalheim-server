@@ -74,6 +74,26 @@ addColumn worlds config_md5 "TEXT NULL"
 addColumn worlds mods_md5 "TEXT NULL"
 
 
+# --- worlds.update_interrupted: an update that never finished --------------------------
+#
+# Set by reconcileStrandedWorlds() when a container restart catches a world mid-'creating',
+# mid-'updating' or mid-'repackaging'. Cleared by the engine's update path on success and by
+# the operator pressing Update. It exists for ONE job: stopping autoStart() from publishing a
+# world whose files are half-written.
+#
+# A separate column rather than a reading of status='failed', because the two answer different
+# questions. status='failed' is "the last thing we tried did not work" and has several other
+# causes, all of which an operator may quite reasonably leave sitting while the world runs
+# normally -- gating autostart on it would strand worlds that are perfectly fine. This column
+# means only "the files on disk are not a complete world", which is a state nothing else
+# produces and which exactly one action clears.
+#
+# DEFAULT 0 is the safe default here, and that direction matters: an upgrading server has
+# worlds that were never interrupted, and a column defaulting to 1 would refuse to autostart
+# every one of them on the first boot after the upgrade.
+addColumn worlds update_interrupted "TINYINT DEFAULT 0"
+
+
 # --- mod_config_overrides -------------------------------------------------------------
 #
 # An operator's mod config edits, stored as SPARSE PER-KEY rows rather than whole files.

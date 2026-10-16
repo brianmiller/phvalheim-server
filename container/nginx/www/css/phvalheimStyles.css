@@ -2596,6 +2596,19 @@ input:checked + .slider:before {
 	animation: none;
 }
 
+/* 2.55: 'broken' is the engine's terminal "a human needs to look at this" state -- set when a
+   world will not stop, when its supervisor config cannot be written, or when an update had to
+   be abandoned. It had no label and no rule, so it rendered as a bare grey pill reading
+   "broken" that was easy to mistake for Stopped.
+   Deliberately NOT in the pulsing group below: a pulse means work is happening, and the whole
+   meaning of this state is that nothing is happening and nothing will until the operator
+   acts. Its own rule, placed before that group, so it cannot be swept into it by accident. */
+.status-badge.broken {
+	background: rgba(248, 113, 113, 0.15);
+	color: #f87171;
+	animation: none;
+}
+
 /* Transitional states - orange pulse */
 .status-badge.start,
 .status-badge.stop,

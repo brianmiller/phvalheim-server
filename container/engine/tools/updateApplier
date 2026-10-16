@@ -51,12 +51,42 @@ getEffective() {
 
 # Is the world quiet enough to touch?
 #
-# TWO conditions, and the second is the one that is easy to forget. A count of zero is idle.
-# A NONZERO count is also idle if the observation behind it is older than the threshold,
-# because a count can stick in the log after everyone has left -- observed on a production
-# world that reported one player and then logged nothing for 39 minutes while empty. Without
-# the staleness arm, one bad teardown parks a world in "waiting" forever and it is never
-# updated again.
+# A count of zero, recently observed, is idle. EVERYTHING ELSE IS NOT -- including a nonzero
+# count whose observation has gone stale.
+#
+# That last clause used to read the other way, and it is what kicked a real operator's players
+# off mid-session. 2.47 treated a nonzero count as idle once the observation aged past the
+# threshold, reasoning that a count can stick in the log after everyone has left: verified on a
+# production world that logged "now 1 player(s)" and then nothing for 39 minutes while empty.
+# Without some such arm, one unclean teardown parks a world in "waiting" forever.
+#
+# The trouble is that a stale nonzero count has TWO causes and the count cannot tell them apart:
+#
+#   a) everyone left uncleanly and the leave was never logged   -> safe to update
+#   b) a player joined and is STILL PLAYING                     -> updating kicks them
+#
+# (b) is not an edge case, it is the normal shape of a session. playerMonitor derives a
+# crossplay world's count from "... now N player(s)", which PlayFab emits on join and on leave
+# and at no other time -- so a player who joins and then plays for an hour produces exactly one
+# line, an hour old, saying 1. idleMinutes defaults to 30. Half an hour into their session the
+# observation is "stale", the world is declared idle, and the server is stopped underneath them.
+# That is the Discord report: players kicked because PhValheim shut the world down for an
+# update while they were on it.
+#
+# So the arm is gone. A nonzero count means NOT IDLE, which is this script's own stated rule --
+# "anything it cannot establish counts as a no" -- applied to the one place that broke it.
+#
+# The cost is real and is the correct trade: a world whose count is stuck nonzero will not
+# auto-update on the idle path. It is not stuck forever, because the operator already has an
+# explicit escape hatch that does not require guessing on their behalf --
+# autoupdate_max_wait_hours with autoupdate_on_timeout='force' updates regardless of players,
+# and the sweep below checks that BEFORE it ever calls this function. Choosing to accept a
+# disconnection after N hours is a decision an operator can make; having it made for them
+# silently, 30 minutes into someone's session, is not.
+#
+# Accurate live player detection -- via the server-side Companion rather than log scraping --
+# is the real fix and is on the backlog (docs/BACKLOG.md). Until it lands, auto-updates are
+# marked Beta in the admin UI and remain OFF by default.
 #
 # A world with no observation at all (player_count_at IS NULL) is NOT idle. That is the
 # unknown case, and unknown must never authorise a restart.
@@ -68,19 +98,16 @@ isIdle() {
 
 	[ "$haveObs" = "1" ] || return 1
 
+	# The ONLY idle verdict: a zero that was observed recently. A world whose log stopped
+	# being written is not something we know anything current about, so an ancient zero is
+	# unknown rather than empty.
 	if [ "$count" = "0" ]; then
-		# Zero, but only if the zero itself is not ancient -- a world whose log stopped
-		# being written is not something we know anything current about.
 		local fresh=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName' \
 			AND player_count_at > DATE_SUB(NOW(), INTERVAL $((idleMinutes * 3)) MINUTE);")
 		[ "$fresh" = "1" ] && return 0
 		return 1
 	fi
 
-	# Nonzero: idle only if the observation has gone stale.
-	local stale=$(SQL "SELECT COUNT(*) FROM worlds WHERE name='$worldName' \
-		AND player_count_at < DATE_SUB(NOW(), INTERVAL $idleMinutes MINUTE);")
-	[ "$stale" = "1" ] && return 0
 	return 1
 }
 
@@ -375,7 +402,23 @@ for worldName in $candidates; do
 		continue
 	fi
 
-	isIdle "$worldName" "$idleMinutes" || continue
+	# Say WHY a world is being held back. "Pending" on its own reads like a stuck job, and
+	# since the idle rule got stricter above, the most common reason to wait is now "someone
+	# is on it" -- which is the one thing the operator would want to see named. Overwriting
+	# update_last_result is what that column is for; applyUpdate() replaces it with the
+	# outcome the moment this world does go.
+	if ! isIdle "$worldName" "$idleMinutes"; then
+		heldCount=$(SQL "SELECT IFNULL(player_count,0) FROM worlds WHERE name='$worldName';")
+		if [ "${heldCount:-0}" != "0" ]; then
+			SQL "UPDATE worlds SET update_last_result='Waiting: $heldCount player(s) last seen on this world. The update will apply once it is empty.' \
+				WHERE name='$worldName';"
+		else
+			SQL "UPDATE worlds SET update_last_result='Waiting: this world has not reported a current player count, so it is not safe to restart it yet.' \
+				WHERE name='$worldName';"
+		fi
+		continue
+	fi
+
 	inWindow "$windowStart" "$windowHours" || continue
 
 	applyUpdate "$worldName" "$scope" "$backupFirst"
