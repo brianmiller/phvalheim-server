@@ -3447,6 +3447,38 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # v55fn -- it clears worlds.status, which is the field the rebuild is judged on.
   # v55fo -- the clear runs BEFORE the first phase. Positional: after, it would wipe the
   #          verdict this run just earned instead of the stale one it inherited.
+  # 2.55 STRANDED UPDATE STATE -- reported live on the :rc by a Discord operator.
+  #
+  # He restarted the container during a world update. The world then said "Updating" forever
+  # AND its Start button worked. Both at once is the tell: they are read from DIFFERENT
+  # columns. reconcileStrandedWorlds only ever knew about worlds.mode; the pill comes from
+  # worlds.update_state via `update_state === 'updating' && update_phase` in admin/index.php.
+  #
+  # During the longest phase of an update the two legitimately disagree -- updateApplier sets
+  # update_state='updating' up front, then stops the world properly, so while steamcmd runs
+  # for minutes mode is 'stopped' and update_state is 'updating'. Kill the container there and
+  # the mode sweep skips the world CORRECTLY ('stopped' is the truth), while nothing anywhere
+  # clears update_state: every path that does lives inside the applier that died.
+  #
+  # Behavioural proof, with the discriminating fixture mode='stopped' + update_state='updating'
+  # (stranding the mode too would be fixed by the old sweep and prove nothing):
+  # dev_tools/test-stranded-world-recovery.sh part 8 (50 total).
+  #
+  # v55fp -- the sweep exists.
+  # v55fq -- it is CALLED. Positional: it must run before the mode sweep's early return, since
+  #          the reported case has no stranded mode at all and the function would return first.
+  # v55fr -- an interrupted update is reported as interrupted.
+  # v55fs -- wants 0: it never lands on 'idle'. That word means "checked, nothing to do", a
+  #          verdict an interrupted update never reached -- the same lie as "Unknown is not
+  #          up to date".
+  # v55ft -- a stranded update-check spinner is cleared too (same shape, different owner).
+  zsus=$(sed -n '/^function reconcileStrandedUpdateState/,/^}$/p' /opt/stateless/engine/includes/0-functions.sh)
+  zswb=$(sed -n '/^function reconcileStrandedWorlds/,/strandedModes=/p' /opt/stateless/engine/includes/0-functions.sh)
+  v55fp=$(echo "$zsus" | grep -c '^function reconcileStrandedUpdateState')
+  v55fq=$(echo "$zswb" | grep -c 'reconcileStrandedUpdateState')
+  v55fr=$(echo "$zsus" | grep -c "update_state='failed'")
+  v55fs=$(echo "$zsus" | grep -c "update_state='idle'")
+  v55ft=$(echo "$zsus" | grep -c 'update_check_state=NULL')
   zupd=$(grep -vE '^[[:space:]]*#' /opt/stateless/engine/tools/updateApplier)
   zuClr=$(echo "$zupd" | grep -n 'clearPriorVerdict "$worldName"' | head -1 | cut -d: -f1)
   zuBak=$(echo "$zupd" | grep -n 'setPhase "$worldName" "backup"' | head -1 | cut -d: -f1)
@@ -3550,6 +3582,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 ENGINE CWD: subshell-scoped zips=$v55fc (want 2)  cd-ability probes=$v55fd (want 2)"
   echo "2.55 ENGINE CWD NEGATIVE: one-way cd sites in the engine=$v55fb (want 0 -- a one-way cd parks the engine in a world dir and spams getcwd forever)"
   echo "2.55 RESTORE STOPS THE WORLD: mode='stop' issued=$v55ff (want 1)  process-table confirm=$v55fg (want 1)  un-stoppable is fatal=$v55fh (want 1)"
+  echo "2.55 STRANDED UPDATE STATE: sweep=$v55fp (want 1)  called before the mode select=$v55fq (want 1)  interrupted reported=$v55fr (want 1)  check spinner cleared=$v55ft (want 1)"
+  echo "2.55 STRANDED UPDATE NEGATIVE: lands on 'idle'=$v55fs (want 0 -- that claims a verdict an interrupted update never reached)"
   echo "2.55 UPDATE HANDOFF: stop waits on mode+process=$v55fj (want 1)  sawRebuild guard=$v55fl (want 4)  clearPriorVerdict=$v55fm (want 2)  clears status=$v55fn (want 1)  clear before phases=$v55fo (want 1)   [clear=$zuClr backup=$zuBak]"
   echo "2.55 UPDATE HANDOFF NEGATIVE: unguarded break-on-any-mode=$v55fk (want 0 -- that read 'never started' as 'finished' and failed a rebuild that never ran)"
   echo "2.55 RESTORE NEGATIVE: supervisorctl calls=$v55fe (want 0 -- they no-op as the phvalheim user, which is how a restored world got overwritten)  false start claims=$v55fi (want 0)"
@@ -3863,6 +3897,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55fh" = "1" ] && [ "$v55fi" = "0" ] \
     && [ "$v55fj" = "1" ] && [ "$v55fk" = "0" ] && [ "$v55fl" = "4" ] \
     && [ "$v55fm" = "2" ] && [ "$v55fn" = "1" ] && [ "$v55fo" = "1" ] \
+    && [ "$v55fp" = "1" ] && [ "$v55fq" = "1" ] && [ "$v55fr" = "1" ] \
+    && [ "$v55fs" = "0" ] && [ "$v55ft" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

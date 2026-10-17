@@ -1953,6 +1953,33 @@ function generateModViewerJson () {
 # container during a world update and was left with a world stuck "updating" and no button
 # in the UI that could clear it. Only hand-editing the database could.
 #
+# An in-flight UPDATE or update CHECK whose owning process died with the container.
+#
+# Both of these are owned by a process, not by the engine loop: updateApplier owns
+# update_state, updateChecker.py owns update_check_state, and each is cleared only from inside
+# the run that set it. A container restart kills the owner and the field is then true forever.
+#
+# No process table to consult here -- unlike a mode, there is nothing running to measure. The
+# only honest landing is "this did not finish", said plainly, with the Updates tab explaining
+# why and what to press. It must NOT land on 'idle': that is the word for "checked, nothing to
+# do", and an interrupted update has not established that.
+function reconcileStrandedUpdateState () {
+	local stuck=$(SQL "SELECT COUNT(*) FROM worlds WHERE update_state='updating';")
+	if [ "${stuck:-0}" -gt 0 ]; then
+		local names=$(SQL "SELECT GROUP_CONCAT(name SEPARATOR ', ') FROM worlds WHERE update_state='updating';")
+		SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, update_phase_at=NULL, \
+			update_last_result='Interrupted by a restart partway through the update. Nothing further was changed. Press Update to run it again.' \
+			WHERE update_state='updating';"
+		echo "`date` [WARN : phvalheim] Update(s) left mid-flight by a restart, now reported as interrupted rather than still running: $names"
+	fi
+
+	local checking=$(SQL "SELECT COUNT(*) FROM worlds WHERE update_check_state='checking';")
+	if [ "${checking:-0}" -gt 0 ]; then
+		SQL "UPDATE worlds SET update_check_state=NULL WHERE update_check_state='checking';"
+		echo "`date` [WARN : phvalheim] Cleared $checking stranded update-check spinner(s) left by a restart."
+	fi
+}
+
 # Land on the TRUTH, taken from the PROCESS TABLE, and never on a command. mode='start' here
 # would start a world the operator had deliberately stopped; mode='update' would silently
 # rebuild a world nobody asked to rebuild, once per boot, forever.
@@ -1960,6 +1987,32 @@ function generateModViewerJson () {
 # 'broken' is deliberately NOT in the list. It is a terminal state the engine chooses when it
 # wants a human to look, and re-deciding it here would undo that on the next restart.
 function reconcileStrandedWorlds () {
+	# TWO SWEEPS, because there are TWO state machines and a restart can strand either.
+	#
+	# The first version of this function only knew about worlds.mode, and an operator on the
+	# 2.55 :rc hit exactly the gap: his world said "Updating" forever and the Start button
+	# worked at the same time. Both symptoms at once is the tell -- they are read from
+	# different columns.
+	#
+	# worlds.mode drives the engine. worlds.update_state drives the UPDATES UI, and
+	# admin/index.php renders the "Updating" pill from `update_state === 'updating' &&
+	# update_phase` (two places: the server-side render and the 5s poll's JS). They move
+	# independently, and during the longest phase of an update they DISAGREE: updateApplier
+	# sets update_state='updating' up front, then stops the world properly -- so while
+	# steamcmd runs for minutes, mode is 'stopped' and update_state is 'updating'.
+	#
+	# Kill the container there and the mode sweep below skips the world entirely, because
+	# 'stopped' is not a stranded mode -- it is the truth. Nothing else ever clears
+	# update_state: every path that does (idle, failed, pending) lives inside the applier
+	# process that just died with the container.
+	#
+	# Same shape for update_check_state='checking', set by updateChecker.py and by the admin
+	# API's check button, cleared only at the end of that same checker run. A restart mid-check
+	# leaves the spinner up forever and index.php treats the world as busy.
+	#
+	# So: sweep the update fields on their own terms, not as a side effect of the mode sweep.
+	reconcileStrandedUpdateState
+
 	local strandedModes="'creating','updating','starting','stopping','repackaging','backup'"
 	local WORLDS=$(SQL "SELECT id FROM worlds WHERE mode IN ($strandedModes);")
 

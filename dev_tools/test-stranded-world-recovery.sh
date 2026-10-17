@@ -331,5 +331,86 @@ awk '/^\.status-badge\.broken/{f=1} f&&/animation:/{print; exit}' "$CSS" | grep 
 	|| fail "'broken' pulses like a transitional state" "it reads as 'busy', which is the opposite of true"
 
 echo
+echo "== part 8: the OTHER state machine -- a stuck 'Updating' pill with a working Start =="
+
+# REPORTED LIVE on the 2.55 :rc. An operator restarted the container during a world update.
+# The world then said "Updating" forever AND its Start button worked. Both at once is the
+# tell: they are read from different columns.
+#
+# worlds.mode drives the engine; worlds.update_state drives the Updates UI, and
+# admin/index.php renders the pill from `update_state === 'updating' && update_phase`. During
+# the longest phase of an update they legitimately DISAGREE -- updateApplier sets
+# update_state='updating' up front, then stops the world properly, so while steamcmd runs for
+# minutes mode is 'stopped' and update_state is 'updating'.
+#
+# Kill the container there and the mode sweep skips the world, correctly: 'stopped' IS the
+# truth. Nothing else clears update_state -- every path that does lives inside the applier
+# process that died with the container.
+#
+# THE DISCRIMINATING FIXTURE is therefore mode='stopped' WITH update_state='updating'. A test
+# that stranded the mode too would be fixed by the old sweep and prove nothing about this.
+ULOG=/tmp/phv-upd-sweep.log
+UFN=/tmp/phv-upd-fns.sh
+awk '/^function reconcileStrandedUpdateState/,/^}$/' "$FUNCS" >  "$UFN" 2>/dev/null
+awk '/^function reconcileStrandedWorlds/,/^}$/'      "$FUNCS" >> "$UFN" 2>/dev/null
+
+if ! grep -q 'reconcileStrandedUpdateState' "$UFN"; then
+	fail "reconcileStrandedUpdateState does not exist" \
+	     "a world stranded mid-update keeps its 'Updating' pill forever"
+else
+	pass "reconcileStrandedUpdateState exists"
+
+	: > "$ULOG"
+	# mode='stopped' -> the mode sweep must find NOTHING to do. update_state='updating' and
+	# update_check_state='checking' -> the new sweep must clear both.
+	ULOG="$ULOG" bash -c '
+		set +e
+		SQL() {
+			printf "%s\n" "$1" >> "$ULOG"
+			case "$1" in
+				*"SELECT id FROM worlds WHERE mode IN"*)          echo "" ;;
+				*"COUNT(*) FROM worlds WHERE update_state"*)      echo "1" ;;
+				*"COUNT(*) FROM worlds WHERE update_check_state"*) echo "1" ;;
+				*"GROUP_CONCAT"*)                                  echo "midgard" ;;
+				*) : ;;
+			esac
+		}
+		worldProcessRunning() { return 1; }
+		date() { echo DATE; }
+		. "$1"
+		reconcileStrandedWorlds
+	' _ "$UFN" > /tmp/phv-upd-out.log 2>&1
+
+	grep -q "update_state='failed'" "$ULOG" \
+		&& pass "a world left update_state='updating' is reported as interrupted" \
+		|| fail "the stuck 'Updating' pill is never cleared" \
+		        "mode was 'stopped' -- correctly ignored by the mode sweep -- so only this sweep can fix it"
+
+	# It must NOT land on 'idle'. That word means "checked, nothing to do", which an
+	# interrupted update has not established -- the same class of lie as "Unknown is not
+	# up to date".
+	grep -q "update_state='idle'" "$ULOG" \
+		&& fail "it landed on 'idle'" "that claims the update was checked and found unnecessary" \
+		|| pass "and NOT on 'idle', which would claim a verdict it never reached"
+
+	grep -q "update_check_state=NULL" "$ULOG" \
+		&& pass "a stranded update-check spinner is cleared too" \
+		|| fail "update_check_state='checking' survives a restart" "the spinner never stops"
+
+	# The ordering: the update sweep has to run even when NO world has a stranded mode. The
+	# mode sweep returns early on an empty result, so a call placed after it would never run
+	# in exactly the reported case.
+	grep -q 'reconcileStrandedUpdateState' <<<"$(awk '/^function reconcileStrandedWorlds/,/strandedModes=/' "$FUNCS")" \
+		&& pass "it runs before the mode sweep's early return (the reported case has no stranded mode)" \
+		|| fail "the update sweep sits after the mode sweep's early return" \
+		        "with no stranded mode the function returns first and this never runs"
+
+	# And the operator is told what to do, not just that something broke.
+	grep -q 'Press Update to run it again' "$FUNCS" \
+		&& pass "the Updates tab says what to press" \
+		|| fail "the interrupted result does not tell the operator what to do next"
+fi
+
+echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
