@@ -3087,7 +3087,22 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55dg=$(grep -c 'def local_guids' /opt/stateless/engine/tools/pluginGuids.py)
   v55dh=$(grep -cF '$localGuids = modConfigLocalPluginGuids($world);' /opt/stateless/nginx/www/includes/modconfigs.php)
   v55di=$(grep -cF 'if ($modId === null) {' /opt/stateless/nginx/www/includes/modconfigs.php)
-  v55dj=$(grep -cF "'local_dll' => \$localFor(\$ov['cfg_file'])" /opt/stateless/nginx/www/includes/modconfigs.php)
+  # RE-ANCHORED (2.55 bulk forget). This used to be one grep for the exact phrase
+  #     'local_dll' => $localFor($ov['cfg_file'])
+  # wanting 2. The bulk-forget change introduced an intermediate `$dll` in the second branch,
+  # because safe_to_forget has to read the same value -- so the second site became
+  # `'local_dll' => $dll` and the marker dropped to 1 and FAILED the build. Nothing had
+  # regressed: both branches still attach local_dll and both still get it from $localFor.
+  # The marker was pinned to a SPELLING, not to the property, which is the same way my own
+  # edits have collided with my own markers before.
+  #
+  # Split in two so neither half can rot silently:
+  #   v55dj  -- both stale branches ATTACH local_dll   (the claim v55dj always made)
+  #   v55djb -- both get it from $localFor rather than inventing a value
+  # Either alone would pass on a plausible wrong refactor: attaching a hardcoded null would
+  # satisfy the first, and calling $localFor without attaching it would satisfy the second.
+  v55dj=$(grep -c "'local_dll' =>" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55djb=$(grep -cF "\$localFor(\$ov['cfg_file'])" /opt/stateless/nginx/www/includes/modconfigs.php)
   v55dk=$(grep -cF 'Local plugin' /opt/stateless/nginx/www/admin/world_configs.php)
   v55dl=$(grep -cF 'no longer exist in the installed version of their mod' /opt/stateless/nginx/www/admin/world_configs.php)
 
@@ -3417,7 +3432,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MIGRATION DONE: flag=$v56bl (want 1)  set from report=$v56bn (want 1)  complete msg=$v56bo (want 1)  intro cleared=$v56bp (want 1)"
   echo "2.55 NO FAKE CFGS: decision=$v55cs (want 1)  gated=$v55ct (want 1)  fails open=$v55cu (want 1)  disk scan=$v55cv (want 1)  skip logged=$v55cw (want 1)"
   echo "2.55 CFG MEMORY: mode=$v55cx (want 1)  engine calls=$v55cy (want 1)  before purge=$v55cz (want 1)  documented only=$v55da (want 1)  upsert=$v55db (want 1)  prune=$v55dc (want 1)  editor reads=$v55dd (want 1)  disk wins=$v55de (want 1)  table=$v55df (want 1)"
-  echo "2.55 LOCAL PLUGIN: mode=$v55dg (want 1)  payload calls=$v55dh (want 1)  unattributed only=$v55di (want 1)  stale rows=$v55dj (want 2)  badge=$v55dk (want 1)"
+  echo "2.55 LOCAL PLUGIN: mode=$v55dg (want 1)  payload calls=$v55dh (want 1)  unattributed only=$v55di (want 1)  stale rows=$v55dj (want 2)  badge=$v55dk (want 1)  local_dll from localFor=$v55djb (want 2)"
   echo "2.55 LOCAL PLUGIN NEGATIVE: one-reason stale heading gone=$v55dl (want 0)"
   echo "2.55 COMPANION DLL: cancel notice=$v55dm (want 1)  observer field=$v55dn (want 1)  real failure kept=$v55do (want 1)"
   echo "2.55 REATTRIBUTION: pass=$v55dp (want 1)  materialise calls=$v55dq (want 1)  cli=$v55dr (want 1)  migration calls=$v55ds (want 1)  update guard=$v55dt (want 1)"
@@ -3713,7 +3728,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55da" = "1" ] && [ "$v55db" = "1" ] && [ "$v55dc" = "1" ] \
     && [ "$v55dd" = "1" ] && [ "$v55de" = "1" ] && [ "$v55df" = "1" ] \
     && [ "$v55dg" = "1" ] && [ "$v55dh" = "1" ] && [ "$v55di" = "1" ] \
-    && [ "$v55dj" = "2" ] && [ "$v55dk" = "1" ] && [ "$v55dl" = "0" ] \
+    && [ "$v55dj" = "2" ] && [ "$v55djb" = "2" ] && [ "$v55dk" = "1" ] && [ "$v55dl" = "0" ] \
     && [ "$v55dm" = "1" ] && [ "$v55dn" = "1" ] && [ "$v55do" = "1" ] \
     && [ "$v55dp" = "1" ] && [ "$v55dq" = "1" ] && [ "$v55dr" = "1" ] \
     && [ "$v55ds" = "1" ] && [ "$v55dt" = "1" ] \
