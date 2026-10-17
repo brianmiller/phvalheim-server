@@ -2,6 +2,43 @@
 
 ## v2.55
 
+### "error retrieving current directory" in the log, forever, after a world was deleted
+
+An operator reported these two lines, repeatedly, with no idea what produced them:
+
+```
+shell-init: error retrieving current directory: getcwd: cannot access parent directories
+chdir: error retrieving current directory: getcwd: cannot access parent directories
+```
+
+`packageClient()` ended with a bare `cd "$stage"` and nothing to put it back, and
+`packageClientConfig()` did the same. Those were the engine's **only two** `cd` sites and there
+were **zero** ways back. `packageClient()` runs from the main loop — a bash process that lives
+for weeks — so after the first package the engine's working directory sat inside whichever
+world it had packaged last. Delete or re-create that world and the engine's cwd became a
+deleted inode, after which **every child process it spawned** printed those lines at bash
+startup: every `$(SQL ...)`, every tool invocation, forever, until the engine restarted.
+
+Measured on a live server before touching anything: `/proc/<engine>/cwd` →
+`.../worlds/Midgard/client`.
+
+It is non-fatal — bash carries on from `/` — which is exactly why it survived. Nothing failed
+loudly enough to investigate, and the noise lands in the log an operator sends when something
+*else* is wrong.
+
+Both sites now run the `cd` and the `zip` inside a **subshell**, so the engine's own directory
+never moves. The cd-ability probe is kept **separate** from the zip deliberately: an
+un-enterable staging tree must stay fatal and named, rather than degrading into a zip exit
+status that lets the config archive run against a tree that is not there. Both `zip` targets
+were already absolute, which is what makes the subshell safe, and that is now pinned by a
+marker so it cannot quietly become relative.
+
+`dev_tools/test-engine-cwd-stays-put.sh` is 10 assertions. The one that carries it is
+**behavioural**: it runs the real `packageClient()` with everything else stubbed and compares
+`$PWD` across the call. No grep can tell whether a `cd` is scoped. It fails on the previous
+code with *"packageClient MOVED the engine's cwd"*, and the missing-staging-tree control
+confirms a failed package does not move it either and is still fatal.
+
 ### Clearing stale mod settings in bulk, without destroying the ones still in force
 
 The unmatched-settings panel lists two kinds of row that read almost identically and have

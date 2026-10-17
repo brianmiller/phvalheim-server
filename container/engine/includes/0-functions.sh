@@ -1526,19 +1526,39 @@ function packageClient() {
         #missing explanatory file would be the larger harm.
         writeClientManifest "$worldName"
 
-        #|| return, because a failed cd would otherwise leave zip running in whatever
-        #directory the engine happened to be in and packaging that instead.
-        cd "$stage" || {
+        #The cd is SCOPED TO A SUBSHELL, so the engine's own working directory never moves.
+        #That is a fix, not tidiness.
+        #
+        #This used to be a bare `cd "$stage"` with nothing to put it back, and there were two
+        #such sites in the engine and zero ways back. packageClient() is called from the MAIN
+        #LOOP -- a bash process that lives for weeks -- so after the first package the engine's
+        #cwd sat inside whichever world it had packaged last. Delete or re-create that world
+        #and the engine's cwd became a dead inode, after which EVERY child process it spawned
+        #printed, at bash startup:
+        #
+        #    shell-init: error retrieving current directory: getcwd: cannot access parent
+        #    chdir: error retrieving current directory: getcwd: cannot access parent
+        #
+        #forever, until the engine restarted. Not fatal -- bash carries on from / -- but every
+        #`$(SQL ...)` and every tool invocation printed it, and an operator reported it with no
+        #way to place where it came from. Measured on a live server: /proc/<engine>/cwd pointed
+        #at .../worlds/Midgard/client.
+        #
+        #The probe is kept separate from the zip so the ORIGINAL behaviour is preserved exactly:
+        #an un-enterable staging tree is still fatal, still named, and still returns 1 before
+        #anything else is touched. A single subshell doing both would turn that into a zip
+        #status and let the config archive run against a tree that is not there.
+        if ! ( cd "$stage" ) 2>/dev/null; then
                 echo "`date` [ERROR : phvalheim] Could not enter the client staging tree for '$worldName' ($stage)."
                 return 1
-        }
+        fi
 
-        zip "$zipPath" -r \
+        ( cd "$stage" && zip "$zipPath" -r \
         ./BepInEx \
         ./doorstop_libs \
         ./doorstop_config.ini \
         ./start_game_bepinex.sh \
-        ./winhttp.dll
+        ./winhttp.dll )
 
         #zip's status, captured immediately. The old version ran `rm -f` and then returned
         #`$?` -- so it reported the rm's exit code, which is 0 essentially always, and a
@@ -1742,14 +1762,17 @@ function packageClientConfig() {
 
         rm -f "$tmpZip" > /dev/null 2>&1
 
-        #|| return, for the same reason packageClient guards its cd: a failed cd would leave
-        #zip packaging whatever directory the engine happened to be in.
-        cd "$stage" || {
+        #Subshell-scoped, for the same two reasons as packageClient's: a failed cd must not
+        #leave zip packaging whatever directory the engine happened to be in, AND a successful
+        #one must not leave the engine's own cwd parked in a world directory. This is the
+        #SECOND of the engine's two cd sites; both used to be one-way, which is what produced
+        #the operator's getcwd spam. See the long note in packageClient().
+        if ! ( cd "$stage" ) 2>/dev/null; then
                 echo "`date` [ERROR : phvalheim] Could not enter the client staging tree for '$worldName' ($stage) -- config archive not built."
                 return 1
-        }
+        fi
 
-        zip -q -r "$tmpZip" ./BepInEx/config
+        ( cd "$stage" && zip -q -r "$tmpZip" ./BepInEx/config )
         local zipStatus=$?
 
         #-s as well as the exit status: zip with nothing to add leaves no archive at all and

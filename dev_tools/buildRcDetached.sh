@@ -3362,6 +3362,30 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v55ey=$(awk "/function dropStale(Selected)?\(/{f=1} f&&/confirm\(/{n++} END{print n+0}" $zwc)
   v55ez=$(grep -cF "\$sSafe ? 'checked' : ''" $zwc)
   v55fa=$(grep -c 'STILL APPLIED' $zwc)
+
+  # --- 2.55: packaging never moves the ENGINE's cwd (v55fb..v55fd) --------------------------
+  #
+  # packageClient() and packageClientConfig() each did a bare `cd "$stage"` with nothing to put
+  # it back -- two cd sites in the whole engine, zero ways back. packageClient() runs from the
+  # MAIN LOOP, a bash process that lives for weeks, so after the first package the engine's cwd
+  # sat inside whichever world it packaged last. Delete or re-create that world and the cwd is
+  # a dead inode, after which every child process bash spawns prints
+  #     shell-init: error retrieving current directory: getcwd: ...
+  # at startup, forever, until the engine restarts. Reported by an operator who could not place
+  # it; measured live as /proc/<engine>/cwd -> .../worlds/Midgard/client. Non-fatal, which is
+  # why it survived this long.
+  #
+  # Behavioural proof (runs the real function and compares $PWD across the call, which no grep
+  # can do): dev_tools/test-engine-cwd-stays-put.sh (10).
+  #
+  # v55fb -- THE REGRESSION MARKER, wants 0: no statement-level `cd "` anywhere in the engine.
+  #          Scoping is the fix, so the thing to forbid is a cd that is not inside `( `.
+  # v55fc -- both zips run inside a subshell.
+  # v55fd -- both sites still PROBE cd-ability first, so an un-enterable staging tree stays
+  #          fatal and named instead of degrading into a zip exit status.
+  v55fb=$(grep -hE '^[[:space:]]+cd "' $zfun $zeng 2>/dev/null | grep -vE '\(\s*cd ' | grep -vc '^\s*#')
+  v55fc=$(grep -cE '^\s+\( cd "\$stage" && zip' $zfun)
+  v55fd=$(grep -cE 'if ! \( cd "\$stage" \)' $zfun)
   v56bq=$(grep -cF '$unmatchedOnly = isset($_GET[' /opt/stateless/nginx/www/admin/world_configs.php)
   v56br=$(grep -cF "return \$f['mod_id'] === null;" /opt/stateless/nginx/www/admin/world_configs.php)
   v56bs=$(grep -cF "m.mod_id === null ? '&unmatched=1'" /opt/stateless/nginx/www/admin/index.php)
@@ -3447,6 +3471,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 AUTOUPDATE IDLE: waiting reasons=$v55em (want 2)  force before gate=$v55en (want 1)  BETA badges=$v55eo (want 2)  Off-is-default=$v55ep (want 2)   [force=$zFrc gate=$zIdl]"
   echo "2.55 AUTOUPDATE NEGATIVE: staleness arm (return 0 after a player_count_at< test)=$v55el (want 0 -- this is what kicked a real operator's players)  self-enablers=$v55eq (want 0)"
   echo "2.55 MODE PILLS: creating/updating/broken labelled in both maps=$v55er (want 6)  broken css rule=$v55es (want 1)"
+  echo "2.55 ENGINE CWD: subshell-scoped zips=$v55fc (want 2)  cd-ability probes=$v55fd (want 2)"
+  echo "2.55 ENGINE CWD NEGATIVE: one-way cd sites in the engine=$v55fb (want 0 -- a one-way cd parks the engine in a world dir and spams getcwd forever)"
   echo "2.55 BULK FORGET: flag set=$v55et (want 2)  local_dll downgrade=$v55ev (want 1)  selector keys on flag=$v55ew (want 1)  confirms=$v55ey (want 2)  safe-only pre-tick=$v55ez (want 1)  badge=$v55fa (want 1)"
   echo "2.55 BULK FORGET POLARITY: still-applied branch explicitly false=$v55eu (want 1)"
   echo "2.55 BULK FORGET NEGATIVE: select-all or prose-matching selector=$v55ex (want 0 -- that would forget settings still in force)"
@@ -3752,6 +3778,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55et" = "2" ] && [ "$v55eu" = "1" ] && [ "$v55ev" = "1" ] \
     && [ "$v55ew" = "1" ] && [ "$v55ex" = "0" ] && [ "$v55ey" = "2" ] \
     && [ "$v55ez" = "1" ] && [ "$v55fa" = "1" ] \
+    && [ "$v55fb" = "0" ] && [ "$v55fc" = "2" ] && [ "$v55fd" = "2" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
