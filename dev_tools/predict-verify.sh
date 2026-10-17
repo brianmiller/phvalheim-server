@@ -32,9 +32,17 @@ if [ ! -s "$WORK/payload.sh" ]; then
 fi
 
 # Marker assignments and the chain comparisons.
-grep -oE '^\s*v[0-9]+[a-z]*=\$\(.*\)$' "$WORK/payload.sh" | sed 's/^\s*//' > "$WORK/assign.txt"
-grep -oE '\[ "\$v[0-9]+[a-z]*" = "[^"]*" \]' "$WORK/payload.sh" \
-	| sed -E 's/\[ "\$([a-z0-9]+)" = "([^"]*)" \]/\1 \2/' | sort -u > "$WORK/want.txt"
+# ANY lowercase-led assignment, not just v-prefixed. The chain gates plenty of markers that
+# are not named vNNN -- cpw, cpb, cpc, sb, sg -- and a v-only pattern made every one of them
+# invisible to this tool. cpw is precisely the marker that failed the build this was written
+# to prevent, and it was never in the predicted set at all.
+# Comment lines are stripped FIRST. nameTheFailures' own documentation contains the literal
+# text `[ "$x" = "y" ]` as an example of the shape it parses, and extracting from prose
+# invented a marker called x that wanted "y" and could never pass.
+grep -vE '^\s*#' "$WORK/payload.sh" > "$WORK/code.sh"
+grep -oE '^\s*[a-z][A-Za-z0-9_]*=\$\(.*\)$' "$WORK/code.sh" | sed 's/^\s*//' > "$WORK/assign.txt"
+grep -oE '\[ "\$[a-z][A-Za-z0-9_]*" = "[^"]*" \]' "$WORK/code.sh" \
+	| sed -E 's/\[ "\$([A-Za-z0-9_]+)" = "([^"]*)" \]/\1 \2/' | sort -u > "$WORK/want.txt"
 
 echo "markers assigned: $(wc -l < "$WORK/assign.txt")   gated by the chain: $(wc -l < "$WORK/want.txt")"
 echo
@@ -43,31 +51,66 @@ echo
 # them. Without these every such marker evaluates against an empty path and reports <empty>,
 # which looks like a failing marker and is really a broken predictor. Extract and remap them
 # too, then source them before evaluating anything.
-grep -oE '^\s*z[A-Za-z0-9_]+=[^$(].*$' "$WORK/payload.sh" | sed 's/^\s*//' | sort -u > "$WORK/paths.txt"
+grep -oE '^\s*z[A-Za-z0-9_]+=[^$(].*$' "$WORK/code.sh" | sed 's/^\s*//' | sort -u > "$WORK/paths.txt"
+
+# COMPUTED helper variables as well -- the line numbers positional markers are built from
+# ($mancall, $manzip, $zpwCall, $zpwUpdate, ...). These were previously skipped, and skipping
+# them skips exactly the class of marker that keeps breaking: a positional marker is pinned to
+# the SPELLING of the line it points at, so any refactor of that line silently empties it.
+#
+# Both builds this tool was meant to save were this class. v55dj was a spelling pin; cpw was a
+# `^[[:space:]]*zip` anchor that stopped matching when the zip got wrapped in a subshell. The
+# predictor reported "0 fail" both times because it had quietly SKIPPED them.
+#
+# They are greps and awks over the source, so evaluating them here is safe and cheap. Anything
+# still unresolved after this is reported as SKIP, as before.
+grep -oE '^\s*[a-z][A-Za-z0-9_]*=\$\((grep|awk|sed|tail|head).*$' "$WORK/code.sh" \
+	| sed 's/^\s*//' \
+	| grep -vE '^v[0-9]' \
+	| sort -u > "$WORK/computed.txt"
 
 remap() {
 	sed -e 's#/opt/stateless/engine#container/engine#g' \
 	    -e 's#/opt/stateless/nginx#container/nginx#g' \
 	    -e 's#/opt/stateless#container#g' "$1"
 }
-remap "$WORK/paths.txt"  > "$WORK/paths.local.sh"
-remap "$WORK/assign.txt" > "$WORK/assign.local.sh"
+remap "$WORK/paths.txt"    > "$WORK/paths.local.sh"
+remap "$WORK/computed.txt" > "$WORK/computed.local.sh"
+remap "$WORK/assign.txt"   > "$WORK/assign.local.sh"
 # shellcheck disable=SC1090
 . "$WORK/paths.local.sh" 2>/dev/null
-echo "path vars resolved: $(wc -l < "$WORK/paths.local.sh")"
+# Computed vars AFTER the paths, since they grep the files the paths name. < /dev/null for the
+# same reason the marker eval needs it.
+. "$WORK/computed.local.sh" < /dev/null 2>/dev/null
+echo "path vars resolved: $(wc -l < "$WORK/paths.local.sh")   computed vars resolved: $(wc -l < "$WORK/computed.local.sh")"
 
 # Evaluate. Unresolvable paths -> SKIP, never a silent pass.
 PASS=0; FAILN=0; SKIP=0
 : > "$WORK/out.txt"
 while read -r name want; do
+	# A want that is itself a variable (`[ "$wt" = "$wu" ]`) has no literal to compare to.
+	case "$want" in *'$'*)
+		printf 'SKIP  %-8s (the chain compares it to another marker, not a literal)\n' "$name" >> "$WORK/out.txt"
+		SKIP=$((SKIP+1)); continue ;;
+	esac
 	line=$(grep -E "^${name}=" "$WORK/assign.local.sh" | head -1)
 	if [ -z "$line" ]; then
 		printf 'SKIP  %-8s (no assignment found in the payload)\n' "$name" >> "$WORK/out.txt"
 		SKIP=$((SKIP+1)); continue
 	fi
-	# Does every file it reads exist here?
+	# Does every file it reads exist here? ANY absolute path, not just container/... --
+	# markers also read /etc/cron.d/..., /opt/stateful/..., /usr/..., which exist only inside
+	# the image. Checking only the remapped paths made those read got=0 and report as real
+	# failures, which is how this tool started crying wolf the moment it was widened.
 	missing=0
-	for f in $(grep -oE 'container/[A-Za-z0-9_./-]+' <<<"$line" | sort -u); do
+	for f in $(grep -oE '(container|/etc|/opt|/usr|/var)/[A-Za-z0-9_./*-]+' <<<"$line" | sort -u); do
+		case "$f" in
+			# These roots exist on the dev box but hold the HOST's content, not the
+			# image's, so a marker reading them gets a confident wrong number rather
+			# than an error. Present-but-different is the worst of the three states.
+			/etc/*|/usr/*|/var/*|/opt/stateful/*) missing=1; continue ;;
+			*'*'*) continue ;;
+		esac
 		[ -e "$f" ] || missing=1
 	done
 	if [ "$missing" = 1 ]; then
@@ -82,10 +125,14 @@ while read -r name want; do
 	#     bounds from line numbers the payload derives at runtime ($zpwCall, $zpwUpdate...).
 	#     Unset here, `${zpwUpdate:-1}` silently becomes 1 and the marker measures the whole
 	#     file instead of the region -- a confident wrong answer.
+	# ANY referenced variable, not just $z*. Markers build on other computed values too
+	# ($wlin, $mancall, $manzip ...), and an unset one makes the command measure something
+	# other than what it names -- a confident wrong answer dressed as a failure.
 	unresolved=0
-	for v in $(grep -oE '\$\{?z[A-Za-z0-9_]+' <<<"$line" | tr -d '${' | sort -u); do
-		eval "val=\${$v-}"
-		[ -z "$val" ] && unresolved=1
+	for v in $(grep -oE '\$\{?[A-Za-z_][A-Za-z0-9_]*' <<<"$line" | tr -d '${' | sort -u); do
+		case "$v" in NR|FS|OFS|RS|NF|PWD|HOME|PATH|IFS) continue ;; esac
+		eval "val=\${$v-__UNSET__}"
+		[ "$val" = "__UNSET__" ] && unresolved=1
 	done
 	if [ "$unresolved" = 1 ]; then
 		printf 'SKIP  %-8s (depends on a line number the payload computes at run time)\n' "$name" >> "$WORK/out.txt"

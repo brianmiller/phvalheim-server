@@ -2112,8 +2112,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   mancall=$(awk -v s="$(grep -n '^function packageClient()' $zfun | head -1 | cut -d: -f1)" \
                 'NR>s && /writeClientManifest "\$worldName"/{print NR; exit}' $zfun)
+  # RE-ANCHORED: the leading ^[[:space:]]* is gone. The claim cpw makes is "the manifest is
+  # written BEFORE the payload is zipped" -- a claim about ORDER, not about what else shares
+  # the line. The getcwd fix wrapped the zip as `( cd "$stage" && zip "$zipPath" -r`, so the
+  # start-of-line anchor stopped matching, manzip came back empty, and cpw read 0 and failed
+  # the build. Nothing had regressed. `zip "$zipPath"` is the only zip of the payload in this
+  # function, so matching it anywhere on the line is precise and survives being wrapped.
   manzip=$(awk -v s="$(grep -n '^function packageClient()' $zfun | head -1 | cut -d: -f1)" \
-               'NR>s && /^[[:space:]]*zip "\$zipPath" -r/{print NR; exit}' $zfun)
+               'NR>s && /zip "\$zipPath" -r/{print NR; exit}' $zfun)
   cpw=0; [ -n "$mancall" ] && [ -n "$manzip" ] && [ "$mancall" -lt "$manzip" ] && cpw=1
 
   # NEGATIVE: no password may be written into the manifest. argv carries the password for the
