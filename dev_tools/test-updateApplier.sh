@@ -194,27 +194,71 @@ check "liveness is checked against the process table" "1" \
 sed -n '/^worldProcessRunning() {/,/^}/p' "$TOOL" >  /tmp/stopw.fn
 sed -n '/^stopWorldAndWait() {/,/^}/p'    "$TOOL" >> /tmp/stopw.fn
 
-# $1 = how many liveness checks report "still running" before it goes quiet; 99 = never stops.
+# THE FIXTURE NOW MODELS THE ENGINE, not just the process.
+#
+# It used to stub SQL() as a write-only sink, so `SELECT mode` always came back empty. That
+# made the whole harness encode the OLD contract -- "the process died, therefore the stop is
+# done" -- which is exactly the bug Brian hit: the engine's stop branch keeps running for up
+# to ten seconds past the kill and its LAST act is `mode='stopped'`, landing on top of the
+# applier's `mode='update'`. The rebuild was never requested.
+#
+# So the stub now answers SELECT mode as a real engine would: 'stopping' while it works, then
+# 'stopped' once it has finished -- and the two timings are separate knobs, because the whole
+# point is that they are not the same moment.
+#
+# $1 = liveness checks that report "still running" before the process goes quiet (99 = never)
+# $2 = liveness checks after which the ENGINE finally writes mode='stopped' (99 = never)
+# The clock is `ticks`, advanced by the stubbed sleep -- one tick per loop iteration.
+#
+# It was keyed off a counter inside worldProcessRunning, which does not work: the real loop
+# tests `[ "$mode" = "stopped" ] && ! worldProcessRunning`, and `&&` SHORT-CIRCUITS, so while
+# the mode is still 'stopping' the process is never asked about and the counter never moves.
+# The fixture sat at tick 1 forever and every case timed out as STILLUP -- including the happy
+# one, which looked like the product failing.
 runStop() {
-	bash -c '
-		calls=0
+	EXTRACT=$(sed -n '/^stopWorldAndWait() {/,/^}/p' "$TOOL")
+	# A missing extraction must not read as "the stop refused". Without this, an undefined
+	# function makes the `if` below fall to STILLUP, which is the expected answer for two of
+	# the cases -- they would pass against a harness that ran nothing at all. The control run
+	# did exactly that.
+	case "$EXTRACT" in
+		*worldProcessRunning*) : ;;
+		*) echo "EXTRACT-FAILED"; return ;;
+	esac
+	ticks=0 bash -c '
+		ticks=0
 		stopsAfter='"$1"'
-		worldProcessRunning() { calls=$((calls+1)); [ "$calls" -le "$stopsAfter" ]; }
-		SQL() { echo "SQL:$*" >> /tmp/stopw.sql; }
-		sleep() { :; }          # no real waiting in a test
+		modeAfter='"${2:-$1}"'
+		sleep() { ticks=$((ticks+1)); }
+		worldProcessRunning() { [ "$ticks" -lt "$stopsAfter" ]; }
+		SQL() {
+			case "$1" in
+				*"SELECT mode FROM worlds"*)
+					if [ "$ticks" -ge "$modeAfter" ]; then echo stopped; else echo stopping; fi ;;
+				*) echo "SQL:$*" >> /tmp/stopw.sql ;;
+			esac
+		}
 		date() { echo "-"; }
-		'"$(sed -n '/^stopWorldAndWait() {/,/^}/p' "$TOOL")"'
+		'"$EXTRACT"'
 		if stopWorldAndWait "w"; then echo STOPPED; else echo STILLUP; fi
 	' 2>/dev/null | tail -1   # the failure path logs an ERROR line first; the verdict is last
 }
 
 rm -f /tmp/stopw.sql
-check "a world that goes quiet reports stopped"      "STOPPED" "$(runStop 2)"
+# Process quiet at check 2, engine confirms at check 2: the ordinary case.
+check "a world that goes quiet reports stopped"      "STOPPED" "$(runStop 2 2)"
 # The load-bearing one: it must NOT claim success just because it waited.
-check "a world that never stops reports failure"     "STILLUP" "$(runStop 99)"
+check "a world that never stops reports failure"     "STILLUP" "$(runStop 99 99)"
+
+# THE NEW GUARANTEE, and the case that distinguishes this fix from the bug. The process is
+# gone early but the engine has NOT yet written mode='stopped' -- it is still inside its
+# `sleep 10`. Returning success here is what let the engine's late write clobber the update
+# request. It must report failure rather than hand back a half-finished stop.
+check "process gone but engine still working reports failure" "STILLUP" "$(runStop 1 99)"
+
 # Already down before we start: no stop command, nothing to wait for.
 rm -f /tmp/stopw.sql
-check "an already-stopped world returns immediately" "STOPPED" "$(runStop 0)"
+check "an already-stopped world returns immediately" "STOPPED" "$(runStop 0 0)"
 check "...and issues no stop command"                "0" \
 	"$(grep -c "mode='stop'" /tmp/stopw.sql 2>/dev/null || echo 0)"
 

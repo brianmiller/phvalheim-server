@@ -160,6 +160,55 @@ code | grep -q "status=''" \
 	|| fail "status is not cleared" "nothing else in the codebase ever resets it"
 
 echo
+echo "== part 2b: clearing the verdict must not erase the LIVE signal =="
+
+# THE REGRESSION THIS PART EXISTS FOR, and part 2 above could not see it. The ordering
+# assertion only compared the clear against the first PHASE, which stayed correct the whole
+# time. Meanwhile clearPriorVerdict was setting update_state='running' one line after the
+# applier set it to 'updating' -- a value no reader anywhere knows.
+#
+# Cost: the admin UI polls the Updates tab only while
+# `update_check_state === 'checking' || update_state === 'updating'`, so it stopped on the
+# first tick, and renderUpdateStatus has no 'running' branch, so an update in progress
+# rendered as up to date. It also disarmed reconcileStrandedUpdateState, which finds
+# interrupted updates by looking for exactly 'updating'. Shipped in a :rc and reported by
+# Brian watching a real update.
+
+code | grep -q "clearPriorVerdict" && cvBody=$(awk '/^clearPriorVerdict\(\)/,/^}/' "$F") || cvBody=""
+if [ -z "$cvBody" ]; then
+	fail "could not extract clearPriorVerdict" "extraction is stale"
+elif printf '%s' "$cvBody" | grep -q 'update_state'; then
+	fail "clearPriorVerdict writes update_state" \
+	     "that column is the live signal for this run; clearing it blinds the UI poll and the stranded sweep"
+else
+	pass "clearPriorVerdict does not touch update_state -- only the stale verdict fields"
+fi
+
+# Positional: the clear must come BEFORE the 'updating' declaration, or it erases it again.
+cvLine=$(code | grep -n 'clearPriorVerdict "\$worldName"' | head -1 | cut -d: -f1)
+updLine=$(code | grep -n "update_state='updating'" | head -1 | cut -d: -f1)
+if [ -n "$cvLine" ] && [ -n "$updLine" ]; then
+	[ "$cvLine" -lt "$updLine" ] \
+		&& pass "the clear runs before the 'updating' declaration (clear=$cvLine, declare=$updLine)" \
+		|| fail "the clear runs AFTER the declaration (clear=$cvLine, declare=$updLine)" \
+		        "it would wipe the live signal the UI and the stranded sweep both read"
+else
+	fail "could not locate both the clear and the declaration" "clear=${cvLine:-none} declare=${updLine:-none}"
+fi
+
+# THE NEGATIVE, wants 0 anywhere in the file: 'running' is not a state any reader knows.
+n=$(code | grep -c "update_state='running'")
+[ "${n:-0}" = "0" ] \
+	&& pass "no update_state='running' anywhere ($n) -- nothing reads that value" \
+	|| fail "$n write(s) of update_state='running' remain" \
+	        "the UI has no branch for it and falls through to 'up to date'"
+
+# And the value the UI DOES watch has to be the one that gets written.
+code | grep -q "update_state='updating'" \
+	&& pass "the applier declares the state the UI actually polls on ('updating')" \
+	|| fail "nothing sets update_state='updating'" "the tab can never show a live update"
+
+echo
 echo "== part 3: 'never started' must not read as 'finished' =="
 
 code | grep -q 'sawRebuild' \

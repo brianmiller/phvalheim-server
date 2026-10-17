@@ -282,9 +282,12 @@ waitForEngineUpdate() {
 # Midgard had been carrying status='failed' since an earlier incident -- confirmed by reading
 # it eight minutes BEFORE the update that then "failed". Clearing here is what makes the check
 # at the end a measurement of this run instead of a memory of the worst previous one.
+# It must NOT write update_state. See the ordering note in applyUpdate: setting it to
+# 'running' here is a value no reader knows, and it cost the Updates tab its live status for a
+# release. The caller declares 'updating' immediately after this returns.
 clearPriorVerdict() {
 	local worldName="$1"
-	SQL "UPDATE worlds SET status='', update_state='running', update_last_result=NULL \
+	SQL "UPDATE worlds SET status='', update_last_result=NULL \
 		WHERE name='$worldName';"
 }
 
@@ -292,12 +295,21 @@ applyUpdate() {
 	local worldName="$1" scope="$2" backupFirst="$3"
 
 	echo "`date` [NOTICE : phvalheim] Auto-update starting for '$worldName' (scope=$scope, backup=$backupFirst)"
-	SQL "UPDATE worlds SET update_state='updating', update_last_result=NULL WHERE name='$worldName';"
 
-	# BEFORE anything else reads a verdict field. waitForEngineUpdate judges the rebuild by
-	# worlds.status, which nothing ever clears, so a stale 'failed' from any previous attempt
-	# would condemn this run before it started.
+	# CLEAR FIRST, THEN DECLARE. The order matters and getting it wrong broke the Updates tab
+	# for a whole release: clearPriorVerdict used to run on the line AFTER the
+	# update_state='updating' write, and it set update_state='running' -- a value no reader
+	# anywhere knows. The admin UI's poll keeps going only while
+	# `update_check_state === 'checking' || update_state === 'updating'`, so it stopped on the
+	# first tick and the tab fell through to the idle rendering: an update in progress reported
+	# as up to date, with no live phase. It also disarmed reconcileStrandedUpdateState, which
+	# finds interrupted updates by looking for exactly 'updating'.
+	#
+	# So the clear happens before the declaration, and it does NOT touch update_state. That
+	# column is this run's LIVE signal; the stale-verdict fields are status and
+	# update_last_result, and those are all it has any business resetting.
 	clearPriorVerdict "$worldName"
+	SQL "UPDATE worlds SET update_state='updating', update_last_result=NULL WHERE name='$worldName';"
 
 	if [ "$backupFirst" = "1" ]; then
 		setPhase "$worldName" "backup"

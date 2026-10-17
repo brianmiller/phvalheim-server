@@ -41,7 +41,29 @@ naming the overwritten-request case explicitly instead of calling it a failure, 
 `status` / `update_state` / `update_last_result` before the first phase so the check at the end
 measures this run rather than remembering the worst previous one.
 
-`dev_tools/test-update-handoff-race.sh` (9) runs the race for real: a stub engine that kills
+**A regression inside that fix, caught on `:rc` before any tagged release.** The
+`clearPriorVerdict` call landed on the line *after* `update_state='updating'` and set
+`update_state='running'` — a value **nothing reads**. Counted across the admin UI, it tests for
+exactly two values (`pending`, `updating`); the backend could write five. `running` had zero
+readers.
+
+The cost was all three things an operator reported seeing: the Updates tab polls only while
+`update_check_state === 'checking' || update_state === 'updating'`, so it stopped on the first
+tick (no live phase); `renderUpdateStatus` has no `running` branch, so an update in progress
+fell through to the up-to-date rendering; and re-opening the tab re-read the same unknown value,
+which looked like the status being cleared. It also disarmed `reconcileStrandedUpdateState`,
+which finds interrupted updates by looking for exactly `updating`.
+
+The clear now runs *before* the declaration and does not touch `update_state` at all — that
+column is the run's live signal, and the stale-verdict fields it has business resetting are
+`status` and `update_last_result`. Part 2b of the race suite pins all of it, including a
+negative on `update_state='running'` anywhere in the file.
+
+The original ordering assertion did not catch this because it compared the clear against the
+first *phase*, which stayed correct throughout. The thing worth asserting was the clear against
+the *declaration*.
+
+`dev_tools/test-update-handoff-race.sh` (13) runs the race for real: a stub engine that kills
 the process early and writes the mode late, against the extracted `stopWorldAndWait`. Its
 control is the pre-fix shape, which must *lose* the write — without that, part 1 would pass
 with the fix removed. Against `HEAD` the suite fails 8, including the behavioural case
