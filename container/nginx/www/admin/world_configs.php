@@ -264,18 +264,71 @@ $payload = modConfigEditorPayload($pdo, $world);
 				key. Quietly dropping them would let this page imply an override is in force
 				when it is not.
 			-->
+			<?php
+			// Counted in PHP from the same rows the loop below renders, so the button's label
+			// and the boxes it ticks cannot disagree. A JS-side count would be a second
+			// opinion about something already known here.
+			$staleSafe = 0;
+			foreach ($payload['stale'] as $s) { if (!empty($s['safe_to_forget'])) { $staleSafe++; } }
+			$staleTotal = count($payload['stale']);
+			?>
 			<div class="alert alert-warning">
 				<b>These saved settings did not match anything when this page was built.</b>
 				Each one says why below &mdash; and the two reasons are not the same thing.
 				A setting the mod <i>renamed or removed</i> will never apply again and is safe to
 				forget. A setting whose mod <i>has not written its config yet</i> is still being
 				applied; it will match again the next time that mod loads, so leave it alone.
+
+				<!--
+					The bulk control. It ticks the SAFE rows only, and it is deliberately not a
+					bare "forget all": the two kinds of row read almost identically in this list
+					and one of them is still in force, so a single button that took both would
+					quietly discard live settings. Selection is driven by the safe_to_forget
+					FLAG from modconfigs.php, never by matching the English reason text.
+				-->
+				<div style="margin:10px 0 2px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+					<button type="button" class="btn btn-sm btn-outline-secondary" style="padding:1px 8px;"
+					        onclick="selectStale('safe')">
+						Select the <?php echo (int)$staleSafe; ?> safe to forget
+					</button>
+					<button type="button" class="btn btn-sm btn-outline-secondary" style="padding:1px 8px;"
+					        onclick="selectStale('none')">Clear selection</button>
+					<button type="button" class="btn btn-sm btn-danger" style="padding:1px 8px;"
+					        id="staleForgetBtn" onclick="dropStaleSelected()" disabled>
+						Forget selected
+					</button>
+					<span id="staleSelCount" style="font-size:.78rem;opacity:.75;"></span>
+				</div>
+				<?php if ($staleSafe === 0 && $staleTotal > 0): ?>
+					<div style="font-size:.78rem;opacity:.8;margin-bottom:4px;">
+						None of these <?php echo (int)$staleTotal; ?> are safe to forget automatically
+						&mdash; every one is either still being applied or belongs to a plugin you
+						installed yourself. Forget them individually if you are sure.
+					</div>
+				<?php endif; ?>
+
 				<ul style="margin:8px 0 0 0;">
-				<?php foreach ($payload['stale'] as $s): ?>
+				<?php foreach ($payload['stale'] as $si => $s): ?>
+					<?php $sSafe = !empty($s['safe_to_forget']); ?>
 					<li>
+						<!--
+							Unsafe rows get a box too, rather than no box: the operator is
+							allowed to forget one deliberately. It just starts unticked and
+							"Select the safe ones" never reaches it, and dropStaleSelected()
+							names them in its confirmation.
+						-->
+						<input type="checkbox" class="stale-pick" style="margin-right:5px;vertical-align:middle;"
+						       data-safe="<?php echo $sSafe ? '1' : '0'; ?>"
+						       data-triple="<?php echo htmlspecialchars(json_encode([$s['cfg_file'], $s['section'], $s['ckey']])); ?>"
+						       data-label="<?php echo htmlspecialchars($s['cfg_file'] . ' [' . $s['section'] . '] ' . $s['ckey']); ?>"
+						       onchange="staleSelChanged()"
+						       <?php echo $sSafe ? 'checked' : ''; ?>>
 						<code><?php echo htmlspecialchars($s['cfg_file']); ?></code> &rarr;
 						<code>[<?php echo htmlspecialchars($s['section']); ?>] <?php echo htmlspecialchars($s['ckey']); ?></code>
 						= <code><?php echo htmlspecialchars($s['cvalue']); ?></code>
+						<?php if (!$sSafe): ?>
+							<span class="badge" style="background:rgba(251,191,36,.2);color:#fbbf24;font-size:.62rem;vertical-align:middle;">STILL APPLIED</span>
+						<?php endif; ?>
 						<button class="btn btn-sm btn-outline-danger" style="padding:0 6px;margin-left:6px;"
 						        onclick="dropStale(<?php echo htmlspecialchars(json_encode([$s['cfg_file'], $s['section'], $s['ckey']])); ?>)">forget</button>
 						<?php
@@ -1041,9 +1094,79 @@ $payload = modConfigEditorPayload($pdo, $world);
 		}
 
 		function dropStale(triple) {
+			// Confirmed, where it never used to be. This button deletes a saved override
+			// outright and the only copy is the database row it removes; an accidental click
+			// is unrecoverable and leaves no trace of what was lost. One misclick per row is
+			// the suspected cause of a dozen overrides disappearing.
+			if (!confirm('Forget this saved setting?\n\n  ' + triple[0] +
+			             ' [' + triple[1] + '] ' + triple[2] +
+			             '\n\nThis deletes the saved value. It cannot be undone.')) { return; }
 			post('saveModConfigs', { world: WORLD, items: [
 				{ file: triple[0], section: triple[1], key: triple[2], reset: true }
 			]}).then(function () { location.reload(); });
+		}
+
+		// --- bulk forget -------------------------------------------------------------------
+		//
+		// saveModConfigs already takes an ARRAY of items, so the bulk path is the same
+		// endpoint with more entries rather than a second endpoint that could drift from it.
+
+		function stalePicks() {
+			return Array.prototype.slice.call(document.querySelectorAll('.stale-pick'));
+		}
+
+		function selectStale(which) {
+			// 'safe' ticks only rows the SERVER flagged safe_to_forget. It deliberately does
+			// not offer "all": the still-applied rows are the ones a bulk button would
+			// silently destroy, so reaching them has to be a per-row decision.
+			stalePicks().forEach(function (cb) {
+				cb.checked = (which === 'safe') ? (cb.dataset.safe === '1') : false;
+			});
+			staleSelChanged();
+		}
+
+		function staleSelChanged() {
+			var picked = stalePicks().filter(function (cb) { return cb.checked; });
+			var unsafe = picked.filter(function (cb) { return cb.dataset.safe !== '1'; }).length;
+			var btn = document.getElementById('staleForgetBtn');
+			var out = document.getElementById('staleSelCount');
+			btn.disabled = (picked.length === 0);
+			btn.textContent = picked.length ? ('Forget selected (' + picked.length + ')')
+			                                : 'Forget selected';
+			// The count of still-applied rows in the selection is stated BEFORE the click,
+			// not only in the confirm dialog, so the risk is visible while choosing.
+			out.textContent = unsafe
+				? (unsafe + ' of those ' + (unsafe === 1 ? 'is' : 'are') + ' still being applied')
+				: '';
+			out.style.color = unsafe ? 'var(--danger)' : '';
+		}
+
+		function dropStaleSelected() {
+			var picked = stalePicks().filter(function (cb) { return cb.checked; });
+			if (!picked.length) { return; }
+
+			var unsafe = picked.filter(function (cb) { return cb.dataset.safe !== '1'; });
+			var msg = 'Forget ' + picked.length + ' saved setting(s)?\n\n' +
+				'This deletes the saved values. It cannot be undone.';
+			if (unsafe.length) {
+				// Name them. "3 of these are still applied" is a number the operator cannot
+				// check; the actual keys are something they can recognise and back out of.
+				msg += '\n\n' + unsafe.length + ' of them ' + (unsafe.length === 1 ? 'is' : 'are') +
+					' STILL BEING APPLIED and will come back into effect the next time ' +
+					'the mod loads:\n' +
+					unsafe.slice(0, 8).map(function (cb) { return '  - ' + cb.dataset.label; }).join('\n') +
+					(unsafe.length > 8 ? '\n  ... and ' + (unsafe.length - 8) + ' more' : '');
+			}
+			if (!confirm(msg)) { return; }
+
+			var items = picked.map(function (cb) {
+				var t = JSON.parse(cb.dataset.triple);
+				return { file: t[0], section: t[1], key: t[2], reset: true };
+			});
+			post('saveModConfigs', { world: WORLD, items: items }).then(function (r) {
+				if (r && r.ok === false) { alert(r.error || 'Forget failed.'); return; }
+				location.reload();
+			});
 		}
 
 		var pasteFile = null;

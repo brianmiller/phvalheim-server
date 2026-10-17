@@ -3310,6 +3310,43 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   #          world needing attention looks merely stopped.
   v55er=$(grep -cE "'(creating|updating|broken)' *(=>|:) *'" /opt/stateless/nginx/www/admin/index.php)
   v55es=$(grep -c '^\.status-badge\.broken' $zcss)
+
+  # --- 2.55: bulk "forget" never selects a setting still in force (v55et..v55fa) -----------
+  #
+  # The unmatched panel lists two kinds of row that read almost identically and have opposite
+  # consequences -- "the mod dropped this setting" (dead) and "the mod has not written its
+  # config yet" (STILL APPLIED, matches again on the mod's next load). Every row has a delete
+  # button, `reset: true` removes the only copy, and a dozen overrides are already suspected
+  # lost to the unconfirmed single-row version. A bulk control on that panel is one click that
+  # can destroy an arbitrary number of live settings, so selection keys on a FLAG computed
+  # where the difference is known -- never on the English reason sentence.
+  #
+  # Semantics and six mutation proofs: dev_tools/test-stale-bulk-forget.php (23).
+  #
+  # v55et -- the flag is set at BOTH classification sites.
+  # v55eu -- POLARITY: the still-applied branch is explicitly false. A marker that only found
+  #          the key present would pass with it flipped to true, which is the data-loss bug.
+  # v55ev -- a self-installed plugin reading the file downgrades safe back to not-safe, so
+  #          "select the safe ones" cannot tick a row whose own text says "Do not forget it".
+  # v55ew -- the selector keys on data-safe.
+  # v55ex -- THE REGRESSION MARKER, wants 0: no "select all" path, and no selector that
+  #          matches the reason prose.
+  # v55ey -- 2 = both delete paths (single row and bulk) call confirm().
+  # v55ez -- the checkbox is pre-ticked only when the row is safe.
+  # v55fa -- still-applied rows are visibly badged, not merely left unticked. ONE site: the
+  #          badge. The confirm dialog says "STILL BEING APPLIED", a deliberately different
+  #          string, so this does not accidentally count the dialog and still read 1 if the
+  #          badge were deleted. Predicted locally; the first draft wanted 2.
+  zmc=/opt/stateless/nginx/www/includes/modconfigs.php
+  zwc=/opt/stateless/nginx/www/admin/world_configs.php
+  v55et=$(grep -c "'safe_to_forget'" $zmc)
+  v55eu=$(grep -cF "'safe_to_forget' => false]" $zmc)
+  v55ev=$(grep -cF "'safe_to_forget' => empty(\$dll)" $zmc)
+  v55ew=$(grep -cF "dataset.safe === '1'" $zwc)
+  v55ex=$(awk "/function selectStale\(/{f=1} f{print} f&&/^\t\t\}/{exit}" $zwc | grep -cE "which === 'all'|has not written|does not use this setting")
+  v55ey=$(awk "/function dropStale(Selected)?\(/{f=1} f&&/confirm\(/{n++} END{print n+0}" $zwc)
+  v55ez=$(grep -cF "\$sSafe ? 'checked' : ''" $zwc)
+  v55fa=$(grep -c 'STILL APPLIED' $zwc)
   v56bq=$(grep -cF '$unmatchedOnly = isset($_GET[' /opt/stateless/nginx/www/admin/world_configs.php)
   v56br=$(grep -cF "return \$f['mod_id'] === null;" /opt/stateless/nginx/www/admin/world_configs.php)
   v56bs=$(grep -cF "m.mod_id === null ? '&unmatched=1'" /opt/stateless/nginx/www/admin/index.php)
@@ -3395,6 +3432,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 AUTOUPDATE IDLE: waiting reasons=$v55em (want 2)  force before gate=$v55en (want 1)  BETA badges=$v55eo (want 2)  Off-is-default=$v55ep (want 2)   [force=$zFrc gate=$zIdl]"
   echo "2.55 AUTOUPDATE NEGATIVE: staleness arm (return 0 after a player_count_at< test)=$v55el (want 0 -- this is what kicked a real operator's players)  self-enablers=$v55eq (want 0)"
   echo "2.55 MODE PILLS: creating/updating/broken labelled in both maps=$v55er (want 6)  broken css rule=$v55es (want 1)"
+  echo "2.55 BULK FORGET: flag set=$v55et (want 2)  local_dll downgrade=$v55ev (want 1)  selector keys on flag=$v55ew (want 1)  confirms=$v55ey (want 2)  safe-only pre-tick=$v55ez (want 1)  badge=$v55fa (want 1)"
+  echo "2.55 BULK FORGET POLARITY: still-applied branch explicitly false=$v55eu (want 1)"
+  echo "2.55 BULK FORGET NEGATIVE: select-all or prose-matching selector=$v55ex (want 0 -- that would forget settings still in force)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
@@ -3694,6 +3734,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55el" = "0" ] && [ "$v55em" = "2" ] && [ "$v55en" = "1" ] \
     && [ "$v55eo" = "2" ] && [ "$v55ep" = "2" ] && [ "$v55eq" = "0" ] \
     && [ "$v55er" = "6" ] && [ "$v55es" = "1" ] \
+    && [ "$v55et" = "2" ] && [ "$v55eu" = "1" ] && [ "$v55ev" = "1" ] \
+    && [ "$v55ew" = "1" ] && [ "$v55ex" = "0" ] && [ "$v55ey" = "2" ] \
+    && [ "$v55ez" = "1" ] && [ "$v55fa" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

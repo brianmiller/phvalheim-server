@@ -2,6 +2,49 @@
 
 ## v2.55
 
+### Clearing stale mod settings in bulk, without destroying the ones still in force
+
+The unmatched-settings panel lists two kinds of row that read almost identically and have
+opposite consequences:
+
+| Reason | State |
+|---|---|
+| *this version of the mod does not use this setting* | dead — can never apply again |
+| *the mod has not written this config yet* | **still applied** — matches again on that mod's next load |
+
+Every row has a `forget` button, and `reset: true` deletes the saved value outright — the
+database row **is** the only copy. A dozen overrides are already suspected lost to that button
+being unconfirmed. So a bulk control here is a single click that can destroy an arbitrary number
+of live settings, and the design is entirely about which rows it may reach.
+
+`safe_to_forget` is now a **flag**, computed in `modconfigs.php` at the point the two cases are
+actually distinguished, and it is what the selector keys on. The distinction had only ever
+existed as an English sentence on the row; a bulk delete deciding by matching that sentence
+would be one rewording away from forgetting live settings. A `local_dll` **downgrades** safe back
+to not-safe — the panel asserts "no mod uses this any more", and for a file one of the
+operator's own plugins demonstrably reads, that is the opposite of the truth. The row already
+said so in words; now the flag agrees, so "select the safe ones" cannot tick a row whose own
+text reads *"Do not forget it"*.
+
+There is deliberately **no "select all"**. The button is *Select the N safe to forget*; the
+still-applied rows start unticked, are badged **STILL APPLIED**, and can only be reached one at a
+time. The count of still-applied rows in the current selection is shown *while choosing*, not
+only at the end, and the confirmation **names** them rather than counting them — a number is not
+something an operator can check, but a key they recognise is.
+
+Both delete paths now confirm before posting. The single-row button never did.
+
+Bulk goes through the existing `saveModConfigs`, which already accepted an array of items, so
+there is no second endpoint to drift from the first.
+
+`dev_tools/test-stale-bulk-forget.php` is 23 assertions, and part 1 **executes** the real
+classification block with stubbed inputs rather than grepping it: the thing that matters is the
+flag's *polarity*, and `=> false` versus `=> true` differ by four characters, so a source check
+that merely found the key present would pass on the data-loss version. Six mutations were each
+caught by exactly one assertion — flipping the polarity, ignoring `local_dll`, turning the
+selector into a select-all, dropping the confirmation, pre-ticking every row, and reducing the
+confirmation to a bare count.
+
 ### A container restart during an update left the world stuck "updating" forever
 
 Reported from Discord. `worlds.mode` carries two different kinds of value and only one of them

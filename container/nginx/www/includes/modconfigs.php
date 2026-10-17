@@ -588,11 +588,29 @@ function modConfigEditorPayload($pdo, $world) {
         return $localGuids[$stem] ?? null;
     };
 
+    // safe_to_forget is a FLAG, computed here where the difference is actually known, and it
+    // is what the bulk "forget" control selects on. The two kinds of stale row have always
+    // been distinguishable only by their English `reason` sentence, and a bulk delete that
+    // decided by matching that sentence would be one reworded string away from forgetting
+    // settings that are still in force. The classification belongs at the point of
+    // classification, not in a regex over prose in the template.
+    //
+    //   false -- "the mod has not written this config yet". The override IS STILL APPLIED;
+    //            it will match again the next time that mod loads. Forgetting it throws away
+    //            a live setting, and the row looks identical to the safe kind in the list.
+    //   true  -- "this version of the mod does not use this setting". The mod documented its
+    //            file and this key is not in it, so it can never apply again.
+    //
+    // A local_dll downgrades true back to false, and that is not belt-and-braces: the panel
+    // asserts "no mod uses this any more", and for a file one of the operator's own plugins
+    // demonstrably reads, that assertion is the opposite of the truth. The row already says so
+    // in words; the flag has to agree, or "select all the safe ones" would tick it.
     $stale = [];
     foreach ($overrides as $k => $ov) {
         if (!isset($seenKeys[$k])) {
             $stale[] = $ov + ['reason' => 'the mod has not written this config yet',
-                              'local_dll' => $localFor($ov['cfg_file'])];
+                              'local_dll' => $localFor($ov['cfg_file']),
+                              'safe_to_forget' => false];
         }
     }
     foreach ($undocumentedOverrides as $file => $ovs) {
@@ -600,8 +618,10 @@ function modConfigEditorPayload($pdo, $world) {
             continue;
         }
         foreach ($ovs as $ov) {
+            $dll = $localFor($ov['cfg_file']);
             $stale[] = $ov + ['reason' => 'this version of the mod does not use this setting',
-                              'local_dll' => $localFor($ov['cfg_file'])];
+                              'local_dll' => $dll,
+                              'safe_to_forget' => empty($dll)];
         }
     }
 
