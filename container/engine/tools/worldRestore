@@ -88,11 +88,55 @@ if [ ! -d "$worldDir" ]; then
 fi
 
 # step 2: stop the world if running
-supervisorctl status "valheimworld_$worldName" 2>/dev/null | grep -q RUNNING
-if [ $? -eq 0 ]; then
+#
+# THIS IS WHAT OVERWROTE A RESTORED WORLD (reported 2026-10-16: a 10-03 backup restored
+# cleanly and the operator still found tonight's damage in the game).
+#
+# It used to ask `supervisorctl status`, which this script CANNOT run. worldRestore is
+# launched from adminAPI.php, so it runs as the `phvalheim` user, and supervisord.conf is
+# 0660 root:root with a 0700 root:root socket -- the call dies with "could not read config
+# file" and a NON-ZERO exit. `[ $? -eq 0 ]` then read that permission failure as "the world
+# is not running" and skipped the stop entirely. The restore extracted the backup UNDERNEATH
+# a live Valheim, and the `mode='update'` at the end made the ENGINE -- which is root, so its
+# supervisorctl works -- stop the world properly. On a clean shutdown Valheim saves, so it
+# wrote its in-memory world, hours newer than the backup, over the files just restored.
+# Every step reported success. The proof it never stopped anything: "Stopping world process"
+# does not appear once in worldBackups.log for that restore.
+#
+# So stop through `worlds.mode`, which the engine performs as root, and confirm with the
+# PROCESS TABLE, which any uid can read. An un-stoppable world is FATAL from here on:
+# extracting over a running world is exactly how the data was lost, and a restore that
+# refuses is recoverable while one that half-works is not.
+#
+# [v]alheim_server, not valheim_server: pgrep -f matches its own invoking command line.
+worldRunning() {
+	pgrep -f "worlds/$1/game/[v]alheim_server.x86_64" > /dev/null 2>&1
+}
+
+if worldRunning "$worldName"; then
 	progress "Stopping world process..."
-	supervisorctl stop "valheimworld_$worldName" >> "$LOG" 2>&1
+	SQL "UPDATE worlds SET mode='stop' WHERE name='$worldName';"
+
+	# The engine's loop ticks every 2s; a world with players saves on the way down.
+	stopWaited=0
+	while [ "$stopWaited" -lt 120 ]; do
+		worldRunning "$worldName" || break
+		sleep 2
+		stopWaited=$((stopWaited + 2))
+		[ $((stopWaited % 20)) -eq 0 ] && progress "Still waiting for '$worldName' to stop (${stopWaited}s)..."
+	done
+
+	if worldRunning "$worldName"; then
+		echo "`date` [ERROR : phvalheim] Restore of '$worldName' ABORTED: the world would not stop after ${stopWaited}s" >> "$LOG"
+		jsonError "World '$worldName' did not stop after ${stopWaited}s, so nothing has been restored. Valheim saves when it shuts down and would have written over the restored files. Stop the world from the dashboard and try again."
+	fi
+
+	# Settle: the save file is written during shutdown, and the process can be gone a moment
+	# before the last write lands.
 	sleep 3
+	progress "World stopped."
+else
+	progress "World is not running."
 fi
 
 # step 3: create pre-restore safety backup (only if directory has content and enough disk space)
@@ -267,19 +311,18 @@ chown -R phvalheim:phvalheim "$worldDir"
 progress "Triggering world rebuild (mode=update)..."
 SQL "UPDATE worlds SET mode='update' WHERE name='$worldName';"
 
-# step 8: start the world
-progress "Starting world process (valheimworld_$worldName)..."
-supervisorctl start "valheimworld_$worldName" >> "$LOG" 2>&1
+# step 8: the world stays stopped, and we say so
+#
+# This used to `supervisorctl start` and then report either "started successfully" or
+# "queued (engine will start when ready)". As the phvalheim user the start silently failed,
+# and NEITHER message was true: nothing was queued and nothing was going to start it. The
+# engine's update branch ends on mode='stopped' on purpose -- see the comment at its head --
+# so a restore cannot hand a start off to it either.
+#
+# An operator who is told "started successfully" and finds the world down assumes the restore
+# failed. Say what actually happens instead, and let them press Start.
+progress "Rebuild queued. '$worldName' stays STOPPED until it finishes -- then start it from the dashboard."
 
-# verify process started
-sleep 1
-supervisorctl status "valheimworld_$worldName" 2>/dev/null | grep -q RUNNING
-if [ $? -eq 0 ]; then
-	progress "World process started successfully"
-else
-	progress "World process queued (engine will start when ready)"
-fi
+echo "`date` [NOTICE : phvalheim] Restore complete for '$worldName' from backup id=$backupId (world left stopped, mode=update)" >> "$LOG"
 
-echo "`date` [NOTICE : phvalheim] Restore complete for '$worldName' from backup id=$backupId" >> "$LOG"
-
-jsonSuccess "World '$worldName' restored successfully from backup #$backupId" "$safetyBackupId"
+jsonSuccess "World '$worldName' restored from backup #$backupId. It is rebuilding and will stay stopped -- start it from the dashboard once the rebuild finishes." "$safetyBackupId"

@@ -2,6 +2,43 @@
 
 ## v2.55
 
+### A restore reported success and then undid itself
+
+An operator restored a 10-03 backup of their world to repair a building they had broken that
+evening. Every step of the restore reported success. The damage was still there.
+
+The restore had worked. Something put the newer world back afterwards — and that something was
+the restore's own last step.
+
+`worldRestore` decided whether to stop the world by running `supervisorctl status`. It cannot
+run it. `adminAPI.php` launches the restore as the `phvalheim` user, and `supervisord.conf` is
+`0660 root:root` behind a `0700 root:root` socket, so the call dies with *could not read config
+file* and a **non-zero exit** — which `[ $? -eq 0 ]` read as "the world is not running". The
+stop was skipped entirely and the backup was extracted underneath a live Valheim.
+
+Then the restore set `mode='update'` to trigger a rebuild. The engine runs as root, so *its*
+`supervisorctl` works: it stopped the world properly. Valheim saves on a clean shutdown. It
+wrote its in-memory world — hours newer than the backup — over the files that had just been
+restored.
+
+The proof it never stopped anything is an absence: `Stopping world process...` does not appear
+once in `worldBackups.log` for that restore.
+
+Fixed by stopping through `worlds.mode`, which the engine performs as root, and confirming with
+the **process table**, which any uid can read. An un-stoppable world is now **fatal** — a
+restore that refuses is recoverable, and one that half-works is not.
+
+The closing `supervisorctl start` was equally inert, and reported either "started successfully"
+or "queued (engine will start when ready)". Neither was ever true: nothing was queued, and the
+engine's update branch ends on `mode='stopped'` by design, so it could not have been handed a
+start either. An operator told the world started and finding it down assumes the restore failed.
+It now says the world stays stopped until the rebuild finishes.
+
+Behavioural proof in `dev_tools/test-restore-stops-the-world.sh` (11): it starts a real decoy
+process whose command line the real `pgrep` matches, and asserts the restore refuses to proceed
+while that process is alive. Against `HEAD~` the two data-loss assertions fail, which is the
+only reason to believe the other nine.
+
 ### "error retrieving current directory" in the log, forever, after a world was deleted
 
 An operator reported these two lines, repeatedly, with no idea what produced them:

@@ -77,12 +77,52 @@ remap() {
 remap "$WORK/paths.txt"    > "$WORK/paths.local.sh"
 remap "$WORK/computed.txt" > "$WORK/computed.local.sh"
 remap "$WORK/assign.txt"   > "$WORK/assign.local.sh"
-# shellcheck disable=SC1090
-. "$WORK/paths.local.sh" 2>/dev/null
-# Computed vars AFTER the paths, since they grep the files the paths name. < /dev/null for the
-# same reason the marker eval needs it.
-. "$WORK/computed.local.sh" < /dev/null 2>/dev/null
-echo "path vars resolved: $(wc -l < "$WORK/paths.local.sh")   computed vars resolved: $(wc -l < "$WORK/computed.local.sh")"
+
+# ONE LINE AT A TIME, each one parse-checked first, and the count is of variables that
+# actually HOLD a value.
+#
+# This used to be two `. file 2>/dev/null` sources, and it was broken in a way that reported
+# itself healthy. The extraction keeps only the FIRST PHYSICAL LINE of each assignment, so a
+# marker whose $( ) spans several lines contributes an unbalanced `$(` -- a SYNTAX ERROR.
+# Sourcing a file aborts at a syntax error, so every assignment from that point to the end of
+# the file was silently skipped. computed.txt is `sort -u`'d, so "that point" was alphabetical
+# and arbitrary: the break sat around 'r', which left every z* var unset, including the one
+# five brand-new markers depended on. They were reported as "depends on a line number the
+# payload computes at run time" -- a plausible, wrong reason -- and counted as SKIP.
+#
+# And the old line printed `wc -l` of the FILE as "computed vars resolved: 560", which was
+# true of the text and false of the variables. 3 of those 560 had values. A predictor that
+# cannot tell you it went blind is worse than no predictor.
+#
+# So: validate each line on its own, eval the ones that parse, and count what is really set.
+# SET_N/BAD_N are globals and sourceEach runs in THIS shell. It cannot be called inside $( ):
+# the whole point is the side effect of defining the variables, and a command substitution
+# runs in a subshell that throws every one of them away the moment it returns -- which is how
+# an earlier version of this script "resolved" variables the evaluation step then could not
+# see.
+SET_N=0; BAD_N=0
+sourceEach() {
+	local file="$1" name line probe
+	SET_N=0; BAD_N=0
+	while IFS= read -r line; do
+		[ -n "$line" ] || continue
+		name=${line%%=*}
+		case "$name" in *[!A-Za-z0-9_]*|'') continue ;; esac
+		if ! bash -n <<<"$line" 2>/dev/null; then
+			BAD_N=$((BAD_N+1))
+			continue
+		fi
+		eval "$line" < /dev/null 2>/dev/null
+		eval "probe=\${$name-__UNSET__}"
+		[ "$probe" != "__UNSET__" ] && SET_N=$((SET_N+1))
+	done < "$file"
+}
+
+sourceEach "$WORK/paths.local.sh";    pSet=$SET_N; pBad=$BAD_N
+# Computed vars AFTER the paths, since they grep the files the paths name.
+sourceEach "$WORK/computed.local.sh"; cSet=$SET_N; cBad=$BAD_N
+echo "path vars set: $pSet of $(wc -l < "$WORK/paths.local.sh")   computed vars set: $cSet of $(wc -l < "$WORK/computed.local.sh")"
+[ "$((pBad + cBad))" -gt 0 ] && echo "  ($((pBad + cBad)) assignment(s) span multiple lines and cannot be evaluated here -- markers needing them SKIP)"
 
 # Evaluate. Unresolvable paths -> SKIP, never a silent pass.
 PASS=0; FAILN=0; SKIP=0
