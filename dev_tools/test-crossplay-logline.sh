@@ -28,7 +28,13 @@ ok()  { PASS=$((PASS+1)); printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  \033[31mFAIL\033[0m  %s\n' "$1"; }
 
 # Extract the crossplay decision verbatim: from the `if` that tests isCrossplay to its `fi`.
-BLOCK="$(awk '/^if \[ "\$isCrossplay" = "1" \] && \[ "\$isVanilla" = "1" \]; then/,/^fi$/' "$SRC")"
+#
+# The anchor used to require the single combined condition
+#   if [ "$isCrossplay" = "1" ] && [ "$isVanilla" = "1" ]; then
+# which 2.53 replaced with an outer isCrossplay test and an inner isVanilla test. The awk
+# matched nothing, this exited 1 at the guard below, and the whole file has been reporting
+# "renamed or restructured" since -- it has not actually checked a log line in two releases.
+BLOCK="$(awk '/^if \[ "\$isCrossplay" = "1" \]; then/,/^fi$/' "$SRC")"
 if [ -z "$BLOCK" ]; then
 	echo "  FAIL  could not find the crossplay block in startWorld.sh -- it was renamed or restructured"
 	exit 1
@@ -50,36 +56,63 @@ run() {
 printf '\n\033[1mWhat a modded world is told about crossplay\033[0m\n'
 
 # --- the case that was reported ---------------------------------------------------------
+#
+# WHAT CHANGED, and why the assertions below are not the ones originally written here.
+#
+# This file was authored when crossplay was scoped back to vanilla worlds (f6d72b94): a modded
+# world kept the flag in the database but was started WITHOUT -crossplay, and the bug was that
+# the log line announced crossplay anyway. 2.53 (67d243d5, "crossplay on modded worlds") made
+# modded crossplay real: -crossplay IS passed now, whatever the world's mods, and the two
+# branches differ only in how they describe reaching the world.
+#
+# So the old assertions -- no -crossplay, "crossplay is OFF", "switch it to vanilla" -- were
+# asserting a retired policy against shipped behaviour. They could only ever fail. The
+# behaviour worth guarding today is the one the original report was about: a log line a reader
+# scanning it takes the WRONG meaning from.
 run 1 0
 case "$ARGS" in
-	*-crossplay*) bad "MODDED world was launched WITH -crossplay" ;;
-	*)            ok  "modded + crossplay saved: -crossplay is NOT passed to Valheim" ;;
+	*-crossplay*) ok  "modded + crossplay: -crossplay IS passed (2.53 made this supported)" ;;
+	*)            bad "a modded crossplay world was started WITHOUT -crossplay" \
+	                  "2.53 enabled this deliberately; losing it makes the world unreachable" ;;
 esac
 
 if [ -z "$LOG" ]; then
-	bad "nothing is logged at all -- the operator has no way to know why crossplay is inert"
+	bad "nothing is logged at all -- the operator cannot tell how the world is reachable"
 else
-	# The sentence must state the OUTCOME before it mentions the stored preference. Anchor
-	# on the first 60 characters: that is what a reader actually consumes.
+	# The sentence must state the OUTCOME before anything else. Anchor on the first 60
+	# characters: that is what a reader scanning a log actually consumes. The original bug
+	# was a line that opened by asserting the stored preference and only later walked it back.
 	head60="$(printf '%s' "$LOG" | sed 's/.*phvalheim\] //' | cut -c1-60)"
 	case "$head60" in
-		*"crossplay is OFF"*) ok "the line opens with the outcome: \"$head60...\"" ;;
-		*)                    bad "the line does not lead with the outcome: \"$head60...\"" ;;
+		*"crossplay is ON"*) ok "the line opens with the outcome: \"$head60...\"" ;;
+		*)                   bad "the line does not lead with the outcome: \"$head60...\"" ;;
 	esac
 
-	# And it must never contain a phrase that reads as "it is on".
+	# It must say MODDED, so the two branches are distinguishable in a log. A single shared
+	# sentence would make a modded crossplay world indistinguishable from a vanilla one, and
+	# how a player reaches it is the one thing that differs.
+	case "$LOG" in
+		*MODDED*) ok "and it names the world as MODDED, so the branch is identifiable" ;;
+		*)        bad "the modded branch logs the same sentence as the vanilla one: '$LOG'" ;;
+	esac
+
+	# And it must say how the world is reached. Crossplay worlds are PlayFab: join code only,
+	# no direct address. An operator reading "crossplay is ON" and nothing else will go looking
+	# for a host and port that do not exist.
+	case "$LOG" in
+		*"code only"*|*"join code"*) ok "it says how the world is reached (by code only)" ;;
+		*)                           bad "it announces crossplay without saying it is code-only: '$LOG'" ;;
+	esac
+
+	# The retired wording must not come back. These phrases describe a world that was NOT
+	# started with -crossplay, which has not been true for a modded world since 2.53.
 	bad_phrase=""
-	for p in "has crossplay set" "crossplay is ON" "crossplay enabled" "with crossplay"; do
+	for p in "has crossplay set" "crossplay is OFF" "starting without -crossplay" "switch it to vanilla"; do
 		case "$LOG" in *"$p"*) bad_phrase="$bad_phrase '$p'" ;; esac
 	done
 	[ -z "$bad_phrase" ] \
-	  && ok "no phrase in it can be read as crossplay being enabled" \
+	  && ok "no phrase in it describes the retired pre-2.53 refusal" \
 	  || bad "the line still contains:$bad_phrase"
-
-	case "$LOG" in
-		*VANILLA*|*vanilla*) ok "it says what to do about it (switch the world to vanilla)" ;;
-		*)                   bad "it explains the refusal but not the remedy" ;;
-	esac
 fi
 
 # --- the vanilla cases must be unaffected ------------------------------------------------

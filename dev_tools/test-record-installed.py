@@ -163,10 +163,16 @@ check("no statement contains a non-numeric id", True,
 import io                                                                  # noqa: E402
 from contextlib import redirect_stdout                                     # noqa: E402
 
+# deploy_server / deploy_client are the 2.53 per-mod destination switches. plan() reads them
+# to skip a mod that goes nowhere, so a fixture row without them raises KeyError before a
+# single assertion below runs -- which is how this test died rather than failed. Both default
+# to 1 in the migration (every pre-2.53 world keeps installing byte-identically), so 1 is the
+# right value for a row that is not testing destinations.
 PLAN_ROW = [{"mod_id": "10", "version_id": "101", "source": "thunderstore",
              "owner": "RandyKnapp", "name": "EpicLoot", "version": "0.9.9",
              "url": "https://example/EpicLoot-0.9.9.zip", "page": "p",
-             "is_dep": "0", "pinned": False}]
+             "is_dep": "0", "pinned": False,
+             "deploy_server": 1, "deploy_client": 1}]
 
 _real_world_id, _real_install_rows = wm.world_id, wm.install_rows
 wm.world_id = lambda name: "7"
@@ -179,11 +185,37 @@ finally:
     wm.world_id, wm.install_rows = _real_world_id, _real_install_rows
 
 fields = buf.getvalue().strip().split("\t")
-check("the plan carries mod_id so the installer can report back", "10", fields[-1])
-check("...appended, leaving the first eight columns where awk expects them",
+
+# These used to be "mod_id is the LAST field" and "the row is exactly nine fields". Both broke
+# when 2.53 appended deploy_server and deploy_client -- correctly, since appending is what
+# keeps fields 1-5 where four awk consumers expect them. A position is not the contract.
+#
+# The contract is: fields 1-5 are stable, mod_id sits at index 8, and the engine's `read`
+# consumes exactly as many variables as the plan emits columns. That last check is the one
+# worth having, because it ties the producer to its real consumer -- a column appended without
+# extending the read would silently fold the extras into the final variable.
+check("...the first five columns are where awk expects them",
       ["thunderstore", "RandyKnapp", "EpicLoot", "0.9.9",
        "https://example/EpicLoot-0.9.9.zip"], fields[0:5])
-check("...and the row is exactly nine fields", 9, len(fields))
+check("the plan carries mod_id so the installer can report back", "10", fields[8])
+
+readLine = ""
+funcs = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     "..", "container", "engine", "includes", "0-functions.sh")
+with open(funcs, encoding="utf-8") as fh:
+    for ln in fh:
+        if "read -r modSource" in ln:
+            readLine = ln
+            break
+# The variable list ends at the `; do` that opens the loop body, and the last name carries
+# that semicolon -- splitting on whitespace alone drops it and undercounts by exactly one,
+# which reads as "a column is being folded into the last variable" when nothing is wrong.
+readVars = readLine.split("read -r", 1)[1].split(";")[0].split() if readLine else []
+readVars = [v for v in readVars if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", v)]
+check(f"the engine's read consumes every column the plan emits "
+      f"({' '.join(readVars)})", len(fields), len(readVars))
+check("...and the variable at mod_id's position is the one named for it",
+      "modId", readVars[8] if len(readVars) > 8 else None)
 
 # --- a VANILLA world --------------------------------------------------------------------
 # Converting a world to vanilla purges its mod files and skips the install path, but leaves

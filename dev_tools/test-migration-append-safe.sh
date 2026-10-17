@@ -94,13 +94,79 @@ else
 	bad "$creates CREATE TABLE statements but only $((guarded + ifblocks)) guards — a second boot would error"
 fi
 
-# ALTER TABLE ... ADD COLUMN must go through addColumn(), which checks DESCRIBE first.
-raw_add=$(grep -cE 'ALTER TABLE [^;]*ADD COLUMN' "$CUR")
-in_helper=$(awk '/^addColumn\(\)/,/^}/' "$CUR" | grep -cE 'ALTER TABLE [^;]*ADD COLUMN')
-if [ "$raw_add" -le "$in_helper" ]; then
-	ok "no raw ADD COLUMN outside the addColumn() helper"
+# Every ALTER TABLE ... ADD COLUMN must be idempotent, because dbUpdater.sh has NO version
+# gate: the current migration re-runs on every container start.
+#
+# This used to demand the addColumn() helper and nothing else, and it was WRONG -- it failed
+# 2.55, whose settings.configEditorMigrated ADD COLUMN sits outside the helper but inside its
+# own `DESCRIBE settings | grep -qx` guard. That is idempotent. Demanding an idiom instead of
+# the property reports a correct migration as broken, and a test that cries wolf is a test
+# that gets switched off.
+#
+# So: measure the property. An ADD COLUMN is safe if it is inside addColumn(), or if a
+# column-existence guard appears in the few lines above it.
+#
+# Only the CURRENT version's migration is examined ($CUR). The older ones are history; they
+# already ran everywhere and rewriting them has its own risk.
+unguarded=0
+unguardedLines=""
+helperStart=$(grep -nE '^addColumn\(\)' "$CUR" | head -1 | cut -d: -f1)
+helperEnd=0
+if [ -n "$helperStart" ]; then
+	helperEnd=$(awk -v s="$helperStart" 'NR>=s && /^}/{print NR; exit}' "$CUR")
+fi
+
+while IFS=: read -r ln _; do
+	[ -z "$ln" ] && continue
+	# inside the helper? then it is guarded by definition
+	if [ -n "$helperStart" ] && [ "$ln" -ge "$helperStart" ] && [ "$ln" -le "${helperEnd:-0}" ]; then
+		continue
+	fi
+	# a column-existence guard within the preceding 8 lines
+	from=$((ln - 8)); [ "$from" -lt 1 ] && from=1
+	if sed -n "${from},${ln}p" "$CUR" \
+		| grep -qE 'DESCRIBE|columnExists|SHOW COLUMNS|information_schema\.columns|addColumn[[:space:]]'; then
+		continue
+	fi
+	unguarded=$((unguarded + 1))
+	unguardedLines="$unguardedLines $ln"
+done < <(grep -nE 'ALTER TABLE [^;]*ADD COLUMN' "$CUR")
+
+if [ "$unguarded" -eq 0 ]; then
+	ok "every ADD COLUMN in $(basename "$CUR") is idempotent (helper or an explicit column guard)"
 else
-	bad "$((raw_add - in_helper)) raw ALTER TABLE ... ADD COLUMN outside addColumn() — re-running would error"
+	bad "$unguarded ADD COLUMN(s) with no existence guard at line(s):$unguardedLines — a second boot would error"
+fi
+
+# MUTATION CONTROL. The check above is a grep over a window, which is exactly the shape that
+# goes quietly permissive. Inject a genuinely unguarded ADD COLUMN into a copy and require the
+# same logic to catch it. Without this, widening the guard pattern could silently accept
+# everything and this file would still print a pass.
+mutant=$(mktemp); trap 'rm -f "$mutant"' EXIT
+{
+	cat "$CUR"
+	printf '\n# injected by the mutation control -- no guard of any kind\n'
+	printf 'sql "ALTER TABLE settings ADD COLUMN mutationCanary TINYINT DEFAULT 0;"\n'
+} > "$mutant"
+
+mutantCaught=0
+while IFS=: read -r ln _; do
+	[ -z "$ln" ] && continue
+	if [ -n "$helperStart" ] && [ "$ln" -ge "$helperStart" ] && [ "$ln" -le "${helperEnd:-0}" ]; then
+		continue
+	fi
+	from=$((ln - 8)); [ "$from" -lt 1 ] && from=1
+	if sed -n "${from},${ln}p" "$mutant" \
+		| grep -qE 'DESCRIBE|columnExists|SHOW COLUMNS|information_schema\.columns|addColumn[[:space:]]'; then
+		continue
+	fi
+	mutantCaught=$((mutantCaught + 1))
+done < <(grep -nE 'ALTER TABLE [^;]*ADD COLUMN' "$mutant")
+
+if [ "$mutantCaught" -eq 1 ]; then
+	ok "the guard check still catches an injected unguarded ADD COLUMN"
+else
+	bad "the mutation control caught $mutantCaught (want exactly 1) — the check above is not discriminating"
 fi
 
 # --- 5. it must actually re-run clean --------------------------------------------------

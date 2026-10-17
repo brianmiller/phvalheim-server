@@ -1,6 +1,12 @@
 #!/bin/bash
 # Oracle tests for the 2.55 mod config editor.
 #
+# requires: container
+#   It drives the real modConfigs.py, whose record_applied() does
+#   shutil.chown(path, "phvalheim", "phvalheim"). That user exists only in the image, so on a
+#   checkout this dies with LookupError before reaching a single assertion. run-oracles.sh
+#   reads the marker above and puts this in the container bucket.
+#
 # THE BUGS THESE CATCH
 #
 # 1. A WHOLE-FILE override silently loses settings across a mod update. That is what

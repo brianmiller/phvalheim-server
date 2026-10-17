@@ -279,8 +279,21 @@ with open(mig, encoding="utf-8") as fh:
 check(migText.count("TINYINT NOT NULL DEFAULT 1") >= 1 and "deploy_server" in migText
       and "deploy_client" in migText,
       "dbUpdate_2.53.sh adds both columns NOT NULL DEFAULT 1")
-check("DEFAULT 0" not in migText.split("deploy_server")[-1],
-      "neither destination column defaults to 0")
+# Scope this to the ADD COLUMN statements for the two destination columns.
+#
+# It used to read: "DEFAULT 0" not in migText.split("deploy_server")[-1] -- i.e. nothing in the
+# whole remainder of the file may say DEFAULT 0. That anchors on the wrong thing. 2.53 later
+# adds connectNoticeShown, quickConnectRetired, blankPasswordRetired and
+# clientUpdateNoticeState, all legitimately NOT NULL DEFAULT 0, so the check failed for
+# columns that have nothing to do with mod destinations. It was asserting a property of the
+# file, not of the thing it names.
+destAlters = [
+    ln for ln in migText.splitlines()
+    if "ADD COLUMN" in ln and ("deploy_server" in ln or "deploy_client" in ln or "$destCol" in ln)
+]
+check(bool(destAlters) and not any("DEFAULT 0" in ln for ln in destAlters),
+      "neither destination column defaults to 0",
+      f"{len(destAlters)} destination ADD COLUMN statement(s) examined")
 check(subprocess.run(["bash", "-n", mig], capture_output=True).returncode == 0,
       "dbUpdate_2.53.sh parses")
 

@@ -67,6 +67,12 @@ function stripPhp(s) {
   return s.replace(/<\?php[\s\S]*?\?>/g, ' ').replace(/<\?=[\s\S]*?\?>/g, ' ');
 }
 
+// Remove `// ...` and `/* ... */`. Only ever called on output from stripLiterals(), so any
+// slash-slash left in the text is genuinely a comment.
+function stripComments(s) {
+  return s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+}
+
 function audit(raw) {
   const src = stripPhp(raw);
   const defined = new Set();
@@ -94,7 +100,14 @@ function audit(raw) {
     // The overrun this was meant to fix was PHP's json_encode sitting between two functions,
     // and stripPhp() above already removes that.
     const j = rest.indexOf('\n    function ');
-    const body = stripLiterals(j < 0 ? rest : rest.slice(0, j));
+    // Comments must go, and they must go AFTER stripLiterals: a `//` inside a string literal
+    // is not a comment, and stripping comments first would eat the rest of that line.
+    //
+    // This audit reported renderModsHubCards() and loadModsHubInstalled() as calling an
+    // undefined true() -- from the prose `// Starts true (pessimistic): ...` sitting in
+    // cfgMigHasFiles's own comment. A checker that reads the comments around the code is
+    // measuring the writing, not the program.
+    const body = stripComments(stripLiterals(j < 0 ? rest : rest.slice(0, j)));
     for (const m of body.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(/g)) {
       const n = m[1];
       if (GLOBALS.has(n) || defined.has(n) || n === fn) continue;
@@ -114,6 +127,23 @@ if (process.argv[3] === '--control') {
     console.log('  PASS  CONTROL: the audit catches a reintroduced escapeHtml()');
   } else {
     console.log('  FAIL  CONTROL: the audit cannot see the original bug'); process.exit(1);
+  }
+
+  // The other direction, and the one that actually bit: prose must not register as a call.
+  // Inject a comment mentioning a name that is definitely not defined, inside the first
+  // audited function's body. If this trips the audit, the comment strip has stopped working
+  // and the real tree will start failing for things nobody wrote as code.
+  const withProse = src.replace(
+    /(function\s+renderModsHubCards[^\n]*\n)/,
+    '$1      // see notDefinedAnywhere (and definitelyNotACall ()) for the reasoning\n');
+  const fromProse = audit(withProse)
+    .filter(b => b.includes('notDefinedAnywhere') || b.includes('definitelyNotACall'));
+  if (fromProse.length === 0) {
+    console.log('  PASS  CONTROL: a comment mentioning a name is not read as a call');
+  } else {
+    console.log('  FAIL  CONTROL: comments are being audited as code:');
+    fromProse.forEach(b => console.log('        ' + b));
+    process.exit(1);
   }
 }
 if (bad.length) { console.log('  FAIL  Configs picker JS calls undefined names:'); bad.forEach(b => console.log('        ' + b)); process.exit(1); }

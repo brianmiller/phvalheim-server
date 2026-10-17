@@ -34,6 +34,12 @@
  * Usage (inside the container, as the phvalheim user):
  *   php /opt/stateless/nginx/www/../../dev_tools/test-save-summary.php <world>
  * In practice it is copied in and run by dev_tools/run-save-summary-test.sh
+ *
+ * requires: container
+ *   The includes below are absolute paths inside the image and $pdo is a live connection to
+ *   the running MariaDB, so this cannot execute on a checkout. run-oracles.sh reads that
+ *   marker; without it the test lands in the fast bucket and fails for its environment
+ *   rather than for the code it is testing.
  */
 
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';

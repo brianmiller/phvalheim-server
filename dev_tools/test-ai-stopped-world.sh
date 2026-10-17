@@ -33,7 +33,19 @@ LOG="$WORK/logs/valheimworld_Oldworld.log"
 # Age it: the whole point is that this is history.
 touch -d '210 days ago' "$LOG"
 
-run_scan() {   # $1 = status value ("Running" / "Down")
+# $1 = the world's RUNNING STATE: "running" or "stopped".
+#
+# This used to pass its argument as `status` -- and that is not the running state. The product
+# decides via aiWorldIsRunning(), which reads `mode === 'running'` and deliberately ignores
+# `status`, because `status` is a last-start verdict that nothing ever clears: a perfectly
+# healthy world can sit at status=failed forever. Driving `status` meant BOTH legs of this
+# differential were "not running", so they produced identical output and the test reported
+# "status is being ignored" against code that was correct. The stimulus never changed.
+#
+# `status` is still set, to 'failed' on the stopped leg: that combination (mode=stopped,
+# status=failed) is the real shape of a world whose last start attempt died, and it is what
+# aiWorldStateText() exists to describe.
+run_scan() {
 cat > "$WORK/scan.php" <<PHPEOF
 <?php
 define('AI_LOG_DIR', '$WORK/logs');
@@ -52,12 +64,22 @@ class FakePdo  { public function prepare(\$s) { return new FakeStmt(); }
 \$pdo = new FakePdo();
 \$w = [
     'name'   => 'Oldworld',
-    'status' => '$1',
+    'mode'   => '$1',
+    'status' => ('$1' === 'running') ? 'Running' : 'failed',
     'public' => 1,
     'vanilla'=> 1,
     'last_backup_time' => '2026-02-14 01:00:00',
     'backup_interval_minutes' => 30,
 ];
+
+// Assert the STIMULUS, not just the response. If aiWorldIsRunning() is ever renamed or starts
+// reading a different column, this line fails loudly instead of letting both legs quietly
+// collapse to "stopped" and the differential below report a product bug that is not there.
+if (aiWorldIsRunning(\$w) !== ('$1' === 'running')) {
+    fwrite(STDERR, "STIMULUS NOT APPLIED: aiWorldIsRunning() disagrees with mode='$1'\n");
+    exit(9);
+}
+
 foreach (aiDiagnoseWorld(\$pdo, \$w) as \$f) {
     echo \$f['severity'] . '|' . \$f['title'] . "\n";
 }
@@ -66,8 +88,18 @@ php "$WORK/scan.php" 2>/dev/null
 }
 
 printf '\n\033[1mSame log, world running vs stopped\033[0m\n'
-UP="$(run_scan Running)"
-DOWN="$(run_scan Down)"
+UP="$(run_scan running)"
+upRc=$?
+DOWN="$(run_scan stopped)"
+downRc=$?
+
+# Exit 9 is the fixture telling us the stimulus did not land. Treat it as a hard stop: every
+# assertion below would otherwise be measuring a scan that never saw the state it was given.
+if [ "$upRc" = "9" ] || [ "$downRc" = "9" ]; then
+	bad "the fixture could not set the world's running state (rc $upRc/$downRc) — nothing below is meaningful"
+	printf '\n\033[31m1 failure(s)\033[0m\n'
+	exit 1
+fi
 
 printf '  running -> %s finding(s)\n' "$(printf '%s' "$UP"   | grep -c .)"
 printf '  stopped -> %s finding(s)\n' "$(printf '%s' "$DOWN" | grep -c .)"
