@@ -30,3 +30,6 @@ worker.yaml
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Per-test logs written by dev_tools/run-oracles.sh. Generated, never committed.
+.oracle-logs/
