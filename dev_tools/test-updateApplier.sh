@@ -127,9 +127,26 @@ EOF
 
 check "0 players, seen just now -> idle"          "IDLE" "$(runIdle 0 1 30)"
 check "2 players, seen just now -> busy"          "BUSY" "$(runIdle 2 1 30)"
-# The stuck-count case: a nonzero count whose observation has gone stale is idle. Without
-# this arm a bad teardown parks a world in "waiting" forever and it is never updated.
-check "2 players, last seen 90m ago -> idle"      "IDLE" "$(runIdle 2 90 30)"
+# THIS EXPECTATION INVERTED IN 2.55, deliberately. It used to want IDLE, on the reasoning
+# that a nonzero count whose observation has gone stale is a count stuck after a bad
+# teardown -- real, and verified on a production world that logged "now 1 player(s)" and
+# then nothing for 39 minutes while empty.
+#
+# The trouble is that a stale nonzero count has TWO causes and the count cannot tell them
+# apart: everyone left uncleanly and the leave was never logged, OR somebody joined and is
+# STILL PLAYING. On a crossplay world the count comes from PlayFab's "... now N player(s)",
+# which is emitted on join and on leave and at no other time -- so a player who joins and
+# keeps playing produces exactly one line and then silence. With the threshold at 30
+# minutes, every session longer than half an hour looked like a world that had gone quiet.
+#
+# A Discord operator's players were disconnected mid-session by precisely this. So the arm
+# is gone: a nonzero count is never idle, at any age. The cost is that a world whose count
+# sticks nonzero will not auto-update on the idle path; the operator's escape hatch is
+# autoupdate_max_wait_hours + on_timeout='force', which is checked BEFORE this gate.
+#
+# See docs/BACKLOG.md for the Companion-side heartbeat that would make the count
+# trustworthy enough to restore an age-based rule.
+check "2 players, last seen 90m ago -> busy"      "BUSY" "$(runIdle 2 90 30)"
 check "2 players, last seen 20m ago -> busy"      "BUSY" "$(runIdle 2 20 30)"
 # A zero that is itself ancient means the log stopped being written. Not knowing is not
 # the same as knowing it is empty.
