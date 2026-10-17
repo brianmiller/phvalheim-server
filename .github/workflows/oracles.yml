@@ -69,9 +69,22 @@ jobs:
           fails=0
 
           mutate() {   # $1=file  $2=sed expression  $3=test  $4=what this breaks
-            cp "$1" "/tmp/$(basename "$1").orig"
+            local bak="/tmp/$(basename "$1").orig"
+
+            # PRECONDITION, and it is not optional. A mutation only proves something if the
+            # test passes BEFORE it. A test that is already red -- a missing sibling repo, no
+            # container, a rotted anchor -- goes red again afterwards, and "it failed with the
+            # mutation applied" reads as a catch. That is a mutation check that cannot fail.
+            if ! bash "$3" > /tmp/mut-clean.log 2>&1; then
+              echo "::error::$3 does not pass on unmutated code, so mutating cannot prove anything"
+              tail -20 /tmp/mut-clean.log
+              fails=$((fails + 1))
+              return
+            fi
+
+            cp "$1" "$bak"
             sed -i "$2" "$1"
-            if diff -q "$1" "/tmp/$(basename "$1").orig" > /dev/null; then
+            if diff -q "$1" "$bak" > /dev/null; then
               echo "::error::the mutation did not change $1 -- the sed expression no longer matches,"
               echo "::error::so this mutation case has been testing nothing. Fix the expression."
               fails=$((fails + 1))
@@ -82,7 +95,7 @@ jobs:
             else
               echo "  ok  $3 catches: $4"
             fi
-            cp "/tmp/$(basename "$1").orig" "$1"
+            cp "$bak" "$1"
           }
 
           # 1. The engine's liveness check. If this can be removed without the reaper oracle
@@ -101,13 +114,23 @@ jobs:
 
           # 3. The client manifest, written before the payload is zipped. Writing it after
           #    ships it one update late, which is invisible at runtime.
-          # Spaces, not tabs, on this line -- and that detail is why the no-op guard above
-          # exists. The first version of this expression anchored on \t\t, matched nothing,
-          # and reported a caught mutation that had never been applied.
-          mutate container/engine/includes/0-functions.sh \
-                's/^        writeClientManifest "\$worldName"/        : /' \
-                dev_tools/test-client-manifest.sh \
-                'nothing writes the client manifest'
+          # 3. The public API's password gate. api.php must consult getPasswordPublic before
+          #    it puts a world password in a JSON payload every logged-in player can read.
+          #
+          #    This slot used to mutate the client-manifest write and check it with
+          #    test-client-manifest.sh. That test reads ../phvalheim-client, which a
+          #    single-repo checkout does not have -- so it was red for its environment, and
+          #    the mutation would have "caught" it without the mutation doing anything. The
+          #    precondition above now refuses that case outright; the target was moved
+          #    regardless, because a mutation ought to be checked by a test that can run.
+          #    The manifest ordering is covered in the cross-repo job below.
+          #    Note the trailing `(`. Renaming to getPasswordPublicDISABLED was ABSORBED: the
+          #    oracle greps for the bare substring, which the longer name still contains, so
+          #    the mutation passed. Mutating the call form is what actually removes the gate.
+          mutate container/nginx/www/public/api.php \
+                's/getPasswordPublic(/passwordGateRemoved(/' \
+                dev_tools/test-vanilla-wiring.sh \
+                'the public API no longer checks whether the password may be shown'
 
           if [ "$fails" -gt 0 ]; then
             echo "$fails mutation(s) went unnoticed"
@@ -115,10 +138,66 @@ jobs:
           fi
           echo "all mutations were caught"
 
+      # include-hidden-files is load-bearing. upload-artifact v4 SKIPS dotted paths by
+      # default, so the first run of this workflow reported a successful upload of an empty
+      # artifact -- and the per-test logs, the only place the failure detail lives, were not
+      # there when they were needed.
       - name: Keep the per-test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: oracle-logs
           path: .oracle-logs/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  # ── The cross-repo contracts ─────────────────────────────────────────────────
+  #
+  # Four oracles read a sibling checkout: ../phvalheim-client/Arguments.cs for the positional
+  # launch payload, and ../phvalheim-companion for the Companion's source and its own dialog
+  # tests. Those contracts span two repositories and are exactly the kind that break quietly,
+  # so they are worth running -- they just cannot run in a single-repo checkout, where the
+  # file is simply absent and the test fails for its environment.
+  #
+  # Separate job rather than more steps in the one above: these can fail for a reason that
+  # has nothing to do with this repo (a sibling's default branch moved), and that should be
+  # legible at a glance instead of looking like a server regression.
+  crossrepo:
+    name: Cross-repo contracts (client + companion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: phvalheim-server
+          fetch-depth: 0
+
+      # The oracles resolve siblings as ../phvalheim-client and ../phvalheim-companion, so
+      # the three checkouts have to be peers under the workspace root.
+      - uses: actions/checkout@v4
+        with:
+          repository: brianmiller/phvalheim-client
+          path: phvalheim-client
+
+      - uses: actions/checkout@v4
+        with:
+          repository: brianmiller/phvalheim-companion
+          path: phvalheim-companion
+
+      - name: Install what the oracles run on
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-cli python3 nodejs > /dev/null
+
+      - name: Run the cross-repo oracles
+        working-directory: phvalheim-server
+        run: bash dev_tools/run-oracles.sh --crossrepo
+
+      - name: Keep the per-test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oracle-logs-crossrepo
+          path: phvalheim-server/.oracle-logs/
+          include-hidden-files: true
           if-no-files-found: warn

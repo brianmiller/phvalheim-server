@@ -38,6 +38,23 @@ CONTAINER_RE='docker[[:space:]]+(exec|cp)|docker[[:space:]]+ps|docker[[:space:]]
 # chowns to a user that exists only in the image.
 REQUIRES_RE='^[[:space:]]*(#|\*|//)?[[:space:]]*requires:[[:space:]]*container'
 
+# An HTTP call to the admin or public UI needs the container running just as much as a
+# `docker exec` does. Found by running this in CI: test-create-requires-steamid.js and
+# test-empty-accesslist-refused.js POST to 127.0.0.1:8081, passed here on a box with a live
+# container, and died with ECONNREFUSED on a clean runner.
+HTTP_RE='127\.0\.0\.1:80[0-9]{2}|localhost:80[0-9]{2}'
+
+# THE THIRD BUCKET. Some oracles read a SIBLING REPOSITORY -- ../phvalheim-client/Arguments.cs
+# for the launch-payload contract, ../phvalheim-companion for the Companion's source and its
+# reachability test. Those are real cross-repo contracts and the tests are right to check
+# them, but a single-repo checkout cannot: the file is simply absent and the test fails for
+# its environment rather than for the contract.
+#
+# They are NOT lumped in with the container bucket. Mixing them would hide what each needs,
+# and they are the cheaper gap to close -- a second `actions/checkout` with a `path:` would
+# bring them into CI, whereas the container bucket needs the image built and MariaDB up.
+CROSSREPO_RE='\.\./phvalheim-(client|companion)'
+
 shopt -s nullglob
 all=("$DEV"/test-*)
 shopt -u nullglob
@@ -49,19 +66,21 @@ if [ "${#all[@]}" -eq 0 ]; then
 	exit 1
 fi
 
-standalone=(); container=()
+standalone=(); container=(); crossrepo=()
 for t in "${all[@]}"; do
-	if grep -qiE "$REQUIRES_RE" "$t" 2>/dev/null; then
+	if grep -qiE "$REQUIRES_RE" "$t" 2>/dev/null \
+	   || grep -qE "$CONTAINER_RE" "$t" 2>/dev/null \
+	   || grep -qE "$HTTP_RE" "$t" 2>/dev/null; then
 		container+=("$t")
-	elif grep -qE "$CONTAINER_RE" "$t" 2>/dev/null; then
-		container+=("$t")
+	elif grep -qE "$CROSSREPO_RE" "$t" 2>/dev/null; then
+		crossrepo+=("$t")
 	else
 		standalone+=("$t")
 	fi
 done
 
-if [ $(( ${#standalone[@]} + ${#container[@]} )) -ne "${#all[@]}" ]; then
-	echo "FATAL: the partition lost files: ${#standalone[@]} + ${#container[@]} != ${#all[@]}"
+if [ $(( ${#standalone[@]} + ${#container[@]} + ${#crossrepo[@]} )) -ne "${#all[@]}" ]; then
+	echo "FATAL: the partition lost files: ${#standalone[@]} + ${#container[@]} + ${#crossrepo[@]} != ${#all[@]}"
 	exit 1
 fi
 
@@ -75,6 +94,9 @@ if [ "$mode" = "--list" ]; then
 	echo
 	echo "CONTAINER (${#container[@]}) -- drives a live phvalheim container:"
 	for t in "${container[@]}"; do echo "  $(basename "$t")"; done
+	echo
+	echo "CROSS-REPO (${#crossrepo[@]}) -- reads ../phvalheim-client or ../phvalheim-companion:"
+	for t in "${crossrepo[@]}"; do echo "  $(basename "$t")"; done
 	exit 0
 fi
 
@@ -94,8 +116,9 @@ selected=()
 case "$mode" in
 	--standalone) selected=("${standalone[@]}") ;;
 	--container)  selected=("${container[@]}") ;;
+	--crossrepo)  selected=("${crossrepo[@]}") ;;
 	--all)        selected=("${all[@]}") ;;
-	*) echo "usage: $0 --list|--standalone|--container|--all"; exit 1 ;;
+	*) echo "usage: $0 --list|--standalone|--container|--crossrepo|--all"; exit 1 ;;
 esac
 
 if [ "${#selected[@]}" -eq 0 ]; then
