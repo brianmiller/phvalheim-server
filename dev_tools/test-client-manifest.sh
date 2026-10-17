@@ -281,6 +281,24 @@ if [ ! -f "$REACH" ]; then
 elif ! command -v dotnet >/dev/null 2>&1; then
 	fail "no dotnet on this host, so the dialog's reachability is untested" \
 	     "the bundled dll could contain every string and still never run"
+elif [ ! -d "$COMPANION/libs" ] || [ -z "$(ls -A "$COMPANION/libs" 2>/dev/null)" ]; then
+	# NOT a pass and NOT a failure: a stated gap.
+	#
+	# The reachability probe compiles against Valheim's own assemblies, which live in the
+	# Companion's libs/ and are gitignored on purpose -- they are the game's files and do not
+	# belong in a public repo. So this check CANNOT run on a clean CI runner, ever, and no
+	# amount of tooling will change that. It needs a machine with Valheim installed.
+	#
+	# Calling that a failure would make the cross-repo job permanently red for a reason nobody
+	# can fix, and a permanently red gate gets ignored -- which costs more than the check is
+	# worth. Calling it a pass would be a lie. So it is counted separately and announced, and
+	# the exit status below is unaffected either way.
+	UNVERIFIED=$((UNVERIFIED + 1))
+	echo "  NOT VERIFIED: the dialog's reachability was not checked on this host"
+	echo "                $COMPANION/libs is empty -- the probe needs Valheim's assemblies,"
+	echo "                which are gitignored (they are the game's files, not ours)."
+	echo "                Run this on a box with Valheim installed before shipping a release;"
+	echo "                an unreachable dialog ships green on every other check in this file."
 else
 	# Against the dll this repo actually SHIPS, not the Companion's build output -- those are
 	# the same file only if someone remembered to copy it, which is exactly the step that
@@ -296,5 +314,10 @@ else
 fi
 
 echo
-echo "$PASS passed, $FAIL failed"
+if [ "${UNVERIFIED:-0}" -gt 0 ]; then
+	echo "$PASS passed, $FAIL failed, ${UNVERIFIED} NOT VERIFIED on this host"
+	echo "A 'not verified' is not a pass. Read the lines above before trusting this run."
+else
+	echo "$PASS passed, $FAIL failed"
+fi
 [ "$FAIL" = "0" ] || exit 1

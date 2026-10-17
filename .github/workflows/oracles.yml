@@ -189,9 +189,29 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq php-cli python3 nodejs > /dev/null
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
       - name: Run the cross-repo oracles
         working-directory: phvalheim-server
         run: bash dev_tools/run-oracles.sh --crossrepo
+
+      # ONE check in this bucket cannot run here and never will: the Companion dialog's IL
+      # reachability probe compiles against Valheim's own assemblies, which live in the
+      # Companion's gitignored libs/ because they are the game's files. The test reports that
+      # as NOT VERIFIED rather than as a pass. Surfaced here too, so a green job does not
+      # quietly imply coverage it does not have.
+      - name: Say what this runner could not verify
+        if: always()
+        working-directory: phvalheim-server
+        run: |
+          if grep -rl 'NOT VERIFIED' .oracle-logs/ > /dev/null 2>&1; then
+            echo "::warning::some checks could not run on this runner -- see below"
+            grep -rh -A4 'NOT VERIFIED' .oracle-logs/ || true
+          else
+            echo "every check in this bucket ran"
+          fi
 
       - name: Keep the per-test logs
         if: always()
