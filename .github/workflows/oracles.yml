@@ -1,0 +1,124 @@
+name: Oracle tests
+
+# The first CI this repository has ever had.
+#
+# Before this, dev_tools held 125 test files and NOTHING ran them. They passed on whatever
+# machine last ran them by hand and gated nothing on a push. The cost of that showed up the
+# day they were finally run as a set: 12 of the 62 runnable-anywhere tests were red, and not
+# one of them was a product bug. They were tests that had stopped measuring their own subject
+# -- an anchor that no longer matched, a fixture missing a column added two releases ago, a
+# policy reversed in 2.53, an exact count that failed on every correct addition. A test suite
+# nothing runs does not stay still; it rots, and it rots silently.
+#
+# What this does NOT cover: the 65 tests that drive a live container (`docker exec` into a
+# running phvalheim, or a `requires: container` line in their own header). Those need the
+# image built and running with MariaDB up. That is a second job worth having and it is not
+# here yet -- dev_tools/run-oracles.sh --container is the entry point when it is written.
+# The partition is printed on every run so the gap is visible rather than implied.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'dev_tools/**'
+      - 'container/**'
+      - 'Dockerfile'
+      - '.github/workflows/oracles.yml'
+  pull_request:
+
+jobs:
+  oracles:
+    name: Oracles that need no container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Several oracles compare against history (`git show HEAD:...`, HEAD~ controls).
+          # A shallow clone makes those pass for the wrong reason.
+          fetch-depth: 0
+
+      - name: Install what the oracles run on
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php-cli python3 nodejs > /dev/null
+          php --version | head -1
+          python3 --version
+          node --version
+
+      # Printed, not merely computed. If a test silently stops being classified -- or the
+      # container bucket quietly swallows half the suite -- the number is right here in the
+      # log rather than inferred from a passing gate.
+      - name: Show the partition
+        run: bash dev_tools/run-oracles.sh --list
+
+      - name: Run every oracle that needs no container
+        run: bash dev_tools/run-oracles.sh --standalone
+
+      # ── Can these tests still fail? ────────────────────────────────────────────
+      #
+      # The whole suite going green is also what a suite of broken tests looks like. This
+      # breaks three load-bearing lines in the product and requires the named oracle to
+      # notice. It is deliberately NOT a `--control` diff against HEAD: that compares to the
+      # previous commit, so it works only while a fix is uncommitted and silently reports
+      # BLIND the moment it lands. Mutation is history-independent.
+      - name: Prove the oracles can still fail (mutation)
+        run: |
+          set -u
+          fails=0
+
+          mutate() {   # $1=file  $2=sed expression  $3=test  $4=what this breaks
+            cp "$1" "/tmp/$(basename "$1").orig"
+            sed -i "$2" "$1"
+            if diff -q "$1" "/tmp/$(basename "$1").orig" > /dev/null; then
+              echo "::error::the mutation did not change $1 -- the sed expression no longer matches,"
+              echo "::error::so this mutation case has been testing nothing. Fix the expression."
+              fails=$((fails + 1))
+            elif bash "$3" > /tmp/mut.log 2>&1; then
+              echo "::error::$3 PASSED with $4 broken -- it is not guarding what it claims"
+              tail -20 /tmp/mut.log
+              fails=$((fails + 1))
+            else
+              echo "  ok  $3 catches: $4"
+            fi
+            cp "/tmp/$(basename "$1").orig" "$1"
+          }
+
+          # 1. The engine's liveness check. If this can be removed without the reaper oracle
+          #    noticing, the oracle is reading something else.
+          mutate container/engine/phvalheim \
+                's/worldProcessRunning "\$worldName"/false/' \
+                dev_tools/test-engine-reaper.sh \
+                'the engine no longer asks whether the world process is alive'
+
+          # 2. The crossplay launch flag. 2.53 made modded crossplay real; dropping the flag
+          #    makes those worlds unreachable and must not pass.
+          mutate container/games/valheim/scripts/startWorld.sh \
+                's/set -- "\$@" -crossplay/: /' \
+                dev_tools/test-crossplay-logline.sh \
+                '-crossplay is never passed to Valheim'
+
+          # 3. The client manifest, written before the payload is zipped. Writing it after
+          #    ships it one update late, which is invisible at runtime.
+          # Spaces, not tabs, on this line -- and that detail is why the no-op guard above
+          # exists. The first version of this expression anchored on \t\t, matched nothing,
+          # and reported a caught mutation that had never been applied.
+          mutate container/engine/includes/0-functions.sh \
+                's/^        writeClientManifest "\$worldName"/        : /' \
+                dev_tools/test-client-manifest.sh \
+                'nothing writes the client manifest'
+
+          if [ "$fails" -gt 0 ]; then
+            echo "$fails mutation(s) went unnoticed"
+            exit 1
+          fi
+          echo "all mutations were caught"
+
+      - name: Keep the per-test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oracle-logs
+          path: .oracle-logs/
+          if-no-files-found: warn

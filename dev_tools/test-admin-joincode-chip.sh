@@ -48,7 +48,25 @@ const launchSrc = lift('launchButtonHtml');
 const updateSrc = lift('updateActionButtons');
 if (!launchSrc) { console.log('FATAL: could not lift launchButtonHtml()'); process.exit(1); }
 if (!updateSrc) { console.log('FATAL: could not lift updateActionButtons()'); process.exit(1); }
-pass('lifted launchButtonHtml() and updateActionButtons() from index.php');
+
+// A lifted function is only runnable if its CALLEES came with it. launchButtonHtml() now
+// delegates the crossplay chip to joinCodeChipHtml(), which lives outside the lifted range --
+// so every case in this file died with "ReferenceError: joinCodeChipHtml is not defined"
+// before reaching an assertion. A harness that lifts one function out of a page has to keep
+// up with what that function calls; the alternative is a stack trace instead of a verdict.
+//
+// Lifted by name rather than by chasing calls automatically, so the dependency is visible
+// here. If another callee appears, the ReferenceError guard below names it.
+const DEPS = ['joinCodeChipHtml'];
+let depSrc = '';
+for (const d of DEPS) {
+    const s = lift(d);
+    if (!s) { console.log('FATAL: could not lift the dependency ' + d + '()'); process.exit(1); }
+    depSrc += s + '\n';
+}
+eval(depSrc);
+pass('lifted launchButtonHtml(), updateActionButtons() and ' + DEPS.length +
+     ' callee(s) from index.php');
 
 // ---------------------------------------------------------------------------------------
 // Minimal DOM.

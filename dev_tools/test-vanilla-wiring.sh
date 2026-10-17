@@ -19,6 +19,19 @@ cd "$(dirname "$0")/.." || exit 1
 pass=0; fail=0
 ck(){ if [ "$2" -eq "$3" ] 2>/dev/null; then echo "  PASS: $1"; pass=$((pass+1)); else echo "  FAIL: $1 (got '$2', want $3)"; fail=$((fail+1)); fi; }
 
+# "at least N", for the checks whose point is that something IS wired rather than how many
+# times it appears.
+#
+# Four assertions in this file drifted and failed on correct code: getPasswordPublic 1->2,
+# copyVanillaPassword 2->3, 'steamUrl' 1->2 (all additions), and
+# `world.vanilla && world.connection` 2->1, where the two branches were consolidated into one
+# ternary and the crossplay case moved to its own isPlayFab test above it. An exact count is
+# the right assertion only for a count of ZERO -- "this must be absent" is a property. Any
+# other exact number is a snapshot of one afternoon's code shape, and it fails on refactors
+# that change nothing about the behaviour being guarded.
+ckMin(){ if [ "$2" -ge "$3" ] 2>/dev/null; then echo "  PASS: $1 ($2 >= $3)"; pass=$((pass+1));
+         else echo "  FAIL: $1 (got '$2', want at least $3)"; fail=$((fail+1)); fi; }
+
 A=container/nginx/www/public/authenticated.php
 P=container/nginx/www/public/api.php
 I=container/nginx/www/admin/index.php
@@ -32,7 +45,7 @@ ck "card renders 'unmodded'"        "$(grep -c '>unmodded<' $A)" 1
 ck "old wording gone"               "$(grep -c 'no mods needed' $A)" 0
 
 echo "2. Password visibility"
-ck "authenticated.php gates"        "$(grep -c 'getPasswordPublic' $A)" 1
+ckMin "authenticated.php gates"      "$(grep -c 'getPasswordPublic' $A)" 1
 ck "api.php gates"                  "$(grep -c 'getPasswordPublic' $P)" 1
 ck "migration column"               "$(grep -c 'password_public' container/engine/dbUpdates/dbUpdate_2.40.sh)" 1
 ck "getter exists"                  "$(grep -c 'function getPasswordPublic' container/nginx/www/includes/db_gets.php)" 1
@@ -66,7 +79,7 @@ echo "5/6. Offline dim + copy"
 ck "badge dim emitted (both card kinds)" "$(grep -c 'vanilla-badge-dimmed' $A)" 2
 ck "badge dim styled"               "$(grep -c 'vanilla-badge-dimmed' $C)" 1
 ck "copy handler"                   "$(grep -c 'function copyVanillaPassword' $A)" 1
-ck "copy link rendered"             "$(grep -c 'copyVanillaPassword' $A)" 2
+ckMin "copy link rendered"           "$(grep -c 'copyVanillaPassword' $A)" 2
 ck "old reveal class gone (css)"    "$(grep -c 'vanilla-password-reveal' $C)" 0
 ck "old reveal class gone (php)"    "$(grep -c 'vanilla-password-reveal' $A)" 0
 # 4, not 3, since the crossplay work: the join-code row reuses this class for its own copy
@@ -81,10 +94,10 @@ echo "8. AJAX poll must not clobber vanilla server-rendered state"
 # 2, not 1, since the crossplay work: the poll now has a branch deciding WHICH steam:// link a
 # vanilla world gets (+connect vs -joincode) as well as the one that sets it. Counting alone is
 # weak, so the companion check below pins the crossplay branch by name.
-ck "poll uses steam:// for vanilla"  "$(grep -c 'world.vanilla && world.connection' $A)" 2
+ckMin "poll uses steam:// for vanilla" "$(grep -c 'world.vanilla && world.connection' $A)" 1
 ck "poll branches on the playfab backend" "$(grep -c 'world.connection.playfab' $A)" 1
 ck "no unconditional phvalheim:// "  "$(grep -c 'launchLink.href = `phvalheim' $A)" 0
-ck "api sends connection.steamUrl"   "$(grep -c "'steamUrl'" $P)" 1
+ckMin "api sends connection.steamUrl" "$(grep -c "'steamUrl'" $P)" 1
 ck "api sends vanilla flag"          "$(grep -c "'vanilla' =>" $P)" 1
 ck "api seed mirrors renderer"       "$(grep -c 'generated on first start' $P)" 1
 ck "renderer has the same string"    "$(grep -c 'generated on first start' $A)" 1
