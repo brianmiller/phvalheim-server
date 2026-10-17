@@ -2,6 +2,51 @@
 
 ## v2.55
 
+### "Mod rebuild failed" five seconds into a rebuild that never ran
+
+An operator pressed Settings → Updates on a world. The log said:
+
+```
+21:44:03 [NOTICE] Auto-update 'Midgard': phase=mods
+21:44:03 [NOTICE] World 'Midgard' successfully stopped.
+21:44:08 [ERROR]  Auto-update: mod rebuild failed for 'Midgard'
+```
+
+Five seconds, on a job that takes minutes. Nothing had failed — the rebuild was never
+requested, and the "failure" was a flag left over from an unrelated incident hours earlier.
+Two independent defects, either survivable alone.
+
+**The race.** `stopWorldAndWait` returned as soon as the *process* died. But the process dying
+is not the end of the engine's stop: its stop branch loops `sleep 10; worldProcessRunning` and
+writes `mode='stopped'` only after a sleep in which the process was already gone. So the engine
+keeps running for up to ten seconds past the kill, and its **last act is a write to the very
+column the applier uses to hand work back to it**.
+
+The applier returned ~5s in, ran the game update (10s of steamcmd), set `mode='update'` for the
+mods phase — and the engine, finally waking, wrote `mode='stopped'` straight over it. Both
+writes landed in the same second, visible as the two 21:44:03 lines above. Now the stop is not
+complete until the engine *says* it is: both `mode='stopped'` and the process gone.
+
+**The stale verdict.** `waitForEngineUpdate` broke on the first mode that was not
+`update`/`updating` — which includes the mode the world was already in. With the request
+erased, it saw a terminal mode on its first poll: *finished* and *never started* were the same
+observation. It then judged the run by `worlds.status`, and **nothing in the engine,
+`0-functions.sh` or `updateApplier` ever clears that field** — grep every writer and they only
+ever set it. The world had carried `status='failed'` since an earlier incident, read straight
+from the database eight minutes *before* the update that then "failed". So any world that had
+ever failed a rebuild reported failure on every subsequent update, including ones that worked.
+
+Fixed by requiring the rebuild to have been *observed running* before a terminal mode counts,
+naming the overwritten-request case explicitly instead of calling it a failure, and clearing
+`status` / `update_state` / `update_last_result` before the first phase so the check at the end
+measures this run rather than remembering the worst previous one.
+
+`dev_tools/test-update-handoff-race.sh` (9) runs the race for real: a stub engine that kills
+the process early and writes the mode late, against the extracted `stopWorldAndWait`. Its
+control is the pre-fix shape, which must *lose* the write — without that, part 1 would pass
+with the fix removed. Against `HEAD` the suite fails 8, including the behavioural case
+reproducing `mode=stopped` exactly as the live log shows it.
+
 ### A restore reported success and then undid itself
 
 An operator restored a 10-03 backup of their world to repair a building they had broken that

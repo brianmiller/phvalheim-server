@@ -3419,6 +3419,43 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # v55fi -- wants 0: step 8 no longer claims the world "started successfully" or was
   #          "queued". Neither was ever true, and the engine's update branch ends on
   #          mode='stopped' by design, so nothing could have started it.
+  # 2.55 UPDATE HANDOFF -- the "mod rebuild failed" five seconds in, on a rebuild that never ran.
+  #
+  # Brian's Settings -> Updates run on 'Midgard'. Two defects compounded:
+  #
+  #  * stopWorldAndWait returned as soon as the PROCESS died. The engine's stop branch loops
+  #    `sleep 10; worldProcessRunning` and writes mode='stopped' only after a sleep in which
+  #    the process was already gone -- so it ran ~10s past the kill and its LAST act was a
+  #    mode write, landing on top of the applier's mode='update'. Both writes in the same
+  #    second of the real log. The rebuild was never requested.
+  #  * waitForEngineUpdate broke on the first non-update mode, so a mode that was ALREADY
+  #    terminal ended the wait instantly -- "finished" and "never started" were one
+  #    observation -- and then judged the run by worlds.status, which NOTHING ever clears.
+  #    Midgard carried status='failed' from hours earlier; I read it from the database eight
+  #    minutes before the update that then "failed".
+  #
+  # Behavioural proof (a real two-writer race against a stub engine, with a naive-shape
+  # control that must lose the write): dev_tools/test-update-handoff-race.sh (9).
+  #
+  # Measured against the COMMENT-STRIPPED file: the comments above this fix quote the old
+  # behaviour, and a marker that matches the prose explaining a fix fails when the fix is right.
+  #
+  # v55fj -- the stop requires BOTH the engine's mode write AND the process gone.
+  # v55fk -- wants 0: no unguarded "break on any other mode" left in a mode wait.
+  # v55fl -- the wait records whether the rebuild was ever seen running.
+  # v55fm -- clearPriorVerdict exists and is called (definition + call = 2).
+  # v55fn -- it clears worlds.status, which is the field the rebuild is judged on.
+  # v55fo -- the clear runs BEFORE the first phase. Positional: after, it would wipe the
+  #          verdict this run just earned instead of the stale one it inherited.
+  zupd=$(grep -vE '^[[:space:]]*#' /opt/stateless/engine/tools/updateApplier)
+  zuClr=$(echo "$zupd" | grep -n 'clearPriorVerdict "$worldName"' | head -1 | cut -d: -f1)
+  zuBak=$(echo "$zupd" | grep -n 'setPhase "$worldName" "backup"' | head -1 | cut -d: -f1)
+  v55fj=$(echo "$zupd" | grep -c 'mode" = "stopped" \] && ! worldProcessRunning')
+  v55fk=$(echo "$zupd" | grep -cE '^\s+\*\)\s+break\s*;;')
+  v55fl=$(echo "$zupd" | grep -c 'sawRebuild')
+  v55fm=$(echo "$zupd" | grep -c 'clearPriorVerdict')
+  v55fn=$(echo "$zupd" | grep -c "status=''")
+  v55fo=$([ -n "$zuClr" ] && [ -n "$zuBak" ] && [ "$zuClr" -lt "$zuBak" ] && echo 1 || echo 0)
   zrst=$(grep -vE '^[[:space:]]*#' /opt/stateless/engine/tools/worldRestore)
   v55fe=$(echo "$zrst" | grep -c 'supervisorctl')
   v55ff=$(echo "$zrst" | grep -cF "SQL \"UPDATE worlds SET mode='stop' WHERE name='\$worldName';\"")
@@ -3513,6 +3550,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 ENGINE CWD: subshell-scoped zips=$v55fc (want 2)  cd-ability probes=$v55fd (want 2)"
   echo "2.55 ENGINE CWD NEGATIVE: one-way cd sites in the engine=$v55fb (want 0 -- a one-way cd parks the engine in a world dir and spams getcwd forever)"
   echo "2.55 RESTORE STOPS THE WORLD: mode='stop' issued=$v55ff (want 1)  process-table confirm=$v55fg (want 1)  un-stoppable is fatal=$v55fh (want 1)"
+  echo "2.55 UPDATE HANDOFF: stop waits on mode+process=$v55fj (want 1)  sawRebuild guard=$v55fl (want 4)  clearPriorVerdict=$v55fm (want 2)  clears status=$v55fn (want 1)  clear before phases=$v55fo (want 1)   [clear=$zuClr backup=$zuBak]"
+  echo "2.55 UPDATE HANDOFF NEGATIVE: unguarded break-on-any-mode=$v55fk (want 0 -- that read 'never started' as 'finished' and failed a rebuild that never ran)"
   echo "2.55 RESTORE NEGATIVE: supervisorctl calls=$v55fe (want 0 -- they no-op as the phvalheim user, which is how a restored world got overwritten)  false start claims=$v55fi (want 0)"
   echo "2.55 BULK FORGET: flag set=$v55et (want 2)  local_dll downgrade=$v55ev (want 1)  selector keys on flag=$v55ew (want 1)  confirms=$v55ey (want 2)  safe-only pre-tick=$v55ez (want 1)  badge=$v55fa (want 1)"
   echo "2.55 BULK FORGET POLARITY: still-applied branch explicitly false=$v55eu (want 1)"
@@ -3822,6 +3861,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55fb" = "0" ] && [ "$v55fc" = "2" ] && [ "$v55fd" = "2" ] \
     && [ "$v55fe" = "0" ] && [ "$v55ff" = "1" ] && [ "$v55fg" = "1" ] \
     && [ "$v55fh" = "1" ] && [ "$v55fi" = "0" ] \
+    && [ "$v55fj" = "1" ] && [ "$v55fk" = "0" ] && [ "$v55fl" = "4" ] \
+    && [ "$v55fm" = "2" ] && [ "$v55fn" = "1" ] && [ "$v55fo" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

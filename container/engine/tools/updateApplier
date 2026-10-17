@@ -172,20 +172,45 @@ worldProcessRunning() {
 #
 # Returns non-zero if the world is still running at the end. Every caller must treat that as
 # fatal: touching game files under a running server is the thing this exists to prevent.
+# IT WAITS FOR THE ENGINE'S MODE WRITE, NOT JUST FOR THE PROCESS TO DIE. This is the fix for
+# the update Brian ran on 'Midgard' that reported "mod rebuild failed" five seconds in.
+#
+# The process dying is not the end of the engine's stop. Its stop branch loops
+# `sleep 10; worldProcessRunning` and only writes mode='stopped' AFTER a sleep in which the
+# process was already gone -- so the engine keeps running for up to ten seconds past the kill,
+# and its LAST act is a write to the very column this script uses to hand work back to it.
+#
+# The old loop returned as soon as the process vanished, about five seconds in. The applier
+# then ran the game update (ten seconds of steamcmd) and set mode='update' for the mods phase
+# -- and the engine, finally waking from its sleep, wrote mode='stopped' straight over it. Both
+# writes landed in the same second. The rebuild was never requested, waitForEngineUpdate saw a
+# terminal mode on its first poll, and the world was left stopped and un-rebuilt.
+#
+# So the stop is not complete until the engine SAYS it is complete. Waiting on mode means the
+# engine has left its stop branch, and nothing of its is still holding the pen.
 stopWorldAndWait() {
-	local worldName="$1" waited=0 limit=180
+	local worldName="$1" waited=0 limit=180 mode=""
 
-	worldProcessRunning "$worldName" || return 0
+	# Still check the process first: a world that was never running needs no stop, and the
+	# engine will not write a mode for a command it was never given.
+	if ! worldProcessRunning "$worldName"; then
+		return 0
+	fi
 
 	SQL "UPDATE worlds SET mode='stop' WHERE name='$worldName';"
 
 	while [ "$waited" -lt "$limit" ]; do
 		sleep 5
 		waited=$((waited + 5))
-		worldProcessRunning "$worldName" || return 0
+		mode=$(SQL "SELECT mode FROM worlds WHERE name='$worldName';")
+		# BOTH conditions. The process table alone returns too early (the bug above); the mode
+		# alone would accept a 'stopped' the engine wrote for some earlier command.
+		if [ "$mode" = "stopped" ] && ! worldProcessRunning "$worldName"; then
+			return 0
+		fi
 	done
 
-	echo "`date` [ERROR : phvalheim] Auto-update: '$worldName' did not stop within ${limit}s"
+	echo "`date` [ERROR : phvalheim] Auto-update: '$worldName' did not stop within ${limit}s (mode=${mode:-unknown}, process $(worldProcessRunning "$worldName" && echo running || echo gone))"
 	return 1
 }
 
@@ -208,17 +233,31 @@ startWorld() {
 # failed with status='failed', which is the only way to tell a finished-badly world from a
 # finished-well one.
 waitForEngineUpdate() {
-	local worldName="$1" waited=0 limit=900 mode=""
+	local worldName="$1" waited=0 limit=900 mode="" sawRebuild=0
 
+	# IT MUST SEE THE REBUILD START BEFORE IT WILL BELIEVE IT FINISHED.
+	#
+	# The old loop broke on the first mode that was not update/updating -- which includes the
+	# mode the world was ALREADY in before the handoff. On Midgard that was 'stopped' (written
+	# over our mode='update' by the engine's stop branch, see stopWorldAndWait), so this exited
+	# on its first poll and the caller reported a failed rebuild five seconds into a job that
+	# takes minutes. "Finished" and "never started" were the same observation.
+	#
+	# Now a terminal mode only counts once 'update' or 'updating' has actually been seen.
 	while [ "$waited" -lt "$limit" ]; do
 		mode=$(SQL "SELECT mode FROM worlds WHERE name='$worldName';")
 		case "$mode" in
-			update|updating) ;;
-			*) break ;;
+			update|updating) sawRebuild=1 ;;
+			*) [ "$sawRebuild" = "1" ] && break ;;
 		esac
 		sleep 5
 		waited=$((waited + 5))
 	done
+
+	if [ "$sawRebuild" != "1" ]; then
+		echo "`date` [ERROR : phvalheim] Auto-update: the mod rebuild for '$worldName' never started -- its mode was '$mode' for the whole ${waited}s wait, so something else overwrote the update request"
+		return 1
+	fi
 
 	if [ "$waited" -ge "$limit" ]; then
 		echo "`date` [ERROR : phvalheim] Auto-update: mod rebuild for '$worldName' did not finish within ${limit}s"
@@ -233,11 +272,32 @@ waitForEngineUpdate() {
 	return 0
 }
 
+# Clear the verdict fields THIS run is about to be judged on.
+#
+# worlds.status is persistent and NOTHING in the engine, 0-functions.sh or this script ever
+# resets it away from 'failed' -- grep every writer and they all only ever set it. So a world
+# that failed a rebuild once reported "mod rebuild failed" on every later auto-update forever,
+# including ones that worked, because waitForEngineUpdate reads that same field afterwards.
+#
+# Midgard had been carrying status='failed' since an earlier incident -- confirmed by reading
+# it eight minutes BEFORE the update that then "failed". Clearing here is what makes the check
+# at the end a measurement of this run instead of a memory of the worst previous one.
+clearPriorVerdict() {
+	local worldName="$1"
+	SQL "UPDATE worlds SET status='', update_state='running', update_last_result=NULL \
+		WHERE name='$worldName';"
+}
+
 applyUpdate() {
 	local worldName="$1" scope="$2" backupFirst="$3"
 
 	echo "`date` [NOTICE : phvalheim] Auto-update starting for '$worldName' (scope=$scope, backup=$backupFirst)"
 	SQL "UPDATE worlds SET update_state='updating', update_last_result=NULL WHERE name='$worldName';"
+
+	# BEFORE anything else reads a verdict field. waitForEngineUpdate judges the rebuild by
+	# worlds.status, which nothing ever clears, so a stale 'failed' from any previous attempt
+	# would condemn this run before it started.
+	clearPriorVerdict "$worldName"
 
 	if [ "$backupFirst" = "1" ]; then
 		setPhase "$worldName" "backup"
