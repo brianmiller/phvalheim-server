@@ -106,6 +106,13 @@ fi
 # So: measure the property. An ADD COLUMN is safe if it is inside addColumn(), or if a
 # column-existence guard appears in the few lines above it.
 #
+# A CALL to addColumn is not a guard and is deliberately not in the pattern. It used to be,
+# and it made the check pass any raw ADD COLUMN that happened to sit within 8 lines BELOW an
+# unrelated `addColumn worlds ...` call -- which is exactly what the mutation control does
+# when the migration is short and ends with one (2.56's first cut: the control caught 0). An
+# ALTER inside the helper is already excluded by line range above; removing the alternative
+# changed no verdict on any migration in the repo, measured before it was removed.
+#
 # Only the CURRENT version's migration is examined ($CUR). The older ones are history; they
 # already ran everywhere and rewriting them has its own risk.
 unguarded=0
@@ -125,7 +132,7 @@ while IFS=: read -r ln _; do
 	# a column-existence guard within the preceding 8 lines
 	from=$((ln - 8)); [ "$from" -lt 1 ] && from=1
 	if sed -n "${from},${ln}p" "$CUR" \
-		| grep -qE 'DESCRIBE|columnExists|SHOW COLUMNS|information_schema\.columns|addColumn[[:space:]]'; then
+		| grep -qE 'DESCRIBE|columnExists|SHOW COLUMNS|information_schema\.columns'; then
 		continue
 	fi
 	unguarded=$((unguarded + 1))
@@ -157,7 +164,7 @@ while IFS=: read -r ln _; do
 	fi
 	from=$((ln - 8)); [ "$from" -lt 1 ] && from=1
 	if sed -n "${from},${ln}p" "$mutant" \
-		| grep -qE 'DESCRIBE|columnExists|SHOW COLUMNS|information_schema\.columns|addColumn[[:space:]]'; then
+		| grep -qE 'DESCRIBE|columnExists|SHOW COLUMNS|information_schema\.columns'; then
 		continue
 	fi
 	mutantCaught=$((mutantCaught + 1))
