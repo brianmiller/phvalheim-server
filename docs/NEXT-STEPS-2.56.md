@@ -2,6 +2,61 @@
 
 Found in production on 2026-10-18, on `513-phvalheim1` (dooble), running `:rc`.
 
+> **FIXED 2026-10-18 — the durable fix, not just the `.log.1` fallback.** A first pass read
+> `.log.1` only; it was replaced the same day because it fails silently at the *second*
+> rotation. What shipped:
+>
+> **One rule, two implementations, over a world's HISTORY (`.log.1` then the live log):**
+>
+> 1. last code after the last session start → that code
+> 2. a session start with no code after it → NULL (not issued yet)
+> 3. no session start visible → the code remembered in `worlds.join_code`
+>
+> - **Writer — `engine/tools/playerMonitor`** (every 2 min, already reads every running world's
+>   log): remembers the code; **forgets it on seeing a new session start**; otherwise leaves it.
+>   It cannot keep a dead code: that needs a session start to pass through TWO rotations
+>   between two runs, and logRotater runs every 15 minutes.
+> - **Reader — `getWorldJoinCode($pdo, $world)`**: live log (fast path, answers within a poll),
+>   then the history, then the remembered code. Signature gained `$pdo`; all 7 callers updated,
+>   marker `v56ci` fails the build on any leftover one-argument call.
+> - **Keyed on what the log shows, not "clear on engine start".** Supervisor's autorestart
+>   relaunches a crashed world without the engine knowing; a clear-on-start rule would serve
+>   the dead code straight through it.
+> - **`join_code_session` was designed and dropped.** With the history read on both sides the
+>   reader never needs it — a column nothing reads is a trap.
+> - **History read whole (4 MB cap), and `.log.1` joined on only when it adjoins the live
+>   tail.** Without that guard a live log past the cap served the OLD session's code — I
+>   predicted it would return NULL; the mutation run showed the dead code. Pinned to that.
+> - `dbUpdate_2.56.sh`: `worlds.join_code VARCHAR(16) NULL`. Dockerfile → **2.56**.
+>
+> **Same root cause, worse consequence, also fixed in `playerMonitor`:** the player count was
+> read from the live log alone. After a rotation the count line was gone, and the no-count
+> branch wrote `player_count=0` while KEEPING the previous (nonzero) observation's
+> `player_count_at` — a fresh, confident zero for an occupied world, which is exactly what
+> `updateApplier`'s `isIdle()` accepts as permission to restart it. Counts now read the
+> history, and an unreadable count sets `player_count_at=NULL` (unknown; `isIdle()` refuses it).
+> Only matters with auto-update on, which is off by default.
+>
+> **Verification**
+> - `dev_tools/test-joincode-survives-rotation.php` — 33/33: reader (8 scenarios incl. two
+>   rotations, a restart with a dead code in BOTH `.log.1` and the DB, a live log past the
+>   cap), writer (real playerMonitor, SQL stubbed), writer/reader agreement, a full lifecycle,
+>   and 6 mutation controls (4 reader, 2 writer), each asserted to apply exactly once.
+> - `dev_tools/test-playerMonitor.sh` — 12/12; the 3 new cases fail against v2.55's
+>   playerMonitor. `test-vanilla-joincode.php` 35/35, `test-backend-session-scoped.sh` 9/9.
+> - **Live, in a throwaway container from the real `:2.55` image** (verified byte-identical to
+>   v2.55) with the 2.56 files overlaid: the real `dbUpdater.sh` added the column and was a
+>   no-op the second time; real playerMonitor (as `phvalheim`) + real MariaDB + real
+>   `getWorldJoinCode()` through the real `$pdo` walked start → rotate → rotate (served from the
+>   DB; NULL with the DB cleared) → autorestart (NULL before AND after playerMonitor) → new
+>   code. All 16 `v56c*` markers matched their predictions inside that served tree; of the 665
+>   existing markers, none other moved.
+>
+> **Found while doing it, NOT fixed:** `dev_tools/test-admin-crossplay-launch.sh` fails 1/9 on
+> clean HEAD — it still asserts the `-joincode` launch argument that was abandoned for the
+> "Odev" profile. And every fresh install logs `Database update failed to apply` because
+> `dbUpdate_2.27.sh` queries `tsmods`, which 2.43 stopped creating.
+
 **Symptom:** the admin dashboard showed **"Crossplay world: waiting for its join code"** on
 `VikingOutlaws` — a modded crossplay world that had been up and healthy for 35 hours. The chip
 never resolved. The world was fine: saving every few minutes, refreshing its PlayFab entity

@@ -15,7 +15,13 @@
 set -u
 LOG=/tmp/phvalheim-rc-build.log
 REPO=/mnt/wopr/development/brian/phvalheim-server
-IMAGE=theoriginalbrian/phvalheim-server:rc
+# The tag this build is pushed to. :rc unless told otherwise -- TAG=dev builds a work-in-progress
+# image WITHOUT touching :rc, which is a live channel that real operators run. Note the push
+# below happens BEFORE the verify, so whatever TAG names receives an unverified image first.
+#
+#   TAG=dev setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &
+TAG="${TAG:-rc}"
+IMAGE=theoriginalbrian/phvalheim-server:$TAG
 
 # Release promotion. Set to the extra tags this build should ALSO become, e.g.
 #
@@ -3503,6 +3509,47 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56bw=$(grep -cF 'href="index.php#mods-configs=' /opt/stateless/nginx/www/admin/world_configs.php)
   v56bx=$(grep -cF 'edit_world.php?world=<?php echo urlencode($world); ?>">Back to Mods' /opt/stateless/nginx/www/admin/world_configs.php)
   v56by=$(grep -cF "Showing unmatched files only" /opt/stateless/nginx/www/admin/world_configs.php)
+  # 2.56 -- the join code survives log rotation, and is never served past its session.
+  #
+  # A modded crossplay world passes settings.maxLogSize during startup; logRotater.sh (cp +
+  # truncate, one generation) moved its only join-code mentions out of the live log, and with
+  # nobody joining to re-print it the dashboard said "waiting for its join code" for 35 hours
+  # on a world that was up the whole time. Fixed in two halves that implement ONE rule:
+  # playerMonitor (writer) remembers the code in worlds.join_code from `.log.1` + live;
+  # getWorldJoinCode() (reader) reads the same history and falls back to the remembered code.
+  #
+  # SAFETY markers -- the fix must never serve a previous session's code, which fails silently:
+  #   v56cd  reader: a visible session start with no code after it is NULL, never the
+  #          remembered code. 0 here with v56ch=1 means the DB fallback ships without its gate.
+  #   v56cl  writer: a new session FORGETS the remembered code.
+  #   v56cb  reader: `.log.1` is only joined on when it adjoins the live tail -- without it a
+  #          live log past the 4 MB cap serves the old session's code (proven by mutation).
+  v56ca=$(grep -c "function phvWorldLogPath" /opt/stateless/nginx/www/includes/db_gets.php)
+  v56cb=$(grep -cF '(@filesize(phvWorldLogPath($world)) <= $cap) ?' /opt/stateless/nginx/www/includes/db_gets.php)
+  v56cc=$(grep -c "function phvSessionStartPos" /opt/stateless/nginx/www/includes/db_gets.php)
+  v56cd=$(grep -cF 'if (phvSessionStartPos($hist) !== false) { return NULL; }' /opt/stateless/nginx/www/includes/db_gets.php)
+  v56ce=$(grep -c "function phvLastJoinCode" /opt/stateless/nginx/www/includes/db_gets.php)
+  # Live path and history path both go through the same scope + match pair. 2, and only 2.
+  v56cf=$(grep -cF 'phvLastJoinCode(phvSessionScope(' /opt/stateless/nginx/www/includes/db_gets.php)
+  v56cg=$(grep -cF '$gen > 0 ? $log . "." . $gen : $log' /opt/stateless/nginx/www/includes/db_gets.php)
+  v56ch=$(grep -cF 'return phvRememberedJoinCode($pdo, $world);' /opt/stateless/nginx/www/includes/db_gets.php)
+  # Every caller passes $pdo. A leftover one-argument call is a fatal ArgumentCountError on
+  # that page -- the public card, the api poll or the admin dashboard -- so count both ways
+  # across the WHOLE served tree rather than enumerating the callers. v56cj is 8: the seven
+  # calls (3 in db_gets.php, 2 api.php, 2 authenticated.php) PLUS the definition's own line,
+  # which matches the same text -- predicted 7 and measured 8 before this was written down.
+  v56ci=$(grep -rhoE 'getWorldJoinCode\(\$(world|myWorld)\)' /opt/stateless/nginx/www | grep -c .)
+  v56cj=$(grep -rhoE 'getWorldJoinCode\(\$pdo, \$(world|myWorld)\)' /opt/stateless/nginx/www | grep -c .)
+  v56ck=$(grep -c 'addColumn worlds join_code "VARCHAR(16) NULL"' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
+  # Writer: reads the history, forgets on a new session, and every count grep reads the
+  # history too -- a live-only grep left behind is the rotation hole reopening.
+  v56cm=$(grep -cF '[ -f "$logFile.1" ] && cat "$logFile.1"; cat "$logFile"; } > "$histFile"' /opt/stateless/engine/tools/playerMonitor)
+  v56cl=$(grep -cF 'SET join_code=NULL WHERE' /opt/stateless/engine/tools/playerMonitor)
+  v56cn=$(grep -cE 'grep -ha.*"\$logFile"' /opt/stateless/engine/tools/playerMonitor)
+  v56co=$(grep -cE 'grep -ha.*"\$histFile"' /opt/stateless/engine/tools/playerMonitor)
+  # The unknown count is unknown: player_count_at goes NULL with it, so updateApplier's
+  # isIdle() can never read a rotated-away count as a fresh zero and restart an occupied world.
+  v56cp=$(grep -cF "player_count=0, player_count_at=NULL, player_count_source='none'" /opt/stateless/engine/tools/playerMonitor)
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -3590,6 +3637,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 BULK FORGET: flag set=$v55et (want 2)  local_dll downgrade=$v55ev (want 1)  selector keys on flag=$v55ew (want 1)  confirms=$v55ey (want 2)  safe-only pre-tick=$v55ez (want 1)  badge=$v55fa (want 1)"
   echo "2.55 BULK FORGET POLARITY: still-applied branch explicitly false=$v55eu (want 1)"
   echo "2.55 BULK FORGET NEGATIVE: select-all or prose-matching selector=$v55ex (want 0 -- that would forget settings still in force)"
+  echo "2.56 JOINCODE READER: path helper=$v56ca (want 1)  contiguity guard=$v56cb (want 1)  session pos fn=$v56cc (want 1)  START-WITHOUT-CODE IS NULL=$v56cd (want 1)  match fn=$v56ce (want 1)  shared readers=$v56cf (want 2)  path builder=$v56cg (want 1)  db fallback=$v56ch (want 1)  1-arg callers=$v56ci (want 0)  pdo callers=$v56cj (want 8 = 7 calls + definition)"
+  echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 3)  unknown count has no time=$v56cp (want 1)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
@@ -3883,6 +3932,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bq" = "1" ] && [ "$v56br" = "1" ] && [ "$v56bs" = "1" ] && [ "$v56bt" = "0" ] \
     && [ "$v56bu" = "0" ] && [ "$v56bv" = "0" ] && [ "$v56bw" = "1" ] && [ "$v56bx" = "0" ] \
     && [ "$v56by" = "1" ] \
+    && [ "$v56ca" = "1" ] && [ "$v56cb" = "1" ] && [ "$v56cc" = "1" ] && [ "$v56cd" = "1" ] \
+    && [ "$v56ce" = "1" ] && [ "$v56cf" = "2" ] && [ "$v56cg" = "1" ] && [ "$v56ch" = "1" ] \
+    && [ "$v56ci" = "0" ] && [ "$v56cj" = "8" ] && [ "$v56ck" = "1" ] && [ "$v56cl" = "1" ] \
+    && [ "$v56cm" = "1" ] && [ "$v56cn" = "0" ] && [ "$v56co" = "3" ] && [ "$v56cp" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \
     && [ "$v55ej" = "1" ] && [ "$v55ek" = "1" ] \

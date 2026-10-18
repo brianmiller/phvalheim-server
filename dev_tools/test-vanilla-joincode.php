@@ -45,15 +45,15 @@ register_shutdown_function(function () use ($tmp) {
 # function body out and run it against a parameterised path.
 $src = file_get_contents("$root/container/nginx/www/includes/db_gets.php");
 $fnSrc = '';
-foreach (['phvReadLogTail\(\$world, \$window = \d+\)', 'phvCurrentSessionTail\(\$world\)', 'getWorldNetBackend\(\$world\)', 'getWorldJoinCode\(\$world\)'] as $sig) {
+foreach (['phvWorldLogPath\(\$world, \$gen = \d+\)', 'phvReadLogTail\(\$world, \$window = \d+, \$gen = \d+\)', 'phvCurrentSessionTail\(\$world\)', 'phvSessionStartPos\(\$tail\)', 'phvSessionScope\(\$tail\)', 'phvLastJoinCode\(\$text\)', 'phvRememberedJoinCode\(\$pdo, \$world\)', 'getWorldNetBackend\(\$world\)', 'getWorldJoinCode\(\$pdo, \$world\)'] as $sig) {
     if (!preg_match('/function ' . $sig . ' \{.*?\n\}/s', $src, $m)) {
         echo "could not extract /$sig/ from db_gets.php -- has it been renamed?\n"; exit(1);
     }
     $fnSrc .= $m[0] . "\n";
 }
-# phvCurrentSessionTail() is extracted too: getWorldNetBackend() and getWorldJoinCode() both
-# delegate to it now, so leaving it out makes the eval'd copies call an undefined function.
-# Only phvReadLogTail touches the filesystem, so that is the only path to rebase.
+# The small helpers are extracted too -- getWorldNetBackend() and getWorldJoinCode() delegate
+# to them, so leaving any out makes the eval'd copies call an undefined function.
+# Only phvWorldLogPath builds a path, so that is the only line to rebase.
 $fnSrc = str_replace(
     '$log = "/opt/stateful/logs/valheimworld_" . $world . ".log";',
     '$log = $GLOBALS["TESTLOGDIR"] . "/valheimworld_" . $world . ".log";',
@@ -64,6 +64,14 @@ if (strpos($fnSrc, 'TESTLOGDIR') === false) {
 }
 eval($fnSrc);
 $GLOBALS['TESTLOGDIR'] = $tmp;
+
+# getWorldJoinCode() falls back to the code playerMonitor remembered in worlds.join_code (2.56).
+# These cases are about reading LOGS, so the database remembers nothing: a $pdo whose one query
+# finds no row. test-joincode-survives-rotation.php covers the remembered path.
+class NoRowPdo {
+    function prepare($q) { return new class { function execute($a) { return true; } function fetchColumn() { return false; } }; }
+}
+$P = new NoRowPdo();
 
 function writeLog($name, $body) {
     file_put_contents($GLOBALS['TESTLOGDIR'] . "/valheimworld_$name.log", $body);
@@ -77,7 +85,7 @@ writeLog('cross', implode("\n", [
     '09/10/2026 12:53:57: Session "BayArea" registered with join code 441944',
     '09/10/2026 12:53:59: Session "BayArea" with join code 441944 and IP 203.0.113.10:27058 is active with 0 player(s)',
 ]));
-check('extracts 441944', getWorldJoinCode('cross') === '441944', var_export(getWorldJoinCode('cross'), true));
+check('extracts 441944', getWorldJoinCode($P, 'cross') === '441944', var_export(getWorldJoinCode($P, 'cross'), true));
 
 echo "\nCase 1b: Valheim REPLACES the registered code mid-session\n";
 # Taken verbatim from test123's production log, 2026-10-01 23:17. This is the sequence that
@@ -98,7 +106,7 @@ writeLog('replaced', implode("\n", [
     '10/01/2026 23:18:49: Player joined server "test123" that has join code 284283, now 1 player(s)',
 ]));
 check('returns the REPLACEMENT code 284283, not the registered 537586',
-    getWorldJoinCode('replaced') === '284283', var_export(getWorldJoinCode('replaced'), true));
+    getWorldJoinCode($P, 'replaced') === '284283', var_export(getWorldJoinCode($P, 'replaced'), true));
 
 echo "\nCase 1c: the codeless 'join code ,' line is not mistaken for a code\n";
 # "that has join code , now 0 player(s)" appears before a code exists. A looser pattern could
@@ -106,8 +114,8 @@ echo "\nCase 1c: the codeless 'join code ,' line is not mistaken for a code\n";
 writeLog('nocode', implode("\n", [
     '10/01/2026 23:17:56: New session server "W" that has join code , now 0 player(s)',
 ]));
-check('returns NULL when no code has been issued yet', getWorldJoinCode('nocode') === NULL,
-    var_export(getWorldJoinCode('nocode'), true));
+check('returns NULL when no code has been issued yet', getWorldJoinCode($P, 'nocode') === NULL,
+    var_export(getWorldJoinCode($P, 'nocode'), true));
 
 echo "\nCase 2: after a RESTART the newest code wins\n";
 # The stale code is the dangerous answer: it looks perfectly valid and simply does not work.
@@ -115,25 +123,25 @@ writeLog('restart', implode("\n", [
     '09/10/2026 10:00:00: Session "W" registered with join code 111111',
     '09/10/2026 11:00:00: Session "W" registered with join code 222222',
 ]));
-check('returns the LAST code, not the first', getWorldJoinCode('restart') === '222222',
-    var_export(getWorldJoinCode('restart'), true));
+check('returns the LAST code, not the first', getWorldJoinCode($P, 'restart') === '222222',
+    var_export(getWorldJoinCode($P, 'restart'), true));
 
 echo "\nCase 3: a NON-crossplay (Steam) log has no code\n";
 writeLog('steam', implode("\n", [
     '09/09/2026 21:02:15: Game server connected',
     '09/09/2026 21:02:34: Opened Steam server',
 ]));
-check('returns NULL for a Steam server', getWorldJoinCode('steam') === NULL,
-    var_export(getWorldJoinCode('steam'), true));
+check('returns NULL for a Steam server', getWorldJoinCode($P, 'steam') === NULL,
+    var_export(getWorldJoinCode($P, 'steam'), true));
 
 echo "\nCase 4: a missing log is not an error\n";
-check('returns NULL, does not warn or throw', getWorldJoinCode('nosuchworld') === NULL);
+check('returns NULL, does not warn or throw', getWorldJoinCode($P, 'nosuchworld') === NULL);
 
 echo "\nCase 5: NUL bytes do not hide the code\n";
 # World logs pick up NULs from torn writes. They made grep silently under-report elsewhere
 # in this project, so the same data must not defeat this reader.
 writeLog('nul', "junk\0\0\0more junk\n" . 'Session "W" registered with join code 987654' . "\n\0trailing\0");
-check('still finds 987654', getWorldJoinCode('nul') === '987654', var_export(getWorldJoinCode('nul'), true));
+check('still finds 987654', getWorldJoinCode($P, 'nul') === '987654', var_export(getWorldJoinCode($P, 'nul'), true));
 
 echo "\nCase 6a: the backend is read from the log, last session wins\n";
 # A world that was crossplay and has since been restarted without it must report 'steam',
@@ -159,8 +167,8 @@ echo "\nCase 6: the code is found at the END of a very large log\n";
 writeLog('big', str_repeat("filler line that is not interesting\n", 40000)
     . 'Session "W" registered with join code 555000' . "\n");
 $bigSize = filesize("$tmp/valheimworld_big.log");
-check('finds the code in a ' . round($bigSize / 1024) . 'KB log', getWorldJoinCode('big') === '555000',
-    var_export(getWorldJoinCode('big'), true));
+check('finds the code in a ' . round($bigSize / 1024) . 'KB log', getWorldJoinCode($P, 'big') === '555000',
+    var_export(getWorldJoinCode($P, 'big'), true));
 
 # ---------------------------------------------------------------- card rendering
 # Drive the REAL decision block out of authenticated.php.
@@ -199,12 +207,15 @@ function getWorldNetBackendStub($w) { return $GLOBALS['STUB_BACKEND']; }
 # cases are about the RENDER, so the stub just reports the backend the case set up.
 function worldIsPlayFabStub($pdo, $w, $online = true) { return $GLOBALS['STUB_BACKEND'] === 'playfab'; }
 # The block calls the log-derived getters; route them to the stubs for these cases.
-$block = str_replace('getWorldJoinCode($myWorld)', 'getWorldJoinCodeStub($myWorld)', $block);
+$block = str_replace('getWorldJoinCode($pdo, $myWorld)', 'getWorldJoinCodeStub($myWorld)', $block);
 $block = str_replace('getWorldNetBackend($myWorld)', 'getWorldNetBackendStub($myWorld)', $block);
 # Third argument added when worldIsPlayFab() learned to fall back to the options the world was
 # STARTED with rather than to the crossplay column.
 $block = str_replace('worldIsPlayFab($pdo, $myWorld, $isOnline)',
                      'worldIsPlayFabStub($pdo, $myWorld, $isOnline)', $block);
+if (strpos($block, 'getWorldJoinCodeStub') === false) {
+    echo "\nthe card block no longer calls getWorldJoinCode(\$pdo, ...) -- the stub rewrite is stale\n"; exit(1);
+}
 if (strpos($block, 'worldIsPlayFabStub') === false) {
     echo "\nthe card block no longer calls worldIsPlayFab() -- the stub rewrite is stale\n"; exit(1);
 }

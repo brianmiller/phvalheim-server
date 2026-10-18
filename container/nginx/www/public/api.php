@@ -185,7 +185,7 @@ if ($mode == "getMyWorldsStatus") {
                 $isPlayFabWorld    = $isOnline
                                         ? worldIsPlayFab($pdo, $myWorld, $isOnline)
                                         : $isCrossplayWorld;
-                $crossplayJoinCode = $isPlayFabWorld ? getWorldJoinCode($myWorld) : NULL;
+                $crossplayJoinCode = $isPlayFabWorld ? getWorldJoinCode($pdo, $myWorld) : NULL;
                 $connection = [
                     'endpoint'       => $gameDNS . ':' . $worldPort,
                     'host'           => $gameDNS,
@@ -227,7 +227,7 @@ if ($mode == "getMyWorldsStatus") {
                                         : $isCrossplayWorld;
                 $connection = [
                     'crossplay' => $isCrossplayWorld,
-                    'joinCode'  => $isPlayFabWorld ? getWorldJoinCode($myWorld) : NULL,
+                    'joinCode'  => $isPlayFabWorld ? getWorldJoinCode($pdo, $myWorld) : NULL,
                     'playfab'   => $isPlayFabWorld,
                     'steamUrl'  => NULL,
                 ];

@@ -358,7 +358,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 					$vanillaIsPlayFab = $isOnline
 						? worldIsPlayFab($pdo, $myWorld, $isOnline)
 						: $vanillaCrossplay;
-					$vanillaJoinCode = $vanillaIsPlayFab ? getWorldJoinCode($myWorld) : NULL;
+					$vanillaJoinCode = $vanillaIsPlayFab ? getWorldJoinCode($pdo, $myWorld) : NULL;
 
 						# There is deliberately NO crossplay launch URL. `-joincode` is a real Valheim
 						# argument -- which is why this looked correct for so long -- but FejdStartup calls
@@ -502,7 +502,7 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 				$moddedIsPlayFab = $isOnline
 					? worldIsPlayFab($pdo, $myWorld, $isOnline)
 					: ((int)$moddedOpts['crossplay'] === 1);
-				$moddedJoinCode = $moddedIsPlayFab ? getWorldJoinCode($myWorld) : NULL;
+				$moddedJoinCode = $moddedIsPlayFab ? getWorldJoinCode($pdo, $myWorld) : NULL;
 
 				if ($moddedIsPlayFab) {
 					$moddedBadges = trim($moddedBadges . " " . accessBadge('crossplay', $moddedBadgeDim,

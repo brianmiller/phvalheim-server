@@ -238,7 +238,7 @@ function phvLaunchCrossplayFields($pdo, $world, $isOnline) {
         $crossplay = worldIsPlayFab($pdo, $world, $isOnline) ? 1 : 0;
         # NULL means the lobby has not registered yet -- about 30 seconds after start. Sent as
         # empty, which the Companion treats as "ask the backend", not as "there is no code".
-        $joinCode  = $crossplay ? (getWorldJoinCode($world) ?? '') : '';
+        $joinCode  = $crossplay ? (getWorldJoinCode($pdo, $world) ?? '') : '';
         return [$crossplay, $joinCode];
 }
 
@@ -352,8 +352,24 @@ function getWorldNetBackend($world) {
 function phvCurrentSessionTail($world) {
         $tail = phvReadLogTail($world);
         if ($tail === NULL) { return NULL; }
+        return phvSessionScope($tail);
+}
 
-        $pos = strrpos($tail, 'Starting to load scene: start.unity');
+# Where the newest session begins inside $tail, or FALSE if the text does not reach back that
+# far.
+#
+# What a session start LOOKS LIKE is spelled out once, here. The join-code reader asks this
+# question twice for two different purposes -- "scope me to the current session" and "did this
+# session start before or after the rotation" -- and if those two ever disagreed about the
+# marker, the rotation fallback would hand out a dead code from a previous session.
+function phvSessionStartPos($tail) {
+        return strrpos($tail, 'Starting to load scene: start.unity');
+}
+
+# $tail narrowed to its newest session. An absent marker means the text does not reach back to
+# any start, so all of it belongs to one session -- see phvCurrentSessionTail() above.
+function phvSessionScope($tail) {
+        $pos = phvSessionStartPos($tail);
         return $pos === false ? $tail : substr($tail, $pos);
 }
 
@@ -492,10 +508,20 @@ function worldRestartPending($pdo, $world, $isOnline) {
         return $changed;
 }
 
-# Shared tail reader for the two log-derived getters below. World logs reach hundreds of MB
-# and everything we want is near the end.
-function phvReadLogTail($world, $window = 262144) {
+# Path to a world's log, or to a ROTATED generation of it.
+#
+# logRotater.sh keeps exactly one: `cp` the live log to `<log>.1`, then truncate the live file.
+# So `.log.1` is a snapshot of everything written before the last rotation, and the next
+# rotation overwrites it.
+function phvWorldLogPath($world, $gen = 0) {
         $log = "/opt/stateful/logs/valheimworld_" . $world . ".log";
+        return $gen > 0 ? $log . "." . $gen : $log;
+}
+
+# Shared tail reader for the log-derived getters below. World logs reach hundreds of MB
+# and everything we want is near the end.
+function phvReadLogTail($world, $window = 262144, $gen = 0) {
+        $log = phvWorldLogPath($world, $gen);
         if (!is_readable($log)) { return NULL; }
 
         $size = @filesize($log);
@@ -521,45 +547,104 @@ function phvReadLogTail($world, $window = 262144) {
 #
 #   Session "BayArea" registered with join code 441944
 #
-# DERIVED, never stored. The code is issued per session, so a world that restarts gets a new
-# one -- a cached copy in the database would keep advertising a code that no longer works,
-# with nothing to say it had gone stale.
+# One rule, applied to the world's HISTORY -- the rotated generation `<log>.1` followed by the
+# live log -- and shared with the writer, engine/tools/playerMonitor:
 #
-# Reads only the tail of the log. These files reach hundreds of MB, and the current session's
-# line is always near the end. The LAST match wins, because a restart appends a newer code
-# above nothing.
-function getWorldJoinCode($world) {
-        # CURRENT session only. The code is reissued on every restart, so the last match in the
-        # whole tail can be the previous session's -- a code that no longer works, handed out
-        # with no indication it is stale.
-        $tail = phvCurrentSessionTail($world);
-        if ($tail === NULL) { return NULL; }
+#   1. the LAST code after the LAST session start   -> that code.
+#   2. a session start, but no code after it        -> NULL. Not issued yet.
+#   3. no session start visible at all              -> what playerMonitor remembered in
+#                                                      worlds.join_code.
+#
+# CURRENT session only, always. The code is reissued on every restart, so a code from an
+# earlier session is one that no longer works, handed out with no indication it is stale --
+# worse than showing none. Case 2 is what guarantees it for anything read from a log; for the
+# remembered code, the writer forgets it the moment it sees a newer session start (the argument
+# for why it always sees one is in playerMonitor).
+#
+# THE BUG this shape exists for (production, 2026-10-18): VikingOutlaws was up and joinable on
+# 417250 for 35 hours while the dashboard said "waiting for its join code". A modded world's
+# startup passes settings.maxLogSize (1 MB) within minutes, logRotater.sh (cp + truncate) moved
+# every mention of the code into `.log.1`, and Valheim only re-prints it when a player joins or
+# leaves. This used to read the live log alone and never recovered. Not a too-small window --
+# the live log was 175 KB, inside the 256 KB tail. The lines were in a different FILE.
+#
+# The two generations cover one rotation; the remembered code covers any number of them, which
+# is why it is not just "read `.log.1` too".
+function getWorldJoinCode($pdo, $world) {
+        $live = phvReadLogTail($world);
+        if ($live === NULL) { return NULL; }
 
-        # Match ANY join-code mention, not just the registration line, and take the LAST one.
+        # The fast path, and the common one: the live log's own current session. Answers within
+        # one poll of the code appearing, which matters because Valheim may REPLACE the
+        # registered code a second later -- the remembered copy is up to two minutes old.
+        $code = phvLastJoinCode(phvSessionScope($live));
+        if ($code !== NULL) { return $code; }
+
+        # The history. Both generations read WHOLE, not tailed: `.log.1` is a snapshot ending at
+        # the rotation, so the running session's startup sits wherever in it the world happened
+        # to start -- in the reported case ~1 MB from its END, which a 256 KB tail misses while
+        # every other assertion still passes. Capped so a raised settings.maxLogSize cannot turn
+        # the 5-second poll into a multi-megabyte read. Measured: 0.24 ms on a 937 KB `.log.1`.
         #
-        # "Session X registered with join code N" is NOT reliably the live code. Valheim
-        # re-reports a code carried on the PlayFab lobby entity when it registers, and may
-        # then mint a replacement a second later:
-        #
-        #   23:17:57  Session "test123" registered with join code 537586     <- sticky, stale
-        #   23:17:58  Created new join code 284283 for session "test123"      <- the real one
-        #   23:17:59  Session "test123" with join code 284283 ... is active
-        #   23:18:49  Player joined server "test123" that has join code 284283
-        #
-        # Reading only the registration line handed players 537586 -- a code that had been
-        # re-reported identically across four restarts and did not work. It was wrong in the
-        # public UI, the admin dashboard AND the Launch link, because all of them come through
-        # here. Found by comparing the UI against what the game itself displayed.
-        #
-        # Recency rather than ranking the message types: across every session in a real log the
-        # authoritative lines ("Created new", "is active", "Player joined") always FOLLOW the
-        # registration, so the last mention is the live code, and nothing has to be taught
-        # which Valheim message to trust. If Valheim renames one of them this still works.
-        #
-        # Known window: for the ~1-2 seconds between registering and minting a replacement, the
-        # only mention is the registration line, so a stale code can be returned. That matches
-        # what Valheim itself believes at that moment, and it self-corrects on the next poll.
-        if (preg_match_all('/join code (\d{4,10})/', $tail, $m)) {
+        # If the live log is itself past the cap, its tail no longer adjoins `.log.1`, and the
+        # session in `.log.1` would be read as the newest one while the real one hides in the
+        # gap -- serving `.log.1`'s code, which belongs to a session that is over. So `.log.1`
+        # is only joined on when the two are contiguous; otherwise this falls to case 3, which
+        # playerMonitor computed from both files whole.
+        $cap  = 4194304;
+        $prev = (@filesize(phvWorldLogPath($world)) <= $cap) ? (string)phvReadLogTail($world, $cap, 1) : '';
+        $hist = $prev . (string)phvReadLogTail($world, $cap);
+
+        $code = phvLastJoinCode(phvSessionScope($hist));
+        if ($code !== NULL) { return $code; }
+
+        # Case 2: a start is visible and nothing follows it -- a session that has not been
+        # issued a code yet. Must not fall through to the remembered one, which, if it is not
+        # NULL already, belongs to an earlier session.
+        if (phvSessionStartPos($hist) !== false) { return NULL; }
+
+        # Case 3: the running session began before both generations, and nobody has joined
+        # since to re-print the code.
+        return phvRememberedJoinCode($pdo, $world);
+}
+
+# worlds.join_code, as written by playerMonitor, or NULL. Never '' -- an empty string renders as
+# a code, and "waiting for its join code" and "this is its code" must stay distinguishable.
+function phvRememberedJoinCode($pdo, $world) {
+        $sth = $pdo->prepare("SELECT join_code FROM worlds WHERE name=?");
+        $sth->execute([$world]);
+        $code = $sth->fetchColumn();
+        return ($code === false || $code === NULL || $code === '') ? NULL : (string)$code;
+}
+
+# The live join code mentioned in $text, or NULL.
+#
+# Match ANY join-code mention, not just the registration line, and take the LAST one.
+#
+# "Session X registered with join code N" is NOT reliably the live code. Valheim
+# re-reports a code carried on the PlayFab lobby entity when it registers, and may
+# then mint a replacement a second later:
+#
+#   23:17:57  Session "test123" registered with join code 537586     <- sticky, stale
+#   23:17:58  Created new join code 284283 for session "test123"      <- the real one
+#   23:17:59  Session "test123" with join code 284283 ... is active
+#   23:18:49  Player joined server "test123" that has join code 284283
+#
+# Reading only the registration line handed players 537586 -- a code that had been
+# re-reported identically across four restarts and did not work. It was wrong in the
+# public UI, the admin dashboard AND the Launch link, because all of them come through
+# here. Found by comparing the UI against what the game itself displayed.
+#
+# Recency rather than ranking the message types: across every session in a real log the
+# authoritative lines ("Created new", "is active", "Player joined") always FOLLOW the
+# registration, so the last mention is the live code, and nothing has to be taught
+# which Valheim message to trust. If Valheim renames one of them this still works.
+#
+# Known window: for the ~1-2 seconds between registering and minting a replacement, the
+# only mention is the registration line, so a stale code can be returned. That matches
+# what Valheim itself believes at that moment, and it self-corrects on the next poll.
+function phvLastJoinCode($text) {
+        if (preg_match_all('/join code (\d{4,10})/', $text, $m)) {
                 return end($m[1]);
         }
         return NULL;
@@ -613,7 +698,7 @@ function getVanillaJoinInfo($pdo, $world, $gameDNS, $port, $isOnline) {
         # made. There is no argument that stops at character selection, and
         # -joinserverwithcharacter takes a DEDICATED server address, which a PlayFab-hosted
         # world does not have. Hand back the code only; the UI explains how to use it.
-        $code = getWorldJoinCode($world);
+        $code = getWorldJoinCode($pdo, $world);
         return [
                 'href'     => NULL,
                 'playfab'  => true,
@@ -668,7 +753,7 @@ function getModdedJoinInfo($pdo, $world, $launchString, $isOnline) {
         return [
                 'href'     => $href,
                 'playfab'  => true,
-                'joinCode' => getWorldJoinCode($world),
+                'joinCode' => getWorldJoinCode($pdo, $world),
         ];
 }
 

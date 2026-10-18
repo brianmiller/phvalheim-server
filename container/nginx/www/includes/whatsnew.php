@@ -11,6 +11,10 @@
  */
 function whatsNewNotes() {
     return [
+        '2.56' => [
+            'Fixed: <b>a crossplay world could show &ldquo;waiting for its join code&rdquo; indefinitely</b> while it was up and players could join on the code it was not showing. The code was only ever read from the world&rsquo;s log, and once the log was rotated &mdash; within minutes on a busy modded world &mdash; it was gone until someone joined. <b>PhValheim now remembers each world&rsquo;s join code</b>, and forgets it the moment the world restarts, so a code from an earlier session is never shown.',
+            'Fixed: <b>a log rotation could make an occupied world look empty to automatic updates.</b> The player count was lost along with the rotated log and recorded as a recent zero, which is what automatic updates wait for before restarting a world. A count that can no longer be read is now treated as unknown, which never allows a restart. This only mattered if you had turned automatic updates on.',
+        ],
         '2.55' => [
             'New: <b>a mod config editor.</b> Press a world&rsquo;s <b>Mods</b> button &rarr; <b>Mod Configs</b> to edit any mod&rsquo;s settings, with each one shown beside the author&rsquo;s own default. <b>Your changes now survive a mod update</b> &mdash; PhValheim remembers the individual settings you changed and re-applies just those, so new settings still arrive at the author&rsquo;s new default.',
             '<b>Your existing <code>custom_configs/</code> files were imported automatically</b>, and the originals were moved aside, not deleted. A <b>Config Migration</b> item appears in the sidebar while they are still on disk; it is where you decide whether to remove them, and anything PhValheim cannot fully account for is left unticked so you do not delete your only copy.',

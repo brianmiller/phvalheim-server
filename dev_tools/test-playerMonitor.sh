@@ -126,6 +126,38 @@ EOF
 out=$(runParser "$TMP/valheimworld_empty.log" empty 0 | grep -oE 'SOURCE=[a-z]+')
 check "no count line -> source=none" "SOURCE=none" "$out"
 
+# --- 9: the count survives a log ROTATION ---------------------------------------------
+#
+# logRotater.sh is cp + truncate. A crossplay count is printed on a join or leave and never
+# again, so the first rotation after a join used to take the count with it -- and the no-count
+# branch then wrote 0 while keeping the PREVIOUS observation's timestamp: a fresh, confident
+# zero for a world with two players on it, which is what updateApplier's isIdle() accepts as
+# permission to restart. The count must come from `.log.1` + live.
+cat > "$TMP/valheimworld_rot.log.1" <<'EOF2'
+10/18/2026 12:00:00: Player joined server "rot" that has join code 410153, now 2 player(s)
+EOF2
+printf '\n10/18/2026 12:16:00: World saved ( 142.1583ms )\n' > "$TMP/valheimworld_rot.log"
+out=$(runParser "$TMP/valheimworld_rot.log" rot 1 | grep -oE 'COUNT=[0-9]+ SOURCE=[a-z]+ AT=[0-9-]+ [0-9:]+')
+check "rotated: the count survives in .log.1, with ITS timestamp" "COUNT=2 SOURCE=playfab AT=2026-10-18 12:00:00" "$out"
+
+# Control: the same live log with no rotated generation reports unknown. Without this, case 9
+# would pass against a parser that never read .log.1 if the live log had answered somehow.
+rm -f "$TMP/valheimworld_rot.log.1"
+out=$(runParser "$TMP/valheimworld_rot.log" rot 1 | grep -oE 'SOURCE=[a-z]+')
+check "  control: without .log.1 the same moment is unknown" "SOURCE=none" "$out"
+
+# --- 10: "unknown" carries NO timestamp ---------------------------------------------------
+#
+# runParser rewrites the SQL into a summary, which would hide exactly this. Run the real
+# statement through an SQL stub instead and assert its text: player_count_at must go NULL with
+# the unknown count, or the previous observation's time makes it look like a fresh zero.
+sed -e 's#^source /opt/stateless.*#SQL() { echo "SQL $*"; }#' \
+    -e "s#^logDir=.*#logDir=\"$TMP\"#" \
+    -e "s#^worldRows=.*#worldRows=\$(printf '%s\\\\t%s' 'empty' '0')#" \
+    "$TOOL" > "$TMP/raw.sh"
+out=$(bash "$TMP/raw.sh" 2>/dev/null | grep "player_count_source='none'")
+check "unknown count clears player_count_at" "1" "$(echo "$out" | grep -c "player_count_at=NULL")"
+
 echo
 echo "  $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -46,11 +46,78 @@ worldRows=$(SQL "SELECT name, IFNULL(crossplay,0) FROM worlds WHERE mode='runnin
 
 [ -z "$worldRows" ] && exit 0
 
+# Every reader below works on a world's HISTORY -- the rotated generation followed by the live
+# log -- never on the live log alone.
+#
+# logRotater.sh is `cp` + truncate and keeps exactly one generation, so every rotation moves
+# whatever a world last said into `<log>.1` and leaves the live log empty of it. Everything
+# this script reads is an EVENT that Valheim does not repeat: a crossplay count is printed on
+# a join or a leave and at no other time, the join code at registration and on joins/leaves.
+# Reading the live log alone, a busy modded world (which passes the 1 MB threshold within
+# minutes) lost both at the first rotation:
+#
+#   - the join code: the dashboard said "waiting for its join code" for 35 hours on a world
+#     that was up and joinable the whole time (production, 2026-10-18).
+#   - the player count: the count line vanished, the no-count branch wrote player_count=0 and
+#     left player_count_at on the PREVIOUS observation -- so a world with players on it read
+#     as a fresh, confident zero, which is the one thing updateApplier's isIdle() accepts as
+#     permission to restart a world.
+#
+# Two generations make a single rotation harmless. A second rotation with no new event in
+# between still loses the line; for the join code that case is covered by what is remembered
+# in the database (below), and for the count by reporting it as unknown rather than zero.
+histFile=$(mktemp)
+trap 'rm -f "$histFile"' EXIT
+
 while IFS=$'\t' read -r worldName isCrossplay; do
 	[ -z "$worldName" ] && continue
 
 	logFile="$logDir/valheimworld_${worldName}.log"
 	[ -f "$logFile" ] || continue
+
+	{ [ -f "$logFile.1" ] && cat "$logFile.1"; cat "$logFile"; } > "$histFile" 2>/dev/null
+
+	# --- the crossplay join code, remembered past rotation --------------------------------
+	#
+	# The SAME rule as getWorldJoinCode() in db_gets.php, which is the reader; this is the
+	# writer. dev_tools/test-joincode-survives-rotation.php drives both with the same fixtures
+	# so the two cannot drift. Over the history:
+	#
+	#   the session = everything after the LAST "Starting to load scene: start.unity", which
+	#                 Valheim logs once per launch -- the only session boundary in the log.
+	#                 If no start is visible, the whole history is one session.
+	#   the code    = the LAST "join code N" in that session. The last mention, not the
+	#                 registration line: Valheim re-reports a sticky lobby code on registration
+	#                 and replaces it a second later (see the comment on getWorldJoinCode()).
+	#
+	# Then:
+	#   a code              -> remember it.
+	#   no code, a start    -> a session whose code is not issued yet. FORGET the remembered
+	#                          one: it belongs to an earlier session, and a dead code fails
+	#                          silently -- worse than showing none.
+	#   no code, no start   -> the session began before both generations and nobody has joined
+	#                          since. Leave the remembered code alone: this is the case the
+	#                          column exists for.
+	#
+	# Why the last case cannot keep a DEAD code: forgetting only needs this script to see the
+	# new session's start line once. It runs every 2 minutes over both generations, so the line
+	# would have to pass through TWO rotations between runs, and logRotater runs every 15.
+	#
+	# Keyed on what the log shows, not on "cleared when the engine starts the world": the
+	# engine is not the only thing that starts one. Supervisor's autorestart relaunches a
+	# crashed world without the engine knowing, and a clear-on-start rule would serve the dead
+	# code straight through it.
+	#
+	# Not gated on the crossplay column, which only takes effect at the next restart. A Steam
+	# session logs no code, lands in "no code, a start", and is cleared.
+	startNo=$(grep -an "Starting to load scene: start.unity" "$histFile" | tail -1 | cut -d: -f1)
+	joinCode=$(tail -n "+${startNo:-1}" "$histFile" | grep -aoE 'join code [0-9]{4,10}' | tail -1 | grep -oE '[0-9]+$')
+
+	if [ -n "$joinCode" ]; then
+		SQL "UPDATE worlds SET join_code='$joinCode' WHERE name='$worldName';"
+	elif [ -n "$startNo" ]; then
+		SQL "UPDATE worlds SET join_code=NULL WHERE name='$worldName';"
+	fi
 
 	count=""
 	source="none"
@@ -58,7 +125,7 @@ while IFS=$'\t' read -r worldName isCrossplay; do
 
 	if [ "$isCrossplay" = "1" ]; then
 		# Absolute count, emitted on join AND leave. Take the most recent one.
-		line=$(grep -ha "now [0-9]\+ player" "$logFile" | tail -1)
+		line=$(grep -ha "now [0-9]\+ player" "$histFile" | tail -1)
 		if [ -n "$line" ]; then
 			count=$(echo "$line" | grep -oE 'now [0-9]+ player' | grep -oE '[0-9]+')
 			stamp=$(lineStamp "$line")
@@ -68,7 +135,7 @@ while IFS=$'\t' read -r worldName isCrossplay; do
 		# The 10-minute heartbeat. Two shapes carry the same number: the usual
 		# "  Connections N ZDOS:..." and a rarer bare " Connections N" with no ZDOS
 		# tail. Match both and just take N.
-		line=$(grep -ha "Connections [0-9]" "$logFile" | tail -1)
+		line=$(grep -ha "Connections [0-9]" "$histFile" | tail -1)
 		if [ -n "$line" ]; then
 			count=$(echo "$line" | grep -oE 'Connections [0-9]+' | grep -oE '[0-9]+')
 			stamp=$(lineStamp "$line")
@@ -89,9 +156,9 @@ while IFS=$'\t' read -r worldName isCrossplay; do
 			# world log holding 12 departures: `sed 's/^ +//' | sort -u` returns 24
 			# and would double-decrement every single one, while `tr -s ' ' | sort -u`
 			# returns 12.
-			hbLine=$(grep -han "Connections [0-9]" "$logFile" | tail -1 | cut -d: -f1)
+			hbLine=$(grep -han "Connections [0-9]" "$histFile" | tail -1 | cut -d: -f1)
 			if [ -n "$hbLine" ]; then
-				tailPart=$(tail -n "+$((hbLine + 1))" "$logFile")
+				tailPart=$(tail -n "+$((hbLine + 1))" "$histFile")
 
 				arrivals=$(echo "$tailPart" | grep -ha "Got connection SteamID" | tr -s ' ' | sort -u | grep -c .)
 				departures=$(echo "$tailPart" | grep -ha "Closing socket" | tr -s ' ' | sort -u | grep -c .)
@@ -110,10 +177,16 @@ while IFS=$'\t' read -r worldName isCrossplay; do
 	fi
 
 	if [ -z "$count" ]; then
-		# No count line at all -- a world that has only just started, or a log that
-		# was rotated out from under us. Report nothing rather than guessing zero
-		# with a fresh timestamp, which would look like a confident observation.
-		SQL "UPDATE worlds SET player_count=0, player_count_source='none' WHERE name='$worldName';"
+		# No count line in either generation -- a world that has only just started, or
+		# one whose last event has been rotated through both. That is UNKNOWN, and it
+		# must read as unknown: player_count_at goes to NULL with it.
+		#
+		# It used to keep player_count_at. That turned "we cannot see" into a confident
+		# zero carrying the time of the previous, NONZERO observation -- and a recent
+		# zero is exactly what updateApplier's isIdle() treats as permission to restart
+		# the world. One rotation after a player joined was enough to make an occupied
+		# world look idle. isIdle() refuses a NULL player_count_at outright.
+		SQL "UPDATE worlds SET player_count=0, player_count_at=NULL, player_count_source='none' WHERE name='$worldName';"
 		continue
 	fi
 
