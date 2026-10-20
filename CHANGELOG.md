@@ -1,5 +1,83 @@
 # Changelog
 
+## v2.56
+
+### An event log that knows which world it is about
+
+Everything PhValheim did went into one shared text file as an untyped line, and the only
+per-world view was Valheim's own stdout. 2.56 records every action as a row in `phv_events`
+(source, level, world, operation, message) grouped by `phv_operations` (one per engine command,
+with an outcome), written from bash by `phvlog LEVEL "msg"` — which also prints the classic
+stdout line — with the world and operation AMBIENT via `PHV_WORLD` / `PHV_OP` exported by the
+main loop. Valheim's stdout stays a file; the engine records its byte offset at each start as a
+session event, which is what "this boot" means in the viewer. `admin/world_logs.php` shows
+Activity / Valheim / Both with begin/end markers per operation; `admin/logs.php` is the
+server-wide stream with filters and every log file on disk; Hugin gained `last_operation`,
+`world_activity` and `server_activity`. An operation closes with a worded summary
+(`phvOpSummary KIND MODE`) — the first cut closed with the world's bare final mode, so
+"update … stopped" read like an update that had stopped. Retention 30 days / 100k rows.
+
+Found while converting the viewers: `readLog.php` served any path the web server could read.
+It now accepts only names that pass `phvLogFileAllowed()` (regex plus realpath inside the log
+directory).
+
+### Server Health
+
+`includes/health.php`: one list of checks, each `{id, name, state ok|warn|fail|unknown, detail,
+action}`, with `unknown` its own state that never reads as OK. The rules are pure functions
+and every input is injectable, so `dev_tools/test-server-health.php` pins them with mutation
+controls. Probes are real: the Steam key check is an actual API call (only the HTTP code read,
+cached 6 h per key), the data volume check is a real file write, and mod sync staleness allows
+for cron's hourly tick against the configured interval. The dashboard strip shows warn/fail
+only; the sidebar item lists everything. The old "Critical Configuration Missing" banner is the
+first of these checks, and the backup-retention warning moved off the players' page.
+
+### The hourly catalogue sync was not running
+
+Making the dashboard's per-catalogue "sync" link an AJAX action — it was a GET that redirected,
+so every click reloaded the page — and then making a browser test actually click it found that
+the sync never started. `syncModCatalogue()` ran `modSync.py` as `phvalheim` via `su`, but its
+`>> modSync.log` redirect sat outside the `su`, so root created the log on every fresh install;
+cron's hourly sync and the forced sync, both `phvalheim`, then failed on "Permission denied"
+opening it before the script ever ran, silently. The redirect runs inside the `su` now, the
+engine chowns an existing root-owned file at boot, and the API launcher falls back to
+`/dev/null` rather than not running. `dev_tools/test-modsync-log-owner.sh` pins it with a
+fake-`su` control.
+
+### The join code a healthy world cannot show
+
+The crossplay join code was read from the world's log on every poll; a rotation carried it
+away, and the dashboard said "waiting for its join code" for a world players were joining on.
+`worlds.join_code` remembers it (written by `playerMonitor`, read by `getWorldJoinCode()`), with
+one rule over the world's history: the last code after the last session start, NULL if a start
+is visible with no code after it, the remembered code if no start is visible. Forgetting is keyed
+on the log showing a new session, not on engine start, because supervisor's autorestart
+relaunches a crashed world without the engine. The same rotation made `playerMonitor` write a
+fresh `player_count=0` that auto-update accepted as "idle"; an unreadable count is now NULL.
+
+### Config attribution for pre-2.55 worlds, and manual matching
+
+`mod_plugin_guids` was only learned on a full install, so worlds set up before 2.55 never
+learned which config each mod writes, and forks (`valheimplusgrantaphertemporary` vs
+`valheimplus`) could not be rescued by name. `pluginGuids.py --all --learn` then
+`modConfigs.py --reattribute --all` run on every boot. When attribution still cannot decide,
+the operator can: `mod_plugin_guids` gained `learned` and `manual` flags (two flags, not one
+origin, so Undo clears a manual claim without deleting a learned fact), and an unambiguous
+manual claim wins in `resolve_guid_owners()`.
+
+### Smaller
+
+- Client download menu falls back to GitHub's "latest release" page when the API is rate
+  limited; the Client Download URL setting is retired.
+- Dashboard: compact header strip, one Actions cell per world row (Launch Start Stop | Mods
+  Update Settings | Logs Delete), Mod Catalogues as one full-width row per catalogue, sidebar
+  grouped Main / Server / Tools. The log viewers load the admin stylesheet instead of a private
+  palette (they had the browser's default light scrollbars).
+- `dev_tools/buildRcDetached.sh` defaults to `:dev`; `:rc` requires `TAG=rc` and `EXTRA_TAGS`
+  is refused from a `:dev` build — a 2.56 work-in-progress reached `:rc` once and was rolled
+  back to the 2.55 digest.
+- The repository has CI: `.github/workflows/oracles.yml` runs the standalone oracle suite.
+
 ## v2.55
 
 ### "Mod rebuild failed" five seconds into a rebuild that never ran
