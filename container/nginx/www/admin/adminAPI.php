@@ -1034,6 +1034,28 @@ switch($action) {
         }
         break;
 
+    case 'matchModConfigFile':
+    case 'unmatchModConfigFile':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['ok' => false, 'error' => 'POST method required']);
+            break;
+        }
+        $body  = json_decode(file_get_contents('php://input'), true);
+        $world = $body['world'] ?? '';
+        $file  = $body['file'] ?? '';
+        if ($world === '' || $file === '') {
+            echo json_encode(['ok' => false, 'error' => 'World name and config file required']);
+        } elseif ($action === 'matchModConfigFile') {
+            if (!isset($body['mod_id']) || !is_numeric($body['mod_id'])) {
+                echo json_encode(['ok' => false, 'error' => 'Choose a mod to match this file to']);
+            } else {
+                echo json_encode(modConfigMatchFile($pdo, $world, $file, (int)$body['mod_id']));
+            }
+        } else {
+            echo json_encode(modConfigUnmatchFile($pdo, $world, $file));
+        }
+        break;
+
     case 'diffPastedModConfig':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['ok' => false, 'error' => 'POST method required']);

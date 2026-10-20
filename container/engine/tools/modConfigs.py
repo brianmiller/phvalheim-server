@@ -410,29 +410,65 @@ def cfg_is_claimed(cfg_file, catalogue, guids, disk_guids):
     return attribute(cfg_file, {}, catalogue, guids) is not None
 
 
+def resolve_guid_owners(claims):
+    """GUID -> mod_id from (guid, mod_id, learned, manual) claims. THE ownership rule.
+
+    Both lookup builders go through here -- guid_owners() for the engine's DB modes and
+    catalogue_from_json() for the admin UI -- so the live editor and the boot re-attribution
+    cannot reach different answers for the same file.
+
+      manual   an operator said "this file belongs to this mod". An explicit statement beats
+               anything inferred, so an unambiguous manual claim wins outright -- including
+               over two learned claims that would otherwise cancel out, which is one of the
+               cases manual matching exists for.
+      learned  a package's DLL declares the GUID. A GUID declared by TWO of this world's
+               packages is dropped rather than guessed between: a wrong owner is worse than
+               none, because it files a setting under a mod that never reads it.
+
+    A manual claim is unique per GUID at write time (matching a file clears any other mod's
+    claim on it), so two manual claims only meet here if that invariant was broken by hand;
+    they are treated like learned ones and dropped.
+    """
+    learned, manual = {}, {}
+    for guid, mod_id, is_learned, is_manual in claims:
+        mod_id = int(mod_id)
+        for flag, bucket in ((is_learned, learned), (is_manual, manual)):
+            if not int(flag or 0):
+                continue
+            if guid in bucket and bucket[guid] != mod_id:
+                bucket[guid] = None
+            elif guid not in bucket:
+                bucket[guid] = mod_id
+    out = {g: m for g, m in learned.items() if m is not None}
+    out.update({g: m for g, m in manual.items() if m is not None})
+    return out
+
+
 def guid_owners(wid):
     """BepInEx plugin GUID -> mod_id, for the mods THIS world installs.
 
-    The exact half of attribution, learned at install time by pluginGuids.py from the
-    BepInPlugin attribute inside each package's assemblies. BepInEx names a config file after
-    the plugin's GUID, so this answers "which package wrote this file" outright, where the
-    name matching below can only guess.
+    The exact half of attribution: learned by pluginGuids.py from the BepInPlugin attribute
+    inside each package's assemblies, or stated by the operator in the editor. BepInEx names a
+    config file after the plugin's GUID, so this answers "which package wrote this file"
+    outright, where the name matching in attribute() can only guess.
 
-    Scoped to the world, not global: the same GUID learned from a package this world does not
-    have must not attribute its file here. And a GUID declared by TWO of this world's packages
-    is dropped rather than guessed between -- same rule the name match uses, for the same
-    reason (a wrong owner is worse than none: it files the setting under a mod that never
-    reads it).
+    Scoped to the world, not global: a GUID claimed by a package this world does not have must
+    not attribute its file here. The ownership rule itself is resolve_guid_owners().
     """
-    seen = {}
-    for guid, mod_id in rows(
+    try:
+        claims = rows(
+            "SELECT g.guid, g.mod_id, g.learned, g.manual FROM mod_plugin_guids g "
+            f"JOIN world_mods wm ON wm.mod_id = g.mod_id AND wm.world_id = {wid};")
+    except RuntimeError:
+        # dbUpdate_2.55.sh re-attributes on every boot and runs BEFORE dbUpdate_2.56.sh adds
+        # these two columns, so on the first boot of an upgrade they do not exist yet. Every
+        # row was learned before 2.56, which is exactly what this reads them as -- and 2.56
+        # re-attributes again once the columns are there. Without this the upgrade boot logs a
+        # failed re-attribution that is not a fault.
+        claims = [(g, m, 1, 0) for g, m in rows(
             "SELECT g.guid, g.mod_id FROM mod_plugin_guids g "
-            f"JOIN world_mods wm ON wm.mod_id = g.mod_id AND wm.world_id = {wid};"):
-        if guid in seen and seen[guid] != int(mod_id):
-            seen[guid] = None
-        elif guid not in seen:
-            seen[guid] = int(mod_id)
-    return {g: m for g, m in seen.items() if m is not None}
+            f"JOIN world_mods wm ON wm.mod_id = g.mod_id AND wm.world_id = {wid};")]
+    return resolve_guid_owners(claims)
 
 
 def attribute(cfg_name, parsed, catalogue, guids=None):
@@ -1055,13 +1091,14 @@ def catalogue_from_json(path):
     a second attributor that drifts from this one, and the symptom of a drift is a mod's config
     appearing under the wrong mod's Config icon, which an operator has no way to detect.
 
-    Accepts [{"id": 1, "name": "...", "full_name": "...", "guids": ["com.x.y", ...]}, ...].
+    Accepts [{"id": 1, "name": "...", "full_name": "...", "guids": ["com.x.y", ...],
+              "manual_guids": ["valheim_plus", ...]}, ...].
     Returns (name_handles, guid_owners) -- the same two lookups the DB modes build, so
     attribute() behaves identically whichever side called it. `guids` is optional; an older
     caller that omits it gets name matching alone, which is what 2.55 shipped with.
     """
     out = {}
-    guids = {}
+    claims = []
     with open(path, "r", encoding="utf-8") as fh:
         for row in json.load(fh):
             mod_id = int(row["id"])
@@ -1069,13 +1106,14 @@ def catalogue_from_json(path):
                 k = _norm(handle)
                 if k:
                     out[k] = mod_id
-            for g in (row.get("guids") or []):
-                g = (g or "").strip()
-                if not g:
-                    continue
-                # Ambiguity is dropped, not resolved -- see guid_owners().
-                guids[g] = None if (g in guids and guids[g] != mod_id) else mod_id
-    return out, {g: m for g, m in guids.items() if m is not None}
+            # `guids` are learned from the package's DLLs; `manual_guids` were stated by the
+            # operator. Same rule as the DB modes -- see resolve_guid_owners().
+            for key, learned, manual in (("guids", 1, 0), ("manual_guids", 0, 1)):
+                for g in (row.get(key) or []):
+                    g = (g or "").strip()
+                    if g:
+                        claims.append((g, mod_id, learned, manual))
+    return out, resolve_guid_owners(claims)
 
 
 def parse_dir(world, catalogue=None, directory=None, guids=None):

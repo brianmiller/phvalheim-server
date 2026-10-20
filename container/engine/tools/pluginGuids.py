@@ -2,6 +2,7 @@
 """Which mod package owns which BepInEx plugin GUID.
 
   pluginGuids.py --world NAME [--learn]   read the world's mod zips, record every GUID
+  pluginGuids.py --all --learn            the same for every world (the boot backfill)
   pluginGuids.py --world NAME --local     GUIDs declared by the world's OWN dropped DLLs
   pluginGuids.py --dll PATH               print the GUIDs found in ONE assembly (diagnostic)
   pluginGuids.py --zip PATH               print the GUIDs found in one mod zip (diagnostic)
@@ -179,6 +180,27 @@ def guids_in_zip(path):
     return out
 
 
+def _guids_under(base):
+    """(guid, name, version) for every assembly anywhere under one directory."""
+    found = []
+    if not os.path.isdir(base):
+        return found
+    for dirpath, _dirnames, filenames in os.walk(base):
+        for fn in sorted(filenames):
+            if not fn.lower().endswith(".dll"):
+                continue
+            p = os.path.join(dirpath, fn)
+            try:
+                if os.path.getsize(p) > 32 * 1024 * 1024:
+                    continue
+                with open(p, "rb") as fh:
+                    data = fh.read()
+            except OSError:
+                continue
+            found.extend(guids_in_assembly(data))
+    return found
+
+
 def guids_on_disk(tree_root):
     """Every plugin GUID declared by an assembly actually present under a BepInEx tree.
 
@@ -192,32 +214,39 @@ def guids_on_disk(tree_root):
     """
     found = set()
     for sub in ("plugins", "patchers"):
-        base = os.path.join(tree_root, sub)
-        if not os.path.isdir(base):
-            continue
-        for dirpath, _dirnames, filenames in os.walk(base):
-            for fn in filenames:
-                if not fn.lower().endswith(".dll"):
-                    continue
-                p = os.path.join(dirpath, fn)
-                try:
-                    if os.path.getsize(p) > 32 * 1024 * 1024:
-                        continue
-                    with open(p, "rb") as fh:
-                        data = fh.read()
-                except OSError:
-                    continue
-                for guid, _name, _version in guids_in_assembly(data):
-                    found.add(guid)
+        for guid, _name, _version in _guids_under(os.path.join(tree_root, sub)):
+            found.add(guid)
     return found
 
 
-def world_zips(world):
-    """[(mod_id, cached zip path)] for the mods this world installs.
+def guids_installed(world, mod_name):
+    """GUIDs declared by ONE package's installed copy, when its cached zip is gone.
+
+    The installer unzips every package into a directory named after it --
+    BepInEx/plugins/<name>/ and BepInEx/patchers/<name>/, in the server tree and the client
+    tree -- so the installed files are still tied to a known package even with no zip to read.
+    Both trees, because a client-only mod (2.53 per-mod destinations) is absent from the
+    server's.
+
+    The cache has no pruner today, so this is the rare path; it exists because "the zip is
+    missing" used to mean "this package's configs are unmatched forever", silently.
+    """
+    found = []
+    for tree in ("game", "client"):
+        for sub in ("plugins", "patchers"):
+            found.extend(_guids_under(os.path.join(WORLDS_ROOT, world, tree, "BepInEx", sub, mod_name)))
+    return found
+
+
+def world_packages(world):
+    """[(mod_id, cached zip path or None, package name)] for the mods this world installs.
 
     Straight from worldMods.plan(), so the filename convention lives in exactly one place --
     it encodes the SOURCE as well as owner/name/version, because the cache is shared and
     Hexium's and Thunderstore's copies of one release would otherwise collide.
+
+    A package whose zip is NOT in the cache is still returned, with None. It used to be
+    dropped here, and with it every chance of attributing that package's config files.
     """
     here = os.path.dirname(os.path.abspath(__file__))
     p = subprocess.run([sys.executable, os.path.join(here, "worldMods.py"),
@@ -234,27 +263,33 @@ def world_zips(world):
         f = line.split("\t")
         if len(f) < 9:
             continue
-        fname, mod_id = f[5], f[8]
+        name, fname, mod_id = f[2], f[5], f[8]
         path = os.path.join(TS_MODS_DIR, fname)
-        if os.path.isfile(path):
-            out.append((int(mod_id), path))
+        out.append((int(mod_id), path if os.path.isfile(path) else None, name))
     return out
 
 
 def learn(world, write=True):
     """Record every GUID the world's packages declare. Returns the rows it found."""
-    known = {(int(m), g) for m, g in rows("SELECT mod_id, guid FROM mod_plugin_guids;")}
+    # Only rows already marked LEARNED count as known. A row the operator created by matching a
+    # file by hand (learned=0) still needs this to record that the DLL declares it too, so
+    # that undoing the manual match leaves the learned fact standing.
+    known = {(int(m), g) for m, g in rows(
+        "SELECT mod_id, guid FROM mod_plugin_guids WHERE learned = 1;")}
     learned = []
 
-    for mod_id, path in world_zips(world):
-        for guid, name, version in guids_in_zip(path):
+    for mod_id, path, pkg_name in world_packages(world):
+        # The zip is the evidence of record; the installed copy stands in when it is gone.
+        declared = guids_in_zip(path) if path else guids_installed(world, pkg_name)
+        for guid, name, version in declared:
             learned.append((mod_id, guid, name))
             if write and (mod_id, guid) not in known:
-                # INSERT IGNORE, not a check-then-insert: two worlds installing the same mod
-                # can learn it at the same moment, and a duplicate key here is a race, not an
-                # error worth failing a world's startup over.
-                sql("INSERT IGNORE INTO mod_plugin_guids (mod_id, guid, plugin_name) "
-                    f"VALUES ({mod_id}, {q(guid)}, {q(name)});")
+                # An upsert, not a check-then-insert: two worlds installing the same mod can
+                # learn it at the same moment, and a duplicate key here is a race, not an error
+                # worth failing a world's startup over. It also marks a manual-only row learned.
+                sql("INSERT INTO mod_plugin_guids (mod_id, guid, plugin_name, learned) "
+                    f"VALUES ({mod_id}, {q(guid)}, {q(name)}, 1) "
+                    "ON DUPLICATE KEY UPDATE learned = 1;")
                 known.add((mod_id, guid))
 
     return learned
@@ -309,6 +344,8 @@ def local_guids(world):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--world")
+    ap.add_argument("--all", action="store_true",
+                    help="with --learn: every world. The boot backfill (dbUpdate_2.56.sh).")
     ap.add_argument("--learn", action="store_true")
     ap.add_argument("--local", action="store_true",
                     help="print GUID<TAB>path for the world's own custom_plugins/ and "
@@ -328,8 +365,23 @@ def main():
             print(f"{guid}\t{name}\t{version}")
         return 0
 
+    if args.all:
+        if not args.learn:
+            ap.error("--all is only meaningful with --learn")
+        # One world failing to plan must not stop the rest from being learned.
+        failed = 0
+        for (name,) in rows("SELECT name FROM worlds ORDER BY name;"):
+            try:
+                found = learn(name)
+                print(f"[pluginguids] '{name}': {len(found)} plugin declaration(s) across "
+                      f"{len({m for m, _, _ in found})} package(s)")
+            except Exception as e:
+                failed += 1
+                print(f"[pluginguids] '{name}': could not learn: {e}", file=sys.stderr)
+        return 1 if failed else 0
+
     if not args.world:
-        ap.error("--world, --dll or --zip is required")
+        ap.error("--world, --all, --dll or --zip is required")
 
     if args.local:
         for guid, path in sorted(local_guids(args.world).items()):

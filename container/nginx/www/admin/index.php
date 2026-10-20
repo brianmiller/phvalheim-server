@@ -3389,7 +3389,7 @@ $totalCount = count($worlds);
         const unmatched = d.unmatched_files > 0
             ? ` One extra row covers <b>${d.unmatched_files}</b> config file`
               + `${d.unmatched_files === 1 ? '' : 's'} PhValheim could not match to an installed `
-              + `mod &mdash; still editable, still sent to players.`
+              + `mod &mdash; still editable, still sent to players. Open it to match them to their mod.`
             : '';
 
         // Mods whose settings are on offer from their REMEMBERED shape -- the one they had

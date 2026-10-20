@@ -3550,6 +3550,45 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The unknown count is unknown: player_count_at goes NULL with it, so updateApplier's
   # isIdle() can never read a rotated-away count as a fresh zero and restart an occupied world.
   v56cp=$(grep -cF "player_count=0, player_count_at=NULL, player_count_source='none'" /opt/stateless/engine/tools/playerMonitor)
+  # 2.56 -- plugin GUIDs are learned for EVERY world at boot, not only after a rebuild.
+  #
+  # Discord, 2026-10-19: a ValheimPlus fork's 471-setting config sat under "Unmatched config
+  # files". Its DLL declares exactly the config's name as its GUID; the GUID had simply never
+  # been learned, because learning ran only after a full install or an "Apply to players". The
+  # boot backfill learns, then re-attributes -- in that order, or the re-attribute has nothing
+  # new to use. v56cw is the order; a backfill that re-attributes first ships looking complete.
+  v56cq=$(grep -c '^def guids_installed' /opt/stateless/engine/tools/pluginGuids.py)
+  v56cr=$(grep -cF 'declared = guids_in_zip(path) if path else guids_installed(world, pkg_name)' /opt/stateless/engine/tools/pluginGuids.py)
+  v56cs=$(grep -cF 'out.append((int(mod_id), path if os.path.isfile(path) else None, name))' /opt/stateless/engine/tools/pluginGuids.py)
+  v56ct=$(grep -c '^def world_zips' /opt/stateless/engine/tools/pluginGuids.py)
+  v56cu=$(grep -cE '^if ! /opt/stateless/engine/tools/pluginGuids.py --all --learn; then' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
+  v56cv=$(grep -cE '^if ! /opt/stateless/engine/tools/modConfigs.py --reattribute --all; then' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
+  _l=$(grep -nE '^if ! /opt/stateless/engine/tools/pluginGuids.py --all --learn; then' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh | head -1 | cut -d: -f1)
+  _r=$(grep -nE '^if ! /opt/stateless/engine/tools/modConfigs.py --reattribute --all; then' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh | tail -1 | cut -d: -f1)
+  v56cw=0; [ -n "$_l" ] && [ -n "$_r" ] && [ "$_l" -lt "$_r" ] && v56cw=1
+  # 2.56 -- an operator can match an unmatched config file to a mod by hand ("we detected an
+  # orphaned config file, does it match one of your mods?", Discord 2026-10-19).
+  #
+  # Stored as a MANUAL row in mod_plugin_guids and resolved by ONE function, reached from both
+  # the DB path (boot re-attribution) and the JSON path (live editor): v56cy is 2, and only 2,
+  # because a third caller with its own rule is how the editor and the stored rows would come
+  # to disagree. v56dk: the columns must exist BEFORE the boot learn step writes `learned`.
+  # v56di: the file-name guard -- its first cut rejected any name containing the digit 0.
+  v56cx=$(grep -c '^def resolve_guid_owners' /opt/stateless/engine/tools/modConfigs.py)
+  v56cy=$(grep -cE '^[[:space:]]+return (out, )?resolve_guid_owners\(claims\)$' /opt/stateless/engine/tools/modConfigs.py)
+  v56cz=$(grep -c '^function modConfigMatchFile' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56da=$(grep -c '^function modConfigUnmatchFile' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56db=$(grep -cE "case '(un)?matchModConfigFile':" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v56dc=$(grep -cF 'class="form-select form-select-sm cfg-match-select"' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56dd=$(grep -cF 'onclick="return cfgUnmatch(this);"' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56de=$(grep -cF 'class="alert alert-info cfg-match-prompt"' /opt/stateless/nginx/www/admin/world_configs.php)
+  v56df=$(grep -cF 'ON DUPLICATE KEY UPDATE learned = 1' /opt/stateless/engine/tools/pluginGuids.py)
+  v56dg=$(grep -c 'INSERT IGNORE INTO mod_plugin_guids' /opt/stateless/engine/tools/pluginGuids.py)
+  v56dh=$(grep -cF "$m['manual_guids'] = " /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56di=$(grep -cF '#^[^/\\\\\x00]+\.cfg$#' /opt/stateless/nginx/www/includes/modconfigs.php)
+  v56dj=$(grep -cE '^addColumn mod_plugin_guids (learned|manual) ' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
+  _c=$(grep -nE '^addColumn mod_plugin_guids manual ' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh | head -1 | cut -d: -f1)
+  v56dk=0; [ -n "$_c" ] && [ -n "$_l" ] && [ "$_c" -lt "$_l" ] && v56dk=1
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -3638,6 +3677,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 BULK FORGET POLARITY: still-applied branch explicitly false=$v55eu (want 1)"
   echo "2.55 BULK FORGET NEGATIVE: select-all or prose-matching selector=$v55ex (want 0 -- that would forget settings still in force)"
   echo "2.56 JOINCODE READER: path helper=$v56ca (want 1)  contiguity guard=$v56cb (want 1)  session pos fn=$v56cc (want 1)  START-WITHOUT-CODE IS NULL=$v56cd (want 1)  match fn=$v56ce (want 1)  shared readers=$v56cf (want 2)  path builder=$v56cg (want 1)  db fallback=$v56ch (want 1)  1-arg callers=$v56ci (want 0)  pdo callers=$v56cj (want 8 = 7 calls + definition)"
+  echo "2.56 GUID BACKFILL: installed-copy fn=$v56cq (want 1)  fallback used=$v56cr (want 1)  zipless pkgs kept=$v56cs (want 1)  old world_zips=$v56ct (want 0)  boot learn=$v56cu (want 1)  boot reattribute=$v56cv (want 1)  LEARN BEFORE REATTRIBUTE=$v56cw (want 1)"
+  echo "2.56 MANUAL MATCH: resolver=$v56cx (want 1)  RESOLVER CALLERS=$v56cy (want 2)  match fn=$v56cz (want 1)  undo fn=$v56da (want 1)  api cases=$v56db (want 2)  select=$v56dc (want 1)  undo link=$v56dd (want 1)  prompt=$v56de (want 1)  learn upsert=$v56df (want 1)  old insert-ignore=$v56dg (want 0)  manual guids passed=$v56dh (want 1)  NAME GUARD=$v56di (want 2)  columns=$v56dj (want 2)  COLUMNS BEFORE LEARN=$v56dk (want 1)"
   echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 3)  unknown count has no time=$v56cp (want 1)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
@@ -3936,6 +3977,12 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56ce" = "1" ] && [ "$v56cf" = "2" ] && [ "$v56cg" = "1" ] && [ "$v56ch" = "1" ] \
     && [ "$v56ci" = "0" ] && [ "$v56cj" = "8" ] && [ "$v56ck" = "1" ] && [ "$v56cl" = "1" ] \
     && [ "$v56cm" = "1" ] && [ "$v56cn" = "0" ] && [ "$v56co" = "3" ] && [ "$v56cp" = "1" ] \
+    && [ "$v56cq" = "1" ] && [ "$v56cr" = "1" ] && [ "$v56cs" = "1" ] && [ "$v56ct" = "0" ] \
+    && [ "$v56cu" = "1" ] && [ "$v56cv" = "1" ] && [ "$v56cw" = "1" ] \
+    && [ "$v56cx" = "1" ] && [ "$v56cy" = "2" ] && [ "$v56cz" = "1" ] && [ "$v56da" = "1" ] \
+    && [ "$v56db" = "2" ] && [ "$v56dc" = "1" ] && [ "$v56dd" = "1" ] && [ "$v56de" = "1" ] \
+    && [ "$v56df" = "1" ] && [ "$v56dg" = "0" ] && [ "$v56dh" = "1" ] && [ "$v56di" = "2" ] \
+    && [ "$v56dj" = "2" ] && [ "$v56dk" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \
     && [ "$v55ej" = "1" ] && [ "$v55ek" = "1" ] \

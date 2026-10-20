@@ -256,6 +256,24 @@ $payload = modConfigEditorPayload($pdo, $world);
 			</div>
 	<?php endif; ?>
 
+	<?php
+	// "We detected an orphaned config file -- does it match one of your mods?" -- asked for on
+	// Discord, in those words. Only files with no owner at all count: a Local plugin is already
+	// answered (a DLL in custom_plugins/ declares it).
+	$cfgUnmatched = count(array_filter($files, function ($f) {
+		return $f['mod_id'] === null && empty($f['local_dll']);
+	}));
+	?>
+	<?php if ($cfgUnmatched > 0 && !empty($payload['candidates'])): ?>
+			<div class="alert alert-info cfg-match-prompt" style="font-size:.88rem;">
+				PhValheim couldn&rsquo;t tell which mod wrote
+				<b><?php echo $cfgUnmatched; ?> config file<?php echo $cfgUnmatched === 1 ? '' : 's'; ?></b>
+				below. If you know, choose the mod on the file with <b>Match to mod</b>. Its settings then
+				show under that mod, on every world that has it installed. They apply either way &mdash;
+				this only changes where you find them.
+			</div>
+	<?php endif; ?>
+
 	<?php if (!empty($payload['stale'])): ?>
 			<!--
 				Override rows that match nothing in the installed version. Shown, never hidden:
@@ -384,6 +402,12 @@ $payload = modConfigEditorPayload($pdo, $world);
 					?></span>
 					<?php if ($f['mod_name']): ?>
 						<span class="badge bg-info"><?php echo htmlspecialchars($f['mod_name']); ?></span>
+						<?php if (!empty($f['matched_manually'])): ?>
+							<span class="cfg-matched-by-you" style="font-size:.75rem;opacity:.8;"
+							      title="You matched this file to this mod by hand. It applies on every world that has the mod installed.">matched by you &middot;
+								<a href="#" onclick="return cfgUnmatch(this);"
+								   data-file="<?php echo htmlspecialchars($f['file']); ?>">Undo</a></span>
+						<?php endif; ?>
 					<?php elseif (!empty($f['local_dll'])): ?>
 						<?php
 						      // Unattributable BUT demonstrably read by something. A DLL in this
@@ -397,6 +421,23 @@ $payload = modConfigEditorPayload($pdo, $world);
 						<code style="font-size:.72rem;opacity:.6;"><?php echo htmlspecialchars($f['local_dll']); ?></code>
 					<?php else: ?>
 						<span class="badge bg-secondary" title="This config file could not be matched to a mod in the catalogue, and no DLL in this world's custom_plugins/ claims it either. That can mean the mod was removed, or that it is installed under a plugin GUID nothing here has learned yet. Its settings are still editable and still sent to players.">Unattributed</span>
+						<?php if (!empty($payload['candidates'])): ?>
+							<?php // Mods with no config file yet first: a file with no mod and a mod
+							      // with no file are the likeliest pair. ?>
+							<select class="form-select form-select-sm cfg-match-select"
+							        style="width:auto;display:inline-block;font-size:.78rem;"
+							        data-file="<?php echo htmlspecialchars($f['file']); ?>">
+								<option value="">Match to mod&hellip;</option>
+								<?php foreach ($payload['candidates'] as $c): ?>
+									<option value="<?php echo (int)$c['id']; ?>"><?php
+										echo htmlspecialchars($c['name']) . ($c['has_config'] ? '' : ' (no config file yet)');
+									?></option>
+								<?php endforeach; ?>
+							</select>
+							<button type="button" class="btn btn-sm btn-outline-info"
+							        style="font-size:.75rem;padding:1px 8px;"
+							        onclick="return cfgMatch(this);">Match</button>
+						<?php endif; ?>
 					<?php endif; ?>
 					<code style="font-size:.78rem;opacity:.65;"><?php echo htmlspecialchars($f['file']); ?></code>
 					<?php
@@ -750,6 +791,46 @@ $payload = modConfigEditorPayload($pdo, $world);
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(body)
 			}).then(function (r) { return r.json(); });
+		}
+
+		// Manual matching. Both reload on success: attribution decides which card a file sits
+		// under, its badge, and the per-mod counts, and the server is the only place that
+		// computes those -- patching the DOM here would be a second copy of the rule.
+		//
+		// Unsaved edits are not silently thrown away by the reload.
+		function cfgMatchGuardUnsaved() {
+			return Object.keys(dirty).length === 0
+			    || confirm('You have unsaved changes on this page. Matching reloads it and they will be lost. Continue?');
+		}
+		function cfgMatch(btn) {
+			var sel = btn.parentNode.querySelector('.cfg-match-select');
+			if (!sel || !sel.value) { alert('Choose the mod this file belongs to first.'); return false; }
+			var modName = sel.options[sel.selectedIndex].text.replace(/ \(no config file yet\)$/, '');
+			if (!confirm('Match ' + sel.dataset.file + ' to ' + modName + '?\n\n'
+			           + 'Its settings will show under that mod on every world that has it installed. '
+			           + 'You can undo this.')) { return false; }
+			if (!cfgMatchGuardUnsaved()) { return false; }
+			btn.disabled = true;
+			post('matchModConfigFile', { world: WORLD, file: sel.dataset.file, mod_id: parseInt(sel.value, 10) })
+				.then(function (r) {
+					if (r && r.ok) { location.reload(); return; }
+					btn.disabled = false;
+					alert((r && r.error) || 'Could not save the match.');
+				})
+				.catch(function () { btn.disabled = false; alert('Could not reach the server.'); });
+			return false;
+		}
+		function cfgUnmatch(link) {
+			if (!confirm('Undo your match for ' + link.dataset.file + '?\n\n'
+			           + 'PhValheim goes back to working out its owner on its own, which may leave it unmatched.')) { return false; }
+			if (!cfgMatchGuardUnsaved()) { return false; }
+			post('unmatchModConfigFile', { world: WORLD, file: link.dataset.file })
+				.then(function (r) {
+					if (r && r.ok) { location.reload(); return; }
+					alert((r && r.error) || 'Could not undo the match.');
+				})
+				.catch(function () { alert('Could not reach the server.'); });
+			return false;
 		}
 
 		// Config keys and values come from mod authors and from the operator, so they can

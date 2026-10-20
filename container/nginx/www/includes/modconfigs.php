@@ -77,17 +77,23 @@ function modConfigCatalogueJson($pdo, $worldId) {
     $st->execute([$worldId]);
     $mods = $st->fetchAll(PDO::FETCH_ASSOC);
 
+    // learned = a package's DLL declares the GUID; manual = the operator matched the file by
+    // hand. Passed separately so the tool's resolve_guid_owners() can let an explicit statement
+    // win -- deciding that here would be a second copy of the ownership rule.
     $gs = $pdo->prepare(
-        "SELECT g.mod_id, g.guid FROM mod_plugin_guids g
+        "SELECT g.mod_id, g.guid, g.learned, g.manual FROM mod_plugin_guids g
          JOIN world_mods wm ON wm.mod_id = g.mod_id AND wm.world_id = ?");
     $gs->execute([$worldId]);
     $byMod = [];
+    $manualByMod = [];
     foreach ($gs->fetchAll(PDO::FETCH_ASSOC) as $g) {
-        $byMod[(int)$g['mod_id']][] = $g['guid'];
+        if ((int)$g['learned']) { $byMod[(int)$g['mod_id']][] = $g['guid']; }
+        if ((int)$g['manual'])  { $manualByMod[(int)$g['mod_id']][] = $g['guid']; }
     }
 
     foreach ($mods as &$m) {
         $m['guids'] = $byMod[(int)$m['id']] ?? [];
+        $m['manual_guids'] = $manualByMod[(int)$m['id']] ?? [];
     }
     return $mods;
 }
@@ -222,6 +228,132 @@ function modConfigLocalPluginGuids($world) {
         if (count($parts) === 2 && $parts[0] !== '') { $out[$parts[0]] = $parts[1]; }
     }
     return $out;
+}
+
+/**
+ * The operator says: this config file belongs to this mod.
+ *
+ * Asked for on Discord after a ValheimPlus fork's config sat under "Unmatched config files":
+ * "we detected an orphaned config file, does it match one of your mods?" Learning plugin GUIDs
+ * at boot covers most such files; this covers the rest -- a file a mod names itself rather than
+ * after its GUID, a DLL the scanner cannot read, a package whose zip and install are both gone.
+ *
+ * Recorded as a MANUAL row in mod_plugin_guids, keyed on the file's stem, because every reader
+ * that attributes a file already resolves through that table (resolve_guid_owners() in
+ * modConfigs.py). A separate store would be a second attributor.
+ *
+ * A fact about the MOD, not the world: the file name belongs to whatever wrote it. It takes
+ * effect on every world that has the mod installed, and nowhere else -- guid_owners() is scoped
+ * by world_mods. One manual owner per file name: matching clears any other mod's manual claim.
+ *
+ * The world's saved settings for the file move to the mod straight away, on every world that
+ * has it. That is the one place a stored mod_id is moved from one value to another: the boot
+ * re-attribution never does, because there nobody asked; here somebody did.
+ */
+function modConfigMatchFile($pdo, $world, $file, $modId) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return ['ok' => false, 'error' => "No world named '$world'"]; }
+
+    $file = (string)$file;
+    // A bare file name with a .cfg suffix -- never a path. This value is written to the DB
+    // and matched against file names, and nothing about a match needs a directory in it.
+    if (!preg_match('#^[^/\\\\\x00]+\.cfg$#', $file) || $file === '.cfg') {
+        return ['ok' => false, 'error' => 'That is not a config file name.'];
+    }
+    if (in_array($file, modConfigExcludedFiles(), true)) {
+        return ['ok' => false, 'error' => 'That file belongs to the BepInEx loader, not to a mod.'];
+    }
+
+    // The file must be one this world actually has -- on disk in either tree, in its saved
+    // settings, or as a remembered shape after an update purge. A claim outlives the request
+    // and applies on every world with the mod, so matching a name nobody has would leave a
+    // claim on a file that does not exist anywhere.
+    $base = "/opt/stateful/games/valheim/worlds/" . $world;
+    $known = is_file("$base/game/BepInEx/config/$file") || is_file("$base/client/BepInEx/config/$file");
+    if (!$known) {
+        $st = $pdo->prepare("SELECT (SELECT COUNT(*) FROM mod_config_overrides WHERE world_id = ? AND cfg_file = ?)
+                                  + (SELECT COUNT(*) FROM mod_config_shapes    WHERE world_id = ? AND cfg_file = ?)");
+        $st->execute([$worldId, $file, $worldId, $file]);
+        $known = (int)$st->fetchColumn() > 0;
+    }
+    if (!$known) {
+        return ['ok' => false, 'error' => "This world has no config file named $file."];
+    }
+
+    $modId = (int)$modId;
+    $st = $pdo->prepare("SELECT 1 FROM world_mods WHERE world_id = ? AND mod_id = ?");
+    $st->execute([$worldId, $modId]);
+    if (!$st->fetchColumn()) {
+        return ['ok' => false, 'error' => 'That mod is not installed on this world.'];
+    }
+
+    $guid = substr($file, 0, -4);
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare("UPDATE mod_plugin_guids SET manual = 0
+                       WHERE guid = ? AND mod_id <> ? AND manual = 1")->execute([$guid, $modId]);
+        $pdo->prepare("DELETE FROM mod_plugin_guids WHERE guid = ? AND learned = 0 AND manual = 0")
+            ->execute([$guid]);
+        $pdo->prepare("INSERT INTO mod_plugin_guids (mod_id, guid, plugin_name, learned, manual)
+                       VALUES (?, ?, '', 0, 1) ON DUPLICATE KEY UPDATE manual = 1")
+            ->execute([$modId, $guid]);
+        $mv = $pdo->prepare("UPDATE mod_config_overrides o
+                             JOIN world_mods wm ON wm.world_id = o.world_id AND wm.mod_id = ?
+                             SET o.mod_id = ? WHERE o.cfg_file = ?");
+        $mv->execute([$modId, $modId, $file]);
+        $pdo->commit();
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        return ['ok' => false, 'error' => 'Could not save the match: ' . $e->getMessage()];
+    }
+    return ['ok' => true, 'moved' => $mv->rowCount()];
+}
+
+/**
+ * Undo a manual match. The file goes back to whatever PhValheim can work out on its own.
+ *
+ * Clears the MANUAL flag rather than deleting the row: if the mod's DLL also declares this
+ * GUID, that learned fact is true independently of the match and must survive the undo. A row
+ * left with neither flag is deleted.
+ *
+ * Saved settings filed under the mod by the match go back to unowned, on every world that has
+ * the mod. Where a learned GUID still names an owner, the next boot's re-attribution files them
+ * there again; the live editor shows that owner immediately, since it attributes on every render.
+ */
+function modConfigUnmatchFile($pdo, $world, $file) {
+    $worldId = worldIdByName($pdo, $world);
+    if (!$worldId) { return ['ok' => false, 'error' => "No world named '$world'"]; }
+    $file = (string)$file;
+    if (!preg_match('#^[^/\\\\\x00]+\.cfg$#', $file)) {
+        return ['ok' => false, 'error' => 'That is not a config file name.'];
+    }
+    $guid = substr($file, 0, -4);
+
+    $st = $pdo->prepare("SELECT g.mod_id FROM mod_plugin_guids g
+                         JOIN world_mods wm ON wm.mod_id = g.mod_id AND wm.world_id = ?
+                         WHERE g.guid = ? AND g.manual = 1");
+    $st->execute([$worldId, $guid]);
+    $modId = $st->fetchColumn();
+    if ($modId === false) {
+        return ['ok' => false, 'error' => 'This file was not matched by hand on this world.'];
+    }
+    $modId = (int)$modId;
+
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare("UPDATE mod_plugin_guids SET manual = 0 WHERE guid = ? AND mod_id = ?")
+            ->execute([$guid, $modId]);
+        $pdo->prepare("DELETE FROM mod_plugin_guids WHERE guid = ? AND learned = 0 AND manual = 0")
+            ->execute([$guid]);
+        $mv = $pdo->prepare("UPDATE mod_config_overrides SET mod_id = NULL
+                             WHERE cfg_file = ? AND mod_id = ?");
+        $mv->execute([$file, $modId]);
+        $pdo->commit();
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        return ['ok' => false, 'error' => 'Could not undo the match: ' . $e->getMessage()];
+    }
+    return ['ok' => true, 'released' => $mv->rowCount()];
 }
 
 /**
@@ -432,8 +564,10 @@ function modConfigEditorPayload($pdo, $world) {
 
     $overrides = modConfigOverrides($pdo, $worldId);
     $modNames = [];
+    $manualGuids = [];
     foreach (modConfigCatalogueJson($pdo, $worldId) as $m) {
         $modNames[(int)$m['id']] = $m['full_name'] ?: $m['name'];
+        $manualGuids[(int)$m['id']] = $m['manual_guids'];
     }
 
     // Files on disk, then the remembered shapes of files that are not. Both go through the one
@@ -534,6 +668,10 @@ function modConfigEditorPayload($pdo, $world) {
             'guid'           => $f['guid'],
             'mod_id'         => $modId,
             'mod_name'       => $modId !== null ? ($modNames[$modId] ?? null) : null,
+            // True when this file's owner is the operator's own match rather than something
+            // PhValheim worked out -- the page shows "matched by you" and an Undo for it.
+            'matched_manually' => $modId !== null
+                && in_array(preg_replace('/\.cfg$/', '', $f['file']), $manualGuids[$modId] ?? [], true),
             // Set only when a DLL in this world's custom_plugins/ declares this file's GUID.
             // NOT a weaker kind of mod_id: there is no catalogue row to point at, which is the
             // whole reason these go unattributed. It is evidence that something here READS the
@@ -625,13 +763,31 @@ function modConfigEditorPayload($pdo, $world) {
         }
     }
 
+    // The mods an unmatched file can be matched to: this world's own, and nothing else -- a
+    // match is only meaningful where the mod is installed, and modConfigMatchFile() refuses any
+    // other. Mods with NO config file yet come first: an unmatched file and a mod with no file
+    // is the likeliest pair, and on the report that prompted this they were exactly that.
+    $hasConfig = [];
+    foreach ($files as $ff) {
+        if ($ff['mod_id'] !== null) { $hasConfig[$ff['mod_id']] = true; }
+    }
+    $candidates = [];
+    foreach ($modNames as $id => $name) {
+        $candidates[] = ['id' => $id, 'name' => $name, 'has_config' => isset($hasConfig[$id])];
+    }
+    usort($candidates, function ($a, $b) {
+        if ($a['has_config'] !== $b['has_config']) { return $a['has_config'] ? 1 : -1; }
+        return strcasecmp($a['name'], $b['name']);
+    });
+
     return [
-        'world'     => $world,
-        'world_id'  => (int)$worldId,
-        'readable'  => true,
-        'generated' => (bool)$tree['generated'],
-        'files'     => $files,
-        'stale'     => $stale,
+        'world'      => $world,
+        'world_id'   => (int)$worldId,
+        'readable'   => true,
+        'generated'  => (bool)$tree['generated'],
+        'files'      => $files,
+        'stale'      => $stale,
+        'candidates' => $candidates,
     ];
 }
 
