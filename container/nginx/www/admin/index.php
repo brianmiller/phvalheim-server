@@ -301,6 +301,13 @@ $totalCount = count($worlds);
                         </svg>
                         File Browser
                     </a>
+                    <a href="#" onclick="showServerHealthModal(); return false;" class="nav-item" data-nav="server-health">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12.75l6 6 9-13.5"/>
+                        </svg>
+                        Server Health
+                        <span id="healthNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
+                    </a>
                     <a href="#" onclick="showServerSettingsModal(); return false;" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
@@ -399,23 +406,11 @@ $totalCount = count($worlds);
             if (empty($steamAPIKey)) $missingSettings[] = 'Steam API Key';
             if (empty($gameDNS)) $missingSettings[] = 'Game DNS';
             if (empty($basePort)) $missingSettings[] = 'Base Port';
-            if (empty($phvalheimClientURL)) $missingSettings[] = 'Client Download URL';
             ?>
-            <?php if (!empty($missingSettings)): ?>
-            <div id="criticalConfigBanner" style="margin: 0.75rem 0; padding: 1rem 1.25rem; background: rgba(248, 113, 113, 0.08); border: 1px solid var(--danger); border-radius: 8px; display: flex; align-items: flex-start; gap: 0.75rem;">
-                <svg width="22" height="22" fill="none" stroke="var(--danger)" viewBox="0 0 24 24" style="flex-shrink: 0; margin-top: 1px;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                </svg>
-                <div style="flex: 1;">
-                    <div style="font-weight: 600; color: var(--danger); font-size: 0.95rem; margin-bottom: 0.4rem;">Critical Configuration Missing</div>
-                    <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.6rem;">
-                        The following required settings are not configured:
-                        <strong style="color: var(--text-primary);"><?php echo implode(', ', $missingSettings); ?></strong>
-                    </div>
-                    <button class="action-btn" onclick="showServerSettingsModal()" style="padding: 0.35rem 1rem; font-size: 0.8rem; background: var(--danger); border-color: var(--danger); color: #fff;">Open Server Settings</button>
-                </div>
-            </div>
-            <?php endif; ?>
+            <!-- Server health (2.56). Filled by fetchServerHealth() from adminAPI.php?action=getServerHealth;
+                 shows only checks that need attention, and stays hidden while every check is OK.
+                 The "Critical Configuration Missing" banner that was here is the first of those checks. -->
+            <div id="serverHealthStrip" style="display:none; margin: 0.75rem 0; padding: 0.75rem 1.1rem 0.4rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px;"></div>
 
             <!-- Stats Cards -->
             <div class="stats-grid" id="statsGrid">
@@ -1789,6 +1784,22 @@ $totalCount = count($worlds);
         </div>
     </div>
 
+    <!-- Server Health Modal (2.56): every check, including the ones that are OK -->
+    <div class="mods-modal-overlay" id="serverHealthOverlay" onclick="closeServerHealthModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 760px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title">Server Health</h3>
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <button class="action-btn" onclick="fetchServerHealth(true)" style="padding:0.3rem 0.8rem;font-size:0.78rem;">Re-check</button>
+                    <button class="mods-modal-close" onclick="closeServerHealthModal()">&times;</button>
+                </div>
+            </div>
+            <div class="mods-modal-body" id="serverHealthBody">
+                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Checking...</div>
+            </div>
+        </div>
+    </div>
+
     <script>
     // Live update interval (5 seconds)
     const POLL_INTERVAL = 5000;
@@ -1870,6 +1881,8 @@ $totalCount = count($worlds);
         initWorldCharts();
         startPolling();
         startStatsPolling();
+        fetchServerHealth();
+        setInterval(fetchServerHealth, 60000);
         updateTime();
         setInterval(updateTime, 1000);
 
@@ -6337,7 +6350,6 @@ $totalCount = count($worlds);
                     ['Base Port', s.basePort],
                     ['Game DNS', s.gameDNS || '(empty)'],
                     ['Steam API Key', s.steamAPIKey ? s.steamAPIKey.substring(0, 8) + '...' : '(empty)'],
-                    ['Client Download URL', s.phvalheimClientURL ? (s.phvalheimClientURL.length > 40 ? s.phvalheimClientURL.substring(0, 40) + '...' : s.phvalheimClientURL) : '(empty)'],
                     ['Session Timeout', s.sessionTimeout + 's'],
                 ];
                 const tbody = document.getElementById('migrationValuesTable');
@@ -6397,6 +6409,144 @@ $totalCount = count($worlds);
     }
 
     // ===== Server Settings Modal =====
+    // ===== Server health (2.56) =====
+    // One list of checks from adminAPI.php?action=getServerHealth: {id, name, state, detail, action, since}.
+    // The strip under the header shows warnings and problems only; the modal (sidebar: Server Health)
+    // shows every check, including the OK and unknown ones. Built with DOM calls, never innerHTML
+    // from the payload: detail text can quote a sync error straight from a catalogue's response.
+    let serverHealthData = null;
+    const HEALTH_STATE = {
+        ok:      { label: 'OK',        color: 'var(--success)' },
+        warn:    { label: 'Warning',   color: 'var(--warning)' },
+        fail:    { label: 'Problem',   color: 'var(--danger)' },
+        unknown: { label: 'Not known', color: 'var(--text-muted)' }
+    };
+    function healthActionButton(action) {
+        if (!action) return null;
+        const b = document.createElement('button');
+        b.className = 'action-btn';
+        b.style.cssText = 'padding:0.3rem 0.8rem;font-size:0.78rem;white-space:nowrap;flex-shrink:0;';
+        if (action === 'settings') {
+            b.textContent = 'Open Server Settings';
+            b.onclick = function () { closeServerHealthModal(); showServerSettingsModal(); };
+            return b;
+        }
+        if (action.indexOf('log:') === 0) {
+            const file = action.slice(4);
+            if (!/^[A-Za-z0-9_.-]+$/.test(file)) return null;
+            b.textContent = 'View ' + file;
+            b.onclick = function () { window.open('readLog.php?logfile=' + encodeURIComponent(file) + '#bottom', '_blank'); };
+            return b;
+        }
+        return null;
+    }
+    function healthRow(c, withPill) {
+        const st = HEALTH_STATE[c.state] || HEALTH_STATE.unknown;
+        const row = document.createElement('div');
+        row.className = 'health-row';
+        row.dataset.state = c.state;
+        row.style.cssText = 'display:flex;align-items:flex-start;gap:0.7rem;padding:0.55rem 0;border-top:1px solid var(--border-color);';
+        const dot = document.createElement('span');
+        dot.style.cssText = 'flex-shrink:0;width:10px;height:10px;border-radius:50%;margin-top:0.4rem;background:' + st.color + ';';
+        const text = document.createElement('div');
+        text.style.cssText = 'flex:1;min-width:0;';
+        const name = document.createElement('div');
+        name.style.cssText = 'font-weight:600;font-size:0.88rem;color:var(--text-primary);display:flex;align-items:center;gap:0.5rem;';
+        name.textContent = c.name;
+        if (withPill) {
+            const pill = document.createElement('span');
+            pill.style.cssText = 'font-size:0.68rem;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;padding:0.1rem 0.45rem;border-radius:999px;color:#fff;background:' + st.color + ';';
+            pill.textContent = st.label;
+            name.appendChild(pill);
+        }
+        const detail = document.createElement('div');
+        detail.style.cssText = 'font-size:0.82rem;color:var(--text-secondary);line-height:1.4;';
+        detail.textContent = c.detail;
+        text.appendChild(name);
+        text.appendChild(detail);
+        row.appendChild(dot);
+        row.appendChild(text);
+        const btn = healthActionButton(c.action);
+        if (btn) row.appendChild(btn);
+        return row;
+    }
+    function renderServerHealthStrip() {
+        const d = serverHealthData;
+        const strip = document.getElementById('serverHealthStrip');
+        if (!d || !strip) return;
+        const issues = d.checks.filter(c => c.state === 'fail' || c.state === 'warn');
+        const badge = document.getElementById('healthNavBadge');
+        if (badge) {
+            badge.textContent = issues.length ? String(issues.length) : '';
+            badge.style.display = issues.length ? 'inline-block' : 'none';
+            badge.style.background = d.counts.fail ? 'var(--danger)' : 'var(--warning)';
+        }
+        strip.innerHTML = '';
+        if (issues.length === 0) { strip.style.display = 'none'; return; }
+        const head = document.createElement('div');
+        head.style.cssText = 'display:flex;align-items:center;gap:0.6rem;padding-bottom:0.45rem;';
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:600;font-size:0.92rem;color:' + (d.counts.fail ? 'var(--danger)' : 'var(--warning)') + ';';
+        title.textContent = 'Server health: ' + issues.length + (issues.length === 1 ? ' item needs' : ' items need') + ' attention';
+        const link = document.createElement('a');
+        link.href = '#';
+        link.style.cssText = 'margin-left:auto;font-size:0.8rem;color:var(--text-muted);';
+        link.textContent = 'All checks' + (d.counts.unknown ? ' (' + d.counts.unknown + ' not known)' : '');
+        link.onclick = function (e) { e.preventDefault(); showServerHealthModal(); };
+        head.appendChild(title);
+        head.appendChild(link);
+        strip.appendChild(head);
+        issues.forEach(c => strip.appendChild(healthRow(c, false)));
+        strip.style.display = 'block';
+    }
+    function renderServerHealthModal() {
+        const d = serverHealthData;
+        const body = document.getElementById('serverHealthBody');
+        if (!d || !body) return;
+        body.innerHTML = '';
+        const order = { fail: 0, warn: 1, unknown: 2, ok: 3 };
+        const list = d.checks.slice().sort((a, b) => (order[a.state] ?? 9) - (order[b.state] ?? 9));
+        const summary = document.createElement('div');
+        summary.style.cssText = 'font-size:0.82rem;color:var(--text-muted);padding-bottom:0.5rem;';
+        const parts = [];
+        if (d.counts.fail) parts.push(d.counts.fail + ' problem' + (d.counts.fail === 1 ? '' : 's'));
+        if (d.counts.warn) parts.push(d.counts.warn + ' warning' + (d.counts.warn === 1 ? '' : 's'));
+        if (d.counts.unknown) parts.push(d.counts.unknown + ' not known');
+        parts.push(d.counts.ok + ' OK');
+        summary.textContent = parts.join(', ') + '. Checked ' + new Date(d.checked_at * 1000).toLocaleTimeString() + '.';
+        body.appendChild(summary);
+        list.forEach(c => body.appendChild(healthRow(c, true)));
+    }
+    async function fetchServerHealth(fromModal) {
+        if (fromModal) {
+            const body = document.getElementById('serverHealthBody');
+            if (body) body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">Checking...</div>';
+        }
+        try {
+            const res = await fetch('adminAPI.php?action=getServerHealth', { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.checks)) return;
+            serverHealthData = data;
+            renderServerHealthStrip();
+            if (document.getElementById('serverHealthOverlay').classList.contains('show')) renderServerHealthModal();
+        } catch (e) {
+            console.error('Server health:', e);
+            if (fromModal) {
+                const body = document.getElementById('serverHealthBody');
+                if (body) body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--danger)">The health check could not be loaded.</div>';
+            }
+        }
+    }
+    function showServerHealthModal() {
+        document.getElementById('serverHealthOverlay').classList.add('show');
+        if (serverHealthData) { renderServerHealthModal(); } else { fetchServerHealth(true); }
+    }
+    function closeServerHealthModal(event) {
+        if (!event || event.target === document.getElementById('serverHealthOverlay')) {
+            document.getElementById('serverHealthOverlay').classList.remove('show');
+        }
+    }
+
     async function showServerSettingsModal() {
         const overlay = document.getElementById('serverSettingsOverlay');
         const body = document.getElementById('serverSettingsBody');
@@ -6498,10 +6648,6 @@ $totalCount = count($worlds);
                             <label style="font-size:0.8rem;color:orchid" ${tip('Maximum world log file size in bytes before rotation')}>Max Log Size</label>
                             <input type="number" class="form-control form-control-sm" id="ss-maxLogSize" value="${s.maxLogSize}" style="font-family:var(--font-mono)" ${tip('Log files exceeding this size are rotated. Default: 1000000 (1 MB).')}>
                         </div>
-                    </div>
-                    <div class="mb-2">
-                        <label style="font-size:0.8rem;color:orchid" ${tip('URL where players download the PhValheim client installer')}>Client Download URL <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
-                        <input type="text" class="form-control form-control-sm" id="ss-phvalheimClientURL" value="${s.phvalheimClientURL || ''}" style="font-family:var(--font-mono)" ${tip('Direct download link to the PhValheim client .exe installer')}>
                     </div>
                     <div class="mb-2">
                         <label style="font-size:0.8rem;color:orchid" ${tip('Server timezone for logs, backups, and world timestamps')}>Timezone</label>
@@ -6815,7 +6961,7 @@ $totalCount = count($worlds);
             // four fixed columns in `settings`.
             aiRenderProviderList();
             // Highlight empty required fields with red border
-            ['ss-gameDNS', 'ss-basePort', 'ss-steamAPIKey', 'ss-phvalheimClientURL'].forEach(id => {
+            ['ss-gameDNS', 'ss-basePort', 'ss-steamAPIKey'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el && !el.value.trim()) {
                     el.style.borderColor = 'var(--danger)';
@@ -6852,7 +6998,6 @@ $totalCount = count($worlds);
             defaultSeed: '',
             sessionTimeout: parseInt(document.getElementById('ss-sessionTimeout').value) || 2592000,
             maxLogSize: parseInt(document.getElementById('ss-maxLogSize').value) || 1000000,
-            phvalheimClientURL: document.getElementById('ss-phvalheimClientURL').value.trim(),
             timezone: document.getElementById('ss-timezone').value.trim() || 'Etc/UTC',
             steamAPIKey: document.getElementById('ss-steamAPIKey').value.trim(),
             analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),

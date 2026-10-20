@@ -114,7 +114,7 @@ function accessBadges($pdo, $world, $dimClass, $hasPassword = false) {
 	return implode(' ', $badges);
 }
 
-function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
+function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) {
 
 		# steam
 		$steamID = getSessionSteamID();
@@ -626,17 +626,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAP
 
 
 		# mandatory vars missing
-                if(empty($backupsToKeep)) {
-                        echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: Backup retention is not configured. Set this in Admin UI &rarr; Server Settings.</div>";
-                }
+                # The backup-retention warning that was here was shown to PLAYERS, who can do nothing
+                # about it. It is the operator's: see the dashboard's Server Health strip (2.56).
 
                 if(empty($playerName)) {
                         echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: The SteamAPI could not be contacted. Check your Steam API Key in Admin UI &rarr; Server Settings.</div>";
                 }
-
-                if(empty($phvalheimClientURL)) {
-                        echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Client Download URL is missing! Set this in Admin UI &rarr; Server Settings.</div>";
-		}
 
                 if(empty($basePort)) {
                         echo "<tr><td colspan='2' style='text-align: center;color:red;'><div>WARNING: The PhValheim Base Port is not set! Set this in Admin UI &rarr; Server Settings.</div>";
@@ -1086,7 +1081,7 @@ if (phvDevSteamID() !== NULL) {
                 }
         </script>
 
-                <?php populateTable($pdo,$gameDNS,$phvalheimHost,$phvalheimClientURL,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) ?>
+                <?php populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,$defaultSeed,$basePort,$httpScheme,$operatingSystem,$phValheimClientGitRepo,$clientVersionsToRender) ?>
 
                 <div class="public-footer">
                         <a href="https://github.com/brianmiller/phvalheim-server" target="_blank" rel="noopener" class="social-link" title="View on GitHub">

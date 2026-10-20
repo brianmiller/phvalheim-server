@@ -23,6 +23,10 @@ require_once '/opt/stateless/nginx/www/includes/aicontext.php';
 # The 2.55 mod config editor (mod_config_overrides). Absolute + require_once for the same
 # reason as the three includes above; it requires modcatalog.php itself for worldIdByName().
 require_once '/opt/stateless/nginx/www/includes/modconfigs.php';
+# 2.56 server health: one list of checks for the dashboard. health.php reads (and refreshes) the
+# client release cache, which lives in git.php.
+require_once '/opt/stateless/nginx/www/includes/git.php';
+require_once '/opt/stateless/nginx/www/includes/health.php';
 
 header('Content-Type: application/json');
 
@@ -35,6 +39,12 @@ switch($action) {
 
     case 'getSystemStats':
         getSystemStatsJson($pdo);
+        break;
+
+    case 'getServerHealth':
+        $health = phvServerHealth($pdo, ['clientRepo' => $phValheimClientGitRepo]);
+        $health['success'] = true;
+        echo json_encode($health);
         break;
 
     case 'getWorldMods':
@@ -2432,7 +2442,6 @@ function getServerSettingsJson($pdo) {
             'defaultSeed' => $settings['defaultSeed'] ?? '',
             'gameDNS' => $settings['gameDNS'] ?? '',
             'steamAPIKey' => $settings['steamApiKey'] ?? '',
-            'phvalheimClientURL' => $settings['phvalheimClientURL'] ?? '',
             'backupsToKeep' => (int)$settings['backupsToKeep'],
             'maxLogSize' => (int)$settings['maxLogSize'],
             'sessionTimeout' => (int)$settings['sessionTimeout'],
@@ -2495,7 +2504,6 @@ function saveServerSettingsJson($pdo, $input) {
         'defaultSeed' => 'string',
         'gameDNS' => 'string',
         'steamAPIKey' => 'string',
-        'phvalheimClientURL' => 'string',
         'backupsToKeep' => 'int',
         'maxLogSize' => 'int',
         'sessionTimeout' => 'int',
@@ -2587,7 +2595,6 @@ function saveServerSettingsJson($pdo, $input) {
             'defaultSeed' => $settings['defaultSeed'],
             'gameDNS' => $settings['gameDNS'],
             'steamAPIKey' => $settings['steamApiKey'],
-            'phvalheimClientURL' => $settings['phvalheimClientURL'],
             'backupsToKeep' => $settings['backupsToKeep'],
             'maxLogSize' => $settings['maxLogSize'],
             'sessionTimeout' => $settings['sessionTimeout'],
@@ -2655,7 +2662,6 @@ function saveServerSettingsJson_internal($pdo, $input) {
         'defaultSeed' => 'string',
         'gameDNS' => 'string',
         'steamAPIKey' => 'string',
-        'phvalheimClientURL' => 'string',
         'backupsToKeep' => 'int',
         'maxLogSize' => 'int',
         'sessionTimeout' => 'int',

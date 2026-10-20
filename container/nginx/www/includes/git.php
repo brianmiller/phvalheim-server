@@ -37,6 +37,20 @@ if (!defined('PHV_RELEASE_CACHE')) {
 if (!defined('PHV_RELEASE_CACHE_TTL')) {
 	define('PHV_RELEASE_CACHE_TTL', 3600);
 }
+// Where the cache goes when /opt/stateful/cache cannot be written. The engine chowns
+// /opt/stateful to phvalheim at boot, but a volume that refuses it (some NAS and NFS
+// mounts) left php-fpm unable to cache at all -- and then EVERY player page load spent one
+// of the 60 unauthenticated API calls per hour this IP gets. Under /tmp it lasts until the
+// container restarts, which is all a one-hour cache needs.
+if (!defined('PHV_RELEASE_CACHE_FALLBACK')) {
+	define('PHV_RELEASE_CACHE_FALLBACK', sys_get_temp_dir() . '/phvalheim-clientReleases.json');
+}
+// After BOTH sources fail with nothing cached, do not try again for this long. Each attempt
+// can cost a player's page load up to 12 seconds; a dead network should cost one of them,
+// not every one.
+if (!defined('PHV_RELEASE_FAIL_BACKOFF')) {
+	define('PHV_RELEASE_FAIL_BACKOFF', 300);
+}
 
 /* "https://github.com/owner/repo" (optionally .git, optionally trailing /) -> "owner/repo" */
 function phvGitHubSlug($gitRepo) {
@@ -82,6 +96,52 @@ function phvFetchPublishedReleases($slug) {
 }
 
 /*
+ * The newest PUBLISHED release, from github.com/<repo>/releases/latest -- a web redirect, not
+ * the API. Returns [version] or null.
+ *
+ * WHY: a player reported the download menu saying "No published release is available right
+ * now" while 2.0.15 was published. The only way getGitReleases() says that is the API lookup
+ * failing with no cache to fall back on, and the API has one quota for everything behind this
+ * server's IP: 60 unauthenticated calls an hour, shared with every other GitHub user on a
+ * hosting provider's or a carrier's NAT. One failed lookup left players with no download.
+ *
+ * This endpoint answers the same question for the case that matters -- GitHub's "latest" is by
+ * definition the newest release that is neither a draft nor a pre-release, so the published-
+ * only rule this file exists for still holds -- and it is not metered by the API rate limit
+ * (verified: the response carries no x-ratelimit headers). It cannot list older releases, so
+ * it is the fallback, not the source.
+ */
+function phvFetchLatestPublishedRelease($slug) {
+	$ch = curl_init("https://github.com/$slug/releases/latest");
+	if ($ch === false) { return null; }
+	curl_setopt_array($ch, [
+		CURLOPT_NOBODY         => true,
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_FOLLOWLOCATION => false,
+		CURLOPT_CONNECTTIMEOUT => 3,
+		CURLOPT_TIMEOUT        => 6,
+		CURLOPT_USERAGENT      => 'phvalheim-server',
+	]);
+	curl_exec($ch);
+	$code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+	$loc  = (string)curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+	curl_close($ch);
+	return phvVersionFromLatestRedirect($code, $loc);
+}
+
+/*
+ * The parse, apart from the HTTP call so it can be driven with recorded responses. A repo with
+ * no published release redirects to the releases LIST, not to a tag -- which must read as "no
+ * answer", never as a version.
+ */
+function phvVersionFromLatestRedirect($code, $location) {
+	if ($code < 300 || $code >= 400) { return null; }
+	if (!preg_match('~/releases/tag/([^/?#]+)/?$~', (string)$location, $m)) { return null; }
+	$tag = ltrim(rawurldecode($m[1]), 'vV');
+	return $tag === '' ? null : [$tag];
+}
+
+/*
  * The filter this whole file exists for, kept SEPARATE from the HTTP call so it
  * can be driven with recorded API responses.
  *
@@ -117,17 +177,57 @@ function phvTopVersions($versions, $want) {
 	return array_slice($versions, 0, max(1, (int)$want));
 }
 
-function phvReadReleaseCache($requireFresh) {
-	if (!is_readable(PHV_RELEASE_CACHE)) { return null; }
-	if ($requireFresh && (time() - (int)filemtime(PHV_RELEASE_CACHE)) >= PHV_RELEASE_CACHE_TTL) {
-		return null;
+/*
+ * The cache, wherever it could be written. The primary location first, then the fallback;
+ * whichever was written most recently wins if both exist.
+ *
+ * clearstatcache() is not decoration. PHP caches filemtime() for the life of a request, so a
+ * file aged in the same request still reads as fresh -- which is how the old test's "stale
+ * cache is served" case passed for months without ever reaching the stale path.
+ */
+function phvReleaseCachePaths() {
+	return array_values(array_unique([PHV_RELEASE_CACHE, PHV_RELEASE_CACHE_FALLBACK]));
+}
+
+function phvLoadReleaseCache() {
+	clearstatcache();
+	$best = null;
+	foreach (phvReleaseCachePaths() as $p) {
+		if (!is_readable($p)) { continue; }
+		$c = json_decode((string)@file_get_contents($p), true);
+		if (!is_array($c)) { continue; }
+		$c['_mtime'] = (int)filemtime($p);
+		if ($best === null || $c['_mtime'] > $best['_mtime']) { $best = $c; }
 	}
-	$c = json_decode((string)file_get_contents(PHV_RELEASE_CACHE), true);
-	if (!is_array($c) || !isset($c['versions']) || !is_array($c['versions'])) { return null; }
+	return $best;
+}
+
+function phvReadReleaseCache($requireFresh) {
+	$c = phvLoadReleaseCache();
+	if ($c === null || !isset($c['versions']) || !is_array($c['versions'])) { return null; }
+	if ($requireFresh && (time() - $c['_mtime']) >= PHV_RELEASE_CACHE_TTL) { return null; }
 	return $c['versions'];
 }
 
-function getGitReleases($gitRepo, $clientVersionsToRender) {
+/* Write to the first location that accepts it. Returns the path written, or null. */
+function phvWriteReleaseCache($data) {
+	$json = json_encode($data);
+	foreach (phvReleaseCachePaths() as $p) {
+		@mkdir(dirname($p), 0775, true);
+		if (@file_put_contents($p, $json) !== false) { return $p; }
+	}
+	error_log('phvalheim: cannot write the client release cache anywhere; every player page'
+	        . ' load will query GitHub until this is fixed');
+	return null;
+}
+
+/*
+ * $fetchApi / $fetchLatest are the two network sources, passed in so the whole decision can be
+ * driven without a network. Production callers never pass them.
+ */
+function getGitReleases($gitRepo, $clientVersionsToRender,
+                        $fetchApi = 'phvFetchPublishedReleases',
+                        $fetchLatest = 'phvFetchLatestPublishedRelease') {
 	$want = max(1, (int)$clientVersionsToRender);
 
 	$slug = phvGitHubSlug($gitRepo);
@@ -142,22 +242,43 @@ function getGitReleases($gitRepo, $clientVersionsToRender) {
 		return phvTopVersions($fresh, $want);
 	}
 
-	$versions = phvFetchPublishedReleases($slug);
+	// Both sources failed recently and nothing is cached: do not make this page wait on them
+	// again yet.
+	$c = phvLoadReleaseCache();
+	$stale = ($c !== null && isset($c['versions']) && is_array($c['versions'])) ? $c['versions'] : null;
+	if ($stale === null && $c !== null && !empty($c['failed_at'])
+	        && (time() - (int)$c['failed_at']) < PHV_RELEASE_FAIL_BACKOFF) {
+		return [];
+	}
+
+	$versions = $fetchApi($slug);
 	if ($versions !== null) {
-		@mkdir(dirname(PHV_RELEASE_CACHE), 0775, true);
-		@file_put_contents(PHV_RELEASE_CACHE,
-			json_encode(['fetched' => time(), 'slug' => $slug, 'versions' => $versions]));
+		phvWriteReleaseCache(['fetched' => time(), 'slug' => $slug, 'source' => 'api',
+		                      'versions' => $versions]);
 		return phvTopVersions($versions, $want);
 	}
 
-	// Lookup failed. A stale answer is still an answer about PUBLISHED releases.
-	$stale = phvReadReleaseCache(false);
+	// The API failed. Ask the un-metered endpoint for the newest published release, and keep
+	// any older versions a previous lookup knew about -- they were published when it looked.
+	$latest = $fetchLatest($slug);
+	if ($latest !== null) {
+		$merged = array_values(array_unique(array_merge($latest, $stale ?? [])));
+		phvWriteReleaseCache(['fetched' => time(), 'slug' => $slug, 'source' => 'releases/latest',
+		                      'versions' => $merged]);
+		error_log('phvalheim: GitHub releases API unavailable; offering the latest published'
+		        . ' client from github.com/' . $slug . '/releases/latest instead');
+		return phvTopVersions($merged, $want);
+	}
+
+	// Both failed. A stale answer is still an answer about PUBLISHED releases.
 	if ($stale !== null) {
 		error_log('phvalheim: serving client download versions from a STALE cache');
 		return phvTopVersions($stale, $want);
 	}
 
-	error_log('phvalheim: no published client release could be determined and no cache'
-	        . ' exists; offering no downloads rather than guessing from tags');
+	phvWriteReleaseCache(['failed_at' => time(), 'slug' => $slug]);
+	error_log('phvalheim: no published client release could be determined from GitHub (API and'
+	        . ' releases/latest both failed) and no cache exists; offering no downloads rather'
+	        . ' than guessing from tags. Retrying in ' . PHV_RELEASE_FAIL_BACKOFF . 's.');
 	return [];
 }

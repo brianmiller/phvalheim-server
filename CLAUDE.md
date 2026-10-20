@@ -65,7 +65,6 @@ docker create --name phvalheim \
 | `gameDNS` | DNS clients use to connect to game servers |
 | `defaultSeed` | Default world seed |
 | `backupsToKeep` | Number of backups to retain |
-| `phvalheimClientURL` | URL for client installer download |
 
 ## Development Scripts
 

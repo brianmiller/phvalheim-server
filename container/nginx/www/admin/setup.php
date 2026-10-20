@@ -291,12 +291,6 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
                 </div>
 
                 <div class="setup-field">
-                    <label>Client Download URL</label>
-                    <input type="text" id="setup-phvalheimClientURL" value="https://github.com/brianmiller/phvalheim-client/raw/master/published_build/phvalheim-client-installer.exe" placeholder="URL to PhValheim Client installer">
-                    <div class="field-help">Download URL shown to players for the PhValheim Client installer.</div>
-                </div>
-
-                <div class="setup-field">
                     <label>Timezone</label>
                     <select id="setup-timezone" style="width:100%;padding:0.6rem 0.85rem;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:0.9rem;">
                         <option value="Etc/UTC" selected>(GMT)  UTC</option>
@@ -458,7 +452,6 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             basePort: parseInt(document.getElementById('setup-basePort').value) || 25000,
             defaultSeed: '',
             backupsToKeep: parseInt(document.getElementById('setup-backupsToKeep').value) || 24,
-            phvalheimClientURL: document.getElementById('setup-phvalheimClientURL').value.trim(),
             timezone: document.getElementById('setup-timezone').value.trim() || 'Etc/UTC',
             // No AI fields: providers are rows in ai_providers as of 2.45 and are added
             // from Server Settings, not here. See the comment on step 4.
@@ -472,7 +465,6 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             ['Game DNS', s.gameDNS || '(not set)'],
             ['Base Port', s.basePort],
             ['Backups to Keep', s.backupsToKeep],
-            ['Client Download URL', s.phvalheimClientURL ? (s.phvalheimClientURL.length > 50 ? s.phvalheimClientURL.substring(0, 50) + '...' : s.phvalheimClientURL) : '(not set)'],
             ['Timezone', s.timezone || 'Etc/UTC'],
             ['AI Helper', 'Add providers from Server Settings after setup'],
         ];

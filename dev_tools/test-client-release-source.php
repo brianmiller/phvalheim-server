@@ -16,6 +16,9 @@
 
 define('PHV_RELEASE_CACHE', '/tmp/phv-test-clientReleases.json');
 define('PHV_RELEASE_CACHE_TTL', 3600);
+// Never the real /tmp/phvalheim-clientReleases.json: a test must not read or leave behind the
+// cache a container on this machine might be using.
+define('PHV_RELEASE_CACHE_FALLBACK', '/tmp/phv-test-clientReleases-fallback.json');
 require __DIR__ . '/../container/nginx/www/includes/git.php';
 
 $pass = 0; $fail = 0;
@@ -30,7 +33,7 @@ function seedCache($versions, $age = 0) {
 	file_put_contents(PHV_RELEASE_CACHE, json_encode(['fetched' => time(), 'versions' => $versions]));
 	if ($age) { touch(PHV_RELEASE_CACHE, time() - $age); }
 }
-@unlink(PHV_RELEASE_CACHE);
+@unlink(PHV_RELEASE_CACHE); @unlink(PHV_RELEASE_CACHE_FALLBACK);
 
 echo "\n-- owner/repo parsing --\n";
 check('https URL', 'brianmiller/phvalheim-client',
@@ -91,9 +94,14 @@ check('highest version wins regardless of cache order', ['2.0.13'],
 	getGitReleases('https://github.com/brianmiller/phvalheim-client', 1));
 
 echo "\n-- a stale cache still answers, and a broken repo URL does not --\n";
+// Both network sources fail, so the ONLY way to answer is the stale cache. This case used to
+// pass without ever reaching that path: PHP caches filemtime() within a request, so the file
+// aged by seedCache() still read as fresh. It took clearstatcache() in the reader to make the
+// stale path reachable here -- and the network sources are stubbed so it needs no network.
 seedCache(['2.0.13'], 86400);
+$noNet = function () { return null; };
 check('stale cache is served rather than nothing', ['2.0.13'],
-	getGitReleases('https://github.com/brianmiller/phvalheim-client', 1));
+	getGitReleases('https://github.com/brianmiller/phvalheim-client', 1, $noNet, $noNet));
 check('an unparseable repo offers nothing', [],
 	getGitReleases('not-a-github-url', 1));
 
@@ -110,7 +118,7 @@ check('the releases API is what is called', 1,
 check('draft and prerelease are both filtered', 1,
 	(preg_match('~\[.draft.\]~', $code) && preg_match('~\[.prerelease.\]~', $code)) ? 1 : 0);
 
-@unlink(PHV_RELEASE_CACHE);
+@unlink(PHV_RELEASE_CACHE); @unlink(PHV_RELEASE_CACHE_FALLBACK);
 echo "\n" . ($fail ? "FAILED: $fail of " . ($pass + $fail) . " checks failed\n"
                    : "OK: $pass checks passed\n");
 exit($fail ? 1 : 0);

@@ -33,7 +33,8 @@ $basePort = $_settingsRow['basePort'] ?? 25000;
 $defaultSeed = $_settingsRow['defaultSeed'] ?? '';
 $gameDNS = $_settingsRow['gameDNS'] ?? '';
 $steamAPIKey = $_settingsRow['steamApiKey'] ?? '';
-$phvalheimClientURL = $_settingsRow['phvalheimClientURL'] ?? '';
+// settings.phvalheimClientURL is no longer read (2.56). The download menu builds per-platform
+// links from GitHub releases (clientDownloadButton.php); the column is kept as a record.
 $backupsToKeep = $_settingsRow['backupsToKeep'] ?? 24;
 $sessionTimeout = $_settingsRow['sessionTimeout'] ?? 2592000;
 $setupComplete = (int)($_settingsRow['setupComplete'] ?? 0);

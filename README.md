@@ -186,7 +186,18 @@ All settings are configured through the **Admin UI** after first launch. No envi
 | **Game DNS** | DNS name players use to connect to game servers. Can be the same as PhValheim Host. |
 | **Base Port** | First UDP port for worlds (must match the container's port range). |
 | **Backups to Keep** | Number of backup snapshots to retain per world. |
-| **Client Download URL** | URL for the PhValheim Client installer. |
+
+### Server Health
+
+The dashboard checks the things that used to fail silently and shows anything that needs
+attention at the top of the page, in plain words, with a button for what to do: whether GitHub
+is answering client download lookups, whether Steam still accepts your API key, whether the data
+volume can be written, whether each mod catalogue's last sync and the last backup run succeeded,
+whether the required settings are set, and whether the daily analytics push went through (if
+enabled). **Server Health** in the sidebar lists every check, including the ones that are fine.
+Nothing here is a heartbeat: the checks run when the dashboard asks, and the two that touch the
+network (GitHub, Steam) are cached so a dead network costs one short wait every five minutes,
+never one per page load.
 
 ### Backups
 

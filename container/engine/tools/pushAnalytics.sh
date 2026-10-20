@@ -314,4 +314,12 @@ if [ "$http_code" != "200" ]; then
 	echo "$(date) [WARN : phvalheim] Analytics push failed (HTTP ${http_code:-000}): ${response_body}"
 fi
 
+# Record the outcome for the admin dashboard's Server Health check (2.56). Written whether the
+# push worked or not: no record at all means "never ran", which is a different answer.
+record_file="/opt/stateful/cache/analyticsPush.json"
+mkdir -p "$(dirname "$record_file")" 2>/dev/null
+push_ok=false; [ "$http_code" = "200" ] && push_ok=true
+printf '{"at":%s,"http_code":"%s","ok":%s}\n' "$(date +%s)" "${http_code:-000}" "$push_ok" > "${record_file}.tmp" 2>/dev/null \
+	&& mv -f "${record_file}.tmp" "$record_file" 2>/dev/null
+
 # cleanup is the EXIT trap set at the top; both files are mktemp'd (2.52)

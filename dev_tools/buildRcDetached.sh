@@ -3592,6 +3592,32 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56dj=$(grep -cE '^addColumn mod_plugin_guids (learned|manual) ' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
   _c=$(grep -nE '^addColumn mod_plugin_guids manual ' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh | head -1 | cut -d: -f1)
   v56dk=0; [ -n "$_c" ] && [ -n "$_l" ] && [ "$_c" -lt "$_l" ] && v56dk=1
+  # 2.56 -- settings.phvalheimClientURL is retired. Nothing had read it since 2.53 removed the
+  # manifest's "Get the app" button, yet it was a REQUIRED field, and leaving it blank put a
+  # false red warning on every player's page. The download menu builds per-platform links from
+  # GitHub releases. The column stays as a record; nothing served may read it again.
+  v56dl=$(grep -rhoF '$phvalheimClientURL' /opt/stateless/nginx/www --include=*.php | grep -c .)
+  v56dm=$(grep -c 'id="ss-phvalheimClientURL"' /opt/stateless/nginx/www/admin/index.php)
+  v56dn=$(grep -c 'setup-phvalheimClientURL' /opt/stateless/nginx/www/admin/setup.php)
+  v56do=$(grep -c 'Client Download URL is missing' /opt/stateless/nginx/www/public/authenticated.php)
+  # 2.56 -- the download menu survives the GitHub releases API being unavailable (Discord report:
+  # "No published release is available right now" with 2.0.15 published). releases/latest is
+  # the un-metered fallback, a /tmp cache covers an unwritable volume, and a failure backs off.
+  v56dp=$(grep -c '^function phvFetchLatestPublishedRelease' /opt/stateless/nginx/www/includes/git.php)
+  v56dq=$(grep -cF '$latest = $fetchLatest($slug);' /opt/stateless/nginx/www/includes/git.php)
+  v56dr=$(grep -cF "define('PHV_RELEASE_CACHE_FALLBACK'" /opt/stateless/nginx/www/includes/git.php)
+  v56ds=$(grep -c '^	clearstatcache();' /opt/stateless/nginx/www/includes/git.php)
+  v56dt=$(grep -cF '< PHV_RELEASE_FAIL_BACKOFF' /opt/stateless/nginx/www/includes/git.php)
+  # 2.56 server health: one list of checks on the dashboard (includes/health.php). The old
+  # critical-config banner and the players'-page retention warning are gone (both want 0).
+  v56du=$(grep -c '^function phvServerHealth' /opt/stateless/nginx/www/includes/health.php)
+  v56dv=$(grep -c '^function phvHealthRule' /opt/stateless/nginx/www/includes/health.php)
+  v56dw=$(grep -cF "case 'getServerHealth':" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v56dx=$(grep -cF 'id="serverHealthStrip"' /opt/stateless/nginx/www/admin/index.php)
+  v56dy=$(grep -cF 'showServerHealthModal(); return false;' /opt/stateless/nginx/www/admin/index.php)
+  v56dz=$(grep -cF 'id="criticalConfigBanner"' /opt/stateless/nginx/www/admin/index.php)
+  v56ea=$(grep -cF 'Backup retention is not configured' /opt/stateless/nginx/www/public/authenticated.php)
+  v56eb=$(grep -cF 'record_file="/opt/stateful/cache/analyticsPush.json"' /opt/stateless/engine/tools/pushAnalytics.sh)
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -3682,6 +3708,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 JOINCODE READER: path helper=$v56ca (want 1)  contiguity guard=$v56cb (want 1)  session pos fn=$v56cc (want 1)  START-WITHOUT-CODE IS NULL=$v56cd (want 1)  match fn=$v56ce (want 1)  shared readers=$v56cf (want 2)  path builder=$v56cg (want 1)  db fallback=$v56ch (want 1)  1-arg callers=$v56ci (want 0)  pdo callers=$v56cj (want 8 = 7 calls + definition)"
   echo "2.56 GUID BACKFILL: installed-copy fn=$v56cq (want 1)  fallback used=$v56cr (want 1)  zipless pkgs kept=$v56cs (want 1)  old world_zips=$v56ct (want 0)  boot learn=$v56cu (want 1)  boot reattribute=$v56cv (want 1)  LEARN BEFORE REATTRIBUTE=$v56cw (want 1)"
   echo "2.56 MANUAL MATCH: resolver=$v56cx (want 1)  RESOLVER CALLERS=$v56cy (want 2)  match fn=$v56cz (want 1)  undo fn=$v56da (want 1)  api cases=$v56db (want 2)  select=$v56dc (want 1)  undo link=$v56dd (want 1)  prompt=$v56de (want 1)  learn upsert=$v56df (want 1)  old insert-ignore=$v56dg (want 0)  manual guids passed=$v56dh (want 1)  NAME GUARD=$v56di (want 2)  columns=$v56dj (want 2)  COLUMNS BEFORE LEARN=$v56dk (want 1)"
+  echo "2.56 CLIENT URL RETIRED: readers=$v56dl (want 0)  settings field=$v56dm (want 0)  wizard field=$v56dn (want 0)  public warning=$v56do (want 0)"
+  echo "2.56 DOWNLOAD FALLBACK: latest fn=$v56dp (want 1)  wired=$v56dq (want 1)  tmp cache=$v56dr (want 1)  statcache cleared=$v56ds (want 1)  backoff=$v56dt (want 1)"
+  echo "2.56 SERVER HEALTH: collector=$v56du (want 1)  rules=$v56dv (want 8)  api=$v56dw (want 1)  strip=$v56dx (want 1)  sidebar=$v56dy (want 1)  old banner=$v56dz (want 0)  player warning=$v56ea (want 0)  analytics record=$v56eb (want 1)"
   echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 3)  unknown count has no time=$v56cp (want 1)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
@@ -3986,6 +4015,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56db" = "2" ] && [ "$v56dc" = "1" ] && [ "$v56dd" = "1" ] && [ "$v56de" = "1" ] \
     && [ "$v56df" = "1" ] && [ "$v56dg" = "0" ] && [ "$v56dh" = "1" ] && [ "$v56di" = "2" ] \
     && [ "$v56dj" = "2" ] && [ "$v56dk" = "1" ] \
+    && [ "$v56dl" = "0" ] && [ "$v56dm" = "0" ] && [ "$v56dn" = "0" ] && [ "$v56do" = "0" ] \
+    && [ "$v56dp" = "1" ] && [ "$v56dq" = "1" ] && [ "$v56dr" = "1" ] && [ "$v56ds" = "1" ] \
+    && [ "$v56dt" = "1" ] \
+    && [ "$v56du" = "1" ] && [ "$v56dv" = "8" ] && [ "$v56dw" = "1" ] && [ "$v56dx" = "1" ] \
+    && [ "$v56dy" = "1" ] && [ "$v56dz" = "0" ] && [ "$v56ea" = "0" ] && [ "$v56eb" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \
     && [ "$v55ej" = "1" ] && [ "$v55ek" = "1" ] \
