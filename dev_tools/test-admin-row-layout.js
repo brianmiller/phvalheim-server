@@ -26,7 +26,8 @@ const { chromium } = require('playwright');
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8081';
 const WIDTHS = [1280, 1557, 1920];
-const COLS = ['Status', 'World', 'Actions', 'Configure', 'Resources'];
+// 2.56: Actions and Configure became ONE cell; the table has four columns now.
+const COLS = ['Status', 'World', 'Actions', 'Resources'];
 
 let pass = 0, fail = 0;
 const ok  = (m) => { console.log('  PASS  ' + m); pass++; };

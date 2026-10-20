@@ -805,13 +805,13 @@ while [ true ]; do
 			opEndMode=$(SQL "SELECT mode FROM worlds WHERE id='$worldID';")
 			opEndStatus=$(SQL "SELECT IFNULL(status,'') FROM worlds WHERE id='$worldID';")
 			if [ "$worldMode" = "delete" ] && [ -z "$opEndMode" ]; then
-				phvOpEnd ok "deleted"
+				phvOpEnd ok "world deleted"
 			elif [ "$opEndMode" = "broken" ]; then
-				phvOpEnd failed "world marked broken"
+				phvOpEnd failed "world marked broken; it needs attention"
 			elif [ "$opEndStatus" = "failed" ] && [ "$opStartStatus" != "failed" ]; then
-				phvOpEnd failed "ended $opEndMode with status failed"
+				phvOpEnd failed "failed; world left $opEndMode"
 			else
-				phvOpEnd ok "$opEndMode"
+				phvOpEnd ok "$(phvOpSummary "$worldMode" "$opEndMode")"
 			fi
 		fi
 		unset PHV_WORLD

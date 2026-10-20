@@ -55,7 +55,7 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 		.ev.src-admin .src, .ev.src-hugin .src { color: var(--hugin); }
 		.op { border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.55rem; margin-bottom: 0.4rem; cursor: pointer; background: var(--bg); }
 		.op:hover, .op.sel { border-color: var(--accent); }
-		.op .k { font-weight: 600; } .op .m { color: var(--muted); font-size: 0.78rem; }
+		.op .k { font-weight: 600; } .op .m { color: var(--muted); font-size: 0.78rem; } .op .s { font-size: 0.8rem; margin-top: 0.1rem; }
 		.pill { display: inline-block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.05rem 0.4rem; border-radius: 999px; color: #0f1419; margin-left: 0.4rem; }
 		.pill.ok { background: var(--ok); } .pill.failed { background: var(--err); } .pill.interrupted { background: var(--warn); } .pill.open { background: var(--info); }
 		#files { flex: 1; overflow: auto; padding: 0.75rem 1rem; }
@@ -188,11 +188,15 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 	function renderOp(o) {
 		const box = el('div', 'op' + (selectedOp === o.op_id ? ' sel' : ''));
 		const head = el('div');
-		head.appendChild(el('span', 'k', o.kind + ' ' + o.world));
+		// By VERB and how it ended, never by the world's final mode (see world_logs.php).
+		const KL = { start: 'Start', stop: 'Stop', update: 'Update', create: 'Create', delete: 'Delete', repackage: 'Repackage' };
+		const kind = KL[o.kind] || String(o.kind || '');
+		head.appendChild(el('span', 'k', kind + ' \u00B7 ' + o.world));
 		const state = o.open ? 'open' : (o.outcome || 'unknown');
-		head.appendChild(el('span', 'pill ' + state, o.open ? 'running' : state));
+		head.appendChild(el('span', 'pill ' + state, o.open ? 'in progress' : o.outcome === 'ok' ? 'done' : state));
 		box.appendChild(head);
-		box.appendChild(el('div', 'm', fmtT(o.started_t) + (o.finished_t ? ' · ' + Math.max(1, o.finished_t - o.started_t) + 's' : ' · ' + ago(o.started_t)) + ' · ' + o.event_count + ' events' + (o.error_count ? ', ' + o.error_count + ' warn/err' : '') + (o.summary ? ' · ' + o.summary : '')));
+		box.appendChild(el('div', 'm', fmtT(o.started_t) + (o.finished_t ? ' \u00B7 ' + Math.max(1, o.finished_t - o.started_t) + 's' : ' \u00B7 started ' + ago(o.started_t)) + ' \u00B7 ' + o.event_count + ' events' + (o.error_count ? ', ' + o.error_count + ' warn/err' : '')));
+		if (o.summary) box.appendChild(el('div', 's', o.summary));
 		box.onclick = () => { selectedOp = selectedOp === o.op_id ? null : o.op_id; loadOps(); loadEvents(true); };
 		return box;
 	}

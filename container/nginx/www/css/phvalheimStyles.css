@@ -2291,21 +2291,33 @@ input:checked + .slider:before {
 }
 
 /* Stats Cards Row */
+/* The four header cards are one compact strip (2.56). They were ~170px tall each -- a 40px
+   icon, three stacked lines and a 40px chart underneath -- for four numbers the operator
+   glances at, and together with the health strip they pushed the Worlds table below the fold.
+   Now: a 30px icon, the label on one line, the value and its note on the next, and the
+   sparkline BESIDE the number rather than under it. About 56px tall. */
 .stats-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-	gap: 1rem;
-	margin-bottom: 1.5rem;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+/* One row of four from 1100px up, storage a little wider for its bars. minmax(0, ..) so a
+   card's content cannot push the strip past the page edge -- the storage card used to carry
+   an inline min-width that did exactly that at 1280px. */
+@media (min-width: 1100px) {
+	.stats-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.5fr); }
 }
 
 .stat-card {
 	background: var(--bg-secondary);
 	border: 1px solid var(--border-color);
-	border-radius: 0.75rem;
-	padding: 1rem;
+	border-radius: 0.6rem;
+	padding: 0.55rem 0.85rem;
 	display: flex;
-	align-items: flex-start;
-	gap: 0.75rem;
+	align-items: center;
+	gap: 0.65rem;
+	min-width: 0;
 	transition: border-color 0.2s ease;
 }
 
@@ -2314,19 +2326,19 @@ input:checked + .slider:before {
 }
 
 .stat-icon {
-	width: 40px;
-	height: 40px;
-	border-radius: 0.5rem;
+	width: 30px;
+	height: 30px;
+	border-radius: 0.4rem;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 1.125rem;
+	font-size: 1rem;
 	flex-shrink: 0;
 }
 
 .stat-icon svg {
-	width: 20px;
-	height: 20px;
+	width: 16px;
+	height: 16px;
 }
 
 .stat-icon.worlds {
@@ -2349,52 +2361,77 @@ input:checked + .slider:before {
 	color: var(--warning);
 }
 
+/* Label on line one; value and its note share line two. The note ellipsises (the CPU model
+   name is the long one) rather than wrapping the card taller. */
 .stat-content {
 	flex: 1;
 	min-width: 0;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	column-gap: 0.45rem;
+	align-items: baseline;
 }
 
 .stat-label {
-	font-size: 0.75rem;
-	font-weight: 500;
+	grid-column: 1 / -1;
+	font-size: 0.62rem;
+	font-weight: 600;
 	text-transform: uppercase;
-	letter-spacing: 0.025em;
+	letter-spacing: 0.05em;
 	color: var(--text-muted);
-	margin-bottom: 0.25rem;
-}
-
-.stat-value {
-	font-size: 1.25rem;
-	font-weight: 700;
-	color: var(--text-primary);
 	line-height: 1.2;
 }
 
-.stat-subtext {
-	font-size: 0.75rem;
-	color: var(--text-secondary);
-	margin-top: 0.25rem;
+.stat-value {
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: var(--text-primary);
+	line-height: 1.25;
+	white-space: nowrap;
 }
 
-/* Stat cards with charts */
+.stat-subtext {
+	font-size: 0.68rem;
+	color: var(--text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+/* Stat cards with charts: the sparkline sits beside the number, not under it. */
 .stat-card-chart {
-	flex-direction: column;
-	padding-bottom: 0.5rem;
+	flex-direction: row;
+	align-items: center;
 }
 
 .stat-card-chart .stat-card-top {
 	display: flex;
-	align-items: flex-start;
-	gap: 0.75rem;
-	width: 100%;
+	align-items: center;
+	gap: 0.65rem;
+	flex: 1;
+	min-width: 0;
 }
 
 .stat-chart-container {
-	width: 100%;
-	height: 40px;
-	margin-top: 0.5rem;
-	padding: 0 0.25rem;
+	width: 64px;
+	height: 30px;
+	margin: 0;
+	padding: 0;
+	flex-shrink: 0;
 }
+
+/* Storage: one line per volume -- name, bar, usage -- instead of a stacked block per volume
+   with the mount path spelled out under each. The path and free space are on the title. */
+#storageVolumes { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.vol-row { display: flex; align-items: center; gap: 0.45rem; font-size: 0.68rem; min-width: 0; }
+.vol-name { font-weight: 600; color: var(--text-primary); width: 3.6rem; flex-shrink: 0; }
+.vol-bar { flex: 1; height: 5px; background: var(--bg-tertiary); border-radius: 3px; overflow: hidden; min-width: 40px; }
+.vol-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+.vol-use { color: var(--text-muted); font-family: var(--font-mono); white-space: nowrap; }
+.vol-note { color: var(--text-muted); font-size: 0.62rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vol-warn { font-size: 0.62rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vol-warn button { font-size: 0.58rem; padding: 0.02rem 0.3rem; margin-left: 0.2rem; border: 1px solid var(--warning); color: var(--warning); background: transparent; border-radius: 2px; cursor: pointer; }
 
 .stat-chart-container canvas {
 	width: 100% !important;
@@ -2709,16 +2746,18 @@ input:checked + .slider:before {
    less and it clips.
    Keep the total at 100: table-layout is fixed, so these are the whole budget and anything
    over 100 is silently rescaled, which makes the next person's measurement lie. */
+/* 2.56: FOUR columns. Actions and Configure were two cells of 24% each holding the same
+   kind of thing -- buttons -- and each too narrow for its share at common widths, so Settings
+   and Delete sat behind the "..." menu on every stopped world at 1500px. Merged, the one
+   Actions cell has the 48% both had, and every button fits inline at 1280px and up. */
 .worlds-table th:nth-child(1),
 .worlds-table td:nth-child(1) { width: 10%; } /* Status */
 .worlds-table th:nth-child(2),
 .worlds-table td:nth-child(2) { width: 24%; } /* World */
 .worlds-table th:nth-child(3),
-.worlds-table td:nth-child(3) { width: 24%; } /* Actions */
+.worlds-table td:nth-child(3) { width: 48%; } /* Actions */
 .worlds-table th:nth-child(4),
-.worlds-table td:nth-child(4) { width: 24%; } /* Configure */
-.worlds-table th:nth-child(5),
-.worlds-table td:nth-child(5) { width: 18%; } /* Resources */
+.worlds-table td:nth-child(4) { width: 18%; } /* Resources */
 
 /* A world name is an identifier -- breaking it across two lines makes it harder to read and
    to compare against the list of worlds. There is room for it now, and if a name really is
@@ -2951,6 +2990,31 @@ input:checked + .slider:before {
 /* Hide disabled buttons in worlds table — only show actionable buttons */
 .worlds-table .action-btn.disabled {
 	display: none;
+}
+
+/* The one Actions cell (2.56) reads as three groups: run (Launch Start Stop), configure
+   (Mods Update Settings), and the rest (Logs Delete). A little extra space before the first
+   button of the second and third groups says so without a divider element that the overflow
+   reflow would have to know about. Reset inside the "..." menu, where they stack. */
+.worlds-table .action-group > .action-btn[data-action="mods"],
+.worlds-table .action-group > .action-btn[data-action="logs"] {
+	margin-left: 0.45rem;
+}
+.worlds-table .action-group > .action-btn[data-action="mods"]:first-child,
+.worlds-table .action-group > .action-btn[data-action="logs"]:first-child {
+	margin-left: 0;
+}
+/* Delete is last and quiet: a red box on every stopped row shouted at a button that is used
+   once per world. It goes red on hover, and the confirm dialog behind it is unchanged. */
+.worlds-table .action-group > .action-btn.danger {
+	background: transparent;
+	border-color: transparent;
+	color: var(--text-secondary);
+}
+.worlds-table .action-group > .action-btn.danger:hover {
+	background: rgba(248, 113, 113, 0.12);
+	border-color: rgba(248, 113, 113, 0.3);
+	color: var(--danger);
 }
 
 /* Mods Modal */
@@ -3533,11 +3597,9 @@ a.mods-hub-card:hover {
 	.worlds-table th:nth-child(1),
 	.worlds-table td:nth-child(1) { width: 13%; }  /* Status */
 	.worlds-table th:nth-child(2),
-	.worlds-table td:nth-child(2) { width: 24%; }  /* World */
+	.worlds-table td:nth-child(2) { width: 21%; }  /* World */
 	.worlds-table th:nth-child(3),
-	.worlds-table td:nth-child(3) { width: 23%; }  /* Actions */
-	.worlds-table th:nth-child(4),
-	.worlds-table td:nth-child(4) { width: 22%; }  /* Configure */
+	.worlds-table td:nth-child(3) { width: 48%; }  /* Actions (2.56: one cell, was 23 + 22) */
 	.worlds-table th:nth-child(5),
 	.worlds-table td:nth-child(5) { width: 18%; }  /* Resources */
 
@@ -6285,12 +6347,22 @@ select.mod-version.is-pinned {
 }
 
 /* --- 2.43 catalogue sync panel ------------------------------------------------- */
+/* 2.56: the card fills the dashboard's width (the "Additional Logs" card beside it moved to
+   logs.php), so the catalogues sit side by side and the cache line spans under them. */
 .mod-sync-panel {
-	display: flex;
-	flex-direction: column;
-	gap: 0.6rem;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+	gap: 0.6rem 0.9rem;
 	margin-bottom: 0.75rem;
 }
+.mod-sync-panel .ms-cache { grid-column: 1 / -1; }
+.sync-maint-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	column-gap: 2rem;
+}
+.sync-maint-list .status-info-item:last-child { border-bottom: 1px solid var(--border-light); }
+.sync-maint-list .status-info-item { padding: 0.55rem 0; }
 .ms-src {
 	border: 1px solid var(--border-light);
 	border-radius: 5px;
@@ -6330,6 +6402,9 @@ select.mod-version.is-pinned {
 	border-radius: 10px;
 	padding: 0.05rem 0.5rem;
 }
+/* The full-log link sits beside "sync"; only the first of the two pushes to the right. The
+   dashboard's "Additional Logs" card used to carry this link and moved to logs.php in 2.56. */
+.ms-log-link { margin-left: 0.3rem; }
 .ms-sync-one:hover {
 	color: var(--accent-hover);
 	border-color: var(--accent-primary);

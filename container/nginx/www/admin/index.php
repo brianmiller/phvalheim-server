@@ -404,7 +404,7 @@ $totalCount = count($worlds);
                     <div class="stat-content">
                         <div class="stat-label">Worlds</div>
                         <div class="stat-value" id="statWorlds"><?php echo $runningCount; ?> / <?php echo $totalCount; ?></div>
-                        <div class="stat-subtext">Running / Total</div>
+                        <div class="stat-subtext">running / total</div>
                     </div>
                 </div>
 
@@ -444,7 +444,7 @@ $totalCount = count($worlds);
                     </div>
                 </div>
 
-                <div class="stat-card" id="storageCard" style="min-width:280px;">
+                <div class="stat-card" id="storageCard">
                     <div class="stat-icon disk" id="storageIcon">
                         <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
@@ -570,7 +570,6 @@ $totalCount = count($worlds);
                                         <th>Status</th>
                                         <th>World</th>
                                         <th>Actions</th>
-                                        <th>Configure</th>
                                         <th>Resources</th>
                                     </tr>
                                 </thead>
@@ -670,11 +669,6 @@ $totalCount = count($worlds);
                                                 <span class="action-btn disabled" data-action="start">Start</span>
                                                 <span class="action-btn disabled" data-action="stop">Stop</span>
                                                 <?php endif; ?>
-                                                <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="action-group">
                                                 <?php /* ONE Mods door, for a RUNNING world. Edit Mods / Configs / View N
                                                    were three buttons on one subject with three different availability
                                                    rules, and the row could not say which rule was greying which button.
@@ -691,6 +685,7 @@ $totalCount = count($worlds);
                                                 <?php endif; ?>
                                                 <span class="action-btn disabled" data-action="update">Update</span>
                                                 <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
+                                                <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
                                                 <span class="action-btn disabled" data-action="delete">Delete</span>
                                             </div>
                                         </td>
@@ -767,7 +762,6 @@ $totalCount = count($worlds);
                                         <th>Status</th>
                                         <th>World</th>
                                         <th>Actions</th>
-                                        <th>Configure</th>
                                         <th>Resources</th>
                                     </tr>
                                 </thead>
@@ -792,11 +786,6 @@ $totalCount = count($worlds);
                                                 <span class="action-btn disabled" data-action="launch">Launch</span>
                                                 <a href="?start_world=<?php echo urlencode($world['name']); ?>" class="action-btn success" data-action="start">Start</a>
                                                 <span class="action-btn disabled" data-action="stop">Stop</span>
-                                                <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="action-group">
                                                 <?php /* ONE Mods door, for a STOPPED world -- see the matching comment on
                                                    the online card above. Both cards in the hub are available here. */ ?>
                                                 <?php if ($world['vanilla']): ?>
@@ -806,6 +795,7 @@ $totalCount = count($worlds);
                                                 <?php endif; ?>
                                                 <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="update">Update</a>
                                                 <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
+                                                <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
                                                 <a href="?delete_world=<?php echo urlencode($world['name']); ?>" class="action-btn danger" data-action="delete">Delete</a>
                                             </div>
                                         </td>
@@ -855,7 +845,7 @@ $totalCount = count($worlds);
             </div>
 
             <!-- Bottom Cards Grid -->
-            <div class="dashboard-grid two-col" style="margin-top: 1.5rem;">
+            <div class="dashboard-grid" style="margin-top: 1.5rem;">
                 <!-- Sync Status -->
                 <div class="dashboard-card">
                     <div class="card-header">
@@ -874,7 +864,7 @@ $totalCount = count($worlds);
                              describe a second catalogue. -->
                         <div id="modSyncPanel" class="mod-sync-panel"></div>
 
-                        <ul class="status-info-list" id="syncStatusList">
+                        <ul class="status-info-list sync-maint-list" id="syncStatusList">
                             <li class="status-info-item">
                                 <span class="status-info-label">Last World Backup</span>
                                 <span class="status-info-value">
@@ -1973,29 +1963,26 @@ $totalCount = count($worlds);
                     extraDetail = data.backupCount + ' backup' + (data.backupCount !== 1 ? 's' : '') + ' (' + fmtBytes(data.backupTotalSize) + ')';
                 }
 
-                if (idx > 0) html += '<div style="border-top:1px solid var(--border-light);margin:0.3rem 0;"></div>';
-
-                html += `<div>
-                        <div style="display:flex;justify-content:space-between;align-items:baseline;">
-                            <span style="font-size:0.7rem;font-weight:600;color:var(--text-primary);">${vol.name}</span>
-                            <span style="font-size:0.65rem;color:var(--text-muted);font-family:var(--font-mono);white-space:nowrap;">${vol.usedH}/${vol.totalH} (${vol.freeH} free)${warnHtml}</span>
-                        </div>
-                        <div style="font-size:0.55rem;color:var(--text-muted);font-family:var(--font-mono);margin-top:-0.05rem;">${vol.path}</div>
-                        <div style="height:4px;background:var(--bg-tertiary);border-radius:2px;margin:0.15rem 0;overflow:hidden;">
-                            <div style="height:100%;width:${perc}%;background:${barColor};border-radius:2px;transition:width 0.5s ease;"></div>
-                        </div>
-                        ${extraDetail ? '<div style="font-size:0.6rem;color:var(--text-muted);">' + extraDetail + '</div>' : ''}
+                // One line per volume (2.56): name, bar, usage. The mount path and the free
+                // space moved to the title -- they were two more lines per volume in a card
+                // that is glanced at, not read.
+                const title = escapeAttr(`${vol.path} — ${vol.freeH} free${extraDetail ? ' — ' + extraDetail : ''}`);
+                html += `<div class="vol-row" title="${title}">
+                        <span class="vol-name">${vol.name}</span>
+                        <div class="vol-bar"><div class="vol-fill" style="width:${perc}%;background:${barColor};"></div></div>
+                        <span class="vol-use">${vol.usedH}/${vol.totalH}${warnHtml}</span>
                     </div>`;
+                if (extraDetail && vol.name === 'Backups') html += `<div class="vol-note">${extraDetail}</div>`;
             });
 
             // Warnings — compact single line each
             if (!data.backupMounted) {
-                html += '<div style="font-size:0.6rem;font-weight:600;color:var(--danger);margin-top:0.25rem;white-space:nowrap;">&#9888; No dedicated backup volume</div>';
+                html += '<div class="vol-warn" style="color:var(--danger);" title="Backups are being written to the data volume. Mount a separate volume at /opt/stateful/backups.">&#9888; No dedicated backup volume</div>';
                 hasWarning = true;
             }
 
             if (data.orphanedCount > 0) {
-                html += `<div style="font-size:0.6rem;color:var(--warning);margin-top:0.2rem;white-space:nowrap;">&#9888; ${data.orphanedCount} orphaned record${data.orphanedCount !== 1 ? 's' : ''} <button onclick="purgeOrphanedBackups()" style="font-size:0.55rem;padding:0.05rem 0.3rem;margin-left:0.2rem;border:1px solid var(--warning);color:var(--warning);background:transparent;border-radius:2px;cursor:pointer;">Clean up</button></div>`;
+                html += `<div class="vol-warn" style="color:var(--warning);">&#9888; ${data.orphanedCount} orphaned record${data.orphanedCount !== 1 ? 's' : ''} <button onclick="purgeOrphanedBackups()">Clean up</button></div>`;
                 hasWarning = true;
             }
 
@@ -2433,39 +2420,44 @@ $totalCount = count($worlds);
         const isOnline = section === 'online';
         const betaBadge = world.beta ? '<span class="status-badge" style="background: rgba(248,113,113,0.15); color: var(--danger); margin-left: 0.25rem;">BETA</span>' : '';
 
-        let actionsHtml, configHtml;
+        // ONE action group per row (2.56), in a fixed order whatever the state, so a button is
+        // always in the same place: Launch Start Stop | Mods Update Settings | Logs Delete.
+        // Disabled ones are hidden by CSS, never reordered. Actions and Configure used to be
+        // two cells, each too narrow for its buttons at common widths, so Settings and Delete
+        // sat behind a "..." menu on every stopped world. Keep this in step with the two PHP
+        // render sites above: the server renders the row once and this replaces it in 5s.
+        const logsHtml = `<a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
+        const settingsHtml = `<a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>`;
+        let actionsHtml;
         if (world.mode === 'running') {
             actionsHtml = `
                 ${launchButtonHtml(world)}
                 <span class="action-btn disabled" data-action="start">Start</span>
                 <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>
-                <a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
-            configHtml = `
                 ${modsButtonHtml(world, true)}
                 <span class="action-btn disabled" data-action="update">Update</span>
-                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
+                ${settingsHtml}
+                ${logsHtml}
                 <span class="action-btn disabled" data-action="delete">Delete</span>`;
         } else if (world.mode === 'stopped') {
             actionsHtml = `
                 <span class="action-btn disabled" data-action="launch">Launch</span>
                 <a href="?start_world=${encodeURIComponent(world.name)}" class="action-btn success" data-action="start">Start</a>
                 <span class="action-btn disabled" data-action="stop">Stop</span>
-                <a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
-            configHtml = `
                 ${modsButtonHtml(world, true)}
                 <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
-                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
+                ${settingsHtml}
+                ${logsHtml}
                 <a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
         } else {
             actionsHtml = `
                 <span class="action-btn disabled" data-action="launch">Launch</span>
                 <span class="action-btn disabled" data-action="start">Start</span>
                 <span class="action-btn disabled" data-action="stop">Stop</span>
-                <a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
-            configHtml = `
                 ${modsButtonHtml(world, false)}
                 <span class="action-btn disabled" data-action="update">Update</span>
-                <a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>
+                ${settingsHtml}
+                ${logsHtml}
                 <span class="action-btn disabled" data-action="delete">Delete</span>`;
         }
 
@@ -2479,7 +2471,6 @@ $totalCount = count($worlds);
             </td>
             <td><span class="world-name">${world.name}</span>${restartPendingBadgeHtml(world)}</td>
             <td><div class="action-group">${actionsHtml}</div></td>
-            <td><div class="action-group">${configHtml}</div></td>
             <td>
                 <div class="world-resources" data-world="${world.name}">
                     <div class="world-resource-item">
@@ -5887,7 +5878,9 @@ $totalCount = count($worlds);
                 <span class="ms-state ${cls}">${label}</span>
                 <span class="ms-trigger">${last ? (last.trigger_kind || '') : ''}</span>
                 <a class="ms-sync-one" href="?manual_mod_sync=${src}"
-                   title="Force a sync of this catalogue now">sync</a></div>
+                   title="Force a sync of this catalogue now">sync</a>
+                <a class="ms-sync-one ms-log-link" href="readLog.php?logfile=modSync.log#bottom" target="_blank"
+                   title="The full catalogue sync log (both catalogues write to it)">log</a></div>
             <div class="ms-totals">${st.mods.toLocaleString()} mods ·
                  ${st.versions.toLocaleString()} versions on disk</div>
             <div class="ms-when">${last ? ('finished ' + (last.finished || '')) : ''}</div>

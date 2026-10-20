@@ -98,7 +98,10 @@ switch($action) {
             'success' => true, 'world' => $world, 'mode' => $mode, 'this_boot' => $thisBoot,
             'timeline' => phvMergeTimeline($events, $vl['lines']),
             'valheim' => ['size' => $vl['size'], 'from_offset' => $vl['from_offset'], 'truncated' => $vl['truncated'], 'exists' => $vl['exists']],
-            'operations' => $mode === 'valheim' ? [] : phvOperations($pdo, $world, 10),
+            // Always, whichever tab asked: the Valheim tab used to get [] here, and the viewer
+            // rendered that as "No operations recorded for this world yet" -- for a world whose
+            // operations were one click away on the next tab.
+            'operations' => phvOperations($pdo, $world, 10),
             'max_event_id' => $events ? end($events)['id'] : 0,
         ]);
         break;

@@ -1924,7 +1924,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The wants here said "1" long after the 2.56 re-budget made both of these FIVE (one width
   # rule per column) and the && chain was updated to match. The gate was right and the printout
   # was lying, which reads in the log exactly like a failing marker that somehow passed.
-  echo "2.53 admin columns: actions default=$coi (want 5)  actions narrow=$coj (want 5)  name nowrap=$con (want 1)"
+  # 2.56 merged Actions and Configure into one cell, so the budget is FOUR rules per set.
+  echo "2.53 admin columns: actions default=$coi (want 4)  actions narrow=$coj (want 4)  name nowrap=$con (want 1)"
   echo "2.53 mod list geometry: measured log=$coh (want 1)"
 
   # cop/coq -- the scroll fix and the panel geometry nudges.
@@ -3652,6 +3653,27 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56eu=$(grep -cF "phvEventSource('hugin')" /opt/stateless/nginx/www/includes/aiactions.php)
   v56ev=$(grep -c 'phvEvent(' /opt/stateless/nginx/www/includes/db_sets.php)
   v56ew=$(grep -c '^PHV_LOG_SOURCE=' /opt/stateless/engine/tools/updateApplier)
+  # 2.56 log viewer + dashboard follow-ups. ex/ey: an operation closes with a worded summary
+  # (phvOpSummary), not the world's bare final mode. ez/fa: the world timeline returns the
+  # operations on EVERY tab (negative: the old 'valheim' ? [] branch; positive: the call).
+  # fb: begin/end markers in the stream. fc/fd: the Configure column is gone from both world
+  # tables (positive pair: their two Resources headers; a third table also says Actions). fe/ff: Sync & Maintenance is no longer in a two-col grid, and its
+  # maintenance list carries the side-by-side class. fg-fi: the full-width panel CSS and the
+  # one-line storage rows. fj/fk: the JS row renders ONE action group (and no configHtml).
+  v56ex=$(grep -c '^function phvOpSummary' /opt/stateless/engine/includes/phvalheim-static.conf)
+  v56ey=$(grep -cF 'phvOpEnd ok "$(phvOpSummary' /opt/stateless/engine/phvalheim)
+  v56ez=$(grep -cF "mode === 'valheim' ? [] : phvOperations" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v56fa=$(grep -cF 'phvOperations($pdo, $world, 10)' /opt/stateless/nginx/www/admin/adminAPI.php)
+  v56fb=$(grep -cF 'function withOpMarkers' /opt/stateless/nginx/www/admin/world_logs.php)
+  v56fc=$(grep -c '<th>Configure</th>' /opt/stateless/nginx/www/admin/index.php)
+  v56fd=$(grep -c '<th>Resources</th>' /opt/stateless/nginx/www/admin/index.php)
+  v56fe=$(grep -cF 'dashboard-grid two-col' /opt/stateless/nginx/www/admin/index.php)
+  v56ff=$(grep -cF 'class="status-info-list sync-maint-list"' /opt/stateless/nginx/www/admin/index.php)
+  v56fg=$(grep -cF '.mod-sync-panel .ms-cache { grid-column: 1 / -1; }' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  v56fh=$(grep -cF 'class="vol-row"' /opt/stateless/nginx/www/admin/index.php)
+  v56fi=$(grep -c '^\.vol-bar ' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  v56fj=$(grep -cF '<td><div class="action-group">${actionsHtml}</div></td>' /opt/stateless/nginx/www/admin/index.php)
+  v56fk=$(grep -cF '${configHtml}' /opt/stateless/nginx/www/admin/index.php)
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -3746,6 +3768,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 DOWNLOAD FALLBACK: latest fn=$v56dp (want 1)  wired=$v56dq (want 1)  tmp cache=$v56dr (want 1)  statcache cleared=$v56ds (want 1)  backoff=$v56dt (want 1)"
   echo "2.56 SERVER HEALTH: collector=$v56du (want 1)  rules=$v56dv (want 9)  api=$v56dw (want 1)  strip=$v56dx (want 1)  sidebar=$v56dy (want 1)  old banner=$v56dz (want 0)  player warning=$v56ea (want 0)  analytics record=$v56eb (want 1)"
   echo "2.56 EVENT LOG: phvlog=$v56ec (want 1)  opBegin=$v56ed (want 1)  raw echo engine=$v56ee (want 0)  raw echo functions=$v56ef (want 0)  loop opens op=$v56eg (want 1)  session mark=$v56eh (want 1)  phvEvent=$v56ei (want 1)  timeline api=$v56ej (want 1)  viewer allowlist=$v56ek (want 1)  logs nav=$v56el (want 1)  old world links=$v56em (want 0)  old panel links=$v56en (want 0)  hugin tool=$v56eo (want 1)  events table=$v56ep (want 1)  ops table=$v56eq (want 1)  retention=$v56er (want 2)  world page=$v56es (want 1)  logs page=$v56et (want 1)  hugin source=$v56eu (want 1)  command events=$v56ev (want 5)  tool named=$v56ew (want 1)"
+  echo "2.56 LOG VIEWER + DASHBOARD: opSummary fn=$v56ex (want 1)  used=$v56ey (want 1)  old valheim branch=$v56ez (want 0)  ops always=$v56fa (want 1)  markers=$v56fb (want 1)  Configure th=$v56fc (want 0)  Resources th=$v56fd (want 2)  two-col=$v56fe (want 0)  maint list=$v56ff (want 1)  panel css=$v56fg (want 1)  vol row=$v56fh (want 1)  vol css=$v56fi (want 1)  one group=$v56fj (want 1)  configHtml=$v56fk (want 0)"
   echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 3)  unknown count has no time=$v56cp (want 1)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
@@ -3952,7 +3975,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$cnx" = "1" ] && [ "$cny" = "1" ] \
     && [ "$cnz" = "1" ] && [ "$cob" = "1" ] && [ "$coc" = "1" ] \
     && [ "$coe" = "1" ] && [ "$cof" = "1" ] && [ "$cog" = "1" ] && [ "$cod" = "1" ] \
-    && [ "$coh" = "1" ] && [ "$coi" = "5" ] && [ "$coj" = "5" ] && [ "$con" = "1" ] \
+    && [ "$coh" = "1" ] && [ "$coi" = "4" ] && [ "$coj" = "4" ] && [ "$con" = "1" ] \
     && [ "$cok" = "0" ] && [ "$com" = "0" ] \
     && [ "$cop" = "1" ] && [ "$coq" = "1" ] && [ "$cor" = "1" ] && [ "$cos" = "1" ] \
     && [ "$cot" = "0" ] && [ "$cpa" = "1" ] && [ "$cou" = "1" ] && [ "$cov" = "2" ] \
@@ -4061,6 +4084,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56eo" = "1" ] && [ "$v56ep" = "1" ] && [ "$v56eq" = "1" ] && [ "$v56er" = "2" ] \
     && [ "$v56es" = "1" ] && [ "$v56et" = "1" ] && [ "$v56eu" = "1" ] && [ "$v56ev" = "5" ] \
     && [ "$v56ew" = "1" ] \
+    && [ "$v56ex" = "1" ] && [ "$v56ey" = "1" ] && [ "$v56ez" = "0" ] && [ "$v56fa" = "1" ] \
+    && [ "$v56fb" = "1" ] && [ "$v56fc" = "0" ] && [ "$v56fd" = "2" ] && [ "$v56fe" = "0" ] \
+    && [ "$v56ff" = "1" ] && [ "$v56fg" = "1" ] && [ "$v56fh" = "1" ] && [ "$v56fi" = "1" ] \
+    && [ "$v56fj" = "1" ] && [ "$v56fk" = "0" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \
     && [ "$v55ej" = "1" ] && [ "$v55ek" = "1" ] \

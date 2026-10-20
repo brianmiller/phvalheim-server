@@ -49,6 +49,16 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 		.op .m { color: var(--muted); }
 		.pill { display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.02rem 0.4rem; border-radius: 999px; color: #0f1419; margin-left: 0.35rem; }
 		.pill.ok { background: var(--ok); } .pill.failed { background: var(--err); } .pill.interrupted { background: var(--warn); } .pill.open { background: var(--info); }
+		.op .s { color: var(--text); font-size: 0.78rem; margin-top: 0.1rem; }
+		#ops .lbl { align-self: center; color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; padding-right: 0.3rem; }
+		/* Operation boundaries inside the stream: where a command began and how it ended. */
+		.ln.opmark { margin-top: 0.35rem; }
+		.ln.opmark .msg { font-weight: 600; color: var(--muted); }
+		.ln.opmark.begin { border-left: 2px solid var(--info); } .ln.opmark.begin .msg { color: var(--info); }
+		.ln.opmark.ok { border-left: 2px solid var(--ok); margin-bottom: 0.35rem; } .ln.opmark.ok .msg { color: var(--ok); }
+		.ln.opmark.failed { border-left: 2px solid var(--err); margin-bottom: 0.35rem; } .ln.opmark.failed .msg { color: var(--err); }
+		.ln.opmark.interrupted { border-left: 2px solid var(--warn); margin-bottom: 0.35rem; } .ln.opmark.interrupted .msg { color: var(--warn); }
+		.ln.opmark.open { border-left: 2px solid var(--info); } .ln.opmark.open .msg { color: var(--info); font-weight: 400; }
 		main { flex: 1; overflow: auto; padding: 0.5rem 0.75rem; }
 		.ln { display: grid; grid-template-columns: 9.5rem 6.5rem 1fr; gap: 0.6rem; padding: 0.1rem 0.3rem; border-radius: 4px; align-items: baseline; }
 		.ln:hover { background: var(--bg3); }
@@ -94,6 +104,39 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 	function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 	function fmtT(t) { if (!t) return ''; const d = new Date(t * 1000); return d.toLocaleDateString(undefined, {month: 'short', day: '2-digit'}) + ' ' + d.toLocaleTimeString(undefined, {hour12: false}); }
 	function fmtBytes(n) { if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(1) + ' KB'; return (n / 1048576).toFixed(1) + ' MB'; }
+	function ago(t) { const s = Math.max(0, Math.round(Date.now() / 1000 - t)); return s < 60 ? s + 's ago' : s < 3600 ? Math.round(s / 60) + 'm ago' : Math.round(s / 3600) + 'h ago'; }
+
+	// An operation is one command the engine carried out. It is shown by its VERB and how it
+	// ended -- never by the world's final mode, which read as the command's outcome ("update ..
+	// stopped" looked like an update that had stopped).
+	const KIND_LABEL = { start: 'Start', stop: 'Stop', update: 'Update', create: 'Create', delete: 'Delete', repackage: 'Repackage' };
+	function kindLabel(k) { k = String(k || ''); return KIND_LABEL[k] || (k.charAt(0).toUpperCase() + k.slice(1)); }
+	function opState(o) { return o.open ? 'open' : (o.outcome || 'unknown'); }
+	function opStateLabel(o) { return o.open ? 'in progress' : o.outcome === 'ok' ? 'done' : (o.outcome || 'unknown'); }
+	function opDuration(o) { if (!o.finished_t) return 'started ' + ago(o.started_t); const s = Math.max(1, o.finished_t - o.started_t); return s < 120 ? s + 's' : Math.round(s / 60) + ' min'; }
+	function opMark(o, phase) {
+		// The stream line that opens or closes an operation.
+		if (phase === 'begin') return { icon: '\u25B6', text: kindLabel(o.kind) + ' began' + (o.source && o.source !== 'phvalheim' ? ' (' + o.source + ')' : '') };
+		if (o.open) return { icon: '\u2026', text: kindLabel(o.kind) + ' still in progress' };
+		const icon = o.outcome === 'ok' ? '\u2714' : o.outcome === 'failed' ? '\u2716' : '\u26A0';
+		return { icon: icon, text: kindLabel(o.kind) + ' ' + opStateLabel(o) + (o.summary ? ': ' + o.summary : '') + ' \u00B7 ' + opDuration(o) };
+	}
+	// Insert a begin marker before the first event of each operation and an end marker after
+	// its last, so an update reads as one story with a start and a verdict instead of a run of
+	// lines whose grouping is only visible as a chip at the top.
+	function withOpMarkers(rows, ops) {
+		if (!ops || !ops.length) return rows;
+		const byId = {}; ops.forEach(o => { byId[o.op_id] = o; });
+		const first = {}, last = {};
+		rows.forEach((x, i) => { if (x.kind === 'event' && x.op_id && byId[x.op_id]) { if (first[x.op_id] === undefined) first[x.op_id] = i; last[x.op_id] = i; } });
+		const out = [];
+		rows.forEach((x, i) => {
+			if (x.kind === 'event' && x.op_id && first[x.op_id] === i) { const o = byId[x.op_id]; out.push({ kind: 'opmark', phase: 'begin', op: o, t: o.started_t || x.t }); }
+			out.push(x);
+			if (x.kind === 'event' && x.op_id && last[x.op_id] === i) { const o = byId[x.op_id]; out.push({ kind: 'opmark', phase: 'end', op: o, t: o.finished_t || x.t }); }
+		});
+		return out;
+	}
 
 	function setMode(m) {
 		mode = m;
@@ -103,6 +146,14 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 	}
 
 	function renderLine(x) {
+		if (x.kind === 'opmark') {
+			const m = opMark(x.op, x.phase);
+			const row = el('div', 'ln opmark ' + (x.phase === 'begin' ? 'begin' : opState(x.op)));
+			row.appendChild(el('span', 't', fmtT(x.t)));
+			row.appendChild(el('span', 'src', ''));
+			row.appendChild(el('span', 'msg', m.icon + ' ' + m.text));
+			return row;
+		}
 		const row = el('div', 'ln ' + x.kind + ' ' + x.level + ' src-' + x.source + (selectedOp && x.op_id === selectedOp ? ' sel' : ''));
 		row.appendChild(el('span', 't', fmtT(x.t)));
 		row.appendChild(el('span', 'src', x.kind === 'valheim' ? 'valheim' : x.source));
@@ -112,13 +163,14 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 
 	function renderOps(ops) {
 		const bar = document.getElementById('ops'); bar.innerHTML = '';
-		if (!ops.length) { bar.appendChild(el('span', 'op m', 'No operations recorded for this world yet (recorded from 2.56 on).')).style.cursor = 'default'; return; }
+		if (!ops.length) { bar.appendChild(el('span', 'op m', 'No operations recorded for this world yet. One appears here each time PhValheim starts, stops, updates or repackages it (recorded from 2.56 on).')).style.cursor = 'default'; return; }
+		bar.appendChild(el('span', 'lbl', 'Recent'));
 		for (const o of ops) {
 			const b = el('div', 'op' + (selectedOp === o.op_id ? ' sel' : ''));
-			b.appendChild(el('span', '', o.kind));
-			const state = o.open ? 'open' : (o.outcome || 'unknown');
-			b.appendChild(el('span', 'pill ' + state, o.open ? 'running' : state));
-			b.appendChild(el('div', 'm', fmtT(o.started_t) + ' · ' + o.event_count + ' events' + (o.error_count ? ', ' + o.error_count + ' warn/err' : '') + (o.summary ? ' · ' + o.summary : '')));
+			b.appendChild(el('span', '', kindLabel(o.kind)));
+			b.appendChild(el('span', 'pill ' + opState(o), opStateLabel(o)));
+			b.appendChild(el('div', 'm', fmtT(o.started_t) + ' \u00B7 ' + opDuration(o) + ' \u00B7 ' + o.event_count + ' events' + (o.error_count ? ', ' + o.error_count + ' warn/err' : '')));
+			if (o.summary) b.appendChild(el('div', 's', o.summary));
 			b.title = 'Show only this operation\'s events';
 			b.onclick = () => { selectedOp = selectedOp === o.op_id ? null : o.op_id; if (selectedOp) setMode('activity'); else load(); };
 			bar.appendChild(b);
@@ -137,6 +189,8 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 			if (!d.success) { pane.innerHTML = ''; pane.appendChild(el('div', 'empty', d.error || 'Could not load.')); return; }
 			let rows = d.timeline;
 			if (selectedOp) rows = rows.filter(x => x.kind === 'event' && x.op_id === selectedOp);
+			const ev = rows.filter(x => x.kind === 'event').length, vl = rows.length - ev;
+			if (mode !== 'valheim') rows = withOpMarkers(rows, d.operations || []);
 			const atBottom = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 60 || pane.querySelector('.empty');
 			pane.innerHTML = '';
 			if (!rows.length) {
@@ -149,7 +203,6 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 			}
 			if (atBottom) pane.scrollTop = pane.scrollHeight;
 			renderOps(d.operations || []);
-			const ev = rows.filter(x => x.kind === 'event').length, vl = rows.length - ev;
 			document.getElementById('statusLine').textContent = (mode === 'valheim' ? vl + ' Valheim lines' : mode === 'activity' ? ev + ' events' : ev + ' events, ' + vl + ' Valheim lines') + ' · updated ' + new Date().toLocaleTimeString();
 			document.getElementById('valheimLine').textContent = mode === 'activity' ? '' : (d.valheim.exists
 				? 'Valheim log ' + fmtBytes(d.valheim.size) + (d.this_boot && d.valheim.from_offset ? ', shown from this boot (offset ' + fmtBytes(d.valheim.from_offset) + ')' : d.this_boot ? ', no session marker yet so the whole file is shown' : ', whole file') + (d.valheim.truncated ? ', older part cut to keep this fast' : '')
