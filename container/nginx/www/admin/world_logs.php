@@ -43,14 +43,17 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 		label.chk { color: var(--muted); display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
 		button.btn { background: var(--bg3); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.8rem; cursor: pointer; font: inherit; }
 		button.btn:hover { border-color: var(--accent); }
-		#ops { display: flex; gap: 0.4rem; padding: 0.45rem 1rem; background: var(--bg2); border-bottom: 1px solid var(--border); overflow-x: auto; }
-		.op { flex: 0 0 auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.3rem 0.55rem; cursor: pointer; background: var(--bg); font-size: 0.8rem; }
+		/* Operations in a right-hand column, the same shape as logs.php. They were a strip
+		   across the top that scrolled sideways, which read differently from the server-wide
+		   page and hid everything past the third chip. */
+		#opsPane { width: 21rem; flex: 0 0 21rem; border-left: 1px solid var(--border); background: var(--bg2); overflow: auto; padding: 0.6rem; }
+		#opsPane h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 0.5rem; }
+		.op { display: block; border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.55rem; margin-bottom: 0.4rem; cursor: pointer; background: var(--bg); font-size: 0.8rem; }
 		.op:hover, .op.sel { border-color: var(--accent); }
 		.op .m { color: var(--muted); }
 		.pill { display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.02rem 0.4rem; border-radius: 999px; color: #0f1419; margin-left: 0.35rem; }
 		.pill.ok { background: var(--ok); } .pill.failed { background: var(--err); } .pill.interrupted { background: var(--warn); } .pill.open { background: var(--info); }
 		.op .s { color: var(--text); font-size: 0.78rem; margin-top: 0.1rem; }
-		#ops .lbl { align-self: center; color: var(--dim); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; padding-right: 0.3rem; }
 		/* Operation boundaries inside the stream: where a command began and how it ended. */
 		.ln.opmark { margin-top: 0.35rem; }
 		.ln.opmark .msg { font-weight: 600; color: var(--muted); }
@@ -59,7 +62,8 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 		.ln.opmark.failed { border-left: 2px solid var(--err); margin-bottom: 0.35rem; } .ln.opmark.failed .msg { color: var(--err); }
 		.ln.opmark.interrupted { border-left: 2px solid var(--warn); margin-bottom: 0.35rem; } .ln.opmark.interrupted .msg { color: var(--warn); }
 		.ln.opmark.open { border-left: 2px solid var(--info); } .ln.opmark.open .msg { color: var(--info); font-weight: 400; }
-		main { flex: 1; overflow: auto; padding: 0.5rem 0.75rem; }
+		main { flex: 1; display: flex; min-height: 0; }
+		#pane { flex: 1; overflow: auto; padding: 0.5rem 0.75rem; }
 		.ln { display: grid; grid-template-columns: 9.5rem 6.5rem 1fr; gap: 0.6rem; padding: 0.1rem 0.3rem; border-radius: 4px; align-items: baseline; }
 		.ln:hover { background: var(--bg3); }
 		.ln .t { color: var(--dim); white-space: nowrap; }
@@ -89,8 +93,13 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 			<button class="btn" onclick="window.open('readLog.php?logfile=' + encodeURIComponent('valheimworld_' + WORLD + '.log') + '#bottom', '_blank')" title="The raw Valheim log file in the plain viewer">Raw file</button>
 		</div>
 	</header>
-	<div id="ops"><span class="op m" style="cursor:default;border:none">Loading operations...</span></div>
-	<main id="pane"><div class="empty">Loading...</div></main>
+	<main>
+		<div id="pane"><div class="empty">Loading...</div></div>
+		<aside id="opsPane">
+			<h2>Recent operations</h2>
+			<div id="ops"><div class="empty">Loading...</div></div>
+		</aside>
+	</main>
 	<footer>
 		<span id="statusLine"></span>
 		<span id="valheimLine"></span>
@@ -163,8 +172,7 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 
 	function renderOps(ops) {
 		const bar = document.getElementById('ops'); bar.innerHTML = '';
-		if (!ops.length) { bar.appendChild(el('span', 'op m', 'No operations recorded for this world yet. One appears here each time PhValheim starts, stops, updates or repackages it (recorded from 2.56 on).')).style.cursor = 'default'; return; }
-		bar.appendChild(el('span', 'lbl', 'Recent'));
+		if (!ops.length) { bar.appendChild(el('div', 'empty', 'No operations recorded for this world yet. One appears here each time PhValheim starts, stops, updates or repackages it (recorded from 2.56 on).')); return; }
 		for (const o of ops) {
 			const b = el('div', 'op' + (selectedOp === o.op_id ? ' sel' : ''));
 			b.appendChild(el('span', '', kindLabel(o.kind)));
