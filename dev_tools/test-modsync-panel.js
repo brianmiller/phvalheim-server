@@ -87,17 +87,21 @@ function check(name, ok, detail) {
     check('the stopTsSync endpoint no longer does anything',
         !/"success"\s*:\s*true/.test(stopGone), stopGone.slice(0, 120));
 
-    // The removed-element regression: these rows must STILL be written, which only
-    // happens if fetchSyncStatus() survived the missing Thunderstore rows.
+    // 2.43 removed the Thunderstore-only rows; 2.56 removed the backup and log-rotation rows
+    // too (Server Health reports a late backup or housekeeping run, which is the only time
+    // either mattered) and the poller that wrote them. Nothing may still render them.
     const survivors = await page.evaluate(() => ({
-        backup: (document.getElementById('syncBackupTime') || {}).textContent,
-        rotate: (document.getElementById('syncLogRotateTime') || {}).textContent,
-        goneTs: !!document.getElementById('syncLastTs')
+        backup: !!document.getElementById('syncBackupTime'),
+        rotate: !!document.getElementById('syncLogRotateTime'),
+        goneTs: !!document.getElementById('syncLastTs'),
+        rows: document.querySelectorAll('#modSyncPanel > .ms-src').length,
+        full: Array.from(document.querySelectorAll('#modSyncPanel > .ms-src')).every(e =>
+            Math.abs(e.getBoundingClientRect().width - e.parentElement.getBoundingClientRect().width) < 2)
     }));
     check('the Thunderstore-only rows are gone (replaced by the panel)', !survivors.goneTs);
-    check('backup + log-rotation rows still populate after that removal',
-        !!(survivors.backup || '').trim() && !!(survivors.rotate || '').trim(),
+    check('the backup + log-rotation rows are gone too (2.56)', !survivors.backup && !survivors.rotate,
         JSON.stringify(survivors));
+    check('each catalogue is one full-width row', survivors.rows >= 1 && survivors.full, JSON.stringify(survivors));
 
     // ---- one block per catalogue, with real numbers ----
     const blocks = await page.$$eval('#modSyncPanel .ms-src', els => els.map(e => ({

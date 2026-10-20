@@ -6348,25 +6348,23 @@ select.mod-version.is-pinned {
 
 /* --- 2.43 catalogue sync panel ------------------------------------------------- */
 /* 2.56: the card fills the dashboard's width (the "Additional Logs" card beside it moved to
-   logs.php), so the catalogues sit side by side and the cache line spans under them. */
+   logs.php). One full-width ROW per catalogue, not two narrow boxes with a gap beside them:
+   the head line carries identity, state, totals, last-run time and the links; the counts
+   run across the width underneath. */
 .mod-sync-panel {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-	gap: 0.6rem 0.9rem;
-	margin-bottom: 0.75rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	margin-bottom: 0.5rem;
 }
-.mod-sync-panel .ms-cache { grid-column: 1 / -1; }
-.sync-maint-list {
-	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-	column-gap: 2rem;
-}
-.sync-maint-list .status-info-item:last-child { border-bottom: 1px solid var(--border-light); }
-.sync-maint-list .status-info-item { padding: 0.55rem 0; }
+.ms-head .ms-totals { margin-top: 0; margin-left: 0.5rem; font-size: 0.78rem; color: var(--text-primary); }
+.ms-head .ms-when { margin-left: 0.2rem; }
+.ms-links { margin-left: auto; display: flex; gap: 0.3rem; }
+.ms-links .ms-sync-one { margin-left: 0; }
 .ms-src {
 	border: 1px solid var(--border-light);
 	border-radius: 5px;
-	padding: 0.55rem 0.7rem;
+	padding: 0.55rem 0.9rem;
 	background: rgba(0, 0, 0, 0.15);
 }
 .ms-src-live { border-color: var(--accent-primary); }
@@ -6423,14 +6421,17 @@ select.mod-version.is-pinned {
 
 /* Two columns: label then value. Monospaced values so the numbers line up between one
    run and the next -- which is the point of showing the previous run alongside. */
+/* Label/value pairs laid across the row (2.56; was a two-column stack). */
 .ms-grid {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 0.1rem 0.6rem;
-	margin-top: 0.35rem;
-	font-size: 0.72rem;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.15rem 0;
+	margin-top: 0.4rem;
+	font-size: 0.74rem;
 }
-.ms-grid span { color: var(--text-muted); }
+.ms-grid span { color: var(--text-muted); margin-right: 0.4rem; }
+.ms-grid b { margin-right: 1.75rem; }
 .ms-grid b {
 	color: var(--text-primary);
 	font-family: var(--font-mono, monospace);

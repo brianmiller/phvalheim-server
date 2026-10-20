@@ -340,7 +340,7 @@ Measured on a normal host, against the live catalogues:
 | Routine check, nothing changed (both catalogues) | ~1–2 seconds |
 | Full cold build from empty — 11,600+ mods, 91,000+ versions, all history | ~30 seconds |
 
-The **Sync & Maintenance** card shows a live panel per catalogue: current phase, packages and
+The **Mod Catalogues** card shows a live panel per catalogue: current phase, packages and
 versions seen, how many mods and versions were added, changed or removed, how long it took,
 and how that compares with the previous run. Progress is in
 `/opt/stateful/logs/modSync.log`.
@@ -351,7 +351,7 @@ delisted **by name**, which dependencies could not be resolved, and a per-phase 
 breakdown. A **per-mod detail** toggle hides the individual mod lines when you only want the
 summary.
 
-To force a sync immediately, use the per-catalogue `sync` link in the Sync & Maintenance
+To force a sync immediately, use the per-catalogue `sync` link in the Mod Catalogues
 panel. A forced sync ignores change detection and rebuilds the dependency graph, so it takes
 considerably longer than a routine check.
 

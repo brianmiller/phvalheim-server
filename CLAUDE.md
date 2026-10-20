@@ -150,7 +150,7 @@ a boot sync runs even if cron ran minutes ago. It must never pass `--force` — 
 every container restart into a full refetch plus dependency rebuild.
 
 There is no manual sync button and no stop endpoint. Syncing needs no supervision; the
-Sync & Maintenance panel's per-catalogue link forces one.
+Mod Catalogues panel's per-catalogue link forces one.
 
 **Sync:** `engine/tools/modSync.py`, hourly via `cron.d/modSync`, interval enforced from
 `settings.modSyncIntervalHours` inside the script (cron cannot read the database). Change

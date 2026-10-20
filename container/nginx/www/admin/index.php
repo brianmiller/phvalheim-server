@@ -250,14 +250,31 @@ $totalCount = count($worlds);
                     <?php endif; ?>
                 </div>
 
+                <?php // Sidebar groups (2.56): Main is the work, Server is the server's own
+                      // state (health, logs, settings), Tools are the raw doors (supervisor,
+                      // database, files). Logs had a section of its own with one entry, and
+                      // Server Health and Server Settings sat among the raw tools. ?>
                 <div class="nav-section">
-                    <div class="nav-section-title">Logs</div>
+                    <div class="nav-section-title">Server</div>
+                    <a href="#" onclick="showServerHealthModal(); return false;" class="nav-item" data-nav="server-health">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12.75l6 6 9-13.5"/>
+                        </svg>
+                        Server Health
+                        <span id="healthNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
+                    </a>
                     <a href="logs.php" target="_blank" class="nav-item" id="logsNavItem" title="Activity and log files">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                         Logs
                         <span id="logsNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
+                    </a>
+                    <a href="#" onclick="showServerSettingsModal(); return false;" class="nav-item">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                        </svg>
+                        Server Settings
                     </a>
                 </div>
 
@@ -281,19 +298,6 @@ $totalCount = count($worlds);
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                         </svg>
                         File Browser
-                    </a>
-                    <a href="#" onclick="showServerHealthModal(); return false;" class="nav-item" data-nav="server-health">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12.75l6 6 9-13.5"/>
-                        </svg>
-                        Server Health
-                        <span id="healthNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
-                    </a>
-                    <a href="#" onclick="showServerSettingsModal(); return false;" class="nav-item">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
-                        </svg>
-                        Server Settings
                     </a>
 <?php
                     # The manual catalogue-sync nav item lived here until 2.43: a
@@ -853,7 +857,7 @@ $totalCount = count($worlds);
                             <svg class="card-title-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                             </svg>
-                            Sync & Maintenance
+                            Mod Catalogues
                         </h2>
                     </div>
                     <div class="card-body">
@@ -863,23 +867,9 @@ $totalCount = count($worlds);
                              timestamp -- they had no counts, no phase, and no way to
                              describe a second catalogue. -->
                         <div id="modSyncPanel" class="mod-sync-panel"></div>
-
-                        <ul class="status-info-list sync-maint-list" id="syncStatusList">
-                            <li class="status-info-item">
-                                <span class="status-info-label">Last World Backup</span>
-                                <span class="status-info-value">
-                                    <span id="syncBackupTime"><?php echo getLastWorldBackupExecTime($pdo); ?></span>
-                                    <span class="status-ok" id="syncBackupStatus"><?php echo getLastWorldBackupExecStatus($pdo); ?></span>
-                                </span>
-                            </li>
-                            <li class="status-info-item">
-                                <span class="status-info-label">Last Log Rotation</span>
-                                <span class="status-info-value">
-                                    <span id="syncLogRotateTime"><?php echo getLastLogRotateExecTime($pdo); ?></span>
-                                    <span class="status-ok" id="syncLogRotateStatus"><?php echo getLastLogRotateExecStatus($pdo); ?></span>
-                                </span>
-                            </li>
-                        </ul>
+                        <!-- The "Last World Backup" / "Last Log Rotation" rows that sat under the
+                             panel until 2.56 are gone: Server Health reports a backup or
+                             housekeeping run that is late, which is the only time either mattered. -->
                     </div>
                 </div>
 
@@ -5745,30 +5735,6 @@ $totalCount = count($worlds);
     })();
 
     // Sync & Maintenance status polling
-    async function fetchSyncStatus() {
-        try {
-            const response = await fetch('adminAPI.php?action=getSyncStatus');
-            const data = await response.json();
-
-            if (data.success) {
-                // Tolerant of a missing element: the three Thunderstore rows this used to
-                // write into were replaced by #modSyncPanel in 2.43, and an unguarded
-                // .textContent on null throws -- which would take the backup and
-                // log-rotation rows down with it, since they are set after.
-                const setText = (id, val) => {
-                    const el = document.getElementById(id);
-                    if (el) el.textContent = val;
-                };
-                setText('syncBackupTime', data.worldBackup.time);
-                setText('syncBackupStatus', data.worldBackup.status);
-                setText('syncLogRotateTime', data.logRotate.time);
-                setText('syncLogRotateStatus', data.logRotate.status);
-            }
-        } catch (error) {
-            console.error('Failed to fetch sync status:', error);
-        }
-    }
-
     // ---------------------------------------------------------------- mod catalogue sync
     //
     // Two cadences on purpose. An idle catalogue changes at most hourly, so polling it
@@ -5873,17 +5839,21 @@ $totalCount = count($worlds);
             </div>`;
         }
 
+        // One full-width row per catalogue (2.56): identity, state, totals and the last run's
+        // time on one line with the links at the right; the run's counts on the next, laid
+        // across the width; then timings and the log pane.
         return `<div class="ms-src">
             <div class="ms-head">${pill}
                 <span class="ms-state ${cls}">${label}</span>
                 <span class="ms-trigger">${last ? (last.trigger_kind || '') : ''}</span>
+                <span class="ms-totals">${st.mods.toLocaleString()} mods ·
+                     ${st.versions.toLocaleString()} versions on disk</span>
+                <span class="ms-when">${last ? ('finished ' + (last.finished || '')) : ''}</span>
+                <span class="ms-links">
                 <a class="ms-sync-one" href="?manual_mod_sync=${src}"
                    title="Force a sync of this catalogue now">sync</a>
                 <a class="ms-sync-one ms-log-link" href="readLog.php?logfile=modSync.log#bottom" target="_blank"
-                   title="The full catalogue sync log (both catalogues write to it)">log</a></div>
-            <div class="ms-totals">${st.mods.toLocaleString()} mods ·
-                 ${st.versions.toLocaleString()} versions on disk</div>
-            <div class="ms-when">${last ? ('finished ' + (last.finished || '')) : ''}</div>
+                   title="The full catalogue sync log (both catalogues write to it)">log</a></span></div>
             ${body}
             ${timingsHtml(last)}
             ${logPaneHtml(src)}
@@ -6062,15 +6032,9 @@ $totalCount = count($worlds);
         }
     }
 
-    // Add sync status polling to the main polling loop
-    const SYNC_POLL_INTERVAL = 30000; // 30 seconds for sync status
-
-    // Fetch sync status on page load and then every 30 seconds
     document.addEventListener('DOMContentLoaded', function() {
-        fetchSyncStatus();
         refreshModSyncPanel();
     });
-    setInterval(fetchSyncStatus, SYNC_POLL_INTERVAL);
 
     // Initialize world resource mini charts
     function initWorldCharts() {
