@@ -671,8 +671,15 @@ function syncModCatalogue() {
         #-s /bin/sh guards against the account's login shell changing. Not `su -`: HOME is
         #/opt and is NOT writable by phvalheim, and a login shell resolves to the same place.
         #modSync.py needs no HOME -- cron has run it as this user with this HOME all along.
-        setsid su phvalheim -s /bin/sh -c '/opt/stateless/engine/tools/modSync.py --source all --trigger boot' \
-                >> /opt/stateful/logs/modSync.log 2>&1 &
+        #
+        #The REDIRECT runs as phvalheim too (2.56). It used to sit outside the su, so root
+        #created modSync.log on a fresh install -- and from then on cron's hourly sync and the
+        #admin UI's forced sync, both phvalheim, died on "Permission denied" opening the log
+        #before modSync.py ever ran. The chown repairs an install that already has the
+        #root-owned file.
+        touch /opt/stateful/logs/modSync.log && chown phvalheim:phvalheim /opt/stateful/logs/modSync.log
+        setsid su phvalheim -s /bin/sh -c '/opt/stateless/engine/tools/modSync.py --source all --trigger boot >> /opt/stateful/logs/modSync.log 2>&1' \
+                > /dev/null 2>&1 &
 }
 
 #Removes world_mods rows whose world no longer exists. Runs at engine start to sweep up

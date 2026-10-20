@@ -85,17 +85,6 @@ if (!empty($_GET['update_world'])) {
 
 
 // Per-source manual sync, from the Sync panel's individual buttons.
-if (!empty($_GET['manual_mod_sync'])) {
-    $syncSource = $_GET['manual_mod_sync'];
-    if (in_array($syncSource, ['all', 'thunderstore', 'hexium'], true)) {
-        exec("/opt/stateless/engine/tools/modSync.py --source "
-            . escapeshellarg($syncSource)
-            . " --trigger manual --force >> /opt/stateful/logs/modSync.log 2>&1 &");
-        header('Location: /');
-        exit;
-    }
-}
-
 // HTTP(S) detector
 if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
     $httpScheme = "https";
@@ -256,19 +245,19 @@ $totalCount = count($worlds);
                       // Server Health and Server Settings sat among the raw tools. ?>
                 <div class="nav-section">
                     <div class="nav-section-title">Server</div>
-                    <a href="#" onclick="showServerHealthModal(); return false;" class="nav-item" data-nav="server-health">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12.75l6 6 9-13.5"/>
-                        </svg>
-                        Server Health
-                        <span id="healthNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
-                    </a>
                     <a href="logs.php" target="_blank" class="nav-item" id="logsNavItem" title="Activity and log files">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                         Logs
                         <span id="logsNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
+                    </a>
+                    <a href="#" onclick="showServerHealthModal(); return false;" class="nav-item" data-nav="server-health">
+                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 12.75l6 6 9-13.5"/>
+                        </svg>
+                        Server Health
+                        <span id="healthNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
                     </a>
                     <a href="#" onclick="showServerSettingsModal(); return false;" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,12 +269,11 @@ $totalCount = count($worlds);
 
                 <div class="nav-section">
                     <div class="nav-section-title">Tools</div>
-                    <a href="/supervisor/" target="_blank" class="nav-item">
+                    <a href="fileBrowser.php" target="_blank" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
                         </svg>
-                        Supervisor
+                        File Browser
                     </a>
                     <a href="gridphp/" target="_blank" class="nav-item" onclick="return confirm('I hope you know what you\'re doing. \nAre you sure?')">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -293,11 +281,12 @@ $totalCount = count($worlds);
                         </svg>
                         Database Browser
                     </a>
-                    <a href="fileBrowser.php" target="_blank" class="nav-item">
+                    <a href="/supervisor/" target="_blank" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                         </svg>
-                        File Browser
+                        Supervisor
                     </a>
 <?php
                     # The manual catalogue-sync nav item lived here until 2.43: a
@@ -5850,7 +5839,7 @@ $totalCount = count($worlds);
                      ${st.versions.toLocaleString()} versions on disk</span>
                 <span class="ms-when">${last ? ('finished ' + (last.finished || '')) : ''}</span>
                 <span class="ms-links">
-                <a class="ms-sync-one" href="?manual_mod_sync=${src}"
+                <a class="ms-sync-one" href="#" data-sync="${src}" onclick="startModSync('${src}'); return false;"
                    title="Force a sync of this catalogue now">sync</a>
                 <a class="ms-sync-one ms-log-link" href="readLog.php?logfile=modSync.log#bottom" target="_blank"
                    title="The full catalogue sync log (both catalogues write to it)">log</a></span></div>
@@ -5987,6 +5976,24 @@ $totalCount = count($worlds);
             renderModSyncLogLines(src);
         }
     });
+
+    // Force a sync of one catalogue without leaving the page (2.56). The link used to be a GET
+    // on this page that redirected back, so every click reloaded the dashboard and dropped the
+    // operator's open sync log and scroll position. The state word flips to "starting" at once;
+    // the next poll (pulled forward, and tightened to the running cadence) shows the real run.
+    async function startModSync(src) {
+        const state = document.querySelector(`#modSyncPanel a[data-sync="${src}"]`)?.closest('.ms-src')?.querySelector('.ms-state');
+        if (state) { state.textContent = 'starting'; state.className = 'ms-state ms-run'; }
+        try {
+            const r = await fetch('adminAPI.php?action=startModSync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source: src }) });
+            const d = await r.json();
+            if (!d.success) { if (state) { state.textContent = 'not started'; state.className = 'ms-state ms-err'; } console.error('startModSync', d.error); return; }
+        } catch (e) { console.error('startModSync', e); return; }
+        modSyncPollMs = MODSYNC_ACTIVE_POLL;
+        if (modSyncTimer) clearInterval(modSyncTimer);
+        modSyncTimer = setInterval(refreshModSyncPanel, modSyncPollMs);
+        setTimeout(refreshModSyncPanel, 1500);
+    }
 
     async function refreshModSyncPanel() {
         const el = document.getElementById('modSyncPanel');

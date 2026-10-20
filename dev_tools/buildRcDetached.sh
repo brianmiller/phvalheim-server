@@ -3672,6 +3672,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56fl=$(grep -cF 'class="ms-links"' /opt/stateless/nginx/www/admin/index.php)
   v56fm=$(grep -c '<div class="nav-section-title">Server</div>' /opt/stateless/nginx/www/admin/index.php)
   v56fn=$(grep -c '<div class="nav-section-title">Logs</div>' /opt/stateless/nginx/www/admin/index.php)
+  v56fo=$(grep -c 'manual_mod_sync' /opt/stateless/nginx/www/admin/index.php)
+  v56fp=$(grep -cF "case 'startModSync':" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v56fq=$(grep -cF 'async function startModSync' /opt/stateless/nginx/www/admin/index.php)
+  # fr-ft: the sync log is opened by phvalheim (redirect inside the su), chowned at boot, and
+  # the API launcher falls back to /dev/null on a root-owned file instead of silently not running.
+  v56fr=$(grep -cF -- "--trigger boot >> /opt/stateful/logs/modSync.log 2>&1'" /opt/stateless/engine/includes/0-functions.sh)
+  v56fs=$(grep -cF 'chown phvalheim:phvalheim /opt/stateful/logs/modSync.log' /opt/stateless/engine/includes/0-functions.sh)
+  v56ft=$(grep -cF 'is_writable($syncLog)' /opt/stateless/nginx/www/admin/adminAPI.php)
   v56fg=$(grep -c '^\.ms-links { margin-left: auto' /opt/stateless/nginx/www/css/phvalheimStyles.css)
   v56fh=$(grep -cF 'class="vol-row"' /opt/stateless/nginx/www/admin/index.php)
   v56fi=$(grep -c '^\.vol-bar ' /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -3771,7 +3779,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 DOWNLOAD FALLBACK: latest fn=$v56dp (want 1)  wired=$v56dq (want 1)  tmp cache=$v56dr (want 1)  statcache cleared=$v56ds (want 1)  backoff=$v56dt (want 1)"
   echo "2.56 SERVER HEALTH: collector=$v56du (want 1)  rules=$v56dv (want 9)  api=$v56dw (want 1)  strip=$v56dx (want 1)  sidebar=$v56dy (want 1)  old banner=$v56dz (want 0)  player warning=$v56ea (want 0)  analytics record=$v56eb (want 1)"
   echo "2.56 EVENT LOG: phvlog=$v56ec (want 1)  opBegin=$v56ed (want 1)  raw echo engine=$v56ee (want 0)  raw echo functions=$v56ef (want 0)  loop opens op=$v56eg (want 1)  session mark=$v56eh (want 1)  phvEvent=$v56ei (want 1)  timeline api=$v56ej (want 1)  viewer allowlist=$v56ek (want 1)  logs nav=$v56el (want 1)  old world links=$v56em (want 0)  old panel links=$v56en (want 0)  hugin tool=$v56eo (want 1)  events table=$v56ep (want 1)  ops table=$v56eq (want 1)  retention=$v56er (want 2)  world page=$v56es (want 1)  logs page=$v56et (want 1)  hugin source=$v56eu (want 1)  command events=$v56ev (want 5)  tool named=$v56ew (want 1)"
-  echo "2.56 LOG VIEWER + DASHBOARD: opSummary fn=$v56ex (want 1)  used=$v56ey (want 1)  old valheim branch=$v56ez (want 0)  ops always=$v56fa (want 1)  markers=$v56fb (want 1)  Configure th=$v56fc (want 0)  Resources th=$v56fd (want 2)  two-col=$v56fe (want 0)  maint list=$v56ff (want 0)  panel css=$v56fg (want 1)  links=$v56fl (want 1)  Server nav=$v56fm (want 1)  Logs nav section=$v56fn (want 0)  vol row=$v56fh (want 1)  vol css=$v56fi (want 1)  one group=$v56fj (want 1)  configHtml=$v56fk (want 0)"
+  echo "2.56 LOG VIEWER + DASHBOARD: opSummary fn=$v56ex (want 1)  used=$v56ey (want 1)  old valheim branch=$v56ez (want 0)  ops always=$v56fa (want 1)  markers=$v56fb (want 1)  Configure th=$v56fc (want 0)  Resources th=$v56fd (want 2)  two-col=$v56fe (want 0)  maint list=$v56ff (want 0)  panel css=$v56fg (want 1)  links=$v56fl (want 1)  Server nav=$v56fm (want 1)  Logs nav section=$v56fn (want 0)  reload sync=$v56fo (want 0)  sync api=$v56fp (want 1)  sync js=$v56fq (want 1)  log in su=$v56fr (want 1)  log chown=$v56fs (want 1)  api fallback=$v56ft (want 1)  vol row=$v56fh (want 1)  vol css=$v56fi (want 1)  one group=$v56fj (want 1)  configHtml=$v56fk (want 0)"
   echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 3)  unknown count has no time=$v56cp (want 1)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
@@ -4089,7 +4097,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56ew" = "1" ] \
     && [ "$v56ex" = "1" ] && [ "$v56ey" = "1" ] && [ "$v56ez" = "0" ] && [ "$v56fa" = "1" ] \
     && [ "$v56fb" = "1" ] && [ "$v56fc" = "0" ] && [ "$v56fd" = "2" ] && [ "$v56fe" = "0" ] \
-    && [ "$v56ff" = "0" ] && [ "$v56fg" = "1" ] && [ "$v56fl" = "1" ] && [ "$v56fm" = "1" ] && [ "$v56fn" = "0" ] && [ "$v56fh" = "1" ] && [ "$v56fi" = "1" ] \
+    && [ "$v56ff" = "0" ] && [ "$v56fg" = "1" ] && [ "$v56fl" = "1" ] && [ "$v56fm" = "1" ] && [ "$v56fn" = "0" ] && [ "$v56fo" = "0" ] && [ "$v56fp" = "1" ] && [ "$v56fq" = "1" ] \
+    && [ "$v56fr" = "1" ] && [ "$v56fs" = "1" ] && [ "$v56ft" = "1" ] && [ "$v56fh" = "1" ] && [ "$v56fi" = "1" ] \
     && [ "$v56fj" = "1" ] && [ "$v56fk" = "0" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \

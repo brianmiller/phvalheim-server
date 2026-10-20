@@ -129,6 +129,24 @@ function check(name, ok, detail) {
 
     check('each block offers a per-catalogue sync link',
         blocks.every(b => b.hasSyncLink));
+    // 2.56: the sync link is an AJAX action. It used to be ?manual_mod_sync= on this page, which
+    // redirected back -- every click reloaded the dashboard. Prove it by the STIMULUS: click,
+    // and the page's own JS state survives while a manual run appears in the API.
+    const reloadLink = await page.$$eval('#modSyncPanel a.ms-sync-one[data-sync]', els => els.some(a => /manual_mod_sync/.test(a.getAttribute('href') || '')));
+    check('no sync link points at the page-reloading ?manual_mod_sync= URL', !reloadLink);
+    await page.evaluate(() => { window.__phvNoReload = 1; });
+    await page.click('#modSyncPanel a.ms-sync-one[data-sync="hexium"]');
+    let manualRun = null;
+    for (let i = 0; i < 20 && !manualRun; i++) {
+        await page.waitForTimeout(1000);
+        const st = await page.evaluate(async () => (await (await fetch('adminAPI.php?action=getModSyncStatus')).json()));
+        const r = ((st.runs || {}).hexium) || {};
+        const cand = [r.running, r.last].filter(Boolean).find(x => x.trigger_kind === 'manual');
+        if (cand) manualRun = cand;
+    }
+    const survived = await page.evaluate(() => window.__phvNoReload === 1);
+    check('clicking sync does not reload the page', survived);
+    check('clicking sync starts a manual run of that catalogue', !!manualRun, JSON.stringify(manualRun));
 
     const cache = await page.$eval('#modSyncPanel .ms-cache',
         e => e.textContent.replace(/\s+/g, ' ').trim()).catch(() => null);

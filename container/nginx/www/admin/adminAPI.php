@@ -70,6 +70,25 @@ switch($action) {
         echo json_encode(['success' => true] + phvEventsSummary($pdo));
         break;
 
+    case 'startModSync':
+        // Force a catalogue sync now (2.56: was a ?manual_mod_sync= GET on index.php that
+        // redirected, so every click reloaded the dashboard). Detached, as before: the panel's
+        // 2-second poll shows the run; this call only launches it.
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { echo json_encode(['success' => false, 'error' => 'POST required']); break; }
+        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        $syncSource = (string)($input['source'] ?? '');
+        if (!in_array($syncSource, ['all', 'thunderstore', 'hexium'], true)) { echo json_encode(['success' => false, 'error' => 'Unknown catalogue']); break; }
+        // The log is appended to only when this user may: a root-owned modSync.log (every
+        // install before 2.56 has one) made the shell fail on the redirect and the sync never
+        // ran, with nothing to say so. The run's own lines are in the database either way.
+        $syncLog = '/opt/stateful/logs/modSync.log';
+        $syncOut = (is_writable($syncLog) || (!file_exists($syncLog) && is_writable(dirname($syncLog)))) ? escapeshellarg($syncLog) : '/dev/null';
+        exec("/opt/stateless/engine/tools/modSync.py --source " . escapeshellarg($syncSource)
+            . " --trigger manual --force >> $syncOut 2>&1 &");
+        phvEvent($pdo, 'notice', "Manual sync of the " . ($syncSource === 'all' ? 'mod catalogues' : "$syncSource catalogue") . " requested");
+        echo json_encode(['success' => true, 'source' => $syncSource]);
+        break;
+
     case 'ackEvents':
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $input = json_decode(file_get_contents('php://input'), true) ?: [];
