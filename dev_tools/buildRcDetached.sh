@@ -15,17 +15,23 @@
 set -u
 LOG=/tmp/phvalheim-rc-build.log
 REPO=/mnt/wopr/development/brian/phvalheim-server
-# The tag this build is pushed to. :rc unless told otherwise -- TAG=dev builds a work-in-progress
-# image WITHOUT touching :rc, which is a live channel that real operators run. Note the push
-# below happens BEFORE the verify, so whatever TAG names receives an unverified image first.
+# The tag this build is pushed to. :dev unless told otherwise. :rc is a LIVE channel that real
+# operators run, and the push below happens BEFORE the verify, so whatever TAG names receives
+# an unverified image first. A build reaches :rc only when the user has watched the :dev image
+# run and says so, in those words:
 #
-#   TAG=dev setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &
-TAG="${TAG:-rc}"
+#   TAG=rc setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &
+#
+# (2.56: a work-in-progress build went to :rc because this defaulted to rc.)
+TAG="${TAG:-dev}"
 IMAGE=theoriginalbrian/phvalheim-server:$TAG
 
 # Release promotion. Set to the extra tags this build should ALSO become, e.g.
 #
-#   EXTRA_TAGS="2.45 latest" setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &
+#   TAG=rc EXTRA_TAGS="2.45 latest" setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &
+#
+# Promotion is refused unless TAG=rc: a version tag or :latest must come from the release
+# channel's build, never from a :dev work-in-progress.
 #
 # They are pushed only after the in-image verify prints IMAGE VERIFY OK, and the verify
 # is what decides -- not the build exit status, because the verify deliberately reports
@@ -34,6 +40,10 @@ IMAGE=theoriginalbrian/phvalheim-server:$TAG
 # a retag would ship whatever :rc happened to contain, which is not necessarily this
 # commit. Same source, same image, all three tags.
 EXTRA_TAGS="${EXTRA_TAGS:-}"
+if [ -n "$EXTRA_TAGS" ] && [ "$TAG" != "rc" ]; then
+	echo "EXTRA_TAGS='$EXTRA_TAGS' needs TAG=rc (got TAG=$TAG); a :dev build is never promoted. Nothing built."
+	exit 1
+fi
 
 exec > "$LOG" 2>&1
 echo "=== started $(date -u) ==="

@@ -16,9 +16,12 @@ procedure, so the two cannot drift apart.
 
 # The one-paragraph version
 
-Build detached with `dev_tools/buildRcDetached.sh`. It builds, pushes `:rc`, then greps the
-markers **inside the pushed image** and only promotes extra tags if that says
-`IMAGE VERIFY OK`. Your job is to make sure the markers actually cover the release you are
+Build detached with `dev_tools/buildRcDetached.sh`. It builds, pushes **`:dev`** (the default;
+`TAG=rc` pushes the live release channel), then greps the markers **inside the pushed image**
+and only promotes extra tags if that says `IMAGE VERIFY OK`. **`:rc` is a live channel that
+real operators run: build to it only when the user has watched the `:dev` image run and asks
+for `:rc` in those words.** (2.56: a work-in-progress build landed on `:rc` because the script
+defaulted to it; it had to be rolled back to the 2.55 digest.) Your job is to make sure the markers actually cover the release you are
 shipping, that the user-facing notes describe what shipped, and that nothing reaches
 `:latest` that the user has not watched run.
 
@@ -84,7 +87,8 @@ Ask.
 
 ```bash
 rm -f /tmp/phvalheim-rc-build.log
-setsid nohup dev_tools/buildRcDetached.sh > /dev/null 2>&1 &
+setsid nohup dev_tools/buildRcDetached.sh > /dev/null 2>&1 &          # -> :dev
+TAG=rc setsid nohup dev_tools/buildRcDetached.sh > /dev/null 2>&1 &   # -> :rc, only when asked
 ```
 
 **Always detached.** A build started as a tracked background task dies with
@@ -97,8 +101,10 @@ Poll `/tmp/phvalheim-rc-build.log` for `=== done`. Then read:
 - Every `(want N)` against its actual. Do not skim.
 - The digest.
 
-**`:rc` is pushed BEFORE the verify runs.** A failed verify does not unpush it. Say so if it
-happens.
+**The tag is pushed BEFORE the verify runs.** A failed verify does not unpush it. Say so if it
+happens. If the wrong tag was built, restore it at once: `docker tag <image>:<good> <image>:rc
+&& docker push <image>:rc` puts the previous digest back (verify with `docker buildx imagetools
+inspect`).
 
 # Tagging and publishing
 
@@ -107,8 +113,8 @@ Retagging ships whatever `:rc` happened to contain, which is not necessarily the
 mean — finishing the docs changes files inside the image. (2.45)
 
 ```bash
-EXTRA_TAGS="2.47"          setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &   # pre-release
-EXTRA_TAGS="2.47 latest"   setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &   # full release
+TAG=rc EXTRA_TAGS="2.47"          setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &   # pre-release
+TAG=rc EXTRA_TAGS="2.47 latest"   setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &   # full release
 ```
 
 Same source, same build, all tags on one digest. The script pushes extra tags only after
