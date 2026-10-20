@@ -258,8 +258,8 @@ $payload = modConfigEditorPayload($pdo, $world);
 
 	<?php
 	// "We detected an orphaned config file -- does it match one of your mods?" -- asked for on
-	// Discord, in those words. Only files with no owner at all count: a Local plugin is already
-	// answered (a DLL in custom_plugins/ declares it).
+	// Discord, in those words. Only files with no owner at all count: a file that a DLL in
+	// custom_plugins/ declares is already answered.
 	$cfgUnmatched = count(array_filter($files, function ($f) {
 		return $f['mod_id'] === null && empty($f['local_dll']);
 	}));

@@ -3584,7 +3584,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56de=$(grep -cF 'class="alert alert-info cfg-match-prompt"' /opt/stateless/nginx/www/admin/world_configs.php)
   v56df=$(grep -cF 'ON DUPLICATE KEY UPDATE learned = 1' /opt/stateless/engine/tools/pluginGuids.py)
   v56dg=$(grep -c 'INSERT IGNORE INTO mod_plugin_guids' /opt/stateless/engine/tools/pluginGuids.py)
-  v56dh=$(grep -cF "$m['manual_guids'] = " /opt/stateless/nginx/www/includes/modconfigs.php)
+  # Anchored on text with NO `$` in it. The first cut was "$m['manual_guids'] = " in double
+  # quotes: the verify shell expanded $m -- an older marker's variable -- and the pattern read 0
+  # in the real build while passing in a standalone check where $m happened to be unset.
+  v56dh=$(grep -cF "['manual_guids'] = " /opt/stateless/nginx/www/includes/modconfigs.php)
   v56di=$(grep -cF '#^[^/\\\\\x00]+\.cfg$#' /opt/stateless/nginx/www/includes/modconfigs.php)
   v56dj=$(grep -cE '^addColumn mod_plugin_guids (learned|manual) ' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
   _c=$(grep -nE '^addColumn mod_plugin_guids manual ' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh | head -1 | cut -d: -f1)
