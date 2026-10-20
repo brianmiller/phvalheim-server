@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=playerMonitor   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # Best-effort player counts, parsed out of each running world's log.

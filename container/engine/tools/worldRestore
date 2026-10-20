@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=restore   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # World Restore - restores a world from a backup
@@ -27,7 +28,7 @@ function jsonSuccess() {
 
 function progress() {
 	echo "{\"progress\":\"$1\"}"
-	echo "`date` [phvalheim]  $1" >> "$LOG"
+	phvlog INFO " $1" >> "$LOG"
 }
 
 # prevent concurrent restores
@@ -78,7 +79,7 @@ progress "Backup file: $(basename "$backupFilePath") ($(echo "$backupFileSize" |
 
 worldDir="$worldsDirectoryRoot/$worldName"
 
-echo "`date` [NOTICE : phvalheim] Starting restore of '$worldName' from backup id=$backupId" >> "$LOG"
+phvlog NOTICE "Starting restore of '$worldName' from backup id=$backupId" >> "$LOG"
 
 # step 1: create world directory if missing
 if [ ! -d "$worldDir" ]; then
@@ -127,7 +128,7 @@ if worldRunning "$worldName"; then
 	done
 
 	if worldRunning "$worldName"; then
-		echo "`date` [ERROR : phvalheim] Restore of '$worldName' ABORTED: the world would not stop after ${stopWaited}s" >> "$LOG"
+		phvlog ERROR "Restore of '$worldName' ABORTED: the world would not stop after ${stopWaited}s" >> "$LOG"
 		jsonError "World '$worldName' did not stop after ${stopWaited}s, so nothing has been restored. Valheim saves when it shuts down and would have written over the restored files. Stop the world from the dashboard and try again."
 	fi
 
@@ -254,7 +255,7 @@ else
 fi
 
 if [ $? -ne 0 ]; then
-	echo "`date` [FAIL : phvalheim]  Backup extraction failed!" >> "$LOG"
+	phvlog FAIL " Backup extraction failed!" >> "$LOG"
 	jsonError "Backup extraction failed"
 fi
 
@@ -291,7 +292,7 @@ while [ "$liftCount" -lt 5 ] && [ -d "$worldDir/$unityRel/$unityRel" ]; do
 	rm -rf "$liftTmp"
 done
 if [ "$liftCount" -gt 0 ]; then
-	echo "`date` [NOTICE : phvalheim] Lifted a nested world tree for '$worldName' ($liftCount level(s), issue #89)" >> "$LOG"
+	phvlog NOTICE "Lifted a nested world tree for '$worldName' ($liftCount level(s), issue #89)" >> "$LOG"
 	progress "Repaired nesting from a pre-2.48 restore ($liftCount level(s))."
 fi
 
@@ -323,6 +324,6 @@ SQL "UPDATE worlds SET mode='update' WHERE name='$worldName';"
 # failed. Say what actually happens instead, and let them press Start.
 progress "Rebuild queued. '$worldName' stays STOPPED until it finishes -- then start it from the dashboard."
 
-echo "`date` [NOTICE : phvalheim] Restore complete for '$worldName' from backup id=$backupId (world left stopped, mode=update)" >> "$LOG"
+phvlog NOTICE "Restore complete for '$worldName' from backup id=$backupId (world left stopped, mode=update)" >> "$LOG"
 
 jsonSuccess "World '$worldName' restored from backup #$backupId. It is rebuilding and will stay stopped -- start it from the dashboard once the rebuild finishes." "$safetyBackupId"

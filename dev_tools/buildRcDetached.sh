@@ -3628,6 +3628,30 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56dz=$(grep -cF 'id="criticalConfigBanner"' /opt/stateless/nginx/www/admin/index.php)
   v56ea=$(grep -cF 'Backup retention is not configured' /opt/stateless/nginx/www/public/authenticated.php)
   v56eb=$(grep -cF 'record_file="/opt/stateful/cache/analyticsPush.json"' /opt/stateless/engine/tools/pushAnalytics.sh)
+  # 2.56 event log: phvlog + operations in the engine conf; no raw echo-with-date lines left;
+  # the main loop opens/closes operations; PHP writer/readers; the Logs pages; the viewer
+  # allowlist; Hugin's tools; retention in the rotater. Never a $ inside double quotes here.
+  v56ec=$(grep -c '^function phvlog' /opt/stateless/engine/includes/phvalheim-static.conf)
+  v56ed=$(grep -c '^function phvOpBegin' /opt/stateless/engine/includes/phvalheim-static.conf)
+  v56ee=$(grep -cF 'echo "`date` [NOTICE : phvalheim]' /opt/stateless/engine/phvalheim)
+  v56ef=$(grep -cF 'echo "`date` [NOTICE : phvalheim]' /opt/stateless/engine/includes/0-functions.sh)
+  v56eg=$(grep -cF 'phvOpBegin "$worldMode"' /opt/stateless/engine/phvalheim)
+  v56eh=$(grep -cF 'phvWorldSessionMark "$worldName"' /opt/stateless/engine/phvalheim)
+  v56ei=$(grep -c '^function phvEvent(' /opt/stateless/nginx/www/includes/events.php)
+  v56ej=$(grep -cF "case 'getWorldTimeline':" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v56ek=$(grep -c 'phvLogFileAllowed(' /opt/stateless/nginx/www/admin/readLog.php)
+  v56el=$(grep -cF 'id="logsNavItem"' /opt/stateless/nginx/www/admin/index.php)
+  v56em=$(grep -cF 'readLog.php?logfile=valheimworld_' /opt/stateless/nginx/www/admin/index.php)
+  v56en=$(grep -cF 'readLog.php?logfile=php.log' /opt/stateless/nginx/www/admin/index.php)
+  v56eo=$(grep -c '^function aiToolLastOperation' /opt/stateless/nginx/www/includes/aicontext.php)
+  v56ep=$(grep -cF 'CREATE TABLE phv_events' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
+  v56eq=$(grep -cF 'CREATE TABLE phv_operations' /opt/stateless/engine/dbUpdates/dbUpdate_2.56.sh)
+  v56er=$(grep -cF 'DELETE FROM phv_events' /opt/stateless/engine/tools/logRotater.sh)
+  v56es=$(grep -cF 'getWorldTimeline' /opt/stateless/nginx/www/admin/world_logs.php)
+  v56et=$(grep -cF 'getLogFiles' /opt/stateless/nginx/www/admin/logs.php)
+  v56eu=$(grep -cF "phvEventSource('hugin')" /opt/stateless/nginx/www/includes/aiactions.php)
+  v56ev=$(grep -c 'phvEvent(' /opt/stateless/nginx/www/includes/db_sets.php)
+  v56ew=$(grep -c '^PHV_LOG_SOURCE=' /opt/stateless/engine/tools/updateApplier)
   v56bb=$(grep -cF "as it stands now</b>" /opt/stateless/nginx/www/admin/index.php)
   v56bc=$(grep -cF "every setting you had changed" /opt/stateless/nginx/www/admin/index.php)
 
@@ -3720,7 +3744,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MANUAL MATCH: resolver=$v56cx (want 1)  RESOLVER CALLERS=$v56cy (want 2)  match fn=$v56cz (want 1)  undo fn=$v56da (want 1)  api cases=$v56db (want 2)  select=$v56dc (want 1)  undo link=$v56dd (want 1)  prompt=$v56de (want 1)  learn upsert=$v56df (want 1)  old insert-ignore=$v56dg (want 0)  manual guids passed=$v56dh (want 1)  NAME GUARD=$v56di (want 2)  columns=$v56dj (want 2)  COLUMNS BEFORE LEARN=$v56dk (want 1)"
   echo "2.56 CLIENT URL RETIRED: readers=$v56dl (want 0)  settings field=$v56dm (want 0)  wizard field=$v56dn (want 0)  public warning=$v56do (want 0)"
   echo "2.56 DOWNLOAD FALLBACK: latest fn=$v56dp (want 1)  wired=$v56dq (want 1)  tmp cache=$v56dr (want 1)  statcache cleared=$v56ds (want 1)  backoff=$v56dt (want 1)"
-  echo "2.56 SERVER HEALTH: collector=$v56du (want 1)  rules=$v56dv (want 8)  api=$v56dw (want 1)  strip=$v56dx (want 1)  sidebar=$v56dy (want 1)  old banner=$v56dz (want 0)  player warning=$v56ea (want 0)  analytics record=$v56eb (want 1)"
+  echo "2.56 SERVER HEALTH: collector=$v56du (want 1)  rules=$v56dv (want 9)  api=$v56dw (want 1)  strip=$v56dx (want 1)  sidebar=$v56dy (want 1)  old banner=$v56dz (want 0)  player warning=$v56ea (want 0)  analytics record=$v56eb (want 1)"
+  echo "2.56 EVENT LOG: phvlog=$v56ec (want 1)  opBegin=$v56ed (want 1)  raw echo engine=$v56ee (want 0)  raw echo functions=$v56ef (want 0)  loop opens op=$v56eg (want 1)  session mark=$v56eh (want 1)  phvEvent=$v56ei (want 1)  timeline api=$v56ej (want 1)  viewer allowlist=$v56ek (want 1)  logs nav=$v56el (want 1)  old world links=$v56em (want 0)  old panel links=$v56en (want 0)  hugin tool=$v56eo (want 1)  events table=$v56ep (want 1)  ops table=$v56eq (want 1)  retention=$v56er (want 2)  world page=$v56es (want 1)  logs page=$v56et (want 1)  hugin source=$v56eu (want 1)  command events=$v56ev (want 5)  tool named=$v56ew (want 1)"
   echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 3)  unknown count has no time=$v56cp (want 1)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
@@ -4028,8 +4053,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56dl" = "0" ] && [ "$v56dm" = "0" ] && [ "$v56dn" = "0" ] && [ "$v56do" = "0" ] \
     && [ "$v56dp" = "1" ] && [ "$v56dq" = "1" ] && [ "$v56dr" = "1" ] && [ "$v56ds" = "1" ] \
     && [ "$v56dt" = "1" ] \
-    && [ "$v56du" = "1" ] && [ "$v56dv" = "8" ] && [ "$v56dw" = "1" ] && [ "$v56dx" = "1" ] \
+    && [ "$v56du" = "1" ] && [ "$v56dv" = "9" ] && [ "$v56dw" = "1" ] && [ "$v56dx" = "1" ] \
     && [ "$v56dy" = "1" ] && [ "$v56dz" = "0" ] && [ "$v56ea" = "0" ] && [ "$v56eb" = "1" ] \
+    && [ "$v56ec" = "1" ] && [ "$v56ed" = "1" ] && [ "$v56ee" = "0" ] && [ "$v56ef" = "0" ] \
+    && [ "$v56eg" = "1" ] && [ "$v56eh" = "1" ] && [ "$v56ei" = "1" ] && [ "$v56ej" = "1" ] \
+    && [ "$v56ek" = "1" ] && [ "$v56el" = "1" ] && [ "$v56em" = "0" ] && [ "$v56en" = "0" ] \
+    && [ "$v56eo" = "1" ] && [ "$v56ep" = "1" ] && [ "$v56eq" = "1" ] && [ "$v56er" = "2" ] \
+    && [ "$v56es" = "1" ] && [ "$v56et" = "1" ] && [ "$v56eu" = "1" ] && [ "$v56ev" = "5" ] \
+    && [ "$v56ew" = "1" ] \
     && [ "$v55bi" = "0" ] \
     && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \
     && [ "$v55ej" = "1" ] && [ "$v55ek" = "1" ] \

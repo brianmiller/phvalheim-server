@@ -251,32 +251,13 @@ $totalCount = count($worlds);
                 </div>
 
                 <div class="nav-section">
-                    <div class="nav-section-title">System Logs</div>
-                    <a href="readLog.php?logfile=phvalheim.log#bottom" target="_blank" class="nav-item">
+                    <div class="nav-section-title">Logs</div>
+                    <a href="logs.php" target="_blank" class="nav-item" id="logsNavItem" title="Activity and log files">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
-                        Engine
-                    </a>
-                    <a href="readLog.php?logfile=mysqld.log#bottom" target="_blank" class="nav-item">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
-                        </svg>
-                        Database
-                    </a>
-                    <!-- modSync.log, not tsSync.log: the log covers every catalogue now, not
-                         just Thunderstore, so the label would have been wrong either way. -->
-                    <a href="readLog.php?logfile=modSync.log#bottom" target="_blank" class="nav-item">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                        Mod Catalogues
-                    </a>
-                    <a href="readLog.php?logfile=worldBackups.log#bottom" target="_blank" class="nav-item">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
-                        </svg>
-                        Backups
+                        Logs
+                        <span id="logsNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
                     </a>
                 </div>
 
@@ -689,7 +670,7 @@ $totalCount = count($worlds);
                                                 <span class="action-btn disabled" data-action="start">Start</span>
                                                 <span class="action-btn disabled" data-action="stop">Stop</span>
                                                 <?php endif; ?>
-                                                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_<?php echo urlencode($world['name']); ?>.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>
+                                                <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
                                             </div>
                                         </td>
                                         <td>
@@ -811,7 +792,7 @@ $totalCount = count($worlds);
                                                 <span class="action-btn disabled" data-action="launch">Launch</span>
                                                 <a href="?start_world=<?php echo urlencode($world['name']); ?>" class="action-btn success" data-action="start">Start</a>
                                                 <span class="action-btn disabled" data-action="stop">Stop</span>
-                                                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_<?php echo urlencode($world['name']); ?>.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>
+                                                <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
                                             </div>
                                         </td>
                                         <td>
@@ -912,45 +893,7 @@ $totalCount = count($worlds);
                     </div>
                 </div>
 
-                <!-- More Logs -->
-                <div class="dashboard-card">
-                    <div class="card-header">
-                        <h2 class="card-title">
-                            <svg class="card-title-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            Additional Logs
-                        </h2>
-                    </div>
-                    <div class="card-body">
-                        <div class="quick-actions">
-                            <a href="readLog.php?logfile=php.log#bottom" target="_blank" class="quick-action-btn">
-                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
-                                </svg>
-                                PHP
-                            </a>
-                            <a href="readLog.php?logfile=nginx.log#bottom" target="_blank" class="quick-action-btn">
-                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
-                                </svg>
-                                NGINX
-                            </a>
-                            <a href="readLog.php?logfile=cron.log#bottom" target="_blank" class="quick-action-btn">
-                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                </svg>
-                                CRON
-                            </a>
-                            <a href="readLog.php?logfile=logRotater.log#bottom" target="_blank" class="quick-action-btn">
-                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                                </svg>
-                                Log Rotater
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                <!-- The "Additional Logs" card that was here moved to logs.php (2.56). -->
             </div>
 
         </main>
@@ -2146,6 +2089,7 @@ $totalCount = count($worlds);
 
             if (data.success) {
                 updateWorldsDisplay(data.worlds);
+                updateLogsPulse(data.events);
                 updateStats(data.worlds);
                 updateAiContextWorlds(data.worlds);
             }
@@ -2495,7 +2439,7 @@ $totalCount = count($worlds);
                 ${launchButtonHtml(world)}
                 <span class="action-btn disabled" data-action="start">Start</span>
                 <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>
-                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
+                <a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
             configHtml = `
                 ${modsButtonHtml(world, true)}
                 <span class="action-btn disabled" data-action="update">Update</span>
@@ -2506,7 +2450,7 @@ $totalCount = count($worlds);
                 <span class="action-btn disabled" data-action="launch">Launch</span>
                 <a href="?start_world=${encodeURIComponent(world.name)}" class="action-btn success" data-action="start">Start</a>
                 <span class="action-btn disabled" data-action="stop">Stop</span>
-                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
+                <a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
             configHtml = `
                 ${modsButtonHtml(world, true)}
                 <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
@@ -2517,7 +2461,7 @@ $totalCount = count($worlds);
                 <span class="action-btn disabled" data-action="launch">Launch</span>
                 <span class="action-btn disabled" data-action="start">Start</span>
                 <span class="action-btn disabled" data-action="stop">Stop</span>
-                <a href="#" onclick="window.open('readLog.php?logfile=valheimworld_${encodeURIComponent(world.name)}.log','logReader','resizable,height=750,width=1600'); return false;" class="action-btn" data-action="logs">Logs</a>`;
+                <a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
             configHtml = `
                 ${modsButtonHtml(world, false)}
                 <span class="action-btn disabled" data-action="update">Update</span>
@@ -6409,6 +6353,35 @@ $totalCount = count($worlds);
     }
 
     // ===== Server Settings Modal =====
+    // ===== Log pulses (2.56) =====
+    // The sidebar Logs entry pulses while there are warnings (amber) or errors (red) the operator
+    // has not looked at; a world's Logs button pulses while an operation on it is in flight.
+    // Both come from the same 5-second poll as the world table (getWorlds -> events).
+    function updateLogsPulse(ev) {
+        if (!ev) return;
+        const nav = document.getElementById('logsNavItem');
+        const badge = document.getElementById('logsNavBadge');
+        const n = (ev.unseen_error || 0) + (ev.unseen_warn || 0);
+        if (nav) {
+            nav.classList.remove('pulse-danger', 'pulse-warning');
+            if (n > 0) nav.classList.add(ev.unseen_error ? 'pulse-danger' : 'pulse-warning');
+            nav.title = n > 0 ? (ev.unseen_error || 0) + ' error(s) and ' + (ev.unseen_warn || 0) + ' warning(s) not yet looked at' : 'Activity and log files';
+        }
+        if (badge) {
+            badge.textContent = n > 0 ? String(n) : '';
+            badge.style.display = n > 0 ? 'inline-block' : 'none';
+            badge.style.background = ev.unseen_error ? 'var(--danger)' : 'var(--warning)';
+        }
+        const open = ev.open_ops || {};
+        document.querySelectorAll('tr[data-world]').forEach(row => {
+            const btn = row.querySelector('[data-action="logs"]');
+            if (!btn) return;
+            const op = open[row.getAttribute('data-world')];
+            btn.classList.toggle('pulse-info', !!op);
+            if (op) btn.title = op.kind + ' in progress: PhValheim is writing to this log now';
+        });
+    }
+
     // ===== Server health (2.56) =====
     // One list of checks from adminAPI.php?action=getServerHealth: {id, name, state, detail, action, since}.
     // The strip under the header shows warnings and problems only; the modal (sidebar: Server Health)
@@ -6429,6 +6402,11 @@ $totalCount = count($worlds);
         if (action === 'settings') {
             b.textContent = 'Open Server Settings';
             b.onclick = function () { closeServerHealthModal(); showServerSettingsModal(); };
+            return b;
+        }
+        if (action === 'logs') {
+            b.textContent = 'Open Logs';
+            b.onclick = function () { window.open('logs.php', '_blank'); };
             return b;
         }
         if (action.indexOf('log:') === 0) {

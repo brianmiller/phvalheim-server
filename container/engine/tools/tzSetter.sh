@@ -1,8 +1,9 @@
 #!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf   # phvlog (2.56)
 
 # if the provided timezone is invalid, set it to UTC
 if [ ! -f "/usr/share/zoneinfo/$TZ" ]; then
-	echo "`date` [WARN : phvalheim] The environment variable for timezone (TZ) is missing or invalid, setting to UTC..."
+	phvlog WARN "The environment variable for timezone (TZ) is missing or invalid, setting to UTC..."
                 export TZ="Etc/UTC"
 fi
 

@@ -187,6 +187,18 @@ All settings are configured through the **Admin UI** after first launch. No envi
 | **Base Port** | First UDP port for worlds (must match the container's port range). |
 | **Backups to Keep** | Number of backup snapshots to retain per world. |
 
+### Logs
+
+Everything PhValheim does is recorded as an **event** with the world it concerns and the
+**operation** it belongs to (a start, stop, update, create, delete or repackage, each with an
+outcome). A world's **Logs** button opens three tabs: **Activity** (PhValheim's actions on that
+world, grouped by operation), **Valheim** (the game's own log, this boot only by default) and
+**Both**, merged by time. The sidebar's **Logs** page is the server-wide stream, with filters
+for world, source and level, and a **Files** tab listing every raw log on disk. **Logs** pulses
+while there are warnings or errors you have not looked at; a world's **Logs** button pulses while
+PhValheim is working on it. Hugin reads the same record. Events are kept for 30 days (at most
+100,000); the raw files rotate at 1 MB as before.
+
 ### Server Health
 
 The dashboard checks the things that used to fail silently and shows anything that needs

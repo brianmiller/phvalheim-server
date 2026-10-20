@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=backup   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # World Backup Reconcile - ensures DB records match files on disk
@@ -30,14 +31,14 @@ while IFS=$'\t' read -r id filePath isOrphaned; do
 		if [ "$isOrphaned" = "1" ]; then
 			SQL "UPDATE backups SET orphaned=0 WHERE id=$id;"
 			restoredCount=$((restoredCount + 1))
-			echo "`date` [NOTICE : phvalheim] Backup #$id file reappeared: $(basename "$filePath")" >> "$LOG"
+			phvlog NOTICE "Backup #$id file reappeared: $(basename "$filePath")" >> "$LOG"
 		fi
 	else
 		# File missing — mark as orphaned
 		if [ "$isOrphaned" != "1" ]; then
 			SQL "UPDATE backups SET orphaned=1 WHERE id=$id;"
 			orphanedCount=$((orphanedCount + 1))
-			echo "`date` [NOTICE : phvalheim] Backup #$id file missing (orphaned): $(basename "$filePath")" >> "$LOG"
+			phvlog NOTICE "Backup #$id file missing (orphaned): $(basename "$filePath")" >> "$LOG"
 		fi
 	fi
 done <<< "$allRecords"
@@ -88,9 +89,9 @@ if [ -d "$backupDir" ]; then
 			SQL "INSERT INTO backups (world_name, created_at, type, file_path, file_size, compressed, compression_type, orphaned, metadata)
 				VALUES ('$worldName', '$timestamp', '$backupType', '$backupFile', $fileSize, $compressed, '$compressionType', 0, '$metadata');"
 			importedCount=$((importedCount + 1))
-			echo "`date` [NOTICE : phvalheim] Discovered and imported backup: $fileName (world: $worldName)" >> "$LOG"
+			phvlog NOTICE "Discovered and imported backup: $fileName (world: $worldName)" >> "$LOG"
 		else
-			echo "`date` [WARN : phvalheim] Discovered backup for unknown world '$worldName': $fileName (skipped)" >> "$LOG"
+			phvlog WARN "Discovered backup for unknown world '$worldName': $fileName (skipped)" >> "$LOG"
 		fi
 	done
 fi
@@ -102,11 +103,11 @@ totalOrphaned=${totalOrphaned:-0}
 if [ $JSON_MODE = 1 ]; then
 	echo "{\"success\":true,\"newlyOrphaned\":$orphanedCount,\"restored\":$restoredCount,\"imported\":$importedCount,\"totalOrphaned\":$totalOrphaned}"
 else
-	[ $orphanedCount -gt 0 ] && echo "`date` [NOTICE : phvalheim] Reconcile: $orphanedCount backup(s) newly orphaned"
-	[ $restoredCount -gt 0 ] && echo "`date` [NOTICE : phvalheim] Reconcile: $restoredCount backup(s) restored from orphan state"
-	[ $importedCount -gt 0 ] && echo "`date` [NOTICE : phvalheim] Reconcile: $importedCount backup file(s) discovered and imported"
+	[ $orphanedCount -gt 0 ] && phvlog NOTICE "Reconcile: $orphanedCount backup(s) newly orphaned"
+	[ $restoredCount -gt 0 ] && phvlog NOTICE "Reconcile: $restoredCount backup(s) restored from orphan state"
+	[ $importedCount -gt 0 ] && phvlog NOTICE "Reconcile: $importedCount backup file(s) discovered and imported"
 	if [ $orphanedCount -eq 0 ] && [ $restoredCount -eq 0 ] && [ $importedCount -eq 0 ]; then
-		echo "`date` [NOTICE : phvalheim] Reconcile: all backup records are consistent"
+		phvlog NOTICE "Reconcile: all backup records are consistent"
 	fi
-	[ $totalOrphaned -gt 0 ] && echo "`date` [WARN : phvalheim] $totalOrphaned total orphaned backup record(s) in database"
+	[ $totalOrphaned -gt 0 ] && phvlog WARN "$totalOrphaned total orphaned backup record(s) in database"
 fi

@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=backup   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # Tiered backup retention pruner
@@ -12,7 +13,7 @@ source /opt/stateless/engine/includes/phvalheim-static.conf
 #   4. Keep 1/month for retainMonthlyMonths
 #   5. Delete everything older
 
-echo "`date` [NOTICE : phvalheim] Starting backup retention pruning..."
+phvlog NOTICE "Starting backup retention pruning..."
 
 # read global retention settings
 globalRetainAllHours=$(SQL "SELECT backupRetainAllHours FROM settings LIMIT 1;")
@@ -49,6 +50,7 @@ totalDeleted=0
 totalErrors=0
 
 for worldName in $worldNames; do
+	export PHV_WORLD="$worldName"   # events below are filed against this world (2.56)
 
 	# resolve effective retention settings
 	retainAllHours=$(getEffective "$worldName" "backup_retain_all_hours" "$globalRetainAllHours")
@@ -139,16 +141,16 @@ for worldName in $worldNames; do
 			rm -f "$filePath"
 			if [ $? -eq 0 ]; then
 				SQL "DELETE FROM backups WHERE id=$delId;"
-				echo "`date` [phvalheim]  Pruned backup id=$delId: $filePath"
+				phvlog INFO " Pruned backup id=$delId: $filePath"
 				totalDeleted=$((totalDeleted + 1))
 			else
-				echo "`date` [WARN : phvalheim]  Failed to delete file: $filePath"
+				phvlog WARN " Failed to delete file: $filePath"
 				totalErrors=$((totalErrors + 1))
 			fi
 		else
 			# file already gone, clean up DB
 			SQL "DELETE FROM backups WHERE id=$delId;"
-			echo "`date` [phvalheim]  Cleaned orphaned DB record id=$delId"
+			phvlog INFO " Cleaned orphaned DB record id=$delId"
 			totalDeleted=$((totalDeleted + 1))
 		fi
 	done
@@ -163,7 +165,7 @@ if [ -d "$backupDir" ]; then
 		[ -f "$backupFile" ] || continue
 		dbCount=$(SQL "SELECT COUNT(*) FROM backups WHERE file_path='$backupFile';")
 		if [ "$dbCount" = "0" ]; then
-			echo "`date` [phvalheim]  Removing orphaned file: $backupFile"
+			phvlog INFO " Removing orphaned file: $backupFile"
 			rm -f "$backupFile"
 			totalDeleted=$((totalDeleted + 1))
 		fi
@@ -177,10 +179,10 @@ allBackupIds=$(SQL "SELECT id FROM backups;")
 for checkId in $allBackupIds; do
 	checkPath=$(SQL "SELECT file_path FROM backups WHERE id=$checkId;")
 	if [ -n "$checkPath" ] && [ ! -f "$checkPath" ]; then
-		echo "`date` [phvalheim]  Removing orphaned DB record id=$checkId (file missing: $checkPath)"
+		phvlog INFO " Removing orphaned DB record id=$checkId (file missing: $checkPath)"
 		SQL "DELETE FROM backups WHERE id=$checkId;"
 		totalDeleted=$((totalDeleted + 1))
 	fi
 done
 
-echo "`date` [NOTICE : phvalheim] Retention pruning complete. Deleted: $totalDeleted, Errors: $totalErrors"
+phvlog NOTICE "Retention pruning complete. Deleted: $totalDeleted, Errors: $totalErrors"

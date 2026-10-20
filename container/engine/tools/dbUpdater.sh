@@ -1,4 +1,5 @@
 #!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf   # phvlog (2.56)
 
 dbUpdateScripts=$(ls -v /opt/stateless/engine/dbUpdates/*.sh)
 
@@ -16,9 +17,9 @@ for dbUpdateScript in $dbUpdateScripts; do
 	bash "$dbUpdateScript"
 	RESULT=$?
 	if [ $RESULT = 0 ]; then
-		echo "`date` [NOTICE : phvalheim] Database update successfully applied."
+		phvlog NOTICE "Database update successfully applied."
 	elif [ $RESULT = 1 ]; then
-		echo "`date` [NOTICE : phvalheim] Database update failed to apply."
+		phvlog NOTICE "Database update failed to apply."
 	elif [ $RESULT = 2 ]; then
 		# 2 is DELIBERATE and normal: the older scripts end with `exit 2` to mean
 		# "already applied". Stay silent, exactly as before.
@@ -34,6 +35,6 @@ for dbUpdateScript in $dbUpdateScripts; do
 		# 127 (interpreter missing), a signal. That is the silence worth breaking: it is
 		# how dbUpdate_2.45.sh shipped non-executable and its tables were never created,
 		# with nothing in the log to say so.
-		echo "`date` [ERROR : phvalheim] Database update $(basename $dbUpdateScript) could not be run (exit $RESULT)."
+		phvlog ERROR "Database update $(basename $dbUpdateScript) could not be run (exit $RESULT)."
 	fi
 done

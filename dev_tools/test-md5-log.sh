@@ -22,8 +22,10 @@ tmp=$(mktemp)
 awk '/^function setMD5 \(\)/,/^}/' "$FUNCS" > "$tmp"
 if [ ! -s "$tmp" ]; then echo "could not extract setMD5 from $FUNCS"; exit 1; fi
 
-# Stub the DB so we measure the MESSAGE, not the query.
+# Stub the DB so we measure the MESSAGE, not the query. phvlog (2.56) prints the classic line
+# the engine's conf would; the extracted function depends on it.
 SQL () { echo "SQL:$1"; }
+phvlog () { local tag="$1"; shift; echo "`date` [$tag : phvalheim] $*"; }
 . "$tmp"
 
 echo

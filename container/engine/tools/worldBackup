@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=backup   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # World Backup v2.38 - Activity-aware, full directory backup with DB tracking
@@ -33,7 +34,7 @@ LOCK_FILE="/tmp/worldBackup.lock"
 [ -e "$LOCK_FILE" ] || (umask 0022; : > "$LOCK_FILE") 2>/dev/null
 exec 9<"$LOCK_FILE"
 if ! flock -n 9; then
-	echo "`date` [WARN : phvalheim] Backup already running, skipping."
+	phvlog WARN "Backup already running, skipping."
 	exit 75
 fi
 # Deliberately NO `trap rm -f $LOCK_FILE EXIT`: unlinking the file another process may be
@@ -135,7 +136,7 @@ function backupWorld() {
 	local worldDir="$worldsDirectoryRoot/$worldName"
 
 	if [ ! -d "$worldDir" ]; then
-		echo "`date` [WARN : phvalheim] World directory missing for '$worldName', skipping backup."
+		phvlog WARN "World directory missing for '$worldName', skipping backup."
 		[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"World directory missing, cannot backup.\"}"
 		return 1
 	fi
@@ -144,7 +145,7 @@ function backupWorld() {
 	local originalMode=$(SQL "SELECT mode FROM worlds WHERE name='$worldName';")
 	case "$originalMode" in
 		start|starting|stop|stopping|create|creating|update|updating|delete|deleting|backup)
-			[ "$MANUAL_MODE" != "1" ] && echo "`date` [WARN : phvalheim] World '$worldName' is in state '$originalMode', skipping backup."
+			[ "$MANUAL_MODE" != "1" ] && phvlog WARN "World '$worldName' is in state '$originalMode', skipping backup."
 			[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"World is currently ${originalMode} — backup cannot run while the world is in a transitional state. Please wait and try again.\"}"
 			return 1
 			;;
@@ -208,7 +209,7 @@ function backupWorld() {
 	local backupFileName="valheimworld_${worldName}-${backupTimestamp}.tar"
 	local backupFilePath="$backupDir/$backupFileName"
 
-	[ "$MANUAL_MODE" != "1" ] && echo "`date` [phvalheim]  Backing up world directory: $worldDir"
+	[ "$MANUAL_MODE" != "1" ] && phvlog INFO " Backing up world directory: $worldDir"
 	[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Creating tar archive of $fileCount files...\"}"
 
 	# create backup - full world directory, excluding the client payload
@@ -243,10 +244,10 @@ function backupWorld() {
 		if [ "$availBytes" -lt "$neededBytes" ]; then
 			local availMB=$(echo "$availBytes" | awk '{printf "%.1f", $1/1048576}')
 			local neededMB=$(echo "$neededBytes" | awk '{printf "%.1f", $1/1048576}')
-			[ "$MANUAL_MODE" != "1" ] && echo "`date` [WARN : phvalheim]  Not enough disk space to compress (need ~${neededMB} MB free, only ${availMB} MB available)."
+			[ "$MANUAL_MODE" != "1" ] && phvlog WARN " Not enough disk space to compress (need ~${neededMB} MB free, only ${availMB} MB available)."
 			[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Insufficient disk space for compression — need ~${neededMB} MB free but only ${availMB} MB available. Saving uncompressed.\"}"
 		else
-		[ "$MANUAL_MODE" != "1" ] && echo "`date` [phvalheim]  Compressing backup (immediate, $compression)..."
+		[ "$MANUAL_MODE" != "1" ] && phvlog INFO " Compressing backup (immediate, $compression)..."
 		[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Compressing with $compression...\"}"
 
 		local compOutPath=""
@@ -284,7 +285,7 @@ function backupWorld() {
 			compressed=1
 			compressionType="$compression"
 		else
-			[ "$MANUAL_MODE" != "1" ] && echo "`date` [WARN : phvalheim]  Compression failed (exit $compResult), keeping uncompressed backup."
+			[ "$MANUAL_MODE" != "1" ] && phvlog WARN " Compression failed (exit $compResult), keeping uncompressed backup."
 			[ "$MANUAL_MODE" = "1" ] && echo "{\"progress\":\"Compression failed — saving uncompressed backup.\"}"
 			rm -f "$compOutPath" 2>/dev/null
 			# backupFilePath/backupSize remain as the uncompressed tar
@@ -311,9 +312,9 @@ function backupWorld() {
 	BACKUP_ORIGINAL_MODE=""
 
 	if [ "$MANUAL_MODE" != "1" ]; then
-		echo "`date` [phvalheim]  Backup time (seconds): $backupTimeTaken"
-		echo "`date` [phvalheim]  Backup size (bytes): $backupSize"
-		echo "`date` [NOTICE : phvalheim]  Backup written to: $backupFilePath"
+		phvlog INFO " Backup time (seconds): $backupTimeTaken"
+		phvlog INFO " Backup size (bytes): $backupSize"
+		phvlog NOTICE " Backup written to: $backupFilePath"
 	fi
 
 	return 0
@@ -357,13 +358,13 @@ fi
 
 # automatic backups require a dedicated backup volume (same check the admin UI reports)
 if ! isBackupPathMounted "$backupDir"; then
-	echo "`date` [WARN : phvalheim] Backup path ($backupDir) is not a separate mount — no dedicated backup volume mounted. Automatic backups disabled."
+	phvlog WARN "Backup path ($backupDir) is not a separate mount — no dedicated backup volume mounted. Automatic backups disabled."
 	SQL "UPDATE systemstats SET worldBackupLastExecStatus='idle';"
 	exit 0
 fi
 
-echo "`date` [NOTICE : phvalheim] Starting scheduled world backups..."
-echo "`date` [phvalheim]  Backup directory: $backupDir"
+phvlog NOTICE "Starting scheduled world backups..."
+phvlog INFO " Backup directory: $backupDir"
 
 # read global settings
 globalInterval=$(SQL "SELECT backupIntervalMinutes FROM settings LIMIT 1;")
@@ -374,8 +375,9 @@ globalRequireActivity=${globalRequireActivity:-1}
 # backup all worlds
 worldNames=$(SQL "SELECT name FROM worlds;")
 for worldName in $worldNames; do
+	export PHV_WORLD="$worldName"   # events below are filed against this world (2.56)
 
-	echo "`date` [phvalheim]  Evaluating '$worldName' for backup..."
+	phvlog INFO " Evaluating '$worldName' for backup..."
 
 	# resolve effective settings
 	effectiveInterval=$(getEffectiveSetting "$worldName" "backup_interval_minutes" "$globalInterval")
@@ -384,7 +386,7 @@ for worldName in $worldNames; do
 	# interval check: skip if last backup was too recent
 	lastBackupTime=$(SQL "SELECT TIMESTAMPDIFF(MINUTE, last_backup_time, NOW()) FROM worlds WHERE name='$worldName';")
 	if [ -n "$lastBackupTime" ] && [ "$lastBackupTime" -lt "$effectiveInterval" ] 2>/dev/null; then
-		echo "`date` [phvalheim]  Skipping '$worldName' - last backup ${lastBackupTime}m ago (interval: ${effectiveInterval}m)"
+		phvlog INFO " Skipping '$worldName' - last backup ${lastBackupTime}m ago (interval: ${effectiveInterval}m)"
 		continue
 	fi
 
@@ -400,12 +402,12 @@ for worldName in $worldNames; do
 			FROM worlds WHERE name='$worldName';")
 
 		if [ "$activityCheck" = "no_activity" ]; then
-			echo "`date` [phvalheim]  Skipping '$worldName' - no player activity since last backup"
+			phvlog INFO " Skipping '$worldName' - no player activity since last backup"
 			continue
 		fi
 	fi
 
-	echo "`date` [phvalheim]  World backup started for '$worldName'..."
+	phvlog INFO " World backup started for '$worldName'..."
 	backupWorld "$worldName" "scheduled"
 	errorSetter $?
 

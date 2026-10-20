@@ -17,5 +17,12 @@ for logFile in $logFiles; do
 	fi
 done
 
+# The event log (2.56): keep 30 days, and never more than 100k rows. Operations go with
+# their events. Runs here because this is the one housekeeping job that already runs
+# every 15 minutes.
+/opt/stateless/engine/tools/sql "DELETE FROM phv_events WHERE ts < NOW() - INTERVAL 30 DAY;" > /dev/null 2>&1
+/opt/stateless/engine/tools/sql "DELETE FROM phv_events WHERE id < (SELECT id FROM (SELECT id FROM phv_events ORDER BY id DESC LIMIT 1 OFFSET 100000) AS keep_from);" > /dev/null 2>&1
+/opt/stateless/engine/tools/sql "DELETE FROM phv_operations WHERE started < NOW() - INTERVAL 30 DAY;" > /dev/null 2>&1
+
 # update the database with new timestamps
 /opt/stateless/engine/tools/sql "UPDATE systemstats SET logRotaterLastRun=NOW();"

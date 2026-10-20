@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=backup   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # Scheduled backup compression - compresses uncompressed backups at the configured hour.
@@ -25,13 +26,13 @@ if [ "$currentHour" != "$compressionHour" ]; then
 	exit 0
 fi
 
-echo "`date` [NOTICE : phvalheim] Starting scheduled backup compression ($compression)..."
+phvlog NOTICE "Starting scheduled backup compression ($compression)..."
 
 # find all uncompressed backups
 backupIds=$(SQL "SELECT id FROM backups WHERE compressed=0 AND file_path LIKE '%.tar';")
 
 if [ -z "$backupIds" ]; then
-	echo "`date` [phvalheim] No uncompressed backups to process."
+	phvlog INFO "No uncompressed backups to process."
 	exit 0
 fi
 
@@ -42,12 +43,12 @@ for backupId in $backupIds; do
 	filePath=$(SQL "SELECT file_path FROM backups WHERE id=$backupId;")
 
 	if [ ! -f "$filePath" ]; then
-		echo "`date` [WARN : phvalheim] Backup file missing: $filePath (id=$backupId), cleaning DB record."
+		phvlog WARN "Backup file missing: $filePath (id=$backupId), cleaning DB record."
 		SQL "DELETE FROM backups WHERE id=$backupId;"
 		continue
 	fi
 
-	echo "`date` [phvalheim]  Compressing: $filePath"
+	phvlog INFO " Compressing: $filePath"
 
 	newPath=""
 	if [ "$compression" = "gzip" ]; then
@@ -65,12 +66,12 @@ for backupId in $backupIds; do
 	if [ -n "$newPath" ] && [ -f "$newPath" ]; then
 		newSize=$(stat --format=%s "$newPath" 2>/dev/null || echo 0)
 		SQL "UPDATE backups SET compressed=1, compression_type='$compression', file_path='$newPath', file_size=$newSize WHERE id=$backupId;"
-		echo "`date` [phvalheim]  Compressed: $newPath ($newSize bytes)"
+		phvlog INFO " Compressed: $newPath ($newSize bytes)"
 		count=$((count + 1))
 	else
-		echo "`date` [WARN : phvalheim]  Compression failed for: $filePath"
+		phvlog WARN " Compression failed for: $filePath"
 		errors=$((errors + 1))
 	fi
 done
 
-echo "`date` [NOTICE : phvalheim] Compression complete. Processed: $count, Errors: $errors"
+phvlog NOTICE "Compression complete. Processed: $count, Errors: $errors"

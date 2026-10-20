@@ -28,9 +28,9 @@ function InstallAndUpdateBepInEx() {
         installed_version=$(cat /opt/stateful/games/valheim/worlds/$worldName/game/bepinex_version.txt 2> /dev/null)
 
         if [ "$latest_version" == "$installed_version" ]; then
-                echo "`date` [NOTICE : phvalheim] BepInEx is up-to-date."
+                phvlog NOTICE "BepInEx is up-to-date."
         else
-                echo "`date` [NOTICE : phvalheim] BepInEx is out-of-date and will be updated..."
+                phvlog NOTICE "BepInEx is out-of-date and will be updated..."
                 curl -sfSL $download_url --output /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip
                 unzip /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip "BepInExPack_Valheim/*" -d "/opt/stateful/games/valheim/worlds/$worldName/game"
                 rm /opt/stateful/games/valheim/worlds/$worldName/game/BepInEx_latest.zip
@@ -77,7 +77,7 @@ function InstallAndUpdateBepInEx() {
                         # derive stock name: BepInEx.Preloader.macos_arm64.dll -> BepInEx.Preloader.dll
                         stock_name=$(basename "$patch_dll" | sed 's/\.macos_arm64\.dll$/.dll/')
                         cp "$patch_dll" "$PATCHES_DST/$stock_name"
-                        echo "`date` [NOTICE : phvalheim] Staged macOS arm64 patch: $stock_name"
+                        phvlog NOTICE "Staged macOS arm64 patch: $stock_name"
                 done
         fi
 
@@ -120,7 +120,7 @@ function ensureBepInExLoaderConfig() {
         if [ ! -f "$cfg" ]; then
                 if [ -f "$stash" ]; then
                         cp "$stash" "$cfg"
-                        echo "`date` [NOTICE : phvalheim] Restored the BepInEx loader config for '$worldName' from the installed pack."
+                        phvlog NOTICE "Restored the BepInEx loader config for '$worldName' from the installed pack."
                 else
                         #No stash: a world whose pack has not been reinstalled since this
                         #release. Write only what we require -- BepInEx fills in every other
@@ -133,7 +133,7 @@ function ensureBepInExLoaderConfig() {
                                 '[Logging.Disk]' \
                                 '' \
                                 'Enabled = true' > "$cfg"
-                        echo "`date` [NOTICE : phvalheim] Wrote a minimal BepInEx loader config for '$worldName'."
+                        phvlog NOTICE "Wrote a minimal BepInEx loader config for '$worldName'."
                 fi
         fi
 
@@ -162,7 +162,7 @@ function ensureBepInExLoaderConfig() {
 
         if [ "$consoleState" != "true" ]; then
                 printf '\n%s\n\n%s\n' '[Logging.Console]' 'Enabled = true' >> "$cfg"
-                echo "`date` [NOTICE : phvalheim] Enabled the BepInEx console logger for '$worldName'."
+                phvlog NOTICE "Enabled the BepInEx console logger for '$worldName'."
         fi
 
         chown -R phvalheim: "$gameDir/BepInEx/config"
@@ -172,7 +172,7 @@ function ensureBepInExLoaderConfig() {
 function worldDirPrep(){
         worldName="$1"
 
-        echo "`date` [NOTICE : phvalheim] Preparing directory structure for world..."
+        phvlog NOTICE "Preparing directory structure for world..."
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/game
         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_configs
@@ -300,7 +300,7 @@ function healSteamcmdState() {
 
         #An empty world name would aim every path below at the shared worlds root.
         if [ -z "$w" ]; then
-                echo "`date` [ERROR : phvalheim] healSteamcmdState called with no world name; refusing."
+                phvlog ERROR "healSteamcmdState called with no world name; refusing."
                 return 1
         fi
 
@@ -315,21 +315,21 @@ function healSteamcmdState() {
         #a manual rm would never have fixed.
         chown -R phvalheim: "$game" 2>/dev/null
         chmod -R u+rwX "$game" 2>/dev/null
-        echo "`date` [NOTICE : phvalheim] Self-repair: reset the steamcmd bootstrap and fixed ownership under '$w/game'."
+        phvlog NOTICE "Self-repair: reset the steamcmd bootstrap and fixed ownership under '$w/game'."
 
         #Level 3 -- discard a partial or corrupt transfer. Content already installed is
         #untouched; steamcmd re-fetches only what was mid-flight.
         if [ "$level" -ge 3 ]; then
                 rm -rf "$game/steamapps/downloading"
                 rm -rf "$game/steamapps/temp"
-                echo "`date` [NOTICE : phvalheim] Self-repair: discarded the partial Steam download for '$w'."
+                phvlog NOTICE "Self-repair: discarded the partial Steam download for '$w'."
         fi
 
         #Level 4 -- last resort. Dropping the manifest makes steamcmd re-verify the whole
         #app, which costs a full re-download. Deliberately last, and deliberately loud.
         if [ "$level" -ge 4 ]; then
                 rm -f "$game/steamapps/appmanifest_896660.acf"
-                echo "`date` [WARN : phvalheim] Self-repair: cleared the Steam manifest for '$w' -- the next attempt re-downloads the game. World saves and mods are NOT affected."
+                phvlog WARN "Self-repair: cleared the Steam manifest for '$w' -- the next attempt re-downloads the game. World saves and mods are NOT affected."
         fi
 
         return 0
@@ -344,7 +344,7 @@ function InstallAndUpdateValheim() {
         unset beta
         isBeta=$(/opt/stateless/engine/tools/sql "SELECT beta FROM worlds WHERE name='$worldName'")
         if [[ "$isBeta" -eq 1 ]]; then
-                echo "`date` [NOTICE : phvalheim] Beta world detected!"
+                phvlog NOTICE "Beta world detected!"
                 beta="-beta public-test -betapassword yesimadebackups"
         fi
 
@@ -354,7 +354,7 @@ function InstallAndUpdateValheim() {
         fi
 
         # Install Steam and Valheim
-        echo "`date` [NOTICE : phvalheim] Installing and/or checking for Valheim updates..."
+        phvlog NOTICE "Installing and/or checking for Valheim updates..."
 
         # remove existing steam dir. this is needed when switching between stable and public_test branches
         if [ -d "/opt/stateful/games/valheim/worlds/$worldName/game/.steam" ]; then
@@ -376,7 +376,7 @@ function InstallAndUpdateValheim() {
                 retryCount=$((retryCount + 1))
 
                 if [ $retryCount -gt 1 ]; then
-                        echo "`date` [WARN : phvalheim] Steamcmd failed, retrying (attempt $retryCount of $maxRetries)..."
+                        phvlog WARN "Steamcmd failed, retrying (attempt $retryCount of $maxRetries)..."
                         # Escalate the repair with each attempt rather than doing the same
                         # thing five times. Retrying an identical command against identical
                         # state is what the old loop would have done, and it can only ever
@@ -415,7 +415,7 @@ function InstallAndUpdateValheim() {
                 case "$installVerdict" in
                         0)
                                 steamcmdSuccess=true
-                                echo "`date` [NOTICE : phvalheim] Valheim server installed successfully for '$worldName' (Steam app state $stateFlags)"
+                                phvlog NOTICE "Valheim server installed successfully for '$worldName' (Steam app state $stateFlags)"
                                 ;;
                         2)
                                 # Unknown is not success -- but it is not a proven failure
@@ -423,21 +423,21 @@ function InstallAndUpdateValheim() {
                                 # would be a worse bug than the one being fixed here. Report
                                 # it as the third state it actually is.
                                 steamcmdSuccess=true
-                                echo "`date` [WARN : phvalheim] Valheim installed for '$worldName', but game/steamapps/appmanifest_896660.acf is missing so the install could NOT be verified."
+                                phvlog WARN "Valheim installed for '$worldName', but game/steamapps/appmanifest_896660.acf is missing so the install could NOT be verified."
                                 ;;
                         *)
-                                echo "`date` [WARN : phvalheim] steamcmd did not finish the update for '$worldName' (Steam app state ${stateFlags:-none}; needs bit 4 set and bit 2 clear)."
+                                phvlog WARN "steamcmd did not finish the update for '$worldName' (Steam app state ${stateFlags:-none}; needs bit 4 set and bit 2 clear)."
                                 ;;
                 esac
         done
 
         if [ "$steamcmdSuccess" = "false" ]; then
-                echo "`date` [ERROR : phvalheim] Failed to install Valheim after $maxRetries attempts for '$worldName'"
+                phvlog ERROR "Failed to install Valheim after $maxRetries attempts for '$worldName'"
                 # A partial steamcmd update leaves state 0x6 and no other clue, and the cause
                 # is very often simply that the volume filled. Print it rather than send the
                 # operator looking for something the engine already knows.
                 df -h "$worldsDirectoryRoot" 2>/dev/null | while read -r dfLine; do
-                        echo "`date` [ERROR : phvalheim] disk: $dfLine"
+                        phvlog ERROR "disk: $dfLine"
                 done
                 return 1
         fi
@@ -455,7 +455,7 @@ function InstallAndUpdateValheim() {
         #the world process runs as phvalheim and must be able to read its own game tree), so
         #a failure here is worth seeing. It is simply not a failed game update.
         if ! chown -R phvalheim: $worldsDirectoryRoot/$worldName 2>/dev/null; then
-                echo "`date` [WARN : phvalheim] Could not chown every file under '$worldName' to phvalheim. The game update itself succeeded; check for root-owned leftovers."
+                phvlog WARN "Could not chown every file under '$worldName' to phvalheim. The game update itself succeeded; check for root-owned leftovers."
         fi
 
         return 0
@@ -467,9 +467,9 @@ function createCustomSeedConfig() {
         worldSeed="$2"
 
         if [ ! -f "/opt/stateful/games/valheim/worlds/$worldName/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll" ]; then
-                echo "`date` [phvalheim] CustomSeed.dll is missing, installing..."
+                phvlog INFO "CustomSeed.dll is missing, installing..."
                 if [ ! -f "/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll" ]; then
-                        echo "`date` [ERROR : phvalheim] Install source for CustomSeed.dll is missing from '/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll', exiting..."
+                        phvlog ERROR "Install source for CustomSeed.dll is missing from '/opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed/CustomSeed.dll', exiting..."
                         exit 1
                 else
                         mkdir -p /opt/stateful/games/valheim/worlds/$worldName/custom_plugins/ZeroBandwidth-CustomSeed
@@ -570,12 +570,12 @@ function purgeWorldModsConfigsPatchers() {
         worldName="$1"
 
         if [ -z $worldsDirectoryRoot ]; then
-                echo "`date` [ERROR : phvalheim] Main worlds root directory missing, this is fatal. Exiting..."
+                phvlog ERROR "Main worlds root directory missing, this is fatal. Exiting..."
                 break
         fi
 
         if [ -z $worldName ]; then
-                echo "`date` [ERROR : phvalheim] World name not specificed during purge, can't continue..."
+                phvlog ERROR "World name not specificed during purge, can't continue..."
                 break
         fi
 
@@ -624,7 +624,7 @@ function deleteWorldModRows() {
         #the variable expanded to nothing.
         SQL "DELETE wm FROM world_mods wm JOIN worlds w ON w.id = wm.world_id WHERE w.name='$worldName';"
 
-        echo "`date` [NOTICE : phvalheim] Cleared mod selection rows for world '$worldName'."
+        phvlog NOTICE "Cleared mod selection rows for world '$worldName'."
 }
 
 #Syncs BOTH mod catalogues on every engine start.
@@ -655,11 +655,11 @@ function syncModCatalogue() {
         esac
 
         if [ "$modCount" -eq 0 ]; then
-                echo "`date` [NOTICE : phvalheim] Mod catalogue is empty; building it in the background (about 30 seconds)."
+                phvlog NOTICE "Mod catalogue is empty; building it in the background (about 30 seconds)."
         else
-                echo "`date` [NOTICE : phvalheim] Refreshing both mod catalogues in the background ($modCount mods known)."
+                phvlog NOTICE "Refreshing both mod catalogues in the background ($modCount mods known)."
         fi
-        echo "`date` [NOTICE : phvalheim] Progress: /opt/stateful/logs/modSync.log"
+        phvlog NOTICE "Progress: /opt/stateful/logs/modSync.log"
         #Run as phvalheim, NOT root. The engine is the only caller that was ever root; cron
         #and the admin UI's forced sync are both phvalheim. That split is what broke the
         #catalogue in 2.47-2.51: root's boot sync created /tmp's lock files first, /tmp is
@@ -684,7 +684,7 @@ function pruneOrphanedWorldMods() {
         esac
 
         if [ "$orphans" -gt 0 ]; then
-                echo "`date` [NOTICE : phvalheim] Pruning $orphans orphaned world_mods row(s) whose world no longer exists."
+                phvlog NOTICE "Pruning $orphans orphaned world_mods row(s) whose world no longer exists."
                 SQL "DELETE wm FROM world_mods wm LEFT JOIN worlds w ON w.id = wm.world_id WHERE w.id IS NULL;"
         fi
 }
@@ -715,13 +715,13 @@ function logConnectPathVerdict() {
         worldName="$1"
 
         if companionSupportsConnect; then
-                echo "`date` [NOTICE : phvalheim] World '$worldName': join path is the PhValheim Companion, which ships with this server. QuickConnect is NOT being installed."
+                phvlog NOTICE "World '$worldName': join path is the PhValheim Companion, which ships with this server. QuickConnect is NOT being installed."
         else
                 #Deliberately NOT "run a catalogue sync". That was the right advice while the
                 #Companion came from Thunderstore and the operator could act on it. Now there
                 #is nothing they can do and nothing wrong, so saying so plainly beats sending
                 #them to a button that cannot change the outcome.
-                echo "`date` [NOTICE : phvalheim] World '$worldName': join path is QuickConnect. The PhValheim Companion ships with this server but does not do the connecting itself yet, so the legacy path is still installed. Nothing is broken and there is nothing to do -- a later release turns this over."
+                phvlog NOTICE "World '$worldName': join path is QuickConnect. The PhValheim Companion ships with this server but does not do the connecting itself yet, so the legacy path is still installed. Nothing is broken and there is nothing to do -- a later release turns this over."
         fi
 }
 
@@ -767,7 +767,7 @@ function ensureNewWorldPassword() {
         #correct function at the wrong call site, and nothing in it could tell.
         pwPackaged=$(SQL "SELECT IFNULL(world_md5,'') FROM worlds WHERE name='$worldName' LIMIT 1;")
         if [ -n "$pwPackaged" ]; then
-                echo "`date` [NOTICE : phvalheim] Not generating a password for world '$worldName' -- it has already been published to players, so whether it has one is yours to decide in its Settings modal."
+                phvlog NOTICE "Not generating a password for world '$worldName' -- it has already been published to players, so whether it has one is yours to decide in its Settings modal."
                 return 0
         fi
 
@@ -788,12 +788,12 @@ function ensureNewWorldPassword() {
         #something under Valheim's 5-character minimum, and the world would refuse to boot the
         #moment it was listed.
         if [ ${#genPassword} -ne 16 ]; then
-                echo "`date` [ERROR : phvalheim] Could not generate a password for world '$worldName' (got ${#genPassword} characters, wanted 16). Leaving it without one; set a password in the world Settings modal."
+                phvlog ERROR "Could not generate a password for world '$worldName' (got ${#genPassword} characters, wanted 16). Leaving it without one; set a password in the world Settings modal."
                 return 1
         fi
 
         SQL "UPDATE worlds SET password = '$genPassword' WHERE name = '$worldName';"
-        echo "`date` [NOTICE : phvalheim] New world '$worldName' has been given a password, because a world can be password protected and listed in the server browser and no password was set when it was created. Players who join with the Launch button need to do nothing -- the Companion fills it in. Anyone joining by address, and console players on a crossplay world, need it by hand; it is on the world card and in the world's Settings modal. Change or clear it there."
+        phvlog NOTICE "New world '$worldName' has been given a password, because a world can be password protected and listed in the server browser and no password was set when it was created. Players who join with the Launch button need to do nothing -- the Companion fills it in. Anyone joining by address, and console players on a crossplay world, need it by hand; it is on the world card and in the world's Settings modal. Change or clear it there."
 }
 
 #Raise the "your players need the new client" dialog, once, when the FIRST world is updated.
@@ -815,7 +815,7 @@ function noticeClientUpdateRequired() {
         #Logged unconditionally rather than only when a row changed: `sql` does not report
         #affected rows here, and a NOTICE that appears once per world update is cheap next to
         #claiming something happened that did not.
-        echo "`date` [NOTICE : phvalheim] World '$worldName' has been updated to the new join path. Its players need the current PhValheim client -- an older client cannot hand the world's password to the Companion, so Launch will no longer take them all the way in."
+        phvlog NOTICE "World '$worldName' has been updated to the new join path. Its players need the current PhValheim client -- an older client cannot hand the world's password to the Companion, so Launch will no longer take them all the way in."
 }
 
 function mergeRequiredTsMods() {
@@ -823,7 +823,7 @@ function mergeRequiredTsMods() {
 
         worldId=$(SQL "SELECT id FROM worlds WHERE name='$worldName' LIMIT 1;")
         if [ -z "$worldId" ]; then
-                echo "`date` [ERROR : phvalheim] mergeRequiredTsMods: world '$worldName' not found."
+                phvlog ERROR "mergeRequiredTsMods: world '$worldName' not found."
                 return 1
         fi
 
@@ -849,7 +849,7 @@ function mergeRequiredTsMods() {
                 #could not detect this at all -- it pasted uuids into a text column and only
                 #found out at download time, by which point the log said "complete".
                 if [ -z "$reqModId" ]; then
-                        echo "`date` [WARN : phvalheim] Required mod $reqSource/$reqOwner/$reqName is NOT in the catalogue. World '$worldName' will be built WITHOUT it. Run a catalogue sync (admin UI -> Sync) and update the world."
+                        phvlog WARN "Required mod $reqSource/$reqOwner/$reqName is NOT in the catalogue. World '$worldName' will be built WITHOUT it. Run a catalogue sync (admin UI -> Sync) and update the world."
                         continue
                 fi
 
@@ -858,7 +858,7 @@ function mergeRequiredTsMods() {
                 SQL "INSERT IGNORE INTO world_mods (world_id, mod_id, is_dep) VALUES ($worldId, $reqModId, 0);"
         done
 
-        echo "`date` [NOTICE : phvalheim] Required mods merged for '$worldName'."
+        phvlog NOTICE "Required mods merged for '$worldName'."
 }
 
 #$1=world name
@@ -895,7 +895,7 @@ function downloadAndInstallTsModsForWorld() {
         #a database hiccup would silently produce an empty plan, install nothing, and the
         #only signal would be the plugins-empty check far below.
         if [ $? -ne 0 ]; then
-                echo "`date` [ERROR : phvalheim] Could not build the mod install plan for '$worldName'. Refusing to continue."
+                phvlog ERROR "Could not build the mod install plan for '$worldName'. Refusing to continue."
                 return 1
         fi
 
@@ -930,19 +930,19 @@ function downloadAndInstallTsModsForWorld() {
                 [ -z "$modDeployServer" ] && modDeployServer=1
                 [ -z "$modDeployClient" ] && modDeployClient=1
 
-                echo "`date` [phvalheim] World '$worldName' wants this mod: "
-                echo "`date` [phvalheim]  Name: $modName"
-                echo "`date` [phvalheim]  Author: $modAuthor"
-                echo "`date` [phvalheim]  Source: $modSource"
+                phvlog INFO "World '$worldName' wants this mod: "
+                phvlog INFO " Name: $modName"
+                phvlog INFO " Author: $modAuthor"
+                phvlog INFO " Source: $modSource"
                 if [ "$modPinKind" = "pinned" ]; then
-                        echo "`date` [phvalheim]  Version: $modVersion (PINNED by the operator)"
+                        phvlog INFO " Version: $modVersion (PINNED by the operator)"
                 else
-                        echo "`date` [phvalheim]  Version: $modVersion (latest)"
+                        phvlog INFO " Version: $modVersion (latest)"
                 fi
-                echo "`date` [phvalheim]  Download URL: $modDownloadUrl"
+                phvlog INFO " Download URL: $modDownloadUrl"
 
                 if [ ! -f $tsModsDir/$modFileConstructed ]; then
-                        echo "`date` [phvalheim]   #### Downloading $modFileConstructed from $modSource... ####"
+                        phvlog INFO "  #### Downloading $modFileConstructed from $modSource... ####"
                         wget -q --show-progress -O $tsModsDir/$modFileConstructed "$modDownloadUrl"
                         #wget's exit code was discarded here. A 404 (catalogue naming a version
                         #the source no longer serves), a DNS blip or a full disk all left an
@@ -950,16 +950,16 @@ function downloadAndInstallTsModsForWorld() {
                         #nothing had happened -- which is how a world reaches its first start
                         #with no plugins at all while every log line reads like success.
                         if [ $? -ne 0 ] || [ ! -s "$tsModsDir/$modFileConstructed" ]; then
-                                echo "`date` [ERROR : phvalheim]   #### DOWNLOAD FAILED for $modFileConstructed ($modDownloadUrl) -- this mod will be MISSING from '$worldName' ####"
+                                phvlog ERROR "  #### DOWNLOAD FAILED for $modFileConstructed ($modDownloadUrl) -- this mod will be MISSING from '$worldName' ####"
                                 rm -f "$tsModsDir/$modFileConstructed"
                                 modInstallFailures=$((modInstallFailures+1))
                                 continue
                         fi
                 else
-                        echo "`date` [phvalheim]   #### $modFileConstructed already exists in local repository, using it... ####"
+                        phvlog INFO "  #### $modFileConstructed already exists in local repository, using it... ####"
                 fi
 
-                echo "`date` [phvalheim]    #### Installing... ####"
+                phvlog INFO "   #### Installing... ####"
 
                 #WHERE this mod goes. Before 2.53 there was one answer and it was not worth
                 #naming: game/BepInEx, which packageClient() then zipped wholesale, so every
@@ -975,11 +975,11 @@ function downloadAndInstallTsModsForWorld() {
                 #alternative is silent: an empty target list would fall straight through every
                 #loop below, touch no disk, and then be RECORDED AS INSTALLED.
                 if [ -z "${modTargets// /}" ]; then
-                        echo "`date` [WARN : phvalheim]   #### $modName is destined for neither server nor client -- skipping ####"
+                        phvlog WARN "  #### $modName is destined for neither server nor client -- skipping ####"
                         continue
                 fi
 
-                echo "`date` [phvalheim]  Destination: server=$modDeployServer client=$modDeployClient"
+                phvlog INFO " Destination: server=$modDeployServer client=$modDeployClient"
 
                 #Counted per MOD, across its destinations. A mod that unzips cleanly into one
                 #tree and fails in the other is not installed -- it is missing from a side,
@@ -1041,7 +1041,7 @@ function downloadAndInstallTsModsForWorld() {
                 #
                 #So: fail only on 2..10 and 12+, which are real format/IO errors.
                 if [ $unzipResult -gt 1 ] && [ $unzipResult -ne 11 ]; then
-                        echo "`date` [ERROR : phvalheim]   #### PLUGIN INSTALL FAILED for $modName into $treeRoot (unzip exit $unzipResult) -- it will be MISSING from '$worldName' ####"
+                        phvlog ERROR "  #### PLUGIN INSTALL FAILED for $modName into $treeRoot (unzip exit $unzipResult) -- it will be MISSING from '$worldName' ####"
                         modDestFailures=$((modDestFailures+1))
                 fi
 
@@ -1087,7 +1087,7 @@ function downloadAndInstallTsModsForWorld() {
         #sibling failed is exactly the "no record, so assume up to date" hole this closes.
         /opt/stateless/engine/tools/worldMods.py --world "$worldName" \
                 --record-installed "${modsInstalledIds%,}" \
-                || echo "`date` [WARN : phvalheim] Could not record installed mod versions for '$worldName'; its Updates tab will read 'waiting for data' until the next rebuild."
+                || phvlog WARN "Could not record installed mod versions for '$worldName'; its Updates tab will read 'waiting for data' until the next rebuild."
 
         #Which plugin GUIDs this world's packages declare, read out of the zips we just
         #installed from. This is what lets a mod's config file be attributed to its package:
@@ -1102,10 +1102,10 @@ function downloadAndInstallTsModsForWorld() {
         #can render the Configs modal for this rebuild, and a failure only costs the old
         #name-matching behaviour.
         /opt/stateless/engine/tools/pluginGuids.py --world "$worldName" --learn \
-                || echo "`date` [WARN : phvalheim] Could not learn plugin GUIDs for '$worldName'; its config files fall back to name matching and some may show as unmatched."
+                || phvlog WARN "Could not learn plugin GUIDs for '$worldName'; its config files fall back to name matching and some may show as unmatched."
 
         #echo
-        echo "`date` [NOTICE : phvalheim] Mods download and installation sequence complete. Note: This does NOT indicate success."
+        phvlog NOTICE "Mods download and installation sequence complete. Note: This does NOT indicate success."
 
 
         #Remove empty directories
@@ -1153,17 +1153,17 @@ function downloadAndInstallTsModsForWorld() {
         #correct, whatever the underlying cause (failed download, bad archive, full disk).
         pluginRoot="$worldsDirectoryRoot/$worldName/game/BepInEx/plugins"
         if [ ! -d "$pluginRoot" ] || [ -z "$(ls -A "$pluginRoot" 2>/dev/null)" ]; then
-                echo "`date` [ERROR : phvalheim] World '$worldName' selected mods but NO plugins were installed. Refusing to publish it as ready."
-                echo "`date` [ERROR : phvalheim] Check the download errors above; the world's plugins directory is '$pluginRoot'."
+                phvlog ERROR "World '$worldName' selected mods but NO plugins were installed. Refusing to publish it as ready."
+                phvlog ERROR "Check the download errors above; the world's plugins directory is '$pluginRoot'."
                 return 1
         fi
 
         if [ "${modInstallFailures:-0}" -gt 0 ]; then
-                echo "`date` [ERROR : phvalheim] World '$worldName': $modInstallFailures mod(s) failed to download and are MISSING."
+                phvlog ERROR "World '$worldName': $modInstallFailures mod(s) failed to download and are MISSING."
                 return 1
         fi
 
-        echo "`date` [NOTICE : phvalheim] Mod install verified for '$worldName': $(ls -A "$pluginRoot" | wc -l) plugin(s) present."
+        phvlog NOTICE "Mod install verified for '$worldName': $(ls -A "$pluginRoot" | wc -l) plugin(s) present."
         return 0
 }
 
@@ -1181,7 +1181,7 @@ function createQuickConnectConfig() {
 
 #$1=worldName
 function installCustomModsConfigsPatchers() {
-        echo "`date` [NOTICE : phvalheim] Installing custom mods, configs, and patchers..."
+        phvlog NOTICE "Installing custom mods, configs, and patchers..."
 
         worldName="$1"
 
@@ -1190,17 +1190,17 @@ function installCustomModsConfigsPatchers() {
         customPatchersSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_patchers"
 
         if [ ! -d $customModsSourceDir ]; then
-                echo "`date` [NOTICE : phvalheim] Custom mods source directory for this world is missing, creating..."
+                phvlog NOTICE "Custom mods source directory for this world is missing, creating..."
                 mkdir -p $customModsSourceDir
         fi
 
         if [ ! -d $customConfigsSourceDir ]; then
-                echo "`date` [NOTICE : phvalheim] Custom configs source directory for this world is missing, creating..."
+                phvlog NOTICE "Custom configs source directory for this world is missing, creating..."
                 mkdir -p $customConfigsSourceDir
         fi
 
         if [ ! -d $customPatchersSourceDir ]; then
-                echo "`date` [NOTICE : phvalheim] Custom patchers source directory for this world is missing, creating..."
+                phvlog NOTICE "Custom patchers source directory for this world is missing, creating..."
                 mkdir -p $customPatchersSourceDir
         fi
 
@@ -1292,7 +1292,7 @@ function snapshotModConfigs() {
         fi
 
         /opt/stateless/engine/tools/modConfigs.py --world "$worldName" --snapshot \
-                || echo "`date` [WARN : phvalheim] Could not remember the config shapes for '$worldName'; its Mod Configs editor will show only the files its mods have written until each one next loads."
+                || phvlog WARN "Could not remember the config shapes for '$worldName'; its Mod Configs editor will show only the files its mods have written until each one next loads."
 }
 
 function materialiseModConfigs() {
@@ -1318,7 +1318,7 @@ function materialiseModConfigs() {
 
 #$1=worldName
 function installSystemPlugins() {
-	echo "`date` [NOTICE : phvalheim] Installing system plugins..."
+	phvlog NOTICE "Installing system plugins..."
 
 	worldName="$1"
 
@@ -1326,7 +1326,7 @@ function installSystemPlugins() {
 	worldPluginsDestDir="$worldsDirectoryRoot/$worldName/custom_plugins"
 
 	if [ ! -d $systemPluginsSourceDir ]; then
-		echo "`date` [NOTICE : phvalheim] System plugins source directory is missing, skipping..."
+		phvlog NOTICE "System plugins source directory is missing, skipping..."
 		return 0
 	fi
 
@@ -1360,7 +1360,7 @@ function installSystemPlugins() {
 	companionSrc="$systemPluginsSourceDir/PhValheimCompanion"
 	companionDest="$worldPluginsDestDir/PhValheimCompanion"
 	if [ ! -f "$companionSrc/PhValheimCompanion.dll" ]; then
-		echo "`date` [ERROR : phvalheim] Install source for PhValheimCompanion.dll is missing from '$companionSrc/PhValheimCompanion.dll', exiting..."
+		phvlog ERROR "Install source for PhValheimCompanion.dll is missing from '$companionSrc/PhValheimCompanion.dll', exiting..."
 		exit 1
 	fi
 	mkdir -p "$companionDest"
@@ -1372,14 +1372,14 @@ function installSystemPlugins() {
 
 # this is seperate from installCustomModsConfigsPatchers() because this must only run after the client payload has been packaged.
 function InstallCustomConfigSecureFiles() {
-        echo "`date` [NOTICE : phvalheim] Installing custom_configs_secure files..."
+        phvlog NOTICE "Installing custom_configs_secure files..."
         worldName="$1"
 
         customConfigsSecureSourceDir="/opt/stateful/games/valheim/worlds/$worldName/custom_configs_secure"
         worldConfigsDestDir="$worldsDirectoryRoot/$worldName/game/BepInEx/config"
 
         if [ ! -d $customConfigsSecureSourceDir ]; then
-                echo "`date` [NOTICE : phvalheim] Custom configs secure source directory for this world is missing, creating..."
+                phvlog NOTICE "Custom configs secure source directory for this world is missing, creating..."
                 mkdir -p $customConfigsSecureSourceDir
         fi
 
@@ -1431,7 +1431,7 @@ function writeClientManifest() {
         #created rather than required because a manifest with no Companion beside it is
         #harmless, while a missing manifest is the bug this function exists to prevent.
         mkdir -p "$dest" || {
-                echo "`date` [WARNING : phvalheim] Could not create '$dest' -- '$worldName' ships without a client manifest, so an outdated client will get silence instead of an explanation."
+                phvlog WARNING "Could not create '$dest' -- '$worldName' ships without a client manifest, so an outdated client will get silence instead of an explanation."
                 return 1
         }
 
@@ -1455,17 +1455,17 @@ function writeClientManifest() {
 
         if [ ! -s "$tmp" ]; then
                 rm -f "$tmp" > /dev/null 2>&1
-                echo "`date` [WARNING : phvalheim] Failed to write the client manifest for '$worldName' -- an outdated client will get silence instead of an explanation."
+                phvlog WARNING "Failed to write the client manifest for '$worldName' -- an outdated client will get silence instead of an explanation."
                 return 1
         fi
 
         mv -f "$tmp" "$dest/phvalheim-world.cfg" || {
                 rm -f "$tmp" > /dev/null 2>&1
-                echo "`date` [WARNING : phvalheim] Could not install the client manifest for '$worldName'."
+                phvlog WARNING "Could not install the client manifest for '$worldName'."
                 return 1
         }
 
-        echo "`date` [NOTICE : phvalheim] Client manifest written for '$worldName' (needs client $clientMinVersion or newer)."
+        phvlog NOTICE "Client manifest written for '$worldName' (needs client $clientMinVersion or newer)."
         return 0
 }
 
@@ -1481,7 +1481,7 @@ function writeClientManifest() {
 function packageClient() {
 
         #echo ""
-        echo "`date` [NOTICE : phvalheim] Building PhValheim client payload..."
+        phvlog NOTICE "Building PhValheim client payload..."
 
         worldName="$1"
 
@@ -1497,7 +1497,7 @@ function packageClient() {
         #warning describes as "clients will have nothing to sync" without saying why. Name the
         #cause here, where it is known.
         if [ ! -d "$stage/BepInEx" ]; then
-                echo "`date` [ERROR : phvalheim] No client staging tree for '$worldName' -- cannot build a payload. Expected $stage/BepInEx."
+                phvlog ERROR "No client staging tree for '$worldName' -- cannot build a payload. Expected $stage/BepInEx."
                 return 1
         fi
 
@@ -1549,7 +1549,7 @@ function packageClient() {
         #anything else is touched. A single subshell doing both would turn that into a zip
         #status and let the config archive run against a tree that is not there.
         if ! ( cd "$stage" ) 2>/dev/null; then
-                echo "`date` [ERROR : phvalheim] Could not enter the client staging tree for '$worldName' ($stage)."
+                phvlog ERROR "Could not enter the client staging tree for '$worldName' ($stage)."
                 return 1
         fi
 
@@ -1656,9 +1656,9 @@ function setMD5 () {
         #checksum, so the column is deliberately cleared. Say that, instead of logging
         #"Setting world md5sum for 'x' to ''", which reads like a checksum that failed.
         if [ -z "$worldMD5" ]; then
-                echo "`date` [NOTICE : phvalheim] Clearing world md5sum for '$worldName' (no client payload)"
+                phvlog NOTICE "Clearing world md5sum for '$worldName' (no client payload)"
         else
-                echo "`date` [NOTICE : phvalheim] Setting world md5sum for '$worldName' to '$worldMD5'"
+                phvlog NOTICE "Setting world md5sum for '$worldName' to '$worldMD5'"
         fi
         SQL "UPDATE worlds SET world_md5='$worldMD5' WHERE name='$worldName';"
 }
@@ -1676,10 +1676,10 @@ function setConfigMD5 () {
         configMD5="$2"
 
         if [ -z "$configMD5" ]; then
-                echo "`date` [NOTICE : phvalheim] Clearing config payload checksum for '$worldName' (no config archive)"
+                phvlog NOTICE "Clearing config payload checksum for '$worldName' (no config archive)"
                 SQL "UPDATE worlds SET config_md5=NULL WHERE name='$worldName';"
         else
-                echo "`date` [NOTICE : phvalheim] Setting config payload checksum for '$worldName' to '$configMD5'"
+                phvlog NOTICE "Setting config payload checksum for '$worldName' to '$configMD5'"
                 SQL "UPDATE worlds SET config_md5='$configMD5' WHERE name='$worldName';"
         fi
 }
@@ -1711,11 +1711,11 @@ function setModsMD5 () {
                 #Deliberately NOT cleared. The previous key still describes the payload that is
                 #still on disk; clearing it would tell every client "unknown" and buy a fleet
                 #of 573 MB downloads for a transient failure to read one zip.
-                echo "`date` [WARNING : phvalheim] Could not compute the mod payload key for '$worldName' -- keeping the previous one."
+                phvlog WARNING "Could not compute the mod payload key for '$worldName' -- keeping the previous one."
                 return 1
         fi
 
-        echo "`date` [NOTICE : phvalheim] Setting mod payload key for '$worldName' to '$modsMD5'"
+        phvlog NOTICE "Setting mod payload key for '$worldName' to '$modsMD5'"
         SQL "UPDATE worlds SET mods_md5='$modsMD5' WHERE name='$worldName';"
         return 0
 }
@@ -1768,7 +1768,7 @@ function packageClientConfig() {
         #SECOND of the engine's two cd sites; both used to be one-way, which is what produced
         #the operator's getcwd spam. See the long note in packageClient().
         if ! ( cd "$stage" ) 2>/dev/null; then
-                echo "`date` [ERROR : phvalheim] Could not enter the client staging tree for '$worldName' ($stage) -- config archive not built."
+                phvlog ERROR "Could not enter the client staging tree for '$worldName' ($stage) -- config archive not built."
                 return 1
         fi
 
@@ -1779,13 +1779,13 @@ function packageClientConfig() {
         #still reports success, which would publish a checksum for a file of zero bytes.
         if [ $zipStatus -ne 0 ] || [ ! -s "$tmpZip" ]; then
                 rm -f "$tmpZip" > /dev/null 2>&1
-                echo "`date` [WARNING : phvalheim] Could not build the config archive for '$worldName' (zip exit $zipStatus). Keeping the previous one; clients fall back to the full payload."
+                phvlog WARNING "Could not build the config archive for '$worldName' (zip exit $zipStatus). Keeping the previous one; clients fall back to the full payload."
                 return 1
         fi
 
         mv -f "$tmpZip" "$zipPath" || {
                 rm -f "$tmpZip" > /dev/null 2>&1
-                echo "`date` [WARNING : phvalheim] Could not install the config archive for '$worldName'. Keeping the previous one."
+                phvlog WARNING "Could not install the config archive for '$worldName'. Keeping the previous one."
                 return 1
         }
 
@@ -1793,11 +1793,11 @@ function packageClientConfig() {
 
         local configMD5; configMD5=$(getMD5 "$zipPath")
         if [ -z "$configMD5" ]; then
-                echo "`date` [WARNING : phvalheim] Built the config archive for '$worldName' but could not checksum it."
+                phvlog WARNING "Built the config archive for '$worldName' but could not checksum it."
                 return 1
         fi
 
-        echo "`date` [NOTICE : phvalheim] Config archive for '$worldName': $(stat -c %s "$zipPath" 2>/dev/null) bytes."
+        phvlog NOTICE "Config archive for '$worldName': $(stat -c %s "$zipPath" 2>/dev/null) bytes."
         setConfigMD5 "$worldName" "$configMD5"
         return 0
 }
@@ -1882,7 +1882,7 @@ function syncWorldSeedFromSave () {
                 #it rather than keep displaying it. The card then reads "generated on
                 #first start", which is the truth.
                 if [ "$isVanillaWorld" = "1" ] && [ -n "$currentSeed" ]; then
-                        echo "`date` [NOTICE : phvalheim] Clearing seed for vanilla world '$worldName' -- it has no save yet, so '$currentSeed' cannot be its seed"
+                        phvlog NOTICE "Clearing seed for vanilla world '$worldName' -- it has no save yet, so '$currentSeed' cannot be its seed"
                         SQL "UPDATE worlds SET seed=NULL WHERE name='$worldName';"
                 fi
                 return 0
@@ -1895,7 +1895,7 @@ function syncWorldSeedFromSave () {
 
         worldSeed=$(readSeedFromSaveMeta "$fwl")
         if [ -z "$worldSeed" ]; then
-                echo "`date` [WARN : phvalheim] Could not read seed from '$fwl'"
+                phvlog WARN "Could not read seed from '$fwl'"
                 return 1
         fi
 
@@ -1904,9 +1904,9 @@ function syncWorldSeedFromSave () {
         fi
 
         if [ -n "$currentSeed" ]; then
-                echo "`date` [NOTICE : phvalheim] Correcting seed for vanilla world '$worldName': '$currentSeed' -> '$worldSeed' (read from its save)"
+                phvlog NOTICE "Correcting seed for vanilla world '$worldName': '$currentSeed' -> '$worldSeed' (read from its save)"
         else
-                echo "`date` [NOTICE : phvalheim] Recording generated seed for '$worldName': $worldSeed"
+                phvlog NOTICE "Recording generated seed for '$worldName': $worldSeed"
         fi
         SQL "UPDATE worlds SET seed='$worldSeed' WHERE name='$worldName';"
 }
@@ -1921,10 +1921,10 @@ function generateModViewerJson () {
         #world's mod list onto another.
         worldName="$1"
         if [ -z "$worldName" ]; then
-                echo "`date` [ERROR : phvalheim] generateModViewerJson called with no world; refusing to guess."
+                phvlog ERROR "generateModViewerJson called with no world; refusing to guess."
                 return 1
         fi
-        echo "`date` [NOTICE : phvalheim] Generating mod viewer json payload for '$worldName'..."
+        phvlog NOTICE "Generating mod viewer json payload for '$worldName'..."
 
         #Was hand-assembled JSON built with two `mysql` processes PER MOD and a regex to
         #strip the trailing comma, which also meant a mod name containing a quote produced
@@ -1970,13 +1970,13 @@ function reconcileStrandedUpdateState () {
 		SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, update_phase_at=NULL, \
 			update_last_result='Interrupted by a restart partway through the update. Nothing further was changed. Press Update to run it again.' \
 			WHERE update_state='updating';"
-		echo "`date` [WARN : phvalheim] Update(s) left mid-flight by a restart, now reported as interrupted rather than still running: $names"
+		phvlog WARN "Update(s) left mid-flight by a restart, now reported as interrupted rather than still running: $names"
 	fi
 
 	local checking=$(SQL "SELECT COUNT(*) FROM worlds WHERE update_check_state='checking';")
 	if [ "${checking:-0}" -gt 0 ]; then
 		SQL "UPDATE worlds SET update_check_state=NULL WHERE update_check_state='checking';"
-		echo "`date` [WARN : phvalheim] Cleared $checking stranded update-check spinner(s) left by a restart."
+		phvlog WARN "Cleared $checking stranded update-check spinner(s) left by a restart."
 	fi
 }
 
@@ -2030,7 +2030,7 @@ function reconcileStrandedWorlds () {
 		fi
 
 		SQL "UPDATE worlds SET mode='$landedOn' WHERE id='$worldID';"
-		echo "`date` [WARN : phvalheim] World '$worldName' was left mid-'$worldMode' by a restart. It is actually $landedOn, so that is what it now says."
+		phvlog WARN "World '$worldName' was left mid-'$worldMode' by a restart. It is actually $landedOn, so that is what it now says."
 
 		# Three of those modes were WRITING the world's files when they stopped, so the
 		# world is not merely mislabelled -- its game tree, its mod set or its client
@@ -2048,7 +2048,7 @@ function reconcileStrandedWorlds () {
 					update_state='failed', update_phase=NULL, update_phase_at=NULL, \
 					update_last_result='Interrupted by a restart while $worldMode. The world was not left in a known state, so it has not been started. Press Update to rebuild it.' \
 					WHERE id='$worldID';"
-				echo "`date` [WARN : phvalheim] World '$worldName' will NOT be autostarted: its files were being rewritten when the restart happened. Press Update in the admin UI to rebuild it."
+				phvlog WARN "World '$worldName' will NOT be autostarted: its files were being rewritten when the restart happened. Press Update in the admin UI to rebuild it."
 				;;
 		esac
 	done
@@ -2078,11 +2078,11 @@ function autoStart () {
 			# world the operator had deliberately left stopped.
 			interrupted=$(SQL "SELECT IFNULL(update_interrupted,0) FROM worlds WHERE id='$worldID';")
 			if [ "${interrupted:-0}" = "1" ]; then
-				echo "`date` [WARN : phvalheim] World '$worldName' is set to autostart, but an interrupted update left its files in an unknown state. NOT starting it; press Update in the admin UI to rebuild it."
+				phvlog WARN "World '$worldName' is set to autostart, but an interrupted update left its files in an unknown state. NOT starting it; press Update in the admin UI to rebuild it."
 				continue
 			fi
 
-			echo "`date` [NOTICE : phvalheim] World '$worldName' is set to autostart, starting world..."
+			phvlog NOTICE "World '$worldName' is set to autostart, starting world..."
 			SQL "UPDATE worlds SET mode='start' WHERE id='$worldID'"
 		fi
 	done

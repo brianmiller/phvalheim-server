@@ -1,8 +1,9 @@
 #!/bin/bash
+source /opt/stateless/engine/includes/phvalheim-static.conf   # phvlog (2.56)
 logsDir="/opt/stateful/logs"
 
 if [ ! -d "$logsDir" ]; then
-        echo "`date` [NOTICE : phvalheim] Logs directory missing, creating..."
+        phvlog NOTICE "Logs directory missing, creating..."
         mkdir -p $logsDir
 fi
 

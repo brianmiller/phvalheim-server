@@ -20,6 +20,8 @@ FUNCS="${FUNCS_UNDER_TEST:-$REPO/container/engine/includes/0-functions.sh}"
 pass=0
 fail=0
 
+# phvlog (2.56): the extracted function logs through the engine conf's helper; print the classic line.
+phvlog () { local tag="$1"; shift; echo "`date` [$tag : phvalheim] $*"; }
 eval "$(awk '/^function healSteamcmdState\(\)/,/^}/' "$FUNCS")"
 if ! declare -f healSteamcmdState > /dev/null; then
 	echo "FAIL  could not extract healSteamcmdState from $FUNCS"

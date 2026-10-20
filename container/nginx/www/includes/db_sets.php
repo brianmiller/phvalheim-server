@@ -5,6 +5,8 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 # setHungHeads() re-validates against $PHVALHEIM_BOSSES, so the registry must be loaded
 # even when a caller only pulled in db_sets.php.
 require_once '/opt/stateless/nginx/www/includes/bosses.php';
+# 2.56: every world command is recorded as an event (source 'admin', or 'hugin' while Hugin applies one).
+require_once '/opt/stateless/nginx/www/includes/events.php';
 
 #return codes: 0=world created, 1=world failed to create, 2=world exists
 function addWorld($pdo,$new_world,$external_endpoint,$seed){
@@ -46,6 +48,7 @@ function deleteAllWorldMods($pdo,$world) {
 
 function deleteWorld($pdo,$world){
         if (!empty($world)){
+                phvEvent($pdo, 'warn', "Delete requested for world '$world'", $world);
                 $sql = "UPDATE worlds SET mode='delete' WHERE name='$world'";
                 if ($pdo->query($sql)) {
                         $msg = "Deleting world $world...";
@@ -58,6 +61,7 @@ function deleteWorld($pdo,$world){
 
 function stopWorld($pdo,$world){
         if (!empty($world)){
+                phvEvent($pdo, 'notice', "Stop requested for world '$world'", $world);
                 $sql = "UPDATE worlds SET mode='stop' WHERE name='$world'";
                 if ($pdo->query($sql)) {
                         $msg = "Stopping world $world...";
@@ -70,6 +74,7 @@ function stopWorld($pdo,$world){
 
 function startWorld($pdo,$world){
         if (!empty($world)){
+                phvEvent($pdo, 'notice', "Start requested for world '$world'", $world);
                 $sql = "UPDATE worlds SET mode='start' WHERE name='$world'";
                 if ($pdo->query($sql)) {
                         $msg = "Starting world $world...";
@@ -81,6 +86,7 @@ function startWorld($pdo,$world){
 
 function updateWorld($pdo,$world){
         if (!empty($world)){
+                phvEvent($pdo, 'notice', "Update requested for world '$world'", $world);
                 $sql = "UPDATE worlds SET mode='update' WHERE name='$world'";
                 if ($pdo->query($sql)) {
                         $msg = "Updating world '$world'...";
@@ -122,7 +128,9 @@ function repackageWorld($pdo,$world){
         );
         $sth->execute([$world]);
 
-        return $sth->rowCount() > 0;
+        $ok = $sth->rowCount() > 0;
+        if ($ok) { phvEvent($pdo, 'notice', "Repackage (apply configs to players) requested for world '$world'", $world); }
+        return $ok;
 }
 
 function setCitizens($pdo,$world,$citizen){

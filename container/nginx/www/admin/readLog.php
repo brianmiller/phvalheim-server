@@ -2,8 +2,18 @@
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 
+require_once '/opt/stateless/nginx/www/includes/events.php';
 if (!empty($_GET['logfile'])) {
         $logFile = $_GET['logfile'];
+}
+// 2.56: the name used to be taken as given and appended to /opt/stateful/logs/, so
+// ?logfile=../../etc/passwd read any file the web user could. Only a plain log file name
+// that exists in the logs directory is served.
+if (!phvLogFileAllowed($logFile)) {
+        http_response_code(400);
+        header('Content-Type: text/plain');
+        echo "Not a log file: " . substr(preg_replace('/[^A-Za-z0-9_.-]/', '?', (string)$logFile), 0, 80);
+        exit;
 }
 
 // AJAX endpoint for fetching log content

@@ -7,6 +7,7 @@
 #   --disabled  Send one final payload marking analytics as disabled, then exit.
 #               Used automatically when the user turns off analytics in settings.
 
+PHV_LOG_SOURCE=analytics   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # ── Check for --disabled flag ─────────────────────────────────────
@@ -26,7 +27,7 @@ fi
 # ── Validate UUID ─────────────────────────────────────────────────
 analyticsUUID=$(SQL "SELECT analyticsUUID FROM settings" 2>/dev/null)
 if [ -z "$analyticsUUID" ]; then
-	echo "$(date) [WARN : phvalheim] Analytics UUID not found. Has the engine finished starting?"
+	phvlog WARN "Analytics UUID not found. Has the engine finished starting?"
 	exit 1
 fi
 
@@ -196,7 +197,7 @@ for wid in $world_ids; do
 			"$mods_file" > "$work_file"; then
 			mv "$work_file" "$mods_file"
 		else
-			echo "$(date) [WARN : phvalheim] analytics: could not add mod $mod_name, skipping"
+			phvlog WARN "analytics: could not add mod $mod_name, skipping"
 		fi
 	done <<< "$wmodrows"
 
@@ -210,7 +211,7 @@ for wid in $world_ids; do
 		"$worlds_file" > "$work_file"; then
 		mv "$work_file" "$worlds_file"
 	else
-		echo "$(date) [WARN : phvalheim] analytics: could not add world ${wname:-unknown}, skipping"
+		phvlog WARN "analytics: could not add world ${wname:-unknown}, skipping"
 	fi
 done
 
@@ -273,7 +274,7 @@ payload=$(jq -n \
 	}')
 
 if [ -z "$payload" ]; then
-	echo "$(date) [WARN : phvalheim] Failed to build analytics payload"
+	phvlog WARN "Failed to build analytics payload"
 	exit 1
 fi
 
@@ -311,7 +312,7 @@ fi
 
 if [ "$http_code" != "200" ]; then
 	response_body=$(cat "$resp_file" 2>/dev/null)
-	echo "$(date) [WARN : phvalheim] Analytics push failed (HTTP ${http_code:-000}): ${response_body}"
+	phvlog WARN "Analytics push failed (HTTP ${http_code:-000}): ${response_body}"
 fi
 
 # Record the outcome for the admin dashboard's Server Health check (2.56). Written whether the

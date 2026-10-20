@@ -3,12 +3,12 @@ source /opt/stateless/engine/includes/phvalheim-static.conf
 #source /opt/stateful/config/phvalheim-backend.conf
 
 if [ ! -d "$worldsDirectoryRoot" ]; then
-        echo "`date` [NOTICE : phvalheim] Worlds directory Root missing, creating..."
+        phvlog NOTICE "Worlds directory Root missing, creating..."
         mkdir -p $worldsDirectoryRoot
 fi
 
 if [ ! -d "$tsModsDir" ]; then
-        echo "`date` [NOTICE : phvalheim] Thunderstore mods download directory missing, creating..."
+        phvlog NOTICE "Thunderstore mods download directory missing, creating..."
         mkdir -p $tsModsDir
 fi
 
@@ -16,12 +16,12 @@ fi
 # modSync.py streams in memory and writes no intermediate files.
 
 if [ ! -d "$backupDir" ]; then
-	echo "`date` [NOTICE : phvalheim] Backup directory missing, creating..".
+	phvlog NOTICE "Backup directory missing, creating..."
         mkdir -p $backupDir
 fi
 
 if [ ! -d "$worldSupervisorConfigs" ]; then
-        echo "`date` [NOTICE : phvalheim] World supervisor config directory missing, creating..."
+        phvlog NOTICE "World supervisor config directory missing, creating..."
         mkdir -p $worldSupervisorConfigs
 fi
 

@@ -207,10 +207,24 @@ PHP reads the catalogue through `includes/modcatalog.php`, never with ad-hoc SQL
 
 ## Logs
 
-- Engine: `/opt/stateful/logs/phvalheim.log`
-- Worlds: `/opt/stateful/logs/valheimworld_<name>.log`
+**The event log (2.56) is the record of what PhValheim did.** `phv_events` rows carry source,
+level, world, operation and message; `phv_operations` groups them per engine command with an
+outcome. Write from bash with `phvlog LEVEL "message"` (in `phvalheim-static.conf`; it also
+prints the classic line to stdout) — never a raw `echo "`date` [NOTICE : phvalheim] ..."`,
+`dev_tools/test-event-log.sh` fails the build on one. The world and operation are AMBIENT:
+the main loop exports `PHV_WORLD` and `PHV_OP`; tools set `PHV_LOG_SOURCE`. From PHP use
+`phvEvent()` in `includes/events.php`; db_sets' world commands already do. Hugin reads it via
+`last_operation` / `world_activity` / `server_activity`. The admin UI: `admin/logs.php`
+(server-wide) and `admin/world_logs.php?world=` (Activity / Valheim / Both). Retention is in
+`logRotater.sh` (30 days / 100k rows).
+
+Raw files, still on disk and rotated at 1 MB:
+- Engine stdout: `/opt/stateful/logs/phvalheim.log`
+- Worlds (Valheim's own stdout): `/opt/stateful/logs/valheimworld_<name>.log` — the engine
+  records the file offset at each start (a session event), which is what "this boot" means
 - Mod catalogue sync: `/opt/stateful/logs/modSync.log` (pre-2.43: `tsSync.log`)
-- Backups: `/opt/stateful/logs/backups.log`
+- Backups: `/opt/stateful/logs/worldBackups.log`
+- `readLog.php` serves ONLY names that pass `phvLogFileAllowed()`.
 
 ## Supervisor Commands
 

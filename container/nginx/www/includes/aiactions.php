@@ -824,6 +824,8 @@ function aiActionRun($pdo, $name, $args) {
  * acting on a stale premise.
  */
 function aiActionApply($pdo, $token, $typedName = '') {
+    // 2.56: anything db_sets records while Hugin applies a change is filed as Hugin's, not the operator's.
+    if (function_exists('phvEventSource')) { phvEventSource('hugin'); }
     $sth = $pdo->prepare("SELECT * FROM ai_proposals WHERE token = ?");
     $sth->execute([(string)$token]);
     $row = $sth->fetch(PDO::FETCH_ASSOC);
@@ -869,6 +871,9 @@ function aiActionApply($pdo, $token, $typedName = '') {
 
     aiUsageBump($pdo, $ok ? 'action_applied' : 'action_failed', $row['action']);
     aiActionLog($ok ? 'APPLY' : 'APPLY_FAIL', $row['action'] . ' ' . $row['world']);
+    if (function_exists('phvEvent')) {
+        phvEvent($pdo, $ok ? 'notice' : 'warn', 'Hugin ' . ($ok ? 'applied' : 'failed to apply') . ' ' . $row['action'] . ($row['world'] !== '' ? " on world '" . $row['world'] . "'" : '') . ' (operator approved)', $row['world'] !== '' ? $row['world'] : null);
+    }
 
     return [
         'success' => $ok,

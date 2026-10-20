@@ -24,6 +24,57 @@ addColumn() {
 
 echo "`date` [NOTICE : phvalheim] Applying database schema update for phvalheim-server >=v2.56"
 
+# --- The event log (2.56) ------------------------------------------------------------------
+#
+# WHY: everything PhValheim did to a world went into one shared text file, untyped: no world,
+# no operation, no level a machine could rely on. An operator working on a world had to read
+# the engine log to find out what happened to it, and Hugin had to grep a tail and guess.
+# Valheim's own stdout stays a file (it is the game's, and a firehose); PhValheim's actions
+# become rows here, written by phvlog() (bash), phvEvent() (PHP) and the python tools, each
+# tagged with the world and the OPERATION (start/stop/update/...) they belong to.
+#
+# phv_operations groups events: one row per command the engine picks up, with an outcome.
+# An operation left open by an engine restart is closed as 'interrupted' at the next boot.
+#
+# Retention is enforced by logRotater.sh (30 days / 100k rows), never here.
+tableExists() { sql "SHOW TABLES LIKE '$1'" | grep -qx "$1"; }
+if ! tableExists phv_events; then
+	echo "`date` [NOTICE : phvalheim] Creating table 'phv_events'"
+	sql "CREATE TABLE phv_events (
+		id       BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+		ts       DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		source   VARCHAR(32)     NOT NULL DEFAULT 'phvalheim',
+		level    VARCHAR(8)      NOT NULL DEFAULT 'notice',
+		world    VARCHAR(128)        NULL,
+		op_id    VARCHAR(48)         NULL,
+		message  TEXT            NOT NULL,
+		detail   JSON                NULL,
+		PRIMARY KEY (id),
+		KEY idx_world (world, id),
+		KEY idx_level (level, id),
+		KEY idx_op (op_id),
+		KEY idx_ts (ts)
+	) ENGINE=InnoDB;"
+fi
+if ! tableExists phv_operations; then
+	echo "`date` [NOTICE : phvalheim] Creating table 'phv_operations'"
+	sql "CREATE TABLE phv_operations (
+		op_id    VARCHAR(48)  NOT NULL,
+		world    VARCHAR(128) NOT NULL,
+		kind     VARCHAR(24)  NOT NULL,
+		source   VARCHAR(32)  NOT NULL DEFAULT 'phvalheim',
+		started  DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		finished DATETIME(3)      NULL,
+		outcome  VARCHAR(16)      NULL,
+		summary  VARCHAR(255)     NULL,
+		PRIMARY KEY (op_id),
+		KEY idx_world (world, started),
+		KEY idx_open (finished)
+	) ENGINE=InnoDB;"
+fi
+# The operator's "seen up to" mark for the Logs pulse: server-side, so it survives browsers.
+addColumn settings logsSeenEventId "BIGINT UNSIGNED NOT NULL DEFAULT 0"
+
 
 # --- worlds.join_code: the crossplay join code, remembered --------------------------------
 #

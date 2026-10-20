@@ -27,6 +27,7 @@ require_once '/opt/stateless/nginx/www/includes/modconfigs.php';
 # client release cache, which lives in git.php.
 require_once '/opt/stateless/nginx/www/includes/git.php';
 require_once '/opt/stateless/nginx/www/includes/health.php';
+require_once '/opt/stateless/nginx/www/includes/events.php';
 
 header('Content-Type: application/json');
 
@@ -45,6 +46,61 @@ switch($action) {
         $health = phvServerHealth($pdo, ['clientRepo' => $phValheimClientGitRepo]);
         $health['success'] = true;
         echo json_encode($health);
+        break;
+
+    // ---- The event log (2.56) ----
+    case 'getEvents':
+        echo json_encode(['success' => true, 'events' => phvEvents($pdo, [
+            'world' => $_GET['world'] ?? '', 'source' => $_GET['source'] ?? '', 'min_level' => $_GET['min_level'] ?? '',
+            'op_id' => $_GET['op_id'] ?? '', 'since_id' => $_GET['since_id'] ?? 0, 'before_id' => $_GET['before_id'] ?? 0,
+            'q' => $_GET['q'] ?? '', 'limit' => $_GET['limit'] ?? 200,
+        ])]);
+        break;
+
+    case 'getOperations':
+        echo json_encode(['success' => true, 'operations' => phvOperations($pdo, $_GET['world'] ?? null, $_GET['limit'] ?? 20)]);
+        break;
+
+    case 'getOperation':
+        $op = phvOperation($pdo, $_GET['op_id'] ?? '');
+        echo json_encode($op ? ['success' => true, 'operation' => $op] : ['success' => false, 'error' => 'No such operation']);
+        break;
+
+    case 'getEventsSummary':
+        echo json_encode(['success' => true] + phvEventsSummary($pdo));
+        break;
+
+    case 'ackEvents':
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $input = json_decode(file_get_contents('php://input'), true) ?: [];
+            phvEventsAck($pdo, (int)($input['id'] ?? 0));
+            echo json_encode(['success' => true] + phvEventsSummary($pdo));
+        } else {
+            echo json_encode(['success' => false, 'error' => 'POST required']);
+        }
+        break;
+
+    case 'getLogFiles':
+        echo json_encode(['success' => true, 'files' => phvLogFiles()]);
+        break;
+
+    // The world log view: PhValheim's events for the world, the Valheim log (this boot by
+    // default), or both merged by time. 'since_id' lets the follow mode fetch only new events.
+    case 'getWorldTimeline':
+        $world = (string)($_GET['world'] ?? '');
+        $mode = $_GET['mode'] ?? 'both';
+        $thisBoot = ($_GET['boot'] ?? '1') !== '0';
+        if ($world === '' || !preg_match('/^[A-Za-z0-9_-]+$/', $world)) { echo json_encode(['success' => false, 'error' => 'World name required']); break; }
+        $events = $mode === 'valheim' ? [] : phvEvents($pdo, ['world' => $world, 'limit' => 500, 'since_id' => $_GET['since_id'] ?? 0]);
+        $maxBytes = max(20000, min(4000000, (int)($_GET['max_bytes'] ?? 2000000)));
+        $vl = $mode === 'activity' ? ['lines' => [], 'size' => 0, 'from_offset' => 0, 'truncated' => false, 'exists' => false] : phvValheimLog($pdo, $world, $thisBoot, $maxBytes);
+        echo json_encode([
+            'success' => true, 'world' => $world, 'mode' => $mode, 'this_boot' => $thisBoot,
+            'timeline' => phvMergeTimeline($events, $vl['lines']),
+            'valheim' => ['size' => $vl['size'], 'from_offset' => $vl['from_offset'], 'truncated' => $vl['truncated'], 'exists' => $vl['exists']],
+            'operations' => $mode === 'valheim' ? [] : phvOperations($pdo, $world, 10),
+            'max_event_id' => $events ? end($events)['id'] : 0,
+        ]);
         break;
 
     case 'getWorldMods':
@@ -483,6 +539,7 @@ switch($action) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $input = json_decode(file_get_contents('php://input'), true);
             if ($input) {
+                phvEvent($pdo, 'notice', 'Server settings saved (' . implode(', ', array_slice(array_keys($input), 0, 12)) . (count($input) > 12 ? ', ...' : '') . ')');
                 saveServerSettingsJson($pdo, $input);
             } else {
                 echo json_encode(['success' => false, 'error' => 'Invalid JSON input']);
@@ -1181,6 +1238,7 @@ function getWorldsJson($pdo) {
     echo json_encode([
         'success' => true,
         'worlds' => $worlds,
+        'events' => phvEventsSummary($pdo),   // 2.56: unseen warnings/errors + open operations, for the pulses
         'timestamp' => date('Y-m-d H:i:s')
     ]);
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 echo
-echo "`date` [NOTICE : phvalheim] Starting PhValheim pre-flight..."
-echo "`date` [NOTICE : phvalheim] PhValheim Version: $phvalheimVersion"
+phvlog NOTICE "Starting PhValheim pre-flight..."
+phvlog NOTICE "PhValheim Version: $phvalheimVersion"
 
 
 # load configs
@@ -16,6 +16,9 @@ source /opt/stateless/engine/includes/0-functions.sh
 
 # run database schema update processor
 /opt/stateless/engine/tools/dbUpdater.sh
+# An operation left open by the previous engine process can never finish; say so (2.56).
+SQL "UPDATE phv_operations SET finished=NOW(3), outcome='interrupted', summary='PhValheim restarted before this finished' WHERE finished IS NULL" > /dev/null 2>&1
+phvlog NOTICE "PhValheim engine started"
 
 # prep directories and filesystem
 /opt/stateless/engine/tools/phvalheimprep.sh
@@ -48,7 +51,7 @@ if [ "$setupComplete" = "0" ]; then
 	done
 
 	if [ $envVarFound = 1 ]; then
-		echo "`date` [NOTICE : phvalheim] Migrating environment variables to database settings..."
+		phvlog NOTICE "Migrating environment variables to database settings..."
 
 		# Migrate each env var if it has a value
 		[ ! -z "$steamAPIKey" ]       && SQL "UPDATE settings SET steamApiKey='$steamAPIKey'"
@@ -65,15 +68,15 @@ if [ "$setupComplete" = "0" ]; then
 
 		# Mark as migrated (setupComplete=1 triggers one-time migration notice in admin UI)
 		SQL "UPDATE settings SET setupComplete=1, migrationNoticeShown=0"
-		echo "`date` [NOTICE : phvalheim] Environment variables migrated to database. These env vars are now deprecated and can be removed from your Docker configuration."
+		phvlog NOTICE "Environment variables migrated to database. These env vars are now deprecated and can be removed from your Docker configuration."
 	else
 		# Check if worlds exist — if so, this is an upgrade (not a fresh install)
 		worldCount=$(SQL "SELECT COUNT(*) FROM worlds")
 		if [ "$worldCount" -gt 0 ] 2>/dev/null; then
-			echo "`date` [NOTICE : phvalheim] Existing worlds detected but no environment variables found. Showing migration notice so admin can configure settings."
+			phvlog NOTICE "Existing worlds detected but no environment variables found. Showing migration notice so admin can configure settings."
 			SQL "UPDATE settings SET setupComplete=1, migrationNoticeShown=0"
 		else
-			echo "`date` [NOTICE : phvalheim] Fresh install detected. Setup wizard will be available at the admin UI (port 8081)."
+			phvlog NOTICE "Fresh install detected. Setup wizard will be available at the admin UI (port 8081)."
 		fi
 	fi
 fi
@@ -94,7 +97,7 @@ if [ -f "/usr/share/zoneinfo/$TZ" ]; then
 	echo "$TZ" > /etc/timezone
 	ln -sf /usr/share/zoneinfo/$TZ /etc/localtime
 else
-	echo "`date` [WARN : phvalheim] Invalid timezone '$TZ' in database, falling back to UTC"
+	phvlog WARN "Invalid timezone '$TZ' in database, falling back to UTC"
 	export TZ="Etc/UTC"
 	echo "$TZ" > /etc/timezone
 	ln -sf /usr/share/zoneinfo/$TZ /etc/localtime
@@ -123,27 +126,27 @@ analyticsUUID=$(SQL "SELECT analyticsUUID FROM settings")
 if [ -z "$analyticsUUID" ]; then
 	analyticsUUID=$(cat /proc/sys/kernel/random/uuid)
 	SQL "UPDATE settings SET analyticsUUID='$analyticsUUID'"
-	echo "`date` [NOTICE : phvalheim] Analytics UUID generated: $analyticsUUID"
+	phvlog NOTICE "Analytics UUID generated: $analyticsUUID"
 fi
 export analyticsUUID
 export analyticsEnabled=$(SQL "SELECT analyticsEnabled FROM settings")
 
 # push analytics on startup (background, non-blocking)
 if [ "$analyticsEnabled" = "1" ]; then
-	echo "`date` [NOTICE : phvalheim] Pushing analytics data..."
+	phvlog NOTICE "Pushing analytics data..."
 	/opt/stateless/engine/tools/pushAnalytics.sh >> /opt/stateful/logs/phvalheim.log 2>&1 &
 fi
 
 # post pre-flight echos
-echo "`date` [NOTICE : phvalheim] basePort: $basePort"
-echo "`date` [NOTICE : phvalheim] defaultSeed: $defaultSeed"
-echo "`date` [NOTICE : phvalheim] gameDNS: $gameDNS"
-echo "`date` [NOTICE : phvalheim] backupsToKeep: $backupsToKeep"
-echo "`date` [NOTICE : phvalheim] maxLogSize: $maxLogSize"
-echo "`date` [NOTICE : phvalheim] timezone: $TZ"
+phvlog NOTICE "basePort: $basePort"
+phvlog NOTICE "defaultSeed: $defaultSeed"
+phvlog NOTICE "gameDNS: $gameDNS"
+phvlog NOTICE "backupsToKeep: $backupsToKeep"
+phvlog NOTICE "maxLogSize: $maxLogSize"
+phvlog NOTICE "timezone: $TZ"
 
 # start the engine
-echo "`date` [NOTICE : phvalheim] PhValheim engine started..."
+phvlog NOTICE "PhValheim engine started..."
 
 # Clear any world the last shutdown caught mid-flight, BEFORE autoStart.
 #
@@ -184,6 +187,14 @@ while [ true ]; do
 		worldID=$WORLD
 		worldMode=$(SQL "SELECT mode FROM worlds WHERE id='$worldID';")
 		worldName=$(SQL "SELECT name FROM worlds WHERE id='$worldID';")
+		# Every event below is filed against this world (2.56), and a command becomes one
+		# OPERATION with an outcome, closed at the bottom of this loop body.
+		export PHV_WORLD="$worldName"
+		case "$worldMode" in
+			create|delete|stop|start|update|repackage)
+				phvOpBegin "$worldMode"
+				opStartStatus=$(SQL "SELECT IFNULL(status,'') FROM worlds WHERE id='$worldID';") ;;
+		esac
 		worldPort=$(SQL "SELECT port FROM worlds WHERE id='$worldID';")
 		worldSeed=$(SQL "SELECT seed FROM worlds WHERE id='$worldID';")
 		#QuickConnect's host comes from the LIVE gameDNS setting, not from the copy that
@@ -226,14 +237,14 @@ while [ true ]; do
 				supervisorState=$(/usr/bin/supervisorctl status valheimworld_$worldName 2>/dev/null|tr -s " "|cut -d " " -f2)
 				case "$supervisorState" in
 					RUNNING|STARTING|BACKOFF)
-						echo "`date` [WARN: phvalheim] World '$worldName' is marked stopped but supervisor still has it $supervisorState. Stopping it through supervisor..."
+						phvlog WARN "World '$worldName' is marked stopped but supervisor still has it $supervisorState. Stopping it through supervisor..."
 						/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
 						;;
 				esac
 
 				orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
 				for orphanedPID in $orphanedPIDs; do
-					echo "`date` [WARN: phvalheim] Murdering orphaned PID: $orphanedPID"
+					phvlog WARN "Murdering orphaned PID: $orphanedPID"
 					kill -9 $orphanedPID
 				done
 			fi
@@ -252,34 +263,34 @@ while [ true ]; do
 			fi
 			if [ -z "$worldSeed" ]; then
 				worldSeed=$(od -An -tu4 -N4 /dev/urandom | tr -d ' ')
-				echo "`date` [NOTICE : phvalheim] Generated random seed for '$worldName': $worldSeed"
+				phvlog NOTICE "Generated random seed for '$worldName': $worldSeed"
 				SQL "UPDATE worlds SET seed='$worldSeed' WHERE id='$worldID'"
 			fi
 		fi
 
 
 		if [ "$worldMode" = "create" ]; then
-			echo "`date` [NOTICE : phvalheim] New world '$worldName' detected, creating..."
+			phvlog NOTICE "New world '$worldName' detected, creating..."
 			SQL "UPDATE worlds SET mode='creating' WHERE name='$worldName'"
 
 			# Assign port if not already assigned (may be NULL if directory was pre-created by clone)
 			worldPort=$(SQL "SELECT port FROM worlds WHERE name='$worldName'")
 			if [ -z "$worldPort" ] || [ "$worldPort" = "NULL" ]; then
-				echo "`date` [NOTICE : phvalheim] Assigning port for '$worldName'..."
+				phvlog NOTICE "Assigning port for '$worldName'..."
 				worldPort=$(getNextPort)
 				SQL "UPDATE worlds SET port='$worldPort' WHERE name='$worldName'"
 			fi
 
 			# Create directory structure if it doesn't exist
 			if [ ! -d "$worldsDirectoryRoot/$worldName" ]; then
-				echo "`date` [NOTICE : phvalheim] Worlds directory for '$worldName' is missing, creating..."
+				phvlog NOTICE "Worlds directory for '$worldName' is missing, creating..."
 				worldDirPrep "$worldName"
 			else
-				echo "`date` [NOTICE : phvalheim] Worlds directory for '$worldName' already exists (from clone), ensuring structure..."
+				phvlog NOTICE "Worlds directory for '$worldName' already exists (from clone), ensuring structure..."
 				worldDirPrep "$worldName"
 			fi
 
-			echo "`date` [NOTICE : phvalheim] Deploying new world '$worldName'..."
+			phvlog NOTICE "Deploying new world '$worldName'..."
 			# Judge the deployment on its POSTCONDITION -- the directory tree
 			# worldDirPrep is contracted to produce -- not on the exit status of a
 			# chown.
@@ -296,9 +307,9 @@ while [ true ]; do
 			# command, on this path, immediately above. It existed only to set RESULT.
 			deployMissing=$(worldDirIsPrepared "$worldName")
 			if [ $? = 0 ]; then
-				echo "`date` [NOTICE : phvalheim] World '$worldName' successfully created..."
+				phvlog NOTICE "World '$worldName' successfully created..."
 
-				echo "`date` [NOTICE : phvalheim] Checking for required mods..."
+				phvlog NOTICE "Checking for required mods..."
 
 				#generate custom seed config
 				#
@@ -306,7 +317,7 @@ while [ true ]; do
 				#mod, so a vanilla world cannot use one -- Valheim itself has no seed
 				#argument, the seed is baked into the .fwl at first generation.
 				if [ "$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName'")" = "1" ]; then
-					echo "`date` [NOTICE : phvalheim] World '$worldName' is vanilla -- custom seed not applied (requires a mod). Valheim will generate a random seed."
+					phvlog NOTICE "World '$worldName' is vanilla -- custom seed not applied (requires a mod). Valheim will generate a random seed."
 				else
 					createCustomSeedConfig "$worldName" "$worldSeed"
 				fi
@@ -351,20 +362,20 @@ while [ true ]; do
 				# which runs the real delete path -- the one that also kills orphaned
 				# PIDs and removes the supervisor config. Keeping a second, partial
 				# implementation of "remove a world" here only invited the two to drift.
-				echo "`date` [FAIL : phvalheim] ERROR: World '$worldName' failed deployment -- missing:$deployMissing"
-				echo "`date` [FAIL : phvalheim] Marking '$worldName' broken. Nothing was deleted; delete it from the admin UI if you want it gone."
+				phvlog FAIL "ERROR: World '$worldName' failed deployment -- missing:$deployMissing"
+				phvlog FAIL "Marking '$worldName' broken. Nothing was deleted; delete it from the admin UI if you want it gone."
 				SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
 			fi
 		fi
 
 		if [ "$worldMode" = "delete" ]; then
-			echo "`date` [WARN : phvalheim] Delete command received for world '$worldName':"
+			phvlog WARN "Delete command received for world '$worldName':"
 			worldNameLength=$(echo "$worldName"|wc -c)
 			if [ $worldNameLength -gt 1 ]; then
-				echo "`date` [WARN : phvalheim] Deleting world '$worldName'..."
+				phvlog WARN "Deleting world '$worldName'..."
 	                        orphanedPIDs=$(ps -ef|grep phvalhe+|grep "/opt/stateful/games/valheim/worlds/$worldName/game/valheim_server.x86_64"|grep -v "sh -c"|grep -v grep|tr -s " " |cut -d " " -f2)
 	                        for orphanedPID in $orphanedPIDs; do
-	                                echo "`date` [WARN : phvalheim] Murdering orphaned PID: $orphanedPID"
+	                                phvlog WARN "Murdering orphaned PID: $orphanedPID"
 	                                kill -9 $orphanedPID
 	                        done
 				rm -rf $worldsDirectoryRoot/$worldName
@@ -387,15 +398,15 @@ while [ true ]; do
 		fi
 
                 if [ "$worldMode" = "stop" ]; then
-			echo "`date` [NOTICE : phvalheim] Stop command received for world '$worldName':"
+			phvlog NOTICE "Stop command received for world '$worldName':"
 			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
                         worldPID_status=$?
 			if [ $? = 0 ]; then
 				SQL "UPDATE worlds SET mode='stopping' WHERE name='$worldName'"
-				echo "`date` [NOTICE : phvalheim] Stopping world '$worldName'..."
+				phvlog NOTICE "Stopping world '$worldName'..."
 				/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
 			else
-				echo "`date` [WARN : phvalheim] World '$worldName' doesn't appear to be running..."
+				phvlog WARN "World '$worldName' doesn't appear to be running..."
 				SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 			fi
 
@@ -406,26 +417,27 @@ while [ true ]; do
 				let killLoop=killLoop+1
 				worldProcessRunning "$worldName"
 	                        if [ ! $? = 0 ]; then
-	                                echo "`date` [NOTICE : phvalheim] World '$worldName' successfully stopped."
+	                                phvlog NOTICE "World '$worldName' successfully stopped."
 					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 					break
 				else
-					echo "`date` [WARN : phvalheim] World '$worldName' did not stop in the allowed time of 10 seconds. The world may still stop soon. You should probably check this..."
+					phvlog WARN "World '$worldName' did not stop in the allowed time of 10 seconds. The world may still stop soon. You should probably check this..."
 	                        fi
 			done
 		
 		fi
 
 		if [ "$worldMode" = "start" ]; then
-			echo "`date` [NOTICE : phvalheim] Start command recieved for world '$worldName':"
+			phvlog NOTICE "Start command recieved for world '$worldName':"
 
 			/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 			worldPID_status=$?
 			if [ $worldPID_status = 0 ]; then
-				echo "`date` [WARN : phvalheim] World '$worldName' is already running..."
+				phvlog WARN "World '$worldName' is already running..."
 				SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
 			else
 				SQL "UPDATE worlds SET mode='starting' WHERE name='$worldName'"
+				phvWorldSessionMark "$worldName"
 
 				#Re-apply the operator's mod config overrides before the world loads them.
 				#
@@ -448,7 +460,7 @@ while [ true ]; do
 					# supervisor restarts the engine, and the engine's pre-flight resets every
 					# world to 'stopped' -- so one unstartable world became a restart loop that
 					# also clobbered any create/update queued against the OTHER worlds.
-					echo "`date` [ERROR : phvalheim] ERROR: Could not start world '$worldName'. Marking it broken and continuing; the reason is in /opt/stateful/logs/valheimworld_$worldName.log"
+					phvlog ERROR "ERROR: Could not start world '$worldName'. Marking it broken and continuing; the reason is in /opt/stateful/logs/valheimworld_$worldName.log"
 					SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
 				else
 					# Bounded wait. This loop had no limit, so a world that started and then
@@ -458,7 +470,7 @@ while [ true ]; do
 					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 					worldPID_status=$?
 					while [ $worldPID_status != 0 ] && [ $startWait -lt 60 ]; do
-						echo "`date` [NOTICE : phvalheim] Waiting for world '$worldName' to start..."
+						phvlog NOTICE "Waiting for world '$worldName' to start..."
 						sleep 2
 						let startWait=startWait+1
 						/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
@@ -468,10 +480,10 @@ while [ true ]; do
 					/usr/bin/supervisorctl status valheimworld_$worldName > /dev/null 2>&1
 					worldPID_status=$?
 					if [ $worldPID_status = 0 ]; then
-						echo "`date` [NOTICE : phvalheim] World '$worldName' has started!"
+						phvlog NOTICE "World '$worldName' has started!"
 						SQL "UPDATE worlds SET mode='running' WHERE name='$worldName'"
 					else
-						echo "`date` [ERROR : phvalheim] World '$worldName' did not come up within 120s. Marking it broken and continuing; see /opt/stateful/logs/valheimworld_$worldName.log"
+						phvlog ERROR "World '$worldName' did not come up within 120s. Marking it broken and continuing; see /opt/stateful/logs/valheimworld_$worldName.log"
 						SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
 					fi
 				fi
@@ -479,7 +491,7 @@ while [ true ]; do
 		fi
 
 		if [ "$worldMode" = "update" ]; then
-			echo "`date` [NOTICE : phvalheim] Update command recieved for world '$worldName':"
+			phvlog NOTICE "Update command recieved for world '$worldName':"
 			# Ask the process table. This guard used to read worlds.pid, a column
 			# NOTHING writes, so it always saw an empty pid, always concluded "not
 			# running", and let steamcmd rewrite a live world under its own players.
@@ -498,7 +510,7 @@ while [ true ]; do
 			wasRunning=0
 			if worldProcessRunning "$worldName"; then
 				wasRunning=1
-				echo "`date` [NOTICE : phvalheim] World '$worldName' is running. Stopping it for the update; it will be started again afterwards..."
+				phvlog NOTICE "World '$worldName' is running. Stopping it for the update; it will be started again afterwards..."
 				/usr/bin/supervisorctl stop valheimworld_$worldName > /dev/null 2>&1
 				stopWait=0
 				while worldProcessRunning "$worldName" && [ $stopWait -lt 180 ]; do
@@ -510,16 +522,16 @@ while [ true ]; do
 			if worldProcessRunning "$worldName"; then
 				# Bail out LOUDLY and leave a mode the loop will not revisit, rather
 				# than spinning on this world forever.
-				echo "`date` [ERROR : phvalheim] World '$worldName' would not stop within 180s, so it cannot be updated safely. Marking it broken; stop it by hand and try again."
+				phvlog ERROR "World '$worldName' would not stop within 180s, so it cannot be updated safely. Marking it broken; stop it by hand and try again."
 				SQL "UPDATE worlds SET mode='broken' WHERE name='$worldName'"
 			else
-				echo "`date` [NOTICE : phvalheim] Updating world '$worldName'..."
+				phvlog NOTICE "Updating world '$worldName'..."
 				SQL "UPDATE worlds SET mode='updating' WHERE name='$worldName'"
 
 				#Update Valheim
 				InstallAndUpdateValheim "$worldName"
 				if [ $? -ne 0 ]; then
-					echo "`date` [ERROR : phvalheim] Valheim installation failed for '$worldName', aborting update..."
+					phvlog ERROR "Valheim installation failed for '$worldName', aborting update..."
 					SQL "UPDATE worlds SET mode='stopped', status='failed' WHERE name='$worldName'"
 					continue
 				fi
@@ -531,7 +543,7 @@ while [ true ]; do
 					#A vanilla world means ZERO MODS: no BepInEx, no system plugins,
 					#no quickconnect, no Thunderstore mods. Players join it with
 					#Valheim's own +connect, so there is no client payload either.
-					echo "`date` [NOTICE : phvalheim] World '$worldName' is vanilla -- skipping BepInEx, mods and client packaging."
+					phvlog NOTICE "World '$worldName' is vanilla -- skipping BepInEx, mods and client packaging."
 
 					#Make sure a world converted to vanilla has no mod remnants
 					purgeWorldModsConfigsPatchers "$worldName"
@@ -542,7 +554,7 @@ while [ true ]; do
 					#produces. They are not unknown: they are known NOT installed, which is
 					#the middle state the two columns exist to carry.
 					/opt/stateless/engine/tools/worldMods.py --world "$worldName" --record-installed "" \
-						|| echo "`date` [WARN : phvalheim] Could not record the purged mod state for '$worldName'."
+						|| phvlog WARN "Could not record the purged mod state for '$worldName'."
 
 					#Empty the mod viewer list so the UI doesn't show stale mods
 					generateModViewerJson "$worldName"
@@ -588,7 +600,7 @@ while [ true ]; do
 						#packaged, given an md5, marked ready and started, and the only symptom
 						#was BepInEx reporting "0 plugins to load" in the world log -- which
 						#nobody sees until a player joins and finds a vanilla server.
-						echo "`date` [ERROR : phvalheim] Mod installation failed for '$worldName' -- leaving it stopped, and NOT touching its client payload or md5."
+						phvlog ERROR "Mod installation failed for '$worldName' -- leaving it stopped, and NOT touching its client payload or md5."
 						SQL "UPDATE worlds SET mode='stopped', status='failed' WHERE name='$worldName'"
 						continue
 					fi
@@ -660,7 +672,7 @@ while [ true ]; do
 					#packageClient produced no zip -- do not let that pass as the same
 					#quiet "cleared" state a vanilla world legitimately has.
 					if [ -z "$worldMD5" ]; then
-						echo "`date` [WARNING : phvalheim] No client payload found for modded world '$worldName' -- clients will have nothing to sync."
+						phvlog WARNING "No client payload found for modded world '$worldName' -- clients will have nothing to sync."
 					fi
 					setMD5 "$worldName" "$worldMD5"
 				else
@@ -689,7 +701,7 @@ while [ true ]; do
 				#default on purpose -- a hand-edited mod list must not start a world
 				#the operator left stopped -- but one that WAS running is restarted.
 				if [ "$wasRunning" = "1" ]; then
-					echo "`date` [NOTICE : phvalheim] Update finished; starting '$worldName' again..."
+					phvlog NOTICE "Update finished; starting '$worldName' again..."
 					SQL "UPDATE worlds SET mode='start' WHERE name='$worldName'"
 				else
 					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
@@ -713,7 +725,7 @@ while [ true ]; do
 		#packageClient() reads the client staging tree while the server process reads game/, so
 		#nothing contends and nobody is kicked off.
 		if [ "$worldMode" = "repackage" ]; then
-			echo "`date` [NOTICE : phvalheim] Repackage command recieved for world '$worldName':"
+			phvlog NOTICE "Repackage command recieved for world '$worldName':"
 
 			isVanilla=$(SQL "SELECT IFNULL(vanilla,0) FROM worlds WHERE name='$worldName'")
 
@@ -721,7 +733,7 @@ while [ true ]; do
 			#rebuild. A silent no-op rather than an error: the UI does not offer this for a
 			#vanilla world, and refusing loudly would be noise about a legitimate state.
 			if [ "$isVanilla" = "1" ]; then
-				echo "`date` [NOTICE : phvalheim] World '$worldName' is vanilla -- no client payload to rebuild."
+				phvlog NOTICE "World '$worldName' is vanilla -- no client payload to rebuild."
 			else
 				SQL "UPDATE worlds SET mode='repackaging' WHERE name='$worldName'"
 
@@ -741,7 +753,7 @@ while [ true ]; do
 				#attribution from an "Apply to players" instead of having to wait for
 				#its next full rebuild. Costs a few zip central-directory reads.
 				/opt/stateless/engine/tools/pluginGuids.py --world "$worldName" --learn \
-					|| echo "`date` [WARN : phvalheim] Could not learn plugin GUIDs for '$worldName'; config attribution falls back to name matching."
+					|| phvlog WARN "Could not learn plugin GUIDs for '$worldName'; config attribution falls back to name matching."
 
 				materialiseModConfigs "$worldName"
 				ensureBepInExLoaderConfig "$worldName"
@@ -755,7 +767,7 @@ while [ true ]; do
 				if [ -n "$worldMD5" ]; then
 					setMD5 "$worldName" "$worldMD5"
 				else
-					echo "`date` [WARNING : phvalheim] Repackage of '$worldName' produced no payload -- keeping the previous checksum so clients stay on the payload they have."
+					phvlog WARNING "Repackage of '$worldName' produced no payload -- keeping the previous checksum so clients stay on the payload they have."
 				fi
 
 				#date_updated is deliberately NOT touched. It reads as "World last updated"
@@ -781,11 +793,28 @@ while [ true ]; do
 			#update branch above does.
 			SQL "UPDATE worlds SET update_interrupted=0 WHERE name='$worldName'"
 
-			echo "`date` [NOTICE : phvalheim] Repackage of '$worldName' finished."
+			phvlog NOTICE "Repackage of '$worldName' finished."
 		fi
 
 
 
+		# Close this world's operation with an outcome read from what the command left behind:
+		# a world marked broken, or a status that BECAME failed during the command, is a failure;
+		# a deleted row is a finished delete; anything else finished as its final mode says.
+		if [ -n "$PHV_OP" ]; then
+			opEndMode=$(SQL "SELECT mode FROM worlds WHERE id='$worldID';")
+			opEndStatus=$(SQL "SELECT IFNULL(status,'') FROM worlds WHERE id='$worldID';")
+			if [ "$worldMode" = "delete" ] && [ -z "$opEndMode" ]; then
+				phvOpEnd ok "deleted"
+			elif [ "$opEndMode" = "broken" ]; then
+				phvOpEnd failed "world marked broken"
+			elif [ "$opEndStatus" = "failed" ] && [ "$opStartStatus" != "failed" ]; then
+				phvOpEnd failed "ended $opEndMode with status failed"
+			else
+				phvOpEnd ok "$opEndMode"
+			fi
+		fi
+		unset PHV_WORLD
 	done
 
 done

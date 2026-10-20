@@ -177,6 +177,13 @@ check('on, last push failed: warn (not fail: nothing depends on it)', 'warn', st
 check('the shell record shape pushAnalytics.sh writes is the one read', 'ok',
 	st(phvHealthRuleAnalytics(true, json_decode('{"at":1800000000,"http_code":"200","ok":true}', true), $NOW)));
 
+echo "\n-- 8b. recent errors (the event log) --\n";
+check('event log unreadable: unknown', 'unknown', st(phvHealthRuleRecentErrors(null, $NOW)));
+check('no errors in the last hour: ok', 'ok', st(phvHealthRuleRecentErrors(['count' => 0, 'last_t' => null, 'last' => null], $NOW)));
+check('errors: warn, names the world and the message, opens Logs', ['warn', true, 'logs'],
+	[st($i = phvHealthRuleRecentErrors(['count' => 3, 'last_t' => $NOW - 120, 'last' => ['message' => 'Mod installation failed', 'world' => 'Midgard']], $NOW)),
+	 str_contains($i['detail'], "world 'Midgard'") && str_contains($i['detail'], 'Mod installation failed') && str_contains($i['detail'], '3 errors'), $i['action']]);
+
 echo "\n-- 9. the collector with injected inputs (no database) --\n";
 $in = [
 	'now' => $NOW,
@@ -189,11 +196,12 @@ $in = [
 	'backup' => ['status' => 'idle', 'lastRun' => '', 'mounted' => false, 'perc' => 10],
 	'housekeeping' => ['logRotate' => 'idle', 'utilization' => 'idle'],
 	'analyticsRecord' => null,
+	'recentErrors' => ['count' => 0, 'last_t' => null, 'last' => null],
 ];
 $h = phvServerHealth(null, $in);
-check('nine checks, in a fixed order', ['settings', 'steam_key', 'client_downloads', 'data_volume', 'mod_sync_thunderstore', 'mod_sync_hexium', 'backups', 'housekeeping', 'analytics'],
+check('ten checks, in a fixed order', ['settings', 'steam_key', 'client_downloads', 'data_volume', 'mod_sync_thunderstore', 'mod_sync_hexium', 'backups', 'housekeeping', 'analytics', 'recent_errors'],
 	array_column($h['checks'], 'id'));
-check('counts match the states', ['ok' => 8, 'warn' => 0, 'fail' => 1, 'unknown' => 0], $h['counts']);
+check('counts match the states', ['ok' => 9, 'warn' => 0, 'fail' => 1, 'unknown' => 0], $h['counts']);
 check('every check has the same record shape', true,
 	count(array_filter($h['checks'], fn($c) => array_keys($c) !== ['id', 'name', 'state', 'detail', 'action', 'since'])) === 0);
 check('checked_at is the clock it was given', $NOW, $h['checked_at']);
@@ -201,7 +209,7 @@ $in2 = $in; $in2['settings']['steamApiKey'] = ''; $in2['steamProbe'] = null; $in
 $h2 = phvServerHealth(null, $in2);
 check('a missing key, an unwritable volume and no release record: 2 fail + the hexium fail, 1 unknown',
 	['fail' => 3, 'unknown' => 1], ['fail' => $h2['counts']['fail'], 'unknown' => $h2['counts']['unknown']]);
-check('an unknown state is never counted as ok', 5, $h2['counts']['ok']);
+check('an unknown state is never counted as ok', 6, $h2['counts']['ok']);
 
 echo "\n-- 10. wiring --\n";
 $pub = file_get_contents("$WWW/public/authenticated.php");

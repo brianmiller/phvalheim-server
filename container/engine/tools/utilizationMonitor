@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=utilization   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # update database

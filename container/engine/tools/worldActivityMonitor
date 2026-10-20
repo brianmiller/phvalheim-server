@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=activity   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
 # Player activity monitor - parses world logs for player join/leave events
@@ -11,6 +12,7 @@ mkdir -p "$markerDir"
 worldNames=$(SQL "SELECT name FROM worlds WHERE mode='running';")
 
 for worldName in $worldNames; do
+	export PHV_WORLD="$worldName"   # events below are filed against this world (2.56)
 	logFile="/opt/stateful/logs/valheimworld_${worldName}.log"
 	markerFile="$markerDir/${worldName}.offset"
 
@@ -46,7 +48,7 @@ for worldName in $worldNames; do
 
 	if [ "$activityFound" -gt 0 ]; then
 		SQL "UPDATE worlds SET last_player_activity=NOW() WHERE name='$worldName';"
-		echo "`date` [phvalheim] Activity detected for '$worldName' ($activityFound events)"
+		phvlog INFO "Activity detected for '$worldName' ($activityFound events)"
 	fi
 
 	# update high-water mark

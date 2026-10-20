@@ -20,6 +20,8 @@
  */
 
 if (!defined('AI_LOG_DIR')) define('AI_LOG_DIR', '/opt/stateful/logs');
+// 2.56: the event log -- PhValheim's own actions as rows, grouped into operations.
+require_once __DIR__ . '/events.php';   // relative: the standalone tests load this file on the host
 
 /* ====================================================================================
  * Tool schemas handed to the model
@@ -51,6 +53,33 @@ function aiToolDefinitions($withActions = true) {
                 'type' => 'object',
                 'properties' => ['world' => $str('Exact world name.')],
                 'required' => ['world'],
+            ],
+        ],
+        [
+            'name'        => 'last_operation',
+            'description' => 'The most recent operation PhValheim carried out on a world (start, stop, update, create, delete, repackage): when, its outcome, and every event logged under it, with levels. START HERE for "why will my world not start / update". It is PhValheim\'s side of the story; the Valheim log (read_log since_last_start=true) is the game\'s.',
+            'parameters'  => [
+                'type' => 'object',
+                'properties' => ['world' => $str('Exact world name.'), 'nth' => $int('0 for the latest operation (default), 1 for the one before it, and so on.')],
+                'required' => ['world'],
+            ],
+        ],
+        [
+            'name'        => 'world_activity',
+            'description' => 'Everything PhValheim logged about one world, newest last: engine steps, backups, automatic updates, the operator\'s and Hugin\'s own commands. Filter by minimum level to see only warnings and errors.',
+            'parameters'  => [
+                'type' => 'object',
+                'properties' => ['world' => $str('Exact world name.'), 'min_level' => $str('debug, notice, warn or error. Default notice.'), 'hours' => $int('Only the last N hours. Default 24.'), 'limit' => $int('Max events, default 100, max 500.')],
+                'required' => ['world'],
+            ],
+        ],
+        [
+            'name'        => 'server_activity',
+            'description' => 'PhValheim\'s event log for the whole server, newest last, with the source of each event (phvalheim engine, updateApplier, backup, admin, hugin...). Use min_level=warn to list every recent problem across all worlds.',
+            'parameters'  => [
+                'type' => 'object',
+                'properties' => ['min_level' => $str('debug, notice, warn or error. Default warn.'), 'hours' => $int('Only the last N hours. Default 24.'), 'source' => $str('Only this source.'), 'limit' => $int('Max events, default 100, max 500.')],
+                'required' => [],
             ],
         ],
         [
@@ -156,6 +185,9 @@ function aiRunTool($pdo, $name, $args) {
         switch ($name) {
             case 'list_worlds':         return aiToolListWorlds($pdo);
             case 'get_world':           return aiToolGetWorld($pdo, $args['world'] ?? '');
+            case 'last_operation':      return aiToolLastOperation($pdo, $args['world'] ?? '', (int)($args['nth'] ?? 0));
+            case 'world_activity':      return aiToolActivity($pdo, $args, $args['world'] ?? '');
+            case 'server_activity':     return aiToolActivity($pdo, $args, '');
             case 'list_logs':           return aiToolListLogs();
             case 'read_log':            return aiToolReadLog($args);
             case 'search_log':          return aiToolSearchLog($args);
@@ -429,6 +461,41 @@ function aiWorldLogPath($world) {
     return aiResolveLogPath("valheimworld_{$safe}.log");
 }
 
+/* ---- The event log (2.56) ---- */
+function aiEventLine($e) {
+    return date('Y-m-d H:i:s', $e['t'] ?? time()) . ' [' . strtoupper($e['level']) . ' : ' . $e['source'] . ']'
+         . (!empty($e['world']) ? " {" . $e['world'] . "}" : '') . ' ' . $e['message'];
+}
+
+function aiToolLastOperation($pdo, $world, $nth = 0) {
+    if ($world === '') return ['error' => 'world is required'];
+    $ops = phvOperations($pdo, $world, max(1, $nth + 1));
+    if (!isset($ops[$nth])) return ['world' => $world, 'operation' => null, 'note' => 'No operation has been recorded for this world' . ($nth ? ' that far back' : '') . '. Operations are recorded from 2.56 on; an older world has none until the next command.'];
+    $op = phvOperation($pdo, $ops[$nth]['op_id']);
+    return [
+        'world'    => $world,
+        'kind'     => $op['kind'],
+        'source'   => $op['source'],
+        'started'  => date('Y-m-d H:i:s', $op['started_t']),
+        'finished' => $op['finished_t'] ? date('Y-m-d H:i:s', $op['finished_t']) : null,
+        'outcome'  => $op['open'] ? 'still running' : ($op['outcome'] ?? 'unknown'),
+        'summary'  => $op['summary'],
+        'event_count' => $op['event_count'], 'warning_or_error_count' => $op['error_count'],
+        'events'   => array_map('aiEventLine', $op['events']),
+    ];
+}
+
+function aiToolActivity($pdo, $args, $world) {
+    $hours = max(1, min(24 * 30, (int)($args['hours'] ?? 24)));
+    $f = ['limit' => max(1, min(500, (int)($args['limit'] ?? 100))), 'since_ts' => time() - $hours * 3600,
+          'min_level' => $args['min_level'] ?? ($world !== '' ? 'notice' : 'warn')];
+    if ($world !== '') $f['world'] = $world;
+    if (!empty($args['source'])) $f['source'] = $args['source'];
+    $events = phvEvents($pdo, $f);
+    return ['scope' => $world !== '' ? "world $world" : 'whole server', 'hours' => $hours, 'min_level' => $f['min_level'],
+            'count' => count($events), 'events' => array_map('aiEventLine', $events)];
+}
+
 function aiToolListLogs() {
     $out = [];
     foreach (glob(AI_LOG_DIR . '/*.log') ?: [] as $p) {
@@ -668,7 +735,7 @@ function aiSystemPrompt($pdo, $contextWorld = '', $withActions = true) {
         . "at /opt/stateless/engine/phvalheim that reconciles every world's desired state every two "
         . "seconds. Each world is a supervised process (valheimworld_<name>) with its own UDP port, its "
         . "own save directory under /opt/stateful/worlds/<name>, and its own log at "
-        . "/opt/stateful/logs/valheimworld_<name>.log. Mods install into that world's game/BepInEx tree. "
+        . "/opt/stateful/logs/valheimworld_<name>.log; PhValheim's own actions on it are events (last_operation, world_activity). Mods install into that world's game/BepInEx tree. "
         . "The database is the source of truth for what SHOULD be true; the logs are the truth about what "
         . "IS. Where they disagree, say so — that gap is the most useful thing you can find.\n\n";
 
@@ -699,6 +766,9 @@ function aiSystemPrompt($pdo, $contextWorld = '', $withActions = true) {
         . "and do not describe what a setting 'probably' is when get_world will tell you.\n"
         . "- For an open-ended 'what is wrong' question, call get_diagnostics first — it is a fast "
         . "deterministic scan with evidence — then read logs to confirm or extend what it found.\n"
+        . "- For a world that will not start, update or stop: call last_operation first. It is PhValheim's "
+        . "own record of what it did and where it failed, with an outcome; THEN read the Valheim log for "
+        . "the game's side. For 'what went wrong recently' across the server, server_activity with min_level=warn.\n"
         . "- When diagnosing a world that will not start, read its log with since_last_start=true. "
         . "Errors from previous boots are noise.\n"
         . "- search_log covers the whole file; read_log only covers the tail. If the first tail does "

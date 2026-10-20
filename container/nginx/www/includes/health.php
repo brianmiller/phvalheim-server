@@ -211,6 +211,21 @@ function phvHealthRuleAnalytics($enabled, $record, $now) {
 		'log:phvalheim.log', $at);
 }
 
+/* $r: null (event log unavailable) or ['count' => n, 'last_t' => ts|null, 'last' => ['message','world']|null]. */
+function phvHealthRuleRecentErrors($r, $now) {
+	if (!is_array($r)) {
+		return phvHealthItem('recent_errors', 'Recent errors', 'unknown', 'The event log could not be read.');
+	}
+	if ((int)$r['count'] === 0) {
+		return phvHealthItem('recent_errors', 'Recent errors', 'ok', 'No errors logged in the last hour.');
+	}
+	$last = $r['last'] ?? null;
+	$what = $last ? (' Latest' . (!empty($last['world']) ? " (world '" . $last['world'] . "')" : '') . ': ' . (strlen((string)$last['message']) > 140 ? substr((string)$last['message'], 0, 137) . '...' : (string)$last['message'])) : '';
+	return phvHealthItem('recent_errors', 'Recent errors', 'warn',
+		(int)$r['count'] . ' error' . ((int)$r['count'] === 1 ? '' : 's') . ' logged in the last hour, the latest ' . phvHealthAgo((int)$r['last_t'], $now) . '.' . $what,
+		'logs', (int)$r['last_t']);
+}
+
 /* ---------------------------------------------------------------------------------------------
  * Probes with a cache and a backoff. Each returns the record it would also have cached.
  * ------------------------------------------------------------------------------------------- */
@@ -333,6 +348,12 @@ function phvServerHealth($pdo, $in = []) {
 
 	$record = array_key_exists('analyticsRecord', $in) ? $in['analyticsRecord'] : phvHealthReadJson(PHV_HEALTH_ANALYTICS_RECORD);
 	$checks[] = phvHealthRuleAnalytics((int)($s['analyticsEnabled'] ?? 1) === 1, $record, $now);
+
+	if (!array_key_exists('recentErrors', $in)) {
+		$in['recentErrors'] = null;
+		if ($pdo && function_exists('phvRecentErrors')) { try { $in['recentErrors'] = phvRecentErrors($pdo); } catch (Throwable $e) { $in['recentErrors'] = null; } }
+	}
+	$checks[] = phvHealthRuleRecentErrors($in['recentErrors'], $now);
 
 	$counts = ['ok' => 0, 'warn' => 0, 'fail' => 0, 'unknown' => 0];
 	foreach ($checks as $c) { $counts[$c['state']]++; }

@@ -1,4 +1,5 @@
 #!/bin/bash
+PHV_LOG_SOURCE=updateApplier   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 # 0-functions.sh too, for InstallAndUpdateValheim(). Without it the game branch silently
 # does nothing and the world is restarted on its old build while the UI reports success.
@@ -144,7 +145,7 @@ inWindow() {
 setPhase() {
 	local worldName="$1" phase="$2"
 	SQL "UPDATE worlds SET update_phase='$phase', update_phase_at=NOW() WHERE name='$worldName';"
-	echo "`date` [NOTICE : phvalheim] Auto-update '$worldName': phase=$phase"
+	phvlog NOTICE "Auto-update '$worldName': phase=$phase"
 }
 
 # Is the world's server process actually alive?
@@ -210,7 +211,7 @@ stopWorldAndWait() {
 		fi
 	done
 
-	echo "`date` [ERROR : phvalheim] Auto-update: '$worldName' did not stop within ${limit}s (mode=${mode:-unknown}, process $(worldProcessRunning "$worldName" && echo running || echo gone))"
+	phvlog ERROR "Auto-update: '$worldName' did not stop within ${limit}s (mode=${mode:-unknown}, process $(worldProcessRunning "$worldName" && echo running || echo gone))"
 	return 1
 }
 
@@ -255,17 +256,17 @@ waitForEngineUpdate() {
 	done
 
 	if [ "$sawRebuild" != "1" ]; then
-		echo "`date` [ERROR : phvalheim] Auto-update: the mod rebuild for '$worldName' never started -- its mode was '$mode' for the whole ${waited}s wait, so something else overwrote the update request"
+		phvlog ERROR "Auto-update: the mod rebuild for '$worldName' never started -- its mode was '$mode' for the whole ${waited}s wait, so something else overwrote the update request"
 		return 1
 	fi
 
 	if [ "$waited" -ge "$limit" ]; then
-		echo "`date` [ERROR : phvalheim] Auto-update: mod rebuild for '$worldName' did not finish within ${limit}s"
+		phvlog ERROR "Auto-update: mod rebuild for '$worldName' did not finish within ${limit}s"
 		return 1
 	fi
 
 	if [ "$(SQL "SELECT IFNULL(status,'') FROM worlds WHERE name='$worldName';")" = "failed" ]; then
-		echo "`date` [ERROR : phvalheim] Auto-update: mod rebuild failed for '$worldName'"
+		phvlog ERROR "Auto-update: mod rebuild failed for '$worldName'"
 		return 1
 	fi
 
@@ -294,7 +295,7 @@ clearPriorVerdict() {
 applyUpdate() {
 	local worldName="$1" scope="$2" backupFirst="$3"
 
-	echo "`date` [NOTICE : phvalheim] Auto-update starting for '$worldName' (scope=$scope, backup=$backupFirst)"
+	phvlog NOTICE "Auto-update starting for '$worldName' (scope=$scope, backup=$backupFirst)"
 
 	# CLEAR FIRST, THEN DECLARE. The order matters and getting it wrong broke the Updates tab
 	# for a whole release: clearPriorVerdict used to run on the line AFTER the
@@ -313,7 +314,7 @@ applyUpdate() {
 
 	if [ "$backupFirst" = "1" ]; then
 		setPhase "$worldName" "backup"
-		echo "`date` [NOTICE : phvalheim] Auto-update: backing up '$worldName' first"
+		phvlog NOTICE "Auto-update: backing up '$worldName' first"
 		# worldBackup sets worlds.mode='backup' itself and restores the previous mode when
 		# it finishes, which is what drives the Backup pill on the world row.
 		/opt/stateless/engine/tools/worldBackup "$worldName" manual
@@ -328,12 +329,12 @@ applyUpdate() {
 			# ran with no way back. Separated out because the two need different words: one
 			# is broken, the other is just busy and will be fine on the next sweep.
 			if [ "$backupStatus" -eq 75 ]; then
-				echo "`date` [NOTICE : phvalheim] Auto-update: another backup is running, so '$worldName' was not backed up -- deferring"
+				phvlog NOTICE "Auto-update: another backup is running, so '$worldName' was not backed up -- deferring"
 				SQL "UPDATE worlds SET update_state='pending', update_phase=NULL, \
 					update_last_result='Deferred: another backup was running, so this world could not be backed up first. Nothing was changed.' \
 					WHERE name='$worldName';"
 			else
-				echo "`date` [ERROR : phvalheim] Auto-update: backup failed for '$worldName' -- not updating"
+				phvlog ERROR "Auto-update: backup failed for '$worldName' -- not updating"
 				SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
 					update_last_result='Backup failed before update; nothing was changed.' \
 					WHERE name='$worldName';"
@@ -347,7 +348,7 @@ applyUpdate() {
 		# Abort with nothing touched. A world that will not stop is the one case where
 		# carrying on does real damage -- steamcmd would rewrite the game tree under a
 		# live server and players already connected to it.
-		echo "`date` [ERROR : phvalheim] Auto-update: '$worldName' would not stop -- nothing was updated"
+		phvlog ERROR "Auto-update: '$worldName' would not stop -- nothing was updated"
 		SQL "UPDATE worlds SET update_state='failed', update_phase=NULL, \
 			update_last_result='The world could not be stopped, so nothing was updated. It is still running.' \
 			WHERE name='$worldName';"
@@ -360,7 +361,7 @@ applyUpdate() {
 		setPhase "$worldName" "game"
 		InstallAndUpdateValheim "$worldName"
 		if [ $? -ne 0 ]; then
-			echo "`date` [ERROR : phvalheim] Auto-update: game update failed for '$worldName'"
+			phvlog ERROR "Auto-update: game update failed for '$worldName'"
 			# Say what is true of the world, not what is convenient. It IS stopped here --
 			# stopWorldAndWait confirmed that against the process table before anything was
 			# touched -- so the operator needs to know it will stay down until they act.
@@ -416,7 +417,7 @@ applyUpdate() {
 		update_last_result='Updated $stamp: $result.' \
 		WHERE name='$worldName';"
 
-	echo "`date` [NOTICE : phvalheim] Auto-update complete for '$worldName': $result"
+	phvlog NOTICE "Auto-update complete for '$worldName': $result"
 	return 0
 }
 
@@ -444,6 +445,7 @@ candidates=$(SQL "SELECT name FROM worlds WHERE mode='running' \
 [ -z "$candidates" ] && exit 0
 
 for worldName in $candidates; do
+	export PHV_WORLD="$worldName"   # events below are filed against this world (2.56)
 	mode=$(getEffective "$worldName" autoupdate_mode autoUpdateMode)
 	[ "$mode" = "1" ] || continue
 
@@ -469,7 +471,7 @@ for worldName in $candidates; do
 		AND update_pending_since < DATE_SUB(NOW(), INTERVAL $maxWait HOUR);")
 
 	if [ "$expired" = "1" ] && [ "$onTimeout" = "force" ]; then
-		echo "`date` [NOTICE : phvalheim] Auto-update: '$worldName' passed its ${maxWait}h wait; updating regardless of players"
+		phvlog NOTICE "Auto-update: '$worldName' passed its ${maxWait}h wait; updating regardless of players"
 		applyUpdate "$worldName" "$scope" "$backupFirst"
 		continue
 	fi
