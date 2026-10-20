@@ -29,11 +29,18 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Logs - <?php echo htmlspecialchars($world); ?> - PhValheim</title>
 	<link rel="icon" href="/favicon.ico">
+	<link rel="stylesheet" href="/css/phvalheimStyles.css?v=<?php echo filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css'); ?>">
 	<style>
-		:root { --bg: #0f1419; --bg2: #161c24; --bg3: #1e2733; --border: #2a3441; --text: #e2e8f0; --muted: #8b95a5; --dim: #5e6878;
-		        --ok: #34d399; --warn: #fbbf24; --err: #f87171; --info: #60a5fa; --hugin: #a78bfa; --accent: #22d3ee; --valheim: #cbd5e1; }
+		/* The admin theme's variables, under the short names this page was written with. The two
+		   viewers used to carry their own palette and no stylesheet link, so they missed the
+		   theme's scrollbar styling (default light scrollbars on a dark page) and drifted from
+		   its colours. color-scheme tells the browser the native controls are dark too. */
+		:root { color-scheme: dark;
+		        --bg: var(--bg-primary); --bg2: var(--bg-secondary); --bg3: var(--bg-tertiary); --border: var(--border-light);
+		        --text: var(--text-primary); --muted: var(--text-secondary); --dim: var(--text-muted);
+		        --ok: var(--success); --warn: var(--warning); --err: var(--danger); --info: var(--info); --hugin: var(--accent-secondary); --accent: var(--accent-primary); --valheim: #cbd5e1; }
 		* { box-sizing: border-box; }
-		body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace; height: 100vh; display: flex; flex-direction: column; }
+		body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.45 var(--font-mono-ui, ui-monospace, monospace); height: 100vh; display: flex; flex-direction: column; }
 		header { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1rem; background: var(--bg2); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 		h1 { font-size: 1rem; margin: 0; font-weight: 600; } h1 span { color: var(--accent); }
 		.tabs { display: flex; gap: 0.25rem; }
@@ -51,7 +58,7 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 		.op { display: block; border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.55rem; margin-bottom: 0.4rem; cursor: pointer; background: var(--bg); font-size: 0.8rem; }
 		.op:hover, .op.sel { border-color: var(--accent); }
 		.op .m { color: var(--muted); }
-		.pill { display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.02rem 0.4rem; border-radius: 999px; color: #0f1419; margin-left: 0.35rem; }
+		.pill { display: inline-block; font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 0.02rem 0.4rem; border-radius: 999px; color: var(--bg-primary); margin-left: 0.35rem; }
 		.pill.ok { background: var(--ok); } .pill.failed { background: var(--err); } .pill.interrupted { background: var(--warn); } .pill.open { background: var(--info); }
 		.op .s { color: var(--text); font-size: 0.78rem; margin-top: 0.1rem; }
 		/* Operation boundaries inside the stream: where a command began and how it ended. */
