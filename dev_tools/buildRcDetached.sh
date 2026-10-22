@@ -80,7 +80,9 @@ fi
 echo "=== verify payload delimiter check: clean ==="
 
 echo "=== building $IMAGE ==="
-docker buildx build --network=host -t "$IMAGE" . || { echo "BUILD FAILED"; echo "=== done FAILED ==="; exit 1; }
+# SECURITY_REFRESH re-runs the Dockerfile's late apt upgrade once per UTC day (see the
+# Dockerfile); the build itself fails on a php8.1-fpm older than the PHP2Shell fix.
+docker buildx build --network=host --build-arg SECURITY_REFRESH="$(date -u +%F)" -t "$IMAGE" . || { echo "BUILD FAILED"; echo "=== done FAILED ==="; exit 1; }
 
 echo "=== pushing ==="
 docker push "$IMAGE" || { echo "PUSH FAILED"; echo "=== done FAILED ==="; exit 1; }
@@ -3540,7 +3542,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56cc=$(grep -c "function phvSessionStartPos" /opt/stateless/nginx/www/includes/db_gets.php)
   v56cd=$(grep -cF 'if (phvSessionStartPos($hist) !== false) { return NULL; }' /opt/stateless/nginx/www/includes/db_gets.php)
   v56ce=$(grep -c "function phvLastJoinCode" /opt/stateless/nginx/www/includes/db_gets.php)
-  # Live path and history path both go through the same scope + match pair. 2, and only 2.
+  # Live path, history path and (2.57) the engine-mark path all go through the same scope +
+  # match pair. 3, and only 3.
   v56cf=$(grep -cF 'phvLastJoinCode(phvSessionScope(' /opt/stateless/nginx/www/includes/db_gets.php)
   v56cg=$(grep -cF '$gen > 0 ? $log . "." . $gen : $log' /opt/stateless/nginx/www/includes/db_gets.php)
   v56ch=$(grep -cF 'return phvRememberedJoinCode($pdo, $world);' /opt/stateless/nginx/www/includes/db_gets.php)
@@ -3686,6 +3689,23 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # fv: both viewers load the admin stylesheet (theme variables + scrollbars) -- they carried
   # their own palette and default light scrollbars until 2.56.
   v56fv=$(grep -l 'href="/css/phvalheimStyles.css' /opt/stateless/nginx/www/admin/logs.php /opt/stateless/nginx/www/admin/world_logs.php /opt/stateless/nginx/www/admin/readLog.php | wc -l)
+  # 2.57 / v57aa: the interpreter itself. PHP2Shell (CVE-2026-109618, CVE-2026-109619) is a
+  # pre-auth RCE in PHP's multipart parser, fixed in jammy's php8.1 8.1.2-1ubuntu2.28; 2.56
+  # shipped .26 because the cached build never re-ran apt upgrade. A version COMPARISON, not a
+  # grep for one string: a later security update must still pass.
+  v57aa=0; dpkg --compare-versions "$(dpkg-query -W -f='${Version}' php8.1-fpm)" ge 8.1.2-1ubuntu2.28 && v57aa=1
+  # v57ab: the public server block (8080, internet-facing) refuses multipart/form-data at nginx,
+  # before PHP parses the body; counted inside the 8080 block only, so the rule landing in the
+  # admin block by mistake (which would break its uploads) reads 0 here.
+  v57ab=$(awk '/listen 8080;/{p=1} /listen 8081;/{p=0} p' /etc/nginx/sites-available/phvalheim.conf | grep -c 'if (.http_content_type ~\* "multipart/form-data")')
+  v57ac=$(awk '/listen 8081;/{p=1} p' /etc/nginx/sites-available/phvalheim.conf | grep -c 'multipart/form-data')
+  echo "php8.1-fpm >= 8.1.2-1ubuntu2.28 (PHP2Shell fix)=$v57aa (want 1)  public block refuses multipart=$v57ab (want 1)  admin block mentions multipart=$v57ac (want 0)"
+  # v57ad/ae: the join-code reader consults the engine's session mark (phv_events log_offset)
+  # before the log, so a relaunched crossplay world reads "waiting" instead of the previous
+  # session's dead code. The definition and its one call in getWorldJoinCode.
+  v57ad=$(grep -cF 'function phvEngineSessionMark($pdo, $world)' /opt/stateless/nginx/www/includes/db_gets.php)
+  v57ae=$(grep -cF 'if (phvSessionMarkUsable($world, $mark)) {' /opt/stateless/nginx/www/includes/db_gets.php)
+  echo "join-code reader: engine mark defined=$v57ad (want 1)  consulted in getWorldJoinCode=$v57ae (want 1)"
   v56fg=$(grep -c '^\.ms-links { margin-left: auto' /opt/stateless/nginx/www/css/phvalheimStyles.css)
   v56fh=$(grep -cF 'class="vol-row"' /opt/stateless/nginx/www/admin/index.php)
   v56fi=$(grep -c '^\.vol-bar ' /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -3778,7 +3798,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 BULK FORGET: flag set=$v55et (want 2)  local_dll downgrade=$v55ev (want 1)  selector keys on flag=$v55ew (want 1)  confirms=$v55ey (want 2)  safe-only pre-tick=$v55ez (want 1)  badge=$v55fa (want 1)"
   echo "2.55 BULK FORGET POLARITY: still-applied branch explicitly false=$v55eu (want 1)"
   echo "2.55 BULK FORGET NEGATIVE: select-all or prose-matching selector=$v55ex (want 0 -- that would forget settings still in force)"
-  echo "2.56 JOINCODE READER: path helper=$v56ca (want 1)  contiguity guard=$v56cb (want 1)  session pos fn=$v56cc (want 1)  START-WITHOUT-CODE IS NULL=$v56cd (want 1)  match fn=$v56ce (want 1)  shared readers=$v56cf (want 2)  path builder=$v56cg (want 1)  db fallback=$v56ch (want 1)  1-arg callers=$v56ci (want 0)  pdo callers=$v56cj (want 8 = 7 calls + definition)"
+  echo "2.56 JOINCODE READER: path helper=$v56ca (want 1)  contiguity guard=$v56cb (want 1)  session pos fn=$v56cc (want 1)  START-WITHOUT-CODE IS NULL=$v56cd (want 1)  match fn=$v56ce (want 1)  shared readers=$v56cf (want 3)  path builder=$v56cg (want 1)  db fallback=$v56ch (want 1)  1-arg callers=$v56ci (want 0)  pdo callers=$v56cj (want 8 = 7 calls + definition)"
   echo "2.56 GUID BACKFILL: installed-copy fn=$v56cq (want 1)  fallback used=$v56cr (want 1)  zipless pkgs kept=$v56cs (want 1)  old world_zips=$v56ct (want 0)  boot learn=$v56cu (want 1)  boot reattribute=$v56cv (want 1)  LEARN BEFORE REATTRIBUTE=$v56cw (want 1)"
   echo "2.56 MANUAL MATCH: resolver=$v56cx (want 1)  RESOLVER CALLERS=$v56cy (want 2)  match fn=$v56cz (want 1)  undo fn=$v56da (want 1)  api cases=$v56db (want 2)  select=$v56dc (want 1)  undo link=$v56dd (want 1)  prompt=$v56de (want 1)  learn upsert=$v56df (want 1)  old insert-ignore=$v56dg (want 0)  manual guids passed=$v56dh (want 1)  NAME GUARD=$v56di (want 2)  columns=$v56dj (want 2)  COLUMNS BEFORE LEARN=$v56dk (want 1)"
   echo "2.56 CLIENT URL RETIRED: readers=$v56dl (want 0)  settings field=$v56dm (want 0)  wizard field=$v56dn (want 0)  public warning=$v56do (want 0)"
@@ -4081,7 +4101,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56bu" = "0" ] && [ "$v56bv" = "0" ] && [ "$v56bw" = "1" ] && [ "$v56bx" = "0" ] \
     && [ "$v56by" = "1" ] \
     && [ "$v56ca" = "1" ] && [ "$v56cb" = "1" ] && [ "$v56cc" = "1" ] && [ "$v56cd" = "1" ] \
-    && [ "$v56ce" = "1" ] && [ "$v56cf" = "2" ] && [ "$v56cg" = "1" ] && [ "$v56ch" = "1" ] \
+    && [ "$v56ce" = "1" ] && [ "$v56cf" = "3" ] && [ "$v56cg" = "1" ] && [ "$v56ch" = "1" ] \
     && [ "$v56ci" = "0" ] && [ "$v56cj" = "8" ] && [ "$v56ck" = "1" ] && [ "$v56cl" = "1" ] \
     && [ "$v56cm" = "1" ] && [ "$v56cn" = "0" ] && [ "$v56co" = "3" ] && [ "$v56cp" = "1" ] \
     && [ "$v56cq" = "1" ] && [ "$v56cr" = "1" ] && [ "$v56cs" = "1" ] && [ "$v56ct" = "0" ] \
@@ -4122,6 +4142,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55fm" = "2" ] && [ "$v55fn" = "1" ] && [ "$v55fo" = "1" ] \
     && [ "$v55fp" = "1" ] && [ "$v55fq" = "1" ] && [ "$v55fr" = "1" ] \
     && [ "$v55fs" = "0" ] && [ "$v55ft" = "1" ] \
+    && [ "$v57aa" = "1" ] && [ "$v57ab" = "1" ] && [ "$v57ac" = "0" ] && [ "$v57ad" = "1" ] && [ "$v57ae" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

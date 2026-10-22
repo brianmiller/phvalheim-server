@@ -1,5 +1,34 @@
 # Changelog
 
+## v2.57
+
+### Security: PHP2Shell (CVE-2026-109618, CVE-2026-109619)
+
+Every image up to 2.56 shipped `php8.1-fpm 8.1.2-1ubuntu2.26`, which carries a pre-auth remote
+code execution bug in PHP's multipart parser (public exploit, exploited in the wild). The flaw is
+in PHP itself and is reachable on the public UI before any PhValheim code runs. The image now
+carries Ubuntu's fixed `8.1.2-1ubuntu2.28`; the build has a late, date-keyed `apt-get upgrade`
+layer (the cached build had never re-run the one at the top, which is how 2.56 shipped a package
+that jammy-security had already fixed) and refuses to produce an image with an older interpreter;
+and the public server block (8080) returns 403 to any `multipart/form-data` body, because nothing
+on the public side ever used one. Verify markers `v57aa`-`v57ac`. See
+`docs/SECURITY-php2shell-2026-10-21.md`.
+
+### A restarted crossplay world no longer flashes its previous session's join code
+
+On a restart the dashboard showed a code at once, then "code waiting", then the real code.
+Supervisor appends to the world log and nothing truncates it at a start, so for the seconds
+before Valheim's own "start.unity" line the log still ended with the old session's start and
+code, and the reader's "last code after the last session start" rule served that dead code. The
+log alone cannot tell "still on that session" from "relaunched, not reported yet"; the engine can.
+`getWorldJoinCode()` now reads the engine's session mark (the `log_offset` the 2.56 event log
+already records just before `supervisorctl start`) and, when the mark is usable, scopes the search
+to the bytes after it: a code there is this session's, none yet is "waiting". A mark is unusable
+when the log has been rotated since (`.log.1` newer than the mark, or the offset past the end of
+the file), and then the 2.56 history rule answers exactly as before, so a mark can never reproduce
+the "waiting for 35 hours" shape. `dev_tools/test-joincode-survives-rotation.php` grows five
+scenarios and three mutation controls (42). Markers `v57ad`, `v57ae`.
+
 ## v2.56
 
 ### An event log that knows which world it is about

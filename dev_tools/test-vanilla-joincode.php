@@ -45,7 +45,7 @@ register_shutdown_function(function () use ($tmp) {
 # function body out and run it against a parameterised path.
 $src = file_get_contents("$root/container/nginx/www/includes/db_gets.php");
 $fnSrc = '';
-foreach (['phvWorldLogPath\(\$world, \$gen = \d+\)', 'phvReadLogTail\(\$world, \$window = \d+, \$gen = \d+\)', 'phvCurrentSessionTail\(\$world\)', 'phvSessionStartPos\(\$tail\)', 'phvSessionScope\(\$tail\)', 'phvLastJoinCode\(\$text\)', 'phvRememberedJoinCode\(\$pdo, \$world\)', 'getWorldNetBackend\(\$world\)', 'getWorldJoinCode\(\$pdo, \$world\)'] as $sig) {
+foreach (['phvWorldLogPath\(\$world, \$gen = \d+\)', 'phvReadLogTail\(\$world, \$window = \d+, \$gen = \d+\)', 'phvCurrentSessionTail\(\$world\)', 'phvSessionStartPos\(\$tail\)', 'phvSessionScope\(\$tail\)', 'phvLastJoinCode\(\$text\)', 'phvRememberedJoinCode\(\$pdo, \$world\)', 'phvEngineSessionMark\(\$pdo, \$world\)', 'phvSessionMarkUsable\(\$world, \$mark\)', 'getWorldNetBackend\(\$world\)', 'getWorldJoinCode\(\$pdo, \$world\)'] as $sig) {
     if (!preg_match('/function ' . $sig . ' \{.*?\n\}/s', $src, $m)) {
         echo "could not extract /$sig/ from db_gets.php -- has it been renamed?\n"; exit(1);
     }
@@ -69,7 +69,8 @@ $GLOBALS['TESTLOGDIR'] = $tmp;
 # These cases are about reading LOGS, so the database remembers nothing: a $pdo whose one query
 # finds no row. test-joincode-survives-rotation.php covers the remembered path.
 class NoRowPdo {
-    function prepare($q) { return new class { function execute($a) { return true; } function fetchColumn() { return false; } }; }
+    # fetch(): the engine's session mark lookup (2.57) finds no row either, so the logs alone answer.
+    function prepare($q) { return new class { function execute($a) { return true; } function fetchColumn() { return false; } function fetch($m = null) { return false; } }; }
 }
 $P = new NoRowPdo();
 

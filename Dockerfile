@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.56
+ENV phvalheimVersion=2.57
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -45,6 +45,16 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y steamcmd
 
 # crossplay deps
 RUN apt-get install --no-install-recommends --no-install-suggests -y libpulse-dev libatomic1 libc6
+
+# Security refresh. The build is CACHED (dev_tools/buildRcDetached.sh), so the apt-get upgrade
+# at the top only re-runs when ubuntu:jammy itself changes: 2.56 shipped php8.1-fpm
+# 8.1.2-1ubuntu2.26 while jammy-security already carried the fix for the PHP2Shell pre-auth
+# RCE (CVE-2026-109618, CVE-2026-109619; fixed in 8.1.2-1ubuntu2.28). A different
+# SECURITY_REFRESH value invalidates every layer from here on (the build script passes the UTC
+# date), and the build FAILS outright if php8.1-fpm is still older than the fix, so a cached or
+# offline build cannot ship the vulnerable interpreter again by accident.
+ARG SECURITY_REFRESH=2026-10-21
+RUN apt-get -y update && apt-get -y upgrade && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' php8.1-fpm)" ge 8.1.2-1ubuntu2.28
 
 # small prep stuff
 RUN echo "set mouse-=a" > /root/.vimrc

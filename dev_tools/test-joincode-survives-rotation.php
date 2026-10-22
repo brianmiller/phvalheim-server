@@ -99,14 +99,56 @@ function scenarios() {
             lines(RESTART, '10/18/2026 09:01:00: Session "W" registered with join code 555555') . filler(4300000),
             lines(START, '10/17/2026 01:23:24: Session "W" registered with join code 111111'),
             '555555', '555555'],
+
+        # ---- 2.57: the engine's session mark (element 5: [offset|'end', mark 'before'|'after' .log.1's mtime])
+        # 9. THE RELAUNCH FLICKER. The world was just restarted: the log still ends with the OLD
+        #    session's start and code (nothing truncates it), the database remembers the same
+        #    code, and Valheim has not printed its start line yet. Rule 1 served 417250 -- a
+        #    dead code -- for those seconds. The engine marked the session at the END of the
+        #    file: nothing after it, so NULL (waiting), never the text before the mark.
+        'launched' => [
+            lines(START, '10/17/2026 01:23:24: Session "W" registered with join code 417250') . filler(5000),
+            NULL, '417250', NULL, ['end', 'after']],
+
+        # 10. The same world a few seconds later: the new session has reported after the mark.
+        'launchedcode' => [
+            lines(START, '10/17/2026 01:23:24: Session "W" registered with join code 417250')
+                . lines(RESTART, '10/18/2026 09:00:03: Created new join code 284283 for session "W"'),
+            NULL, '417250', '284283', [strlen(lines(START, '10/17/2026 01:23:24: Session "W" registered with join code 417250')), 'after']],
+
+        # 11. A mark taken BEFORE a rotation points into unrelated text: `.log.1` is newer than
+        #     the mark, so it is unusable and the history rule answers (the 2.56 reported case).
+        #     Trusting it would read filler from byte 10 and say "waiting" -- the 35-hour bug.
+        'markrotated' => [
+            "\n" . filler(175000),
+            lines(START, '10/17/2026 01:23:24: Session "W" registered with join code 417250') . filler(400000),
+            NULL, '417250', [10, 'before']],
+
+        # 12. A mark past the end of the file (rotated, no .log.1 kept) is unusable too.
+        'markoverflow' => [
+            lines(RESTART, '10/18/2026 09:00:03: Session "W" registered with join code 222222'),
+            NULL, NULL, '222222', [999999, 'after']],
+
+        # 13. A usable mark at 0 with an older `.log.1`: the whole live log is this session.
+        'markfresh' => [
+            lines(RESTART, '10/18/2026 09:00:03: Session "W" registered with join code 222222'),
+            lines(START, '10/17/2026 01:23:24: Session "W" registered with join code 111111'),
+            '111111', '222222', [0, 'after']],
     ];
 }
+const LOG1_MTIME = 1000000000;
 
 function writeScenario($dir, $name, $s) {
     $base = "$dir/valheimworld_$name.log";
     file_put_contents($base, $s[0]);
     @unlink("$base.1");
-    if ($s[1] !== NULL) { file_put_contents("$base.1", $s[1]); }
+    if ($s[1] !== NULL) { file_put_contents("$base.1", $s[1]); touch("$base.1", LOG1_MTIME); }
+}
+# The engine's mark for a scenario, or NULL: offset 'end' = the live file's size (just launched).
+function scenarioMark($dir, $name, $s) {
+    if (!isset($s[4])) { return NULL; }
+    $off = $s[4][0] === 'end' ? strlen($s[0]) : (int)$s[4][0];
+    return [$off, $s[4][1] === 'after' ? LOG1_MTIME + 100 : LOG1_MTIME - 100];
 }
 
 # ---------------------------------------------------------------- a stand-in for $pdo
@@ -115,15 +157,22 @@ function writeScenario($dir, $name, $s) {
 # than trusting a stub that would answer any question.
 class FakePdo {
     public $codes = [];
+    public $marks = [];     # 2.57: world => [log_offset, epoch], the engine's session mark
     public $queries = [];
-    function prepare($q) { $this->queries[] = $q; return new FakeStmt($this); }
+    function prepare($q) { $this->queries[] = $q; return new FakeStmt($this, $q); }
 }
 class FakeStmt {
-    private $pdo; private $name;
-    function __construct($pdo) { $this->pdo = $pdo; }
+    private $pdo; private $q; private $name;
+    function __construct($pdo, $q) { $this->pdo = $pdo; $this->q = $q; }
     function execute($args) { $this->name = $args[0]; return true; }
     function fetchColumn() {
         return array_key_exists($this->name, $this->pdo->codes) ? $this->pdo->codes[$this->name] : false;
+    }
+    # The mark row, only for a query that asks phv_events for it; anything else gets no row.
+    function fetch($mode = null) {
+        if (stripos($this->q, 'phv_events') === false || !array_key_exists($this->name, $this->pdo->marks)) { return false; }
+        list($off, $t) = $this->pdo->marks[$this->name];
+        return ['t' => $t, 'detail' => json_encode(['session' => true, 'log_offset' => $off])];
     }
 }
 
@@ -139,6 +188,8 @@ function loadReader($srcPath) {
         'phvSessionScope\(\$tail\)',
         'phvLastJoinCode\(\$text\)',
         'phvRememberedJoinCode\(\$pdo, \$world\)',
+        'phvEngineSessionMark\(\$pdo, \$world\)',
+        'phvSessionMarkUsable\(\$world, \$mark\)',
         'getWorldJoinCode\(\$pdo, \$world\)',
     ] as $sig) {
         if (!preg_match('/function ' . $sig . ' \{.*?\n\}/s', $src, $m)) {
@@ -159,6 +210,7 @@ function readAll($dir) {
         writeScenario($dir, $name, $s);
         $pdo = new FakePdo();
         if ($s[2] !== NULL) { $pdo->codes[$name] = $s[2]; }
+        if (($mk = scenarioMark($dir, $name, $s)) !== NULL) { $pdo->marks[$name] = $mk; }
         $GLOBALS['WARNED'] = '';
         set_error_handler(function ($no, $str) { $GLOBALS['WARNED'] .= "$str; "; return true; });
         $code = getWorldJoinCode($pdo, $name);
@@ -237,19 +289,30 @@ $why = [
     'twice'           => 'TWO rotations: only the remembered code can answer',
     'emptyremembered' => 'a remembered empty string is still NULL',
     'biglive'         => 'live log past the read cap: defers to the writer instead of trusting .log.1',
+    'launched'        => 'RELAUNCHED, engine mark at the end: NULL, NOT the old session\'s code still in the log and the database',
+    'launchedcode'    => 'the new session reported after the mark: its code',
+    'markrotated'     => 'a mark older than .log.1 is unusable: the history rule answers (no "waiting forever")',
+    'markoverflow'    => 'a mark past the end of the file is unusable: the live log answers',
+    'markfresh'       => 'a usable mark at 0 with an older .log.1: the live session wins',
 ];
 foreach (scenarios() as $name => $s) {
     check($why[$name], $r[$name]['code'] === $s[3], 'got ' . show($r[$name]['code']) . ', want ' . show($s[3]));
 }
 check('no warning when .log.1 does not exist', $r['nolog1']['warn'] === '', $r['nolog1']['warn']);
 # The stimulus: case 6 must have been answered by ASKING for worlds.join_code, by name.
-check('the remembered code is read from worlds.join_code by world name',
-    count($r['twice']['queries']) === 1
-    && preg_match('/SELECT\s+join_code\s+FROM\s+worlds\s+WHERE\s+name\s*=\s*\?/i', $r['twice']['queries'][0]),
+# 2.57: every read first asks phv_events for the engine's session mark (log_offset) -- that is
+# the only way to know a relaunch happened -- and worlds.join_code only when no log can answer.
+$isMark = function ($q) { return (bool)preg_match('/FROM\s+phv_events\s+WHERE\s+world\s*=\s*\?.*log_offset/is', $q); };
+$isCode = function ($q) { return (bool)preg_match('/SELECT\s+join_code\s+FROM\s+worlds\s+WHERE\s+name\s*=\s*\?/i', $q); };
+check('the remembered code is read from worlds.join_code by world name, after the mark lookup',
+    count($r['twice']['queries']) === 2 && $isMark($r['twice']['queries'][0]) && $isCode($r['twice']['queries'][1]),
     show($r['twice']['queries']));
-# And the database is not consulted when a log can answer: the fast path stays a file read.
-check('the database is not queried when the live log answers', $r['liveok']['queries'] === [],
+check('when the live log answers, only the mark is looked up; worlds.join_code is not read',
+    count($r['liveok']['queries']) === 1 && $isMark($r['liveok']['queries'][0]),
     show($r['liveok']['queries']));
+check('the relaunch case never reaches worlds.join_code (the remembered code is the dead one)',
+    count($r['launched']['queries']) === 1 && $isMark($r['launched']['queries'][0]),
+    show($r['launched']['queries']));
 
 # ================================================================ writer
 echo "\nWRITER -- engine/tools/playerMonitor\n";
@@ -345,6 +408,16 @@ $readerMutations = [
         # session's 111111 is the "last code after the last start" across the gap, so case 1
         # serves a DEAD code. Pinned to what actually happens.
         'biglive', '111111'],
+    # 2.57: the engine's session mark.
+    ['the engine mark is ignored: a relaunch serves the previous session\'s dead code',
+        'if (phvSessionMarkUsable($world, $mark)) {', 'if (false) {',
+        'launched', '417250'],
+    ['a rotation since the mark goes unnoticed: filler after byte 10 reads as "waiting"',
+        'if ($mt === false || $mt >= $mark[1]) { return false; }', '',
+        'markrotated', NULL],
+    ['a mark past the end of the file is trusted',
+        'if ($size === false || $mark[0] > $size) { return false; }', '',
+        'markoverflow', NULL],
 ];
 $src = file_get_contents($dbGets);
 foreach ($readerMutations as $i => list($label, $find, $replace, $case, $expect)) {

@@ -44,7 +44,7 @@ writeLog() { docker exec "$CONTAINER" sh -c "printf '%s\n' \"\$1\" > '$LOG'; cho
 
 # Ask PHP directly -- these are pure log/DB readers, no HTTP needed.
 backend()  { docker exec "$CONTAINER" php -r 'require_once "/opt/stateless/nginx/www/includes/db_gets.php"; $b = getWorldNetBackend($argv[1]); echo $b === NULL ? "NULL" : $b;' -- "$WORLD" 2>/dev/null; }
-joincode() { docker exec "$CONTAINER" php -r 'require_once "/opt/stateless/nginx/www/includes/db_gets.php"; $c = getWorldJoinCode($argv[1]); echo $c === NULL ? "NULL" : $c;' -- "$WORLD" 2>/dev/null; }
+joincode() { docker exec "$CONTAINER" php -r 'require_once "/opt/stateless/nginx/www/includes/db_gets.php"; $c = getWorldJoinCode($pdo, $argv[1]); echo $c === NULL ? "NULL" : $c;' -- "$WORLD" 2>/dev/null; }
 isPlayFab(){ docker exec "$CONTAINER" php -r 'require_once "/opt/stateless/nginx/www/includes/db_gets.php"; echo worldIsPlayFab($pdo, $argv[1]) ? "yes" : "no";' -- "$WORLD" 2>/dev/null; }
 
 SCENE='09/11/2026 00:00:00: Loading: Starting to load scene: start.unity (169d7618616154c03be07e9ad3af5893)'

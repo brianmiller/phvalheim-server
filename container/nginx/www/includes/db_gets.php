@@ -570,9 +570,61 @@ function phvReadLogTail($world, $window = 262144, $gen = 0) {
 #
 # The two generations cover one rotation; the remembered code covers any number of them, which
 # is why it is not just "read `.log.1` too".
+# 2.57: the engine's session mark. phvWorldSessionMark() (phvalheim-static.conf) records the
+# live log's byte size just before supervisorctl launches the world, as a phv_events row with
+# detail {"session":true,"log_offset":N}. Everything the log holds BEFORE that offset belongs
+# to an earlier session, however complete it reads.
+#
+# THE BUG this closes (2.57; Brian, restarting a crossplay modded world): the dashboard showed
+# a code the instant the world started, then "code waiting", then the code. The first one was
+# the PREVIOUS session's code. Supervisor appends to the log and nothing truncates it at a
+# start, so for the seconds between the launch and Valheim's own "start.unity" line the log
+# still ended with the old session's start and its code, and rule 1 below served it. A code
+# from a dead session fails silently for the player who types it in. The log alone cannot
+# tell "still running on that session" from "relaunched, not reported yet"; the engine can.
+#
+# Returns [offset, epoch] or NULL. The mark is USABLE only when the live log has not been
+# rotated since it was taken: logRotater.sh is `cp -p` + truncate, so an old offset would point
+# into unrelated text, and `.log.1` carries the rotation in its mtime (cp -p keeps the source's
+# mtime, the last write before the rotation -- still after the mark when anything was logged in
+# between). The offset must also fit the file. An unusable mark falls through to the history
+# rule exactly as in 2.56, so a mark can never reproduce the 2.56 "waiting for 35 hours" shape.
+function phvEngineSessionMark($pdo, $world) {
+        try {
+                $sth = $pdo->prepare("SELECT UNIX_TIMESTAMP(ts) AS t, detail FROM phv_events WHERE world = ? AND detail LIKE '%\"log_offset\"%' ORDER BY id DESC LIMIT 1");
+                $sth->execute([$world]);
+                $row = $sth->fetch(PDO::FETCH_ASSOC);
+                if (!is_array($row)) { return NULL; }
+                $d = json_decode((string)$row['detail'], true);
+                if (!is_array($d) || !isset($d['log_offset'])) { return NULL; }
+                return [(int)$d['log_offset'], (int)$row['t']];
+        } catch (Throwable $e) { return NULL; }
+}
+function phvSessionMarkUsable($world, $mark) {
+        if (!is_array($mark) || $mark[0] < 0) { return false; }
+        clearstatcache();
+        $size = @filesize(phvWorldLogPath($world));
+        if ($size === false || $mark[0] > $size) { return false; }
+        $prev = phvWorldLogPath($world, 1);
+        if (file_exists($prev)) {
+                $mt = @filemtime($prev);
+                if ($mt === false || $mt >= $mark[1]) { return false; }
+        }
+        return true;
+}
+
 function getWorldJoinCode($pdo, $world) {
         $live = phvReadLogTail($world);
         if ($live === NULL) { return NULL; }
+
+        # The engine said where this session begins: read from there and nowhere else. A code
+        # after the mark is this session's; none yet means not issued -- NULL, never the text
+        # before the mark. (A session that outlives its rotation is handled below, as before.)
+        $mark = phvEngineSessionMark($pdo, $world);
+        if (phvSessionMarkUsable($world, $mark)) {
+                $text = str_replace("\0", '', (string)@file_get_contents(phvWorldLogPath($world), false, NULL, $mark[0]));
+                return phvLastJoinCode(phvSessionScope($text));
+        }
 
         # The fast path, and the common one: the live log's own current session. Answers within
         # one poll of the code appearing, which matters because Valheim may REPLACE the
