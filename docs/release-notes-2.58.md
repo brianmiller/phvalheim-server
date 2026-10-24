@@ -76,3 +76,10 @@ rest, and the build refuses to publish if a critical or high finding appears. Th
 - The container test bucket is a release gate now: 77 tests run against the pushed image.
 
 Full details per change, with the file names and verify markers, are in `CHANGELOG.md`.
+
+## Issues
+
+- Closes #93 — Hugin broken in 2.56 (every tool result reaches the conversation loop as text).
+
+Companion: [phvalheim-companion 1.0.5](https://github.com/brianmiller/phvalheim-companion/commit/eea90be) — the server-side player telemetry this release reads.
+Full changelog: https://github.com/brianmiller/phvalheim-server/compare/v2.57...v2.58
