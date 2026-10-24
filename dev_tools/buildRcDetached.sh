@@ -3844,6 +3844,49 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v58cm=$(grep -c 'countsEnabled' /opt/stateless/engine/tools/playerMonitor)
   v58cn=$(grep -cF 'GREATEST(logsSeenEventId, CAST(? AS UNSIGNED))' /opt/stateless/nginx/www/includes/events.php)
   v58co=$(grep -c 'Per-World Update Settings.*BETA' /opt/stateless/nginx/www/admin/index.php)
+
+  # ---- 2.59 Hugin's Vibes (docs/HUGINS-VIBES-DESIGN.md section 11) ----
+  # The sidebar door is FIRST under Tools; the catalogue source is gated on vibesInstalled and
+  # its gate column is READ (the first build of the round reported it ON while uninstalled);
+  # the migration carries its exec bit (2.45 shipped one without and created nothing); the
+  # runner's only model transport is aiChat(); the page never assigns innerHTML; the image
+  # still has no git/dotnet/node -- the Build Pak carries them.
+  v59aa=$(grep -c 'href="hugins_vibes.php"' /opt/stateless/nginx/www/admin/index.php)
+  v59ab=$(awk '/nav-section-title">Tools/{f=1} f&&/href=/{print; exit}' /opt/stateless/nginx/www/admin/index.php | grep -c 'hugins_vibes.php')
+  v59ac=$(grep -c "Hugin's Vibes\", 'colour' => 'vibes'" /opt/stateless/nginx/www/includes/modcatalog.php)
+  v59ad=$(grep -c "'thunderstoreEnabled', 'hexiumEnabled', 'vibesInstalled'" /opt/stateless/nginx/www/includes/modcatalog.php)
+  v59ae=$(grep -c '^\.src-pill\.src-vibes' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  v59af=$(grep -c '^\.vibes-nav-dot' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  v59ag=$(grep -c 'CREATE TABLE hv_' /opt/stateless/engine/dbUpdates/dbUpdate_2.59.sh)
+  v59ah=$(grep -c '^addColumn settings vibes' /opt/stateless/engine/dbUpdates/dbUpdate_2.59.sh)
+  v59ai=$(test -x /opt/stateless/engine/dbUpdates/dbUpdate_2.59.sh && echo 1 || echo 0)
+  v59aj=$(grep -o "case '[a-z-]*'" /opt/stateless/engine/tools/vibes/vibes.php | sort -u | wc -l)
+  v59ak=$(ls /opt/stateless/engine/tools/vibes/lib/*.php | wc -l)
+  v59al=$(ls /opt/stateless/engine/tools/vibes/knowledge/*.md | wc -l)
+  v59am=$(ls /opt/stateless/engine/tools/vibes/templates/basic-plugin | wc -l)
+  v59an=$(grep -cF 'cp -f "${modDownloadUrl#file://}"' /opt/stateless/engine/includes/0-functions.sh)
+  v59ao=$(grep -c 'js/vibes.js' /opt/stateless/nginx/www/admin/hugins_vibes.php)
+  v59ap=$(grep -c 'id="vbInitial"' /opt/stateless/nginx/www/admin/hugins_vibes.php)
+  v59aq=$(grep -c 'function_exists' /opt/stateless/nginx/www/admin/vibesAPI.php)
+  v59ar=$(grep -c 'X-Accel-Buffering: no' /opt/stateless/nginx/www/admin/vibesStream.php)
+  v59as=$(grep -c '\.innerHTML *=' /opt/stateless/nginx/www/js/vibes.js)
+  v59at=$(grep -c 'curl_init\|aiHttp(' /opt/stateless/engine/tools/vibes/lib/agent.php)
+  v59au=$(grep -c 'aiChat(' /opt/stateless/engine/tools/vibes/lib/agent.php)
+  v59av=$(grep -c '^function vibes' /opt/stateless/nginx/www/includes/vibes.php)
+  v59aw=$(grep -c 'mkdir -p /opt/stateful/vibes/' /opt/stateless/engine/phvalheim)
+  v59ax=$(grep -c "'2.59' => \[" /opt/stateless/nginx/www/includes/whatsnew.php)
+  v59ay=$(grep -c '^   client_max_body_size 64m;' /etc/nginx/sites-available/phvalheim.conf)
+  v59az=$(grep -c '^upload_max_filesize = 64M' /etc/php/8.1/fpm/php.ini)
+  v59ba=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&(p=="git"||p=="nodejs"||p=="dotnet-host"||p=="dotnet-sdk-8.0")&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v59bb=$(grep -c 'vibesSafeProjectPath' /opt/stateless/engine/tools/vibes/lib/tools.php)
+  # issue #94: a streamed delta that is exactly "0" was dropped by !empty() (PHP: empty("0") is true)
+  v59bc=$(grep -c "if (isset(.delta\['content'\]) && .delta\['content'\] !== '')" /opt/stateless/nginx/www/includes/aiproviders.php)
+  v59bd=$(grep -c "!empty(.delta\['content'\])" /opt/stateless/nginx/www/includes/aiproviders.php)
+  # Hugin's backup tool reads the backups TABLE (the directory it globbed never existed); the prompt names the database as the record
+  v59be=$(grep -c 'getWorldBackups(.pdo, .w\[.name.\])' /opt/stateless/nginx/www/includes/aicontext.php)
+  v59bf=$(grep -c 'THE DATABASE IS THE SYSTEM OF RECORD' /opt/stateless/nginx/www/includes/aicontext.php)
+  v59bg=$(grep -c 'glob(".dir/\*")' /opt/stateless/nginx/www/includes/aicontext.php)
+  echo "2.59 Hugin's Vibes: sidebar link=$v59aa (want 1)  first under Tools=$v59ab (want 1)  catalogue source=$v59ac (want 1)  gate column read=$v59ad (want 1)  pill css=$v59ae (want 1)  nav dot css=$v59af (want 1)  hv tables=$v59ag (want 3)  settings cols=$v59ah (want 4)  migration +x=$v59ai (want 1)  runner subcommands=$v59aj (want 13)  libs=$v59ak (want 12)  knowledge=$v59al (want 11)  template files=$v59am (want 8)  file:// seam=$v59an (want 1)  page->js=$v59ao (want 3)  initial state=$v59ap (want 1)  api guards=$v59aq (want 13)  sse no-buffer=$v59ar (want 2)  innerHTML assigns=$v59as (want 0)  agent own http=$v59at (want 0)  agent aiChat=$v59au (want 4)  core functions=$v59av (want 46)  boot mkdir=$v59aw (want 1)  whatsnew=$v59ax (want 1)  nginx body size=$v59ay (want 1)  php upload=$v59az (want 1)  git/dotnet/node in image=$v59ba (want 0)  tool path safety=$v59bb (want 3)  #94 strict delta guard=$v59bc (want 1)  #94 empty() guard=$v59bd (want 0)  backups from table=$v59be (want 1)  db-is-record rule=$v59bf (want 1)  backup dir glob=$v59bg (want 0)"
   echo "2.58 seven items: hugin seam=$v58cb (want 1)  per-event ack=$v58cc (want 1)  acked column=$v58cd (want 1)  world-log ack=$v58ce (want 1)  update modal=$v58cf (want 1)  delete modal=$v58cg (want 1)  old confirm=$v58ch (want 0)  autoupdate BETA=$v58ci (want 0)  pill says players=$v58cj (want 2)  updates tab vanilla=$v58ck (want 1)  switch dropped=$v58cl (want 1)  monitor switch=$v58cm (want 0)  watermark cast=$v58cn (want 1)  per-world BETA=$v58co (want 0)"
   echo "2.58 versions + pill + supervisor: clean_version=$v58bq (want 3)  checker norm=$v58br (want 1)  migration repair=$v58bs (want 1)  default on=$v58bt (want 0, switch retired)  php pill running-only=$v58bu (want 1)  js pill running-only=$v58bv (want 1)  program name+port=$v58bw (want 1)  startWorld 2-arg=$v58bx (want 1)  start self-heal=$v58by (want 1)"
   echo "2.58 row consolidation: PLAYERS item=$v58at (want 0)  UPDATE item=$v58au (want 0)  PHP pill count=$v58av (want 1)  PHP settings badge=$v58aw (want 2)  JS pill count=$v58ax (want 1)  JS settings badge=$v58ay (want 1)  poll keeps badge=$v58az (want 1)  css rules=$v58ba (want 2)"
@@ -4298,6 +4341,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v58cb" = "1" ] && [ "$v58cc" = "1" ] && [ "$v58cd" = "1" ] && [ "$v58ce" = "1" ] && [ "$v58cf" = "1" ] && [ "$v58cg" = "1" ] \
     && [ "$v58ch" = "0" ] && [ "$v58ci" = "0" ] && [ "$v58cj" = "2" ] && [ "$v58ck" = "1" ] && [ "$v58cl" = "1" ] && [ "$v58cm" = "0" ] && [ "$v58cn" = "1" ] && [ "$v58co" = "0" ] \
     && [ "$v58at" = "0" ] && [ "$v58au" = "0" ] && [ "$v58av" = "1" ] && [ "$v58aw" = "2" ] && [ "$v58ax" = "1" ] && [ "$v58ay" = "1" ] && [ "$v58az" = "1" ] && [ "$v58ba" = "2" ] \
+    && [ "$v59aa" = "1" ] && [ "$v59ab" = "1" ] && [ "$v59ac" = "1" ] && [ "$v59ad" = "1" ] && [ "$v59ae" = "1" ] && [ "$v59af" = "1" ] && [ "$v59ag" = "3" ] && [ "$v59ah" = "4" ] && [ "$v59ai" = "1" ] \
+    && [ "$v59aj" = "13" ] && [ "$v59ak" = "12" ] && [ "$v59al" = "11" ] && [ "$v59am" = "8" ] && [ "$v59an" = "1" ] && [ "$v59ao" = "3" ] && [ "$v59ap" = "1" ] && [ "$v59aq" = "13" ] && [ "$v59ar" = "2" ] \
+    && [ "$v59as" = "0" ] && [ "$v59at" = "0" ] && [ "$v59au" = "4" ] && [ "$v59av" = "46" ] && [ "$v59aw" = "1" ] && [ "$v59ax" = "1" ] && [ "$v59ay" = "1" ] && [ "$v59az" = "1" ] && [ "$v59ba" = "0" ] && [ "$v59bb" = "3" ] && [ "$v59bc" = "1" ] && [ "$v59bd" = "0" ] && [ "$v59be" = "1" ] && [ "$v59bf" = "1" ] && [ "$v59bg" = "0" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

@@ -24,8 +24,12 @@ function catalogSources($pdo)
     }
     $row = [];
     if ($cols) {
+        // Every source's gate column, so a new source cannot be reported ON by the
+        // "column absent" default below while its column is in fact present and 0 --
+        // which is exactly how the 'vibes' gate first read as enabled on an uninstalled
+        // server (caught by dev_tools/test-vibes-migration.sh).
         $want = array_values(array_filter(
-            ['thunderstoreEnabled', 'hexiumEnabled'],
+            ['thunderstoreEnabled', 'hexiumEnabled', 'vibesInstalled'],
             fn($c) => isset($cols[$c])
         ));
         if ($want) {
@@ -39,6 +43,10 @@ function catalogSources($pdo)
     $defs = [
         'thunderstore' => ['label' => 'Thunderstore', 'colour' => 'ts',  'enabled_col' => 'thunderstoreEnabled'],
         'hexium'       => ['label' => 'Hexium',       'colour' => 'hex', 'enabled_col' => 'hexiumEnabled'],
+        // Hugin's Vibes (2.59): the operator's own mods, published from admin/hugins_vibes.php.
+        // Offered only while Vibes is installed (settings.vibesInstalled); the rows survive an
+        // uninstall that keeps the catalogue, and a world that already has one keeps working.
+        'vibes'        => ['label' => "Hugin's Vibes", 'colour' => 'vibes', 'enabled_col' => 'vibesInstalled'],
     ];
     foreach ($defs as $key => $d) {
         $col = $d['enabled_col'];

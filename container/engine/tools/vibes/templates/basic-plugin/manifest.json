@@ -1,0 +1,9 @@
+{
+  "name": "{{Name}}",
+  "version_number": "{{Version}}",
+  "website_url": "",
+  "description": "{{Description}}",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2202"
+  ]
+}

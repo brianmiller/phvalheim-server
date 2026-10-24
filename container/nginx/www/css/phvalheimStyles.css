@@ -6308,6 +6308,27 @@ body input[type="checkbox"]:not(.form-check-input):checked::after,
 	color: var(--accent-secondary);
 	border-color: rgba(167, 139, 250, 0.45);
 }
+/* Hugin's Vibes (2.59): the operator's own catalogue. Violet-to-cyan so it reads as neither
+   Thunderstore's blue nor Hexium's purple at a glance. */
+.src-pill.src-vibes {
+	background: linear-gradient(90deg, rgba(167, 139, 250, 0.22), rgba(34, 211, 238, 0.18));
+	color: #d8ccff;
+	border-color: rgba(167, 139, 250, 0.6);
+}
+/* The sidebar dot that lights while a Vibes job runs (admin/index.php nav). */
+.vibes-nav-dot {
+	margin-left: auto;
+	width: 0.55rem;
+	height: 0.55rem;
+	border-radius: 50%;
+	background: var(--accent-secondary);
+	box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.6);
+	animation: vibesNavPulse 1.6s ease-out infinite;
+}
+@keyframes vibesNavPulse {
+	0%   { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.6); }
+	100% { box-shadow: 0 0 0 8px rgba(167, 139, 250, 0); }
+}
 
 /* Catalogue filter bar, directly under the Selected/All tabs. */
 .mod-source-filter {
@@ -6355,6 +6376,11 @@ body input[type="checkbox"]:not(.form-check-input):checked::after,
 .mod-source-filter .msf-btn.active.src-hex {
 	background: rgba(167, 139, 250, 0.18);
 	color: var(--accent-secondary);
+	border-color: var(--accent-secondary);
+}
+.mod-source-filter .msf-btn.active.src-vibes {
+	background: linear-gradient(90deg, rgba(167, 139, 250, 0.22), rgba(34, 211, 238, 0.18));
+	color: #d8ccff;
 	border-color: var(--accent-secondary);
 }
 .mod-source-filter .msf-btn:not(.active) {

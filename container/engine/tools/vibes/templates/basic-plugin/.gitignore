@@ -1,0 +1,9 @@
+# build products
+bin/
+obj/
+dist/
+# Hugin's transcripts and raw build logs are per-server, not part of the mod
+.vibes/sessions/
+.vibes/builds/
+*.user
+.vs/

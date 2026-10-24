@@ -47,6 +47,7 @@ Not every world needs mods, though. PhValheim also hosts **vanilla worlds** — 
 | **Backup System** | Activity-aware scheduled backups with compression (gzip/zstd), tiered retention, one-click restore, and per-world overrides. Supports separate backup volumes. |
 | **Live Monitoring** | Real-time CPU, memory, and load metrics for every running world, visible in both the admin and public UIs. |
 | **Hugin, the AI Helper** | Bring your own model &mdash; any OpenAI-compatible endpoint, Anthropic, Gemini, or a self-hosted box. Hugin reads your logs and settings to diagnose mod errors, missing dependencies and server health, and can **carry out changes** &mdash; start or back up a world, edit settings, access lists, backup schedules or mods &mdash; showing you exactly what will change before anything happens. |
+| **Hugin's Vibes** | Vibe code your own Valheim mods. Describe a mod in plain language; Hugin writes it, compiles it on the server, keeps it in its own git repository and publishes it to a **Hugin's Vibes** catalogue beside Thunderstore and Hexium, so any world can use it. Opt-in: the toolchain is a separate download into your data volume, and it uses the AI provider you already configured. |
 | **Health Scan** | Runs the moment you open the AI panel and needs **no AI provider at all**. Flags mod load failures, missing dependencies, permission errors, port conflicts, restart loops, overdue backups, low disk and more &mdash; each with the log lines that triggered it. |
 | **Custom Configs** | Push custom configuration files to clients, or keep server-only configs that persist across updates. |
 | **Single Container** | Everything runs in one Docker container — NGINX, PHP, MariaDB, Supervisor, and the PhValheim engine. |
@@ -404,6 +405,37 @@ the live capability list, and works with no provider configured.
 
 If your model cannot call tools — some smaller self-hosted models cannot — Hugin answers anyway
 and tells you it could not inspect anything and cannot make changes.
+
+### Hugin's Vibes (Optional, 2.59)
+
+The first entry under **Tools** in the sidebar. Hugin's Vibes is a workbench for making your own
+Valheim mods: describe what you want in plain language and Hugin writes the C#, compiles it on the
+server, fixes what the compiler complains about, and packages it in the same shape a Thunderstore
+mod has. Each mod is a **Vibe**: its own git repository, its own remembered conversation and its
+own notes, so you can come back any time and vibe the next version. **Publish** puts a version in
+the **Hugin's Vibes** catalogue, which appears beside Thunderstore and Hexium in every world's mod
+list — tick it, update the world, done.
+
+What it needs, and what it does not do:
+
+- **An AI provider.** The same one Hugin uses (Server Settings → AI Setup). Without one the page
+  says so and points you there; nothing else happens.
+- **A Build Pak.** The compiler, git and the .NET toolchain are *not* in the PhValheim image. The
+  first time you open Hugin's Vibes it explains what it is, shows the size of the download and the
+  free space you have, and downloads it into `/opt/stateful/vibes/` on your data volume only when
+  you say so. It is an additional download, separate from the server image and from Valheim.
+- **Your own game files.** Valheim's assemblies are never downloaded from us; they are taken from
+  one of your worlds' dedicated-server files and prepared locally. A server with no world yet is
+  asked to create one first.
+- **Nothing in Hugin's Vibes touches a world.** A mod it publishes reaches a world the way any mod
+  does — through the world's mod list and an update.
+- **GitHub and GitLab, both at once if you like.** Add tokens in its Settings and each Vibe gets a
+  Push button per service.
+- **Delete Hugin's Vibes** is in its Settings. You choose whether your mods, the catalogue your
+  worlds use and your uploaded assets stay or go, and it tells you how much space comes back.
+
+The design, including why the toolchain is a separate download and how the agent is built on
+Hugin's existing provider layer, is in `docs/HUGINS-VIBES-DESIGN.md`.
 
 ---
 

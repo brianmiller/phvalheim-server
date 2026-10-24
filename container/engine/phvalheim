@@ -16,6 +16,13 @@ source /opt/stateless/engine/includes/0-functions.sh
 
 # run database schema update processor
 /opt/stateless/engine/tools/dbUpdater.sh
+
+# Hugin's Vibes (2.59): its home on the data volume, owned by phvalheim so that php-fpm and the
+# detached runner (both phvalheim) never need root. Created whether or not Vibes is installed --
+# an empty directory costs nothing, and the Build Pak only ever lands inside it on the operator's
+# explicit say-so from the admin page. See docs/HUGINS-VIBES-DESIGN.md section 3.
+mkdir -p /opt/stateful/vibes/{buildpak,libs,projects,assets,catalog,downloads,logs/jobs}
+chown phvalheim:phvalheim /opt/stateful/vibes /opt/stateful/vibes/* /opt/stateful/vibes/logs/jobs 2>/dev/null
 # An operation left open by the previous engine process can never finish; say so (2.56).
 SQL "UPDATE phv_operations SET finished=NOW(3), outcome='interrupted', summary='PhValheim restarted before this finished' WHERE finished IS NULL" > /dev/null 2>&1
 phvlog NOTICE "PhValheim engine started"

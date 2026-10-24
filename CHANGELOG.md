@@ -1,5 +1,67 @@
 # Changelog
 
+## v2.59
+
+### New: Hugin's Vibes
+
+A workbench for making your own Valheim mods, first under **Tools** in the admin sidebar. The
+operator describes a mod in plain language; Hugin writes the C#, compiles it inside the container,
+reads the compiler's diagnostics and fixes them, keeps every mod (a *Vibe*) in its own git
+repository with a remembered conversation and notes, and publishes versions to a **Hugin's Vibes**
+catalogue that sits beside Thunderstore and Hexium in every world's mod list. A published mod
+reaches a world through the ordinary mod list and world update; nothing in Vibes starts, stops or
+alters a world.
+
+How it is built, in short (the full design is `docs/HUGINS-VIBES-DESIGN.md`):
+
+- **Opt-in, separate download.** The image stays on its 2.58 CVE diet: no git, no .NET, no node.
+  The toolchain is a **Build Pak** release asset (its own repository and release cadence) that the
+  first-launch dialog downloads into `/opt/stateful/vibes/` on the data volume after showing its
+  size and the free space. Nothing is downloaded, and nothing changes, if the page is never opened.
+- **No game files are redistributed.** Valheim's assemblies are harvested from one of the server's
+  own worlds (`game/valheim_server_Data/Managed`) and publicized locally.
+- **One provider layer.** The agent loop (the "Forge loop") is built on `aiChat()` from 2.45:
+  the same providers, keys, model-id rule and tool-capability negotiation as Hugin. pi was
+  considered and not embedded (design section 9).
+- **The local catalogue reuses the 2.43 tables.** `mods.source = 'vibes'`, versions with
+  `file://` download URLs on the data volume; the engine's install loop copies instead of fetching
+  for that scheme (the only engine seam). `modSync.py` prunes per source and never touches it.
+- **Jobs, not requests.** Every long action is an `hv_jobs` row run by a detached PHP CLI process
+  as the `phvalheim` user; the page streams its events over SSE and survives a reload.
+- **Deletable.** Settings → Danger zone removes the pak, with keep-switches for the mods made, the
+  catalogue worlds use, and uploaded assets.
+
+Schema: `dbUpdate_2.59.sh` — `settings.vibesInstalled`, `vibesBuildpakVersion`, `vibesSettings`
+(one JSON document), `vibesNoticeShown`; tables `hv_projects`, `hv_sessions`, `hv_jobs`.
+Verify markers v59aa onward.
+
+### Fixed: Hugin dropped every zero out of a streamed reply (issue #94)
+
+Reported as "`247.9hrs` was ~1 day" and screenshots of `226-1-24 13:4:2` where the log said
+`2026-10-24 13:40:20`. The OpenAI-compatible adapter guarded each streamed fragment with
+`!empty($delta['content'])`, and PHP's `empty("0")` is true, so a chunk that was exactly the single
+character `0` was dropped from the accumulated reply and from the live stream. A model that
+tokenises digits one at a time (the reporter's quantised Qwen over an OpenAI-compatible server)
+therefore lost every zero, in quoted log lines and in Hugin's own prose; models that stream
+longer chunks hid the bug. The guard is now `isset(...) && !== ''`. The Anthropic and Gemini
+adapters and the SSE relay were already strict. `dev_tools/test-stream-zero-delta.sh` plays a
+fake provider that streams the reply one character at a time, zeros included, and fails five ways
+against the old adapter (its control streams a zero-free reply through the same path). Markers
+v59bc/v59bd.
+
+### Fixed: Hugin's backup tool read a directory that never existed
+
+"list all backups" answered 0 backups / 0 MB for every world while the Backups tab listed
+dozens; Hugin believed the tool, was contradicted, and went scraping `worldBackups.log` for ids.
+`get_backup_status` globbed `/opt/stateful/backups/<world>/`, which has never been the layout
+(archives are flat `valheimworld_<World>-<stamp>.tar*`), and never read the `backups` table the
+engine writes and the tab reads. It now reads that table through the tab's own reader: count,
+total size, newest/oldest, per-type counts, orphans, and the 25 newest with their ids. The
+system prompt now states that **the database is the system of record** for everything PhValheim
+manages and that log files are for diagnosing behaviour, never for counting PhValheim's own
+records. `dev_tools/test-hugin-backups-from-db.sh` plants two rows and reads them back through
+the real tool (the pre-fixture run is the control). Markers v59be/v59bf.
+
 ## v2.58
 
 ### Security: the Docker Hub vulnerability list

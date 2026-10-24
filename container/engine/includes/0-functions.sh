@@ -950,7 +950,17 @@ function downloadAndInstallTsModsForWorld() {
 
                 if [ ! -f $tsModsDir/$modFileConstructed ]; then
                         phvlog INFO "  #### Downloading $modFileConstructed from $modSource... ####"
-                        wget -q --show-progress -O $tsModsDir/$modFileConstructed "$modDownloadUrl"
+                        #Hugin's Vibes (2.59, docs/HUGINS-VIBES-DESIGN.md section 6.4): a package the
+                        #operator built on THIS server is published into the catalogue with a
+                        #file:///opt/stateful/vibes/catalog/<zip> download_url. It is copied, not
+                        #fetched; the same -s check and failure accounting below apply to both
+                        #branches, so a missing or empty catalogue file is counted as a failed
+                        #download exactly as a 404 is. The if/fi's exit status is cp's or wget's.
+                        if [ "${modDownloadUrl#file://}" != "$modDownloadUrl" ]; then
+                                cp -f "${modDownloadUrl#file://}" "$tsModsDir/$modFileConstructed"
+                        else
+                                wget -q --show-progress -O $tsModsDir/$modFileConstructed "$modDownloadUrl"
+                        fi
                         #wget's exit code was discarded here. A 404 (catalogue naming a version
                         #the source no longer serves), a DNS blip or a full disk all left an
                         #empty or absent file, and the loop carried on to "Installing..." as if

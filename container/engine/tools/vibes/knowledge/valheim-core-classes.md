@@ -1,0 +1,18 @@
+# Valheim core classes
+> The singletons and types most mods touch: ZNet, ZNetScene, ZDO/ZDOMan, Game, Player, Character, Inventory, ItemDrop, ObjectDB, Localization, Terminal, ZRoutedRpc/ZPackage.
+
+Everything below is in `assembly_valheim` (global namespace). Confirm signatures with `game_source` before use; the game patches often.
+
+- `ZNet.instance` -- the network. `ZNet.instance.IsServer()`, `ZNet.IsDedicated()` (static), `ZNet.instance.GetPlayerList()` -> `List<ZNet.PlayerInfo>`, `ZNet.GetUID()`, `ZNet.instance.GetWorldUID()`, `ZNet.instance.Disconnect(peer)`, `ZNet.instance.Shutdown()`. Null in the main menu.
+- `ZNetScene.instance` -- prefabs and spawned objects. `ZNetScene.instance.GetPrefab("Wood")` -> `GameObject`; `ZNetScene.Awake` is the usual "world is loading" hook. `ZNetView` (`m_nview`) on every networked object: `GetZDO()`, `IsOwner()`, `InvokeRPC(...)`.
+- `ZDO` / `ZDOMan.instance` -- replicated object state. `zdo.GetInt/GetFloat/GetString(hash)`, `zdo.Set(...)`; keys are `StringExtensionMethods.GetStableHashCode("myKey")`. `ZDOMan.instance.GetSessionID()`.
+- `Game.instance` -- session-level: `Game.instance.GetPlayerProfile()`, `Game.m_worldLevel` (static byte; see pitfalls), `Game.instance.Logout()`. `Game.Start()` runs on both client and dedicated server when a world loads.
+- `Player` : `Humanoid` : `Character`. `Player.m_localPlayer` (null on a dedicated server), `GetPlayerName()`, `GetPlayerID()`, `GetInventory()`, `OnSpawned(bool)`, `UseStamina(float)`, `GetStamina()/GetMaxStamina()`, `m_stamina`, `TakeInput()`, `HaveRequirements(Piece, Player.RequirementMode)`, `ConsumeResources(...)`, `GetFirstRequiredItem(...)`. `Player.s_players` lists all local-process players.
+- `Character` -- `Damage(HitData)`, `GetHealth()/SetHealth()`, `IsDead()`, `GetSEMan()` (status effects), `Message(MessageHud.MessageType, string, int amount = 0, Sprite icon = null)` -- note the arity grew; pass the full overload types when patching.
+- `Inventory` -- `AddItem(...)` (several overloads), `RemoveItem(...)`, `GetItem(name)`, `CountItems(name)`, `GetAllItems()`, `HaveItem(name)`, `NrOfItems()`, `Save(ZPackage)`/`Load(ZPackage)`, event `Changed`. See pitfalls for the world-level stamp.
+- `ItemDrop` (the component on a dropped item) and `ItemDrop.ItemData` (an inventory entry): `m_shared` (`SharedData`: `m_name` ("$item_wood", localize it), `m_maxStackSize`, `m_movementModifier`, `m_itemType`), `m_stack`, `m_quality`, `m_durability`, `m_worldLevel`, `m_dropPrefab`.
+- `ObjectDB.instance` -- recipes and item prefabs: `GetItemPrefab("Wood")`, `m_recipes`, `m_items`, `m_StatusEffects`. Add recipes in a Postfix on `ObjectDB.CopyOtherDB` (menu) and `ObjectDB.Awake` (in game) or use Jotunn.
+- `Localization.instance.Localize("$item_wood")` -> display text; `AddWord(key, value)` for your own strings.
+- `Terminal.ConsoleCommand(name, description, action)` constructed once registers a console command; `Console.instance`, `Chat.instance` (`Chat.instance.HasFocus()`, `SendText`), `MessageHud.instance.ShowMessage(MessageHud.MessageType.Center, text)`.
+- RPC: `ZRoutedRpc.instance.Register<ZPackage>("MyMod_Name", (long sender, ZPackage pkg) => ...)` after `ZRoutedRpc` exists (patch `Game.Start` or `ZNet.OnNewConnection`); send with `ZRoutedRpc.instance.InvokeRoutedRPC(targetPeerId, "MyMod_Name", pkg)`; `ZRoutedRpc.Everybody` broadcasts. `ZPackage`: `Write(int/long/string/bool/float/byte[])`, `ReadInt()...`, `GetArray()`. Prefix RPC names with your mod name -- the namespace is global.
+- `ZoneSystem.instance`, `EnvMan.instance` (weather/time), `Hud.instance`, `InventoryGui.instance`, `FejdStartup.instance` (main menu; client only), `UnifiedPopup` (static `Push/Pop/IsVisible/IsAvailable`).

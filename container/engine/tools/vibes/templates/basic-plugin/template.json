@@ -1,0 +1,5 @@
+{
+  "key": "basic-plugin",
+  "label": "Basic plugin",
+  "description": "A BepInEx 5 plugin with a Harmony instance, two config entries and one harmless Postfix on Player.OnSpawned. Builds server- and client-safe out of the box."
+}

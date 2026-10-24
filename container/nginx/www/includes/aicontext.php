@@ -131,7 +131,7 @@ function aiToolDefinitions($withActions = true) {
         ],
         [
             'name'        => 'get_backup_status',
-            'description' => 'Backup state for one world or all worlds: last backup, count, total size, configured interval and retention.',
+            'description' => 'Backups for one world or all worlds, from the backups TABLE (the system of record, the same rows the Backups tab shows): count, total size, newest/oldest, the 25 newest with their ids, plus the configured interval and retention. Use this to list or count backups; never count backups from a log.',
             'parameters'  => [
                 'type' => 'object',
                 'properties' => ['world' => $str('World name, or omit for all worlds.')],
@@ -654,21 +654,50 @@ function aiToolSyncStatus($pdo) {
 }
 
 function aiToolBackups($pdo, $world) {
+    // The `backups` TABLE is the record of every backup PhValheim has taken -- the engine's
+    // worldBackup inserts a row per archive and retention deletes rows as it deletes files; the
+    // admin UI's Backups tab reads the same rows (getWorldBackups). Until 2.59 this tool counted
+    // files under /opt/stateful/backups/<world>/, a directory that has never existed (archives are
+    // flat: /opt/stateful/backups/valheimworld_<World>-<stamp>.tar*), so it answered "0 backups,
+    // 0 MB" for every world, Hugin believed it, the operator contradicted it from the Backups tab,
+    // and Hugin then went scraping worldBackups.log for ids. Logs are for diagnosing behaviour;
+    // the database is the system of record for everything PhValheim manages, and this tool now
+    // says so in its output as well as in the prompt.
+    if (!function_exists('getWorldBackups')) require_once __DIR__ . '/db_gets.php';   // the Backups tab's own reader
     $rows = aiWorldRows($pdo);
     $out  = [];
     foreach ($rows as $w) {
         if ($world !== '' && strcasecmp($w['name'], $world) !== 0) continue;
-
-        $dir  = "/opt/stateful/backups/{$w['name']}";
-        $files = is_dir($dir) ? (glob("$dir/*") ?: []) : [];
-        $bytes = 0;
-        foreach ($files as $f) $bytes += @filesize($f) ?: 0;
-
+        $all = getWorldBackups($pdo, $w['name']);   // newest first, every type, orphans flagged
+        $bytes = 0; $byType = []; $orphaned = 0; $newest = null; $oldest = null;
+        foreach ($all as $b) {
+            $bytes += (int)($b['file_size'] ?? 0);
+            $byType[$b['type'] ?: 'unknown'] = ($byType[$b['type'] ?: 'unknown'] ?? 0) + 1;
+            if (!empty($b['orphaned'])) $orphaned++;
+            $t = (string)($b['created_at'] ?? '');
+            if ($t !== '') { if ($newest === null || $t > $newest) $newest = $t; if ($oldest === null || $t < $oldest) $oldest = $t; }
+        }
+        $list = [];
+        foreach (array_slice($all, 0, 25) as $b) {
+            $list[] = [
+                'id'          => (int)$b['id'],
+                'created_at'  => $b['created_at'],
+                'type'        => $b['type'],
+                'size_mb'     => round(((int)($b['file_size'] ?? 0)) / 1048576, 1),
+                'compression' => !empty($b['compressed']) ? ($b['compression_type'] ?: 'yes') : 'none',
+                'orphaned'    => !empty($b['orphaned']),
+            ];
+        }
         $out[] = [
             'world'            => $w['name'],
+            'source'           => 'backups table (the database is the record; the Backups tab reads the same rows)',
             'last_backup'      => $w['last_backup_time'] ?? null,
-            'backup_count'     => count($files),
+            'backup_count'     => count($all),
             'total_size_mb'    => round($bytes / 1048576, 1),
+            'newest'           => $newest,
+            'oldest'           => $oldest,
+            'by_type'          => $byType,
+            'orphaned_count'   => $orphaned,
             'interval_minutes' => $w['backup_interval_minutes'] ?? null,
             'use_global'       => $w['backup_use_global'] ?? null,
             'require_activity' => $w['backup_require_activity'] ?? null,
@@ -678,6 +707,10 @@ function aiToolBackups($pdo, $world) {
                 'weekly_days'     => $w['backup_retain_weekly_days'] ?? null,
                 'monthly_months'  => $w['backup_retain_monthly_months'] ?? null,
             ],
+            // The 25 newest, oldest last in the UI's sense (newest first here). A restore needs
+            // the id; the operator picks from this list or from the Backups tab.
+            'backups'          => $list,
+            'backups_note'     => count($all) > 25 ? 'showing the 25 newest of ' . count($all) : null,
         ];
     }
     if (!$out) return $world !== '' ? "No world named '$world'." : 'No worlds configured.';
@@ -749,8 +782,16 @@ function aiSystemPrompt($pdo, $contextWorld = '', $withActions = true) {
         . "seconds. Each world is a supervised process (valheimworld_<name>) with its own UDP port, its "
         . "own save directory under /opt/stateful/worlds/<name>, and its own log at "
         . "/opt/stateful/logs/valheimworld_<name>.log; PhValheim's own actions on it are events (last_operation, world_activity). Mods install into that world's game/BepInEx tree. "
-        . "The database is the source of truth for what SHOULD be true; the logs are the truth about what "
-        . "IS. Where they disagree, say so — that gap is the most useful thing you can find.\n\n";
+        . "THE DATABASE IS THE SYSTEM OF RECORD for everything PhValheim itself manages: worlds and their "
+        . "settings, mods and catalogues, backups, access lists, events and operations. The structured tools "
+        . "(list_worlds, get_world, get_world_mods, get_backup_status, last_operation, world_activity, "
+        . "server_activity, get_mod_sync_status) read it; answer questions about PhValheim state from them "
+        . "and quote their figures. Log FILES are for diagnosing behaviour -- why Valheim crashed, what a "
+        . "mod printed, what the engine did step by step -- never for counting or listing PhValheim's own "
+        . "records (do not count backups, mods or worlds by grepping a log). If an operator contradicts a "
+        . "structured tool, re-run that tool with the narrowest scope and report what it says; if a log "
+        . "and a structured tool disagree about PhValheim state, say so plainly -- that gap is a finding, "
+        . "and the database side is the one PhValheim acts on.\n\n";
 
     $p .= "A STOPPED WORLD IS NOT A BROKEN WORLD\n"
         . "This is the mistake to avoid above all others. Operators start and stop worlds deliberately, "

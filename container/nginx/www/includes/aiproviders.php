@@ -837,7 +837,12 @@ function aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $
         if (isset($d['error'])) { $err = $d['error']['message'] ?? 'stream error'; return; }
         if (isset($d['usage'])) $usage = $d['usage'];
         $delta = $d['choices'][0]['delta'] ?? [];
-        if (!empty($delta['content'])) { $text .= $delta['content']; $onDelta($delta['content']); }
+        // isset + !== '', NEVER !empty: PHP's empty("0") is TRUE, so a streamed chunk that is
+        // exactly "0" was dropped from the reply and the stream. Models that tokenise digits one
+        // at a time (issue #94: a quantised Qwen over an OpenAI-compatible server) lost EVERY zero
+        // -- "2026-10-24 13:40:20" reached the operator as "226-1-24 13:4:2", in quoted log lines
+        // and in Hugin's own prose alike. dev_tools/test-stream-zero-delta.php streams a lone "0".
+        if (isset($delta['content']) && $delta['content'] !== '') { $text .= $delta['content']; $onDelta($delta['content']); }
         // Tool calls stream as fragments indexed by position; arguments arrive as a
         // partial JSON string that must be concatenated before it can be parsed.
         foreach (($delta['tool_calls'] ?? []) as $tc) {
