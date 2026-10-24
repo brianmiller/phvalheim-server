@@ -116,36 +116,73 @@ function vibesPakReleaseInfo(array $doc, $force = false) {
 		return ['error' => "Could not look up Build Pak releases for $repo ($why)."] + $base;
 	}
 
-	$result = null; $sawAny = false; $incompatible = [];
-	foreach ($rows as $rel) {
-		if (!empty($rel['draft'])) continue;
-		if (!empty($rel['prerelease']) && !$allowPre) continue;
-		$tag = ltrim((string)($rel['tag_name'] ?? ''), 'v');
-		$assets = [];
-		foreach ($rel['assets'] ?? [] as $a) $assets[$a['name']] = $a;
-		$tarName = sprintf(VIBES_PAK_ASSET, $tag);
-		if (!isset($assets[$tarName]) || !isset($assets['manifest.json'])) continue;
-		$sawAny = true;
-		[$mc, $mb] = vibesHttpGet($assets['manifest.json']['browser_download_url']);
-		$m = $mc === 200 ? json_decode($mb, true) : null;
-		if (!is_array($m)) continue;
-		if (!vibesPakCompatible($m)) { $incompatible[] = sprintf('%s (format %s, %s)', $tag, $m['pakFormat'] ?? '?', $m['base'] ?? '?'); continue; }
-		$result = [
-			'success' => true, 'version' => (string)($m['version'] ?? $tag), 'sizeBytes' => (int)($assets[$tarName]['size'] ?? ($m['sizeBytes'] ?? 0)),
-			'components' => $m['components'] ?? null, 'pakFormat' => (int)$m['pakFormat'], 'base' => $m['base'],
-			'url' => $assets[$tarName]['browser_download_url'], 'sha256Url' => $assets[$tarName . '.sha256']['browser_download_url'] ?? null,
-			'prerelease' => !empty($rel['prerelease']), 'error' => null,
-		];
-		break;
-	}
+	$fetch = function ($url) { [$mc, $mb] = vibesHttpGet($url); return $mc === 200 ? json_decode($mb, true) : null; };
+	$pick = vibesPakPickRelease($rows, $allowPre, $fetch);
+	$result = $pick['result'];
 	if ($result === null) {
-		$result = ['success' => false, 'error' => !$sawAny
-			? "No published Build Pak release in $repo carries the expected assets" . ($allowPre ? '.' : ' (pre-releases are not considered; see Advanced settings).')
-			: 'No Build Pak release fits this server (' . VIBES_PAK_BASE . ', formats ' . implode(',', VIBES_PAK_FORMATS) . '); seen: ' . implode(', ', $incompatible) . '.'] + $base;
+		$result = ['success' => false, 'error' => !$pick['sawAny']
+			? "No Build Pak release in $repo carries the expected assets (checked stable and pre-release)."
+			: 'No Build Pak release fits this server (' . VIBES_PAK_BASE . ', formats ' . implode(',', VIBES_PAK_FORMATS) . '); seen: ' . implode(', ', $pick['incompatible']) . '.'] + $base;
 	}
 	$cache[$key] = $result + ['_t' => time()];
 	vibesWriteJson($cacheFile, $cache);
 	return $result;
+}
+
+/**
+ * Choose the release to install from GitHub's release list. PURE apart from $fetchManifest, so
+ * dev_tools/test-vibes-pak-prerelease-fallback.php can drive it with fixture rows.
+ *
+ * Order of preference: the newest STABLE release that carries the assets and fits this server.
+ * When there is none and pre-releases are not allowed, the newest fitting PRE-RELEASE is
+ * returned anyway, flagged `fallback` with a `note` -- during a release cycle the only pak that
+ * exists may be a pre-release (2.59: Build Pak 1.0.0), and the first operator to test hit
+ * "no release carries the expected assets" with a hidden Advanced toggle as the only way out.
+ * A stable release, once published, wins over any pre-release regardless of the toggle's
+ * default; the toggle only matters when an operator wants a NEWER pre-release over a stable.
+ *
+ * Returns ['result' => array|null, 'sawAny' => bool, 'incompatible' => [..], 'fallback' => bool].
+ */
+function vibesPakPickRelease(array $rows, $allowPre, callable $fetchManifest) {
+	// $mode: 'stable' (pre-releases skipped), 'all', or 'pre' (ONLY pre-releases -- the fallback
+	// pass must not rescan, refetch and re-list the stable rows the first pass already judged).
+	$scan = function ($mode) use ($rows, $fetchManifest) {
+		$sawAny = false; $incompatible = [];
+		foreach ($rows as $rel) {
+			if (!empty($rel['draft'])) continue;
+			$isPre = !empty($rel['prerelease']);
+			if ($mode === 'stable' && $isPre) continue;
+			if ($mode === 'pre' && !$isPre) continue;
+			$tag = ltrim((string)($rel['tag_name'] ?? ''), 'v');
+			$assets = [];
+			foreach ($rel['assets'] ?? [] as $a) $assets[$a['name']] = $a;
+			$tarName = sprintf(VIBES_PAK_ASSET, $tag);
+			if (!isset($assets[$tarName]) || !isset($assets['manifest.json'])) continue;
+			$sawAny = true;
+			$m = $fetchManifest($assets['manifest.json']['browser_download_url']);
+			if (!is_array($m)) continue;
+			if (!vibesPakCompatible($m)) { $incompatible[] = sprintf('%s (format %s, %s)', $tag, $m['pakFormat'] ?? '?', $m['base'] ?? '?'); continue; }
+			return [[
+				'success' => true, 'version' => (string)($m['version'] ?? $tag), 'sizeBytes' => (int)($assets[$tarName]['size'] ?? ($m['sizeBytes'] ?? 0)),
+				'components' => $m['components'] ?? null, 'pakFormat' => (int)$m['pakFormat'], 'base' => $m['base'],
+				'url' => $assets[$tarName]['browser_download_url'], 'sha256Url' => $assets[$tarName . '.sha256']['browser_download_url'] ?? null,
+				'prerelease' => !empty($rel['prerelease']), 'published' => $rel['published_at'] ?? null, 'error' => null,
+			], $sawAny, $incompatible];
+		}
+		return [null, $sawAny, $incompatible];
+	};
+	[$r, $sawAny, $incompatible] = $scan($allowPre ? 'all' : 'stable');
+	$fallback = false;
+	if ($r === null && !$allowPre) {
+		[$r2, $sawAny2, $incompatible2] = $scan('pre');
+		$sawAny = $sawAny || $sawAny2; $incompatible = array_merge($incompatible, $incompatible2);
+		if ($r2 !== null) {
+			$r = $r2; $fallback = true;
+			$r['fallback'] = true;
+			$r['note'] = 'No stable Build Pak has been released yet; this is pre-release ' . $r['version'] . '. A stable release will be preferred automatically once one exists.';
+		}
+	}
+	return ['result' => $r, 'sawAny' => $sawAny, 'incompatible' => $incompatible, 'fallback' => $fallback];
 }
 
 /**

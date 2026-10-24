@@ -278,6 +278,14 @@ function vibesApiState($pdo) {
 	$s['decompileDefault'] = (bool)vibesSetting($doc, 'libs.decompile', true);
 	$s['serverVersion'] = (string)($phvalheimVersion ?: '');
 	$s['pakRepo'] = (string)vibesSetting($doc, 'buildpak.repo', '');
+	// The newest install/uninstall job of the last day, OPEN OR NOT. A job that fails faster than
+	// the page's state refresh (the pre-release gate failed in 5 ms) left no trace on screen: the
+	// router saw no open job and showed the intro again. The intro now reports this one.
+	try {
+		$st = $pdo->query("SELECT * FROM hv_jobs WHERE kind IN ('install','uninstall') AND created > NOW() - INTERVAL 1 DAY ORDER BY id DESC LIMIT 1");
+		$row = $st->fetch(PDO::FETCH_ASSOC);
+		$s['lastJob'] = $row ? vibesJobRow($row) : null;
+	} catch (Throwable $e) { $s['lastJob'] = null; }
 	return $s;
 }
 
@@ -290,7 +298,9 @@ function vibesAct_state($pdo, $in) { return vibesApiState($pdo); }
 function vibesAct_pakInfo($pdo, $in) {
 	$doc = vibesSettingsGet($pdo);
 	$r = vibesRunner('vibesPakReleaseInfo', $doc, vibesBool($in['force'] ?? false));
-	if (empty($r['success'])) return ['success' => false, 'error' => $r['error'] ?? 'The Build Pak release could not be reached.', 'reachable' => false, 'httpStatus' => 502];
+	// 200, not 502: "no release" or "GitHub unreachable" is an answer about the world, not a
+	// gateway failure, and a 502 in nginx's log sent the first tester hunting for a dead upstream.
+	if (empty($r['success'])) return ['success' => false, 'error' => $r['error'] ?? 'The Build Pak release could not be reached.', 'reachable' => false, 'httpStatus' => 200];
 	$r['reachable'] = true;
 	$r['sizeHuman'] = isset($r['sizeBytes']) ? vibesHumanBytes($r['sizeBytes']) : null;
 	$r['disk'] = vibesDiskStatus($r['sizeBytes'] ?? null);

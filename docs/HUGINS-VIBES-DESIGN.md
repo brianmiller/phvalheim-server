@@ -646,6 +646,9 @@ most have an oracle.
 | First real turn died at 120 s with 84 KB streamed | `AI_HTTP_TIMEOUT` (120 s) is sized for a chat reply | `vibes.php` defines it from `agent.turn_timeout_s` before `aiproviders.php` loads |
 | Published mod "DOWNLOAD FAILED" on the world update | the running engine had sourced `0-functions.sh` at boot, before the seam was deployed — a dev-box artefact, not a product bug; an image upgrade always restarts the engine | restart the engine after a `docker cp` of any `includes/*.sh` |
 | Transcript showed a turn's reply above the previous turn's error | the streaming bubble left open by an errored turn swallowed the next turn's tokens | `finalizeAssistant()` on `user` and `error` events |
+| First tester clicked Download & Install and saw nothing | the job failed in 5 ms at the pre-release gate; the page refreshed state, found no open job, and showed the intro again | the intro follows the job it starts (`followJob`, stream replays from seq 0); `state.lastJob` + a "Your last attempt failed" line with Details; Install disabled until a pak is found |
+| Build Pak 1.0.0 is a pre-release, so the lookup said "no release carries the assets" | the toggle `advanced.allow_prerelease_pak` gated it off by default | `vibesPakPickRelease()`: newest fitting stable, else newest fitting pre-release flagged `fallback` with a note; `test-vibes-pak-prerelease-fallback.php` |
+| `pakInfo` answered 502 for "no release" | a product answer dressed as a gateway error; sent the tester hunting for a dead upstream | 200 with `success:false` |
 | Header chip said "Valheim no libraries" after a harvest | `assembly_valheim.dll`'s file version is 0.0.0.0, so `gameVersion` is null | `gameBuild` (Steam buildid) carried in state and shown as the fallback |
 
 The real turn that passed: 34 rounds, 70 tool calls (30 `game_source`, 19 `shell`, 9 `read_file`,

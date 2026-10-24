@@ -258,6 +258,9 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 					<li class="vb-check" id="vbCheckPak"><span class="vb-dot"></span><span class="vb-check-text">Looking up the Build Pak release&hellip;</span></li>
 					<li class="vb-check" id="vbCheckDisk"><span class="vb-dot"></span><span class="vb-check-text">Checking free space&hellip;</span></li>
 					<li class="vb-check" id="vbCheckAi"><span class="vb-dot"></span><span class="vb-check-text">Checking the AI provider&hellip;</span></li>
+					<?php // Filled by renderChecks() when the newest install/uninstall job (state.lastJob) failed;
+					      // the fast-failure case that used to leave the intro looking untouched. ?>
+					<li class="vb-check" id="vbCheckLast" hidden><span class="vb-dot"></span><span class="vb-check-text"></span></li>
 				</ul>
 				<label class="vb-checkbox vb-intro-decompile"><input type="checkbox" id="vbIntroDecompile" checked> Also decompile Valheim's code so I can read it <span class="vb-muted">(recommended, +~150 MB)</span></label>
 				<div class="vb-intro-actions">

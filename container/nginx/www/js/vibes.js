@@ -337,16 +337,31 @@ const Vibes = {};
 		const st = S.state, ai = st.ai || {}, disk = (pakInfo && pakInfo.disk) || st.disk || {};
 		const size = pakInfo && pakInfo.sizeBytes ? fmtBytes(pakInfo.sizeBytes) : null;
 		if (checking) setCheck('vbCheckPak', 'wait', 'Looking up the Build Pak release…');
-		else if (pakInfo) setCheck('vbCheckPak', 'ok', h('b', 'Build Pak ' + (pakInfo.version || '')), ' · ', size || 'size unknown', pakInfo.prerelease ? ' · pre-release' : '', h('br'), h('span.vb-muted', 'From ' + (pakInfo.url || st.pakRepo || 'GitHub') + ' → ' + (st.root || '/opt/stateful/vibes') + '/buildpak/'));
+		else if (pakInfo) setCheck('vbCheckPak', 'ok', h('b', 'Build Pak ' + (pakInfo.version || '')), ' · ', size || 'size unknown', pakInfo.prerelease ? ' · pre-release' : '', h('br'), h('span.vb-muted', 'From ' + (pakInfo.url || st.pakRepo || 'GitHub') + ' → ' + (st.root || '/opt/stateful/vibes') + '/buildpak/'), pakInfo.note ? h('br') : '', pakInfo.note ? h('span.vb-muted', pakInfo.note) : '');
 		else setCheck('vbCheckPak', 'bad', h('b', 'Build Pak release not reachable.'), ' Size unknown until the release is reachable. ', h('span.vb-muted', pakErr || ''), ' ', h('a', { href: '#', onclick: (e) => { e.preventDefault(); lookupPak(true); } }, 'Retry'));
 		const need = disk.required ? fmtBytes(disk.required) : '?';
 		if (disk.free === null || disk.free === undefined) setCheck('vbCheckDisk', 'bad', 'Free space could not be read on ', h('b', st.root || '/opt/stateful/vibes'), '.');
 		else setCheck('vbCheckDisk', disk.ok ? 'ok' : 'bad', h('b', fmtBytes(disk.free) + ' free'), ' on the data volume · ', need + ' required', ' (2 × pak + 1 GiB)', disk.ok ? '' : ' — free up space before installing.');
 		if (ai.ok) setCheck('vbCheckAi', 'ok', h('b', 'AI provider: ' + ai.provider), ' · ' + ai.model);
 		else setCheck('vbCheckAi', 'bad', h('b', 'Hugin’s Vibes needs an AI provider.'), ' Add one in ', h('a', { href: 'index.php', target: '_blank', rel: 'noopener' }, 'Server Settings → AI Helper'), '. ', h('span.vb-muted', ai.reason || ''));
-		const ok = !!(ai.ok && disk.ok) && !(S.state.jobs || []).length;
+		// A failed attempt in the last day is shown here, with its log one click away: the intro
+		// is what the router shows after a fast failure, so this is where the answer has to be.
+		const last = st.lastJob;
+		const lastLine = $('vbCheckLast');
+		if (lastLine) {
+			if (last && last.status === 'failed' && !(S.state.jobs || []).length) {
+				lastLine.hidden = false; lastLine.className = 'vb-check bad';
+				const t = clear(lastLine.querySelector('.vb-check-text'));
+				Vibes.append(t, [h('b', 'Your last ' + last.kind + ' attempt failed'), last.finished ? ' (' + last.finished + ' UTC)' : '', ': ', h('span.vb-muted', last.error || 'no reason recorded'), ' ',
+					h('a', { href: '#', onclick: (e) => { e.preventDefault(); followJob(last); } }, 'Details')]);
+			} else lastLine.hidden = true;
+		}
+		// Install needs a pak to install, a provider to drive it and room to put it. A missing pak is
+		// a disabled button with the reason in its tooltip and in the red line above, not a click
+		// that starts a job which fails before the page can show it.
+		const ok = !!(ai.ok && disk.ok && pakInfo) && !(S.state.jobs || []).length;
 		const btn = $('vbIntroInstall'); btn.disabled = !ok;
-		btn.title = ok ? 'Download the Build Pak and set everything up' : !ai.ok ? 'Needs an AI provider first' : !disk.ok ? 'Not enough free space' : 'Another job is running';
+		btn.title = ok ? 'Download the Build Pak and set everything up' : !pakInfo ? 'No Build Pak release could be found; see the line above and Retry' : !ai.ok ? 'Needs an AI provider first' : !disk.ok ? 'Not enough free space' : 'Another job is running';
 	}
 
 	async function install() {
@@ -355,7 +370,12 @@ const Vibes = {};
 		try {
 			const r = await post('install', { decompile: $('vbIntroDecompile').checked, pakSizeBytes: pakInfo && pakInfo.sizeBytes ? pakInfo.sizeBytes : undefined });
 			toast('ok', 'Installing Hugin’s Vibes (job ' + r.jobId + ').');
-			await Vibes.router.refreshState(true);
+			// Follow THIS job, by id, right now. The first tester's install failed in 5 ms (the
+			// pre-release gate); by the time the state refresh came back there was no open job, the
+			// router showed the intro again, and nothing on screen said anything had happened. The
+			// stream replays the job's log from the first line, so even a job that is already over
+			// shows its steps, its error and Retry.
+			followJob(r.job || { id: r.jobId, kind: 'install', step: '', progress: 0 });
 		} catch (e) { fail(e, 'Install did not start'); }
 		clearBusy(btn); renderChecks();
 	}
@@ -368,8 +388,13 @@ const Vibes = {};
 		Vibes.workspace.renderEmptyState();
 	}
 
+	function followJob(job) {
+		$('vbIntroBody').hidden = true; $('vbInstallSheet').hidden = false;
+		Vibes.installSheet.follow(job);
+	}
+
 	function wire() { $('vbIntroInstall').onclick = install; $('vbIntroLater').onclick = later; }
-	Vibes.intro = { show, wire, renderChecks, lookupPak, get pakInfo() { return pakInfo; } };
+	Vibes.intro = { show, wire, renderChecks, lookupPak, followJob, get pakInfo() { return pakInfo; } };
 })();
 
 /* ---- The install / uninstall progress sheet (state 3): survives a reload via the job row --- */
@@ -433,7 +458,7 @@ const Vibes = {};
 	}
 	function wire() {
 		$('vbSheetCopy').onclick = async () => { try { await navigator.clipboard.writeText(logLines.join('\n')); toast('ok', 'Log copied.'); } catch (e) { fail(e, 'Could not copy'); } };
-		$('vbSheetRetry').onclick = async () => { try { const r = await post('install', { decompile: $('vbIntroDecompile').checked }); toast('info', 'Retrying (job ' + r.jobId + ').'); await Vibes.router.refreshState(true); } catch (e) { fail(e, 'Retry did not start'); } };
+		$('vbSheetRetry').onclick = async () => { try { const r = await post('install', { decompile: $('vbIntroDecompile').checked }); toast('info', 'Retrying (job ' + r.jobId + ').'); follow(r.job || { id: r.jobId, kind: 'install', step: '', progress: 0 }); } catch (e) { fail(e, 'Retry did not start'); } };
 		$('vbSheetClose').onclick = () => { $('vbInstallSheet').hidden = true; $('vbIntroBody').hidden = false; Vibes.intro.renderChecks(); };
 		$('vbSheetCancel').onclick = async () => {
 			if (!job || !(await Vibes.confirmDialog('Cancel the ' + job.kind + '?', 'The job stops at its current step. Install is resumable: running it again skips what already finished.', 'Cancel it'))) return;
