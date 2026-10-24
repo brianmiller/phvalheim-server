@@ -3293,6 +3293,58 @@ a.mods-hub-card:hover {
 	box-sizing: border-box;
 }
 
+/* 2.58: the player count lives in the Status pill ("Running · 3") and an available update is a
+   badge on the Settings button, so the Resources cell holds memory and tick health only and a
+   running row is no taller than a stopped one. Both inherit the pill's / button's colour; the
+   badge is the warning colour because it is the one thing on the row asking to be acted on. */
+/* 2.58: the Update / Delete modals (mods-modal shell) */
+.uw-body { padding: 1rem 1.25rem 1.1rem; font-size: 0.9rem; color: var(--text-primary); }
+.uw-lead { margin: 0 0 0.75rem; }
+.uw-step { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.45rem 0; }
+.uw-step-n { flex: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
+.uw-step-t { font-weight: 600; }
+.uw-step-d { color: var(--text-secondary); font-size: 0.82rem; line-height: 1.5; }
+.uw-note, .uw-warn { margin-top: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 0.5rem; font-size: 0.85rem; line-height: 1.5; }
+.uw-note { background: var(--bg-tertiary); color: var(--text-secondary); }
+.uw-warn { background: rgba(248, 113, 113, 0.12); border: 1px solid rgba(248, 113, 113, 0.35); color: var(--text-primary); }
+.uw-fine { margin: 0.75rem 0 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.5; }
+.uw-label { display: block; font-size: 0.82rem; color: var(--text-secondary); margin: 0.9rem 0 0.3rem; }
+.uw-list { margin: 0 0 0.5rem; padding-left: 1.2rem; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.6; }
+.uw-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+.uw-actions .action-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.uw-status { display: flex; align-items: center; gap: 0.6rem; font-weight: 600; margin-bottom: 0.6rem; }
+.uw-status.ok { color: var(--success); }
+.uw-status.bad { color: var(--danger); }
+.uw-log { height: 260px; overflow: auto; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 0.5rem 0.7rem; font-family: var(--font-mono); font-size: 0.74rem; line-height: 1.5; }
+.uw-line { white-space: pre-wrap; word-break: break-word; color: var(--text-secondary); }
+.uw-line.lvl-warn { color: var(--warning); }
+.uw-line.lvl-error { color: var(--danger); }
+.uw-t { color: var(--text-muted); margin-right: 0.6rem; }
+/* 2.58: the glyph IS the separator ("Running [person]3") -- a middot plus spaces on top of it
+   pushed the pill past its cell at 1280/1557 px and clipped the count. */
+.status-players-glyph { flex: none; opacity: 0.9; }
+.status-players {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.15rem;
+	margin-left: 0.3rem;
+	opacity: 0.85;
+	font-variant-numeric: tabular-nums;
+	text-transform: none;
+}
+.update-badge {
+	background: var(--warning);
+	color: #1a1a1a;
+	font-size: 0.65rem;
+	font-weight: 600;
+	line-height: 1.2;
+	padding: 0.05rem 0.35rem;
+	border-radius: 9999px;
+	margin-left: 0.3rem;
+	display: inline-block;
+	vertical-align: middle;
+}
+
 /* The Mods button carries a count badge, so its width changes with the number of digits and
    would shift the buttons after it on every row. Inherited from the old View button, whose
    rule outlived it -- the v56a marker found it orphaned here after the three mod buttons

@@ -31,7 +31,19 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 # other result in this file means anything.
 # Valheim 1.0 writes worlds_local/<name>/_main.N.fwl2; older builds wrote
 # worlds_local/<name>.fwl. Accept either, so this runs on both.
-SRC=$(docker exec "$C" sh -c 'ls -t /opt/stateful/games/valheim/worlds/*/game/.config/unity3d/IronGate/Valheim/worlds_local/*/_main.*.fwl2 2>/dev/null | head -1' 2>/dev/null)
+# A VANILLA world's file, not just the newest one. The control pairs the file's seed with the
+# database's, and that pairing is only guaranteed for a vanilla world, where the database seed
+# is DERIVED from the save (that is the feature under test). A modded world's seed is the
+# INPUT and may legitimately differ from a save generated before it was set -- and since 2.58
+# the telemetry test really starts the modded fixture world, which made its .fwl2 the newest and
+# this control fail on a pairing it never promised (2026-10-23).
+vanillaNames=$(docker exec "$C" mysql -N -e "select name from phvalheim.worlds where ifnull(vanilla,0)=1" 2>/dev/null | tr '\n' ' ')
+SRC=""
+for w in $vanillaNames; do
+	f=$(docker exec "$C" sh -c "ls -t /opt/stateful/games/valheim/worlds/$w/game/.config/unity3d/IronGate/Valheim/worlds_local/$w/_main.*.fwl2 2>/dev/null | head -1" 2>/dev/null)
+	[ -n "$f" ] && { SRC="$f"; break; }
+done
+[ -z "$SRC" ] && SRC=$(docker exec "$C" sh -c 'ls -t /opt/stateful/games/valheim/worlds/*/game/.config/unity3d/IronGate/Valheim/worlds_local/*/_main.*.fwl2 2>/dev/null | head -1' 2>/dev/null)
 FMT=fwl2
 if [ -z "$SRC" ]; then
 	SRC=$(docker exec "$C" sh -c 'find /opt/stateful/games/valheim/worlds -name "*.fwl" ! -name "*backup*" 2>/dev/null | head -1' 2>/dev/null)

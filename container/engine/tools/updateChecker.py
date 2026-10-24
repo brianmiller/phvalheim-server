@@ -243,7 +243,19 @@ def mod_updates(world):
     unknown = 0
     comparable = 0
 
+    # Compare the version strings as the feed meant them. A row stored with stray quotes
+    # (`"3.5.8"` -- seen on a production catalogue, from a since-delisted package no sync will
+    # ever rewrite) read as different from the installed 3.5.8 and flagged an update of
+    # 3.5.8 -> "3.5.8" on every check. modSync.py now strips at parse time and the 2.58
+    # migration repairs stored rows; this is the belt for anything either of those missed.
+    def norm(v):
+        v = (v or "").strip()
+        while len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+            v = v[1:-1].strip()
+        return v
+
     for name, pin, inst_id, have, want, recorded in picks:
+        have, want = norm(have), norm(want)
         if pin:
             # Pinned: the operator chose that version on purpose, and auto-update must
             # never quietly walk away from it. Not a gap in our knowledge either.
@@ -358,6 +370,9 @@ def main():
             sql(f"UPDATE worlds SET "
                 f"update_available_game={game}, "
                 f"update_available_mods={count}, "
+                # The names (2.58): the badge and the Updates tab show WHICH mods, not just
+                # how many. One "name installed -> available" per line.
+                f"update_mods_list={q(chr(10).join(stale))}, "
                 f"installed_buildid={q(have)}, "
                 f"update_check_error={q(error)}, "
             f"update_mods_error={q(mods_error)}, "

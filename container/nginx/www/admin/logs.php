@@ -178,12 +178,16 @@ include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 			for (const e of d.events) { pane.appendChild(renderEvent(e)); lastId = Math.max(lastId, e.id); maxSeen = Math.max(maxSeen, e.id); }
 			if (reset || atBottom) pane.scrollTop = pane.scrollHeight;
 			document.getElementById('statusLine').textContent = pane.querySelectorAll('.ev').length + ' events shown' + (selectedOp ? ' (one operation)' : '') + ', updated ' + new Date().toLocaleTimeString();
-			if (d.events.length && document.visibilityState === 'visible') ack();
+			// Looking at the page is what counts as having looked -- not "new events arrived
+			// while it was in front": a tab opened in the background and switched to later
+			// showed every event and never acked one (2.58).
+			if (document.visibilityState === 'visible' && (maxSeen || lastId)) ack();
 		} catch (err) { console.error(err); }
 	}
 
-	// Opening the page -- or seeing new events arrive while it is in front -- counts as having
-	// looked. That is what clears the sidebar pulse on the dashboard.
+	// Opening the page -- or bringing it to the front -- counts as having looked. That is what
+	// clears the sidebar pulse on the dashboard.
+	document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && (maxSeen || lastId)) ack(); });
 	async function ack() {
 		try {
 			const r = await fetch(api + 'ackEvents', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: maxSeen || lastId }) });

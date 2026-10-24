@@ -38,6 +38,16 @@ restore() {
 trap restore EXIT
 
 # Ask the ADMIN poll payload what it would render.
+adminJoin() {
+    docker exec "$CONTAINER" curl -s "http://127.0.0.1:8081/adminAPI.php?action=getWorlds" 2>/dev/null \
+      | docker exec -i "$CONTAINER" php -r '
+          $d = json_decode(stream_get_contents(STDIN), true);
+          foreach (($d["worlds"] ?? []) as $w) {
+              if ($w["name"] === $argv[1]) { echo $w["launchJoinCode"] === null ? "NULL" : $w["launchJoinCode"]; return; }
+          }
+          echo "WORLD-NOT-FOUND";
+      ' -- "$WORLD"
+}
 adminHref() {
     docker exec "$CONTAINER" curl -s "http://127.0.0.1:8081/adminAPI.php?action=getWorlds" 2>/dev/null \
       | docker exec -i "$CONTAINER" php -r '
@@ -58,11 +68,15 @@ echo "(container $CONTAINER, world \"$WORLD\")"
 
 echo
 echo "Case 1: running vanilla CROSSPLAY world with a join code"
+# DECIDED (2.53, see getVanillaJoinInfo): a crossplay vanilla world has NO launch link. The
+# -joincode argument this case used to assert joins without character selection and landed
+# players in the world as "Odev (Developer)"; the UI hands out the code and explains it.
 setState running 1 "Opened PlayFab server
 Session \"$WORLD\" registered with join code 123456"
 h=$(adminHref)
-check 'admin Launch uses -joincode' "$(echo "$h" | grep -q 'steam://run/892970//-joincode 123456' && echo 1 || echo 0)" "$h"
-check 'and does NOT use +connect' "$(echo "$h" | grep -q '+connect' && echo 0 || echo 1)" "$h"
+check 'admin Launch has NO link for a crossplay vanilla world (join code only)' "$([ "$h" = "NULL" ] && echo 1 || echo 0)" "$h"
+j=$(adminJoin)
+check 'and the poll payload carries the join code' "$([ "$j" = "123456" ] && echo 1 || echo 0)" "$j"
 
 echo
 echo "Case 2: running vanilla NON-crossplay world"
@@ -105,9 +119,15 @@ publicH=$(docker exec "$CONTAINER" php -r '
     $i = getVanillaJoinInfo($pdo, $argv[1], "valheim.example.com", 25001, true);
     echo $i["href"] === null ? "NULL" : $i["href"];
 ' -- "$WORLD" 2>/dev/null)
-check 'both resolve to the same -joincode link' \
-    "$([ -n "$adminH" ] && [ "${adminH#*-joincode }" = "${publicH#*-joincode }" ] && echo 1 || echo 0)" \
-    "admin=$adminH shared=$publicH"
+publicJ=$(docker exec "$CONTAINER" php -r '
+    chdir("/opt/stateless/nginx/www/public");
+    require_once "/opt/stateless/nginx/www/includes/db_gets.php";
+    $i = getVanillaJoinInfo($pdo, $argv[1], "valheim.example.com", 25001, true);
+    echo $i["joinCode"] === null ? "NULL" : $i["joinCode"];
+' -- "$WORLD" 2>/dev/null)
+adminJ=$(adminJoin)
+check 'both agree there is no launch link' "$([ "$adminH" = "NULL" ] && [ "$publicH" = "NULL" ] && echo 1 || echo 0)" "admin=$adminH public=$publicH"
+check 'and both resolve to the same join code' "$([ "$adminJ" = "777888" ] && [ "$adminJ" = "$publicJ" ] && echo 1 || echo 0)" "admin=$adminJ public=$publicJ"
 
 echo
 echo "Control: the admin href actually CHANGES with the backend"

@@ -136,8 +136,13 @@ const cards = (page) => page.evaluate(() =>
 	});
 
 	await clickBack();
-	await page.waitForTimeout(1200);
+	// The dashboard reopens the list from the hash only after its world table has loaded; under
+	// bucket load that is more than the 1.2 s this used to wait. Poll for the list, up to 20 s.
 	let st = await pickerState();
+	for (let i = 0; i < 40 && !(st.shown && st.rows > 0); i++) {
+		await page.waitForTimeout(500);
+		st = await pickerState();
+	}
 
 	if (/index\.php/.test(st.url) && st.url !== urlBefore && !/edit_world\.php/.test(st.url)) {
 		ok(`Back to Mods returns to the dashboard (${st.url.replace(BASE, '')})`);

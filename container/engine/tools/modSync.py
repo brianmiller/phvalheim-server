@@ -505,6 +505,24 @@ def api_key_present(settings, cfg):
     return bool((settings or {}).get(cfg["key_setting"], ""))
 
 
+def clean_version(v):
+    """A version string as the feed MEANT it: no surrounding quotes or whitespace.
+
+    A production catalogue carried `micolho/CraftFromContainers` with latest_version
+    `"3.5.8"` -- quotes included, straight from the feed at the time -- while the installed
+    mod_versions row read 3.5.8. updateChecker compared the two as strings, so the world
+    reported an update of 3.5.8 -> "3.5.8" forever, and nothing ever rewrote the row: the
+    package was later delisted, so no sync touched it again. Stripping at parse time keeps
+    the two tables comparable; dbUpdate_2.58.sh repairs rows already stored that way.
+    """
+    if v is None:
+        return None
+    s = str(v).strip()
+    while len(s) >= 2 and s[0] == s[-1] and s[0] in ('"', "'"):
+        s = s[1:-1].strip()
+    return s or None
+
+
 def hash_row(values):
     h = hashlib.md5()
     for v in values:
@@ -539,13 +557,13 @@ def build(source, pkgs):
             "is_pinned": 1 if p.get("is_pinned") else 0,
             "categories": json.dumps(p.get("categories") or [], sort_keys=True),
             "version_count": len(vers),
-            "latest_version": vers[0].get("version_number") if vers else None,
+            "latest_version": clean_version(vers[0].get("version_number")) if vers else None,
         }
         m["content_hash"] = hash_row([m[f] for f in MOD_HASH_FIELDS])
         mods[(owner, name)] = m
 
         for rank, v in enumerate(vers):
-            ver = v.get("version_number")
+            ver = clean_version(v.get("version_number"))
             if not ver:
                 continue
             d = {
@@ -800,11 +818,31 @@ def resolve_deps(run, scope_version_ids=None, catalogue_moved=False):
         for c in chunks(sorted(str(t) for t in touched), 1000):
             sql("DELETE FROM mod_deps WHERE version_id IN (" + ",".join(c) + ");")
 
+    # Progress THROUGH the write, not just at its start. A forced sync spends 90% of its
+    # wall time here (40 of 45 seconds on a 290k-edge rebuild, 2026-10-23) and used to report
+    # one waypoint -- "resolving deps", 80% -- at the top and nothing more until the run
+    # finished, so the panel's bar sat at 80 for the whole of the real work and the log pane
+    # showed no line for forty seconds. Every batch now carries the run's phase_pct in the
+    # SAME mysql invocation as its INSERT (no extra process per batch), and a log line lands
+    # every few seconds so the pane moves too. 80..98: finish() writes the 100.
+    total = len(tup)
+    if total and run is not None and not run.dry and run.id:
+        log(f"dependency graph: writing {total:,} edge(s) across all catalogues")
+    written = 0
+    last_line = time.time()
     for c in chunks(tup, BATCH):
-        sql("INSERT INTO mod_deps (version_id,dep_string,dep_mod_id,dep_version,dep_version_id) "
-            "VALUES " + ",".join(c) +
-            " ON DUPLICATE KEY UPDATE dep_mod_id=VALUES(dep_mod_id),"
-            "dep_version=VALUES(dep_version),dep_version_id=VALUES(dep_version_id);")
+        stmts = ["INSERT INTO mod_deps (version_id,dep_string,dep_mod_id,dep_version,dep_version_id) "
+                 "VALUES " + ",".join(c) +
+                 " ON DUPLICATE KEY UPDATE dep_mod_id=VALUES(dep_mod_id),"
+                 "dep_version=VALUES(dep_version),dep_version_id=VALUES(dep_version_id);"]
+        written += len(c)
+        pct = 80 + int(18 * written / total) if total else 98
+        if run is not None and not run.dry and run.id:
+            stmts.append(f"UPDATE mod_sync_runs SET phase_pct={min(pct, 98)} WHERE id={run.id};")
+        sql(stmts)
+        if run is not None and total > BATCH and (time.time() - last_line) >= 3:
+            log(f"dependency graph: {written:,} of {total:,} edge(s) written")
+            last_line = time.time()
 
     # Worded as CATALOGUE-WIDE on purpose. The dependency graph is shared and resolved across
     # sources, so these totals are not "this source's" numbers -- and because this runs inside

@@ -16,7 +16,11 @@
 const { chromium } = require('playwright');
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8081';
-const SENTINEL_WORLD = 'test2';
+// The end-to-end case needs a world that is ENFORCED (citizens.public 0) with an EMPTY list.
+// It used to be hardcoded to 'test2'; that world picked up a citizen from another test on the
+// shared dev volume (2026-10-22) and the case failed for a fixture reason while the page was
+// right. Chosen from the live API instead, by the same two fields the predicate reads.
+let SENTINEL_WORLD = null;
 
 let pass = 0, fail = 0;
 const check = (name, ok, detail) => {
@@ -66,6 +70,24 @@ const check = (name, ok, detail) => {
     // That renders the tab panes switchSettingsTab() needs, and it also tests the WIRING --
     // that opening Settings actually consults the predicate. Calling the predicate by hand
     // would pass even if showSettingsModal() never called it.
+    SENTINEL_WORLD = await page.evaluate(async () => {
+        const d = await (await fetch('adminAPI.php?action=getWorlds')).json();
+        const list = d.worlds || d;
+        for (const w of (Array.isArray(list) ? list : [])) {
+            const name = w.name || w;
+            const c = await (await fetch('adminAPI.php?action=getCitizens&world=' + encodeURIComponent(name))).json();
+            if (c && c.success && String(c.public) !== '1' && (!c.citizens || c.citizens.trim() === '')) return name;
+        }
+        return null;
+    });
+    if (!SENTINEL_WORLD) {
+        console.log('\nEnd to end: NO enforced-but-empty world on this server -- the wiring case cannot run.');
+        console.log('  (make one: a world with Use Access List on and no citizens; the create path refuses that, so it must be an older world)');
+        fail++;
+        await browser.close();
+        console.log(`\n${pass} passed, ${fail} failed`);
+        process.exit(1);
+    }
     console.log(`\nEnd to end: opening Settings on an enforced-but-empty world ("${SENTINEL_WORLD}")`);
     const opened = await page.evaluate(async (w) => {
         await showSettingsModal(w);

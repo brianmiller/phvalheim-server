@@ -77,11 +77,15 @@ out=$(docker exec "$C" bash -c '
   /opt/stateless/engine/tools/sql "UPDATE settings SET analyticsEnabled=1" >/dev/null 2>&1
   rm -f /tmp/phvalheim_analytics_payload.json
   cp /opt/stateless/engine/tools/pushAnalytics.sh /tmp/_pa.sh
-  sed -i "s|^http_code=\$(curl|exit 0 # &|" /tmp/_pa.sh
+  # The payload lives at a mktemp path the EXIT trap removes (deliberate: a fixed /tmp path wedged
+  # later runs). Copy it out at the moment the POST would have happened, then exit.
+  sed -i "s|^http_code=\$(curl|cp \"\$payload_file\" /tmp/phvalheim_analytics_payload.json; exit 0 # &|" /tmp/_pa.sh
   bash /tmp/_pa.sh 2>&1 | tail -5
   echo "---PAYLOAD---"
-  head -c 400 /tmp/phvalheim_analytics_payload.json 2>/dev/null
-  rm -f /tmp/_pa.sh
+  # Facts about the WHOLE file, not a 400-byte head: "worlds" sits after the system block, so
+  # grepping a truncated head for it read as "not JSON" on a correct payload (2026-10-22).
+  jq -c "{worlds_type:(.worlds|type), nested:((.worlds|type)==\"array\" and (.worlds|length)>0 and (.worlds[0]|type)==\"array\")}" /tmp/phvalheim_analytics_payload.json 2>/dev/null || echo INVALID-JSON
+  rm -f /tmp/_pa.sh /tmp/phvalheim_analytics_payload.json
   # restore, whatever happened above
   if [ -n "$orig" ]; then /opt/stateless/engine/tools/sql "UPDATE settings SET analyticsEnabled=$orig" >/dev/null 2>&1; fi' 2>&1)
 
@@ -94,9 +98,9 @@ check "no 'Failed to build analytics payload'" \
 payload=$(echo "$out" | sed -n '/---PAYLOAD---/,$p' | tail -n +2)
 check "a payload file was written" "$([ -n "$payload" ] && echo 1 || echo 0)"
 check "it is JSON with a worlds array" \
-	"$(echo "$payload" | grep -q '"worlds"' && echo 1 || echo 0)" "got: $(echo "$payload" | head -c 120)"
+	"$(echo "$payload" | grep -q '"worlds_type":"array"' && echo 1 || echo 0)" "got: $(echo "$payload" | head -c 120)"
 check "worlds is an ARRAY, not a nested array (the slurpfile [0] trap)" \
-	"$(echo "$payload" | grep -q '"worlds":\[\[' && echo 0 || echo 1)" \
+	"$(echo "$payload" | grep -q '"nested":true' && echo 0 || echo 1)" \
 	'--slurpfile wraps the file value in an array; missing $worlds[0] double-wraps it'
 
 echo ""

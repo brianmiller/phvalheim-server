@@ -101,7 +101,7 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
     // player_count / update_* travel with the world row because BOTH the server-rendered
     // table and the 5-second poll's JS template draw them. Adding them to only one reader
     // means the count appears on load and vanishes at the first refresh.
-    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state, update_phase FROM worlds ORDER BY name");
+    $stmt = $pdo->query("SELECT status, mode, name, port, external_endpoint, seed, autostart, beta, date_updated, IFNULL(vanilla,0) AS vanilla, password, IFNULL(player_count,0) AS player_count, player_count_at, IFNULL(player_count_source,'none') AS player_count_source, IFNULL(update_available_game,0) AS update_available_game, IFNULL(update_available_mods,0) AS update_available_mods, IFNULL(update_state,'idle') AS update_state, update_phase, IFNULL(update_mods_list,'') AS update_mods_list FROM worlds ORDER BY name");
     $worlds = [];
 
     foreach ($stmt as $row) {
@@ -161,7 +161,20 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
             'restartPending' => array_merge(
                 worldRestartPending($pdo, $row['name'], $isRunning),
                 modConfigPendingLabels($pdo, $row['name'], $isRunning)),
-            'dateUpdated' => $row['date_updated']
+            'dateUpdated' => $row['date_updated'],
+            // The comment at the top of this function promised these travel with the row,
+            // and the SELECT fetched them -- but this literal never copied them, so the
+            // server-rendered PLAYERS/UPDATE items (and, in 2.58, the pill count and the
+            // Settings badge) were empty on every page load and only appeared when the 5s
+            // poll's JSON arrived. Found by a test that read the served HTML instead of the
+            // page after a poll (2026-10-23).
+            'player_count' => (int)$row['player_count'],
+            'player_count_at' => $row['player_count_at'],
+            'player_count_source' => $row['player_count_source'],
+            'update_available_game' => (int)$row['update_available_game'],
+            'update_available_mods' => (int)$row['update_available_mods'],
+            'update_state' => $row['update_state'],
+            'update_mods_list' => (string)($row['update_mods_list'] ?? ''),
         ];
     }
 
@@ -537,6 +550,49 @@ $totalCount = count($worlds);
                         }
                         return $world['mode'];
                     }
+
+                    // 2.58: the player count rides in the Status pill and an available update rides
+                    // on the Settings button (its tab lives there), so the Resources cell holds the
+                    // two readouts that ARE resources -- memory and tick health -- and a running row
+                    // is the same height as a stopped one. PLAYERS and UPDATE used to be a third and
+                    // fourth stacked item there: 82px and 105px rows next to 60px stopped ones, and
+                    // the table reflowed on every start and stop. Measured 2026-10-23, 1500px wide.
+                    // The JS twins (playersPillHtml / updateBadgeHtml below the row template) must
+                    // stay in step: the 5-second poll replaces every row.
+                    function playersPillHtml($world) {
+                        // RUNNING only. A world mid-update sits in the online section with its last
+                        // observation still on the row, and the pill showed that count under an
+                        // "Updating" label (the maintainer, 2026-10-23). The count means nothing
+                        // unless the server is up.
+                        if (($world['mode'] ?? '') !== 'running') return '';
+                        $pcAt = $world['player_count_at'] ?? null;
+                        if (!$pcAt) return '';
+                        // The count is the dedicated server's own roster, written by the PhValheim
+                        // Companion and read by playerMonitor every two minutes. The title says where it
+                        // came from and when, so a two-minute-old figure is never mistaken for live.
+                        $n = (int)$world['player_count'];
+                        $title = $n . ' player' . ($n === 1 ? '' : 's') . ' online. Reported by the PhValheim Companion running on this world\'s server. Last read ' . htmlspecialchars($pcAt) . ' (source: ' . htmlspecialchars($world['player_count_source'] ?? 'none') . '); refreshed every two minutes.';
+                        return '<span class="status-players world-players-value" title="' . $title . '" aria-label="' . $n . ' players online">' . PHV_PLAYER_GLYPH . $n . '</span>';
+                    }
+                    // The glyph that marks the pill's number as a PLAYER count (2.58): "Running · 0" said
+                    // nothing about what the 0 was. One literal, used by the PHP render and its JS twin.
+                    if (!defined('PHV_PLAYER_GLYPH')) define('PHV_PLAYER_GLYPH', '<svg class="status-players-glyph" viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><circle cx="8" cy="4.5" r="3" fill="currentColor"/><path d="M2 14.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5z" fill="currentColor"/></svg>');
+                    function updateBadgeHtml($world) {
+                        $game = !empty($world['update_available_game']) ? 1 : 0;
+                        $mods = (int)($world['update_available_mods'] ?? 0);
+                        if (!$game && !$mods) return '';
+                        $what = [];
+                        if ($game) $what[] = 'Valheim server';
+                        if ($mods) $what[] = $mods . ' mod' . ($mods === 1 ? '' : 's');
+                        $state = (($world['update_state'] ?? '') === 'pending') ? 'Update pending' : 'Update available';
+                        // The mods by name (2.58): a bare "1" told the operator nothing about WHICH
+                        // mod. updateChecker.py writes one "name installed -> available" per line.
+                        $list = trim((string)($world['update_mods_list'] ?? ''));
+                        $title = $state . ': ' . implode(', ', $what) . '.'
+                            . ($list !== '' ? "\n" . htmlspecialchars($list, ENT_QUOTES) : '')
+                            . "\nOpen Settings &rarr; Updates for this world.";
+                        return '<span class="update-badge" title="' . $title . '">' . ($game + $mods) . '</span>';
+                    }
                     ?>
                     <div class="table-responsive">
                         <table class="worlds-table" id="worldsTable">
@@ -573,7 +629,7 @@ $totalCount = count($worlds);
                                         <td>
                                             <span class="status-badge <?php echo $effMode; ?>">
                                                 <span class="status-dot"></span>
-                                                <?php echo $modeDisplay; ?>
+                                                <?php echo $modeDisplay; ?><?php echo playersPillHtml($world); ?>
                                             </span>
                                             <?php if ($world['beta']): ?>
                                             <span class="status-badge" style="background: rgba(248,113,113,0.15); color: var(--danger); margin-left: 0.25rem;">BETA</span>
@@ -676,8 +732,16 @@ $totalCount = count($worlds);
                                                 <?php else: ?>
                                                 <a href="#" onclick="showModsHub('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn primary" data-action="mods">Mods <span class="mods-count-badge"><?php echo $world['modCount']; ?></span></a>
                                                 <?php endif; ?>
+                                                <?php /* 2.58: a RUNNING world can be updated from here. The engine has stopped,
+                                                   updated and restarted a running world since 2.55; the row just never offered it.
+                                                   The click opens a modal that says so (showUpdateWorldModal). In-flight modes
+                                                   keep the button off. Keep in step with the JS twins (two templates + updateWorldRow). */ ?>
+                                                <?php if ($world['mode'] === 'running'): ?>
+                                                <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="update">Update</a>
+                                                <?php else: ?>
                                                 <span class="action-btn disabled" data-action="update">Update</span>
-                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
+                                                <?php endif; ?>
+                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings<?php echo updateBadgeHtml($world); ?></a>
                                                 <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
                                                 <span class="action-btn disabled" data-action="delete">Delete</span>
                                             </div>
@@ -698,25 +762,7 @@ $totalCount = count($worlds);
                                                     <span class="resource-value world-load-value">—</span>
                                                 </div>
                                                 <?php endif; ?>
-                                                <?php
-                                                // Approximate by construction: read from the world log, so it can lag
-                                                // a disconnect. The title says so rather than the row implying a live
-                                                // figure, and an unobserved world shows a dash instead of a confident 0.
-                                                $pcAt = $world['player_count_at'] ?? null;
-                                                $pcTitle = $pcAt
-                                                    ? 'Approximate. Last seen ' . htmlspecialchars($pcAt) . ' (source: ' . htmlspecialchars($world['player_count_source'] ?? 'none') . '). Valheim provides no live player count, so this is read from the world log and can lag a disconnect by up to ten minutes.'
-                                                    : 'No player count observed yet for this world.';
-                                                ?>
-                                                <div class="world-resource-item">
-                                                    <span class="resource-label">PLAYERS</span>
-                                                    <span class="resource-value world-players-value" title="<?php echo $pcTitle; ?>"><?php echo $pcAt ? (int)$world['player_count'] : '—'; ?></span>
-                                                </div>
-                                                <?php if (!empty($world['update_available_game']) || !empty($world['update_available_mods'])): ?>
-                                                <div class="world-resource-item">
-                                                    <span class="resource-label">UPDATE</span>
-                                                    <span class="resource-value" style="color:var(--warning)" title="An update is available. Open Settings &rarr; Updates for this world."><?php echo $world['update_state'] === 'pending' ? 'pending' : 'available'; ?></span>
-                                                </div>
-                                                <?php endif; ?>
+                                                <?php /* players: in the Status pill; an update: on the Settings button (2.58) */ ?>
                                             </div>
                                         </td>
                                     </tr>
@@ -787,7 +833,7 @@ $totalCount = count($worlds);
                                                 <a href="#" onclick="showModsHub('<?php echo htmlspecialchars($world['name'], ENT_QUOTES); ?>'); return false;" class="action-btn primary" data-action="mods">Mods <span class="mods-count-badge"><?php echo $world['modCount']; ?></span></a>
                                                 <?php endif; ?>
                                                 <a href="?update_world=<?php echo urlencode($world['name']); ?>" class="action-btn" data-action="update">Update</a>
-                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings</a>
+                                                <a href="#" onclick="showSettingsModal('<?php echo htmlspecialchars($world['name']); ?>'); return false;" class="action-btn" data-action="settings">Settings<?php echo updateBadgeHtml($world); ?></a>
                                                 <a href="#" onclick="window.open('world_logs.php?world=<?php echo urlencode($world['name']); ?>','worldLogs_<?php echo preg_replace('/[^A-Za-z0-9_]/', '_', $world['name']); ?>','resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>
                                                 <a href="?delete_world=<?php echo urlencode($world['name']); ?>" class="action-btn danger" data-action="delete">Delete</a>
                                             </div>
@@ -1697,6 +1743,26 @@ $totalCount = count($worlds);
     </div>
 
     <!-- Server Health Modal (2.56): every check, including the ones that are OK -->
+    <!-- Update a world (2.58): what will happen, then the engine's own event stream while it does. -->
+    <div class="mods-modal-overlay" id="updateWorldOverlay" onclick="closeUpdateWorldModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 640px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title" id="uwTitle">Update world</h3>
+                <button class="mods-modal-close" onclick="closeUpdateWorldModal()">&times;</button>
+            </div>
+            <div class="mods-modal-body uw-body" id="uwBody"></div>
+        </div>
+    </div>
+    <!-- Delete a world (2.58): what goes, and the name typed back before the button works. -->
+    <div class="mods-modal-overlay" id="deleteWorldOverlay" onclick="closeDeleteWorldModal(event)">
+        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 560px;">
+            <div class="mods-modal-header">
+                <h3 class="mods-modal-title" id="dwTitle">Delete world</h3>
+                <button class="mods-modal-close" onclick="closeDeleteWorldModal()">&times;</button>
+            </div>
+            <div class="mods-modal-body uw-body" id="dwBody"></div>
+        </div>
+    </div>
     <div class="mods-modal-overlay" id="serverHealthOverlay" onclick="closeServerHealthModal(event)">
         <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 760px;">
             <div class="mods-modal-header">
@@ -2226,13 +2292,22 @@ $totalCount = count($worlds);
         if (badge) {
             const effMode = effectiveWorldMode(world);
             badge.className = `status-badge ${effMode}`;
-            badge.innerHTML = `<span class="status-dot"></span>${getModeDisplayText(effMode)}`;
+            badge.innerHTML = `<span class="status-dot"></span>${getModeDisplayText(effMode)}${row.getAttribute('data-section') === 'online' ? playersPillHtml(world) : ''}`;
         }
 
         // Update mod count badge
         const modCountBadge = row.querySelector('.mods-count-badge');
         if (modCountBadge) {
             modCountBadge.textContent = world.modCount;
+        }
+
+        // 2.58: the update badge on Settings follows the poll too, or a badge the PHP rendered
+        // would outlive the update it announced, and one that appeared mid-session never show.
+        const settingsBtn = row.querySelector('[data-action="settings"]');
+        if (settingsBtn) {
+            const oldBadge = settingsBtn.querySelector('.update-badge');
+            if (oldBadge) oldBadge.remove();
+            settingsBtn.insertAdjacentHTML('beforeend', updateBadgeHtml(world));
         }
 
         updateRestartPendingBadge(row, world);
@@ -2347,6 +2422,33 @@ $totalCount = count($worlds);
     // its own case: running and stopped both reach the hub, every transitional mode does not.
     // Mid-update there is nothing coherent to show or change -- the mod list is being rewritten
     // and there is nothing to repackage -- so the button is disabled rather than lying.
+    // 2.58 twins of the PHP playersPillHtml() / updateBadgeHtml() above the table. Three render
+    // sites share them: the online template, the Settings button, and updateWorldRow() -- which
+    // rewrites the pill and the button on every poll, so a count or badge the PHP rendered would
+    // otherwise be wiped by the first tick (the 5s poll clobbers markup: a known trap here).
+    const PLAYER_GLYPH = <?php echo json_encode(PHV_PLAYER_GLYPH); ?>;   // the PHP twin's literal
+    function playersPillHtml(world) {
+        if (world.mode !== 'running') return '';   // see the PHP twin: running only
+        if (!world.player_count_at) return '';
+        const n = parseInt(world.player_count, 10) || 0;
+        const title = `${n} player${n === 1 ? '' : 's'} online. Reported by the PhValheim Companion running on this world's server. Last read ${escapeAttr(String(world.player_count_at))} (source: ${escapeAttr(String(world.player_count_source || 'none'))}); refreshed every two minutes.`;
+        return `<span class="status-players world-players-value" title="${title}" aria-label="${n} players online">${PLAYER_GLYPH}${n}</span>`;
+    }
+    function updateBadgeHtml(world) {
+        const game = world.update_available_game ? 1 : 0;
+        const mods = parseInt(world.update_available_mods, 10) || 0;
+        if (!game && !mods) return '';
+        const what = [];
+        if (game) what.push('Valheim server');
+        if (mods) what.push(`${mods} mod${mods === 1 ? '' : 's'}`);
+        const state = world.update_state === 'pending' ? 'Update pending' : 'Update available';
+        const list = String(world.update_mods_list || '').trim();
+        const title = `${state}: ${what.join(', ')}.`
+            + (list ? '&#10;' + escapeAttr(list).replace(/\n/g, '&#10;') : '')
+            + '&#10;Open Settings &rarr; Updates for this world.';
+        return `<span class="update-badge" title="${title}">${game + mods}</span>`;
+    }
+
     function modsButtonHtml(world, reachable) {
         if (world.vanilla) {
             return `<span class="action-btn disabled" data-action="mods" title="This is a vanilla world — it runs no mods. Turn off &quot;Vanilla world&quot; in Settings to add mods.">Mods</span>`;
@@ -2406,7 +2508,7 @@ $totalCount = count($worlds);
         // sat behind a "..." menu on every stopped world. Keep this in step with the two PHP
         // render sites above: the server renders the row once and this replaces it in 5s.
         const logsHtml = `<a href="#" onclick="window.open('world_logs.php?world=${encodeURIComponent(world.name)}','worldLogs_' + world.name.replace(/[^A-Za-z0-9_]/g, '_'),'resizable,height=820,width=1500'); return false;" class="action-btn" data-action="logs" title="PhValheim's activity on this world and the Valheim log">Logs</a>`;
-        const settingsHtml = `<a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings</a>`;
+        const settingsHtml = `<a href="#" onclick="showSettingsModal('${world.name}'); return false;" class="action-btn" data-action="settings">Settings${updateBadgeHtml(world)}</a>`;
         let actionsHtml;
         if (world.mode === 'running') {
             actionsHtml = `
@@ -2414,7 +2516,7 @@ $totalCount = count($worlds);
                 <span class="action-btn disabled" data-action="start">Start</span>
                 <a href="?stop_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="stop">Stop</a>
                 ${modsButtonHtml(world, true)}
-                <span class="action-btn disabled" data-action="update">Update</span>
+                <a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>
                 ${settingsHtml}
                 ${logsHtml}
                 <span class="action-btn disabled" data-action="delete">Delete</span>`;
@@ -2444,7 +2546,7 @@ $totalCount = count($worlds);
             <td>
                 <span class="status-badge ${effectiveWorldMode(world)}">
                     <span class="status-dot"></span>
-                    ${getModeDisplayText(effectiveWorldMode(world))}
+                    ${getModeDisplayText(effectiveWorldMode(world))}${isOnline ? playersPillHtml(world) : ''}
                 </span>
                 ${betaBadge}
             </td>
@@ -2465,17 +2567,7 @@ $totalCount = count($worlds);
                         </div>
                         <span class="resource-value world-load-value">—</span>
                     </div>`}
-                    <div class="world-resource-item">
-                        <span class="resource-label">PLAYERS</span>
-                        <span class="resource-value world-players-value" title="${world.player_count_at
-                            ? `Approximate. Last seen ${world.player_count_at} (source: ${world.player_count_source}). Valheim provides no live player count, so this is read from the world log and can lag a disconnect by up to ten minutes.`
-                            : 'No player count observed yet for this world.'}">${world.player_count_at ? world.player_count : '—'}</span>
-                    </div>
-                    ${(world.update_available_game || world.update_available_mods) ? `
-                    <div class="world-resource-item">
-                        <span class="resource-label">UPDATE</span>
-                        <span class="resource-value" style="color:var(--warning)" title="An update is available. Open Settings &rarr; Updates for this world.">${world.update_state === 'pending' ? 'pending' : 'available'}</span>
-                    </div>` : ''}
+                    ${'' /* players: in the Status pill; an update: on the Settings button (2.58) */}
                 </div>
             </td>`;
 
@@ -2577,11 +2669,16 @@ $totalCount = count($worlds);
         const deleteBtn = findBtn('delete');
 
         if (updateBtn && deleteBtn) {
-            if (world.mode === 'stopped') {
+            // Update: stopped OR running (2.58; the engine restarts a running world it updated).
+            // Delete: stopped only.
+            if (world.mode === 'stopped' || world.mode === 'running') {
                 updateBtn.outerHTML = `<a href="?update_world=${encodeURIComponent(world.name)}" class="action-btn" data-action="update">Update</a>`;
-                deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
             } else {
                 updateBtn.outerHTML = `<span class="action-btn disabled" data-action="update">Update</span>`;
+            }
+            if (world.mode === 'stopped') {
+                deleteBtn.outerHTML = `<a href="?delete_world=${encodeURIComponent(world.name)}" class="action-btn danger" data-action="delete">Delete</a>`;
+            } else {
                 deleteBtn.outerHTML = `<span class="action-btn disabled" data-action="delete">Delete</span>`;
             }
         }
@@ -3645,6 +3742,16 @@ $totalCount = count($worlds);
         return `<div style="margin-top:0.25rem;">${bars}</div>`;
     }
 
+    // The mods an update would change, by name (2.58). updateChecker.py writes one
+    // "name installed -> available" per line into worlds.update_mods_list.
+    function modUpdateListHtml(s) {
+        const list = String(s.update_mods_list || '').trim();
+        if (!list) return '';
+        return '<div style="font-size:0.78rem;color:var(--text-muted);margin-top:0.15rem;line-height:1.5;">'
+            + list.split('\n').map(l => escapeHtmlBasic(l).replace(' -> ', ' &rarr; ')).join('<br>')
+            + '</div>';
+    }
+
     function renderUpdateStatus(s, mods, worldName) {
         const el = document.getElementById('au-status');
         if (!el) return;
@@ -3665,18 +3772,28 @@ $totalCount = count($worlds);
                 + '</div>']);
         }
 
-        // Player count. Deliberately never says "empty" -- the count is parsed out of the
-        // world log and can lag a disconnect, so the honest phrasing is what was last seen
-        // and when. Saying "empty" would be a claim the data cannot support.
+        // Player count. The Companion on the world's server writes its roster every few seconds
+        // and playerMonitor reads it every two minutes, so the honest phrasing is the figure, when
+        // it was read, and where it came from -- never "empty" as if it were live.
         let players;
-        if (!s.player_count_at) {
+        if (parseInt(s.vanilla, 10) === 1) {
+            // A vanilla world runs no Companion, so nothing can count its players. Say what
+            // that means for automatic updates and what to do instead, right here where the
+            // operator is looking (2.58).
+            players = '<span style="color:var(--text-muted)">not available on a vanilla world</span>'
+                    + '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;line-height:1.5;">'
+                    + 'A vanilla world runs no PhValheim Companion, so its players cannot be counted and it is never seen as '
+                    + 'quiet. To update it automatically, give it a <b>maintenance window</b> below and set '
+                    + '&ldquo;If players never leave&rdquo; to <b>Update anyway</b>: it is then updated on that schedule.'
+                    + '</div>';
+        } else if (!s.player_count_at) {
             players = '<span style="color:var(--text-muted)">not yet observed</span>';
         } else {
             const n = parseInt(s.player_count, 10) || 0;
             players = `<b>${n}</b> at last check (${escapeHtmlBasic(s.player_count_at)})`
                     + `<span style="color:var(--text-muted)"> &middot; from ${escapeHtmlBasic(s.player_count_source || 'none')}</span>`;
         }
-        rows.push(['Players', players + ' <span style="color:var(--text-muted)">&middot; approximate</span>']);
+        rows.push(['Players', players]);
 
         // NOTHING on this panel goes green unless a check actually produced that answer.
         //
@@ -3737,12 +3854,12 @@ $totalCount = count($worlds);
                 // out of date is out of date, and the note explains what is missing beside
                 // it rather than suppressing the part we do know.
                 const seen = modCount > 0
-                    ? `<div style="color:var(--warning);font-size:0.78rem;margin-top:0.15rem;">${modCount} of the mods we can compare can be updated.</div>`
+                    ? `<div style="color:var(--warning);font-size:0.78rem;margin-top:0.15rem;">${modCount} of the mods we can compare can be updated.</div>${modUpdateListHtml(s)}`
                     : '';
                 rows.push(waiting('Mods', escapeHtmlBasic(s.update_mods_error) + seen, rebuildAction));
             } else {
                 rows.push(['Mods', modCount > 0
-                    ? `<span style="color:var(--warning)">${modCount} can be updated</span>`
+                    ? `<span style="color:var(--warning)">${modCount} can be updated</span>${modUpdateListHtml(s)}`
                     : '<span style="color:var(--success)">up to date</span>']);
             }
         }
@@ -3773,6 +3890,9 @@ $totalCount = count($worlds);
                 stateText = s.update_pending_since
                     ? `<span style="color:var(--warning)">waiting for the world to go quiet</span> <span style="color:var(--text-muted)">(since ${escapeHtmlBasic(s.update_pending_since)})</span>`
                     : '<span style="color:var(--warning)">waiting for the world to go quiet</span>';
+                if (parseInt(s.vanilla, 10) === 1) {
+                    stateText += '<div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.15rem;">A vanilla world never reports quiet; it proceeds at its maximum wait, or in its window with &ldquo;Update anyway&rdquo;.</div>';
+                }
                 break;
             case 'updating': stateText = '<span style="color:var(--warning)">updating now</span>'; break;
             case 'failed':   stateText = '<span style="color:var(--danger)">last attempt failed</span>'; break;
@@ -5110,7 +5230,7 @@ $totalCount = count($worlds);
                                 <div class="pv-row-text">
                                     <span class="pv-row-label">Show players on the public page</span>
                                     <span class="pv-row-desc">Display how many people are on this world to anyone who can see its card. The admin UI always shows the count regardless of this setting.</span>
-                                    <span class="pv-row-desc">The number is read from the world&rsquo;s log on a best-effort basis &mdash; Valheim provides no live count &mdash; so it can lag a disconnect by up to ten minutes and is labelled approximate.</span>
+                                    <span class="pv-row-desc">The count is reported by the PhValheim Companion running on this world&rsquo;s server and refreshed every two minutes. A vanilla world runs no Companion and shows no count.</span>
                                 </div>
                                 <label class="switch pv-row-control">
                                     <input type="checkbox" id="opt-showPlayersPublic">
@@ -5239,20 +5359,17 @@ $totalCount = count($worlds);
                         </div>
 
                         <details style="margin-bottom:1rem;background:var(--bg-primary);border-radius:0.5rem;padding:0.75rem 1rem;">
-                            <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-secondary);user-select:none;">Per-World Update Settings <span style="background:rgba(248,113,113,0.15);color:var(--danger);font-size:0.6rem;padding:0.1rem 0.35rem;border-radius:3px;vertical-align:middle;font-weight:700;">BETA</span></summary>
+                            <summary style="cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--text-secondary);user-select:none;">Per-World Update Settings</summary>
                             <div style="margin-top:0.75rem;">
                                 <!-- The second of the two places auto-updates can be switched on, so it
-                                     carries the same warning as the Server Settings modal. An operator who
-                                     only ever opens this panel must not be the one who finds out the hard
-                                     way. See docs/BACKLOG.md for the Companion-based detection that would
-                                     let this badge come off. -->
-                                <div style="font-size:0.7rem;color:var(--danger);line-height:1.5;margin-bottom:0.75rem;">
-                                    <b>Beta, and off by default.</b> Valheim gives servers no reliable live
-                                    player count, so PhValheim reads one out of this world's log. A world is
-                                    only updated automatically once it has recently reported <b>zero</b>
-                                    players, which is deliberately cautious: a world whose count never clears
-                                    waits instead of restarting. Use &ldquo;If players never leave&rdquo; to
-                                    put a ceiling on that wait.
+                                     says the same as the Server Settings modal (2.58: the count is the
+                                     Companion's; a vanilla world has none and needs a schedule). -->
+                                <div style="font-size:0.7rem;color:var(--text-muted);line-height:1.5;margin-bottom:0.75rem;">
+                                    This world is updated automatically only once the PhValheim Companion on its
+                                    server has reported <b>zero</b> players for the Quiet For period. A world whose
+                                    count never clears waits instead of restarting; &ldquo;If players never leave&rdquo;
+                                    puts a ceiling on that wait. A vanilla world runs no Companion and is never seen
+                                    as quiet &mdash; give it a window and &ldquo;Update anyway&rdquo; instead.
                                 </div>
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
                                     <div>
@@ -5281,7 +5398,7 @@ $totalCount = count($worlds);
                                     </div>
                                     <div class="row mb-2">
                                         <div class="col-6">
-                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Quiet For (min) <span class="backup-info-icon" data-tip="How long a world must show no players before it is updated. Player counts are best-effort and can lag a disconnect by up to ten minutes, so short values are unreliable.">&#9432;</span></label>
+                                            <label style="font-size:0.75rem;color:var(--text-secondary)">Quiet For (min) <span class="backup-info-icon" data-tip="How long a world must show no players before it is updated. The count is refreshed every two minutes, so values under a few minutes are unreliable.">&#9432;</span></label>
                                             <input type="number" min="5" max="1440" class="form-control form-control-sm" id="au-idleMinutes" value="30" style="font-family:var(--font-mono)">
                                         </div>
                                         <div class="col-6">
@@ -5787,6 +5904,11 @@ $totalCount = count($worlds);
         // Running: phase + progress. The bar is driven by the engine's own phase_pct
         // rather than a spinner, so a stuck phase is visible as a stuck number.
         if (live) {
+            // The log pane belongs here as much as in the idle block below. Until 2.58 only
+            // the idle markup carried it, so the pane VANISHED for the whole of every sync --
+            // the one time an operator wants to read it -- and reappeared, complete, when the
+            // run finished. Measured in a real browser: 0 lines rendered for a 40-second run
+            // while the API served 8, then 53 the moment it ended.
             const pct = parseInt(live.phase_pct, 10) || 0;
             return `<div class="ms-src ms-src-live">
                 <div class="ms-head">${pill}
@@ -5799,6 +5921,7 @@ $totalCount = count($worlds);
                     <span>fetched</span><b>${fmtBytesMS(live.bytes_fetched)}</b>
                     <span>started</span><b>${live.started || ''}</b>
                 </div>
+                        ${logPaneHtml(src)}
             </div>`;
         }
 
@@ -5912,42 +6035,55 @@ $totalCount = count($worlds);
         return String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
     }
 
-    async function pollModSyncLog(src) {
+    // One poll in flight per source. The panel timer, the toggle handler and any caller of
+    // refreshModSyncPanel() all poll the same state; two overlapping polls with the same
+    // afterId appended the same lines twice (a 53-line run rendered as 83), and a run change
+    // inside one of them emptied the lines the other was about to render -- the pane read 0
+    // for the whole of a 40-second sync in a real browser (2026-10-22). A second caller now
+    // waits on the poll already running instead of starting its own.
+    const modSyncLogInflight = {};
+    function pollModSyncLog(src) {
         const st = modSyncLogState[src];
-        if (!st || !st.open) return false;
-        try {
-            // Deliberately WITHOUT runId: the server decides which run the panel should be
-            // showing (the one in flight, else the newest finished one). Pinning the request
-            // to the run we already know -- which the first version of this did -- means the
-            // pane latches onto whatever run it saw first and never follows a later sync. The
-            // symptom is a log that looks fine and quietly describes the wrong run.
-            const r = await fetch('adminAPI.php?action=getModSyncLog&source='
-                + encodeURIComponent(src) + '&afterId=' + (st.runId ? st.afterId : 0));
-            const d = await r.json();
-            if (!d.success) return false;
-
-            if (st.runId !== d.runId) {
-                // A different run: start its log from scratch. Appending would splice two
-                // syncs into one impossibly long one.
-                st.runId = d.runId;
-                st.lines = [];
-                st.afterId = 0;
-                const again = await fetch('adminAPI.php?action=getModSyncLog&source='
-                    + encodeURIComponent(src) + '&afterId=0&runId=' + d.runId);
-                const d2 = await again.json();
-                if (d2.success) { st.lines = d2.lines; st.afterId = d2.lastId; }
-            } else if (d.lines.length) {
-                st.lines = st.lines.concat(d.lines);
-                st.afterId = d.lastId;
+        if (!st || !st.open) return Promise.resolve(false);
+        if (modSyncLogInflight[src]) return modSyncLogInflight[src];
+        modSyncLogInflight[src] = (async () => {
+            try {
+                // Deliberately WITHOUT runId: the server decides which run the panel should be
+                // showing (the one in flight, else the newest finished one). Pinning the request
+                // to the run we already know -- which the first version of this did -- means the
+                // pane latches onto whatever run it saw first and never follows a later sync. The
+                // symptom is a log that looks fine and quietly describes the wrong run.
+                const r = await fetch('adminAPI.php?action=getModSyncLog&source='
+                    + encodeURIComponent(src) + '&afterId=' + (st.runId ? st.afterId : 0));
+                const d = await r.json();
+                if (!d.success) return false;
+                if (st.runId !== d.runId) {
+                    // A different run: fetch its log from the start and swap it in WHOLE.
+                    // Appending would splice two syncs into one impossibly long one; resetting
+                    // the lines first and filling them after the second fetch (the previous
+                    // shape) left nothing to render for a round-trip.
+                    const again = await fetch('adminAPI.php?action=getModSyncLog&source='
+                        + encodeURIComponent(src) + '&afterId=0&runId=' + d.runId);
+                    const d2 = await again.json();
+                    if (!d2.success) return !!d.running;
+                    st.runId = d.runId;
+                    st.lines = d2.lines;
+                    st.afterId = d2.lastId;
+                } else if (d.lines.length) {
+                    st.lines = st.lines.concat(d.lines);
+                    st.afterId = d.lastId;
+                }
+                renderModSyncLogLines(src);
+                return !!d.running;
+            } catch (e) {
+                console.error('mod sync log', e);
+                return false;
+            } finally {
+                delete modSyncLogInflight[src];
             }
-            renderModSyncLogLines(src);
-            return !!d.running;
-        } catch (e) {
-            console.error('mod sync log', e);
-            return false;
-        }
+        })();
+        return modSyncLogInflight[src];
     }
-
     // Delegated: the panel is re-rendered on every status refresh, so handlers bound to the
     // buttons themselves would be lost on the first repaint.
     document.addEventListener('click', function (ev) {
@@ -6018,13 +6154,22 @@ $totalCount = count($worlds);
                 <b>${fmtBytesMS(c.bytes)}</b>
                 <span class="ms-prev">${c.dir || ''}</span></div>`;
             el.innerHTML = html;
-
-            // Pull each open log pane forward in the same cycle. Only open panes are
-            // fetched, so a collapsed one costs nothing.
+            // The repaint above rendered every log pane EMPTY (logPaneHtml), and until 2.58 the
+            // lines came back only when the un-awaited poll below returned: one fetch round-trip
+            // of blank pane on every status refresh, a blink every two seconds while a sync ran,
+            // and a pane left reading "no log lines" if that fetch was slow or failed. Measured
+            // in a real browser: 53 lines, 0 immediately after refresh, 53 again 400 ms later.
+            // Re-render each open pane from the lines it already holds FIRST -- synchronous, no
+            // network -- then pull it forward, and await the pulls so a caller that refreshes
+            // (the sync-log test, a future button) sees current lines when this resolves.
+            const pulls = [];
             (d.sources || []).forEach(def => {
                 const st = modSyncLogState[def.key];
-                if (st && st.open) pollModSyncLog(def.key);
+                if (!st || !st.open) return;
+                renderModSyncLogLines(def.key);
+                pulls.push(pollModSyncLog(def.key));
             });
+            await Promise.all(pulls);
         } catch (e) {
             // Leave the last good render in place; blanking the panel on a transient
             // fetch failure reads as "the sync data is gone".
@@ -6238,7 +6383,10 @@ $totalCount = count($worlds);
 
         e.preventDefault();
 
-        if (matched.cmd === 'delete' && !confirm('Are you sure you want to delete this world?')) return;
+        // Update and Delete are decided in a modal that says what will happen (2.58); the
+        // modal sends the command itself. Start and Stop are sent straight away, as before.
+        if (matched.cmd === 'delete') { showDeleteWorldModal(matched.world); return; }
+        if (matched.cmd === 'update') { showUpdateWorldModal(matched.world); return; }
 
         fetch(`adminAPI.php?action=worldAction&cmd=${matched.cmd}&world=${encodeURIComponent(matched.world)}`)
             .then(r => r.json())
@@ -6479,6 +6627,195 @@ $totalCount = count($worlds);
             }
         }
     }
+    // ===== Update / Delete modals (2.58) =====
+    // The dashboard used to send Update to a stopped world with no word about what it did,
+    // refused Update on a RUNNING world altogether (the engine has stopped, updated and
+    // restarted one since 2.55 -- the row just never offered it), and put Delete behind the
+    // browser's confirm(). Both commands now go through a modal that says what will happen;
+    // Update then shows the engine's own event stream for the world while it works. Closing
+    // the modal never stops the command: it is the engine's, not the page's, and the world's
+    // Logs button shows the same stream.
+    let uwTimer = null, uwState = null, dwWorld = null;
+
+    async function fetchWorldRow(worldName) {
+        try {
+            const r = await fetch('adminAPI.php?action=getWorlds', { cache: 'no-store' });
+            const d = await r.json();
+            return ((d.success && d.worlds) || []).find(w => w.name === worldName) || null;
+        } catch (e) { return null; }
+    }
+    function uwEsc(s) { return escapeHtmlBasic(String(s == null ? '' : s)); }
+
+    async function showUpdateWorldModal(worldName) {
+        if (uwTimer) { clearInterval(uwTimer); uwTimer = null; }
+        const overlay = document.getElementById('updateWorldOverlay');
+        const body = document.getElementById('uwBody');
+        document.getElementById('uwTitle').textContent = 'Update ' + worldName;
+        body.innerHTML = '<div style="padding:1.5rem;color:var(--text-muted);text-align:center;">Checking the world&hellip;</div>';
+        overlay.classList.add('show');
+        const w = await fetchWorldRow(worldName);
+        if (!w) { body.innerHTML = '<div class="uw-warn">Could not read the world&rsquo;s state. Close this and try again.</div>'; return; }
+        const running = w.mode === 'running';
+        // A count only while running and only if the Companion has reported one (null = unknown).
+        const players = running && w.player_count_at ? (parseInt(w.player_count, 10) || 0) : null;
+        uwState = { world: worldName, running: running, sinceId: 0, prevOps: new Set(), done: false };
+        const step = (n, title, text) => `<div class="uw-step"><div class="uw-step-n">${n}</div><div><div class="uw-step-t">${title}</div><div class="uw-step-d">${text}</div></div></div>`;
+        const updateText = 'Valheim is brought to the published build and the world&rsquo;s mods to their latest versions (pinned mods are left as they are). The client package is rebuilt, so players pick up the update the next time they launch.';
+        let html = '';
+        if (running) {
+            html += `<p class="uw-lead">PhValheim will take <b>${uwEsc(worldName)}</b> through three steps:</p>`;
+            html += step(1, 'Stop the world', 'Everyone on it is disconnected and the world is saved.');
+            html += step(2, 'Update it', updateText);
+            html += step(3, 'Start it again', 'The world comes back on its own. Nobody has to press Start.');
+            if (players === null) {
+                html += '<div class="uw-note">The world has not reported a player count yet. Anyone on it is disconnected the moment you proceed.</div>';
+            } else if (players > 0) {
+                html += `<div class="uw-warn">&#9888; <b>${players} player${players === 1 ? ' is' : 's are'} on this world right now.</b> ${players === 1 ? 'They are' : 'They are'} disconnected without warning the moment you proceed.</div>`;
+            } else {
+                html += '<div class="uw-note">Nobody is on the world right now (the PhValheim Companion reports 0 players), so nobody is disconnected.</div>';
+            }
+        } else {
+            html += `<p class="uw-lead">PhValheim will update <b>${uwEsc(worldName)}</b> in place:</p>`;
+            html += step(1, 'Update it', updateText);
+            html += step(2, 'Leave it stopped', 'The world is stopped now, so it stays stopped. Start it when you are ready.');
+        }
+        html += '<p class="uw-fine">This usually takes a few minutes; how long depends on what Steam and the mod catalogues have to send.</p>';
+        html += `<div class="uw-actions"><button class="action-btn" onclick="closeUpdateWorldModal()">Cancel</button>`
+              + `<button class="action-btn ${players > 0 ? 'danger' : 'primary'}" id="uwProceed" onclick="proceedUpdateWorld()">${running ? 'Stop, update and restart' : 'Update now'}</button></div>`;
+        body.innerHTML = html;
+    }
+
+    async function proceedUpdateWorld() {
+        const st = uwState; if (!st || st.done) return;
+        const body = document.getElementById('uwBody');
+        const btn = document.getElementById('uwProceed'); if (btn) btn.disabled = true;
+        // Where the stream starts, and which operation is the one we are waiting on: the
+        // newest event and the newest operation the world has BEFORE the command is sent.
+        try {
+            const r = await fetch(`adminAPI.php?action=getEvents&world=${encodeURIComponent(st.world)}&limit=1`, { cache: 'no-store' });
+            const d = await r.json(); const ev = (d.success && d.events) || [];
+            st.sinceId = ev.length ? ev[ev.length - 1].id : 0;
+        } catch (e) { st.sinceId = 0; }
+        // EVERY operation the world already has, not just the newest: the verdict below must
+        // find an update operation that did not exist before the click. Comparing against the
+        // newest id alone matched an OLDER, long-closed update two rows down and declared the
+        // update finished on the first poll (container bucket, 2026-10-24).
+        try {
+            const r = await fetch(`adminAPI.php?action=getOperations&world=${encodeURIComponent(st.world)}&limit=100`, { cache: 'no-store' });
+            const d = await r.json(); const ops = (d.success && d.operations) || [];
+            st.prevOps = new Set(ops.map(o => o.op_id));
+        } catch (e) { st.prevOps = new Set(); }
+        let ok = false;
+        try {
+            const r = await fetch(`adminAPI.php?action=worldAction&cmd=update&world=${encodeURIComponent(st.world)}`, { cache: 'no-store' });
+            const d = await r.json(); ok = !!d.success;
+        } catch (e) { ok = false; }
+        if (!ok) {
+            body.insertAdjacentHTML('beforeend', '<div class="uw-warn">The update could not be started. Nothing was changed.</div>');
+            if (btn) btn.disabled = false;
+            return;
+        }
+        body.innerHTML = '<div class="uw-status" id="uwStatus"><span class="backup-spinner" style="width:14px;height:14px;border-width:2px;flex:none;"></span><span id="uwStatusText">Update sent &mdash; waiting for the engine to pick it up&hellip;</span></div>'
+            + '<div class="uw-log" id="uwLog"></div>'
+            + '<p class="uw-fine">You can close this window; the update carries on without it. The same stream is under the world&rsquo;s <b>Logs</b> button.</p>'
+            + '<div class="uw-actions"><button class="action-btn" onclick="closeUpdateWorldModal()">Close</button></div>';
+        fetchWorldStatus();
+        pollUpdateWorld();
+        uwTimer = setInterval(pollUpdateWorld, 3000);
+    }
+
+    async function pollUpdateWorld() {
+        const st = uwState; if (!st || st.done) return;
+        const log = document.getElementById('uwLog'); if (!log) return;
+        try {
+            const r = await fetch(`adminAPI.php?action=getEvents&world=${encodeURIComponent(st.world)}&since_id=${st.sinceId}&limit=200`, { cache: 'no-store' });
+            const d = await r.json(); const evs = (d.success && d.events) || [];
+            for (const e of evs) {
+                st.sinceId = Math.max(st.sinceId, e.id);
+                const line = document.createElement('div');
+                line.className = 'uw-line lvl-' + e.level;
+                line.innerHTML = `<span class="uw-t">${uwEsc(e.t ? new Date(e.t * 1000).toLocaleTimeString() : '')}</span>${uwEsc(e.message)}`;
+                log.appendChild(line);
+            }
+            if (evs.length) log.scrollTop = log.scrollHeight;
+        } catch (e) {}
+        // Finished? The engine's operation record is the verdict, not the world's mode.
+        try {
+            const r = await fetch(`adminAPI.php?action=getOperations&world=${encodeURIComponent(st.world)}&limit=5`, { cache: 'no-store' });
+            const d = await r.json(); const ops = (d.success && d.operations) || [];
+            const op = ops.find(o => o.kind === 'update' && !st.prevOps.has(o.op_id));
+            const text = document.getElementById('uwStatusText'), box = document.getElementById('uwStatus');
+            if (op && !op.open) {
+                st.done = true; clearInterval(uwTimer); uwTimer = null;
+                const sp = box.querySelector('.backup-spinner'); if (sp) sp.remove();
+                if (op.outcome === 'ok') {
+                    box.classList.add('ok');
+                    text.innerHTML = 'Update finished.' + (st.running ? ' The world is starting again&hellip;' : ' The world stays stopped; start it when you are ready.');
+                    if (st.running) {
+                        // The restart is its own operation; watch the row until it is up.
+                        let n = 0;
+                        const t = setInterval(async () => {
+                            const w = await fetchWorldRow(st.world); n++;
+                            if (w && w.mode === 'running') { clearInterval(t); text.innerHTML = 'Update finished. The world is running again.'; fetchWorldStatus(); }
+                            else if (n > 60) { clearInterval(t); text.innerHTML = 'Update finished, but the world has not come back up yet &mdash; see its Logs.'; }
+                        }, 3000);
+                    }
+                } else {
+                    box.classList.add('bad');
+                    text.innerHTML = 'The update did not finish cleanly (' + uwEsc(op.outcome || 'unknown') + '). The lines above and the world&rsquo;s Logs say why.';
+                }
+                fetchWorldStatus();
+            } else if (op) {
+                text.textContent = st.running ? 'Stopping, updating and restarting\u2026' : 'Updating\u2026';
+            }
+        } catch (e) {}
+    }
+
+    function closeUpdateWorldModal(event) {
+        if (event && event.target !== document.getElementById('updateWorldOverlay')) return;
+        document.getElementById('updateWorldOverlay').classList.remove('show');
+        if (uwTimer) { clearInterval(uwTimer); uwTimer = null; }
+        uwState = null;
+    }
+
+    function showDeleteWorldModal(worldName) {
+        dwWorld = worldName;
+        const body = document.getElementById('dwBody');
+        document.getElementById('dwTitle').textContent = 'Delete ' + worldName;
+        body.innerHTML = `<p class="uw-lead">This removes <b>${uwEsc(worldName)}</b> from this server for good:</p>`
+            + '<ul class="uw-list">'
+            + '<li>the world save &mdash; the map, every base and everything built on it;</li>'
+            + '<li>its installed mods, mod configs and the client package players download;</li>'
+            + '<li>its settings and access lists here.</li>'
+            + '</ul>'
+            + '<p class="uw-fine">Backups already taken (under <b>Backups</b>) are kept. Nothing else brings the world back.</p>'
+            + '<label class="uw-label" for="dwConfirm">Type the world&rsquo;s name to confirm</label>'
+            + `<input type="text" class="form-control form-control-sm" id="dwConfirm" autocomplete="off" spellcheck="false" placeholder="${uwEsc(worldName)}" style="font-family:var(--font-mono);">`
+            + '<div class="uw-actions"><button class="action-btn" onclick="closeDeleteWorldModal()">Keep the world</button>'
+            + '<button class="action-btn danger" id="dwProceed" disabled onclick="proceedDeleteWorld()">Delete world</button></div>';
+        const inp = document.getElementById('dwConfirm');
+        inp.addEventListener('input', () => { document.getElementById('dwProceed').disabled = inp.value.trim() !== worldName; });
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter' && inp.value.trim() === worldName) proceedDeleteWorld(); });
+        document.getElementById('deleteWorldOverlay').classList.add('show');
+        setTimeout(() => inp.focus(), 50);
+    }
+
+    function proceedDeleteWorld() {
+        const w = dwWorld, inp = document.getElementById('dwConfirm');
+        if (!w || !inp || inp.value.trim() !== w) return;
+        document.getElementById('dwProceed').disabled = true;
+        fetch(`adminAPI.php?action=worldAction&cmd=delete&world=${encodeURIComponent(w)}`)
+            .then(r => r.json())
+            .then(() => { closeDeleteWorldModal(); fetchWorldStatus(); })
+            .catch(err => console.error('Delete failed:', err));
+    }
+
+    function closeDeleteWorldModal(event) {
+        if (event && event.target !== document.getElementById('deleteWorldOverlay')) return;
+        document.getElementById('deleteWorldOverlay').classList.remove('show');
+        dwWorld = null;
+    }
+
     function showServerHealthModal() {
         document.getElementById('serverHealthOverlay').classList.add('show');
         if (serverHealthData) { renderServerHealthModal(); } else { fetchServerHealth(true); }
@@ -6790,28 +7127,18 @@ $totalCount = count($worlds);
                 </div>
 
                 <div style="margin-bottom: 1.5rem;">
-                    ${sectionHead('Automatic Updates &nbsp;<span style="background:rgba(248,113,113,0.15);color:var(--danger);font-size:0.6rem;padding:0.1rem 0.35rem;border-radius:3px;vertical-align:middle;">BETA</span>', 'var(--text-muted)')}
-                    <!-- Why this carries a BETA badge and an explicit warning.
-                         Deciding WHEN a world is idle enough to restart depends on a live
-                         player count, and Valheim exposes none -- the count is scraped out of
-                         the world log. On a crossplay world the only signal is a line PlayFab
-                         emits on join and on leave, so a player who joins and keeps playing
-                         produces one line and then silence. 2.47 read that silence as "the
-                         world went quiet" and stopped the server underneath them; a Discord
-                         operator lost their players to exactly that. 2.55 made the rule refuse
-                         instead of guess, which removes the kick but also means a world can
-                         now decline to auto-update until it is provably empty.
-                         Accurate detection needs the server-side Companion (docs/BACKLOG.md).
-                         Until then the operator deserves to be told this is not finished. -->
-                    <div style="font-size:0.7rem;color:var(--danger);line-height:1.5;margin-bottom:0.6rem;">
-                        <b>Automatic updates are a beta feature and are off by default.</b>
-                        Valheim gives servers no reliable live player count, so PhValheim reads one
-                        out of each world's log. It is good enough to tell an empty world from a busy
-                        one most of the time, and not good enough to promise nobody is ever
-                        disconnected. A world is only updated automatically once it has reported
-                        <b>zero</b> players recently &mdash; which also means a world whose count never
-                        clears will wait rather than restart. Set a maximum wait with
-                        &ldquo;If players never leave&rdquo; below if you would rather it went ahead.
+                    ${sectionHead('Automatic Updates', 'var(--text-muted)')}
+                    <!-- 2.58: the idle decision rests on the PhValheim Companion's own player
+                         roster (playerMonitor reads its file every two minutes), so the beta
+                         warning that stood here while the count was scraped from the log is
+                         gone. What remains true: a VANILLA world runs no Companion and so can
+                         never be seen as quiet; it needs a schedule instead. -->
+                    <div style="font-size:0.7rem;color:var(--text-muted);line-height:1.5;margin-bottom:0.6rem;">
+                        Off by default. A world is updated only once the PhValheim Companion on its server
+                        has reported <b>zero</b> players for the <b>Quiet For</b> period, so nobody is
+                        disconnected mid-session. A <b>vanilla world</b> runs no Companion and cannot report
+                        its players: it is never seen as quiet, so give it a maintenance window and set
+                        &ldquo;If players never leave&rdquo; to <b>Update anyway</b> to update it on that schedule.
                     </div>
                     <div class="row mb-2">
                         <div class="col-md-6">
@@ -6868,14 +7195,15 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div style="font-size:0.7rem;color:var(--text-muted);line-height:1.5;">
-                        Player counts are read from each world&rsquo;s server log on a best-effort basis.
-                        Valheim provides no reliable live count, so the number can lag a disconnect by up
-                        to ten minutes. Set <b>Quiet For</b> high enough to absorb that.
+                        Player counts come from the PhValheim Companion on each running world and are
+                        refreshed every two minutes. Set <b>Quiet For</b> to at least a few minutes so a
+                        refresh always lands inside it.
                         A world with its own override under <b>Settings &rarr; Updates</b> keeps that
                         override &mdash; turning this on for all worlds does not overrule it.
                         <b>Pinned mods are never updated.</b>
                     </div>
                 </div>
+
 
                 <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('Analytics', 'var(--text-muted)')}

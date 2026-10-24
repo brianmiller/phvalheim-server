@@ -48,6 +48,13 @@ for i in $(seq 1 60); do
 	sql "DESCRIBE ai_providers" >/dev/null 2>&1 && sql "SELECT vanilla FROM worlds LIMIT 0" >/dev/null 2>&1 && break
 	sleep 3
 done
+# The pusher refuses to build a payload until the engine has minted analyticsUUID, which it
+# does AFTER the migrations this loop waits for. Without this wait the run reported "no
+# payload was produced at all" on a perfectly good image (2026-10-22).
+for i in $(seq 1 40); do
+	[ -n "$(sql "SELECT analyticsUUID FROM settings" | tr -d '[:space:]')" ] && break
+	sleep 3
+done
 
 docker cp "$ROOT/container/engine/dbUpdates/dbUpdate_2.45.sh" "$NAME:/opt/stateless/engine/dbUpdates/dbUpdate_2.45.sh" >/dev/null
 docker cp "$ROOT/container/engine/tools/pushAnalytics.sh"     "$NAME:/opt/stateless/engine/tools/pushAnalytics.sh"   >/dev/null
@@ -82,12 +89,18 @@ echo "Building a real payload..."
 # The script deletes its payload file on the way out, so keep a copy. This is the ONLY
 # change made to it: the builder under test is otherwise the shipped one, because a test
 # that reimplements the payload proves only that the test is careful.
-docker exec "$NAME" sed -i 's|^rm -f /tmp/phvalheim_analytics.tmp "$payload_file"|cp -f "$payload_file" /tmp/kept.json 2>/dev/null; &|' \
+# The payload is a mktemp file removed by the script's EXIT trap (the fixed path wedged later
+# runs; see the script). Copy it out in the trap, before the rm. The older anchor on a bare
+# `rm -f` line matched nothing once the trap arrived, and "no payload" read as a bug.
+docker exec "$NAME" sed -i "s|^trap 'rm -f |trap 'cp -f \"\$payload_file\" /tmp/kept.json 2>/dev/null; rm -f |" \
 	/opt/stateless/engine/tools/pushAnalytics.sh
 
 runPush() {
 	docker exec "$NAME" rm -f /tmp/kept.json >/dev/null 2>&1
-	docker exec "$NAME" bash /opt/stateless/engine/tools/pushAnalytics.sh --disabled >/dev/null 2>&1
+	# The pusher's own words go to this test's log: "no payload" has had three different causes
+	# (argv limit, a moved payload path, an engine that had not minted the UUID yet), and only
+	# the script can say which.
+	docker exec "$NAME" bash /opt/stateless/engine/tools/pushAnalytics.sh --disabled 2>&1 | sed 's/^/        pusher: /' >&2
 	docker exec "$NAME" cat /tmp/kept.json 2>/dev/null
 }
 payload=$(runPush)

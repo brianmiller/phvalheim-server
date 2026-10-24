@@ -2,8 +2,9 @@
 
 	# Steam Auth stuff
         declare(strict_types=1);
-        require '/opt/stateless/nginx/www/vendor/autoload.php';
-        #use xPaw\Steam\SteamOpenID;
+        # The composer vendor tree (google/apiclient and its guzzle/phpseclib/php-jwt deps) was
+        # required here until 2.58. No class from it was ever referenced; it only contributed
+        # 25 fixable findings to the Docker Hub vulnerability list.
 
 	include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 	include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';

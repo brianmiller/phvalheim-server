@@ -2,31 +2,24 @@
 PHV_LOG_SOURCE=playerMonitor   # names this tool in the event log (2.56)
 source /opt/stateless/engine/includes/phvalheim-static.conf
 
-# Best-effort player counts, parsed out of each running world's log.
+# Player counts and crossplay join codes, per running world, every two minutes (cron).
 #
-# Valheim exposes no reliable live player count. Everything here was verified against real
-# players on production on 2026-09-15; see docs/RELEASE-2.47-DESIGN.md for what was ruled
-# out and why (socket enumeration, conntrack, and the TickMonitor plugin all fail, the last
-# one because vanilla worlds have no BepInEx to load it).
+# THE COUNT IS REAL (2.58). The PhValheim Companion on each modded world's dedicated server
+# writes its own player roster -- ZNet.GetPlayerList(), the list the server broadcasts to every
+# peer -- to <world>/game/BepInEx/data/PhValheim.Companion/player_stats.json every 5s, and this
+# script copies player_count out of it while the file is fresh. Nothing is inferred any more.
 #
-# Two signals, chosen by the world's crossplay flag:
+# Until 2.58 the count was parsed out of the world log: PlayFab's "now N player(s)" line on
+# crossplay worlds, the ten-minute "Connections N" heartbeat plus socket events elsewhere. It
+# was verified against real players once (2026-09-15) and wrong often enough afterwards --
+# a count from before a restart survived the restart; "Connections N" reads 0 on a crossplay
+# world with a player on it -- that the maintainer had it switched off, then replaced. The
+# history is in docs/RELEASE-2.47-DESIGN.md; the code is gone from here on purpose.
 #
-#   crossplay=1  "Player joined/connection lost server ... now N player(s)"
-#                PlayFab emits an absolute count on every join and every leave. Only
-#                crossplay worlds emit it -- across every production log, every world
-#                carrying this line has crossplay=1.
+# A VANILLA world runs no BepInEx, so it has no Companion and no count: it reads as unknown,
+# which every reader already handles (no pill count, no public count, "not yet observed").
 #
-#   crossplay=0  "  Connections N ZDOS:... sent:... recv:..."
-#                The server's own heartbeat, every 10 minutes. Verified: a non-crossplay world read
-#                Connections 0 while empty, a Steam-direct player joined at 15:50:14, and
-#                the 15:58:09 heartbeat read Connections 1.
-#
-# The heartbeat is 10 minutes apart, so for non-crossplay worlds we also apply socket
-# events newer than the last heartbeat to fill the gap.
-#
-# DO NOT use "Connections N" on a crossplay world. It reads 0 with a player connected --
-# verified, a player joined at 14:51:40 and the 15:00:37 heartbeat still said 0. Using it
-# as a universal signal would have reported every crossplay world as permanently empty.
+# The join code (below) is still read from the log: Valheim prints it there and nowhere else.
 
 logDir="/opt/stateful/logs"
 
@@ -44,6 +37,14 @@ lineStamp() {
 }
 
 worldRows=$(SQL "SELECT name, IFNULL(crossplay,0) FROM worlds WHERE mode='running';")
+
+# How old the Companion's player_stats.json may be and still count as current. It is written
+# every 5s; 60s absorbs a stalled tick without letting a dead server's last file stand for long.
+PHV_PLAYER_STATS_MAX_AGE="${PHV_PLAYER_STATS_MAX_AGE:-60}"
+
+# A world that is not running has no players, and its last observation is not information: a
+# count left on the row showed up on the dashboard under an "Updating" pill (2026-10-23).
+SQL "UPDATE worlds SET player_count=0, player_count_at=NULL, player_count_source='none' WHERE mode<>'running' AND player_count_at IS NOT NULL;"
 
 [ -z "$worldRows" ] && exit 0
 
@@ -70,8 +71,44 @@ worldRows=$(SQL "SELECT name, IFNULL(crossplay,0) FROM worlds WHERE mode='runnin
 histFile=$(mktemp)
 trap 'rm -f "$histFile"' EXIT
 
+# The player count for one running world, from the Companion's file. Called FIRST in the loop
+# below, before the log is even looked for: the count does not come from the log any more, and
+# a world whose log is missing must still get its count (and lose a stale one).
+readCompanionCount() {
+	local worldName="$1" statsFile age count sqlStamp
+
+	# --- the player count: REAL, from the Companion on the dedicated server (2.58) -----------
+	#
+	# Until 2.58 the count was inferred from the log (PlayFab "now N player(s)" on crossplay
+	# worlds, the ten-minute "Connections N" heartbeat plus socket events elsewhere) and it was
+	# wrong often enough to be switched off: a count from before a restart survived the restart,
+	# a crossplay world read 0 with a player on it. The maintainer's verdict: real data or
+	# nothing. The PhValheim Companion, which ships in the image and is installed on every
+	# modded world, now writes the server's own roster (ZNet.GetPlayerList) every 5s to
+	#   <world>/game/BepInEx/data/PhValheim.Companion/player_stats.json
+	# and this reads it. The file is current only while its mtime is fresh: a server that is
+	# gone leaves a stale file, and stale means UNKNOWN (player_count_at NULL) -- never a
+	# confident zero, which is the one value updateApplier's isIdle() accepts as permission to
+	# restart a world. A vanilla world runs no BepInEx and so has no Companion: unknown, honestly.
+	statsFile="/opt/stateful/games/valheim/worlds/$worldName/game/BepInEx/data/PhValheim.Companion/player_stats.json"
+	if [ ! -f "$statsFile" ]; then
+		SQL "UPDATE worlds SET player_count=0, player_count_at=NULL, player_count_source='none' WHERE name='$worldName';"
+		return
+	fi
+	age=$(( $(date +%s) - $(stat -c %Y "$statsFile" 2>/dev/null || echo 0) ))
+	count=$(jq -r '.player_count // empty' "$statsFile" 2>/dev/null)
+	if [ "$age" -gt "$PHV_PLAYER_STATS_MAX_AGE" ] || ! [[ "$count" =~ ^[0-9]+$ ]]; then
+		SQL "UPDATE worlds SET player_count=0, player_count_at=NULL, player_count_source='none' WHERE name='$worldName';"
+		return
+	fi
+	sqlStamp=$(date -d "@$(stat -c %Y "$statsFile")" "+%Y-%m-%d %H:%M:%S")
+	SQL "UPDATE worlds SET player_count=$count, player_count_at='$sqlStamp', player_count_source='companion' WHERE name='$worldName';"
+}
+
 while IFS=$'\t' read -r worldName isCrossplay; do
 	[ -z "$worldName" ] && continue
+
+	readCompanionCount "$worldName"
 
 	logFile="$logDir/valheimworld_${worldName}.log"
 	[ -f "$logFile" ] || continue
@@ -120,89 +157,4 @@ while IFS=$'\t' read -r worldName isCrossplay; do
 		SQL "UPDATE worlds SET join_code=NULL WHERE name='$worldName';"
 	fi
 
-	count=""
-	source="none"
-	stamp=""
-
-	if [ "$isCrossplay" = "1" ]; then
-		# Absolute count, emitted on join AND leave. Take the most recent one.
-		line=$(grep -ha "now [0-9]\+ player" "$histFile" | tail -1)
-		if [ -n "$line" ]; then
-			count=$(echo "$line" | grep -oE 'now [0-9]+ player' | grep -oE '[0-9]+')
-			stamp=$(lineStamp "$line")
-			source="playfab"
-		fi
-	else
-		# The 10-minute heartbeat. Two shapes carry the same number: the usual
-		# "  Connections N ZDOS:..." and a rarer bare " Connections N" with no ZDOS
-		# tail. Match both and just take N.
-		line=$(grep -ha "Connections [0-9]" "$histFile" | tail -1)
-		if [ -n "$line" ]; then
-			count=$(echo "$line" | grep -oE 'Connections [0-9]+' | grep -oE '[0-9]+')
-			stamp=$(lineStamp "$line")
-			source="heartbeat"
-
-			# Fill the gap since that heartbeat with socket events. Steam-direct
-			# peers log an arrival and a departure immediately, so between
-			# heartbeats these are the only live signal.
-			#
-			# "Closing socket" is logged TWICE for one departure. The two copies
-			# are identical EXCEPT for the run of spaces after the timestamp:
-			#
-			#   08/12/2023 20:46:22:   Closing socket 12345
-			#   08/12/2023 20:46:22: Closing socket 12345
-			#
-			# so they must be squeezed before deduping. Stripping LEADING whitespace
-			# does nothing here -- the difference is mid-line. Measured on a real
-			# world log holding 12 departures: `sed 's/^ +//' | sort -u` returns 24
-			# and would double-decrement every single one, while `tr -s ' ' | sort -u`
-			# returns 12.
-			hbLine=$(grep -han "Connections [0-9]" "$histFile" | tail -1 | cut -d: -f1)
-			if [ -n "$hbLine" ]; then
-				tailPart=$(tail -n "+$((hbLine + 1))" "$histFile")
-
-				arrivals=$(echo "$tailPart" | grep -ha "Got connection SteamID" | tr -s ' ' | sort -u | grep -c .)
-				departures=$(echo "$tailPart" | grep -ha "Closing socket" | tr -s ' ' | sort -u | grep -c .)
-
-				if [ "$arrivals" -gt 0 ] || [ "$departures" -gt 0 ]; then
-					count=$((count + arrivals - departures))
-					[ "$count" -lt 0 ] && count=0
-
-					lastEvent=$(echo "$tailPart" | grep -haE "Got connection SteamID|Closing socket" | tail -1)
-					s=$(lineStamp "$lastEvent")
-					[ -n "$s" ] && stamp="$s"
-					source="socket"
-				fi
-			fi
-		fi
-	fi
-
-	if [ -z "$count" ]; then
-		# No count line in either generation -- a world that has only just started, or
-		# one whose last event has been rotated through both. That is UNKNOWN, and it
-		# must read as unknown: player_count_at goes to NULL with it.
-		#
-		# It used to keep player_count_at. That turned "we cannot see" into a confident
-		# zero carrying the time of the previous, NONZERO observation -- and a recent
-		# zero is exactly what updateApplier's isIdle() treats as permission to restart
-		# the world. One rotation after a player joined was enough to make an occupied
-		# world look idle. isIdle() refuses a NULL player_count_at outright.
-		SQL "UPDATE worlds SET player_count=0, player_count_at=NULL, player_count_source='none' WHERE name='$worldName';"
-		continue
-	fi
-
-	sqlStamp=$(logTimeToSql "$stamp")
-
-	# player_count_at is the timestamp of the LOG LINE, never the time of this scan.
-	#
-	# This is the whole staleness mechanism and it is easy to get wrong. A nonzero count
-	# can stick in the log after everyone has left -- verified on production, where a
-	# world logged "now 1 player(s)" and then nothing for 39 minutes while empty. If this
-	# column held the scan time it would be refreshed every two minutes, the count would
-	# never look stale, and auto-update would wait forever on an empty world.
-	if [ -n "$sqlStamp" ]; then
-		SQL "UPDATE worlds SET player_count=$count, player_count_at='$sqlStamp', player_count_source='$source' WHERE name='$worldName';"
-	else
-		SQL "UPDATE worlds SET player_count=$count, player_count_source='$source' WHERE name='$worldName';"
-	fi
 done <<< "$worldRows"

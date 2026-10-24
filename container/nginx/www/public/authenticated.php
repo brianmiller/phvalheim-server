@@ -5,7 +5,6 @@ header('Cache-Control: post-check=0, pre-check=0', false);
 header('Pragma: no-cache');
 header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 
-require_once '../vendor/autoload.php';
 include '../includes/config_env_puller.php';
 include '../includes/phvalheim-frontend-config.php';
 include '../includes/db_gets.php';
@@ -221,15 +220,14 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 				}
 
 				# Player count, only if the operator opted this world in. NULL means show
-				# nothing at all -- see getPublicPlayerCount(). Labelled approximate
-				# because it is: Valheim publishes no live count, so it comes out of the
-				# world log and can lag a disconnect.
+				# nothing at all -- see getPublicPlayerCount(). The figure is the server's own
+				# roster, reported by the PhValheim Companion and read every two minutes.
 				$publicPlayers = getPublicPlayerCount($pdo,$myWorld);
 				$playersRow = "";
 				if ($publicPlayers !== NULL) {
 					$playersLabel = $publicPlayers == 1 ? "1 player" : "$publicPlayers players";
 					$playersRow = "<td class='$worldDimmed card_worldInfo'>Players&nbsp;&nbsp;&nbsp;:</td>\n"
-					            . "<td class='$worldDimmed card_worldInfo world-players' title='Approximate. Valheim provides no live player count, so this is read from the server log and can lag by a few minutes.'>$playersLabel <span style='opacity:0.6'>&middot; approximate</span></td>\n<tr>\n";
+					            . "<td class='$worldDimmed card_worldInfo world-players' title='Reported by the PhValheim Companion running on this world&#39;s server; refreshed every two minutes.'>$playersLabel</td>\n<tr>\n";
 				}
 
 				# A vanilla world has no companion mod, so it reports no boss progression

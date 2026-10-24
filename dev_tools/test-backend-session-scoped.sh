@@ -33,9 +33,17 @@ check() {
 sql() { docker exec "$CONTAINER" /opt/stateless/engine/tools/sql "$1"; }
 
 ORIG_CROSS=$(sql "SELECT IFNULL(crossplay,0) FROM worlds WHERE name='$WORLD'")
+# worldIsPlayFab()'s fallback reads <worldDir>/.running-options -- what startWorld.sh actually
+# launched with -- BEFORE the column, by design. That file outlives a stop, so once any test
+# has really started this world the "falls back to the column" case below reads a stale
+# crossplay=0 from it and fails (2026-10-23, after the 2.58 telemetry test began starting worlds
+# for real). Park the file for the duration: the case is about a world with no record yet.
+RUNOPTS="/opt/stateful/games/valheim/worlds/$WORLD/.running-options"
+docker exec "$CONTAINER" sh -c "[ -f '$RUNOPTS' ] && mv '$RUNOPTS' '$RUNOPTS.oracle-bak'" >/dev/null 2>&1
 docker exec "$CONTAINER" sh -c "cp '$LOG' /tmp/bs.bak 2>/dev/null; true"
 restore() {
     sql "UPDATE worlds SET crossplay=$ORIG_CROSS WHERE name='$WORLD'" >/dev/null 2>&1
+    docker exec "$CONTAINER" sh -c "[ -f '$RUNOPTS.oracle-bak' ] && mv '$RUNOPTS.oracle-bak' '$RUNOPTS'" >/dev/null 2>&1
     docker exec "$CONTAINER" sh -c "cp /tmp/bs.bak '$LOG' 2>/dev/null || rm -f '$LOG'; rm -f /tmp/bs.bak"
 }
 trap restore EXIT

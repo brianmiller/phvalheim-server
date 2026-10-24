@@ -176,6 +176,19 @@ function aiToolDefinitions($withActions = true) {
  * recover from "that log does not exist, here is what does", but a 500 ends the turn.
  */
 function aiRunTool($pdo, $name, $args) {
+    // A tool result is TEXT for the model, whatever the tool returned. The 2.56 event-log
+    // tools (last_operation, world_activity, server_activity) return arrays, and the loop in
+    // aiConverse() handed them to strlen(): "TypeError: strlen(): Argument #1 must be of type
+    // string, array given" -- every Hugin conversation that touched a log died on it, 2.56
+    // and 2.57 (issue #93). Normalise HERE, at the single seam every tool passes through,
+    // so the next tool written to return an array cannot reopen it.
+    $r = aiRunToolRaw($pdo, $name, $args);
+    if (is_string($r)) return $r;
+    $enc = json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    return $enc === false ? "Tool '$name' returned a result that could not be encoded." : $enc;
+}
+
+function aiRunToolRaw($pdo, $name, $args) {
     try {
         // Count every call, including the read-only ones. ai_tools_used is how we find out
         // which tools actually earn their place in the catalogue.

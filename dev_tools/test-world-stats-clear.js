@@ -65,6 +65,23 @@ function check(name, ok, detail) {
     }, w);
 
     // ---------------------------------------------------------------- case 1
+    // The dashboard's own pollers (world stats every 5 s, health, mod sync) call the same two
+    // functions with the LIVE payload. One landing between a drive below and its read-back
+    // cleared the driven world again and failed Case 1 in the full bucket while the test
+    // passed alone every time (2026-10-22). This test drives the functions by hand, so the
+    // page's timers are noise here: stop every interval before the first drive.
+    await page.evaluate(() => {
+        const top = setInterval(() => {}, 100000); for (let i = 1; i <= top; i++) clearInterval(i);
+        // A fetch already in flight re-arms the poll when it resolves, so clearing timers once
+        // is not enough: park every later fetch forever. This page is driven by hand from here.
+        window.fetch = () => new Promise(() => {});
+        // ...and the jQuery/XHR path the dashboard's stats poll uses: a late XHR response
+        // re-rendered the driven row to '—' under bucket load (2026-10-23).
+        if (window.XMLHttpRequest) window.XMLHttpRequest.prototype.send = function () {};
+        if (window.jQuery) window.jQuery.ajax = () => window.jQuery.Deferred().promise();
+    });
+    // A poll already in flight when the stubs went in still lands; let it, before driving.
+    await page.waitForTimeout(2000);
     console.log('\nCase 1: a running world renders (this half always worked)');
     await page.evaluate((w) => {
         updateWorldCharts([{ name: w, mem: 42, memFormatted: '1.4 GB' }]);
@@ -102,12 +119,16 @@ function check(name, ok, detail) {
     console.log('\nCase 4: a world still running is NOT cleared alongside it');
     // The sweep must be surgical. Clearing every container on each poll would also pass
     // case 2, while blanking the readouts of worlds that are perfectly healthy.
+    // Both cards must carry a health row: the survivor's TPS readout is asserted below, and a
+    // vanilla world has none (see the pick above). Taking the first two cards regardless
+    // reported a vanilla survivor as "lost its readings" on every run since 2.56.
     const two = await page.evaluate((w) => {
-        const all = [...document.querySelectorAll('.world-resources[data-world]')].map(e => e.dataset.world);
+        const all = [...document.querySelectorAll('.world-resources[data-world]')]
+            .filter(c => c.querySelector('.world-load-fill')).map(e => e.dataset.world);
         return all.length >= 2 ? [all[0], all[1]] : null;
     }, world);
     if (!two) {
-        console.log('  (skipped: dev container has only one world card)');
+        console.log('  (skipped: fewer than two world cards with a health row)');
     } else {
         await page.evaluate(([a, b]) => {
             updateWorldCharts([{ name: a, mem: 10, memFormatted: '900 MB' },

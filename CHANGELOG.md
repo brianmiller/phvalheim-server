@@ -1,5 +1,216 @@
 # Changelog
 
+## v2.58
+
+### Security: the Docker Hub vulnerability list
+
+Docker Hub listed 2,408 findings against 2.57 (17 critical, 491 high, 829 medium, 1,070 low).
+Read package by package, 2,360 of them were in things the product never runs:
+
+- `linux-libc-dev` (2,290 findings, every critical): the kernel's userspace headers, pulled in
+  by `libpulse-dev` on the crossplay line. Valheim's PlayFab library links four RUNTIME
+  libraries (`libpulse.so.0`, `libpulse-simple.so.0`, `libpulse-mainloop-glib.so.0`,
+  `libatomic.so.1`); the image now installs `libpulse0 libpulse-mainloop-glib0 libatomic1` and
+  the build fails if any of the four stops resolving.
+- `software-properties-common` and its Python stack (`python3-cryptography`, PyJWT, httplib2,
+  oauthlib, PackageKit, polkit…): installed only to run `add-apt-repository multiverse`, which is
+  a no-op on `ubuntu:jammy` because multiverse is already enabled. Replaced by a build-time check.
+- A 132 MB composer tree (`google/apiclient` with guzzle, phpseclib, php-jwt) that the public
+  pages loaded and never used. Deleted, with the two `require` lines.
+- The GitHub CLI (`gh`, and `git` with it) and `inetutils-ping`: nothing runs them.
+
+The build now pulls a current base image (`--pull`; the cached build had kept a months-old
+`ubuntu:jammy`) and runs Docker Scout on the pushed image: a critical or high finding fails the
+verify (`SCOUT_MAX_CH` accepts a documented count). Result on this image: **0 critical, 0 high,
+34 medium, 14 low, none fixable** (Ubuntu 22.04 base packages with no fix in jammy's public
+pockets); 1.25 GB → 958 MB; 355 → 266 packages. Nothing operators see changes. Verify markers
+v58aa–v58al. The full read of the list, and the Ubuntu 24.04 option for the remaining 48, are in
+`docs/SECURITY-PLAN-2.58-dockerhub-cves.md`.
+
+### Fixed: the catalogue sync bar sat at 80% for the whole of the real work
+
+A forced sync (the panel's per-catalogue link) spends 90% of its wall time rebuilding the shared
+dependency graph -- 40 of 45 seconds on a 290k-edge catalogue -- and the engine reported that
+phase once, at its start ("resolving deps", 80%), then nothing until the run finished. The bar
+jumped to 80 and froze; the log pane showed no line for forty seconds. `modSync.py` now carries
+the run's `phase_pct` in the same `mysql` invocation as each INSERT batch (80..98; `finish()`
+still owns 100) and logs "N of M edge(s) written" every few seconds. Measured: 16-17 distinct
+percentages during the phase, never backwards. Guarded by `dev_tools/test-modsync-progress.sh`,
+which runs a real forced Hexium sync and samples the run row. The sync is not faster yet: the
+button's `--force` still means a full rebuild even when nothing changed (an incremental boot sync
+does the same phase in 0.5s); making `--force` mean "re-fetch" rather than "rebuild everything" is
+a 2.59 item. Markers v58ar-v58as.
+
+### Changed: a running world's row is no taller than a stopped one
+
+Measured on the dashboard at 1500px: a stopped modded row was 60px, a running one 82px, and a
+running one with an update waiting 105px, because PLAYERS and UPDATE stacked as third and fourth
+items under MEM and HEALTH in the Resources cell, so the table reflowed on every start and stop.
+A plain 2x2 regrid does not fit the 218px column (one MEM item is 146px wide). Instead the two
+items that are not resources moved: the player count rides in the Status pill ("Running · 3",
+with the same approximate-and-from-the-log title), and an available update is a badge on the
+Settings button -- the control whose Updates tab the operator opens next, and the one button
+visible in every world state (Update is hidden on a running world). Resources keeps MEM and
+HEALTH. A running modded row with an update waiting now measures 59px against the stopped row's
+60. Three render sites agree -- the PHP online row, the JS row template, and `updateWorldRow()`,
+which rewrites the pill and the button on every 5-second poll (a count the PHP rendered that the
+poll then wiped would look right for exactly five seconds). Guarded by
+`dev_tools/test-admin-row-consolidation.js`: engine stopped, the fixture world set running with a
+count and an update, measured after a poll at three widths against a stopped modded control, then
+the stimulus is changed in the database and the row must follow on the next poll without a reload.
+Markers v58at-v58ba.
+
+### Fixed: the update badge outlived the update, and said nothing about which mod
+
+`update_available_game` / `update_available_mods` are written by one thing: `updateChecker.py`,
+which cron runs every six hours and only for running worlds. A world the operator updates by
+hand is stopped, so its badge stayed until the world next ran and happened to be due a check.
+The engine's update block now runs the checker for that one world as soon as the update ends
+(backgrounded as the cron user, like the boot catalogue sync, so the restart is not delayed).
+The checker also records the stale mods by name in a new `worlds.update_mods_list`
+("name installed -> available", one per line); the badge's hover text and the Updates tab show
+them. Found while doing this: `getWorldsData()` in `admin/index.php` never copied the player
+and update fields into its row literal, despite the comment above it saying they travel with
+the row -- the server-rendered PLAYERS/UPDATE items (and 2.58's pill count and badge) were empty
+on every page load until the first poll filled them in. Fixed, and
+`test-admin-row-consolidation.js` now reads the served HTML before any JavaScript runs.
+Guarded live by `dev_tools/test-update-badge-after-update.sh`: plants a named fake mod and a
+badge on the fixture world, runs a REAL engine update, and requires the checker to have rewritten
+the list from disk and the badge to be gone. Migration `dbUpdate_2.58.sh`. Markers v58bb-v58bc,
+v58bh-v58bj.
+
+### Changed: the player count is REAL -- the Companion reports it, nothing is inferred
+
+"The active player count should be REAL data, not inferred from the logs" (the maintainer,
+2026-10-23). The PhValheim Companion (dual-role, shipped in the image, installed on every modded
+world) gains `PlayerTelemetry`: on a DEDICATED SERVER only, every 5 s, it writes
+`ZNet.GetPlayerList()` -- the roster the server broadcasts to its peers -- to
+`<world>/game/BepInEx/data/PhValheim.Companion/player_stats.json` (`player_count`, `players[]`
+with name and character id, `version`), atomically. `playerMonitor` reads that file for each
+running world: fresh (mtime within `PHV_PLAYER_STATS_MAX_AGE`, 60 s) and numeric is an
+observation with source `companion`; stale, missing or malformed is UNKNOWN (`player_count_at`
+NULL), never a confident zero. The log parser (PlayFab "now N player(s)", "Connections N" plus
+socket arithmetic) is deleted; the join code is still read from the log, which is the only place
+Valheim prints it. A vanilla world runs no BepInEx and so reports no count. The dashboard shows
+the count only while a world is `running` -- it had shown a stale one under an "Updating" pill.
+`settings.playerCountsEnabled` is RETIRED (`dropColumn` in `dbUpdate_2.58.sh`; nothing reads it; the
+Settings section, the API field and playerMonitor's gate are gone) -- a real count needs no switch. Companion
+1.0.5 (its publicizer-trap test lists `ZNet.GetPlayerList` and `PlayerInfo.m_name` /
+`m_characterID`, all public in the real server assembly). Guarded live by
+`dev_tools/test-world-player-telemetry.sh` (really starts the fixture world, updating it first if
+it does not yet run the image's Companion, and requires the file, the row, the pill, and the clear
+on stop), `test-playerMonitor.sh` (18 cases on the file rules) and `test-player-counts-setting.sh`.
+Every place the UI still described the count as "read from the world log", "best-effort" or
+"approximate" (both pill titles, the per-world Show-players option, the Automatic Updates footnote
+and Quiet For tip, the Server Settings section -- which also lost its BETA badge and its stale "off
+by default" -- and the public card) now credits the Companion and the two-minute refresh. The row
+test asserts the served title; its fixture no longer plants the retired source value `log`.
+Markers v58bl-v58bp, v58bt, v58bz-v58ca.
+
+### Fixed: Hugin crashed on every log-reading tool (issue #93)
+
+"Agent seems to return no data for any command that tries to read log files" -- 2.56 and 2.57.
+`aiConverse()` ran `strlen($result)` on every tool result, and three tools added in 2.56
+(`last_operation`, `world_activity`, `server_activity`) return PHP arrays: "TypeError: strlen():
+Argument #1 must be of type string, array given", and the stream died before the model saw a
+word. `aiRunTool()` is now a wrapper around `aiRunToolRaw()` that turns any non-string result into
+pretty-printed JSON at the one seam every tool passes through, so the next tool written to return
+an array cannot reopen it. Guarded live by `dev_tools/test-hugin-tool-results.sh`, which runs every
+read-only tool inside the container and requires a string back (and proves the raw function still
+returns an array, so the wrapper is doing the work). Marker v58cb.
+
+### Fixed: the Logs badge never cleared
+
+The sidebar count of warnings and errors "not yet looked at" stayed up however often the Logs page
+was opened. The page did post its acknowledgement; `phvEventsAck()` ran
+`UPDATE settings SET logsSeenEventId = GREATEST(logsSeenEventId, ?)` with the id bound by PDO as a
+string, and MySQL's `GREATEST` compares as strings when any argument is one: `GREATEST(669, '6429')`
+is `'669'`. The watermark climbed while ids had three digits and then froze at 669 for good
+(production, 2026-10-24: watermark 669, newest event 6429). The acknowledgement is per event now
+(`phv_events.acked`, `dbUpdate_2.58.sh`, backfilled from the old watermark): the Logs page acks what
+it shows on load and whenever it is brought to the front (a background tab used to show everything
+and ack nothing), and the world log view acks that world's events only -- a world-scoped ack the
+single watermark could never express. The watermark is still written, with the id `CAST` so the
+comparison is numeric. `dev_tools/test-events-ack.sh` plants a three-digit watermark and a
+four-digit event and requires the badge to clear; its control shows MySQL's string comparison.
+Markers v58cc-v58ce, v58cn.
+
+### New: a running world can be updated, through a modal with a live log
+
+The row's Update button was greyed out while a world ran, although the engine's update block has
+stopped, updated and restarted a running world since 2.55 (`wasRunning`). It is a door now, for a
+running or a stopped world, and opens a modal that says what will happen in three steps (stop:
+everyone is disconnected; update: Valheim and the mods, pinned mods untouched, client package
+rebuilt; start again), carries a warning with the Companion's live count when players are on the
+world, and -- on proceeding -- shows the engine's own event stream for the world (`getEvents` since
+the newest id at the moment of the click) until the operation record (`getOperations`) says the
+update closed, then watches the row until the world is running again. Closing the modal never
+stops anything: the command is the engine's. Delete goes through a modal too: what goes, that
+backups are kept, and the world's name typed back before the button works; the browser `confirm()`
+is gone. Guarded by `dev_tools/test-update-modal.js` (really starts the fixture world, updates it
+through the modal and waits for it to come back) and `test-delete-modal.js` (the name gate, and the
+proceed path captured without deleting anything). Markers v58cf-v58ch.
+
+### Changed: automatic updates lose their BETA badge; vanilla worlds are told to use a schedule
+
+The badge and the red warning in both places (Server Settings and the per-world Updates tab)
+described the scraped count. The idle decision rests on the Companion's roster now. What remains
+true is that a VANILLA world runs no Companion and can never be seen as quiet: the Updates tab's
+Players row says so for a vanilla world (`getWorldAutoUpdateSettings()` now carries `vanilla`) and
+tells the operator to give it a maintenance window with "If players never leave: update anyway".
+The pill's tooltip now leads with "N players online" and the number carries a player glyph, so the
+"· 0" after "Running" says what it is. Markers v58ci-v58ck.
+
+### Fixed: "update available: 3.5.8 -> \"3.5.8\""
+
+A production catalogue carried `micolho/CraftFromContainers` with `latest_version` `"3.5.8"` --
+quotes included, from the feed at the time -- while the installed `mod_versions` row read
+`3.5.8`. `updateChecker.py` compared the strings, flagged an update that did not exist, and the
+badge never cleared; the package was later delisted, so no sync would ever rewrite the row.
+`modSync.py` now strips surrounding quotes and whitespace from every version string it parses
+(`clean_version()`), the checker compares normalised values, and `dbUpdate_2.58.sh` repairs
+stored rows (`mods.latest_version`; `mod_versions.version` with `UPDATE IGNORE`, since that
+column is unique per mod). Markers v58bq-v58bs.
+
+### Fixed: a no-password world's supervisor program could not start it
+
+`createSupervisorWorldConfig()` wrote `startWorld.sh $worldName $worldPassword $worldPort`,
+unquoted. `startWorld.sh` has read the real password from the database since 2.53 (the argument
+was dead) and "no password" is a supported state since 2.55, so for such a world the empty
+argument vanished, the port slid into its place and the script refused with "Missing arguments".
+Existing worlds never noticed because their program was written once, at creation, with a
+password; the dev volume hit it the moment the engine learned to regenerate a missing program.
+The program is now `startWorld.sh "name" "port"` (the password no longer lands in a file under
+`conf.d`), `startWorld.sh` accepts that and the legacy three-argument shape, and the engine's
+start block regenerates a missing program from the row instead of marking the world broken
+with an empty log to point at. Guarded by `dev_tools/test-startworld-args.sh`. Markers
+v58bw-v58by.
+
+### Fixed: the mod-sync log pane (2.56)
+
+The per-catalogue sync log pane vanished for the whole of every sync and reappeared, complete,
+when the run finished: the panel's live render never emitted the pane element. Two more defects
+behind it: every status repaint rendered the pane empty until an un-awaited fetch returned (a
+blink every two seconds while a sync ran), and overlapping polls appended the same lines twice
+(a 53-line run rendered as 83). The pane is now emitted by both renders, re-rendered from the
+lines it already holds before it is polled, and polled by one request per source at a time.
+Measured in a real browser: 0 lines rendered during a 40-second run → tracks the API line for
+line. Markers v58am–v58aq.
+
+### The container test bucket is a gate
+
+`dev_tools/run-oracles.sh --container` ran every file bare and had 34 failures that nobody
+owned for three releases ("same as last release" stood in for "passes"). Every one was triaged:
+one product bug (the pane above), nine test bugs or stale tests, 24 the harness could not drive,
+one inherently manual. `dev_tools/oracle-container-env.sh` now seeds the fixtures the browser
+tests read, passes each test the arguments its header documents, runs in-container PHP and
+in-image bash where they must run, boots the Hugin suites from the image under test (they had
+defaulted to `:rc`, validating the released image), and reports a test whose precondition the
+host cannot provide as UNRUNNABLE, which fails the bucket. `requires: manual` marks the one that
+needs a pre-2.53 checkout. Result: **68 passed, 0 failed, 0 unrunnable**, end to end, with
+standalone 62/62 and cross-repo 4/4 unchanged. The runner also exports `NODE_PATH` for
+Playwright; without it 27 browser tests had read as product failures.
+
 ## v2.57
 
 ### Security: PHP2Shell (CVE-2026-109618, CVE-2026-109619)

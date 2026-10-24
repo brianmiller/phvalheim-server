@@ -68,12 +68,17 @@ const check = (name, ok, detail = '') => {
   // class. The class lands at the START of the fade, so waiting on it returned while the modal
   // was still transitioning, and a hide() issued during a transition is ignored by bootstrap.
   // That left the modal open and the next click landed on it instead of the card.
+  // Every Launch! lookup below is scoped to the card being driven once its name is known. A
+  // bare '.launch-link' is the first on the page, which with several citizen cards sat under
+  // the page header and swallowed the real click (2026-10-23).
+  let linkSel = '.launch-link';
   const openJoinModal = async () => {
     await page.evaluate(() => {
       window.__shown = new Promise(res => document.getElementById('crossplayJoinModal')
         .addEventListener('shown.bs.modal', res, { once: true }));
     });
-    await (await page.$('.launch-link')).click();
+    await page.$eval(linkSel, el => el.scrollIntoView({ block: 'center' }));
+    await (await page.$(linkSel)).click();
     await page.evaluate(() => window.__shown).catch(() => {});
   };
 
@@ -100,16 +105,20 @@ const check = (name, ok, detail = '') => {
   const card = await page.$('.catbox');
   check('a card exists to drive', !!card);
   const worldName = await page.$eval('.card_worldName', el => el.textContent.trim()).catch(() => null);
+  if (worldName) linkSel = `.catbox[data-world="${worldName}"] .launch-link`;
 
   const drive = async (joinCode, playfab = true) => page.evaluate(([name, joinCode, playfab]) => {
     updateWorldCards([{
       name, vanilla: true, online: true, launchString: 'x',
+      // trophies: api.php always emits it and the card's trophy loop reads world.trophies[key]
+      // for every non-vanilla world; a payload without it throws inside updateWorldCards.
+      trophies: {},
       connection: { playfab, joinCode, steamUrl: playfab ? null : 'steam://run/892970//+connect host:1' }
     }]);
   }, [worldName, joinCode, playfab]);
 
   await drive('123456');
-  const link = await page.$('.launch-link');
+  const link = await page.$(linkSel);
   check('poll renders Launch! for a crossplay world',
     (await link.innerText()).trim() === 'Launch!', `got "${(await link.innerText()).trim()}"`);
   check('and gives it NO launchable href',
@@ -153,12 +162,13 @@ const check = (name, ok, detail = '') => {
   const driveModded = async (joinCode) => page.evaluate(([name, joinCode]) => {
     updateWorldCards([{
       name, vanilla: false, online: true, launchString: 'bW9kZGVk',
+      trophies: {},
       connection: { playfab: true, joinCode, steamUrl: null }
     }]);
   }, [worldName, joinCode]);
 
   await driveModded('777888');
-  const mLink = await page.$('.launch-link');
+  const mLink = await page.$(linkSel);
   check('poll renders Launch! for a modded crossplay world',
     (await mLink.innerText()).trim() === 'Launch!', `got "${(await mLink.innerText()).trim()}"`);
   // The assertion that separates this from the vanilla case. A '#' here means the mods never
@@ -167,26 +177,29 @@ const check = (name, ok, detail = '') => {
     (await mLink.getAttribute('href') || '').startsWith('phvalheim://'),
     `href=${await mLink.getAttribute('href')}`);
   check('and clicking it does NOT open the join modal',
-    !(await page.evaluate(() => !!document.querySelector('.launch-link').onclick)),
+    !(await page.evaluate((s) => !!document.querySelector(s).onclick, linkSel)),
     'the vanilla modal handler is still attached, so the click would be swallowed');
 
   // The code still has to be on the card -- it is the only way in. Same .world-joincode hook
   // the vanilla card uses, so the poll keeps it fresh across a restart.
-  const mCodeCell = await page.$('.world-joincode');
+  // Scoped to the card being driven. A bare '.world-joincode' is the FIRST such cell on the
+  // page, which belonged to another world's card on the dev volume and read "—" while the
+  // driven card simply had no cell (2026-10-22).
+  const mCodeCell = await page.$(`.catbox[data-world="${worldName}"] .world-joincode`);
   if (mCodeCell) {
     check('the join code cell shows the modded world\'s code',
       /777888/.test(await mCodeCell.innerText()),
       `got "${(await mCodeCell.innerText()).trim()}"`);
     await driveModded('999000');
     check('and the poll refreshes it after a restart',
-      /999000/.test(await (await page.$('.world-joincode')).innerText()),
+      /999000/.test(await (await page.$(`.catbox[data-world="${worldName}"] .world-joincode`)).innerText()),
       'a stale code cannot join');
   } else {
     // Not a silent skip: the cell is server-rendered only for a world that is ACTUALLY
     // crossplay, so a vanilla/non-crossplay fixture world legitimately has no cell to drive.
     // Say which case ran, or a green suite reads as coverage it does not have.
-    console.log('  SKIP  join code cell not present -- fixture world is not crossplay '
-      + '(set crossplay=1 on it to cover the modded code cell)');
+    console.log('  SKIP  join code cell not present on the driven card -- it is server-rendered only '
+      + 'for a world that was ONLINE and crossplay at page load (start a modded crossplay world to cover it)');
   }
 
   // The modal must be REACHABLE and DISMISSABLE. This is the gap that let a broken modal ship:
@@ -248,8 +261,8 @@ const check = (name, ok, detail = '') => {
   console.log('\nNo code yet, and the crossplay -> normal transition');
   await drive(null);
   check('no code yet shows "starting…", not a dead Launch!',
-    (await page.innerText('.launch-link')).trim().startsWith('starting'),
-    `got "${(await page.innerText('.launch-link')).trim()}"`);
+    (await page.innerText(linkSel)).trim().startsWith('starting'),
+    `got "${(await page.innerText(linkSel)).trim()}"`);
 
   // A world that stops being crossplay must lose the modal handler, or the click is swallowed
   // and the real launch link silently does nothing.
@@ -262,10 +275,10 @@ const check = (name, ok, detail = '') => {
     'the stale onclick would swallow the click and the launch link would do nothing');
 
   console.log('\nCONTROL: these checks can fail');
-  await page.evaluate(() => {
-    const a = document.querySelector('.launch-link');
+  await page.evaluate((s) => {
+    const a = document.querySelector(s);
     a.href = 'steam://run/892970//-joincode 999';
-  });
+  }, linkSel);
   const ctl = JOINCODE_URL.test(await page.content());
   check('a reintroduced -joincode link WOULD be caught', ctl,
     'the no--joincode assertions cannot see the thing they guard');

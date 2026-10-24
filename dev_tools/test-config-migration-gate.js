@@ -126,7 +126,9 @@ const gateShown = (page) => page.evaluate(
 		}
 
 		const urlBefore = page.url();
-		await el.click();
+		// Re-queried by selector at click time: the handle above detaches when the row is
+		// re-rendered (resetGate / clearOverlays / a poll), which happened in the full bucket.
+		await page.click(sel);
 		await page.waitForTimeout(900);
 
 		const shown = await gateShown(page);

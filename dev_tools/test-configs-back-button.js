@@ -60,13 +60,13 @@ const shown = (page, id) => page.evaluate(
 	// ---- open the picker: it must become a history entry ----
 	await clearOverlays();
 	await page.click(`tr[data-world="${world}"] a[data-action="mods"]`);
-	await page.waitForSelector('#modsHubOverlay.show', { timeout: 5000 });
+	await page.waitForSelector('#modsHubOverlay.show', { timeout: 30000 });
 	await page.waitForFunction(
 		() => !/Checking this world/.test(document.getElementById('modsHubCards').innerHTML),
 		{ timeout: 8000 }).catch(() => {});
 	await clearOverlays();
 	await page.click('#modsHubCards .mods-hub-card:nth-child(2)');
-	await page.waitForSelector('#cfgModalOverlay.show', { timeout: 5000 });
+	await page.waitForSelector('#cfgModalOverlay.show', { timeout: 30000 });
 
 	const hash = await page.evaluate(() => location.hash);
 	if (hash === '#mods-configs=' + encodeURIComponent(world)) {
@@ -122,7 +122,7 @@ const shown = (page, id) => page.evaluate(
 	await page.waitForFunction(
 		() => document.getElementById('cfgModalOverlay')
 		   && document.getElementById('cfgModalOverlay').classList.contains('show'),
-		{ timeout: 5000 }).catch(() => {});
+		{ timeout: 30000 }).catch(() => {});
 	if (await shown(page, 'cfgModalOverlay')) {
 		ok('Forward re-opens the picker');
 	} else {

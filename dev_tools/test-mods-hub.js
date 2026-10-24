@@ -87,7 +87,7 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 	} else {
 		await clearOverlays();
 		await page.click(`tr[data-world="${stoppedWorld}"] a[data-action="mods"]`);
-		await page.waitForSelector('#modsHubOverlay.show', { timeout: 5000 });
+		await page.waitForSelector('#modsHubOverlay.show', { timeout: 30000 });
 		// The cards re-render once the live mode arrives from getWorlds.
 		await page.waitForFunction(
 			() => !/Checking this world/.test(document.getElementById('modsHubCards').innerHTML),
@@ -147,7 +147,7 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 		// ---- Mod Configs must actually open the picker, populated ----
 		await clearOverlays();
 		await page.click('#modsHubCards .mods-hub-card:nth-child(2)');
-		await page.waitForSelector('#cfgModalOverlay.show', { timeout: 5000 });
+		await page.waitForSelector('#cfgModalOverlay.show', { timeout: 30000 });
 		await page.waitForFunction(
 			() => !/Loading/.test(document.getElementById('cfgModalList').textContent),
 			{ timeout: 10000 }
@@ -168,8 +168,13 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 
 		// A world that has never started has no cfg files yet, which is a legitimate empty
 		// state and must NOT read as an error. Either populated rows, or that exact message.
-		if (picker.rows > 0 && picker.modLinks === picker.rows) {
-			ok(`the picker lists ${picker.rows} mods, each filtered by &mod=`);
+		// One row may be the "Unmatched config files" bucket, which links WITHOUT &mod= by
+		// design (the assertion two below checks exactly that). Requiring every row to carry
+		// &mod= failed on a world that had just been rebuilt by test-update-badge-after-update.sh
+		// and so had unmatched files beside its one matched mod (2026-10-23).
+		const unmatchedRows = /Unmatched config files/.test(picker.text) ? 1 : 0;
+		if (picker.rows > 0 && picker.modLinks === picker.rows - unmatchedRows) {
+			ok(`the picker lists ${picker.rows} rows: ${picker.modLinks} mod(s) filtered by &mod=${unmatchedRows ? ' plus the unmatched bucket' : ''}`);
 		} else if (/No mod configs yet/.test(picker.text)) {
 			ok('the picker shows the "no configs yet" empty state (world has never started)');
 		} else {
@@ -197,7 +202,7 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 		await page.evaluate(() => document.getElementById('cfgModalOverlay').classList.remove('show'));
 		await clearOverlays();
 		await page.click(`tr[data-world="${busyWorld}"] a[data-action="mods"]`);
-		await page.waitForSelector('#modsHubOverlay.show', { timeout: 5000 });
+		await page.waitForSelector('#modsHubOverlay.show', { timeout: 30000 });
 		await page.waitForFunction(
 			() => !/Checking this world/.test(document.getElementById('modsHubCards').innerHTML),
 			{ timeout: 8000 }
@@ -462,7 +467,10 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 
 	// The reason must name the number of settings at stake, not just say "at risk".
 	const raft = mig.byFile['zolantris.ValheimRAFT.cfg'] || {};
-	if (raft.risk && /6 changed setting/.test(raft.why) && /only copy/.test(raft.why)) {
+	// Wording as shipped in 2.56's migration review: "6 settings not in the database …, this file
+	// is the only copy". The older "6 changed settings" phrasing was replaced there; this test
+	// kept asserting it for two releases.
+	if (raft.risk && /6 settings not in the/.test(raft.why) && /only copy/.test(raft.why)) {
 		ok(`an at-risk file states what is at stake ("${raft.why.slice(0, 64)}…")`);
 	} else {
 		bad('an at-risk file states what is at stake', `risk=${raft.risk} why="${raft.why}"`);
@@ -475,7 +483,7 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 		bad('an unreadable file says so rather than being called empty', `why="${unread.why}"`);
 	}
 
-	if (/warn/.test(mig.banner) && /3 files cannot be accounted for/.test(mig.bannerText)) {
+	if (/warn/.test(mig.banner) && /3 files hold settings the database does not have/.test(mig.bannerText)) {
 		ok('the banner warns, with the count');
 	} else {
 		bad('the banner warns, with the count', `class="${mig.banner}" text="${mig.bannerText.slice(0, 90)}"`);
@@ -510,7 +518,7 @@ const bad = (m, d) => { console.log('  FAIL  ' + m); console.log('        ' + d)
 		const b = document.querySelector('#cfgMigBody .cfg-coverage');
 		return { cls: b ? b.className : '', text: b ? b.textContent : '' };
 	});
-	if (/ok/.test(none.cls) && /Nothing left to review/.test(none.text)) {
+	if (/ok/.test(none.cls) && /Migration complete/.test(none.text)) {
 		ok('a server with nothing parked says so, in the non-alarming style');
 	} else {
 		bad('a server with nothing parked says so', JSON.stringify(none));

@@ -90,7 +90,12 @@ echo
 echo "No placeholder is written anywhere"
 # The dropped placeholder must stay dropped: it is the kind of thing that gets reintroduced by
 # someone re-reading the old commit message.
-c=$(grep -rc "76561197960265728" "$REPO/container/" 2>/dev/null | grep -v ':0$' | wc -l)
+# The same well-known id is also Server Health's Steam probe (includes/health.php,
+# PHV_HEALTH_STEAM_PROBE_ID, 2.56): it is sent to GetPlayerSummaries to test the API key and
+# never written anywhere. A whole-tree grep counted it as a reintroduced placeholder from 2.56
+# to 2.57. What must stay clean is what WRITES or RENDERS access lists, so that one constant is
+# excluded by name rather than the search narrowed to a list that would miss a new writer.
+c=$(grep -rc "76561197960265728" "$REPO/container/" 2>/dev/null | grep -v ':0$' | grep -v "includes/health.php:" | wc -l)
 check "no injected placeholder ID in the shipped tree" "$([ "$c" = "0" ] && echo 1 || echo 0)" "found in $c file(s)"
 
 echo

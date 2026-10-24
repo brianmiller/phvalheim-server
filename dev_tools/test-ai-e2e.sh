@@ -66,7 +66,7 @@ echo "=== the migration must have run AT BOOT, unaided ==="
 tables=0
 for i in $(seq 1 60); do
 	tables=$(sql "SHOW TABLES LIKE 'ai_%'" | wc -l)
-	[ "$tables" = "2" ] && break
+	[ "$tables" -ge 4 ] && break
 	if docker exec "$NAME" supervisorctl status mysqld 2>/dev/null | grep -qE 'FATAL|EXITED'; then
 		echo "  FAIL  mysqld died -- the database never came up, so no migration could run."
 		docker exec "$NAME" tail -5 /opt/stateful/logs/mysqld.log 2>/dev/null | sed 's/^/        /'
@@ -76,10 +76,12 @@ for i in $(seq 1 60); do
 	sleep 3
 done
 
-if [ "$tables" = "2" ]; then
-	echo "  PASS  ai_providers + ai_model_cache created at boot (after ~$((i*3))s)"
+# Four since 2.45 shipped its proposals: ai_providers, ai_model_cache, ai_proposals, ai_usage.
+# This waited for exactly 2 until 2026-10-22 and failed on every image that had all four.
+if [ "$tables" -ge 4 ]; then
+	echo "  PASS  ai_providers + ai_model_cache + ai_proposals + ai_usage created at boot (after ~$((i*3))s)"
 else
-	echo "  FAIL  expected 2 ai_* tables, found $tables"
+	echo "  FAIL  expected 4 ai_* tables, found $tables"
 	echo "        engine log:"
 	docker exec "$NAME" grep -iE "schema update|could not be run|2\.45" /opt/stateful/logs/phvalheim.log 2>/dev/null \
 		| tail -8 | sed 's/^/        /'

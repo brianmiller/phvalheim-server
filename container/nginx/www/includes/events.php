@@ -123,8 +123,11 @@ function phvOpenOperations($pdo) {
 function phvEventsSummary($pdo) {
 	$seen = 0;
 	try { $seen = (int)$pdo->query("SELECT logsSeenEventId FROM settings LIMIT 1")->fetchColumn(); } catch (Throwable $e) { $seen = 0; }
-	$s = $pdo->prepare("SELECT level, COUNT(*) AS n FROM phv_events WHERE id > ? AND level IN ('warn','error') GROUP BY level");
-	$s->execute([$seen]);
+	// Unseen = not acknowledged, PER EVENT (2.58). The 2.56 design was one watermark id in
+	// settings, which could not express "I looked at this world's log" and -- see
+	// phvEventsAck() -- never moved once ids reached four digits.
+	$s = $pdo->prepare("SELECT level, COUNT(*) AS n FROM phv_events WHERE acked = 0 AND level IN ('warn','error') GROUP BY level");
+	$s->execute();
 	$unseen = ['warn' => 0, 'error' => 0];
 	foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) { $unseen[$r['level']] = (int)$r['n']; }
 	$max = (int)$pdo->query("SELECT IFNULL(MAX(id), 0) FROM phv_events")->fetchColumn();
@@ -132,10 +135,30 @@ function phvEventsSummary($pdo) {
 	        'open_ops' => phvOpenOperations($pdo)];
 }
 
-/* The operator has looked: everything up to $id is seen. Never moves backwards. */
-function phvEventsAck($pdo, $id) {
-	$s = $pdo->prepare("UPDATE settings SET logsSeenEventId = GREATEST(logsSeenEventId, ?)");
-	return $s->execute([(int)$id]);
+/* The operator has looked: every event up to $id is seen -- for one world when $world is
+ * given (the world log view), for the whole server otherwise (the Logs page).
+ *
+ * THE 2.56 BUG. This was `UPDATE settings SET logsSeenEventId = GREATEST(logsSeenEventId, ?)`
+ * with the id bound by PDO as a STRING, and MySQL's GREATEST compares as strings when any
+ * argument is one: GREATEST(669, '6429') is '669' because "66" sorts after "64". The
+ * watermark climbed while ids had three digits and then froze at 669 for good; the Logs
+ * page posted its ack on every visit and the sidebar badge never cleared (production,
+ * 2026-10-24). The watermark is still written, for anything that reads it, with the id
+ * CAST so the comparison is numeric; the count the badge shows comes from the per-event
+ * flag above, which a world-scoped ack can also set. */
+function phvEventsAck($pdo, $id, $world = null) {
+	$id = (int)$id;
+	if ($world !== null && $world !== '') {
+		$s = $pdo->prepare("UPDATE phv_events SET acked=1 WHERE acked=0 AND id <= ? AND world = ?");
+		return $s->execute([$id, $world]);
+	}
+	$s = $pdo->prepare("UPDATE phv_events SET acked=1 WHERE acked=0 AND id <= ?");
+	$ok = $s->execute([$id]);
+	try {
+		$w = $pdo->prepare("UPDATE settings SET logsSeenEventId = GREATEST(logsSeenEventId, CAST(? AS UNSIGNED))");
+		$w->execute([$id]);
+	} catch (Throwable $e) { /* the watermark is informational now */ }
+	return $ok;
 }
 
 /* Errors in the last hour, for the Server Health check. */

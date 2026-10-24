@@ -21,8 +21,9 @@ foreach (['Midgard', 'Asgard'] as $w) {
     $pdo->prepare("DELETE FROM worlds WHERE name = ?")->execute([$w]);
     addWorld($pdo, $w, 'test.example.com', '1');
 }
-$pdo->exec("UPDATE worlds SET status='running' WHERE name='Midgard'");
-$pdo->exec("UPDATE worlds SET status='stopped' WHERE name='Asgard'");
+// worlds.mode is the running state (2.50+); status is not read for it.
+$pdo->exec("UPDATE worlds SET mode='running' WHERE name='Midgard'");
+$pdo->exec("UPDATE worlds SET mode='stopped' WHERE name='Asgard'");
 
 $card = aiCapabilityCard($pdo);
 $cat  = aiActionCatalogue();
@@ -82,7 +83,7 @@ else bad('the card does not mention the typed confirmation');
 $rows = aiWorldRows($pdo);
 $tot  = count($rows);
 $run  = 0;
-foreach ($rows as $r) if (aiTruthy($r, 'status')) $run++;
+foreach ($rows as $r) if (aiWorldIsRunning($r)) $run++;   // mode, the column the card reads
 
 $wantWorlds  = "**$tot world" . ($tot === 1 ? '' : 's') . "**";
 $wantRunning = "$run running, " . ($tot - $run) . ' stopped';

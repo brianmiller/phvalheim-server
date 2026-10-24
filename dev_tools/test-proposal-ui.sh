@@ -56,6 +56,7 @@ docker exec "$NAME" chown -R phvalheim: /opt/stateless/nginx/www >/dev/null 2>&1
 docker exec "$NAME" supervisorctl restart php-fpm8 >/dev/null 2>&1
 sleep 2
 
+docker exec "$NAME" supervisorctl stop phvalheim >/dev/null 2>&1
 echo "Seeding a running world and a mock provider..."
 
 # A fresh install has setupComplete=0, and admin/index.php REDIRECTS that to setup.php --
@@ -70,7 +71,10 @@ sql "UPDATE settings SET aiOllamaNotice = 0;" 2>/dev/null
 sql "UPDATE settings SET huginNoticeShown = 0;" 2>/dev/null
 
 sql "DELETE FROM worlds WHERE name='Midgard';"
-sql "INSERT INTO worlds (name, status, mode, port, seed, vanilla) VALUES ('Midgard','running','',25000,'seed',0);"
+# Running is worlds.mode (2.50+); with mode='' Hugin answered "already stopped" to the mock's
+# stop_world and no proposal card could ever render. The engine is stopped above so it does
+# not reconcile a process-less 'running' back to stopped two seconds later.
+sql "INSERT INTO worlds (name, status, mode, port, seed, vanilla) VALUES ('Midgard','running','running',25000,'seed',0);"
 
 docker cp "$HERE/ai-e2e/mock-provider.php" "$NAME:/tmp/mock-provider.php" >/dev/null
 docker exec -d "$NAME" sh -c 'php -S 127.0.0.1:8899 /tmp/mock-provider.php > /tmp/mock.log 2>&1'

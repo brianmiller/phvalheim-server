@@ -218,6 +218,10 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 			}
 			if (atBottom) pane.scrollTop = pane.scrollHeight;
 			renderOps(d.operations || []);
+			// Viewing a world's log is looking at its events: ack THIS world's, up to the
+			// newest shown, so the dashboard's Logs badge clears for them (2.58). Other
+			// worlds' unseen warnings stay unseen -- the ack is world-scoped server-side.
+			if (document.visibilityState === 'visible' && d.max_event_id) ackWorld(d.max_event_id);
 			document.getElementById('statusLine').textContent = (mode === 'valheim' ? vl + ' Valheim lines' : mode === 'activity' ? ev + ' events' : ev + ' events, ' + vl + ' Valheim lines') + ' · updated ' + new Date().toLocaleTimeString();
 			document.getElementById('valheimLine').textContent = mode === 'activity' ? '' : (d.valheim.exists
 				? 'Valheim log ' + fmtBytes(d.valheim.size) + (d.this_boot && d.valheim.from_offset ? ', shown from this boot (offset ' + fmtBytes(d.valheim.from_offset) + ')' : d.this_boot ? ', no session marker yet so the whole file is shown' : ', whole file') + (d.valheim.truncated ? ', older part cut to keep this fast' : '')
@@ -225,6 +229,16 @@ if (!preg_match('/^[A-Za-z0-9_-]+$/', $world)) {
 		} catch (e) { console.error(e); }
 		finally { loading = false; }
 	}
+
+	let ackedTo = 0;
+	async function ackWorld(id) {
+		if (id <= ackedTo) return;
+		try {
+			await fetch(api + 'ackEvents', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: id, world: WORLD }) });
+			ackedTo = id;
+		} catch (e) {}
+	}
+	document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
 
 	function restartFollow() {
 		if (timer) clearInterval(timer); timer = null;

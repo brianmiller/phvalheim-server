@@ -22,10 +22,17 @@ function bad($m, $d) { echo "  FAIL  $m\n        $d\n"; $GLOBALS['fail']++; }
 
 // Pick a real world so worldIdByName() succeeds -- the function refuses an unknown world, and
 // a test that fed it a fake name would exercise the refusal instead of the containment.
-$world = $pdo->query("SELECT name FROM worlds LIMIT 1")->fetchColumn();
-if (!$world) { echo "SKIPPED: the dev database has no worlds\n"; exit(0); }
+// A scratch world of our own, not "the first world": that one's parked folder holds the
+// container bucket's fixture files, so "the folder is removed once the last file goes" could
+// never be true there. mode=stopped keeps the engine from acting on the row.
+$world = 'migdeltest' . getmypid();
+$pdo->exec("INSERT INTO worlds (mode,status,name,external_endpoint,seed) VALUES ('stopped','Down','$world','migdeltest','seed')");
 
 $base   = MODCONFIG_WORLDS_ROOT . "/$world";
+register_shutdown_function(function () use ($pdo, $world, $base) {
+    $pdo->exec("DELETE FROM worlds WHERE name='$world'");
+    if (is_dir($base)) exec('rm -rf ' . escapeshellarg($base));
+});
 $parked = "$base/custom_configs/" . MODCONFIG_IMPORTED_DIR;
 @mkdir($parked, 0775, true);
 

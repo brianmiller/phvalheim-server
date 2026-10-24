@@ -2,7 +2,7 @@
 FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.57
+ENV phvalheimVersion=2.58
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
@@ -15,7 +15,8 @@ RUN apt-get -y upgrade
 
 # basic tools
 RUN apt-get install --no-install-recommends --no-install-suggests -y bash zip unzip supervisor curl vim jq wget language-pack-en rsync ca-certificates bc sudo
-RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql php-curl cron inetutils-ping time
+# inetutils-ping was here until 2.58; nothing in the engine or the UI runs ping.
+RUN apt-get install --no-install-recommends --no-install-suggests -y nginx php-fpm sqlite3 mysql-server php-mysql php-curl cron time
 RUN apt-get install --no-install-recommends --no-install-suggests -y lib32gcc-s1
 RUN apt-get install --no-install-recommends --no-install-suggests -y gawk sysstat openssh-client zstd
 # python3 is REQUIRED, not optional: the mod catalogue sync (engine/tools/modSync.py) and a
@@ -26,25 +27,34 @@ RUN apt-get install --no-install-recommends --no-install-suggests -y gawk syssta
 # talks to the database through the mysql client on purpose.
 RUN apt-get install --no-install-recommends --no-install-suggests -y python3-minimal python3
 
-# github cli
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-RUN chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
-RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-RUN apt update
-RUN apt install --no-install-recommends --no-install-suggests -y gh
+# The GitHub CLI (gh) was installed here until 2.58. Nothing in the image ever ran it: the
+# client-release lookup is a plain HTTPS call from PHP (includes/git.php). It carried a Go
+# binary with its own unfixable findings (docker/cli, golang.org/x/crypto) and pulled in git.
 
 # steam stuff
-RUN apt-get update
-RUN apt-get install --no-install-recommends --no-install-suggests -y software-properties-common
-RUN add-apt-repository multiverse
+# ubuntu:jammy ships /etc/apt/sources.list with the multiverse lines already enabled, so the
+# `add-apt-repository multiverse` that ran here until 2.58 was a no-op that cost
+# software-properties-common and ~90 dependencies (python3-cryptography, PyJWT, httplib2,
+# oauthlib, PackageKit, polkit, dbus, gstreamer), the second-largest block of the Docker Hub
+# vulnerability list. The grep states the assumption: the build fails HERE, not at steamcmd,
+# if a future base image stops enabling multiverse.
+RUN grep -qE '^deb .* jammy multiverse' /etc/apt/sources.list
 RUN dpkg --add-architecture i386
 RUN apt-get update
 RUN echo steam steam/license note '' | debconf-set-selections
 RUN echo steam steam/question select "I AGREE" |debconf-set-selections
 RUN apt-get install --no-install-recommends --no-install-suggests -y steamcmd
 
-# crossplay deps
-RUN apt-get install --no-install-recommends --no-install-suggests -y libpulse-dev libatomic1 libc6
+# crossplay deps. Valheim's PlayFab Party library (valheim_server_Data/Plugins/libparty.so)
+# links libpulse.so.0, libpulse-simple.so.0, libpulse-mainloop-glib.so.0 and libatomic.so.1:
+# RUNTIME libraries. Until 2.58 this installed libpulse-dev, whose libglib2.0-dev -> libc6-dev
+# -> linux-libc-dev chain put the kernel's userspace headers in the image, and Docker Hub
+# counted every open kernel CVE against them: 2,290 of the 2,408 findings on 2.57, including
+# all 17 criticals, were that one header package (kernel code this container never runs).
+# The ldconfig loop is the proof the four sonames still resolve; the build fails here if the
+# runtime packages ever stop providing them, instead of crossplay worlds failing to boot.
+RUN apt-get install --no-install-recommends --no-install-suggests -y libpulse0 libpulse-mainloop-glib0 libatomic1
+RUN for so in libpulse.so.0 libpulse-simple.so.0 libpulse-mainloop-glib.so.0 libatomic.so.1; do ldconfig -p | grep -qE "^[[:space:]]*$so \(libc6,x86-64\)" || { echo "crossplay: $so does not resolve"; exit 1; }; done
 
 # Security refresh. The build is CACHED (dev_tools/buildRcDetached.sh), so the apt-get upgrade
 # at the top only re-runs when ubuntu:jammy itself changes: 2.56 shipped php8.1-fpm

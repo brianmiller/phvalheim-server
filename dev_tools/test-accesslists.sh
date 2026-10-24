@@ -33,7 +33,7 @@ fileExists() { dsh "test -f $SD/$1" 2>/dev/null; }
 
 echo "=== setup: world '$WORLD' in container '$CONTAINER' ==="
 dex mysql phvalheim -e "DELETE FROM worlds WHERE name='$WORLD';" >/dev/null 2>&1
-dex mysql phvalheim -e "INSERT INTO worlds (name,ip,port,seed,status,mode,citizens,public,vanilla) VALUES ('$WORLD','127.0.0.1',25099,'seed','stopped','idle','',0,0);" >/dev/null 2>&1
+dex mysql phvalheim -e "INSERT INTO worlds (name,ip,port,seed,status,mode,citizens,public,vanilla) VALUES ('$WORLD','127.0.0.1',25099,'seed','stopped','stopped','',0,0);" >/dev/null 2>&1
 dsh "rm -rf /opt/stateful/games/valheim/worlds/$WORLD" >/dev/null 2>&1
 dex bash -c "source /opt/stateless/engine/includes/phvalheim-static.conf; source /opt/stateless/engine/includes/0-functions.sh; worldDirPrep $WORLD" >/dev/null 2>&1
 

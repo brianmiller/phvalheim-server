@@ -82,7 +82,9 @@ echo "=== verify payload delimiter check: clean ==="
 echo "=== building $IMAGE ==="
 # SECURITY_REFRESH re-runs the Dockerfile's late apt upgrade once per UTC day (see the
 # Dockerfile); the build itself fails on a php8.1-fpm older than the PHP2Shell fix.
-docker buildx build --network=host --build-arg SECURITY_REFRESH="$(date -u +%F)" -t "$IMAGE" . || { echo "BUILD FAILED"; echo "=== done FAILED ==="; exit 1; }
+# --pull (2.58): without it a cached build keeps whatever ubuntu:jammy it pulled months ago;
+# the base image alone carried 13 findings that the current jammy tag had already dropped.
+docker buildx build --pull --network=host --build-arg SECURITY_REFRESH="$(date -u +%F)" -t "$IMAGE" . || { echo "BUILD FAILED"; echo "=== done FAILED ==="; exit 1; }
 
 echo "=== pushing ==="
 docker push "$IMAGE" || { echo "PUSH FAILED"; echo "=== done FAILED ==="; exit 1; }
@@ -947,12 +949,15 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   oe=$(grep -c "STEAM_HOME" /opt/stateless/engine/tools/updateChecker.py)
   # Player detection splits by crossplay. The non-crossplay heartbeat reads 0 while someone is
   # connected to a crossplay world, so using it everywhere reports every crossplay world empty.
-  of=$(grep -c "now N player" /opt/stateless/engine/tools/playerMonitor)
+  # 2.58: the log parser these two guarded is GONE -- the Companion reports the count -- so they
+  # now assert its absence: no PlayFab-line grep, no socket squeeze. Anchored on code, not on
+  # the header comment that still describes what used to be here.
+  of=$(grep -cF 'grep -ha "now [0-9]' /opt/stateless/engine/tools/playerMonitor)
   # Closing socket is logged TWICE per departure, the copies differing only in the run of
   # spaces after the timestamp. Squeezing before the dedupe is the whole fix.
   og=$(grep -c "tr -s" /opt/stateless/engine/tools/playerMonitor)
   echo "2.47 tools: present=$oa (want 3)  exec pm=$ob applier=$oc (want 1/1)  cron=$od (want 3)"
-  echo "2.47 checker steam home=$oe (want >0)  crossplay split=$of (want >0)  socket squeeze=$og (want >0)"
+  echo "2.47 checker steam home=$oe (want >0)  log-parser crossplay split=$of (want 0, retired 2.58)  socket squeeze=$og (want 0, retired 2.58)"
   # Installed-version tracking. The NEGATIVE is the important one: updateChecker must not read
   # worlds.modsViewer at all. That column is a display cache whose versions come from the live
   # catalogue, so comparing it against the catalogue compares a number with itself and can only
@@ -3560,9 +3565,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56cm=$(grep -cF '[ -f "$logFile.1" ] && cat "$logFile.1"; cat "$logFile"; } > "$histFile"' /opt/stateless/engine/tools/playerMonitor)
   v56cl=$(grep -cF 'SET join_code=NULL WHERE' /opt/stateless/engine/tools/playerMonitor)
   v56cn=$(grep -cE 'grep -ha.*"\$logFile"' /opt/stateless/engine/tools/playerMonitor)
+  # 2.58: want 0, was 3. The three history greps were the COUNT readers; the count comes from the
+  # Companion's file now and reads no log at all. The join code still reads the history (v56cm).
   v56co=$(grep -cE 'grep -ha.*"\$histFile"' /opt/stateless/engine/tools/playerMonitor)
   # The unknown count is unknown: player_count_at goes NULL with it, so updateApplier's
   # isIdle() can never read a rotated-away count as a fresh zero and restart an occupied world.
+  # Want 4 since 2.58: the "unknown" shape (count 0, time NULL) is written by the opt-out gate,
+  # by a missing roster file, by a stale/unparseable one, and for every non-running world --
+  # four sites, one meaning, the one this marker exists to protect (never a confident zero).
   v56cp=$(grep -cF "player_count=0, player_count_at=NULL, player_count_source='none'" /opt/stateless/engine/tools/playerMonitor)
   # 2.56 -- plugin GUIDs are learned for EVERY world at boot, not only after a rebuild.
   #
@@ -3706,6 +3716,138 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v57ad=$(grep -cF 'function phvEngineSessionMark($pdo, $world)' /opt/stateless/nginx/www/includes/db_gets.php)
   v57ae=$(grep -cF 'if (phvSessionMarkUsable($world, $mark)) {' /opt/stateless/nginx/www/includes/db_gets.php)
   echo "join-code reader: engine mark defined=$v57ad (want 1)  consulted in getWorldJoinCode=$v57ae (want 1)"
+  # 2.58 / v58aa-v58al: the Docker Hub vulnerability list. 2.57 showed 2,408 findings (17
+  # critical, 491 high). 2,290 were linux-libc-dev, pulled in by libpulse-dev; most of the rest
+  # were software-properties-common's python stack (for an add-apt-repository that was a no-op),
+  # gh (never run) and a composer vendor tree nothing referenced. Negatives first: the packages
+  # that CARRIED the findings must be gone -- "libpulse0 is installed" would pass on an image
+  # that still had libpulse-dev beside it.
+  # Read dpkg's own record rather than dpkg-query: the predictor (predict-verify.sh) skips a
+  # marker that names an image-only path like /var/lib/dpkg/status, and these can only be
+  # answered inside the image. A dpkg-query form had no path and was predicted as 7 failures.
+  v58aa=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&p=="linux-libc-dev"&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v58ab=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&p=="software-properties-common"&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v58ac=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&p=="gh"&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v58ad=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&p=="git"&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v58ae=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&p~/^(libpulse-dev|libglib2.0-dev|libc6-dev)$/&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v58af=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&p=="inetutils-ping"&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v58ag=$(ls -d /opt/stateless/nginx/www/vendor 2>/dev/null | wc -l)
+  v58ah=$(grep -rl 'vendor/autoload' /opt/stateless/nginx/www --include='*.php' | wc -l)
+  # Positives: what the removals must NOT have taken with them. libparty.so (crossplay) links
+  # exactly these four sonames; steamcmd proves multiverse still resolves without
+  # add-apt-repository; python3 is the mod system (it used to arrive only as a transitive dep).
+  v58ai=0; for so in libpulse.so.0 libpulse-simple.so.0 libpulse-mainloop-glib.so.0 libatomic.so.1; do ldconfig -C /etc/ld.so.cache -p | grep -qE "^[[:space:]]*$so \(libc6,x86-64\)" && v58ai=$((v58ai+1)); done
+  v58aj=$(awk '$1=="Package:"{p=$2} $1=="Status:"&&p=="steamcmd"&&/install ok installed/{n++} END{print n+0}' /var/lib/dpkg/status)
+  v58ak=$(ls /usr/bin/python3 2>/dev/null | wc -l)
+  # v58al: the scanner's own verdict. The host runs docker scout on the pushed image before this
+  # payload and passes the critical+high count in as SCOUT_CH; a NEW carrier (a future -dev
+  # package, a vendored library) shows up here as a number instead of as a surprise on the Hub
+  # page. No scout on the builder reads "unavailable" and fails on purpose: install it.
+  v58al="${SCOUT_CH:-unavailable}"
+  # v58am/an: the mod-sync log pane is re-rendered from state before it is polled, and the old
+  # fire-and-forget poll (the blank-pane-per-refresh bug) is gone. Both, because the new line
+  # beside the old one would still blink.
+  v58am=$(grep -cF 'renderModSyncLogLines(def.key);' /opt/stateless/nginx/www/admin/index.php)
+  v58an=$(grep -cF 'if (st && st.open) pollModSyncLog(def.key);' /opt/stateless/nginx/www/admin/index.php)
+  # v58ao/ap: polls are serialised per source (a second caller waits on the one in flight) and
+  # the reset-then-refetch shape that emptied the pane mid-switch is gone.
+  v58ao=$(grep -cF 'if (modSyncLogInflight[src]) return modSyncLogInflight[src];' /opt/stateless/nginx/www/admin/index.php)
+  v58ap=$(grep -cF 'st.lines = [];' /opt/stateless/nginx/www/admin/index.php)
+  # v58aq: the pane markup is emitted by BOTH per-source renders (live and idle); the live
+  # block had none, which is why the pane vanished for the duration of every sync.
+  v58aq=$(grep -cF '${logPaneHtml(src)}' /opt/stateless/nginx/www/admin/index.php)
+  echo "2.58 sync-log pane: rerender-before-poll=$v58am (want 1)  fire-and-forget poll=$v58an (want 0)  poll serialised=$v58ao (want 1)  reset-then-refetch=$v58ap (want 0)  pane in both renders=$v58aq (want 2)"
+  # v58ar/as: a forced sync reports progress THROUGH the dependency-graph write. The run's
+  # phase_pct rides in the same mysql invocation as each INSERT batch (80..98; finish() owns
+  # 100) and a log line lands every few seconds. Before: one waypoint at 80, then forty
+  # seconds of nothing. Guarded live by dev_tools/test-modsync-progress.sh.
+  v58ar=$(grep -cF 'UPDATE mod_sync_runs SET phase_pct={min(pct, 98)} WHERE id={run.id};' /opt/stateless/engine/tools/modSync.py)
+  v58as=$(grep -cF 'of {total:,} edge(s) written' /opt/stateless/engine/tools/modSync.py)
+  # v58at..v58ba: a running world's row is no taller than a stopped one. PLAYERS rides in the
+  # Status pill and an available update is a badge on the Settings button; the Resources cell
+  # holds MEM and HEALTH only. Three render sites (PHP online row, JS template, updateWorldRow
+  # on every poll) must all agree -- the 5s poll replaces the pill and the button, so a site
+  # that forgets the count or the badge wipes it five seconds after the page loads.
+  v58at=$(grep -cF '<span class="resource-label">PLAYERS</span>' /opt/stateless/nginx/www/admin/index.php)
+  v58au=$(grep -cF '<span class="resource-label">UPDATE</span>' /opt/stateless/nginx/www/admin/index.php)
+  v58av=$(grep -cF '<?php echo playersPillHtml($world); ?>' /opt/stateless/nginx/www/admin/index.php)
+  v58aw=$(grep -cF 'Settings<?php echo updateBadgeHtml($world); ?></a>' /opt/stateless/nginx/www/admin/index.php)
+  v58ax=$(grep -cF "\${isOnline ? playersPillHtml(world) : ''}" /opt/stateless/nginx/www/admin/index.php)
+  v58ay=$(grep -cF 'Settings${updateBadgeHtml(world)}</a>' /opt/stateless/nginx/www/admin/index.php)
+  v58az=$(grep -cF "insertAdjacentHTML('beforeend', updateBadgeHtml(world));" /opt/stateless/nginx/www/admin/index.php)
+  v58ba=$(grep -cE '^\.(status-players|update-badge) \{' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "2.58 sync progress: pct per batch=$v58ar (want 1)  progress line=$v58as (want 1)"
+  # v58bb..v58bk: the update badge is recomputed the moment an update ends and names the mods;
+  # player counts are opt-in. The flags are written ONLY by updateChecker.py (cron, 6-hourly,
+  # running worlds), so a hand-updated stopped world kept a stale badge: the engine's update
+  # block now runs the checker for that world. The server-rendered row literal in
+  # getWorldsData() never carried the player/update fields (every release to 2.58), so the PHP
+  # render was empty until the first poll -- v58bj is that literal. Live: test-update-badge-
+  # after-update.sh, test-player-counts-setting.sh, test-admin-row-consolidation.js.
+  v58bb=$(grep -cF 'update_mods_list={q(chr(10).join(stale))}' /opt/stateless/engine/tools/updateChecker.py)
+  v58bc=$(grep -cF "updateChecker.py --world '\$worldName'" /opt/stateless/engine/phvalheim)
+  v58bd=$(grep -cF 'countsEnabled=$(SQL "SELECT IFNULL(playerCountsEnabled,0) FROM settings LIMIT 1;")' /opt/stateless/engine/tools/playerMonitor)
+  v58be=$(grep -cF 'id="ss-playerCountsEnabled"' /opt/stateless/nginx/www/admin/index.php)
+  v58bf=$(grep -cF "'playerCountsEnabled' => 'int'," /opt/stateless/nginx/www/admin/adminAPI.php)
+  v58bg=$(grep -c '^addColumn settings playerCountsEnabled ' /opt/stateless/engine/dbUpdates/dbUpdate_2.58.sh)
+  v58bh=$(grep -c '^addColumn worlds update_mods_list ' /opt/stateless/engine/dbUpdates/dbUpdate_2.58.sh)
+  v58bi=$(grep -cF "IFNULL(update_mods_list,'') AS update_mods_list FROM worlds ORDER BY name" /opt/stateless/nginx/www/admin/index.php /opt/stateless/nginx/www/admin/adminAPI.php | awk -F: '{s+=$2} END {print s+0}')
+  v58bj=$(grep -cF "'update_mods_list' => (string)(\$row['update_mods_list'] ?? '')," /opt/stateless/nginx/www/admin/index.php)
+  v58bk=$(grep -cF "AS player_counts_enabled FROM worlds WHERE name" /opt/stateless/nginx/www/includes/db_gets.php)
+  # 2.58 sixth round: the Player Counts switch is RETIRED (counts are real), so v58bd/be/bf/bg/bk
+  # now want 0 and v58cl wants the dropColumn line. The ALTER COLUMN line is gone too (v58bt -> 0).
+  echo "2.58 update badge + player counts: checker names mods=$v58bb (want 1)  engine re-check=$v58bc (want 1)  monitor gate=$v58bd (want 0, retired)  settings switch=$v58be (want 0, retired)  api field=$v58bf (want 0, retired)  migration setting=$v58bg (want 0, retired)  migration column=$v58bh (want 1)  selects carry list=$v58bi (want 2)  php row literal=$v58bj (want 1)  updates tab flag=$v58bk (want 0, retired)"
+  # v58bl..v58bw: the player count is REAL (the Companion on the dedicated server writes its
+  # roster; playerMonitor reads the file, never the log), the count shows only while running,
+  # version strings are normalised so "3.5.8" can never flag an update of 3.5.8 -> "3.5.8", and
+  # a world's supervisor program is NAME PORT quoted (an empty password used to swallow the
+  # port) and is regenerated on start when missing. Live: test-world-player-telemetry.sh,
+  # test-playerMonitor.sh, test-startworld-args.sh, test-player-counts-setting.sh.
+  v58bl=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -aq 'player_stats.json' && echo 1 || echo 0)
+  v58bm=$(tr -d '\000' < /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | grep -aq 'PlayerTelemetry' && echo 1 || echo 0)
+  v58bn=$(grep -cF 'data/PhValheim.Companion/player_stats.json"' /opt/stateless/engine/tools/playerMonitor)
+  v58bo=$(grep -c 'now \[0-9\]' /opt/stateless/engine/tools/playerMonitor)
+  v58bp=$(grep -cF 'readCompanionCount "$worldName"' /opt/stateless/engine/tools/playerMonitor)
+  v58bq=$(grep -cF 'clean_version(' /opt/stateless/engine/tools/modSync.py)
+  v58br=$(grep -cF 'have, want = norm(have), norm(want)' /opt/stateless/engine/tools/updateChecker.py)
+  v58bs=$(grep -cF 'UPDATE mods SET latest_version=TRIM' /opt/stateless/engine/dbUpdates/dbUpdate_2.58.sh)
+  v58bt=$(grep -cF 'ALTER COLUMN playerCountsEnabled SET DEFAULT 1' /opt/stateless/engine/dbUpdates/dbUpdate_2.58.sh)
+  v58bu=$(grep -cF "if ((\$world['mode'] ?? '') !== 'running') return '';" /opt/stateless/nginx/www/admin/index.php)
+  v58bv=$(grep -cF "if (world.mode !== 'running') return '';" /opt/stateless/nginx/www/admin/index.php)
+  v58bw=$(grep -cF 'startWorld.sh \"$worldName\" \"$worldPort\"' /opt/stateless/engine/includes/0-functions.sh)
+  v58bx=$(grep -cF 'elif [ -n "$2" ]; then' /opt/stateless/games/valheim/scripts/startWorld.sh)
+  v58by=$(grep -cF 'createSupervisorWorldConfig "$worldName" "$healPassword" "$healPort"' /opt/stateless/engine/phvalheim)
+  echo "2.58 real player count: companion writes file=$v58bl (want 1)  telemetry class=$v58bm (want 1)  monitor reads file=$v58bn (want 1)  log inference=$v58bo (want 0)  count before log part=$v58bp (want 1)"
+  # v58bz/v58ca: no copy of the admin or public UI may still say the count is read from the
+  # world log / best-effort / approximate (the Companion reports it); both pill titles credit it.
+  v58bz=$(grep -ci 'read from the world log\|read from the server log\|read from the world&rsquo;s log\|read from each world&rsquo;s server log\|Player counts are best-effort\|&middot; approximate' /opt/stateless/nginx/www/admin/index.php /opt/stateless/nginx/www/public/authenticated.php | awk -F: '{s+=$2} END{print s+0}')
+  v58ca=$(grep -cF 'Reported by the PhValheim Companion running on this world' /opt/stateless/nginx/www/admin/index.php /opt/stateless/nginx/www/public/authenticated.php | awk -F: '{s+=$2} END{print s+0}')
+  echo "2.58 count wording: log/approximate claims left=$v58bz (want 0)  Companion credited=$v58ca (want 3)"
+  # v58cb..v58cm: Brian's seven items of 2026-10-24. Hugin tool results normalised to text at
+  # the one seam (#93); the Logs badge is per-event and the world log view acks its world;
+  # the Update and Delete modals exist and the old confirm() is gone; a running world's Update
+  # is a door; the auto-update BETA badge is gone; the pill title says "N players online"; the
+  # Updates tab knows a vanilla world; the switch column is dropped and playerMonitor never
+  # consults one. Live: test-hugin-tool-results.sh, test-events-ack.sh, test-update-modal.js,
+  # test-delete-modal.js, test-updates-tab-vanilla.js, test-admin-row-consolidation.js.
+  v58cb=$(grep -cF 'function aiRunToolRaw(' /opt/stateless/nginx/www/includes/aicontext.php)
+  v58cc=$(grep -cF 'UPDATE phv_events SET acked=1 WHERE acked=0 AND id <= ? AND world = ?' /opt/stateless/nginx/www/includes/events.php)
+  v58cd=$(grep -c '^addColumn phv_events acked ' /opt/stateless/engine/dbUpdates/dbUpdate_2.58.sh)
+  v58ce=$(grep -cF 'body: JSON.stringify({ id: id, world: WORLD })' /opt/stateless/nginx/www/admin/world_logs.php)
+  v58cf=$(grep -cF 'id="updateWorldOverlay"' /opt/stateless/nginx/www/admin/index.php)
+  v58cg=$(grep -cF 'id="deleteWorldOverlay"' /opt/stateless/nginx/www/admin/index.php)
+  v58ch=$(grep -cF "confirm('Are you sure you want to delete this world?')" /opt/stateless/nginx/www/admin/index.php)
+  v58ci=$(grep -cF "sectionHead('Automatic Updates &nbsp;<span" /opt/stateless/nginx/www/admin/index.php)
+  v58cj=$(grep -cF 'online. Reported by the PhValheim Companion running on this world' /opt/stateless/nginx/www/admin/index.php)
+  v58ck=$(grep -cF 'date_updated, mode, IFNULL(vanilla,0) AS vanilla FROM worlds WHERE name = ?' /opt/stateless/nginx/www/includes/db_gets.php)
+  v58cl=$(grep -c '^dropColumn settings playerCountsEnabled' /opt/stateless/engine/dbUpdates/dbUpdate_2.58.sh)
+  v58cm=$(grep -c 'countsEnabled' /opt/stateless/engine/tools/playerMonitor)
+  v58cn=$(grep -cF 'GREATEST(logsSeenEventId, CAST(? AS UNSIGNED))' /opt/stateless/nginx/www/includes/events.php)
+  v58co=$(grep -c 'Per-World Update Settings.*BETA' /opt/stateless/nginx/www/admin/index.php)
+  echo "2.58 seven items: hugin seam=$v58cb (want 1)  per-event ack=$v58cc (want 1)  acked column=$v58cd (want 1)  world-log ack=$v58ce (want 1)  update modal=$v58cf (want 1)  delete modal=$v58cg (want 1)  old confirm=$v58ch (want 0)  autoupdate BETA=$v58ci (want 0)  pill says players=$v58cj (want 2)  updates tab vanilla=$v58ck (want 1)  switch dropped=$v58cl (want 1)  monitor switch=$v58cm (want 0)  watermark cast=$v58cn (want 1)  per-world BETA=$v58co (want 0)"
+  echo "2.58 versions + pill + supervisor: clean_version=$v58bq (want 3)  checker norm=$v58br (want 1)  migration repair=$v58bs (want 1)  default on=$v58bt (want 0, switch retired)  php pill running-only=$v58bu (want 1)  js pill running-only=$v58bv (want 1)  program name+port=$v58bw (want 1)  startWorld 2-arg=$v58bx (want 1)  start self-heal=$v58by (want 1)"
+  echo "2.58 row consolidation: PLAYERS item=$v58at (want 0)  UPDATE item=$v58au (want 0)  PHP pill count=$v58av (want 1)  PHP settings badge=$v58aw (want 2)  JS pill count=$v58ax (want 1)  JS settings badge=$v58ay (want 1)  poll keeps badge=$v58az (want 1)  css rules=$v58ba (want 2)"
+  echo "2.58 CVE DIET: linux-libc-dev=$v58aa (want 0)  software-properties-common=$v58ab (want 0)  gh=$v58ac (want 0)  git=$v58ad (want 0)  -dev pkgs=$v58ae (want 0)  inetutils-ping=$v58af (want 0)  vendor dir=$v58ag (want 0)  autoload requires=$v58ah (want 0)  crossplay sonames=$v58ai (want 4)  steamcmd=$v58aj (want 1)  python3=$v58ak (want 1)  scout critical+high=$v58al (want 0)"
   v56fg=$(grep -c '^\.ms-links { margin-left: auto' /opt/stateless/nginx/www/css/phvalheimStyles.css)
   v56fh=$(grep -cF 'class="vol-row"' /opt/stateless/nginx/www/admin/index.php)
   v56fi=$(grep -c '^\.vol-bar ' /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -3784,7 +3926,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.55 MODS KEY: tool prefix=$v55ca (want 1)  sorted=$v55cb (want 1)  setModsMD5=$v55cc (want 1)  called in packageClient=$v55cd (want 1)  column=$v55ce (want 1)  api mods=$v55cf (want 1)  getter=$v55cg (want 1)  never NULLed=$v55ch (want 0)"
   echo "2.55 STRANDED RECOVERY: reconciler=$v55ef (want 1)  called=$v55eg (want 1)  before autoStart=$v55eh (want 1)  autoStart reads flag=$v55ej (want 1)  column DEFAULT 0=$v55ek (want 1)   [rec=$zRec auto=$zAut]"
   echo "2.55 STRANDED NEGATIVE: command modes in the stranded list=$v55ei (want 0 -- 'update' there rebuilds every world on every boot)"
-  echo "2.55 AUTOUPDATE IDLE: waiting reasons=$v55em (want 2)  force before gate=$v55en (want 1)  BETA badges=$v55eo (want 2)  Off-is-default=$v55ep (want 2)   [force=$zFrc gate=$zIdl]"
+  echo "2.55 AUTOUPDATE IDLE: waiting reasons=$v55em (want 2)  force before gate=$v55en (want 1)  BETA badges=$v55eo (want 0, retired: 2.58 took both BETA badges off -- the count is the Companion\'s)  Off-is-default=$v55ep (want 2)   [force=$zFrc gate=$zIdl]"
   echo "2.55 AUTOUPDATE NEGATIVE: staleness arm (return 0 after a player_count_at< test)=$v55el (want 0 -- this is what kicked a real operator's players)  self-enablers=$v55eq (want 0)"
   echo "2.55 MODE PILLS: creating/updating/broken labelled in both maps=$v55er (want 6)  broken css rule=$v55es (want 1)"
   echo "2.55 ENGINE CWD: subshell-scoped zips=$v55fc (want 2)  cd-ability probes=$v55fd (want 2)"
@@ -3806,7 +3948,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 SERVER HEALTH: collector=$v56du (want 1)  rules=$v56dv (want 9)  api=$v56dw (want 1)  strip=$v56dx (want 1)  sidebar=$v56dy (want 1)  old banner=$v56dz (want 0)  player warning=$v56ea (want 0)  analytics record=$v56eb (want 1)"
   echo "2.56 EVENT LOG: phvlog=$v56ec (want 1)  opBegin=$v56ed (want 1)  raw echo engine=$v56ee (want 0)  raw echo functions=$v56ef (want 0)  loop opens op=$v56eg (want 1)  session mark=$v56eh (want 1)  phvEvent=$v56ei (want 1)  timeline api=$v56ej (want 1)  viewer allowlist=$v56ek (want 1)  logs nav=$v56el (want 1)  old world links=$v56em (want 0)  old panel links=$v56en (want 0)  hugin tool=$v56eo (want 1)  events table=$v56ep (want 1)  ops table=$v56eq (want 1)  retention=$v56er (want 2)  world page=$v56es (want 1)  logs page=$v56et (want 1)  hugin source=$v56eu (want 1)  command events=$v56ev (want 5)  tool named=$v56ew (want 1)"
   echo "2.56 LOG VIEWER + DASHBOARD: opSummary fn=$v56ex (want 1)  used=$v56ey (want 1)  old valheim branch=$v56ez (want 0)  ops always=$v56fa (want 1)  markers=$v56fb (want 1)  Configure th=$v56fc (want 0)  Resources th=$v56fd (want 2)  two-col=$v56fe (want 0)  maint list=$v56ff (want 0)  panel css=$v56fg (want 1)  links=$v56fl (want 1)  Server nav=$v56fm (want 1)  Logs nav section=$v56fn (want 0)  reload sync=$v56fo (want 0)  sync api=$v56fp (want 1)  sync js=$v56fq (want 1)  log in su=$v56fr (want 1)  log chown=$v56fs (want 1)  api fallback=$v56ft (want 1)  world ops column=$v56fu (want 1)  viewers themed=$v56fv (want 3)  vol row=$v56fh (want 1)  vol css=$v56fi (want 1)  one group=$v56fj (want 1)  configHtml=$v56fk (want 0)"
-  echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 3)  unknown count has no time=$v56cp (want 1)"
+  echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 0, retired 2.58)  unknown count has no time=$v56cp (want 4)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
@@ -3935,7 +4077,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$na" = "1" ] && [ "$nb" = "1" ] && [ "$nc" = "5" ] && [ "$nd" = "3" ] && [ "$ne" = "2" ] \
     && [ "$nf" = "0" ] && [ "$ng" = "0" ] && [ "$nh" = "0" ] && [ "$ni" = "3" ] \
     && [ "$oa" = "3" ] && [ "$ob" = "1" ] && [ "$oc" = "1" ] && [ "$od" = "3" ] \
-    && [ "$oe" -gt 0 ] && [ "$of" -gt 0 ] && [ "$og" -gt 0 ] \
+    && [ "$oe" -gt 0 ] && [ "$of" = "0" ] && [ "$og" = "0" ] \
     && [ "$oh" -gt 0 ] && [ "$oi" = "0" ] && [ "$oj" = "1" ] && [ "$ok" = "1" ] \
     && [ "$ol" -gt 0 ] && [ "$om" -gt 0 ] && [ "$on_" = "1" ] && [ "$oo" -gt 0 ] \
     && [ "$ow" = "4" ] && [ "$ox" = "1" ] \
@@ -4103,7 +4245,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56ca" = "1" ] && [ "$v56cb" = "1" ] && [ "$v56cc" = "1" ] && [ "$v56cd" = "1" ] \
     && [ "$v56ce" = "1" ] && [ "$v56cf" = "3" ] && [ "$v56cg" = "1" ] && [ "$v56ch" = "1" ] \
     && [ "$v56ci" = "0" ] && [ "$v56cj" = "8" ] && [ "$v56ck" = "1" ] && [ "$v56cl" = "1" ] \
-    && [ "$v56cm" = "1" ] && [ "$v56cn" = "0" ] && [ "$v56co" = "3" ] && [ "$v56cp" = "1" ] \
+    && [ "$v56cm" = "1" ] && [ "$v56cn" = "0" ] && [ "$v56co" = "0" ] && [ "$v56cp" = "3" ] \
     && [ "$v56cq" = "1" ] && [ "$v56cr" = "1" ] && [ "$v56cs" = "1" ] && [ "$v56ct" = "0" ] \
     && [ "$v56cu" = "1" ] && [ "$v56cv" = "1" ] && [ "$v56cw" = "1" ] \
     && [ "$v56cx" = "1" ] && [ "$v56cy" = "2" ] && [ "$v56cz" = "1" ] && [ "$v56da" = "1" ] \
@@ -4130,7 +4272,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55ef" = "1" ] && [ "$v55eg" = "1" ] && [ "$v55eh" = "1" ] && [ "$v55ei" = "0" ] \
     && [ "$v55ej" = "1" ] && [ "$v55ek" = "1" ] \
     && [ "$v55el" = "0" ] && [ "$v55em" = "2" ] && [ "$v55en" = "1" ] \
-    && [ "$v55eo" = "2" ] && [ "$v55ep" = "2" ] && [ "$v55eq" = "0" ] \
+    && [ "$v55eo" = "0" ] && [ "$v55ep" = "2" ] && [ "$v55eq" = "0" ] \
     && [ "$v55er" = "6" ] && [ "$v55es" = "1" ] \
     && [ "$v55et" = "2" ] && [ "$v55eu" = "1" ] && [ "$v55ev" = "1" ] \
     && [ "$v55ew" = "1" ] && [ "$v55ex" = "0" ] && [ "$v55ey" = "2" ] \
@@ -4143,6 +4285,19 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v55fp" = "1" ] && [ "$v55fq" = "1" ] && [ "$v55fr" = "1" ] \
     && [ "$v55fs" = "0" ] && [ "$v55ft" = "1" ] \
     && [ "$v57aa" = "1" ] && [ "$v57ab" = "1" ] && [ "$v57ac" = "0" ] && [ "$v57ad" = "1" ] && [ "$v57ae" = "1" ] \
+    && [ "$v58aa" = "0" ] && [ "$v58ab" = "0" ] && [ "$v58ac" = "0" ] && [ "$v58ad" = "0" ] && [ "$v58ae" = "0" ] && [ "$v58af" = "0" ] \
+    && [ "$v58ag" = "0" ] && [ "$v58ah" = "0" ] && [ "$v58ai" = "4" ] && [ "$v58aj" = "1" ] && [ "$v58ak" = "1" ] && [ "$v58al" = "0" ] \
+    && [ "$v58am" = "1" ] && [ "$v58an" = "0" ] && [ "$v58ao" = "1" ] && [ "$v58ap" = "0" ] && [ "$v58aq" = "2" ] \
+    && [ "$v58ar" = "1" ] && [ "$v58as" = "1" ] \
+    && [ "$v58bb" = "1" ] && [ "$v58bc" = "1" ] && [ "$v58bd" = "0" ] && [ "$v58be" = "0" ] && [ "$v58bf" = "0" ] \
+    && [ "$v58bg" = "0" ] && [ "$v58bh" = "1" ] && [ "$v58bi" = "2" ] && [ "$v58bj" = "1" ] && [ "$v58bk" = "0" ] \
+    && [ "$v58bl" = "1" ] && [ "$v58bm" = "1" ] && [ "$v58bn" = "1" ] && [ "$v58bo" = "0" ] && [ "$v58bp" = "1" ] \
+    && [ "$v58bq" = "3" ] && [ "$v58br" = "1" ] && [ "$v58bs" = "1" ] && [ "$v58bt" = "0" ] && [ "$v58bu" = "1" ] && [ "$v58bv" = "1" ] \
+    && [ "$v58bw" = "1" ] && [ "$v58bx" = "1" ] && [ "$v58by" = "1" ] \
+    && [ "$v58bz" = "0" ] && [ "$v58ca" = "3" ] \
+    && [ "$v58cb" = "1" ] && [ "$v58cc" = "1" ] && [ "$v58cd" = "1" ] && [ "$v58ce" = "1" ] && [ "$v58cf" = "1" ] && [ "$v58cg" = "1" ] \
+    && [ "$v58ch" = "0" ] && [ "$v58ci" = "0" ] && [ "$v58cj" = "2" ] && [ "$v58ck" = "1" ] && [ "$v58cl" = "1" ] && [ "$v58cm" = "0" ] && [ "$v58cn" = "1" ] && [ "$v58co" = "0" ] \
+    && [ "$v58at" = "0" ] && [ "$v58au" = "0" ] && [ "$v58av" = "1" ] && [ "$v58aw" = "2" ] && [ "$v58ax" = "1" ] && [ "$v58ay" = "1" ] && [ "$v58az" = "1" ] && [ "$v58ba" = "2" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
@@ -4156,7 +4311,45 @@ if [ "$verifyBytes" -lt 10000 ]; then
   exit 1
 fi
 
-docker run --rm -e EXPECT_VER="$EXPECT_VER" \
+# 2.58: ask the scanner Docker Hub runs. The in-image markers assert the packages that carried
+# the 2.57 findings are gone; this asks docker scout itself, so a NEW carrier shows up as a
+# number here rather than on the Hub page after the push. Critical+high only: jammy's
+# unfixable medium/low findings in base packages (pcre2, gnutls, dash, tar...) would otherwise
+# fail every build. Distinct (advisory, package) pairs, the same way Scout's own total counts.
+# Not installed on this host reads "unavailable" and fails v58al on purpose -- install it
+# (github.com/docker/scout-cli release tarball, binary into ~/.docker/cli-plugins/docker-scout)
+# rather than skip it. SCOUT_MAX_CH=<n> raises the bar for a knowingly accepted finding; the
+# log records the number either way.
+SCOUT_CH=unavailable
+SCOUT_SARIF=/tmp/phvalheim-scout-$TAG.sarif.json
+if docker scout version >/dev/null 2>&1; then
+	echo "=== docker scout cves on $IMAGE (critical+high) ==="
+	rm -f "$SCOUT_SARIF"
+	if docker scout cves "$IMAGE" --format sarif --output "$SCOUT_SARIF" >/dev/null 2>&1 && [ -s "$SCOUT_SARIF" ]; then
+		SCOUT_CH=$(python3 - "$SCOUT_SARIF" <<'PHVSCOUTEOF'
+import json, sys
+s = json.load(open(sys.argv[1])); run = s['runs'][0]
+rules = {r['id']: r for r in run['tool']['driver'].get('rules', [])}
+seen = set()
+for r in run.get('results', []):
+    p = rules.get(r['ruleId'], {}).get('properties', {})
+    if p.get('cvssV3_severity') in ('CRITICAL', 'HIGH'):
+        seen.add((r['ruleId'], tuple(p.get('purls', []))))
+print(len(seen))
+PHVSCOUTEOF
+)
+		docker scout cves "$IMAGE" --only-severity critical,high --format packages 2>/dev/null | grep -vE '^\s*$' | head -40
+	else
+		SCOUT_CH=scanfailed
+	fi
+fi
+SCOUT_MAX_CH="${SCOUT_MAX_CH:-0}"
+if [ "$SCOUT_MAX_CH" != "0" ] && [ "$SCOUT_CH" -le "$SCOUT_MAX_CH" ] 2>/dev/null; then
+	echo "=== scout critical+high=$SCOUT_CH accepted under SCOUT_MAX_CH=$SCOUT_MAX_CH ==="
+	SCOUT_CH=0
+fi
+echo "=== scout critical+high=$SCOUT_CH (want 0) ==="
+docker run --rm -e EXPECT_VER="$EXPECT_VER" -e SCOUT_CH="$SCOUT_CH" \
   -v "$VERIFY_SH":/phvalheim-verify.sh:ro \
   --entrypoint sh "$IMAGE" /phvalheim-verify.sh
 

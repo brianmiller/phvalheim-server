@@ -17,6 +17,13 @@
 #   run-oracles.sh --container            run the tests that drive a live container
 #   run-oracles.sh --all                  both
 #
+# --container is driven through dev_tools/oracle-container-env.sh (2.58): it seeds the fixture
+# worlds and files the browser tests read, passes each test the arguments its header
+# documents, runs in-container PHP and in-image bash where they must run, boots the Hugin
+# suites from the image under test, and reports a test whose precondition this host cannot
+# provide as UNRUNNABLE -- which is NOT a pass: the bucket exits non-zero until the
+# precondition is met or the test is marked `requires: manual`.
+#
 # Exit 0 only if every test in the selected bucket exited 0.
 
 set -u
@@ -37,6 +44,10 @@ CONTAINER_RE='docker[[:space:]]+(exec|cp)|docker[[:space:]]+ps|docker[[:space:]]
 # includes absolute in-image paths, and test-mod-config-editor.sh drives modConfigs.py, which
 # chowns to a user that exists only in the image.
 REQUIRES_RE='^[[:space:]]*(#|\*|//)?[[:space:]]*requires:[[:space:]]*container'
+# `requires: manual` -- a test that needs a state no runner can seed (a pre-2.53 checkout to
+# diff against, a hardware device). Listed by --list, never run, counted in the partition so
+# it cannot vanish; the text after the marker is the reason.
+MANUAL_RE='^[[:space:]]*(#|\*|//)?[[:space:]]*requires:[[:space:]]*manual'
 
 # An HTTP call to the admin or public UI needs the container running just as much as a
 # `docker exec` does. Found by running this in CI: test-create-requires-steamid.js and
@@ -66,9 +77,11 @@ if [ "${#all[@]}" -eq 0 ]; then
 	exit 1
 fi
 
-standalone=(); container=(); crossrepo=()
+standalone=(); container=(); crossrepo=(); manual=()
 for t in "${all[@]}"; do
-	if grep -qiE "$REQUIRES_RE" "$t" 2>/dev/null \
+	if grep -qiE "$MANUAL_RE" "$t" 2>/dev/null; then
+		manual+=("$t")
+	elif grep -qiE "$REQUIRES_RE" "$t" 2>/dev/null \
 	   || grep -qE "$CONTAINER_RE" "$t" 2>/dev/null \
 	   || grep -qE "$HTTP_RE" "$t" 2>/dev/null; then
 		container+=("$t")
@@ -79,8 +92,8 @@ for t in "${all[@]}"; do
 	fi
 done
 
-if [ $(( ${#standalone[@]} + ${#container[@]} + ${#crossrepo[@]} )) -ne "${#all[@]}" ]; then
-	echo "FATAL: the partition lost files: ${#standalone[@]} + ${#container[@]} + ${#crossrepo[@]} != ${#all[@]}"
+if [ $(( ${#standalone[@]} + ${#container[@]} + ${#crossrepo[@]} + ${#manual[@]} )) -ne "${#all[@]}" ]; then
+	echo "FATAL: the partition lost files: ${#standalone[@]} + ${#container[@]} + ${#crossrepo[@]} + ${#manual[@]} != ${#all[@]}"
 	exit 1
 fi
 
@@ -97,6 +110,9 @@ if [ "$mode" = "--list" ]; then
 	echo
 	echo "CROSS-REPO (${#crossrepo[@]}) -- reads ../phvalheim-client or ../phvalheim-companion:"
 	for t in "${crossrepo[@]}"; do echo "  $(basename "$t")"; done
+	echo
+	echo "MANUAL (${#manual[@]}) -- needs a state no runner can seed; run by hand, never counted as passed:"
+	for t in "${manual[@]}"; do echo "  $(basename "$t")  ($(grep -ioE 'requires:[[:space:]]*manual.*' "$t" | head -1 | sed -E 's/requires:[[:space:]]*manual[[:space:]:-]*//'))"; done
 	exit 0
 fi
 
@@ -126,7 +142,27 @@ if [ "${#selected[@]}" -eq 0 ]; then
 	exit 1
 fi
 
+# Playwright is not a dependency of this repo; the browser tests find it through NODE_PATH.
+# It lives in a sibling checkout on the dev box. Left unset, 27 of the container tests fail
+# with "Cannot find module 'playwright'" and the bucket reports 45 failures that have
+# nothing to do with the product (2026-10-22). An explicit NODE_PATH wins; the sibling is
+# only a default. This MUST precede the container env's oracleCheck below: that is where
+# Playwright is resolved once for the whole run, and with the default applied after it every
+# browser test came back UNRUNNABLE from a shell that had not exported NODE_PATH itself --
+# 30 of 70 on the 2.58 :dev run (2026-10-23), from a runner that was supposed to end that.
+if [ -z "${NODE_PATH:-}" ] && [ -d "$REPO/../.pw-ui/node_modules/playwright" ]; then
+	export NODE_PATH="$(cd "$REPO/../.pw-ui/node_modules" && pwd)"
+fi
 cd "$REPO" || exit 1
+if [ "$mode" = "--container" ]; then
+	# shellcheck source=oracle-container-env.sh
+	. "$DEV/oracle-container-env.sh"
+	oracleCheck
+	echo
+	oracleSeed || { echo "FATAL: the container bucket could not be seeded; nothing run."; exit 1; }
+	trap oracleTeardown EXIT
+	echo
+fi
 mkdir -p "$REPO/.oracle-logs"
 
 passed=0; failed=0; unrunnable=0
@@ -138,7 +174,19 @@ echo
 for t in "${selected[@]}"; do
 	name=$(basename "$t")
 	log="$REPO/.oracle-logs/$name.log"
-	if runOne "$t" > "$log" 2>&1; then
+	if [ "$mode" = "--container" ]; then
+		reason=$(oracleUnrunnable "$name")
+		if [ -n "$reason" ]; then
+			echo "  ????  $name  (UNRUNNABLE: $reason)"
+			unrunnable=$((unrunnable+1)); unrunnableNames+=("$name")
+			continue
+		fi
+		oraclePre "$name"
+		run() { local rc; oracleRun "$name" "$t"; rc=$?; oraclePost "$name"; return $rc; }
+	else
+		run() { runOne "$t"; }
+	fi
+	if run > "$log" 2>&1; then
 		echo "  ok    $name"
 		passed=$((passed+1))
 	else

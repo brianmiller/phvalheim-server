@@ -63,6 +63,10 @@ function check(name, ok, detail) {
     await page.evaluate((w) => showSettingsModal(w), world);
     await page.waitForSelector('#settingsAccessListToggle', { state: 'attached', timeout: 15000 });
     await page.waitForTimeout(500);
+    // The enforced-but-empty heads-up may be up if this world's list is enforced and empty
+    // (it is for 'acltest' on the dev volume). It is correct and has its own test
+    // (test-empty-accesslist-modal.js); here it only intercepts the tab clicks below.
+    await page.evaluate(() => { if (typeof dismissEmptyAccessList === 'function') dismissEmptyAccessList(); });
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(300);
     // Close any one-time upgrade notice first. They fire ON the Access tab, and an armed

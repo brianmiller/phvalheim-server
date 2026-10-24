@@ -60,9 +60,11 @@ foreach (['Midgard', 'Asgard', 'Vanaheim'] as $w) {
     $pdo->prepare("DELETE FROM worlds WHERE name = ?")->execute([$w]);
     addWorld($pdo, $w, 'test.example.com', '12345');
 }
+// Running is worlds.mode, not worlds.status: the readers moved to `mode` in 2.50 and this
+// fixture kept seeding `status`, so every "already running" case read a stopped world.
 // Midgard: a running modded world. Asgard: stopped. Vanaheim: vanilla, for the
 // listed-needs-a-password rule.
-$pdo->exec("UPDATE worlds SET status='running', mode='' WHERE name='Midgard'");
+$pdo->exec("UPDATE worlds SET mode='running' WHERE name='Midgard'");
 $pdo->exec("UPDATE worlds SET status='stopped', mode='' WHERE name='Asgard'");
 $pdo->exec("UPDATE worlds SET status='stopped', mode='', vanilla=1, listed=0, password='' WHERE name='Vanaheim'");
 $pdo->exec("DELETE FROM ai_proposals");
@@ -100,7 +102,7 @@ if ($p && !empty($p['token']))                ok('a token was raised out-of-band
 else                                          bad('no token reached the UI layer');
 if (is_array($r) && !isset($r['token']))      ok('the token is NOT in what the model sees');
 else                                          bad('TOKEN LEAKED into the model-visible result');
-if (col('mode', 'Midgard') === '')            ok('the world was not touched by proposing');
+if (col('mode', 'Midgard') === 'running')     ok('the world was not touched by proposing');
 else                                          bad('proposing changed worlds.mode — the whole point is that it must not');
 if (stripos(json_encode($r), 'NOTHING HAS BEEN CHANGED') !== false)
      ok('the model is told explicitly that nothing happened yet');
@@ -117,10 +119,12 @@ else                                          bad('mode is ' . var_export(col('m
 head('Replay and expiry');
 
 $res2 = aiActionApply($pdo, $p['token']);
-if (empty($res2['success']))                  ok('the same token cannot be applied twice');
-else                                          bad('TOKEN REPLAYED — a double click would run the action again');
+// Refused BY THE REPLAY GUARDS, by their own words. Re-validation also refuses this replay
+// (the world is no longer running), so "refused at all" stayed green with both guards removed.
+if (empty($res2['success']) && preg_match('/already been dealt with|already being applied/i', (string)($res2['error'] ?? ''))) ok('the same token cannot be applied twice (refused by the replay guard)');
+else                                          bad('TOKEN REPLAYED, or refused for a reason other than the replay guard: ' . json_encode($res2));
 
-$pdo->exec("UPDATE worlds SET status='running', mode='' WHERE name='Midgard'");
+$pdo->exec("UPDATE worlds SET mode='running' WHERE name='Midgard'");
 [, $pExp] = tool('stop_world', ['world' => 'Midgard']);
 $pdo->prepare("UPDATE ai_proposals SET expires_at = DATE_SUB(NOW(), INTERVAL 1 MINUTE) WHERE token = ?")
     ->execute([$pExp['token']]);
@@ -128,15 +132,16 @@ $resExp = aiActionApply($pdo, $pExp['token']);
 if (empty($resExp['success']) && stripos($resExp['error'], 'expired') !== false)
      ok('an expired confirmation is refused');
 else bad('expired proposal still applied: ' . json_encode($resExp));
-if (col('mode', 'Midgard') === '')            ok('...and the world was left alone');
+if (col('mode', 'Midgard') === 'running')     ok('...and the world was left alone');
 else                                          bad('the expired proposal still changed the world');
 
 head('Re-validation at apply time');
 
 // Propose stopping a RUNNING world, then stop it by other means before confirming.
-$pdo->exec("UPDATE worlds SET status='running', mode='' WHERE name='Midgard'");
+$pdo->exec("UPDATE worlds SET mode='running' WHERE name='Midgard'");
 [, $pStale] = tool('stop_world', ['world' => 'Midgard']);
-$pdo->exec("UPDATE worlds SET status='stopped' WHERE name='Midgard'");
+// The premise goes stale in the column the re-validation reads (mode, since 2.50).
+$pdo->exec("UPDATE worlds SET mode='stopped' WHERE name='Midgard'");
 $resStale = aiActionApply($pdo, $pStale['token']);
 if (empty($resStale['success']) && stripos($resStale['error'], 'changed since') !== false)
      ok('a proposal whose premise went stale is refused, not acted on');
@@ -144,7 +149,7 @@ else bad('stale proposal applied anyway: ' . json_encode($resStale));
 
 head('restart_world');
 
-$pdo->exec("UPDATE worlds SET status='running', mode='' WHERE name='Midgard'");
+$pdo->exec("UPDATE worlds SET mode='running' WHERE name='Midgard'");
 [, $p] = tool('restart_world', ['world' => 'Midgard']);
 $res = aiActionApply($pdo, $p['token']);
 if (!empty($res['success']) && !empty($res['restart']))
@@ -155,7 +160,7 @@ else                                          bad('mode is ' . var_export(col('m
 
 head('update_world');
 
-$pdo->exec("UPDATE worlds SET status='running', mode='' WHERE name='Midgard'");
+$pdo->exec("UPDATE worlds SET mode='running' WHERE name='Midgard'");
 [, $p] = tool('update_world', ['world' => 'Midgard']);
 $res = aiActionApply($pdo, $p['token']);
 if (!empty($res['success']) && col('mode', 'Midgard') === 'update')
@@ -275,6 +280,9 @@ head('set_server_settings');
 
 $before = (int)$pdo->query("SELECT backupsToKeep FROM settings LIMIT 1")->fetchColumn();
 $want   = $before + 7;
+// Captured BEFORE the write: in a throwaway container the engine may not have minted
+// analyticsUUID yet, and "empty afterwards" only indicts the write if it was set before.
+$uuidBefore = $pdo->query("SELECT analyticsUUID FROM settings LIMIT 1")->fetchColumn();
 [$r, $p] = tool('set_server_settings', ['backupsToKeep' => $want]);
 if ((int)$pdo->query("SELECT backupsToKeep FROM settings LIMIT 1")->fetchColumn() === $before)
      ok('proposing did not change the setting');
@@ -283,12 +291,19 @@ $res = aiActionApply($pdo, $p['token']);
 $after = (int)$pdo->query("SELECT backupsToKeep FROM settings LIMIT 1")->fetchColumn();
 if ($after === $want) ok("applying set backupsToKeep to $want");
 else                  bad("backupsToKeep is $after, wanted $want: " . json_encode($res));
+// Replay on an action whose premise cannot go stale between two applies. The stop_world
+// replay above is also refused by re-validation (the world is no longer running), so with
+// both replay guards removed the suite stayed green -- the mutation run reported the guard
+// as uncovered (2026-10-22). A settings proposal re-validates nothing; only the guards stand.
+$resAgain = aiActionApply($pdo, $p['token']);
+if (empty($resAgain['success']) && preg_match('/already been dealt with|already being applied/i', (string)($resAgain['error'] ?? ''))) ok('a settings token cannot be applied twice either (refused by the replay guard)');
+else                             bad('SETTINGS TOKEN REPLAYED -- the replay guards are not holding: ' . json_encode($resAgain));
 
 // The internal saver is handed the whole settings row, so a neighbouring column must not
 // be collateral damage.
 $uuid = $pdo->query("SELECT analyticsUUID FROM settings LIMIT 1")->fetchColumn();
-if (!empty($uuid)) ok('a neighbouring setting (analyticsUUID) survived the write');
-else               bad('writing one setting blanked another');
+if ($uuid === $uuidBefore) ok('a neighbouring setting (analyticsUUID) survived the write' . (empty($uuid) ? ' (it was unset before too)' : ''));
+else                        bad('writing one setting blanked another: ' . var_export($uuidBefore, true) . ' -> ' . var_export($uuid, true));
 
 head('delete_world — typed confirmation');
 

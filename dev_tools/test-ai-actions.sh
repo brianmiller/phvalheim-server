@@ -102,6 +102,11 @@ if [ "$migrated" != 1 ]; then
 	exit 1
 fi
 echo "  engine migrations complete (through 2.45)"
+# The engine is not under test here and it fights the fixture: a world seeded as running
+# with no process behind it is reconciled to stopped within two seconds, and a proposal
+# that sets mode='start' is picked up and turned into a real start attempt. Every assertion
+# below reads the database, so the engine is stopped for the duration (2026-10-22).
+docker exec "$NAME" supervisorctl stop phvalheim >/dev/null 2>&1
 
 echo "Copying the working-tree files in..."
 docker cp "$ROOT/container/nginx/www/includes/aiactions.php" "$NAME:/opt/stateless/nginx/www/includes/aiactions.php" >/dev/null

@@ -24,6 +24,8 @@
 # engine loop polling them never see any of this. The engine would otherwise try to BUILD a
 # world row inserted for a test.
 #
+# requires: manual -- diffs the install plan against the worldMods.py of a PRE-2.53 checkout
+#   (the 2.53 migration proof); needs that checkout beside the repo, which no runner can seed.
 # Usage:  dev_tools/test-mod-destinations-live.sh [container]
 
 CONTAINER="${1:-phvalheim-dev}"

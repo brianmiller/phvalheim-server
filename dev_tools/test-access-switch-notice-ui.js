@@ -66,6 +66,10 @@ const visible = (id) => {
     sw = await page.evaluate(visible, 'accessSwitchNoticeOverlay');
     check('not shown on the General tab', !sw.visible, JSON.stringify(sw));
 
+    // The enforced-but-empty heads-up (its own test: test-empty-accesslist-modal.js) is up if
+    // this world's list is enforced and empty, as the dev volume's first world is; it would
+    // intercept the tab click below and fail this test for a reason that is not its own.
+    await page.evaluate(() => { if (typeof dismissEmptyAccessList === 'function') dismissEmptyAccessList(); });
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(600);
     sw = await page.evaluate(visible, 'accessSwitchNoticeOverlay');

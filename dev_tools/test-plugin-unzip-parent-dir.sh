@@ -96,11 +96,14 @@ echo
 echo "Case 4: the engine source actually creates the parents before unzipping"
 src="$REPO/container/engine/includes/0-functions.sh"
 for d in plugins patchers; do
-    c=$(grep -c "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/$d" "$src")
+    # The install loop iterates $treeRoot over the server tree and the client staging tree
+    # (2026-10-02); the mkdir moved with it. The older $worldsDirectoryRoot/$worldName/game
+    # spelling read 0 here for three releases while the parents were being created fine.
+    c=$(grep -c "mkdir -p \$treeRoot/BepInEx/$d" "$src")
     check "0-functions.sh mkdir -p ...BepInEx/$d" "$([ "$c" = "1" ] && echo 1 || echo 0)" "found $c"
 done
 # The mkdir must come BEFORE the plugin unzip, or it fixes nothing.
-mk=$(grep -n "mkdir -p \$worldsDirectoryRoot/\$worldName/game/BepInEx/plugins" "$src" | head -1 | cut -d: -f1)
+mk=$(grep -n "mkdir -p \$treeRoot/BepInEx/plugins" "$src" | head -1 | cut -d: -f1)
 uz=$(grep -n "BepInEx/plugins/\$modName/" "$src" | head -1 | cut -d: -f1)
 check "and does so BEFORE the plugin unzip (line $mk < $uz)" \
     "$([ -n "$mk" ] && [ -n "$uz" ] && [ "$mk" -lt "$uz" ] && echo 1 || echo 0)"

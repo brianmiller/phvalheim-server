@@ -1611,6 +1611,13 @@ function worldProcessRunning() {
 
 #create supervisor config file for this world
 #$1=worldName, $2=worldPassword, $3=worldPort
+#The program's command line is NAME and PORT, quoted. It used to be `$worldName $worldPassword
+#$worldPort` unquoted: startWorld.sh has read the real password from the database since 2.53
+#(the argument was dead), but with "no password" a supported state since 2.55 the empty
+#argument vanished, the port slid into its place and startWorld.sh refused with "Missing
+#arguments" -- a world with no password whose program was (re)generated could never start
+#(the dev volume, 2026-10-23). The password no longer lands in a file under conf.d either.
+#startWorld.sh still accepts the old three-argument shape for programs written before this.
 function createSupervisorWorldConfig() {
         worldName="$1"
         worldPassword="$2"
@@ -1618,7 +1625,7 @@ function createSupervisorWorldConfig() {
 
         echo "
         [program:valheimworld_$worldName]
-        command=/opt/stateless/games/valheim/scripts/startWorld.sh $worldName $worldPassword $worldPort
+        command=/opt/stateless/games/valheim/scripts/startWorld.sh \"$worldName\" \"$worldPort\"
         user=phvalheim
         autostart=false
         autorestart=true

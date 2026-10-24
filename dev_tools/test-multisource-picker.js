@@ -218,9 +218,25 @@ function check(name, ok, detail) {
         await page.waitForTimeout(900);
         await page.fill('#modtable-all_filter input', many.name);
         await page.waitForTimeout(500);
-        const sel = await page.$(`#modtable-all select.mod-version[data-mid="${many.id}"]`);
+        // Either table: a checked mod is re-sorted into the Selected table (#modtable-active)
+        // by the redraw, so pinning the lookup to #modtable-all depended on redraw timing and
+        // failed in the full bucket while passing alone (2026-10-22).
+        // ...and WAIT for it rather than sampling once: the redraw that reveals it is async.
+        // state: 'attached' -- the default waits for VISIBILITY, and the selector in the
+        // Available table can be scrolled or filtered out of view while perfectly rendered;
+        // the diagnostics showed the <select> in the cell while this reported it missing.
+        const sel = await page.waitForSelector(`select.mod-version[data-mid="${many.id}"]`, { state: 'attached', timeout: 8000 }).catch(() => null);
+        const why = sel ? '' : JSON.stringify(await page.evaluate((id) => ({
+            inCheckedSet: !!(window.checkedSet && window.checkedSet[id]),
+            activeRows: document.querySelectorAll(`#modtable-active [data-mid="${id}"], #modtable-active [data-uuid="${id}"]`).length,
+            allRows: document.querySelectorAll(`#modtable-all [data-mid="${id}"], #modtable-all [data-uuid="${id}"]`).length,
+            checked: !!document.querySelector(`.mod-checkbox[data-uuid="${id}"]:checked`),
+            overlays: [...document.querySelectorAll('.mods-modal-overlay.show, .modal.show')].map(o => o.id),
+            cell: (document.querySelector(`#modtable-all .mod-checkbox[data-uuid="${id}"]`)?.closest('tr')?.querySelector('td:nth-child(5)')?.innerHTML || '').slice(0, 80),
+            tableVersions: (() => { try { const tr = document.querySelector(`#modtable-all .mod-checkbox[data-uuid="${id}"]`).closest('tr'); return $('#modtable-all').DataTable().row(tr).data()?.versions; } catch (e) { return 'n/a: ' + e.message; } })(),
+        }), many.id));
         check('selecting a multi-version mod reveals the version selector', sel !== null,
-            'no select.mod-version rendered for the checked mod');
+            'no select.mod-version rendered for the checked mod -- ' + why);
 
         if (sel) {
             // Opening it lazily loads the real list -- the payload only carries the latest

@@ -10,14 +10,21 @@
 	#exit 1
 #fi
 
-if [ ! $1 ] || [ ! $2 ] || [ ! $3 ]; then
+# Two shapes. NAME PORT is what createSupervisorWorldConfig() writes from 2.58. NAME PASSWORD
+# PORT is what every program written before 2.58 carries; the password argument has been dead
+# since 2.53 (the real one is read from the database below), and with an EMPTY password the
+# unquoted argument vanished and the port slid into its place -- "Missing arguments" for every
+# no-password world whose program was regenerated. Both shapes resolve to the same two values.
+if [ -n "$3" ]; then
+        worldName="$1"
+        worldPort="$3"
+elif [ -n "$2" ]; then
+        worldName="$1"
+        worldPort="$2"
+else
         echo "`date` [ERROR : phvalheim] Missing arguments..."
         echo " Example: startWorld.sh \"world_name\" \"world_port\""
         exit 1
-else
-        worldName="$1"
-        worldPassword="$2"
-        worldPort="$3"
 fi
 
 

@@ -77,6 +77,10 @@ const rectOfText = (selector, needle) => `(() => {
     // appearance:none + opacity:0 by design, so it is never "visible" to playwright.
     await page.waitForSelector('#settingsAccessListToggle', { state: 'attached', timeout: 15000 });
     await page.waitForTimeout(600);
+    // The enforced-but-empty heads-up may be up if this world's list is enforced and empty
+    // (it is for 'acltest' on the dev volume). It is correct and has its own test
+    // (test-empty-accesslist-modal.js); here it only intercepts the tab clicks below.
+    await page.evaluate(() => { if (typeof dismissEmptyAccessList === 'function') dismissEmptyAccessList(); });
 
     // ---------------------------------------------------------------- case 1
     console.log('\nCase 1: General tab -- hint has air under the Behaviour panel');

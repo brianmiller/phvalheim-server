@@ -188,8 +188,11 @@ const MEASURE = () => {
     // never share a row -- so this has to be measured somewhere wide enough to mix them. The
     // card is a flex item AND (since the trophy fix) a flex container; making it a container
     // must not cost it its own align-self: stretch.
-    await p.setViewportSize({ width: 1700, height: 1200 });
-    const rows = await p.evaluate(() => {
+    // Which width mixes them depends on how many worlds the citizen has and how they sort: on
+    // the dev volume (seven worlds, modded names sorting first) 1700px gave three modded, then
+    // three vanilla, then one -- no mixed row at all -- while 1400px mixed them in row two.
+    // Try a few widths and measure at the first that has a mixed row.
+    const rowsAt = () => p.evaluate(() => {
         const byTop = {};
         for (const box of document.querySelectorAll('.catbox')) {
             const r = box.getBoundingClientRect();
@@ -200,7 +203,15 @@ const MEASURE = () => {
         }
         return Object.values(byTop);
     });
-    const mixed = rows.filter(r => r.length > 1 && new Set(r.map(c => c.vanilla)).size > 1);
+    let rows = [], mixed = [], mixedAt = null;
+    for (const width of [1700, 1400, 2000, 1100, 2300]) {
+        await p.setViewportSize({ width, height: 1200 });
+        await p.waitForTimeout(150);
+        rows = await rowsAt();
+        mixed = rows.filter(r => r.length > 1 && new Set(r.map(c => c.vanilla)).size > 1);
+        if (mixed.length) { mixedAt = width; break; }
+    }
+    if (mixedAt) console.log(`   (mixed row found at ${mixedAt}px)`);
     check('a row mixing modded and vanilla cards exists to check', mixed.length > 0,
         'widen the viewport or add a world -- this check proved nothing');
     for (const row of mixed) {

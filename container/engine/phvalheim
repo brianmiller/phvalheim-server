@@ -439,6 +439,18 @@ while [ true ]; do
 				SQL "UPDATE worlds SET mode='starting' WHERE name='$worldName'"
 				phvWorldSessionMark "$worldName"
 
+				#A world row with no supervisor program cannot be started: supervisorctl answers
+				#"no such process" and the world was marked broken with an empty log to point at
+				#(the dev volume, 2026-10-23: half its worlds had no file under
+				#$worldSupervisorConfigs). The program is derived entirely from the row -- name,
+				#password, port -- so regenerate it rather than fail a start that would succeed.
+				if [ ! -f "$worldSupervisorConfigs/valheimworld_$worldName.conf" ]; then
+					phvlog NOTICE "World '$worldName' has no supervisor program; regenerating it from the database before starting."
+					healPassword=$(SQL "SELECT IFNULL(password,'') FROM worlds WHERE name='$worldName';")
+					healPort=$(SQL "SELECT port FROM worlds WHERE name='$worldName';")
+					createSupervisorWorldConfig "$worldName" "$healPassword" "$healPort"
+				fi
+
 				#Re-apply the operator's mod config overrides before the world loads them.
 				#
 				#On START as well as on update, because every other config step in this engine
@@ -706,6 +718,14 @@ while [ true ]; do
 				else
 					SQL "UPDATE worlds SET mode='stopped' WHERE name='$worldName'"
 				fi
+
+				#Re-check this world's updates NOW (2.58). update_available_* and the named mod
+				#list are written ONLY by updateChecker.py, which cron runs every six hours and
+				#for RUNNING worlds only -- so a world the operator updated by hand (stopped, as
+				#most are) kept its "update available" badge until it next ran AND got checked.
+				#Backgrounded as the cron user, the same shape as the boot catalogue sync above,
+				#so the restart just queued is not held up; the checker sets its own HOME.
+				setsid su phvalheim -s /bin/sh -c "/opt/stateless/engine/tools/updateChecker.py --world '$worldName' >> /opt/stateful/logs/phvalheim.log 2>&1" < /dev/null > /dev/null 2>&1 &
 
 								
 

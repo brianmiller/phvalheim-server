@@ -197,8 +197,11 @@ enablers=$(grep -rEl "autoUpdateMode[ ]*=[ ]*1|autoupdate_mode[ ]*=[ ]*1" \
 	&& pass "nothing in the tree sets auto-update mode to 1" \
 	|| fail "something enables auto-updates on its own" "$enablers"
 
-# Both switch-on points must be badged. An operator who only ever opens the per-world panel
-# must not be the one who finds out the hard way.
+# 2.58: the BETA badges came OFF. The idle decision rests on the Companion's own player roster
+# now (playerMonitor reads its file; see test-playerMonitor.sh), so the warning that stood on
+# both switch-on points while the count was scraped from the log would be a lie. The two
+# assertions below are therefore inverted: neither surface may carry the badge any more.
+# The anchoring lesson that follows still holds -- it is why they look at the heading's line.
 #
 # NOT a count of "BETA" in the file: admin/index.php already renders a BETA pill for any world
 # with worlds.beta set, three times, so `grep -c BETA` was 8 before any of this work and would
@@ -210,12 +213,12 @@ enablers=$(grep -rEl "autoUpdateMode[ ]*=[ ]*1|autoupdate_mode[ ]*=[ ]*1" \
 # deleting it: the check still said PASS. The badge markup sits on the heading's own line, so
 # that is what to assert on.
 grep -q 'Per-World Update Settings.*BETA' "$ADMIN" \
-	&& pass "the per-world panel carries the BETA badge (same line as the heading)" \
-	|| fail "the per-world auto-update panel is not badged"
+	&& fail "the per-world auto-update panel still carries a BETA badge (2.58 took it off: the count is real)" \
+	|| pass "the per-world panel no longer carries the BETA badge (2.58)"
 
 grep -q "sectionHead('Automatic Updates.*BETA" "$ADMIN" \
-	&& pass "the Server Settings section carries the BETA badge (same line as the heading)" \
-	|| fail "the global Automatic Updates section is not badged"
+	&& fail "the global Automatic Updates section still carries a BETA badge (2.58 took it off)" \
+	|| pass "the Server Settings section no longer carries the BETA badge (2.58)"
 
 # Both selects must say the default out loud, so "Off" is not mistaken for "someone turned
 # this off".

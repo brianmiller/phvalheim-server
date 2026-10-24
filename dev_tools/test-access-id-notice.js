@@ -51,6 +51,10 @@ async function openAccessTab(page, world) {
     await page.evaluate((w) => showSettingsModal(w), world);
     await page.waitForSelector('#settingsAccessListToggle', { state: 'attached', timeout: 15000 });
     await page.waitForTimeout(500);
+    // The enforced-but-empty heads-up (its own test: test-empty-accesslist-modal.js) is up if
+    // this world's list is enforced and empty, as the dev volume's first world is; it would
+    // intercept the tab click below and fail this test for a reason that is not its own.
+    await page.evaluate(() => { if (typeof dismissEmptyAccessList === 'function') dismissEmptyAccessList(); });
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(400);
 }
@@ -94,6 +98,10 @@ async function openAccessTab(page, world) {
     let onGeneral = await page.evaluate(overlayVisible);
     check('not visible on the General tab', !onGeneral.visible, JSON.stringify(onGeneral));
 
+    // The enforced-but-empty heads-up (its own test: test-empty-accesslist-modal.js) is up if
+    // this world's list is enforced and empty, as the dev volume's first world is; it would
+    // intercept the tab click below and fail this test for a reason that is not its own.
+    await page.evaluate(() => { if (typeof dismissEmptyAccessList === 'function') dismissEmptyAccessList(); });
     await page.click('.backup-tab[data-tab="accessTab"]');
     await page.waitForTimeout(400);
     let onAccess = await page.evaluate(overlayVisible);
