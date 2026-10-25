@@ -72,3 +72,8 @@ For the connection-recovery changes, update each world and sync its clients to i
 GitLab write flows were tested using real Git transfers and an isolated API fixture; live GitLab account permissions still need validation. Real-client Unity/PlayFab connection recovery and credentialed Thunderstore/Hexium uploads remain operator checks. Build and package success do not replace trying your mod in game.
 
 [Companion 1.0.6 changes](https://github.com/brianmiller/phvalheim-companion/commit/511d77b8da598dba221ea127f32ab7d28643ec18) · [Full changelog](https://github.com/brianmiller/phvalheim-server/blob/master/CHANGELOG.md) · [Changes since v2.58](https://github.com/brianmiller/phvalheim-server/compare/v2.58...v2.59)
+
+
+<a href="https://github.com/user-attachments/assets/34fb4ced-c988-4d29-8970-0668d069e7af"><img width="600" alt="Start a Vibe with an idea or a starter prompt" src="https://github.com/user-attachments/assets/34fb4ced-c988-4d29-8970-0668d069e7af" /></a>
+
+<a href="https://github.com/user-attachments/assets/c84f274c-172f-4627-bff2-9d257d1226f6"><img width="600" alt="Hugin’s Vibes workbench with chat, tool activity and build results" src="https://github.com/user-attachments/assets/c84f274c-172f-4627-bff2-9d257d1226f6" /></a>

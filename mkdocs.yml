@@ -1,0 +1,84 @@
+site_name: PhValheim
+site_description: Host your worlds. Bring your friends. Make your own mods.
+site_url: https://brianmiller.github.io/phvalheim-server/
+repo_url: https://github.com/brianmiller/phvalheim-server
+repo_name: brianmiller/phvalheim-server
+edit_uri: edit/master/website/docs/
+docs_dir: website/docs
+site_dir: .site
+strict: true
+theme:
+  name: material
+  logo: assets/favicon.svg
+  favicon: assets/favicon.svg
+  font: false
+  palette:
+    - scheme: slate
+      primary: custom
+      accent: cyan
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+    - scheme: default
+      primary: custom
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - toc:
+      permalink: true
+extra_css:
+  - stylesheets/extra.css
+nav:
+  - Home: index.md
+  - Get started:
+      - Install with Docker: start/install.md
+      - Create your first world: start/first-world.md
+      - Unraid and Kubernetes: start/other-platforms.md
+  - Play:
+      - Join a world: play/join.md
+  - Run your server:
+      - Mods and configurations: host/mods.md
+      - Vanilla and crossplay: host/vanilla.md
+      - Player access: host/access.md
+      - Backups and restore: host/backups.md
+      - Logs and health: host/logs.md
+      - Ask Hugin: host/hugin.md
+      - Updating: host/updating.md
+      - Troubleshooting: host/troubleshooting.md
+  - Make mods:
+      - Make your first Vibe: vibes/first-mod.md
+      - Watch the short tour: vibes/tour.md
+      - Set up the workshop: vibes/setup.md
+      - GitHub, GitLab and imports: vibes/source-control.md
+      - Package and publish: vibes/publishing.md
+  - Reference:
+      - Ports, storage and HTTPS: reference/networking.md
+      - Catalogue syncing: reference/catalogues.md
+      - Advanced options: reference/advanced.md
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/brianmiller/phvalheim-server
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/8RMMrJVQgy
+copyright: PhValheim · Made for your next adventure.

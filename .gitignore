@@ -33,3 +33,9 @@ __pycache__/
 
 # Per-test logs written by dev_tools/run-oracles.sh. Generated, never committed.
 .oracle-logs/
+
+# Built public documentation
+.site/
+
+.venv-docs/
+.cache/
