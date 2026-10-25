@@ -3903,6 +3903,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v59bu=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -cF 'row.phvSource = mod.source;')
   v59bv=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -cF 'if (!activeSources[mod.source] && !checkedSet[uuid]) return;')
   v59bw=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -cF 'aria-pressed=')
+  v59bz=$(for page in admin/index.php admin/hugins_vibes.php public/index.php public/authenticated.php; do grep -qF 'href="https://brianmiller.github.io/phvalheim-server/"' /opt/stateless/nginx/www/$page && echo yes; done | wc -l)
+  v59ca=$(grep -cF "https://github.com/brianmiller/phvalheim-server#backups" /opt/stateless/nginx/www/admin/index.php)
+  echo "2.59 Field Guide: linked pages=$v59bz (want 4)  obsolete backup anchor=$v59ca (want 0)"
   v59bx=$(grep -cF "'HEAD:refs/heads/'" /opt/stateless/engine/tools/vibes/lib/git.php)
   v59by=$(grep -cF "'main', '--tags'" /opt/stateless/engine/tools/vibes/lib/git.php)
   echo "2.59 SCM first push: current branch=$v59bx (want 1)  hardcoded main=$v59by (want 0)"
@@ -4369,6 +4372,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
+    && [ "$v59bz" = "4" ] && [ "$v59ca" = "0" ] \
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

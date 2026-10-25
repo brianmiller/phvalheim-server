@@ -2,6 +2,12 @@
 
 ## v2.59
 
+### Field Guide links
+
+The dashboard Help section, player pages and Vibes workbench now link to the
+[PhValheim Field Guide](https://brianmiller.github.io/phvalheim-server/).
+Server Settings documentation and backup help also point to the new guides.
+
 ### SCM branch compatibility
 
 The first Push to GitHub or GitLab preserves the project's current branch and pushes its tags.

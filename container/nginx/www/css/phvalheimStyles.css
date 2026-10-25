@@ -7535,3 +7535,7 @@ pre.ms-log {
 .mod-source-filter .msf-feedback { flex-basis: 100%; font-size: .75rem; color: var(--text-secondary); }
 .mod-source-filter .msf-feedback:empty { display: none; }
 .mod-source-filter .msf-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
+
+/* Documentation remains reachable before and after Steam sign-in. */
+.field-guide-link { display:inline-flex; align-items:center; gap:.4rem; min-height:44px; padding:.25rem .5rem; color:var(--text-primary); font-size:.875rem; text-decoration:none; border-radius:.4rem; }
+.field-guide-link:hover, .field-guide-link:focus-visible { color:var(--accent-primary); text-decoration:underline; }

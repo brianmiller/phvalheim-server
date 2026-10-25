@@ -62,6 +62,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 		<div class="vb-header-actions"><button type="button" class="vb-btn vb-btn-ghost" id="vbToggleLibrary" aria-expanded="true">Vibes</button><button type="button" class="vb-btn vb-btn-ghost" id="vbToggleForge" aria-expanded="true">Forge</button><button type="button" class="vb-btn vb-btn-ghost" id="vbToggleNotes" aria-expanded="true">Notes</button>
 			<button type="button" class="vb-btn vb-btn-ghost vb-only-narrow" id="vbBtnLibrary" title="Open the library">&#9776; Library</button>
 			<button type="button" class="vb-btn vb-btn-ghost" id="vbBtnSettings" title="Settings">&#9881; Settings</button>
+			<a class="vb-btn vb-btn-ghost" href="https://brianmiller.github.io/phvalheim-server/" target="_blank" rel="noopener noreferrer" title="PhValheim Field Guide — setup, modding and publishing">Field Guide</a>
 			<a class="vb-btn vb-btn-ghost" href="index.php" title="Back to the dashboard">Dashboard</a>
 		</div>
 	</header>
