@@ -12,7 +12,7 @@
 function whatsNewNotes() {
     return [
         '2.59' => [
-            'New: <a href="https://brianmiller.github.io/phvalheim-server/" target="_blank" rel="noopener noreferrer"><b>PhValheim Field Guide</b></a> &mdash; searchable guides for setup, worlds, mods, client syncing and Hugin, plus a one-minute tour. Open it from the dashboard, player pages or Vibes workbench.',
+            'New: <a href="https://brianmiller.github.io/phvalheim-server/" target="_blank" rel="noopener noreferrer"><b>PhValheim Field Guide</b></a> &mdash; searchable guides for setup, worlds, mods, client syncing and Hugin, plus a one-minute tour. Open it from the dashboard or Vibes workbench, or click <b>Hugin&rsquo;s icon</b> in the player-page footer to visit <b>phvalheim.com</b>.',
             'Fixed: <b>catalogue toggles in the world mod picker</b> now match the world&rsquo;s saved filter and respond without rebuilding the whole catalogue. Thunderstore, Hexium and Hugin&rsquo;s Vibes filter correctly, rapid clicks are reliable, and the current search and sort are preserved.',
             'The <b>Companion refreshes connection data while the game is open</b>: a crossplay join code that was not ready at launch appears automatically, with backend status and retry feedback. Update the world and sync your client to receive Companion 1.0.6.',
             '<b>Vibes workbench improvements:</b> collapsible Vibes, Forge and Notes panels, a searchable model picker with a matching header pill, readable tool activity, scroll-back, animated Hugin feedback, context estimates and provider token usage. Context compacts between tool rounds as well as between turns.',

@@ -1,4 +1,4 @@
-**New: [PhValheim Field Guide](https://brianmiller.github.io/phvalheim-server/)** — searchable setup, world management, modding and player guides, plus the [one-minute product tour](https://brianmiller.github.io/phvalheim-server/start/tour/). Refreshed 2.59 images include Field Guide links in the dashboard, player pages and Vibes workbench. Pull the image and recreate your container to receive them.
+**New: [PhValheim Field Guide](https://brianmiller.github.io/phvalheim-server/)** — searchable setup, world management, modding and player guides, plus the [one-minute product tour](https://brianmiller.github.io/phvalheim-server/start/tour/). Refreshed 2.59 images include Field Guide links in the dashboard, player pages and Vibes workbench. On the public player pages, Hugin’s icon opens [phvalheim.com](https://phvalheim.com). Pull the image and recreate your container to receive them.
 
 **Hugin's Vibes is optional.** It installs its separate Build Pak only when you choose to set it up. An AI provider and a world with installed Valheim server files are needed to get started.
 
