@@ -50,7 +50,9 @@ function check(name, ok, detail) {
         preId: (e.querySelector('pre.ms-log') || {}).id,
         collapsed: (e.querySelector('pre.ms-log') || {}).style?.display === 'none'
     })));
-    check('one log pane per catalogue', panes.length === 2, JSON.stringify(panes));
+    const catalogues = await page.evaluate(async () => (await (await fetch('adminAPI.php?action=getModSyncStatus')).json()).sources);
+    const enabled = catalogues.filter(d => d.enabled);
+    check('one log pane per enabled catalogue', panes.length === enabled.length && enabled.every(d => panes.filter(p => p.toggleSource === d.key).length === 1), JSON.stringify(panes));
     check('each pane is tied to a source',
         panes.every(p => p.toggleSource && p.preId === 'ms-log-' + p.toggleSource),
         JSON.stringify(panes));

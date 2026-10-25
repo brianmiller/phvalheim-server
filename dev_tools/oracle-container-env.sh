@@ -29,6 +29,7 @@ ORACLE_ADMIN="${ORACLE_ADMIN:-http://127.0.0.1:8081}"
 ORACLE_PUBLIC="${ORACLE_PUBLIC:-http://127.0.0.1:8080}"
 ORACLE_PROBE_NAME="${ORACLE_PROBE_NAME:-phv-cssprobe}"
 ORACLE_PROBE_PORT="${ORACLE_PROBE_PORT:-18080}"
+ORACLE_PROBE_ADMIN_PORT="${ORACLE_PROBE_ADMIN_PORT:-18081}"
 ORACLE_PROBE_STEAMID=76561198000000001
 _ORACLE_DEV=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 _ORACLE_REPO=$(cd -- "$_ORACLE_DEV/.." && pwd)
@@ -167,7 +168,7 @@ oracleProbeUp() {
 	[ -n "$ORACLE_IMAGE" ] || { echo "probe: no image known"; return 1; }
 	echo "probe: starting $ORACLE_PROBE_NAME from $ORACLE_IMAGE on :$ORACLE_PROBE_PORT"
 	docker volume rm "${ORACLE_PROBE_NAME}-data" >/dev/null 2>&1
-	docker run -d --name "$ORACLE_PROBE_NAME" -p "$ORACLE_PROBE_PORT:8080" -v "${ORACLE_PROBE_NAME}-data:/opt/stateful" "$ORACLE_IMAGE" >/dev/null || return 1
+	docker run -d --name "$ORACLE_PROBE_NAME" -p "$ORACLE_PROBE_PORT:8080" -p "$ORACLE_PROBE_ADMIN_PORT:8081" -v "${ORACLE_PROBE_NAME}-data:/opt/stateful" "$ORACLE_IMAGE" >/dev/null || return 1
 	local psql i
 	psql() { docker exec "$ORACLE_PROBE_NAME" mysql -N -uroot phvalheim -e "$1" 2>/dev/null; }
 	# The schema arrives with the engine's migrations; `worlds.vanilla` is a late one.
@@ -331,7 +332,7 @@ oracleRun() {
 	local name="$1" t="$2"
 	case "$name" in
 		# ---- browser tests with arguments (what each argv means is in the file's header)
-		test-vibes-ui.js) node "$t" "http://127.0.0.1:$ORACLE_PROBE_PORT" "$ORACLE_PROBE_NAME" ;;
+		test-vibes-ui.js) node "$t" "http://127.0.0.1:$ORACLE_PROBE_ADMIN_PORT" "$ORACLE_PROBE_NAME" ;;
 		test-stream-zero-delta.php) bash "$_ORACLE_DEV/test-stream-zero-delta.sh" "$ORACLE_CONTAINER" ;;
 		test-config-accordion.js)        node "$t" "$ORACLE_ADMIN" "$ORACLE_WORLD" "$ORACLE_SOLO_WORLD" ;;
 		test-config-migration-gate.js)   node "$t" "$ORACLE_ADMIN" "$ORACLE_SOLO_WORLD" ;;

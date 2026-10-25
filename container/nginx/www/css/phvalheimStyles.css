@@ -7530,3 +7530,8 @@ pre.ms-log {
 @media (prefers-reduced-motion: reduce) {
 	.pulse-warning, .pulse-danger, .pulse-info { animation: none; box-shadow: 0 0 0 2px var(--phv-pulse); }
 }
+
+/* Catalogue toggles expose their actual saved state and confirm changes immediately. */
+.mod-source-filter .msf-feedback { flex-basis: 100%; font-size: .75rem; color: var(--text-secondary); }
+.mod-source-filter .msf-feedback:empty { display: none; }
+.mod-source-filter .msf-btn:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }

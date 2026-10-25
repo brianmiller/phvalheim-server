@@ -57,12 +57,14 @@ function check(name, ok, detail) {
             active: e.classList.contains('active'),
             text: e.textContent.trim()
         })));
-    check('catalogue filter bar lists both sources',
-        srcButtons.length === 2 &&
+    const catalogues = await page.evaluate(async () => (await (await fetch('adminAPI.php?action=getModSyncStatus')).json()).sources);
+    const enabledSources = catalogues.filter(d => d.enabled).map(d => d.key);
+    check('catalogue filter bar lists every enabled source',
+        srcButtons.length === enabledSources.length && enabledSources.every(key => srcButtons.some(b => b.source === key)) &&
         srcButtons.some(b => b.source === 'thunderstore') &&
         srcButtons.some(b => b.source === 'hexium'),
         JSON.stringify(srcButtons));
-    check('both catalogues start enabled', srcButtons.every(b => b.active));
+    check('all catalogues start enabled', srcButtons.every(b => b.active));
 
     // ---- pill colours are distinct and correct per source ----
     const pills = await page.$$eval('#modtable-all tbody tr .src-pill',
@@ -147,7 +149,7 @@ function check(name, ok, detail) {
     // Hexium is 839 of 11,679 mods and page 1 of an alphabetical list is all
     // Thunderstore, so a visible-rows assertion here measures pagination, not filtering.
     const countBySource = () => page.evaluate(() =>
-        jQuery('#modtable-all').DataTable().rows().data().toArray().reduce((acc, row) => {
+        jQuery('#modtable-all').DataTable().rows({search:'applied'}).data().toArray().reduce((acc, row) => {
             const m = String(row[1]).match(/src-(ts|hex)/);
             if (m) acc[m[1]] = (acc[m[1]] || 0) + 1;
             return acc;
@@ -170,12 +172,19 @@ function check(name, ok, detail) {
 
     // The last enabled catalogue must not be switchable off -- that empties the picker
     // and reads as the mod database having disappeared.
+    // Optional catalogues such as Vibes must also be off before Thunderstore is LAST.
+    for (const source of enabledSources.filter(key => !['thunderstore','hexium'].includes(key))) {
+        await page.click('#modSourceFilter .msf-btn[data-source="' + source + '"]');
+    }
     await page.click('#modSourceFilter .msf-btn[data-source="thunderstore"]');
     await page.waitForTimeout(400);
     const stillTs = await page.$$eval('#modtable-all tbody tr .src-pill.src-ts', e => e.length);
     check('the last enabled catalogue cannot be turned off', stillTs > 0, `ts=${stillTs}`);
 
-    await page.click('#modSourceFilter .msf-btn[data-source="hexium"]');
+    for (const source of enabledSources) {
+        const button = page.locator('#modSourceFilter .msf-btn[data-source="' + source + '"]');
+        if (!(await button.getAttribute('class')).split(/\s+/).includes('active')) await button.click();
+    }
     await page.waitForTimeout(600);
 
     // ---- version selector: appears when selected, offers real versions ----

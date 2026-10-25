@@ -112,12 +112,14 @@ function check(name, ok, detail) {
         hasSyncLink: !!e.querySelector('.ms-sync-one'),
         gridPairs: [...e.querySelectorAll('.ms-grid b')].map(b => b.textContent.trim())
     })));
-    check('one block per catalogue', blocks.length === 2, JSON.stringify(blocks.map(b => b.pill)));
+    const catalogues = await page.evaluate(async () => (await (await fetch('adminAPI.php?action=getModSyncStatus')).json()).sources);
+    check('catalogue metadata includes the supported sources', ['thunderstore','hexium','vibes'].every(key => catalogues.some(d => d.key === key)));
+    check('one block per catalogue', blocks.length === catalogues.length && catalogues.every(d => blocks.filter(b => b.pill === d.label).length === 1), JSON.stringify(blocks.map(b => b.pill)));
     check('each block carries its source pill',
-        blocks.every(b => b.pill && /src-(ts|hex)/.test(b.pillCls || '')),
+        blocks.every(b => catalogues.some(d => b.pill === d.label && (b.pillCls || '').split(/\s+/).includes('src-' + d.colour))),
         JSON.stringify(blocks.map(b => b.pillCls)));
     check('blocks use DIFFERENT pill classes',
-        new Set(blocks.map(b => (b.pillCls.match(/src-(ts|hex)/) || [])[0])).size === 2);
+        new Set(blocks.map(b => (b.pillCls.match(/(?:^|\s)(src-(?:ts|hex|vibes))(?=\s|$)/) || [])[1])).size === catalogues.length);
     check('each block reports a state',
         blocks.every(b => b.state.length > 0), JSON.stringify(blocks.map(b => b.state)));
 

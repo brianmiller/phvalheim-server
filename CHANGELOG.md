@@ -2,6 +2,15 @@
 
 ## v2.59
 
+### Catalogue filter responsiveness
+
+World mod pickers now paint catalogue buttons from the saved source filter. Previously all
+buttons looked enabled, even when the world had excluded a catalogue, so the first click could
+look ineffective. Source toggles now filter cached DataTables rows instead of rebuilding every
+mod row, preserve the operator's search and sorting, show the actual pressed state and announce
+which catalogues are visible. Selected mods remain visible. Both Edit World and New World use
+the fix; the last-source guard explains how to enable another catalogue before hiding it.
+
 ### Connection recovery and workbench improvements
 
 - Companion 1.0.6 polls a read-only backend endpoint while at the menu. Launch links carry

@@ -840,7 +840,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					// A source the operator has filtered out is hidden unless it is already
 					// part of the selection -- silently dropping a selected mod from the list
 					// would read as the selection having been lost.
-					if (!activeSources[mod.source] && !checkedSet[uuid]) return;
+					// Catalogue visibility is applied by DataTables, without rebuilding rows on a toggle.
 
 					var modName = mod.name.length > 64 ? mod.name.substring(0, 64) + '...' : mod.name;
 					var nameHtml = '<a target="_blank" href="' + mod.url + '">' + escapeHtml(modName) + '</a>';
@@ -871,6 +871,9 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.updated || '',
 					           versionCell(mod, isChecked), destinationCell(uuid, isChecked, neededDeps),
 					           configCell(uuid, isChecked)];
+
+					row.phvSource = mod.source;
+					row.phvSelected = isChecked;
 
 					if (isChecked || neededDeps[uuid]) {
 						activeRows.push(row);
@@ -930,7 +933,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 
 				// Update count badges
 				$('#activeModCount').text(Object.keys(checkedSet).length);
-				$('#allModCount').text(allRows.length);
+				$('#allModCount').text(allTable.rows({ search: 'applied' }).count());
 
 				// Per-catalogue counts, so the operator can see what each source contributes
 				catalogSourceDefs.forEach(function(s) {
@@ -1124,16 +1127,21 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			// Build the catalogue-source filter bar.
 			function buildSourceFilter() {
 				if (!catalogSourceDefs.length || $('#modSourceFilter').length) return;
+				$.fn.dataTable.ext.search.push(function(settings, data, index, row) {
+					if (settings.nTable.id !== 'modtable-all') return true;
+					row = row || settings.aoData[index]._aData;
+					return !!row.phvSelected || !!activeSources[row.phvSource];
+				});
 				var html = '<div id="modSourceFilter" class="mod-source-filter">'
 				         + '<span class="msf-label">Catalogues:</span>';
 				catalogSourceDefs.forEach(function(s) {
 					if (!s.enabled) return;
-					html += '<button type="button" class="msf-btn src-' + s.colour + ' active" '
-					      + 'data-source="' + s.key + '">' + escapeHtml(s.label)
+					html += '<button type="button" class="msf-btn src-' + s.colour + (activeSources[s.key] ? ' active' : '') + '" '
+					      + 'data-source="' + s.key + '" aria-pressed="' + (!!activeSources[s.key]) + '" title="Show or hide ' + escapeHtml(s.label) + '">' + escapeHtml(s.label)
 					      + ' <span class="msf-count" id="msf-count-' + s.key + '"></span></button>';
 				});
 				html += '<span class="msf-hint">A disabled catalogue is hidden from the list. '
-				      + 'Mods already selected stay visible.</span></div>';
+				      + 'Mods already selected stay visible.</span><span class="msf-feedback" role="status" aria-live="polite"></span></div>';
 				$('#modTabBar').after(html);
 
 				$('#modSourceFilter').on('click', '.msf-btn', function() {
@@ -1141,10 +1149,19 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 					// Never allow every catalogue off at once -- that empties the picker and
 					// looks like the mod database has gone missing.
 					var on = Object.keys(activeSources).filter(function(k) { return activeSources[k]; });
-					if (activeSources[key] && on.length === 1) return;
+					if (activeSources[key] && on.length === 1) {
+						$('#modSourceFilter .msf-feedback').text('Enable another catalogue before hiding the last one.');
+						return;
+					}
 					activeSources[key] = !activeSources[key];
-					$(this).toggleClass('active', !!activeSources[key]);
-					rebuildTables();
+					$(this).toggleClass('active', !!activeSources[key]).attr('aria-pressed', String(!!activeSources[key]));
+					// Reuse the cached rows. A full rebuild here needlessly re-renders thousands
+					// of checkboxes, version selectors and dependency tooltips on every click.
+					allTable.draw();
+					$('#allModCount').text(allTable.rows({ search: 'applied' }).count());
+					var shown = catalogSourceDefs.filter(function(s) { return activeSources[s.key]; }).map(function(s) { return s.label; });
+					$('#modSourceFilter .msf-feedback').text('Showing ' + shown.join(', ') + '. Selected mods stay visible.');
+					markChanged();
 				});
 			}
 

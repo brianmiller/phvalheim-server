@@ -53,6 +53,7 @@ before=$(rowBadge "$W")
 case "$before" in 3\|*Oracle-PlantedMod*9.9.9*) ok "control: the dashboard shows the planted badge \"3\" naming Oracle-PlantedMod (the stimulus is visible)" ;;
 	*) bad "control: the dashboard shows the planted badge naming the mod" "$before" ;; esac
 
+priorOp=$(sql "SELECT COALESCE(MAX(started),'1970-01-01 00:00:00.000') FROM phv_operations WHERE world='$W' AND kind='update'")
 t0=$(sql "SELECT NOW()")
 sql "UPDATE worlds SET mode='update' WHERE name='$W'"
 echo "  (engine update of $W started at $t0; waiting for it to end)"
@@ -61,10 +62,19 @@ for i in $(seq 1 180); do
 	m=$(sql "SELECT mode FROM worlds WHERE name='$W'")
 	[ "$m" = "stopped" ] && break
 done
-st=$(sql "SELECT mode, IFNULL(status,'') FROM worlds WHERE name='$W'" | tr '\t' '|')
-case "$st" in stopped\|failed) bad "the world update ended cleanly" "status=failed -- the update itself broke, see the engine log" ;;
-	stopped\|*) ok "the world update ended with the world stopped (${i}x5s)" ;;
-	*) bad "the world update ended" "mode/status=$st after 900s" ;; esac
+st=$(sql "SELECT mode FROM worlds WHERE name='$W'")
+# status is the world's historical process status; a stopped-world rebuild can leave an
+# earlier failed process status intact. The new operation row records THIS update's result.
+op=''
+for j in $(seq 1 12); do
+    op=$(sql "SELECT CONCAT(outcome,'|',COALESCE(summary,'')) FROM phv_operations WHERE world='$W' AND kind='update' AND started>'$priorOp' AND finished IS NOT NULL ORDER BY started DESC LIMIT 1")
+    [ -n "$op" ] && break
+    sleep 1
+done
+case "$st|$op" in
+    stopped\|ok\|*) ok "the new update operation completed successfully with the world stopped (${i}x5s)" ;;
+    *) bad "the world update ended cleanly" "mode=$st operation=${op:-no completed update operation}" ;;
+esac
 
 # The re-check is backgrounded; give it a minute (steamcmd app_info_print, cached after the update).
 for i in $(seq 1 24); do
