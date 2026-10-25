@@ -31,7 +31,7 @@ Hosted uploads use initiate-upload, chunk PUTs with MD5/ETag, finish-upload, the
 are sent only to the selected API origin; signed storage URLs receive no API credentials.
 Settings require the corresponding team and token. Each version is immutable upstream.
 
-## Completed before the image build
+## Completed checks
 
 - Companion Release build: zero errors/warnings; dialog layout and live-refresh state tests pass.
 - Scoped status token checks: valid, wrong world/key, expired, tampered and absent; live endpoint
@@ -41,12 +41,55 @@ Settings require the corresponding team and token. Each version is immutable ups
 - Hosted upload/SCM URL checks: nineteen assertions, including both protocol sequences, multipart
   completion, metadata, aborted failed upload, masked credentials and unsafe URL rejection.
 - Mutation controls: bypassing token validation, disabling round compaction, or omitting upload
-  abort each makes the corresponding test fail.
+  abort each makes the corresponding test fail. Reverting the completion-scroll fix also makes
+  the browser test fail.
 - Browser: real template build, Package click, ZIP download, local publish/unpublish, model pill,
-  panel toggles, scroll-back during output and 390-pixel layout; no browser exceptions.
+  panel toggles, scroll-back during output and after session refresh, and 390-pixel layout;
+  no browser exceptions.
 - Public GitHub import, remote comparison, fetch and fast-forward pull exercised through real jobs.
 - Standalone suite: 74 files pass. Launch transport contract: 19 assertions pass. Streaming zero
-  regression: 7 assertions pass. Evaluable image markers: 761 pass, none fail.
+  regression: 7 assertions pass. Evaluable image markers: 764 pass, none fail.
+
+## Image and harness integration
+
+The final runtime is built from server commit `740665d7`, with Companion commit `511d77b`.
+The `:dev` registry digest is
+`sha256:fdcaf654467382358cf4008064ebc136c3a9d652f3815ec004bf2fcefca5020b`.
+Verification inside that image reports `IMAGE VERIFY OK`; Docker Scout reports zero critical
+or high findings. The development container runs image `6a025f4f067c` on its original volume.
+
+`test-vibes-forge-loop.sh` drives the real harness and OpenAI-compatible streaming adapter
+through nine file reads, a real summary request, automatic in-turn compaction, and a final reply.
+All seven integration assertions pass, including usage accounting and output headroom on every
+model request. It creates its own provider and project and removes both afterward.
+
+## Catalogue toggle regression
+
+Commit `740665d7` fixes a saved-filter mismatch and avoids reconstructing the catalogue's
+thousands of HTML rows on every toggle. Both world pickers attach source/selection metadata to
+cached DataTables rows; changing a catalogue redraws the filtered rows while keeping the search
+and ordering. Buttons derive their pressed state from the saved filter and confirm changes in
+an accessible status line. Selected mods remain visible, consistent with the existing picker
+contract. Attempting to hide the last catalogue explains how to enable another first.
+
+`test-catalogue-toggles.js` passes 32 assertions across Edit World and New World. It covers a
+saved Thunderstore-only filter, each of the three sources, retained selection, rapid double
+clicks and preserved query/order. Replacing the editor with the original code makes this test
+fail. Additional affected checks pass: multi-source picker 22 assertions, All tab 11, picker
+position 11. The standalone bucket remains 74/74.
+
+The full container run on the preceding runtime image exercised 87 test files: 82 passed and
+five needed harness updates. Three assumed only two catalogues; their checks now compare the
+actual API catalogue definitions, including Vibes. The rebuild-badge test now reads the fresh
+operation's outcome rather than a historical process status. The isolated Vibes UI test now
+uses the scratch container's admin port (18081), rather than its public port (18080). All five
+passed their corrected reruns. One catalogue-sync rerun briefly hit the development database's
+connection limit; its clean rerun passed all 23 assertions, including live log growth and no
+browser errors. The installed workbench browser oracle and the real streaming Forge oracle
+also passed on the final pushed image. After recreating the development container on that
+exact image, catalogue toggles (32 assertions), the installed-workbench browser workflow and
+the streaming Forge integration (7 assertions) all passed again. Only `:dev` moved; release
+channels remain on 2.58.
 
 ## Operator tests still required
 
