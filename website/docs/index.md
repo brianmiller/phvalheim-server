@@ -7,12 +7,14 @@ hide:
 <img class="phv-hero-bird" src="assets/hugin.svg" alt="" aria-hidden="true">
 <span class="phv-eyebrow">PHVALHEIM · THE FIELD GUIDE</span>
 
-# More adventures. Less admin.
+# Multiple worlds. Mods made simple.
 
-Run your Valheim worlds, keep your friends' mods in sync, and make something new with Hugin. Pick your path. We'll take it one step at a time.
+**Run multiple Valheim worlds from one easy dashboard.** Vanilla or modded, each world gets its own setup.
+
+Pick mods, edit settings, and update. PhValheim handles dependencies and packaging; the client syncs your players' mods and configs.
 
 [Set up a server](start/install.md){ .md-button .md-button--primary }
-[Play on our servers](https://pub.phvalheim.com/){ .md-button }
+[Play on our servers](https://pub.phvalheim.com/){ .md-button .phv-play-button }
 [Join your friends](play/join.md){ .md-button }
 
 <span class="phv-release">New in 2.59 · Your own mod workshop, with a raven on the tools.</span>
@@ -22,7 +24,7 @@ Run your Valheim worlds, keep your friends' mods in sync, and make something new
 
 -   **01 · I'm hosting**
 
-    Bring up the container, create your first world, and invite your friends.
+    One container, multiple worlds. Choose each world's mods and settings, then invite your friends.
 
     [Start the host guide →](start/install.md)
 
@@ -44,9 +46,9 @@ Run your Valheim worlds, keep your friends' mods in sync, and make something new
 
 **Looking for our hosted worlds?** [Play on our servers →](https://pub.phvalheim.com/) opens the PhValheim player portal. Sign in with Steam to see the worlds available to you. New to joining? Follow the [player guide](play/join.md).
 
-**One place for your worlds.** Run modded and vanilla worlds side by side. Manage access, backups, updates and logs in the browser.
+**Your worlds, your way.** Run modded and vanilla worlds side by side, each with its own mod list, settings and access rules. Start, stop, update and back up worlds from the same dashboard.
 
-**One mod setup for the whole party.** Pick mods from Thunderstore, Hexium or your own Hugin's Vibes catalogue. The PhValheim client downloads the world's mod and configuration payload before launching.
+**Simple mod management.** Browse Thunderstore, Hexium or your own Hugin's Vibes catalogue and select the mods you want. PhValheim resolves dependencies and lets you edit configs in the browser. The client syncs the world's mods and shared settings so your players have the same setup before launch.
 
 **A raven when you need a hand.** Ask Hugin to investigate a problem, or open his Vibes workbench to create a mod. AI is optional; your worlds work without it.
 

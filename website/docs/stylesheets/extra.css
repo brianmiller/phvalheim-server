@@ -9,8 +9,12 @@
 .md-typeset h2{font-weight:700;letter-spacing:-.02em;margin-top:1.8em}
 .md-typeset .md-button{border-radius:.6rem;font-size:.78rem;padding:.6em 1.1em;border-width:1px;margin:.35rem .4rem .35rem 0}
 .md-typeset .md-button--primary{background:#8975ed;border-color:#8975ed;color:#0e1220}
+.md-typeset .md-button.phv-play-button{background:#ff4fd8;border-color:#ff9aec;color:#26051e;font-weight:800;box-shadow:0 0 0 1px #ff4fd855,0 0 18px #ff21c775,0 0 38px #ff21c735;transition:background .15s,box-shadow .15s,transform .15s}
+.md-typeset .md-button.phv-play-button:hover{background:#ff87e7;border-color:#ffc2f4;color:#26051e;box-shadow:0 0 0 1px #ff87e780,0 0 24px #ff21c799,0 0 46px #ff21c74d;transform:translateY(-1px)}
+.md-typeset .md-button.phv-play-button:focus-visible{outline:3px solid var(--md-default-fg-color);outline-offset:4px;background:#ff87e7;color:#26051e}
 .phv-hero{padding:2.6rem 2.5rem;margin:0 0 1.3rem;border:1px solid #8b79dc40;border-radius:1.3rem;background:radial-gradient(ellipse at 96% 8%,#7360c72c,transparent 60%),radial-gradient(ellipse at 0% 90%,#1fbccd16,transparent 65%)}
 .phv-hero h1{font-size:clamp(2.1rem,5vw,3.6rem);line-height:1.08;margin:.75rem 0 1rem!important;max-width:12ch}
+.phv-hero h1 .headerlink{display:none}
 .phv-hero p{max-width:36rem;font-size:.96rem;line-height:1.7}
 .phv-eyebrow{color:var(--md-typeset-a-color);font-size:.65rem;letter-spacing:.18em;font-weight:800}
 .phv-release{font-size:.72rem;opacity:.8}
@@ -24,6 +28,6 @@
 
 .phv-hero{position:relative;overflow:hidden}.phv-hero h1{max-width:16ch}.phv-hero-bird{position:absolute;right:5%;top:16%;width:23%;opacity:.9;filter:drop-shadow(0 0 35px #9b7cf344);pointer-events:none}
 @media(max-width:1000px){.phv-hero-bird{right:-2%;top:5%;width:22%;opacity:.3}.phv-hero h1{max-width:13ch}}
-@media(max-width:600px){.phv-hero-bird{width:90px;right:8px;top:12px;opacity:.22}}
+@media(max-width:600px){.phv-hero h1{font-size:1.9rem;max-width:none}.phv-hero-bird{width:90px;right:8px;top:12px;opacity:.22}}
 
 [data-md-color-scheme="default"]{--phv-nav-bg:#f5f3fb}

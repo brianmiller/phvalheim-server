@@ -9,7 +9,7 @@ const base=(process.env.DOCS_URL||'http://127.0.0.1:18759/phvalheim-server/').re
  p.on('pageerror',e=>errors.push(String(e)));
  p.on('response',r=>{if(r.url().startsWith(base)&&r.status()>=400)bad.push(r.status()+' '+r.url())});
  try {
- await p.goto(base);await p.getByRole('heading',{name:'More adventures. Less admin.'}).waitFor();
+ await p.goto(base);await p.getByRole('heading',{name:'Multiple worlds. Mods made simple.'}).waitFor();
  await p.locator('.md-search__button').click();
  await p.getByRole('combobox',{name:'Search'}).fill('compaction');
  await p.getByText('Long conversations',{exact:true}).click({timeout:15000});
