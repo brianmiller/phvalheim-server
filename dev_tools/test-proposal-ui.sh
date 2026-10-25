@@ -63,7 +63,9 @@ echo "Seeding a running world and a mock provider..."
 # so the admin page never renders and every selector times out with a misleading
 # "#aiHelperBtn not found". Mark it configured, and suppress the one-shot notices that
 # would otherwise sit on top of the panel.
-sql "UPDATE settings SET setupComplete = 2;"
+# Complete the critical configuration too: otherwise a timer opens Server Settings
+# after DOMContentLoaded and covers the proposal's Apply button mid-test.
+sql "UPDATE settings SET setupComplete=2, steamAPIKey='fixture', gameDNS='example.invalid', basePort=25000;"
 sql "UPDATE settings SET migrationNoticeShown = 1;" 2>/dev/null
 sql "UPDATE settings SET aiOllamaNotice = 0;" 2>/dev/null
 # huginNoticeShown is deliberately left at 0: the meet-Hugin modal is exercised below, and

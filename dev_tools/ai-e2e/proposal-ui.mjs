@@ -19,7 +19,10 @@ const page = await browser.newPage({ viewport: { width: 1100, height: 1000 } });
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 
-await page.goto(`${BASE}/index.php`, { waitUntil: 'networkidle' });
+// The dashboard polls health/stats and may keep requests open after it is usable.
+// Wait for the operator's actual control; network quiescence is not page readiness.
+await page.goto(`${BASE}/index.php`, { waitUntil: 'domcontentloaded' });
+await page.locator('#aiHelperBtn').waitFor({ state: 'visible' });
 
 // Any one-shot modal (What's New, migration notice) sits above the panel and would eat
 // the clicks below. Dismiss by class rather than by guessing which one is present.

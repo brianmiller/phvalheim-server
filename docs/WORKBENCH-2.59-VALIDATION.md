@@ -50,9 +50,9 @@ Settings require the corresponding team and token. Each version is immutable ups
 - Standalone suite: 74 files pass. Launch transport contract: 19 assertions pass. Streaming zero
   regression: 7 assertions pass. Evaluable image markers: 764 pass, none fail.
 
-## Image and harness integration
+## Initial image and harness integration
 
-The final runtime is built from server commit `740665d7`, with Companion commit `511d77b`.
+The initial validated runtime was built from server commit `740665d7`, with Companion commit `511d77b`.
 The `:dev` registry digest is
 `sha256:fdcaf654467382358cf4008064ebc136c3a9d652f3815ec004bf2fcefca5020b`.
 Verification inside that image reports `IMAGE VERIFY OK`; Docker Scout reports zero critical
@@ -99,8 +99,10 @@ Unity interaction or a successful PlayFab connection.
 
 Hosted publishing has protocol-level simulated transport tests, not a real credentialed upload.
 Test with each catalogue's actual team/token and a version intended for release. No public test
-mod was uploaded. Private-repository authentication and a remote push also need account-level
-validation; public clone/fetch/pull were exercised. No force-push operation is provided.
+mod was uploaded. The live GitHub import/push/fetch/pull check described below now verifies
+actual GitHub write access. Real private-repository imports and GitLab hosted creation/write permissions still
+depend on the operator's account and token; the automated SCM fixture requires authentication
+on private repositories. No force-push operation is provided.
 
 ## Release preparation: SCM end-to-end regression
 
@@ -128,4 +130,54 @@ image and passes with the fix. In-image markers assert the new refspec and absen
 hardcoded branch. The actual application's connection helper also authenticated against GitHub
 and the available self-hosted GitLab account without storing their credentials in test settings.
 
-Final artifact and whole-suite results for this follow-up will be recorded after the image build.
+The follow-up runtime is built from commit `d59346fd`; later commits extend tests only.
+The `:dev` registry digest is
+`sha256:32103daedb9f2d6b7510142ab215b344dfdf9b453655a15e3a4cdd96c1ad8b5a`,
+image `62977ae275d1`. It reports `IMAGE VERIFY OK`, including both new SCM markers, and zero
+critical/high Docker Scout findings. The development container runs that exact image on its
+original volume.
+
+On that image, all **58 SCM assertions** pass, including import of an actual template repository,
+compilation, packaging and ZIP download. Standalone tests pass **74/74**, cross-repository tests
+**4/4**, and the marker predictor reports **766 pass, zero fail** (231 image-only or otherwise
+unevaluable markers are explicitly skipped; the actual image gate passes). The original-image
+full run also completed **88/88 with zero failures or unrunnable tests**. The expanded container run on the new image completed **88 passed, one failed, zero unrunnable**.
+The sole failure was `test-proposal-ui.sh`, which timed out at page navigation waiting for
+`networkidle`. Its corrected rerun passed all **20 assertions** (11 notice checks and nine
+proposal/apply checks). All **89 current container test files therefore have passing results
+on the final image**; this is the full run plus that focused rerun, not a claim of a single
+89/0 run after the harness correction. Across the three automated buckets, **167 files** have
+passing results. The one historical pre-2.53 comparison remains explicitly manual and is not
+counted as passed.
+
+The proposal driver now waits for DOM readiness and the visible Hugin control, consistent with
+[Playwright's page-readiness guidance](https://playwright.dev/docs/api/class-page#page-goto).
+Its fresh fixture also supplies the required server settings: otherwise a delayed settings
+prompt covers Apply. The corrected test still proves that no world changes before consent,
+Apply updates the database, the applied card settles, and Apply cannot be clicked twice. These
+are test-harness changes only; the runtime image is unchanged.
+
+Logs on the development host:
+
+- `/tmp/phv-release-e2e-container.log`: original-image full run, 88/0.
+- `/tmp/phv-release-e2e-container-final.log`: final-image full run, 88/1/0.
+- `/tmp/phv-release-e2e-proposal-recheck.log`: corrected proposal workflow, 20/0.
+- `/tmp/phv-release-e2e-scm-image.log` and `.oracle-logs/test-vibes-scm-e2e.sh.log`:
+  independent and integrated final-image SCM runs, each 58/0.
+- `/tmp/phv-release-e2e-github-live.log`: live GitHub workflow, 7/0.
+- `/tmp/phv-release-e2e-standalone-final.log` and `/tmp/phv-release-e2e-crossrepo-final.log`:
+  74/0 and 4/0.
+- `/tmp/phvalheim-rc-build.log`: final pushed-image verification and security scan.
+
+A separate live GitHub check used the actual application import job and synchronization helper
+against the Companion repository: import, authenticated push to a temporary branch, fetch of
+an upstream commit, and fast-forward pull all passed. The branch and imported project were
+removed afterward, and the Companion `main` SHA was unchanged (**7 assertions**). Credentials
+were supplied to the helper through stdin and never saved to test settings. No GitLab hosted
+repository was changed: the available project-scoped bot belongs to a separate project. Its
+actual connection test passed; write operations use the authenticated HTTPS fixture above.
+
+
+At completion the original `StaminaWhisper` project remains, no Vibes jobs or worlds are running,
+and the disposable SCM, proposal and CSS-probe containers are removed. Only `:dev` moved;
+`:rc`, `:latest` and `:2.58` retain their existing 2.58 digest.
