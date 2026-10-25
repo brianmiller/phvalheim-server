@@ -822,10 +822,13 @@ const Vibes = {};
 	function detach() { if (stream) stream.close(); stream = null; running = false; cur = null; chips.clear(); setHugin('idle'); }
 
 	async function openSession(s) {
+		const preserveScroll = !!(s && S.session && s.id === S.session.id && !follow);
+		const priorTop = $('vbTranscript').scrollTop;
+		if (scrollFrame) { cancelAnimationFrame(scrollFrame); scrollFrame = null; }
 		detach();
 		S.session = s;
 		$('vbUsage').textContent = s ? Number(s.tokens_in || 0).toLocaleString() + ' in · ' + Number(s.tokens_out || 0).toLocaleString() + ' out · session' : ''; delete $('vbUsage').dataset.context; delete $('vbUsage').dataset.usage;
-		clear($('vbTranscript')); clear($('vbForgeList')); activity.clear(); follow = true; $('vbJumpLatest').hidden = true; lastSeq = 0; turnNo = 0; $('vbForgeMeta').textContent = '';
+		clear($('vbTranscript')); clear($('vbForgeList')); activity.clear(); follow = !preserveScroll; $('vbJumpLatest').hidden = !preserveScroll; lastSeq = 0; turnNo = 0; $('vbForgeMeta').textContent = '';
 		Vibes.workspace.renderSessions();
 		if (!s) { $('vbTranscript').appendChild(emptyHint()); $('vbForgeList').appendChild(h('div.vb-forge-empty', 'Tool calls tick in here while Hugin works: reads, edits, builds, commits.')); $('vbModelInput').value = (S.project && S.project.model) || ''; return; }
 		try {
@@ -837,6 +840,7 @@ const Vibes = {};
 		} catch (e) { fail(e, 'Could not load the transcript'); }
 		$('vbModelInput').value = (S.project && S.project.model) || '';
 		stream = new Vibes.Stream({ session: s.id }, (ev) => handle(ev, true), lastSeq);
+		if (preserveScroll) { $('vbTranscript').scrollTop = priorTop; follow = false; }
 		scrollEnd();
 	}
 	function emptyHint() {
@@ -888,7 +892,6 @@ const Vibes = {};
 	function endRun(ok) {
 		running = false; if (cur) finalizeAssistant();
 		setHugin(ok ? 'done' : 'error'); setLocked(null); Vibes.workspace.showJob(null);
-		$('vbComposerText').focus();
 		Vibes.workspace.reload();
 	}
 
