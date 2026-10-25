@@ -2,6 +2,8 @@
 
 The user-facing site lives in `website/docs/`. Internal plans, release notes and test reports remain in the root `docs/` folder and are not part of the published site.
 
+`overrides/partials/source.html` preserves the theme's GitHub metrics and adds a linked Docker Hub total-pulls badge. Shields.io refreshes the repository-wide count independently of site deployments (one-hour cache requested); the badge abbreviates large counts, for example `53k`. The same link is available in the mobile navigation drawer.
+
 ## Preview
 
 ```bash
