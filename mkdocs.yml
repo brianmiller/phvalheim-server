@@ -51,6 +51,7 @@ extra_css:
 nav:
   - Home: index.md
   - Get started:
+      - Watch the one-minute tour: start/tour.md
       - Install with Docker: start/install.md
       - Create your first world: start/first-world.md
       - Unraid and Kubernetes: start/other-platforms.md
@@ -67,7 +68,6 @@ nav:
       - Troubleshooting: host/troubleshooting.md
   - Make mods:
       - Make your first Vibe: vibes/first-mod.md
-      - Watch the short tour: vibes/tour.md
       - Set up the workshop: vibes/setup.md
       - GitHub, GitLab and imports: vibes/source-control.md
       - Package and publish: vibes/publishing.md

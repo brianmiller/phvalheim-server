@@ -1,0 +1,37 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:05.000
+PhValheim manages your Valheim worlds, mods and shared setup in one place.
+
+00:00:05.000 --> 00:00:10.000
+Start PhValheim with Docker, complete the setup wizard, then create a vanilla or modded world.
+
+00:00:10.000 --> 00:00:15.000
+Manage multiple worlds from your browser: start, stop, update, settings and logs.
+
+00:00:15.000 --> 00:00:20.000
+Select mods from Thunderstore, Hexium or Hugin's Vibes. Pin versions or follow the latest.
+
+00:00:20.000 --> 00:00:25.000
+Edit mod settings in the browser. Saved overrides are reapplied when the world starts or updates.
+
+00:00:25.000 --> 00:00:30.000
+Update the world to resolve dependencies and package mods plus shared configurations for players. Server-only configs stay private.
+
+00:00:30.000 --> 00:00:35.000
+Choose a world on your host’s website. The PhValheim client syncs changed mods and configs before launch. Vanilla worlds use ordinary Valheim.
+
+00:00:35.000 --> 00:00:40.000
+Manage world backups and restores, control player access, and inspect logs from the admin interface.
+
+00:00:40.000 --> 00:00:45.000
+Ask Hugin to investigate problems and propose changes. Review before applying. AI features are optional.
+
+00:00:45.000 --> 00:00:50.000
+Hugin's Vibes helps write, build and package mods. The optional Build Pak prepares tools and local game references.
+
+00:00:50.000 --> 00:00:55.000
+Publish to your local catalogue. Select the mod on a test world, update and sync. Each Vibe has local Git history.
+
+00:00:55.000 --> 00:01:00.000
+Host. Mod. Sync. Play. Get started at brianmiller.github.io/phvalheim-server.

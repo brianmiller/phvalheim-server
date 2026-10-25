@@ -49,9 +49,9 @@ Run your Valheim worlds, keep your friends' mods in sync, and make something new
 
 ## Take a quick look
 
-[Watch the 32-second Hugin's Vibes tour →](vibes/tour.md)
+[Watch the one-minute PhValheim tour →](start/tour.md)
 
-<a href="assets/vibes-workbench.png"><img class="phv-shot" src="assets/vibes-workbench.png" alt="Hugin's Vibes showing a mod conversation, tool activity and a successful build" loading="lazy"></a>
+<a href="start/tour/"><img src="assets/tour-poster.png" width="280" alt="PhValheim: More Valheim. Less admin. Watch the full product tour." loading="lazy"></a>
 
 ## Already running PhValheim?
 

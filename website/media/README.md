@@ -1,17 +1,23 @@
-# Hugin's Vibes short tour
+# PhValheim product tour
 
-Eight four-second chapters, 720×1280, 30 fps, H.264/AAC MP4 with fast-start. Text stays visible with music muted. The site also supplies a WebVTT caption track and a text transcript.
+Twelve five-second chapters cover the full product: Docker setup, world management, mod selection, configuration, payload distribution, client syncing, backups/access/logs, Ask Hugin and Hugin's Vibes. Vertical 720×1280, 30 fps, H.264/AAC MP4 with fast-start. Text remains readable with music muted; WebVTT captions and a linked transcript accompany the video.
 
 ## Reproduce
 
-Prerequisites: Node with Playwright and Chromium installed, Python with NumPy, and ffmpeg/ffprobe. These are production tools for the video, not dependencies of the docs site.
+Requires Node with Playwright/Chromium and ffmpeg/ffprobe. No NumPy, synthesis tool or external service is required. These are video production tools, not dependencies of the docs site.
 
 ```bash
 node website/media/render.cjs
 ```
 
-If Playwright lives outside this checkout, set `NODE_PATH` to its `node_modules` directory. The renderer records `tour.html`, synthesizes the original instrumental in `music.py`, and writes the video and poster to `website/docs/assets/`. It uses temporary files beneath `/tmp`.
+Set `NODE_PATH` if Playwright is outside the checkout. The renderer reads `scenes.json`, composes `tour.html`, checks chapter content stays inside the safe area, records it, and combines it with `audio/viking-intro-loop.mp3`. It writes `phvalheim-tour.mp4`, captions, sharing credits and a poster to `website/docs/assets/`. Temporary preview frames and recordings live under `/tmp/phv-tour-*`.
 
-The supplied screenshots are real UI captures. CSS crops and captions direct attention; it does not simulate new AI output, a live build, or gameplay. A persistent “UI tour · condensed workflow” label makes that distinction visible in the video itself.
+## Captures and presentation
 
-The score is generated from simple oscillators and seeded percussion noise. It contains no borrowed recording, commercial song, or sampled game audio.
+World, creation form, mod picker, config and backup captures came from the development server through read-only UI navigation. No world was started, updated, configured or backed up to produce these shots. The Vibes captures show the real workbench and Package tab. Crops focus attention on specific controls; animated distribution/client diagrams explain the sequence rather than pretending to show a real sync or game launch. The persistent “UI tour · condensed workflow” label makes the presentation clear.
+
+## Music
+
+**Viking Intro (Loop)** by **Alexander Nakarada**, used under **CC BY 4.0**. See [the full source and attribution record](audio/ATTRIBUTION.md). This replaces the first tour's synthesized electronic score. The recording retains its own license, independently of the repository's software license.
+
+The credit appears on the public tour page, in the MP4 metadata and in the downloadable sharing text. Preserve it when distributing or reposting the video. The edit uses the opening 60 seconds with normalization and a two-second ending fade.

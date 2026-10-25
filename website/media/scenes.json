@@ -1,0 +1,86 @@
+[
+  {
+    "step": "Your next adventure",
+    "title": "More Valheim.<br><em>Less admin.</em>",
+    "sub": "Your worlds. Your mods.<br>Your whole party, in sync.",
+    "kind": "intro",
+    "caption": "PhValheim manages your Valheim worlds, mods and shared setup in one place."
+  },
+  {
+    "step": "01 / Start your server",
+    "title": "One container.<br><em>Your world.</em>",
+    "sub": "Start with Docker. Use the setup wizard.<br>Create a vanilla or modded world.",
+    "kind": "create",
+    "caption": "Start PhValheim with Docker, complete the setup wizard, then create a vanilla or modded world."
+  },
+  {
+    "step": "02 / Manage your worlds",
+    "title": "Your server.<br><em>At a glance.</em>",
+    "sub": "Start, stop and update your worlds.<br>Keep each world's setup separate.",
+    "kind": "worlds",
+    "caption": "Manage multiple worlds from your browser: start, stop, update, settings and logs."
+  },
+  {
+    "step": "03 / Choose your mods",
+    "title": "Find it.<br><em>Enable it.</em>",
+    "sub": "Thunderstore. Hexium. Your local mods.<br>Search, select, pin a version—or follow latest.",
+    "kind": "mods",
+    "caption": "Select mods from Thunderstore, Hexium or Hugin's Vibes. Pin versions or follow the latest."
+  },
+  {
+    "step": "04 / Make it yours",
+    "title": "Tune the rules.<br><em>Keep the settings.</em>",
+    "sub": "Edit mod configs in your browser.<br>Saved overrides survive world updates.",
+    "kind": "configs",
+    "caption": "Edit mod settings in the browser. Saved overrides are reapplied when the world starts or updates."
+  },
+  {
+    "step": "05 / Distribute the setup",
+    "title": "Your choices.<br><em>One shared pack.</em>",
+    "sub": "Update the world to build its mod payload.<br>Dependencies and shared configs come along.",
+    "kind": "distribution",
+    "caption": "Update the world to resolve dependencies and package mods plus shared configurations for players. Server-only configs stay private."
+  },
+  {
+    "step": "06 / Bring your friends",
+    "title": "Pick a world.<br><em>Sync. Launch.</em>",
+    "sub": "The PhValheim client downloads changes<br>before launching your modded game.",
+    "kind": "client",
+    "caption": "Choose a world on your host’s website. The PhValheim client syncs changed mods and configs before launch. Vanilla worlds use ordinary Valheim."
+  },
+  {
+    "step": "07 / Look after the adventure",
+    "title": "Back it up.<br><em>Stay in control.</em>",
+    "sub": "Backups, restores, player access and logs.<br>The everyday jobs, in one place.",
+    "kind": "backups",
+    "caption": "Manage world backups and restores, control player access, and inspect logs from the admin interface."
+  },
+  {
+    "step": "08 / Ask the raven",
+    "title": "Need a hand?<br><em>Ask Hugin.</em>",
+    "sub": "Investigate server problems.<br>Review proposed changes before applying.",
+    "kind": "helper",
+    "caption": "Ask Hugin to investigate problems and propose changes. Review before applying. AI features are optional."
+  },
+  {
+    "step": "09 / Make something new",
+    "title": "Have a mod idea?<br><em>Vibe it.</em>",
+    "sub": "Hugin's Vibes writes, builds and packages.<br>The Build Pak prepares the tools and libraries.",
+    "kind": "vibes",
+    "caption": "Hugin's Vibes helps write, build and package mods. The optional Build Pak prepares tools and local game references."
+  },
+  {
+    "step": "10 / Try it in your world",
+    "title": "Your own mod.<br><em>Your catalogue.</em>",
+    "sub": "Publish locally. Select it on a test world.<br>Update, sync, play—and keep improving.",
+    "kind": "local",
+    "caption": "Publish to your local catalogue. Select the mod on a test world, update and sync. Each Vibe has local Git history."
+  },
+  {
+    "step": "Bring your party",
+    "title": "You bring<br><em>the adventure.</em>",
+    "sub": "PhValheim handles the setup.<br>Host. Mod. Sync. Play.",
+    "kind": "outro",
+    "caption": "Host. Mod. Sync. Play. Get started at brianmiller.github.io/phvalheim-server."
+  }
+]

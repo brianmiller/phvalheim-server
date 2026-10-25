@@ -22,6 +22,13 @@
 | Bring up a server and create your first world. | Install the client, sync and join your friends. | Let Hugin help you write, build and package it. |
 | **[Set up a server →](https://brianmiller.github.io/phvalheim-server/start/install/)** | **[Join a world →](https://brianmiller.github.io/phvalheim-server/play/join/)** | **[Make your first Vibe →](https://brianmiller.github.io/phvalheim-server/vibes/first-mod/)** |
 
+<p align="center">
+  <a href="https://brianmiller.github.io/phvalheim-server/start/tour/">
+    <img src="website/docs/assets/tour-poster.png" width="260" alt="Watch PhValheim: worlds, mods, configuration and client syncing">
+  </a><br>
+  <strong><a href="https://brianmiller.github.io/phvalheim-server/start/tour/">▶ PhValheim in one minute — Host. Mod. Sync. Play.</a></strong>
+</p>
+
 ## Less setup between you and the next adventure
 
 - **Vanilla and modded worlds together.** Run several worlds from one Docker container.
@@ -36,14 +43,6 @@
 Start with an idea. Hugin writes C#, runs the compiler and works through build feedback with you. The optional **Build Pak** prepares the tools and references, using game libraries from your own installed world.
 
 Each Vibe has its own **local Git repository**. Package the plugin and publish it to your **Hugin's Vibes catalogue**, then select it on a test world, update, sync and play. Import from GitHub or GitLab when you want to bring an existing project along.
-
-<p align="center">
-  <a href="https://brianmiller.github.io/phvalheim-server/vibes/tour/">
-    <img src="website/docs/assets/vibes-workbench.png" width="760" alt="Hugin's Vibes workbench — watch the short tour">
-  </a><br>
-  <strong><a href="https://brianmiller.github.io/phvalheim-server/vibes/tour/">▶ Watch the 32-second tour</a></strong> ·
-  <a href="https://brianmiller.github.io/phvalheim-server/vibes/first-mod/">Follow the first-mod guide</a>
-</p>
 
 ## Ready to host?
 

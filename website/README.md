@@ -29,6 +29,6 @@ For a browser smoke check, serve `.site` under `/phvalheim-server/` and run `nod
 
 ## Media
 
-The two Vibes screenshots were supplied by the maintainer on the v2.59 release. The short tour uses these and a real local workbench capture. It is a condensed UI walkthrough, not a claim of real-time generation or gameplay. Caption text is also available as a transcript on the tour page. Music is an original synthesized instrumental; no third-party music is used.
+The product tour covers the complete host-to-player workflow using real development UI captures, the maintainer's Vibes screenshots and animated workflow diagrams. It is a condensed overview, not a real-time sync or gameplay recording. Captions and a linked transcript are provided. The Viking-inspired soundtrack is **Viking Intro (Loop)** by Alexander Nakarada, used with attribution under CC BY 4.0; see `media/audio/ATTRIBUTION.md` and preserve the credit when sharing.
 
 See `media/` for the tour source and reproduction instructions. The MP4 is included so the site does not need to build video during documentation deployment.

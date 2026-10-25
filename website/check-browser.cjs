@@ -30,16 +30,23 @@ const base=(process.env.DOCS_URL||'http://127.0.0.1:18759/phvalheim-server/').re
  });
  assert.ok(contrast>=4.5,'header contrast '+contrast);
  console.log('PASS theme switch and readable light-mode navigation');
- await p.goto(base+'vibes/tour/');
+ await p.goto(base+'start/tour/');
  await p.locator('video').evaluate(async v=>{v.muted=true;await v.play()});
  await p.waitForFunction(()=>document.querySelector('video').currentTime>0);
  const media=await p.locator('video').evaluate(v=>({width:v.videoWidth,height:v.videoHeight,duration:v.duration,tracks:v.textTracks.length}));
- assert.equal(media.width,720);assert.equal(media.height,1280);assert.ok(media.duration>=31.9&&media.duration<=32.1);assert.equal(media.tracks,1);
+ assert.equal(media.width,720);assert.equal(media.height,1280);assert.ok(media.duration>=59.9&&media.duration<=60.1);assert.equal(media.tracks,1);
+ await p.waitForFunction(()=>document.querySelector('video').textTracks[0].cues?.length===12);
+ const credits=await context.request.get(base+'assets/phvalheim-tour-credits.txt');
+ assert.equal(credits.status(),200);assert.match(await credits.text(),/Alexander Nakarada.*CC BY 4\.0/);
  await p.locator('video').evaluate(v=>{v.pause();v.currentTime=18});await p.waitForTimeout(350);
  await p.screenshot({path:'/tmp/phv-docs-tour-preview.png'});
  console.log('PASS video playback, portrait format, duration and captions');
+ await p.goto(base+'vibes/tour/');
+ await p.getByRole('link',{name:'Watch the one-minute PhValheim tour →'}).click();
+ await p.waitForURL(base+'start/tour/');
+ console.log('PASS old tour link leads to the full product tour; music credit is downloadable');
  await p.setViewportSize({width:390,height:844});
- for(const route of ['', 'start/install/','host/backups/','vibes/first-mod/','vibes/source-control/','vibes/tour/']){
+ for(const route of ['', 'start/install/','host/backups/','vibes/first-mod/','vibes/source-control/','start/tour/']){
    await p.goto(base+route);assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'mobile overflow '+route);
  }
  await p.locator('.md-header label[for="__drawer"]').click();assert.equal(await p.locator('#__drawer').isChecked(),true);
