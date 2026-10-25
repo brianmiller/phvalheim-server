@@ -101,3 +101,31 @@ Hosted publishing has protocol-level simulated transport tests, not a real crede
 Test with each catalogue's actual team/token and a version intended for release. No public test
 mod was uploaded. Private-repository authentication and a remote push also need account-level
 validation; public clone/fetch/pull were exercised. No force-push operation is provided.
+
+## Release preparation: SCM end-to-end regression
+
+`dev_tools/test-vibes-scm-e2e.sh` boots a disposable server from the exact image under test,
+borrowing only the installed Build Pak and harvested libraries through read-only mounts. It
+runs the real browser, API, detached job runner and Build Pak Git against an isolated HTTPS
+GitHub/GitLab API fixture backed by real `git-http-backend` repositories. The fixture checks
+authentication on every private request, uses a temporary trusted CA, generates fresh test
+credentials and journals request paths without credentials. It never writes to hosted accounts.
+
+The matrix covers authenticated private and anonymous public imports; Settings connection tests;
+GitHub user/organization and GitLab personal/subgroup repository creation; first and repeated
+pushes including annotated tags; current-branch and non-`main` imports; ahead/behind counters;
+browser Fetch/Pull/Push; dirty and diverged worktrees; detached HEAD; unsafe and missing URLs;
+symlinks and untrusted import metadata; duplicate identities; job exclusion; reload recovery;
+mobile layout; credential masking and absence from Git configuration and job logs; and temporary
+checkout cleanup. API fixtures follow the
+[GitHub repository API](https://docs.github.com/en/rest/repos/repos) and
+[GitLab project API](https://docs.gitlab.com/api/projects/).
+
+The first run reproduced a real failure: first-publishing an imported `master` repository tried
+to push a nonexistent `main` ref. First push now uses `HEAD:refs/heads/<current branch>` plus
+tags, and its status text describes the current branch. The regression failed on the original
+image and passes with the fix. In-image markers assert the new refspec and absence of the old
+hardcoded branch. The actual application's connection helper also authenticated against GitHub
+and the available self-hosted GitLab account without storing their credentials in test settings.
+
+Final artifact and whole-suite results for this follow-up will be recorded after the image build.

@@ -97,7 +97,7 @@ function vibesScmEnsureRepo(array $doc, $which, array $project) {
 }
 
 /**
- * The push job's work: ensure the repo, set the remote, push main + tags, remember the remote path.
+ * The push job's work: ensure the repo, set the remote, push the current branch + tags, remember the remote path.
  * $step($label, $progress, $detail). Returns {success, url, path, created, output, error}.
  */
 function vibesScmPush(PDO $pdo, array $doc, $which, array $project, $step) {
@@ -110,7 +110,7 @@ function vibesScmPush(PDO $pdo, array $doc, $which, array $project, $step) {
 	vibesGitSettings($doc);
 	[$ok, $err] = vibesGitRemoteSet($project['slug'], $which, $repo['clone_url']);
 	if (!$ok) return ['success' => false, 'error' => "git remote failed: $err"];
-	$step('Pushing main and tags', 60, $repo['path']);
+	$step('Pushing current branch and tags', 60, $repo['path']);
 	$c = vibesScmConfig($doc, $which);
 	[$ok, $out] = vibesGitPush($project['slug'], $which, $repo['clone_url'], $c['token'], $which);
 	if (!$ok) return ['success' => false, 'error' => 'git push failed: ' . vibesSubstr($out, -400), 'output' => $out];

@@ -3903,6 +3903,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v59bu=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -cF 'row.phvSource = mod.source;')
   v59bv=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -cF 'if (!activeSources[mod.source] && !checkedSet[uuid]) return;')
   v59bw=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -cF 'aria-pressed=')
+  v59bx=$(grep -cF "'HEAD:refs/heads/'" /opt/stateless/engine/tools/vibes/lib/git.php)
+  v59by=$(grep -cF "'main', '--tags'" /opt/stateless/engine/tools/vibes/lib/git.php)
+  echo "2.59 SCM first push: current branch=$v59bx (want 1)  hardcoded main=$v59by (want 0)"
   echo "2.59 catalogue toggles: cached source rows=$v59bu (want 2)  rebuild-time filter=$v59bv (want 0)  saved button state=$v59bw (want 2)"
   echo "2.59 workbench recovery: refresh token=$v59bk (want 1)  endpoint auth=$v59bl (want 1)  round compaction=$v59bm (want 1)  hosted upload=$v59bn (want 1)  SCM import=$v59bo (want 1)  SCM sync=$v59bp (want 1)  unpublish toggle=$v59bq (want 1)  scroll-back=$v59br (want 1)  publishing settings=$v59bs (want 2)  ZIP endpoint=$v59bt (want 1)"
   echo "2.59 Hugin's Vibes: sidebar link=$v59aa (want 1)  first under Tools=$v59ab (want 1)  catalogue source=$v59ac (want 1)  gate column read=$v59ad (want 1)  pill css=$v59ae (want 1)  nav dot css=$v59af (want 1)  hv tables=$v59ag (want 3)  settings cols=$v59ah (want 4)  migration +x=$v59ai (want 1)  runner subcommands=$v59aj (want 16)  libs=$v59ak (want 13)  knowledge=$v59al (want 11)  template files=$v59am (want 8)  file:// seam=$v59an (want 1)  page->js=$v59ao (want 3)  initial state=$v59ap (want 1)  api guards=$v59aq (want 13)  sse no-buffer=$v59ar (want 2)  innerHTML assigns=$v59as (want 0)  agent own http=$v59at (want 0)  agent aiChat=$v59au (want 1)  core functions=$v59av (want 46)  boot mkdir=$v59aw (want 1)  whatsnew=$v59ax (want 1)  nginx body size=$v59ay (want 1)  php upload=$v59az (want 1)  git/dotnet/node in image=$v59ba (want 0)  tool path safety=$v59bb (want 3)  #94 strict delta guard=$v59bc (want 1)  #94 empty() guard=$v59bd (want 0)  backups from table=$v59be (want 1)  db-is-record rule=$v59bf (want 1)  backup dir glob=$v59bg (want 0)  pak pick fn=$v59bh (want 1)  pakInfo 502=$v59bi (want 0)  last-attempt line=$v59bj (want 1)"
@@ -4366,6 +4369,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
+    && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 

@@ -130,11 +130,13 @@ function vibesGitRemoteSet($slug, $name, $url) {
 }
 
 /**
- * Push main and tags with a token that lives ONLY in the process environment:
+ * Push the checked-out branch and tags with a token that lives ONLY in the process environment:
  * GIT_CONFIG_COUNT/KEY_0/VALUE_0 = http.<url>.extraHeader "Authorization: Basic base64(user:token)",
  * GitHub's user being x-access-token and GitLab's oauth2. [ok, outputText].
  */
 function vibesGitPush($slug, $name, $url, $token, $which) {
+	$branch = trim(vibesGit($slug, ['branch', '--show-current'])['out']);
+	if ($branch === '' || $branch[0] === '-') return [false, 'Check out a branch before pushing.'];
 	$user = $which === 'gitlab' ? 'oauth2' : 'x-access-token';
 	$origin = preg_replace('~^(https://[^/]+)/.*$~', '$1', $url);
 	$env = [
@@ -142,7 +144,7 @@ function vibesGitPush($slug, $name, $url, $token, $which) {
 		'GIT_CONFIG_KEY_0'   => "http.$origin/.extraHeader",
 		'GIT_CONFIG_VALUE_0' => 'Authorization: Basic ' . base64_encode($user . ':' . $token),
 	];
-	$r = vibesGit($slug, ['push', '-u', $name, 'main', '--tags'], $env, 600);
+	$r = vibesGit($slug, ['push', '-u', $name, 'HEAD:refs/heads/' . $branch, '--tags'], $env, 600);
 	// Never let the header leak through an error message.
 	$text = str_replace($token, '[token]', trim($r['out'] . "\n" . $r['err']));
 	return [$r['ok'], $text];

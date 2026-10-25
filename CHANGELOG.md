@@ -2,6 +2,12 @@
 
 ## v2.59
 
+### SCM branch compatibility
+
+The first Push to GitHub or GitLab preserves the project's current branch and pushes its tags.
+Imported repositories using `master` or another branch previously failed because this action
+assumed `main`. Fetch, fast-forward Pull and Push branch retain their divergence protections.
+
 ### Catalogue filter responsiveness
 
 World mod pickers now paint catalogue buttons from the saved source filter. Previously all
