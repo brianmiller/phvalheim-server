@@ -24,7 +24,7 @@ CLIENT_CS="../phvalheim-client/Arguments.cs"
 COMPANION_CS="../phvalheim-companion/LaunchPayload.cs"
 
 # The contract, as of server 2.53. Index 0 is the "launch" literal.
-EXPECTED="launch world password gameDNS port phvalheimHost httpScheme vanilla crossplay joinCode"
+EXPECTED="launch world password gameDNS port phvalheimHost httpScheme vanilla crossplay joinCode refreshToken"
 
 fail=0
 checked=0
@@ -67,7 +67,7 @@ writer_fields=$(
 		| grep -o '"launch?[^"]*"[^;]*' \
 		| grep -o '\$[a-zA-Z_][a-zA-Z0-9_]*' \
 		| sed 's/^\$//' \
-		| tr '\n' ' '
+		| awk '!seen[$0]++' | tr '\n' ' '
 )
 writer_actual="launch $writer_fields"
 writer_actual=$(printf '%s' "$writer_actual" | tr -s ' ' | sed 's/ *$//')

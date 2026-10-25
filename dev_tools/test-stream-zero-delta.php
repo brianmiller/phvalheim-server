@@ -1,5 +1,6 @@
 <?php
 /**
+ * requires: container
  * Oracle test: a streamed delta that is exactly "0" survives (issue #94, 2.59).
  *
  * THE BUG. The OpenAI-compatible adapter guarded each streamed fragment with

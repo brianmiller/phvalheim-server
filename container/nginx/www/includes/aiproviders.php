@@ -831,12 +831,13 @@ function aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $
     }
 
     $text = ''; $calls = []; $usage = null; $err = null;
-    $reader = aiSseReader(function ($payload) use (&$text, &$calls, &$usage, &$err, $onDelta) {
+    $reader = aiSseReader(function ($payload) use (&$text, &$calls, &$usage, &$err, $onDelta, $provider) {
         $d = json_decode($payload, true);
         if (!is_array($d)) return;
         if (isset($d['error'])) { $err = $d['error']['message'] ?? 'stream error'; return; }
         if (isset($d['usage'])) $usage = $d['usage'];
         $delta = $d['choices'][0]['delta'] ?? [];
+        if ((!empty($delta['reasoning_content']) || !empty($delta['reasoning'])) && is_callable($provider['_onActivity'] ?? null)) $provider['_onActivity']('Model is reasoning');
         // isset + !== '', NEVER !empty: PHP's empty("0") is TRUE, so a streamed chunk that is
         // exactly "0" was dropped from the reply and the stream. Models that tokenise digits one
         // at a time (issue #94: a quantised Qwen over an OpenAI-compatible server) lost EVERY zero
@@ -845,6 +846,7 @@ function aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $
         if (isset($delta['content']) && $delta['content'] !== '') { $text .= $delta['content']; $onDelta($delta['content']); }
         // Tool calls stream as fragments indexed by position; arguments arrive as a
         // partial JSON string that must be concatenated before it can be parsed.
+        if (!empty($delta['tool_calls']) && is_callable($provider['_onActivity'] ?? null)) $provider['_onActivity']('Preparing tool call');
         foreach (($delta['tool_calls'] ?? []) as $tc) {
             $i = (int)($tc['index'] ?? 0);
             if (!isset($calls[$i])) $calls[$i] = ['id' => '', 'name' => '', 'arguments' => ''];
@@ -931,11 +933,12 @@ function aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta
     }
 
     $text = ''; $calls = []; $usage = null; $err = null; $cur = null;
-    $reader = aiSseReader(function ($payload) use (&$text, &$calls, &$usage, &$err, &$cur, $onDelta) {
+    $reader = aiSseReader(function ($payload) use (&$text, &$calls, &$usage, &$err, &$cur, $onDelta, $provider) {
         $d = json_decode($payload, true);
         if (!is_array($d)) return;
         $t = $d['type'] ?? '';
         if ($t === 'error') { $err = $d['error']['message'] ?? 'stream error'; return; }
+        if ($t === 'message_start' && isset($d['message']['usage'])) $usage = $d['message']['usage'];
         if ($t === 'content_block_start') {
             $b = $d['content_block'] ?? [];
             if (($b['type'] ?? '') === 'tool_use') {
@@ -943,6 +946,7 @@ function aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta
             }
         } elseif ($t === 'content_block_delta') {
             $delta = $d['delta'] ?? [];
+            if (($delta['type'] ?? '') === 'thinking_delta' && is_callable($provider['_onActivity'] ?? null)) $provider['_onActivity']('Model is reasoning');
             if (($delta['type'] ?? '') === 'text_delta') {
                 $text .= $delta['text']; $onDelta($delta['text']);
             } elseif (($delta['type'] ?? '') === 'input_json_delta' && $cur !== null) {
@@ -954,7 +958,7 @@ function aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta
                 $cur = null;
             }
         } elseif ($t === 'message_delta' && isset($d['usage'])) {
-            $usage = $d['usage'];
+            $usage = array_replace($usage ?? [], $d['usage']);
         }
     });
 

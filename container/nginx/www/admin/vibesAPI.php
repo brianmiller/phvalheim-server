@@ -390,12 +390,18 @@ function vibesAct_project($pdo, $in) {
 	$row['worlds']    = vibesProjectWorlds($pdo, $raw);
 	$row['sessions']  = vibesSessionsFor($pdo, $id);
 	$row['openJob']   = vibesJobOpen($pdo, $id);
+	$last=$pdo->prepare('SELECT id FROM hv_jobs WHERE project_id=? ORDER BY id DESC LIMIT 1');$last->execute([$id]);$lastId=$last->fetchColumn();$row['lastJob']=$lastId?vibesJob($pdo,(int)$lastId):null;
 	$row['tree']      = function_exists('vibesProjectTree')     ? vibesProjectTree($raw['slug'])        : [];
 	$row['gitLog']    = function_exists('vibesGitLog')          ? vibesGitLog($raw['slug'], 30)         : [];
 	$row['lastBuild'] = function_exists('vibesBuildLast')       ? vibesBuildLast($raw['slug'])          : null;
 	$row['catalog']   = function_exists('vibesCatalogVersions') ? vibesCatalogVersions($pdo, $id)       : [];
 	$row['size']      = $row['size'] ?? vibesDirSize(vibesProjectDir($raw['slug']));
 	$row['guid']      = $row['guid'] ?? vibesGuid($raw['namespace'], $raw['name']);
+		$row['scm'] = vibesScmStatus($raw['slug']);
+	$row['hosted'] = vibesReadJson(vibesProjectDir($raw['slug']).'/.vibes/builds/hosted.json', []);
+	$row['packages'] = [];
+	foreach (glob(vibesProjectDir($raw['slug']).'/dist/*.zip') ?: [] as $f) { if (is_link($f)) continue; preg_match('/-(\d+\.\d+\.\d+)\.zip$/', basename($f), $m); $row['packages'][] = ['name'=>basename($f), 'size'=>filesize($f), 'version'=>$m[1]??'']; }
+	[$provider] = forgeProvider($pdo, $raw); $row['effectiveModel'] = $provider['model'] ?? '';
 	$row['runnerMissing'] = vibesRunnerStatus()['missing'];
 	return ['project' => $row];
 }
@@ -596,6 +602,28 @@ function vibesAct_build($pdo, $in) {
 		$args['configuration'] = $in['configuration'];
 	}
 	return vibesEnqueueOrFail($pdo, 'build', $id, null, $args);
+}
+
+
+function vibesAct_importProject($pdo,$in) {
+ vibesRequireInstalled($pdo); $url=(string)vibesNeed($in,'url'); vibesRunnerLoad(); try { vibesScmParseUrl($url,vibesSettingsGet($pdo)); } catch (RuntimeException $e) { throw new VibesHttpError($e->getMessage(),400); }
+ return vibesEnqueueOrFail($pdo,'import',null,null,['url'=>$url]);
+}
+function vibesAct_scmSync($pdo,$in) {
+ $id=vibesNeedInt($in,'id');vibesProjectRaw($pdo,$id);
+ return vibesEnqueueOrFail($pdo,'scm-sync',$id,null,['remote'=>$in['remote']??'', 'operation'=>$in['operation']??'']);
+}
+function vibesAct_publishHosted($pdo,$in) {
+ $id=vibesNeedInt($in,'id');vibesProjectRaw($pdo,$id);vibesRunnerLoad();if (!in_array($in['target']??'', ['thunderstore','hexium'],true)) throw new VibesHttpError('Choose Thunderstore or Hexium.',400);
+ return vibesEnqueueOrFail($pdo,'publish-hosted',$id,null,['target'=>$in['target']]);
+}
+function vibesAct_downloadPackage($pdo,$in) {
+ $row=vibesProjectRaw($pdo,vibesNeedInt($in,'id')); $name=(string)vibesNeed($in,'file');
+ if(basename($name)!==$name || !preg_match('/^[A-Za-z0-9_.-]+\.zip$/',$name)) throw new VibesHttpError('Invalid package name.',400);
+ $f=vibesSafeProjectPath($row['slug'],'dist/'.$name);
+ if(!$f || !is_file($f)) throw new VibesHttpError('Package not found. Package the current build first.',404);
+ while(ob_get_level()>0)ob_end_clean();
+ header('Content-Type: application/zip');header('Content-Length: '.filesize($f));header('Content-Disposition: attachment; filename="'.$name.'"');readfile($f);exit;
 }
 
 function vibesAct_package($pdo, $in) {
@@ -832,7 +860,7 @@ function vibesActions() {
 		'install' => 'POST', 'uninstall' => 'POST', 'harvest' => 'POST', 'pakUpdate' => 'POST', 'gc' => 'POST',
 		'createProject' => 'POST', 'updateProject' => 'POST', 'deleteProject' => 'POST', 'newSession' => 'POST',
 		'renameSession' => 'POST', 'turn' => 'POST', 'cancel' => 'POST', 'saveFile' => 'POST', 'build' => 'POST',
-		'package' => 'POST', 'publish' => 'POST', 'unpublish' => 'POST', 'push' => 'POST', 'saveNotes' => 'POST',
+		'downloadPackage'=>'GET', 'importProject'=>'POST', 'scmSync'=>'POST', 'publishHosted'=>'POST', 'package' => 'POST', 'publish' => 'POST', 'unpublish' => 'POST', 'push' => 'POST', 'saveNotes' => 'POST',
 		'uploadAsset' => 'POST', 'deleteAsset' => 'POST', 'saveSettings' => 'POST', 'testGitHub' => 'POST',
 		'testGitLab' => 'POST', 'dismissNotice' => 'POST',
 	];

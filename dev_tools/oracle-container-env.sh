@@ -202,7 +202,7 @@ oracleUnrunnable() {
 	case "$1" in
 		test-public-card-render.js|test-crossplay-join-modal.js)
 			[ -n "$ORACLE_STEAM_BYPASS" ] || echo "the public page needs the Steam-auth bypass: start the container with dev_tools/devUp.sh <SteamID64>" ;;
-		test-password-row-styling.js)
+		test-password-row-styling.js|test-vibes-ui.js)
 			[ "${ORACLE_PROBE:-0}" = 1 ] || echo "needs the scratch container $ORACLE_PROBE_NAME on :$ORACLE_PROBE_PORT (seed starts it unless ORACLE_SKIP_PROBE=1)" ;;
 		test-restart-pending.sh)
 			[ -n "$ORACLE_VANILLA_WORLD" ] || echo "needs a vanilla world with a game tree to start" ;;
@@ -331,6 +331,8 @@ oracleRun() {
 	local name="$1" t="$2"
 	case "$name" in
 		# ---- browser tests with arguments (what each argv means is in the file's header)
+		test-vibes-ui.js) node "$t" "http://127.0.0.1:$ORACLE_PROBE_PORT" "$ORACLE_PROBE_NAME" ;;
+		test-stream-zero-delta.php) bash "$_ORACLE_DEV/test-stream-zero-delta.sh" "$ORACLE_CONTAINER" ;;
 		test-config-accordion.js)        node "$t" "$ORACLE_ADMIN" "$ORACLE_WORLD" "$ORACLE_SOLO_WORLD" ;;
 		test-config-migration-gate.js)   node "$t" "$ORACLE_ADMIN" "$ORACLE_SOLO_WORLD" ;;
 		test-admin-row-consolidation.js) node "$t" "$ORACLE_ADMIN" "$ORACLE_CONTAINER" "$ORACLE_WORLD" ;;

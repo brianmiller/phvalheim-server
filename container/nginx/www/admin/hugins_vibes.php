@@ -59,7 +59,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 			</div>
 		</div>
 		<div class="vb-chips" id="vbChips" aria-live="polite"></div>
-		<div class="vb-header-actions">
+		<div class="vb-header-actions"><button type="button" class="vb-btn vb-btn-ghost" id="vbToggleLibrary" aria-expanded="true">Vibes</button><button type="button" class="vb-btn vb-btn-ghost" id="vbToggleForge" aria-expanded="true">Forge</button><button type="button" class="vb-btn vb-btn-ghost" id="vbToggleNotes" aria-expanded="true">Notes</button>
 			<button type="button" class="vb-btn vb-btn-ghost vb-only-narrow" id="vbBtnLibrary" title="Open the library">&#9776; Library</button>
 			<button type="button" class="vb-btn vb-btn-ghost" id="vbBtnSettings" title="Settings">&#9881; Settings</button>
 			<a class="vb-btn vb-btn-ghost" href="index.php" title="Back to the dashboard">Dashboard</a>
@@ -79,7 +79,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 		<aside class="vb-library" id="vbLibrary" aria-label="Library">
 			<div class="vb-lib-top">
 				<input type="search" class="vb-input vb-lib-search" id="vbLibSearch" placeholder="Search Vibes&hellip;" autocomplete="off">
-				<button type="button" class="vb-btn vb-btn-accent" id="vbBtnNewVibe" title="Start a new mod">+ New Vibe</button>
+				<button type="button" class="vb-btn vb-btn-accent" id="vbBtnNewVibe" title="Start a new mod">+ New Vibe</button><button type="button" class="vb-btn vb-btn-ghost" id="vbBtnImport">+ Import</button>
 			</div>
 			<div class="vb-lib-list" id="vbLibList" role="list"></div>
 			<div class="vb-lib-foot" id="vbLibFoot"></div>
@@ -119,13 +119,13 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 						<div class="vb-vibe-grid">
 							<div class="vb-transcript-wrap">
 								<div class="vb-transcript" id="vbTranscript" aria-live="polite"></div>
-								<form class="vb-composer" id="vbComposer">
+								<button type="button" class="vb-btn vb-btn-sm vb-jump" id="vbJumpLatest" hidden>↓ Latest activity</button><div class="vb-live-strip"><span id="vbPet"></span><span id="vbLiveStatus" role="status">Ready to forge</span><span id="vbUsage" title="Context is an estimate; usage is reported by the provider."></span></div><form class="vb-composer" id="vbComposer">
 									<textarea class="vb-input vb-composer-text" id="vbComposerText" rows="3" placeholder="Tell Hugin what the mod should do&hellip;  (Ctrl/Cmd+Enter sends)"></textarea>
 									<div class="vb-composer-bar">
 										<span class="vb-composer-hint" id="vbComposerHint"></span>
 										<div class="vb-composer-model" id="vbComposerModel" title="Model for this Vibe (stored verbatim)">
-											<input type="text" class="vb-input vb-input-sm" id="vbModelInput" list="vbModelList" placeholder="provider default model" autocomplete="off">
-											<datalist id="vbModelList"></datalist>
+											<input type="text" class="vb-input vb-input-sm" id="vbModelInput" role="combobox" aria-autocomplete="list" aria-controls="vbModelList" aria-expanded="false" placeholder="provider default model" autocomplete="off">
+											<div id="vbModelList" class="vb-model-menu" role="listbox" hidden></div>
 										</div>
 										<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" id="vbComposerStop" hidden>Stop</button>
 										<button type="submit" class="vb-btn vb-btn-accent" id="vbComposerSend">Send</button>
@@ -174,7 +174,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 
 					<!-- Package -->
 					<section class="vb-panel" data-panel="package">
-						<div class="vb-pkg-grid">
+						<div id="vbPackageFeedback" class="vb-operation" role="status">Package your green build to create downloadable ZIPs.</div><div class="vb-pkg-grid">
 							<div class="vb-card">
 								<h3>Manifest</h3>
 								<div class="vb-kv" id="vbManifest"></div>
@@ -191,7 +191,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 							</div>
 							<div class="vb-card">
 								<h3>Disk</h3>
-								<div class="vb-kv" id="vbDiskKv"></div>
+								<div class="vb-kv" id="vbDiskKv"></div><div id="vbDownloads" class="vb-row-actions"></div><p class="vb-help">Thunderstore and Hexium use the same compatible ZIP format.</p><div class="vb-row-actions"><button type="button" class="vb-btn vb-btn-accent" data-hosted="thunderstore">Publish to Thunderstore</button><button type="button" class="vb-btn vb-btn-accent" data-hosted="hexium">Publish to Hexium</button></div><div id="vbHostedResults"></div>
 								<div class="vb-row-actions">
 									<a class="vb-btn vb-btn-ghost" id="vbBtnExport" href="#" download>&#8681; Export repo (.tar.gz)</a>
 									<button type="button" class="vb-btn vb-btn-danger-ghost" id="vbBtnDeleteProject">Delete Vibe&hellip;</button>
@@ -202,7 +202,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 
 					<!-- History -->
 					<section class="vb-panel" data-panel="history">
-						<div class="vb-hist-grid">
+						<div id="vbScm" class="vb-operation"></div><div class="vb-hist-grid">
 							<div class="vb-hist-list-wrap">
 								<div class="vb-hist-bar">
 									<span class="vb-hist-remotes" id="vbRemotes"></span>
@@ -354,7 +354,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 					<button type="button" data-stab="dev">Dev Environment</button>
 					<button type="button" data-stab="libs">Libraries</button>
 					<button type="button" data-stab="assets">Assets</button>
-					<button type="button" data-stab="github">GitHub</button>
+					<button type="button" data-stab="publishing">Publishing</button><button type="button" data-stab="github">GitHub</button>
 					<button type="button" data-stab="gitlab">GitLab</button>
 					<button type="button" data-stab="advanced">Advanced</button>
 					<button type="button" class="vb-danger-text" data-stab="danger">Danger zone</button>
@@ -424,7 +424,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 						<div class="vb-asset-list" id="vbAssetList"></div>
 					</div>
 
-					<form class="vb-stab vb-form" data-stab="github">
+					<form class="vb-stab vb-form" data-stab="publishing"><h3>Hosted catalogues</h3><p class="vb-help">Publishing uploads a public release. Use a service-account API token for your team. Tokens stay on this server.</p><h4>Thunderstore</h4><label class="vb-field">Team / namespace<input class="vb-input" data-setting="thunderstore.team"></label><label class="vb-field">API token<input type="password" autocomplete="off" class="vb-input" data-setting="thunderstore.token"></label><label class="vb-field">Categories (comma separated identifiers)<input class="vb-input" data-setting="thunderstore.categories"></label><h4>Hexium</h4><label class="vb-field">Team / namespace<input class="vb-input" data-setting="hexium.team"></label><label class="vb-field">API token<input type="password" autocomplete="off" class="vb-input" data-setting="hexium.token"></label><label class="vb-field">Categories (comma separated identifiers)<input class="vb-input" data-setting="hexium.categories"></label><button type="submit" class="vb-btn vb-btn-accent">Save</button></form><form class="vb-stab vb-form" data-stab="github">
 						<label class="vb-switch"><input type="checkbox" data-setting="github.enabled" data-type="bool"><span class="vb-switch-track"></span> Push Vibes to GitHub</label>
 						<label class="vb-field">Personal access token <span class="vb-muted">needs <code>repo</code>; shown masked, leave as is to keep it</span><input type="password" class="vb-input" data-setting="github.token" autocomplete="off"></label>
 						<label class="vb-field">Owner / organisation <input type="text" class="vb-input" data-setting="github.owner" autocomplete="off"></label>
@@ -495,7 +495,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 	</div>
 
 	<?php // JSON_HEX_TAG keeps a "</script>" inside any string from ending the block early. ?>
-	<script type="application/json" id="vbInitial"><?php echo json_encode($vibesInitial, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE); ?></script>
+	<div class="mods-modal-overlay vb-modal-overlay" id="vbImport" role="dialog" aria-modal="true" aria-labelledby="vbImportTitle"><div class="mods-modal vb-modal vb-modal-sm"><div class="mods-modal-body vb-form"><h2 id="vbImportTitle">Import a Vibe</h2><form id="vbImportForm" class="vb-form"><label class="vb-field">GitHub or GitLab repository URL<input id="vbImportUrl" class="vb-input" type="url" required placeholder="https://github.com/team/mod"></label><p class="vb-help">Public repositories work immediately. Private repositories use the matching token in Settings. Your code and history are kept; imports are never built automatically.</p><div class="vb-row-actions"><button type="submit" class="vb-btn vb-btn-accent" id="vbImportSubmit">Import</button><button type="button" class="vb-btn vb-btn-ghost" data-close="vbImport">Cancel</button></div><p id="vbImportStatus" role="status"></p></form></div></div></div><script type="application/json" id="vbInitial"><?php echo json_encode($vibesInitial, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE); ?></script>
 	<script src="/js/vibes.js?v=<?php echo $jsV; ?>"></script>
 </body>
 </html>

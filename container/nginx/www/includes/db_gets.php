@@ -228,8 +228,10 @@ function getDateUpdated($pdo,$world) {
 # caller gets it.
 function phvBuildLaunchString($world, $password, $gameDNS, $port, $phvalheimHost,
                               $httpScheme, $vanilla, $crossplay, $joinCode) {
+        require_once __DIR__ . '/companion.php';
+        $refreshToken = phvCompanionToken($world);
         return base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost"
-                           . "?$httpScheme?$vanilla?$crossplay?$joinCode");
+                           . "?$httpScheme?$vanilla?$crossplay?$joinCode" . ($refreshToken !== '' ? "?$refreshToken" : ''));
 }
 
 # The crossplay pair for a world, as the launch string wants them.

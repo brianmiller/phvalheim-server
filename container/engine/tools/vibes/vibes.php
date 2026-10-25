@@ -26,7 +26,7 @@ require_once '/opt/stateless/nginx/www/includes/events.php';
 if (!defined('AI_HTTP_TIMEOUT')) {
 	define('AI_HTTP_TIMEOUT', max(120, (int)vibesSetting(vibesSettingsGet($pdo), 'agent.turn_timeout_s', 900)));
 }
-foreach (['env', 'jobs', 'pak', 'libs', 'git', 'project', 'build', 'package', 'catalog', 'tools', 'agent', 'scm'] as $l) require_once __DIR__ . "/lib/$l.php";
+foreach (['env', 'jobs', 'pak', 'libs', 'git', 'project', 'build', 'package', 'catalog', 'tools', 'agent', 'scm', 'hosted'] as $l) require_once __DIR__ . "/lib/$l.php";
 
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 @mkdir(vibesLogsDir() . '/jobs', 0775, true);
@@ -143,6 +143,9 @@ function runJob(PDO $pdo, $id, $echo = false) {
 			case 'publish':    $r = jobPublish($pdo, $project, $args, $step); break;
 			case 'unpublish':  $r = jobUnpublish($pdo, $project, $args, $step); break;
 			case 'turn':       $r = jobTurn($pdo, $job, $project, $args, $emit, $isCancelled); break;
+			case 'import': $r = vibesScmImport($pdo, $doc, $args['url'] ?? '', $step); break;
+			case 'scm-sync': $r = vibesScmSync($pdo, $doc, $project, $args, $step); break;
+			case 'publish-hosted': $r = vibesHostedPublish($pdo, $doc, $project, $args, $step); break;
 			case 'push':       $r = jobPush($pdo, $doc, $project, $args, $step); break;
 			case 'pak-update': $r = jobPakUpdate($pdo, $doc, $step, $isCancelled); break;
 			case 'gc':         $r = jobGc($pdo, $doc, $step); break;

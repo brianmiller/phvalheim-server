@@ -181,6 +181,8 @@ const Vibes = {};
 		const src = qs('.vb-hugin-src'); if (!src) return;
 		clearTimeout(headerTimer);
 		src.setAttribute('class', 'ai-hugin vb-hugin-src ' + state);
+		const pet = $('vbPet'); if (pet) { clear(pet); pet.appendChild(huginNode(state, 30)); }
+		const status = $('vbLiveStatus'); if (status) status.textContent = ({idle:'Ready to forge',thinking:'Thinking · waiting for the model',working:'Working on your code',speaking:'Writing a response',done:'Turn complete',error:'Needs attention'})[state] || state;
 		// done/error are one-shot poses: he settles back to idle after they have played.
 		if (state === 'done' || state === 'error') headerTimer = setTimeout(() => src.setAttribute('class', 'ai-hugin vb-hugin-src idle'), 1200);
 	}
@@ -256,7 +258,7 @@ const Vibes = {};
 		const libs = st.libs || {};
 		root.appendChild(chip(libs.present ? 'ok' : 'warn', 'Valheim', libs.gameVersion || (libs.gameBuild ? 'build ' + libs.gameBuild : (libs.present ? 'harvested' : 'no libraries')), libs.present ? 'Harvested from ' + (libs.sourceWorld || '?') : 'No game libraries harvested yet'));
 		const ai = st.ai || {};
-		root.appendChild(chip(ai.ok ? 'ok' : 'bad', 'Model', ai.ok ? ai.model : 'none', ai.ok ? ai.provider : ai.reason));
+		root.appendChild(chip(ai.ok ? 'ok' : 'bad', 'Model', ai.ok ? ((S.project && S.project.model) || (S.project && S.project.effectiveModel) || ai.model) : 'none', ai.ok ? ai.provider : ai.reason));
 		const d = st.disk || {};
 		root.appendChild(chip(d.ok ? 'ok' : 'warn', 'Disk', fmtBytes(d.free) + ' free', 'Free space on the data volume'));
 		const open = (st.jobs || []).filter(j => j.kind !== 'turn');
@@ -579,6 +581,7 @@ const Vibes = {};
 		let r;
 		try { r = await post(action, params || {}); }
 		catch (e) { clearBusy(btn); fail(e, labelFor(action) + ' did not start'); return null; }
+		if (params && S.project && params.id === S.project.id) $('vbPackageFeedback').textContent = labelFor(action) + ' queued · job '+r.jobId;
 		toast('info', labelFor(action) + ' started (job ' + r.jobId + ').');
 		track(r.job || { id: r.jobId, kind: action, project_id: params && params.id }, btn, onDone);
 		await Vibes.router.refreshState(true);
@@ -596,7 +599,7 @@ const Vibes = {};
 		Vibes.workspace.showJob(job);
 	}
 	function onJobEvent(w, ev) {
-		if (ev.type === 'status') { w.job.step = ev.step || w.job.step; w.job.progress = ev.progress; Vibes.workspace.showJob(w.job); w.lastStatus = ev; }
+		if (ev.type === 'status') { w.job.step = ev.step || w.job.step; w.job.progress = ev.progress; Vibes.workspace.showJob(w.job); w.lastStatus = ev; if (S.project && S.project.id === w.job.project_id) $('vbPackageFeedback').textContent = ev.step + (ev.detail ? ' · '+ev.detail : ''); }
 		else if (ev.type === 'build' && S.project && S.project.id === w.job.project_id) Vibes.buildTab.applyBuildEvent(ev);
 		else if (ev.type === 'error') finish(w, false, ev.error);
 		else if (ev.type === 'done') finish(w, true);
@@ -606,6 +609,7 @@ const Vibes = {};
 		if (!watchers.has(w.job.id)) return;
 		w.stream.close(); watchers.delete(w.job.id);
 		clearBusy(w.btn);
+		if (S.project && S.project.id === w.job.project_id) $('vbPackageFeedback').textContent = labelFor(w.job.kind) + (ok ? ' complete. Downloads and catalogue status are below.' : ' failed: '+(error || 'unknown error'));
 		if (ok) toast('ok', labelFor(w.job.kind) + ' finished' + (w.lastStatus && w.lastStatus.step ? ': ' + w.lastStatus.step : '') + '.');
 		else toast('err', labelFor(w.job.kind) + ' failed: ' + (error || 'unknown error'));
 		Vibes.workspace.showJob(null, w.job);
@@ -804,7 +808,8 @@ const Vibes = {};
    ===================================================================================== */
 (() => {
 	const { $, h, clear, fmtMs, fmtTime, S, api, post, toast, fail, huginNode, setHugin } = Vibes;
-	let stream = null, lastSeq = 0, running = false, cur = null, chips = new Map(), turnNo = 0;
+	let stream = null, lastSeq = 0, running = false, cur = null, chips = new Map(), turnNo = 0, follow = true, scrollFrame = null;
+	const activity = new Map();
 
 	const TOOL_ICON = { read_file: '☰', write_file: '✎', edit_file: '✎', list_files: '☷', search: '⌕', grep: '⌕', build: '⚙', dotnet: '⚙', shell: '›_', run: '›_', git: '⎇', note: '✍', decompiled: '⌘', read_game_source: '⌘', search_game_source: '⌕', manifest: '☷', package: '⚑' };
 	function iconFor(name) { for (const k of Object.keys(TOOL_ICON)) if ((name || '').toLowerCase().includes(k)) return TOOL_ICON[k]; return '•'; }
@@ -819,7 +824,8 @@ const Vibes = {};
 	async function openSession(s) {
 		detach();
 		S.session = s;
-		clear($('vbTranscript')); clear($('vbForgeList')); lastSeq = 0; turnNo = 0; $('vbForgeMeta').textContent = '';
+		$('vbUsage').textContent = s ? Number(s.tokens_in || 0).toLocaleString() + ' in · ' + Number(s.tokens_out || 0).toLocaleString() + ' out · session' : ''; delete $('vbUsage').dataset.context; delete $('vbUsage').dataset.usage;
+		clear($('vbTranscript')); clear($('vbForgeList')); activity.clear(); follow = true; $('vbJumpLatest').hidden = true; lastSeq = 0; turnNo = 0; $('vbForgeMeta').textContent = '';
 		Vibes.workspace.renderSessions();
 		if (!s) { $('vbTranscript').appendChild(emptyHint()); $('vbForgeList').appendChild(h('div.vb-forge-empty', 'Tool calls tick in here while Hugin works: reads, edits, builds, commits.')); $('vbModelInput').value = (S.project && S.project.model) || ''; return; }
 		try {
@@ -836,7 +842,7 @@ const Vibes = {};
 	function emptyHint() {
 		return h('div.vb-msg.system', h('div.vb-bubble', 'New session. Hugin knows this project’s files, its notes and the game libraries. Describe what you want; he reads, writes, builds and fixes.'));
 	}
-	function scrollEnd() { const t = $('vbTranscript'); t.scrollTop = t.scrollHeight; }
+	function scrollEnd() { if (!follow) { $('vbJumpLatest').hidden = false; return; } if (scrollFrame) return; scrollFrame = requestAnimationFrame(() => { scrollFrame = null; const t = $('vbTranscript'); t.scrollTo({top:t.scrollHeight, behavior:Vibes.reducedMotion() ? 'auto' : 'smooth'}); }); }
 
 	/* ---- Composer -------------------------------------------------------------------- */
 	function setLocked(job) {
@@ -859,7 +865,7 @@ const Vibes = {};
 		if (!text || !S.project) return;
 		if (!S.session) { try { const r = await post('newSession', { project: S.project.id }); S.project.sessions = [r.session].concat(S.project.sessions || []); await openSession(r.session); } catch (e) { return fail(e, 'Could not start a session'); } }
 		const model = $('vbModelInput').value.trim();
-		if (model !== (S.project.model || '')) { try { await post('updateProject', { id: S.project.id, model }); S.project.model = model; } catch (e) { fail(e, 'Model not saved'); } }
+		if (model !== (S.project.model || '')) { try { await post('updateProject', { id: S.project.id, model }); S.project.model = model; } catch (e) { return fail(e, 'Model not saved'); } }
 		$('vbComposerSend').disabled = true;
 		try {
 			const r = await post('turn', { session: S.session.id, text });
@@ -893,11 +899,15 @@ const Vibes = {};
 			case 'user':      finalizeAssistant(); /* a bubble left open by an earlier turn (one that ended in an error) must not swallow this turn's tokens */ if (pendingEcho !== null && ev.text === pendingEcho) { pendingEcho = null; break; } appendUser(ev.text, ev.t, live); if (!live) { turnNo++; $('vbForgeList').appendChild(h('div.vb-forge-turn', 'turn ' + turnNo + (ev.t ? ' · ' + fmtTime(ev.t) : ''))); } break;
 			case 'token':     if (live && !running) beginRun(Vibes.jobs.openFor(S.project.id) || { kind: 'turn', project_id: S.project.id }); appendToken(ev.text); if (live) setHugin('speaking'); break;
 			case 'assistant': if (cur) { cur.text = ev.text; finalizeAssistant(); } else appendAssistant(ev.text, ev.t); break;
-			case 'tool_call': if (live) setHugin('working'); addChip(ev); break;
-			case 'tool_result': updateChip(ev); if (live) setHugin('thinking'); break;
+			case 'tool_call': finalizeAssistant(); if (live) setHugin('working'); addChip(ev); addActivity(ev); break;
+			case 'tool_result': updateChip(ev); finishActivity(ev); if (live) setHugin('thinking'); break;
 			case 'file_changed': addFileChange(ev); break;
 			case 'build':     addBuild(ev); if (S.project) Vibes.buildTab.applyBuildEvent(ev); break;
 			case 'commit':    $('vbForgeList').appendChild(h('div', h('span.vb-fcommit', h('code', String(ev.hash || '').slice(0, 7)), ' ', ev.message || 'commit'))); break;
+			case 'context': showUsage(ev); break;
+			case 'usage': showUsage(ev); break;
+			case 'compaction': $('vbTranscript').appendChild(h('div.vb-operation', ev.text || 'Context compacted; project notes and recent work retained.')); break;
+			case 'thinking': if (live) { setHugin(ev.state === 'working' ? 'working' : 'thinking'); $('vbLiveStatus').textContent = ev.text || 'Thinking…'; } break;
 			case 'status':    $('vbForgeList').appendChild(h('div.vb-fstatus', ev.step || ev.detail || '')); break;
 			case 'error':     finalizeAssistant(); appendError(ev.error, ev.t); if (live) endRun(false); break;
 			case 'done':      if (ev.usage) $('vbForgeMeta').textContent = (ev.usage.in || 0) + '→' + (ev.usage.out || 0) + ' tok' + (ev.rounds ? ' · ' + ev.rounds + ' rounds' : ''); if (live) endRun(true); break;
@@ -907,7 +917,10 @@ const Vibes = {};
 		if (live) scrollEnd();
 		forgeScroll();
 	}
-	function forgeScroll() { const f = $('vbForgeList'); f.scrollTop = f.scrollHeight; }
+	function forgeScroll() { const f = $('vbForgeList'); if (f.scrollHeight - f.scrollTop - f.clientHeight < 180) f.scrollTop = f.scrollHeight; }
+	function showUsage(ev) { const e = $('vbUsage'); if (ev.type === 'context') { e.dataset.context = '~' + Number(ev.tokens).toLocaleString() + ' / ' + Number(ev.budget).toLocaleString() + ' context'; e.classList.toggle('near-limit', ev.tokens >= ev.budget * .8); } if (ev.usage) e.dataset.usage = ev.reported === false ? 'Token usage not reported by provider' : Number(ev.usage.in).toLocaleString() + ' in · ' + Number(ev.usage.out).toLocaleString() + ' out'; e.textContent = [e.dataset.context, e.dataset.usage].filter(Boolean).join(' · '); }
+	function addActivity(ev) { const details = h('details.vb-tool-activity', h('summary', '◌ ' + ev.name + ' · ' + shortArg(ev.args)), h('pre.vb-pre', JSON.stringify(ev.args || {}, null, 2))); activity.set(ev.id, details); $('vbTranscript').appendChild(details); }
+	function finishActivity(ev) { const el = activity.get(ev.id); if (!el) return; el.querySelector('summary').textContent = (ev.ok ? '✓ ' : '✕ ') + el.querySelector('summary').textContent.slice(2) + ' · ' + fmtMs(ev.ms); el.appendChild(h('pre.vb-pre', ev.preview || 'Completed')); }
 
 	/* ---- Bubbles ---------------------------------------------------------------------- */
 	function appendUser(text, t, live) { $('vbTranscript').appendChild(h('div.vb-msg.user', h('div.vb-msg-avatar', 'you'), h('div', h('div.vb-bubble', text), t ? h('div.vb-msg-time', fmtTime(t)) : null))); if (live) scrollEnd(); }
@@ -957,14 +970,36 @@ const Vibes = {};
 		$('vbForgeList').appendChild(card);
 	}
 
+	let models = [], modelProvider = null;
 	async function loadModels() {
-		const dl = clear($('vbModelList')), st = S.state || {};
-		const pid = (S.project && S.project.provider_id) || (st.ai && st.ai.id);
-		if (!pid) return;
-		try { for (const m of (await api('aiModels', { provider: pid })).models || []) dl.appendChild(h('option', { value: m.id }, m.label && m.label !== m.id ? m.label : null)); } catch (e) { /* the field is free text anyway */ }
+		const pid = (S.project && S.project.provider_id) || (S.state.ai && S.state.ai.id);
+		if (!pid || pid === modelProvider) return;
+		modelProvider = pid;
+		try { models = (await api('aiModels', {provider:pid})).models || []; } catch (e) { models = []; }
+	}
+	function modelMenu() {
+		const dl = clear($('vbModelList')), input = $('vbModelInput'), filter = input.value.toLowerCase();
+		const choose = async (id) => { input.value = id; dl.hidden = true; input.setAttribute('aria-expanded','false'); await saveModel(); };
+		dl.appendChild(h('button.vb-model-option', {type:'button', role:'option', onmousedown:e=>e.preventDefault(), onclick:()=>choose('')}, 'Provider default'));
+		for (const m of models.filter(m=>m.id.toLowerCase().includes(filter)).slice(0,40)) dl.appendChild(h('button.vb-model-option', {type:'button', role:'option', onmousedown:e=>e.preventDefault(), onclick:()=>choose(m.id)}, m.label || m.id));
+		dl.hidden = false; input.setAttribute('aria-expanded','true');
+	}
+	async function saveModel() {
+		if (!S.project) return;
+		const id = S.project.id, model = $('vbModelInput').value.trim();
+		try { await post('updateProject',{id,model}); if (S.project.id === id) { S.project.model = model; Vibes.router.applyState(); } }
+		catch(e) { fail(e,'Model not saved'); }
 	}
 
 	function wire() {
+		$('vbTranscript').addEventListener('wheel', e=>{ if(e.deltaY<0) follow=false; }, {passive:true});
+		$('vbTranscript').addEventListener('touchmove', ()=>{follow=false;}, {passive:true});
+		$('vbTranscript').addEventListener('scroll', ()=>{ const t=$('vbTranscript'); if(t.scrollHeight-t.scrollTop-t.clientHeight<12) {follow=true; $('vbJumpLatest').hidden=true;} });
+		$('vbJumpLatest').onclick=()=>{follow=true; $('vbJumpLatest').hidden=true; scrollEnd();};
+		$('vbModelInput').addEventListener('focus', modelMenu); $('vbModelInput').addEventListener('input',modelMenu);
+		$('vbModelInput').addEventListener('change',saveModel);
+		$('vbModelInput').addEventListener('keydown', e=>{if(e.key==='Escape') {$('vbModelList').hidden=true; e.target.setAttribute('aria-expanded','false');} if(e.key==='ArrowDown') {e.preventDefault(); $('vbModelList').querySelector('button')?.focus();}});
+		document.addEventListener('click',e=>{if(!$('vbComposerModel').contains(e.target)) {$('vbModelList').hidden=true; $('vbModelInput').setAttribute('aria-expanded','false');}});
 		$('vbComposer').addEventListener('submit', (e) => { e.preventDefault(); send(); });
 		$('vbComposerText').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); send(); } });
 		Vibes.subscribe(() => { if (S.project && !S.project.loading) loadModels(); });
@@ -1297,9 +1332,12 @@ const Vibes = {};
 	function render() {
 		const p = S.project; if (!p) return;
 		const m = p.manifest || {};
+		const last = p.lastJob; if (last && !p.openJob) $('vbPackageFeedback').textContent = Vibes.jobs.labelFor(last.kind) + ' · ' + last.status + (last.error ? ': '+last.error : last.step ? ': '+last.step : '');
 		kv($('vbManifest'), [['Package', p.namespace + '-' + p.name], ['Version', m.version_number || p.version], ['GUID', p.guid], ['Description', m.description || p.description], ['Dependencies', (m.dependencies || []).join(', ') || 'none'], ['Website', m.website_url || '']]);
 		$('vbPublishHelp').textContent = p.last_build_ok ? 'Publishing packages the last green build as ' + p.namespace + '-' + p.name + '-' + p.version + ' into your local catalogue (source “vibes”).' : 'Publish needs a green build first.';
-		$('vbBtnPublish').disabled = !p.last_build_ok; $('vbBtnPublish').title = p.last_build_ok ? '' : 'Build first';
+		const current = (p.catalog || []).find(v=>v.version === (m.version_number || p.version));
+		$('vbBtnPublish').textContent = current ? 'Unpublish from Catalogue' : 'Publish to Catalogue';
+		$('vbBtnPublish').disabled = !current && !p.last_build_ok; $('vbBtnPublish').title = p.last_build_ok ? '' : 'Build first';
 		const cat = clear($('vbCatalog'));
 		if (!(p.catalog || []).length) cat.appendChild(h('div.vb-muted', 'Not in the catalogue yet.'));
 		for (const v of p.catalog || []) {
@@ -1308,10 +1346,15 @@ const Vibes = {};
 				h('button.vb-btn.vb-btn-xs.vb-btn-danger-ghost', { type: 'button', onclick: (e) => unpublish(e.currentTarget, v) }, 'Unpublish')));
 		}
 		kv($('vbDiskKv'), [['Project dir', fmtBytes(p.size)], ['Path', p.dir || '']]);
+		const downloads = clear($('vbDownloads'));
+		for (const a of p.packages || []) for (const target of ['Thunderstore','Hexium']) downloads.appendChild(h('a.vb-btn.vb-btn-ghost', {href:'vibesAPI.php?action=downloadPackage&id='+p.id+'&file='+encodeURIComponent(a.name), download:''}, target+' ZIP · '+a.version+' · '+fmtBytes(a.size)));
+		if (!(p.packages || []).length) downloads.appendChild(h('span.vb-muted','No ZIP yet. Build, then Package.'));
+		Vibes.enhance?.renderProject();
 		const ex = $('vbBtnExport'); ex.href = 'vibesAPI.php?action=exportProject&id=' + p.id;
 	}
 	async function publish(btn) {
 		const p = S.project; if (!p) return;
+		const current = (p.catalog || []).find(v=>v.version === ((p.manifest || {}).version_number || p.version)); if (current) return unpublish(btn,current);
 		const used = (p.worlds || []);
 		if (used.length && !(await Vibes.confirmDialog('Publish ' + p.name + ' ' + p.version + '?', used.length + ' world' + (used.length === 1 ? ' uses' : 's use') + ' this mod (' + used.join(', ') + '). They pick the new version up on their next Update; players get it with their next sync.', 'Publish'))) return;
 		Vibes.jobs.start(btn, 'publish', { id: p.id }, 'Publishing…');
@@ -1620,6 +1663,48 @@ const Vibes = {};
 	Vibes.deleteVibe = { open: openDelete };
 })();
 
+/* Workbench controls share the same job stream as builds and turns. */
+(() => {
+ const {$,h,clear,S,api,post,fail,toast}=Vibes;
+ function wire() {
+  new ResizeObserver(entries=>{document.body.style.setProperty('--vb-drawer-top',entries[0].target.getBoundingClientRect().height+'px');}).observe(document.querySelector('.vb-header'));
+  for(const [id,cls] of [['vbToggleLibrary','library-collapsed'],['vbToggleForge','forge-collapsed'],['vbToggleNotes','notes-collapsed']]) {
+   const btn=$(id); let collapsed=false; try{collapsed=localStorage.getItem('vibes:'+cls)==='1';}catch(e){}
+   const apply=()=>{document.body.classList.toggle(cls,collapsed);btn.setAttribute('aria-expanded',String(!collapsed));};apply();
+   btn.onclick=()=>{ if(id==='vbToggleLibrary' && matchMedia('(max-width:1199px)').matches) return Vibes.library.toggleDrawer(); collapsed=!collapsed;apply();try{localStorage.setItem('vibes:'+cls,collapsed?'1':'0');}catch(e){} };
+  }
+  $('vbBtnImport').onclick=()=>Vibes.openModal('vbImport');
+  $('vbImportForm').onsubmit=async e=>{e.preventDefault();$('vbImportStatus').textContent='Cloning repository and inspecting project…';
+   await Vibes.jobs.start($('vbImportSubmit'),'importProject',{url:$('vbImportUrl').value},'Importing…',async(ok)=>{
+    if(!ok){$('vbImportStatus').textContent='Import failed. See the error notification; check the URL and SCM credentials.';return;}
+    $('vbImportStatus').textContent='Imported. Select your Vibe from the library.';Vibes.closeModal('vbImport');await Vibes.library.load();
+   });
+  };
+  for(const btn of document.querySelectorAll('[data-hosted]')) btn.onclick=async()=>{
+   if(!S.project)return;
+   if(!await Vibes.confirmDialog('Publish to '+btn.dataset.hosted+'?', 'Upload '+S.project.namespace+'-'+S.project.name+' '+S.project.version+' as a public release using the team in Settings → Publishing. Published versions cannot be overwritten.','Publish'))return;
+   Vibes.jobs.start(btn,'publishHosted',{id:S.project.id,target:btn.dataset.hosted},'Uploading…');
+  };
+ }
+ function renderProject(){
+  const p=S.project;if(!p)return;
+  const root=clear($('vbScm')), st=p.scm || {};
+  root.appendChild(h('strong','Source control · '+(st.branch || 'no branch')));
+  root.appendChild(h('p',st.error || ((st.changes || []).length+' uncommitted file(s) · '+(st.head || '').slice(0,10))));
+  for(const remote of st.remotes || []){
+   const card=h('div.vb-scm-remote',h('strong',remote.name),h('a',{href:remote.url,target:'_blank',rel:'noopener noreferrer'},remote.url),h('span',remote.ahead===null?'Fetch to check remote status':remote.ahead+' ahead · '+remote.behind+' behind'));
+   for(const [op,label] of [['fetch','Check remote'],['pull','Pull (fast-forward)'],['push','Push branch']]) card.appendChild(h('button.vb-btn.vb-btn-sm.vb-btn-ghost',{type:'button',onclick:e=>Vibes.jobs.start(e.currentTarget,'scmSync',{id:p.id,remote:remote.name,operation:op},label+'…')},label));
+   root.appendChild(card);
+  }
+  if(!(st.remotes || []).length)root.appendChild(h('p','Local repository. Connect by pushing to GitHub or GitLab below, or import an existing repository.'));
+  if(st.checkedAt)root.appendChild(h('small','Last remote check: '+st.checkedAt));
+  if((st.changes || []).length)root.appendChild(h('details',h('summary','Changed files'),h('pre.vb-pre',st.changes.map(c=>c.status+' '+c.path).join('\n'))));
+  const results=clear($('vbHostedResults'));
+  for(const [target,receipt] of Object.entries(p.hosted || {})) results.appendChild(h('p',target+' · v'+receipt.version+' · '+receipt.at+' ',receipt.url?h('a',{href:receipt.url,target:'_blank',rel:'noopener noreferrer'},'View published mod'):'Submitted'));
+ }
+ Vibes.enhance={wire,renderProject};
+})();
+
 /* =====================================================================================
    18. Keyboard, boot
    ===================================================================================== */
@@ -1637,7 +1722,7 @@ const Vibes = {};
 		try { initial = JSON.parse($('vbInitial').textContent); } catch (e) { console.error('initial state unreadable', e); }
 		S.state = initial;
 		Vibes.wireModals(); Vibes.intro.wire(); Vibes.installSheet.wire(); Vibes.library.wire(); Vibes.workspace.wire(); Vibes.tabs.wire();
-		Vibes.vibeTab.wire(); Vibes.codeTab.wire(); Vibes.packageTab.wire(); Vibes.jobs.wire(); Vibes.settings.wire(); Vibes.newVibe.wire(); keys();
+		Vibes.enhance.wire(); Vibes.vibeTab.wire(); Vibes.codeTab.wire(); Vibes.packageTab.wire(); Vibes.jobs.wire(); Vibes.settings.wire(); Vibes.newVibe.wire(); keys();
 		Vibes.router.applyState();
 		if (initial.installed) await Vibes.library.load(); else Vibes.library.render();
 		// A slow heartbeat keeps the chips, the banner and the open-job list honest when another

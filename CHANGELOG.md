@@ -2,6 +2,35 @@
 
 ## v2.59
 
+### Connection recovery and workbench improvements
+
+- Companion 1.0.6 polls a read-only backend endpoint while at the menu. Launch links carry
+  a world-scoped, expiring capability; refresh never returns a password. Late crossplay codes,
+  server mode and port changes update the dialog without restarting the game. Retry and expiry
+  feedback is visible. A world update and client sync are required to receive the new DLL.
+- The sidebar uses the same Hugin as Ask Hugin. Vibes, Forge and Notes can be collapsed;
+  preferences persist. The searchable model picker accepts arbitrary local-provider model IDs
+  and updates the model pill. Phone layouts have scrollable tabs and reachable controls.
+- Chat preserves scroll-back with a Latest activity button, shows expandable tool calls and
+  results, and animates Hugin during work. It reports estimated context with output headroom,
+  provider token totals and compaction events. Reasoning activity is indicated when the adapter
+  receives it; private reasoning text is not exposed. Unreported usage is labelled as unknown.
+- Compaction now checks between tool rounds, counts tool arguments, bounds summarization
+  requests, preserves the latest request and removes whole tool call/result groups. Failed
+  summarization retains labelled excerpts. The harness supports the shared self-hosted and
+  frontier provider adapters; Anthropic streamed input/output usage is merged correctly.
+- Package has persistent progress/results and ZIP downloads under Disk. Thunderstore and Hexium
+  accept the same package layout. Local publishing toggles to Unpublish for the current version.
+  Direct hosted publishing uses separate masked tokens, teams and categories, chunk progress,
+  failure cleanup and a recorded link to the published version. It never retries publication
+  automatically after an ambiguous response. A real credentialed upload remains an operator test.
+- + Import clones GitHub or the configured GitLab host, including private repositories using
+  the matching token. Imported code is not automatically built. History exposes the branch,
+  changed files, remotes, ahead/behind and last remote check; Fetch, fast-forward Pull and ordinary
+  Push operate on the current branch. Tokens are not stored in repository configuration and
+  hooks are disabled. Existing upstream plugin GUIDs must be preserved.
+
+
 ### New: Hugin's Vibes
 
 A workbench for making your own Valheim mods, first under **Tools** in the admin sidebar. The

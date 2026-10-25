@@ -24,7 +24,7 @@ if (!defined('VIBES_PAK_FORMATS'))   define('VIBES_PAK_FORMATS', [1]);     // pa
 if (!defined('VIBES_PAK_BASE'))      define('VIBES_PAK_BASE', 'jammy');    // the image's distro codename; a pak must match
 if (!defined('VIBES_PAK_ASSET'))     define('VIBES_PAK_ASSET', 'phvalheim-vibes-buildpak-%s-linux-x64.tar.gz');
 if (!defined('VIBES_SECRET_MASK'))   define('VIBES_SECRET_MASK', "\u{2022}\u{2022}\u{2022}\u{2022}");
-if (!defined('VIBES_JOB_KINDS'))     define('VIBES_JOB_KINDS', ['install', 'uninstall', 'harvest', 'build', 'package', 'publish', 'unpublish', 'turn', 'push', 'pak-update', 'gc']);
+if (!defined('VIBES_JOB_KINDS'))     define('VIBES_JOB_KINDS', ['install', 'uninstall', 'harvest', 'build', 'package', 'publish', 'unpublish', 'turn', 'push', 'pak-update', 'gc', 'import', 'scm-sync', 'publish-hosted']);
 
 /* ------------------------------------------------------------------------------------------
  * Paths (section 3)
@@ -78,6 +78,8 @@ function vibesSettingsDefaults() {
 		               // the dev box and for air-gapped operators; empty = GitHub (section 13.5).
 		               'override_url' => ''],
 		'assets'   => ['max_upload_mb' => 64],
+		'thunderstore' => ['token'=>'', 'team'=>'', 'categories'=>''],
+		'hexium' => ['token'=>'', 'team'=>'', 'categories'=>''],
 		'github'   => ['enabled' => false, 'token' => '', 'owner' => '', 'visibility' => 'private', 'api' => 'https://api.github.com'],
 		'gitlab'   => ['enabled' => false, 'token' => '', 'host' => 'https://gitlab.com', 'group' => '', 'visibility' => 'private'],
 		'advanced' => ['keep_transcripts_days' => 0, 'log_level' => 'info', 'nuget_online' => true,
@@ -126,7 +128,7 @@ function vibesSetting($doc, $path, $default = null) {
 }
 
 /** Secret fields, as dotted paths. The single list every mask/unmask step reads. */
-function vibesSecretPaths() { return ['github.token', 'gitlab.token']; }
+function vibesSecretPaths() { return ['github.token', 'gitlab.token', 'thunderstore.token', 'hexium.token']; }
 
 function vibesMaskSecret($v) {
 	$v = (string)$v;

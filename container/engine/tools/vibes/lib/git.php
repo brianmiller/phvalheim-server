@@ -43,7 +43,7 @@ function vibesGit($slug, array $args, $extraEnv = [], $timeoutS = 120, $cwd = nu
 		'GIT_TERMINAL_PROMPT' => '0', 'GIT_CONFIG_NOSYSTEM' => '1',
 	];
 	foreach ($extraEnv as $k => $v) $env[$k] = $v;
-	return vibesRun(array_merge([$git, '-C', $dir], $args), $dir, $env, $timeoutS);
+	return vibesRun(array_merge([$git, '-c', 'core.hooksPath=/dev/null', '-c', 'protocol.file.allow=never', '-C', $dir], $args), $dir, $env, $timeoutS);
 }
 
 /** `git init -b main` plus the two settings a bare container needs (no global config exists). */

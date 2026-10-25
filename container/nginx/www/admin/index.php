@@ -285,9 +285,7 @@ $totalCount = count($worlds);
                     <?php // Hugin's Vibes (2.59) -- FIRST in Tools by design; docs/HUGINS-VIBES-DESIGN.md 11.
                           // Its own page like the other tools. The dot lights while a Vibes job runs. ?>
                     <a href="hugins_vibes.php" target="_blank" class="nav-item nav-item-vibes" data-nav="hugins-vibes" title="Vibe code Valheim mods with Hugin, build them here, and publish them to your own mod catalogue">
-                        <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
-                        </svg>
+                        <?php echo huginSvg('idle ai-btn-hugin', 20); ?>
                         Hugin&rsquo;s Vibes
                         <span id="vibesNavDot" class="vibes-nav-dot" style="display:none;" title="Hugin is working on a Vibe"></span>
                     </a>
