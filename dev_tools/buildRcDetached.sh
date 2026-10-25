@@ -3908,6 +3908,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v59cb=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF "huginSvg('idle field-guide-hugin', 34)")
   v59cc=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'href="https://phvalheim.com"')
   v59cd=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'href="https://brianmiller.github.io/phvalheim-server/"')
+  v59ce=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'class="social-link field-guide-link"')
+  v59cf=$(grep -cF '.public-footer .social-link { width:44px; height:44px; flex:0 0 44px; box-sizing:border-box; padding:0; }' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  v59cg=$(grep -cE '^\.field-guide-link[ :{]' /opt/stateless/nginx/www/css/phvalheimStyles.css)
+  echo "2.59 footer alignment: shared buttons=$v59ce (want 2)  equal squares=$v59cf (want 1)  old separate styles=$v59cg (want 0)"
   echo "2.59 public guide: Hugin icons=$v59cb (want 2)  homepage links=$v59cc (want 2)  old direct links=$v59cd (want 0)"
   echo "2.59 Field Guide: linked pages=$v59bz (want 4)  obsolete backup anchor=$v59ca (want 0)"
   v59bx=$(grep -cF "'HEAD:refs/heads/'" /opt/stateless/engine/tools/vibes/lib/git.php)
@@ -4377,7 +4381,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
     && [ "$v59bz" = "4" ] && [ "$v59ca" = "0" ] \
-    && [ "$v59cb" = "2" ] && [ "$v59cc" = "2" ] && [ "$v59cd" = "0" ] \
+    && [ "$v59ce" = "2" ] && [ "$v59cf" = "1" ] && [ "$v59cg" = "0" ] && [ "$v59cb" = "2" ] && [ "$v59cc" = "2" ] && [ "$v59cd" = "0" ] \
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

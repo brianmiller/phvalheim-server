@@ -8,6 +8,7 @@ The dashboard Help section, player pages and Vibes workbench now link to the
 [PhValheim Field Guide](https://brianmiller.github.io/phvalheim-server/).
 Server Settings documentation and backup help also point to the new guides.
 On both player pages, Hugin’s icon opens [phvalheim.com](https://phvalheim.com).
+The guide, GitHub and Discord links use matching, aligned rounded-square buttons.
 
 ### SCM branch compatibility
 
