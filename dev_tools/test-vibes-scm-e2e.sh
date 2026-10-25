@@ -37,10 +37,12 @@ if [ "${SCM_WORKTREE:-0}" = 1 ]; then
   docker exec "$SCM_CONTAINER" chmod 644 "/opt/stateless/engine/tools/vibes/lib/$file"
  done
 fi
-for i in $(seq 1 90); do
- if docker exec "$SCM_CONTAINER" mysql -N -uroot phvalheim -e 'SELECT vibesInstalled FROM settings' >/dev/null 2>&1; then break; fi
+SCM_SCHEMA_READY=0
+for i in $(seq 1 150); do
+ if docker exec "$SCM_CONTAINER" mysql -N -uroot phvalheim -e 'SELECT vibesInstalled,(SELECT COUNT(*) FROM hv_projects),(SELECT COUNT(*) FROM hv_sessions),(SELECT COUNT(*) FROM hv_jobs) FROM settings' >/dev/null 2>&1; then SCM_SCHEMA_READY=1; break; fi
  sleep 2
 done
+[ "$SCM_SCHEMA_READY" = 1 ] || { echo 'HARNESS: SCM scratch database did not finish its migrations'; exit 2; }
 docker exec "$SCM_CONTAINER" supervisorctl stop phvalheim >/dev/null
 docker exec "$SCM_CONTAINER" mkdir -p /tmp/vibes-scm-fixture
 for file in cert.pem key.pem tokens.json; do docker cp "$SCM_TMP/$file" "$SCM_CONTAINER:/tmp/vibes-scm-fixture/$file"; done
