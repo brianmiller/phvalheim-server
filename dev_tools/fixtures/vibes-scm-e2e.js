@@ -12,7 +12,7 @@ async function api(action,data={},method='POST',status=200){
  const j=await r.json();assert.equal(r.status,status,action+': '+JSON.stringify(j));return j;
 }
 async function waitJob(id,ok=true){
- for(let i=0;i<120;i++){
+ for(let i=0;i<360;i++){
   const j=(await api('job',{id},'GET')).job;
   if(!['queued','running'].includes(j.status)){assert.equal(j.status,ok?'done':'failed',JSON.stringify(j));return j;}
   await new Promise(r=>setTimeout(r,250));
@@ -89,6 +89,21 @@ async function counts(p,remote,ahead,behind){const s=(await project(p)).scm;cons
    await job('push',{id:p.id,remote:which});check(which+' repeated initial Push reuses repository',()=>assert.ok(true));
    check(which+' annotated tags pushed with initial publish',()=>assert.match(control({op:'inspect',which,path:(which==='github'?'fixture':'team/sub')+'/'+p.name}).refs,/refs\/tags\/v0.1.0/));
   }
+  await api('saveSettings',{settings:{author:{namespace:'ImportedFixture'}}});
+  await job('importProject',{url:'https://github.com/fixture/Createdgithub'});
+  const imported=(await api('projects',{},'GET')).projects.find(p=>p.name==='Createdgithub'&&p.namespace==='ImportedFixture');
+  const originalTemplate=(await api('projects',{},'GET')).projects.find(p=>p.name==='Createdgithub'&&p.namespace==='Fixture');
+  const source=localGit(originalTemplate,['show','HEAD:src/Plugin.cs']);
+  check('imported mod is not built automatically and retains original plugin source/GUID',()=>{assert.equal(imported.last_build_ok,null);assert.equal(localGit(imported,['show','HEAD:src/Plugin.cs']),source);});
+  await job('build',{id:imported.id});
+  const built=await project(imported);
+  check('imported real template compiles with the Build Pak and harvested libraries',()=>assert.equal(built.lastBuild.ok,true));
+  await job('package',{id:imported.id});
+  const packaged=await project(imported),archive=packaged.packages[0];assert.ok(archive);
+  const download=await fetch(base+'/vibesAPI.php?action=downloadPackage&id='+imported.id+'&file='+encodeURIComponent(archive.name));
+  assert.equal(download.status,200);const zip=Buffer.from(await download.arrayBuffer());
+  check('imported compiled mod packages and downloads as a ZIP',()=>{assert.equal(zip.subarray(0,2).toString(),'PK');assert.ok(zip.length>100);});
+  await api('saveSettings',{settings:{author:{namespace:'Fixture'}}});
   await api('saveSettings',{settings:{github:{owner:'FixtureOrg'}}});
   const org=(await api('createProject',{name:'OrganizationMod',namespace:'Fixture',template:'basic-plugin'})).project;
   await job('push',{id:org.id,remote:'github'});
@@ -101,9 +116,9 @@ async function counts(p,remote,ahead,behind){const s=(await project(p)).scm;cons
   for(const [name,opts] of [['Symlink',{symlink:true}],['Metadata',{metadata:true}],['NotMain',{branch:'master'}]]){
    const path='fixture/'+name;control({op:'create',path});control({op:'seed',path,...opts});
    const j=await job('importProject',{url:'https://github.com/'+path},name!=='Symlink');
-   if(name==='Symlink'){check('symlink import fails without registering project',()=>assert.match(j.error,/symlinks/));continue;}
+   if(name==='Symlink'){const rows=(await api('projects',{},'GET')).projects;check('symlink import fails without registering project',()=>{assert.match(j.error,/symlinks/);assert.ok(!rows.some(p=>p.name===name));});continue;}
    const p=(await api('projects',{},'GET')).projects.find(p=>p.name===name);assert.ok(p);
-   check(name+' imported metadata/history handled',()=>{assert.equal(localGit(p,['branch','--show-current']),opts.branch||'main');});
+   check(name+' imported metadata/history handled',()=>{assert.equal(localGit(p,['branch','--show-current']),opts.branch||'main');if(name==='Metadata'){const notes=dex(['cat','/opt/stateful/vibes/projects/'+p.slug+'/.vibes/notes.md']);assert.ok(notes.includes('Imported from'));assert.ok(!notes.includes('Untrusted upstream metadata'));assert.equal(localGit(p,['show','HEAD:.vibes/notes.md']),'Untrusted upstream metadata');}});
    if(name==='NotMain'){
     commit(p,'Update master branch');
     await job('scmSync',{id:p.id,remote:'origin',operation:'push'});
@@ -131,7 +146,7 @@ async function counts(p,remote,ahead,behind){const s=(await project(p)).scm;cons
   check('duplicate import preserves existing project and leaves no extra row',()=>{assert.match(duplicate.error,/duplicate|already exists/i);assert.equal(localGit(original,['rev-parse','HEAD']),originalHead);});
   const afterDuplicate=(await api('projects',{},'GET')).projects;
   check('duplicate import cleans partial workspace',()=>assert.equal(afterDuplicate.length,beforeDuplicate.length));
-  const locked=afterDuplicate.find(p=>p.name==='Createdgithub');
+  const locked=afterDuplicate.find(p=>p.name==='Createdgithub'&&p.namespace==='Fixture');
   await page.evaluate(id=>Vibes.workspace.select(id),locked.id);
   control({op:'delay',path:'fixture/'+locked.name,seconds:2});
   const pending=await api('scmSync',{id:locked.id,remote:'github',operation:'fetch'});
