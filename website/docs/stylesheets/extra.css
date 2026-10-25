@@ -28,6 +28,6 @@
 
 .phv-hero{position:relative;overflow:hidden}.phv-hero h1{max-width:16ch}.phv-hero-bird{position:absolute;right:5%;top:16%;width:23%;opacity:.9;filter:drop-shadow(0 0 35px #9b7cf344);pointer-events:none}
 @media(max-width:1000px){.phv-hero-bird{right:-2%;top:5%;width:22%;opacity:.3}.phv-hero h1{max-width:13ch}}
-@media(max-width:600px){.phv-hero h1{font-size:1.9rem;max-width:none}.phv-hero-bird{width:90px;right:8px;top:12px;opacity:.22}}
+@media(max-width:600px){.phv-hero{padding:1.1rem 1rem}.phv-hero h1{font-size:1.8rem;max-width:none}.phv-hero p{font-size:.82rem;line-height:1.55}.phv-hero-bird{width:90px;right:8px;top:12px;opacity:.22}}
 
 [data-md-color-scheme="default"]{--phv-nav-bg:#f5f3fb}
