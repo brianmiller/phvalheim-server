@@ -22,7 +22,14 @@ const base=(process.env.DOCS_URL||'http://127.0.0.1:18759/phvalheim-server/').re
  console.log('PASS Compose copy includes private admin binding');
  await p.locator('label[for="__palette_1"]').click();
  await p.waitForFunction(()=>document.body.dataset.mdColorScheme==='default');
- console.log('PASS theme switch');
+ const contrast=await p.locator('.md-header__title').evaluate(e=>{
+   const rgb=s=>s.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4});
+   const lum=a=>a[0]*.2126+a[1]*.7152+a[2]*.0722;
+   const a=lum(rgb(getComputedStyle(e).color)),b=lum(rgb(getComputedStyle(document.querySelector('.md-header')).backgroundColor));
+   return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);
+ });
+ assert.ok(contrast>=4.5,'header contrast '+contrast);
+ console.log('PASS theme switch and readable light-mode navigation');
  await p.goto(base+'vibes/tour/');
  await p.locator('video').evaluate(async v=>{v.muted=true;await v.play()});
  await p.waitForFunction(()=>document.querySelector('video').currentTime>0);
