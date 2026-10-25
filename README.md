@@ -11,6 +11,7 @@
 
 <p align="center">
   <a href="https://brianmiller.github.io/phvalheim-server/"><strong>Read the guides</strong></a> ·
+  <a href="https://pub.phvalheim.com/"><strong>Play on our servers</strong></a> ·
   <a href="https://github.com/brianmiller/phvalheim-server/releases/latest">Latest release</a> ·
   <a href="https://discord.gg/8RMMrJVQgy">Join Discord</a>
 </p>

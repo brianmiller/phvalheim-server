@@ -2,6 +2,12 @@
 
 Your host will give you the public PhValheim website. Open it to find the worlds you can join.
 
+## Play on our servers
+
+[Open our player portal](https://pub.phvalheim.com/){ .md-button .md-button--primary }
+
+Our hosted instance lives at **pub.phvalheim.com**. Sign in with Steam to see the worlds available to you, then follow the steps below. World access is managed by the host; if you need access, [join us on Discord](https://discord.gg/8RMMrJVQgy).
+
 ## Joining a modded world
 
 1. **Install Valheim** and the **[PhValheim client](https://github.com/brianmiller/phvalheim-client/releases/latest)** for your computer. The client supports Windows, Linux and macOS.

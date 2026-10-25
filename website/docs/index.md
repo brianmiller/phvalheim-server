@@ -12,6 +12,7 @@ hide:
 Run your Valheim worlds, keep your friends' mods in sync, and make something new with Hugin. Pick your path. We'll take it one step at a time.
 
 [Set up a server](start/install.md){ .md-button .md-button--primary }
+[Play on our servers](https://pub.phvalheim.com/){ .md-button }
 [Join your friends](play/join.md){ .md-button }
 
 <span class="phv-release">New in 2.59 · Your own mod workshop, with a raven on the tools.</span>
@@ -40,6 +41,8 @@ Run your Valheim worlds, keep your friends' mods in sync, and make something new
 </div>
 
 ## A server that brings the group together
+
+**Looking for our hosted worlds?** [Play on our servers →](https://pub.phvalheim.com/) opens the PhValheim player portal. Sign in with Steam to see the worlds available to you. New to joining? Follow the [player guide](play/join.md).
 
 **One place for your worlds.** Run modded and vanilla worlds side by side. Manage access, backups, updates and logs in the browser.
 
