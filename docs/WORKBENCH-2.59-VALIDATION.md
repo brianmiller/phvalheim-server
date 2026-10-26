@@ -181,3 +181,29 @@ actual connection test passed; write operations use the authenticated HTTPS fixt
 At completion the original `StaminaWhisper` project remains, no Vibes jobs or worlds are running,
 and the disposable SCM, proposal and CSS-probe containers are removed. Only `:dev` moved;
 `:rc`, `:latest` and `:2.58` retain their existing 2.58 digest.
+
+## Post-release issue #92: Database Browser NULL handling
+
+Reproduced on the published 2.59 image (digest `0a35da5335c399ce029a72618dfaaf55300fe81c1b754db27ac2793ed08aca95`)
+using the actual browser grid and a disposable table created with `CREATE TABLE ... LIKE worlds`.
+Changing only `trophytheelder` from 0 to 1 while `update_phase_at` was NULL returned HTTP 500:
+`Incorrect datetime value: '' for column 'update_phase_at' at row 1`.
+The grid submitted the other selected fields too, replacing the NULL timestamp with `''`.
+No player/world records were changed for this reproduction.
+
+The fix uses GridPHP's documented `isnull` column option, enabled from live schema metadata
+for nullable date/time, numeric and JSON columns. It does not weaken strict SQL mode or change
+the schema, the bundled grid library, trophy telemetry or empty-string text semantics.
+
+`dev_tools/test-database-browser-null.cjs` drives inline and dialog edits in Playwright, bulk
+edits through the same session and real endpoint, and independently checks MySQL results.
+All 15 checks passed with the fix: full-row trophy edit, NULL fields, retained dates, zero,
+empty text, clearing values, dialog/bulk saves and rejection of malformed/required dates.
+Restoring the old grid page made this same suite fail at its first save (the full-field case
+encounters `date_deployed` before `update_phase_at`), proving it detects the regression.
+Fixture tables are dropped in `finally`. The test is registered with the container runner.
+
+The issue's initial missing-trophy observation is separate: Companion's `HungHeads` hook is
+on `ItemStand.DelayedPowerActivation`, with `TrophyTheElder` registered by the server. A kill
+alone does not trigger that hook. This task does not claim a live Unity/Steam trophy interaction
+was tested or that an independent trophy-reporting defect was reproduced.

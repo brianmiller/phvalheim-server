@@ -59,6 +59,7 @@ Collapse the Vibes list, Forge or Project Notes for more room. The workbench als
 
 ## Issues
 
+- Fixes the Database Browser save error in #92: editing a trophy or another field no longer fails on an unrelated blank timestamp. Nullable typed fields save as SQL NULL. The separate report of a missing Elder trophy has not been reproduced; Companion reports sacrificial-stone activation, not the boss kill itself.
 - Fixes #94: Hugin could drop a streamed `0`, corrupting timestamps, durations and other numbers on some models.
 
 ## Upgrading

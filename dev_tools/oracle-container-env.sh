@@ -198,7 +198,7 @@ oracleTeardown() {
 # Why a test cannot run here, or nothing. A missing precondition is reported, never passed over.
 oracleUnrunnable() {
 	case "$1" in
-		*.js) [ "$ORACLE_PLAYWRIGHT" = 1 ] || { echo "playwright not resolvable (set NODE_PATH to a node_modules that has it)"; return; } ;;
+		*.js|*.cjs) [ "$ORACLE_PLAYWRIGHT" = 1 ] || { echo "playwright not resolvable (set NODE_PATH to a node_modules that has it)"; return; } ;;
 	esac
 	case "$1" in
 		test-public-card-render.js|test-crossplay-join-modal.js)
@@ -379,6 +379,7 @@ oracleRun() {
 		*.sh)  bash "$t" ;;
 		*.php) php "$t" ;;
 		*.py)  python3 "$t" ;;
+		test-database-browser-null.cjs) PHV_CONTAINER="$ORACLE_CONTAINER" PHV_ADMIN_URL="$ORACLE_ADMIN" node "$t" ;;
 		*.js)  node "$t" "$ORACLE_ADMIN" ;;
 		*)     echo "  (no runner for $name)"; return 2 ;;
 	esac

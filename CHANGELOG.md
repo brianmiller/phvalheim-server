@@ -2,6 +2,14 @@
 
 ## v2.59
 
+### Database Browser saves (#92)
+
+Editing a trophy or another field no longer fails because an unrelated nullable timestamp
+was submitted as an empty string. The browser reads the table schema and saves blank nullable
+date, numeric and JSON fields as SQL NULL. Numeric zero, empty text and populated dates remain
+valid; invalid dates and required fields still receive normal database validation.
+This fixes the manual-edit error, not an independently reproduced trophy-reporting failure.
+
 ### Field Guide links
 
 The dashboard Help section, player pages and Vibes workbench now link to the

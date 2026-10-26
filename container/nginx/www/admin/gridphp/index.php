@@ -85,6 +85,17 @@ if (!empty($tab))
         // set database table for CRUD operations
         $g->table = $tab;
 
+        // HTML inputs render SQL NULL as blank. Keep nullable typed fields as NULL
+        // on save: strict SQL rejects '' for dates, numbers and JSON (issue #92).
+        // Text fields still accept an intentional empty string; zero is not blank.
+        $nullableTypedFields = array();
+        $schema = $con->Execute("SHOW COLUMNS FROM `" . str_replace("`", "``", $tab) . "`");
+        foreach ($schema->GetRows() as $column)
+        {
+                if ($column['Null'] === 'YES' && preg_match('/^(date|datetime|timestamp|time|year|tinyint|smallint|mediumint|int|bigint|decimal|float|double|bit|json)\\b/i', $column['Type']))
+                        $nullableTypedFields[$column['Field']] = true;
+        }
+
         $index = 0;
         if (!empty($fields))
         {
@@ -98,6 +109,7 @@ if (!empty($tab))
                         $col["title"] = ucwords(str_replace("_"," ",$f));
                         $col["name"] = $f;
                         $col["editable"] = true;
+                        $col["isnull"] = isset($nullableTypedFields[$f]);
 
                         // hide firsst
                         if ($i == 0 && $hide_first == true)
