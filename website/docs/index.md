@@ -13,6 +13,8 @@ hide:
 
 Pick mods, edit settings, and update. PhValheim handles dependencies and packaging; the client syncs your players' mods and configs.
 
+**PhValheim is free and will always be free.** I make no profit from PhValheim users or operators. This is simply my contribution to a game I love. — Brian
+
 [Set up a server](start/install.md){ .md-button .md-button--primary }
 [Play on our servers](https://pub.phvalheim.com/){ .md-button .phv-play-button }
 [Join your friends](play/join.md){ .md-button }

@@ -9,6 +9,8 @@
   Manage everything in your browser. Spend more time playing.
 </p>
 
+**PhValheim is free and will always be free.** I make no profit from PhValheim users or operators. This is simply my contribution to a game I love. — Brian
+
 <p align="center">
   <a href="https://brianmiller.github.io/phvalheim-server/"><strong>Read the guides</strong></a> ·
   <a href="https://pub.phvalheim.com/"><strong>Play on our servers</strong></a> ·
