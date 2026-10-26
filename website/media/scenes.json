@@ -1,86 +1,86 @@
 [
   {
     "step": "Your next adventure",
-    "title": "More Valheim.<br><em>Less admin.</em>",
-    "sub": "Your worlds. Your mods.<br>Your whole party, in sync.",
+    "title": "Your worlds.<br><em>Your rules.</em>",
+    "sub": "Run multiple Valheim worlds.<br>Make each adventure your own.",
     "kind": "intro",
-    "caption": "PhValheim manages your Valheim worlds, mods and shared setup in one place."
+    "caption": "Run multiple Valheim worlds in one place, each with its own mods and settings."
   },
   {
     "step": "01 / Start your server",
-    "title": "One container.<br><em>Your world.</em>",
-    "sub": "Start with Docker. Use the setup wizard.<br>Create a vanilla or modded world.",
+    "title": "One container.<br><em>Your worlds.</em>",
+    "sub": "Start with Docker and the setup wizard.<br>Create vanilla and modded worlds.",
     "kind": "create",
-    "caption": "Start PhValheim with Docker, complete the setup wizard, then create a vanilla or modded world."
+    "caption": "One Docker container. A setup wizard. Multiple vanilla and modded Valheim worlds."
   },
   {
     "step": "02 / Manage your worlds",
-    "title": "Your server.<br><em>At a glance.</em>",
-    "sub": "Start, stop and update your worlds.<br>Keep each world's setup separate.",
+    "title": "One dashboard.<br><em>Every adventure.</em>",
+    "sub": "Start, stop and update worlds separately.<br>Give each its own mods and settings.",
     "kind": "worlds",
     "caption": "Manage multiple worlds from your browser: start, stop, update, settings and logs."
   },
   {
-    "step": "03 / Choose your mods",
+    "step": "03 / Configure each world",
+    "title": "Different worlds.<br><em>Different rules.</em>",
+    "sub": "Vanilla or modded. Crossplay or Steam.<br>Choose passwords and public visibility.",
+    "kind": "options",
+    "caption": "Choose vanilla or modded, crossplay, passwords, server listing and launch parameters for each world. Consoles cannot load mods."
+  },
+  {
+    "step": "04 / Set your schedule",
+    "title": "Your worlds.<br><em>Your schedule.</em>",
+    "sub": "Set update windows and quiet periods.<br>Choose backup-first and timeout behaviour.",
+    "kind": "automation",
+    "caption": "Set each world’s update window, quiet period, timeout and backup-first policy. Player-aware updates require Companion telemetry."
+  },
+  {
+    "step": "05 / Choose your mods",
     "title": "Find it.<br><em>Enable it.</em>",
     "sub": "Thunderstore. Hexium. Your local mods.<br>Search, select, pin a version—or follow latest.",
     "kind": "mods",
     "caption": "Select mods from Thunderstore, Hexium or Hugin's Vibes. Pin versions or follow the latest."
   },
   {
-    "step": "04 / Make it yours",
-    "title": "Tune the rules.<br><em>Keep the settings.</em>",
-    "sub": "Edit mod configs in your browser.<br>Saved overrides survive world updates.",
+    "step": "06 / Tune each setup",
+    "title": "Every mod.<br><em>Your settings.</em>",
+    "sub": "Edit each world’s mod configs in-browser.<br>Keep saved overrides through updates.",
     "kind": "configs",
     "caption": "Edit mod settings in the browser. Saved overrides are reapplied when the world starts or updates."
   },
   {
-    "step": "05 / Distribute the setup",
+    "step": "07 / Share each setup",
     "title": "Your choices.<br><em>One shared pack.</em>",
     "sub": "Update the world to build its mod payload.<br>Dependencies and shared configs come along.",
     "kind": "distribution",
-    "caption": "Update the world to resolve dependencies and package mods plus shared configurations for players. Server-only configs stay private."
+    "caption": "Resolve dependencies and package each world’s mods and shared configurations for players. Server-only configs stay private."
   },
   {
-    "step": "06 / Bring your friends",
+    "step": "08 / Bring your friends",
     "title": "Pick a world.<br><em>Sync. Launch.</em>",
     "sub": "The PhValheim client downloads changes<br>before launching your modded game.",
     "kind": "client",
-    "caption": "Choose a world on your host’s website. The PhValheim client syncs changed mods and configs before launch. Vanilla worlds use ordinary Valheim."
+    "caption": "Pick a world. The PhValheim client syncs mods and settings before launch. Vanilla worlds use ordinary Valheim."
   },
   {
-    "step": "07 / Look after the adventure",
+    "step": "09 / Protect your worlds",
     "title": "Back it up.<br><em>Stay in control.</em>",
-    "sub": "Backups, restores, player access and logs.<br>The everyday jobs, in one place.",
+    "sub": "Per-world backups, retention and access.<br>Your admins. Your players. Your rules.",
     "kind": "backups",
-    "caption": "Manage world backups and restores, control player access, and inspect logs from the admin interface."
+    "caption": "Choose per-world backup schedules and retention, manage access lists, admins and bans, and inspect logs."
   },
   {
-    "step": "08 / Ask the raven",
-    "title": "Need a hand?<br><em>Ask Hugin.</em>",
-    "sub": "Investigate server problems.<br>Review proposed changes before applying.",
-    "kind": "helper",
-    "caption": "Ask Hugin to investigate problems and propose changes. Review before applying. AI features are optional."
-  },
-  {
-    "step": "09 / Make something new",
+    "step": "10 / Build with Hugin",
     "title": "Have a mod idea?<br><em>Vibe it.</em>",
-    "sub": "Hugin's Vibes writes, builds and packages.<br>The Build Pak prepares the tools and libraries.",
+    "sub": "Ask Hugin for help. Build your own mods.<br>Publish locally. Try them on a test world.",
     "kind": "vibes",
-    "caption": "Hugin's Vibes helps write, build and package mods. The optional Build Pak prepares tools and local game references."
-  },
-  {
-    "step": "10 / Try it in your world",
-    "title": "Your own mod.<br><em>Your catalogue.</em>",
-    "sub": "Publish locally. Select it on a test world.<br>Update, sync, play—and keep improving.",
-    "kind": "local",
-    "caption": "Publish to your local catalogue. Select the mod on a test world, update and sync. Each Vibe has local Git history."
+    "caption": "Ask Hugin for help. Build and package mods in Vibes; publish locally and try them on test worlds. AI optional."
   },
   {
     "step": "Bring your party",
-    "title": "You bring<br><em>the adventure.</em>",
-    "sub": "PhValheim handles the setup.<br>Host. Mod. Sync. Play.",
+    "title": "More worlds.<br><em>Less admin.</em>",
+    "sub": "Host. Configure. Mod. Sync. Play.",
     "kind": "outro",
-    "caption": "Host. Mod. Sync. Play. Get started at brianmiller.github.io/phvalheim-server."
+    "caption": "More worlds. Less admin. Host, configure, mod, sync and play. Get started at phvalheim.com."
   }
 ]

@@ -12,17 +12,19 @@ const tiles=arr=>`<div class="grid">${arr.map(([a,b])=>`<div class="tile">${a}<s
 const flow=arr=>`<div class="stack">${arr.map(([a,b],i)=>`<div class="flow"><b>${i+1}</b><div>${a}<small>${b}</small></div></div>`).join('')}</div>`;
 const art={
  intro:()=>`<div class="crest"><img src="${asset('favicon.svg')}" alt="PhValheim"></div><div class="strap">HOST. MOD. SYNC. PLAY.</div>`+note('One home for your Valheim worlds.'),
- create:()=>shot('tour-create.png','tall')+note('Vanilla or modded. Your choice.'),
- worlds:()=>tags(['Multiple worlds','Vanilla + modded'])+shot('tour-world-row.png','world')+tiles([['World controls','Start · stop · update'],['Visibility','Status · resources · logs']])+note('All from your browser.'),
+ create:()=>shot('tour-create.png','tall')+note('Separate adventures. One PhValheim server.'),
+ worlds:()=>tags(['Multiple worlds','Vanilla + modded'])+shot('tour-world-row.png','world')+tiles([['Per-world setup','Mods · configs · access'],['World controls','Start · stop · update']])+note('All from your browser.'),
+ options:()=>shot('tour-world-options.png')+tags(['Passwords','Server listing','Launch parameters'])+note('Independent settings for every world.'),
+ automation:()=>shot('tour-world-updates.png')+note('Choose when each world can update.'),
  mods:()=>shot('tour-mods.png')+tags(['3 catalogues','Version pins','Dependencies'])+note('Save the selection. Update the world.'),
  configs:()=>shot('tour-configs.png','config')+note('Save & apply to players → sync next launch.'),
  distribution:()=>flow([['Choose the setup','Mods + versions + shared settings'],['Build the world payload','Dependencies resolved and files packaged'],['Deliver to your players','The client downloads the world’s payload']])+note('Server-only configurations stay on the server.'),
  client:()=>flow([['Sign in with Steam','Open your host’s PhValheim website'],['Choose your world','Launch opens the PhValheim client'],['Sync, then launch','Updated mods + configs before the game']])+tags(['Windows','Linux','macOS'])+note('Vanilla worlds use ordinary Valheim.'),
- backups:()=>shot('tour-backups.png','backups')+tiles([['Player access','Choose who can join'],['Logs & history','See what happened']])+note('Back up. Restore. Get back to exploring.'),
+ backups:()=>shot('tour-world-backup-policy.png','backups')+tiles([['Backup policy','Schedule · retention'],['Player access','Citizens · admins · bans']])+note('Back up. Restore. Get back to exploring.'),
  helper:()=>`<img class="hero-bird" src="${asset('hugin.svg')}" alt="Hugin">`+tiles([['Investigate','Worlds · backups · logs'],['Review','Approve proposed changes']])+note('Optional hosted or self-hosted AI.'),
- vibes:()=>shot('vibes-workbench.png','vibes')+tags(['Write','Build','Package'])+note('Compiler, .NET, modding references—prepared.'),
+ vibes:()=>shot('vibes-workbench.png','vibes')+tags(['Write · build · package','Publish locally'])+note('Select your mod. Update. Sync. Play.'),
  local:()=>shot('vibes-package.png','package')+flow([['Publish to your local catalogue','Your code · your Git history'],['Select → update → sync','Try it on a test world']]),
- outro:()=>`<div class="crest"><img src="${asset('favicon.svg')}" alt="PhValheim"></div><div class="url">Get started<br><strong>brianmiller.github.io/<br>phvalheim-server</strong></div><div class="credit">Music: Viking Intro (Loop) · Alexander Nakarada<br>CC BY 4.0 · Full credit in the description</div>`
+ outro:()=>`<div class="crest"><img src="${asset('favicon.svg')}" alt="PhValheim"></div><div class="url">Get started<br><strong>phvalheim.com</strong></div><div class="credit">Music: Viking Intro (Loop) · Alexander Nakarada<br>CC BY 4.0 · Full credit in the description</div>`
 };
 window.initTour=data=>{
  window.TOUR_DURATION=data.length*5;

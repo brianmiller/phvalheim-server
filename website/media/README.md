@@ -1,6 +1,6 @@
 # PhValheim product tour
 
-Twelve five-second chapters cover the full product: Docker setup, world management, mod selection, configuration, payload distribution, client syncing, backups/access/logs, Ask Hugin and Hugin's Vibes. Vertical 720×1280, 30 fps, H.264/AAC MP4 with fast-start. Text remains readable with music muted; WebVTT captions and a linked transcript accompany the video.
+Twelve five-second chapters cover the full product: Docker setup, multiple worlds, per-world server options and update policies, mod selection and configuration, payload distribution, client syncing, backups/access/logs and Hugin’s Vibes. Vertical 720×1280, 30 fps, H.264/AAC MP4 with fast-start. Text remains readable with music muted; WebVTT captions and a linked transcript accompany the video.
 
 ## Reproduce
 
@@ -14,7 +14,7 @@ Set `NODE_PATH` if Playwright is outside the checkout. The renderer reads `scene
 
 ## Captures and presentation
 
-World, creation form, mod picker, config and backup captures came from the development server through read-only UI navigation. No world was started, updated, configured or backed up to produce these shots. The Vibes captures show the real workbench and Package tab. Crops focus attention on specific controls; animated distribution/client diagrams explain the sequence rather than pretending to show a real sync or game launch. The persistent “UI tour · condensed workflow” label makes the presentation clear.
+World, creation form, server options, update policies, mod picker, config and backup captures came from the development server through read-only UI navigation. No world was started, updated, configured or backed up to produce these shots. The update and backup policy captures reveal the override fields without saving any change. The Vibes capture shows the real workbench. Crops focus attention on specific controls; animated distribution/client diagrams explain the sequence rather than pretending to show a real sync or game launch. The persistent “UI tour · condensed workflow” label makes the presentation clear.
 
 ## Music
 

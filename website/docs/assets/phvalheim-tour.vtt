@@ -1,37 +1,37 @@
 WEBVTT
 
 00:00:00.000 --> 00:00:05.000
-PhValheim manages your Valheim worlds, mods and shared setup in one place.
+Run multiple Valheim worlds in one place, each with its own mods and settings.
 
 00:00:05.000 --> 00:00:10.000
-Start PhValheim with Docker, complete the setup wizard, then create a vanilla or modded world.
+One Docker container. A setup wizard. Multiple vanilla and modded Valheim worlds.
 
 00:00:10.000 --> 00:00:15.000
 Manage multiple worlds from your browser: start, stop, update, settings and logs.
 
 00:00:15.000 --> 00:00:20.000
-Select mods from Thunderstore, Hexium or Hugin's Vibes. Pin versions or follow the latest.
+Choose vanilla or modded, crossplay, passwords, server listing and launch parameters for each world. Consoles cannot load mods.
 
 00:00:20.000 --> 00:00:25.000
-Edit mod settings in the browser. Saved overrides are reapplied when the world starts or updates.
+Set each world’s update window, quiet period, timeout and backup-first policy. Player-aware updates require Companion telemetry.
 
 00:00:25.000 --> 00:00:30.000
-Update the world to resolve dependencies and package mods plus shared configurations for players. Server-only configs stay private.
+Select mods from Thunderstore, Hexium or Hugin's Vibes. Pin versions or follow the latest.
 
 00:00:30.000 --> 00:00:35.000
-Choose a world on your host’s website. The PhValheim client syncs changed mods and configs before launch. Vanilla worlds use ordinary Valheim.
+Edit mod settings in the browser. Saved overrides are reapplied when the world starts or updates.
 
 00:00:35.000 --> 00:00:40.000
-Manage world backups and restores, control player access, and inspect logs from the admin interface.
+Resolve dependencies and package each world’s mods and shared configurations for players. Server-only configs stay private.
 
 00:00:40.000 --> 00:00:45.000
-Ask Hugin to investigate problems and propose changes. Review before applying. AI features are optional.
+Pick a world. The PhValheim client syncs mods and settings before launch. Vanilla worlds use ordinary Valheim.
 
 00:00:45.000 --> 00:00:50.000
-Hugin's Vibes helps write, build and package mods. The optional Build Pak prepares tools and local game references.
+Choose per-world backup schedules and retention, manage access lists, admins and bans, and inspect logs.
 
 00:00:50.000 --> 00:00:55.000
-Publish to your local catalogue. Select the mod on a test world, update and sync. Each Vibe has local Git history.
+Ask Hugin for help. Build and package mods in Vibes; publish locally and try them on test worlds. AI optional.
 
 00:00:55.000 --> 00:01:00.000
-Host. Mod. Sync. Play. Get started at brianmiller.github.io/phvalheim-server.
+More worlds. Less admin. Host, configure, mod, sync and play. Get started at phvalheim.com.
