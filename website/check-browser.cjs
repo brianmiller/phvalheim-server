@@ -35,6 +35,8 @@ const base=(process.env.DOCS_URL||'http://127.0.0.1:18759/phvalheim-server/').re
  await p.waitForFunction(()=>document.querySelector('video').currentTime>0);
  const media=await p.locator('video').evaluate(v=>({width:v.videoWidth,height:v.videoHeight,duration:v.duration,tracks:v.textTracks.length}));
  assert.equal(media.width,720);assert.equal(media.height,1280);assert.ok(media.duration>=59.9&&media.duration<=60.1);assert.equal(media.tracks,1);
+ assert.equal(await p.locator('video').evaluate(v=>v.textTracks[0].mode),'disabled');
+ await p.locator('video').evaluate(v=>{v.textTracks[0].mode='showing'});
  await p.waitForFunction(()=>document.querySelector('video').textTracks[0].cues?.length===12);
  const credits=await context.request.get(base+'assets/phvalheim-tour-credits.txt');
  assert.equal(credits.status(),200);assert.match(await credits.text(),/Alexander Nakarada.*CC BY 4\.0/);

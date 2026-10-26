@@ -4,7 +4,7 @@
 
 <video class="phv-tour" controls playsinline preload="metadata" poster="../../assets/tour-poster.png" aria-label="PhValheim full product tour">
   <source src="../assets/phvalheim-tour.mp4" type="video/mp4">
-  <track kind="captions" src="../assets/phvalheim-tour.vtt" srclang="en" label="English" default>
+  <track kind="captions" src="../assets/phvalheim-tour.vtt" srclang="en" label="English">
   Your browser does not support embedded video. Download the tour below.
 </video>
 
