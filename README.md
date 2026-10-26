@@ -62,3 +62,9 @@ Keep `/opt/stateful` persistent and the admin UI private. The install guide incl
 **Need help?** [Ask on Discord](https://discord.gg/8RMMrJVQgy) or [report an issue](https://github.com/brianmiller/phvalheim-server/issues).
 
 [PhValheim Client](https://github.com/brianmiller/phvalheim-client) · [Companion](https://github.com/brianmiller/phvalheim-companion) · [Changelog](CHANGELOG.md) · [Contribute to the docs](website/README.md)
+
+## License
+
+Original PhValheim code owned by Brian Miller is available under the [MIT License](LICENSE). Third-party code, game assets and media retain their own licenses and notices; the MIT declaration does not relicense those components.
+
+The bundled Database Browser uses GridPHP under its [separate license](container/nginx/www/admin/gridphp/LICENSE.txt). The product tour's music is licensed under CC BY 4.0; preserve its [attribution](website/media/audio/ATTRIBUTION.md) when sharing the video.

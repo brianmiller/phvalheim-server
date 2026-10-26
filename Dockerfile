@@ -86,6 +86,7 @@ COPY container/nginx/nginx.conf	/etc/nginx/nginx.conf
 COPY container/nginx/phvalheim.conf /etc/nginx/sites-available/phvalheim.conf
 COPY container/nginx/www/ /opt/stateless/nginx/www/
 COPY container/engine/ /opt/stateless/engine/
+COPY LICENSE /opt/stateless/LICENSE
 COPY container/games/ /opt/stateless/games/
 COPY container/games/valheim/macos/libdoorstop.dylib /opt/stateless/games/valheim/macos/libdoorstop.dylib
 COPY container/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed /opt/stateless/games/valheim/custom_plugins/ZeroBandwidth-CustomSeed
