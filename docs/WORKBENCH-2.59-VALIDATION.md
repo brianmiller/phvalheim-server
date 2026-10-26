@@ -207,3 +207,14 @@ The issue's initial missing-trophy observation is separate: Companion's `HungHea
 on `ItemStand.DelayedPowerActivation`, with `TrophyTheElder` registered by the server. A kill
 alone does not trigger that hook. This task does not claim a live Unity/Steam trophy interaction
 was tested or that an independent trophy-reporting defect was reproduced.
+
+Shipped from runtime source `ec02e7e4` in the refreshed 2.59 image. All four remote tags
+`:rc`, `:2.59`, `:latest`, `:dev` independently resolve to
+`sha256:1b5ded166fb691d4f6888b474e6062c21e598a803ab0b9b3cc7a0bddc1d14405`.
+Image ID: `sha256:6ac0fc580e16ebd8a34056affae7fbf949db67bf3fba28bc3caec3b69558c643`.
+IMAGE VERIFY OK (including both new Database Browser markers); Scout critical/high: 0.
+PHP lint passed; What's New has 15 items; marker predictor: 775 pass, 0 fail, 232 explicit
+image-only skips. All 15 browser/database checks passed again on this exact image after
+recreating the development container on its original volume. The broad runtime suite was
+not rerun for this isolated editor change. No production containers were deployed and the
+existing annotated Git release tag was not moved.
