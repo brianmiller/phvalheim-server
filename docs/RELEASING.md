@@ -136,6 +136,10 @@ untested and whether the feature is off by default.
 
 Write notes to a file, not inline. Title style: `vX.YZ — <plain-language summary>`.
 
+# TrueNAS catalog updates
+
+After each authorized stable promotion to `:latest`, follow the [TrueNAS update checklist](truenas/updates.md). The app tracks unpinned `:latest` with `pull_policy: always`; submit a catalog revision bump so existing installations receive the normal TrueNAS Update action. Keep versioned tags and compatible full-data backups available for recovery. The catalog revision is separate from the PhValheim release version.
+
 # Rules that are not about releasing but will bite you here
 
 **After `docker cp` into a container, `chown phvalheim:phvalheim`** — not root. The tools run
