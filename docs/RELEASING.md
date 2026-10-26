@@ -113,7 +113,7 @@ Retagging ships whatever `:rc` happened to contain, which is not necessarily the
 mean — finishing the docs changes files inside the image. (2.45)
 
 ```bash
-TAG=rc EXTRA_TAGS="2.47"          setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &   # pre-release
+TAG=rc                          setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &   # pre-release: rc only
 TAG=rc EXTRA_TAGS="2.47 latest"   setsid nohup dev_tools/buildRcDetached.sh >/dev/null 2>&1 &   # full release
 ```
 
@@ -138,7 +138,7 @@ Write notes to a file, not inline. Title style: `vX.YZ — <plain-language summa
 
 # TrueNAS catalog updates
 
-After each authorized stable promotion to `:latest`, follow the [TrueNAS update checklist](truenas/updates.md). The app tracks unpinned `:latest` with `pull_policy: always`; submit a catalog revision bump so existing installations receive the normal TrueNAS Update action. Keep versioned tags and compatible full-data backups available for recovery. The catalog revision is separate from the PhValheim release version.
+After each authorized stable release, follow the [TrueNAS update checklist](truenas/updates.md). The catalog pins a numeric release tag and digest, and its Renovate rule prepares image updates and catalog revision bumps. Verify that the bot picks up the release and help resolve any review or validation requirements. Numeric release tags must designate stable builds; use `dev`, `rc` or a suffixed tag for pre-release testing. General Docker users can keep using `:latest`. Retain versioned images and compatible full-data backups for recovery.
 
 # Rules that are not about releasing but will bite you here
 

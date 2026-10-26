@@ -1,29 +1,29 @@
 # PhValheim TrueNAS update plan
 
-The TrueNAS app follows the stable `theoriginalbrian/phvalheim-server:latest` image without a digest pin. Its Compose template uses `pull_policy: always`, so new container deployments fetch the current stable image. Brian selected this policy on 26 October 2026.
+The TrueNAS catalog uses stable version tags pinned to image digests, starting with `theoriginalbrian/phvalheim-server:2.59@sha256:1b5ded166fb691d4f6888b474e6062c21e598a803ab0b9b3cc7a0bddc1d14405`. Brian selected version tags for the catalog on 26 October 2026. General Docker installations can continue using `:latest`.
 
 ## Stable release checklist
 
-1. Follow the existing PhValheim release gates. Promote the verified stable image to `latest` only when Brian authorizes the stable release. Confirm the versioned release tag and `latest` resolve to the same digest.
-2. In the TrueNAS catalog app, keep `images.image.tag: latest` and `app_version: latest`. Increment the catalog `version` by one patch, for example `1.0.1` to `1.0.2`. The catalog revision is separate from PhValheim's running release version.
-3. Add a short app README update entry recording the new stable PhValheim release, validation digest and migration or backup notes. The digest is release evidence, not the shipped image reference.
-4. Run catalog rendering and a fresh install/health check against `latest`, plus an upgrade/persistence check using isolated existing data when the release changes application data or startup behavior. Regenerate/check metadata and run full catalog validation and port checks.
-5. Submit the revision bump to `truenas/apps`, referencing the upstream stable release and actual checks. After maintainers merge and publish it, users receive the catalog's standard **Update** action and can choose their deployment time.
+1. Follow the existing PhValheim build and release gates. Publish a numeric release tag such as `2.60` only for a release intended for stable users. Confirm that tag and the authorized `latest` promotion resolve to the verified release image. Pre-release testing uses `dev`, `rc` or an explicitly suffixed pre-release tag; do not publish a plain numeric tag for a release candidate.
+2. TrueNAS's Renovate rule matches two-component numeric tags and excludes `latest`, `dev`, `rc` and suffixed pre-release tags. The catalog's normal digest-pinning and post-upgrade tasks remain enabled. Renovate can propose the new version/digest and bump the catalog revision automatically; a rebuilt version tag can also produce a digest update PR.
+3. Check the TrueNAS catalog for the resulting update PR. Include release notes and migration or backup requirements when review needs them. Run or inspect the catalog render/install checks and perform an upgrade/persistence test when startup or application data changes.
+4. After TrueNAS maintainers review, merge and publish the catalog change, installed apps receive the normal **Update** action. A bot-created PR is not an automatic production deployment.
+5. If Renovate has not picked up a new upstream tag after the contribution guide's two-day window, open an issue so maintainers can investigate discovery. For an urgent fix, coordinate a manual catalog PR using the same version-plus-digest pin, catalog revision bump and validation. Avoid duplicating an existing bot PR.
 
-The initial app is under [TrueNAS PR 6264](https://github.com/truenas/apps/pull/6264). While that PR is still open, update its existing branch; after it merges, create a new branch from current upstream `master` for each catalog update. The catalog repository has an explicit Renovate exception for PhValheim so its bot does not add a digest or switch the stable channel to a versioned tag. This plan requires a catalog revision submission per stable release; no release-publishing automation is claimed.
+The initial app is under [TrueNAS PR 6264](https://github.com/truenas/apps/pull/6264). While it is open, update that branch; after it merges, start maintenance branches from current upstream `master`. Keep `app_version` equal to the upstream numeric release and increment the catalog `version` for image or wrapper changes. These are separate version numbers.
 
 ## Operator updates
 
-TrueNAS supports [monitoring Docker image updates](https://apps.truenas.com/getting-started/initial-setup/#monitoring-for-image-updates), including images used by catalog apps. Leave that setting enabled. The ordinary catalog Update flow still depends on catalog version availability; image monitoring alone should not be described as an automatic catalog release.
+Use TrueNAS's normal [application update workflow](https://apps.truenas.com/managing-apps/managing-installed-apps/#updating-apps). Schedule downtime with players, take a consistent full-data backup and apply the available catalog update. Check PhValheim's admin interface for the running release and verify world status and required player syncs.
 
-When the catalog revision is available, schedule an update with players and take a consistent backup of the entire data dataset and separate backup storage. Apply the update from TrueNAS. Check PhValheim's admin interface for the actual running release, then verify world status and required player syncs.
-
-For an immediate refresh before a catalog revision lands, TrueNAS administrators can call the documented [app.pull_images API](https://api.truenas.com/v25.10/api_methods_app.pull_images.html) for their installed app name with `redeploy: true`. It pulls and redeploys the current image while preserving configured mounts. This runs through TrueNAS's own administration tools; the PhValheim container does not access the host management API. A bare container process restart does not constitute this pull-and-redeploy operation.
+Pulling the currently installed pinned reference fetches that exact image; it does not move the app to a newer release. To advance to a newer PhValheim release, install the catalog revision that selects it. Publishing `latest` continues to serve ordinary Docker users independently of the TrueNAS catalog's review and publication cycle.
 
 ## Recovery
 
-Keep versioned upstream images and full-data backups. A rollback of the catalog revision still uses `latest`, so it cannot by itself restore an earlier PhValheim image. To recover an older release, deliberately select its versioned image in a recovery deployment and restore compatible application data. TrueNAS catalog snapshot rollback covers managed app storage; mounted host paths require their own backup/restore procedure.
+Retain versioned images, their pinned manifests and compatible full-data backups. Each catalog revision selects its own image digest, including during rollback. Database or world changes can still require restoring compatible data. TrueNAS snapshot rollback covers managed app storage; mounted host paths need their own backup and restore procedure.
 
-## Verification scope
+## Validation and maintenance scope
 
-The initial `latest` reference was independently verified to resolve to the already tested 2.59 digest `sha256:1b5ded166fb691d4f6888b474e6062c21e598a803ab0b9b3cc7a0bddc1d14405`. This is a point-in-time validation record, not a pin. Future release migrations, TrueNAS hardware updates and live player reconnection require their own release checks.
+The initial `2.59` tag and its digest were independently verified against Docker Hub. The Renovate rule is checked against stable and pre-release examples, and the catalog's regular update/pinning tasks remain enabled. Actual future bot discovery depends on TrueNAS's service and maintainer review; no future PR or deployment is claimed as already tested.
+
+References: [TrueNAS contribution guide](https://github.com/truenas/apps/blob/master/CONTRIBUTIONS.md), [catalog Renovate configuration](https://github.com/truenas/apps/blob/master/.github/renovate-config.js).
