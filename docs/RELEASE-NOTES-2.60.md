@@ -7,8 +7,9 @@ The `:rc`, `:latest`, and stable version tags have not been promoted.
 
 **Install PhValheim Client 2.0.17 before updating a test world.** Older clients are
 blocked once a world contains the new config policy; some report this as “world not found.”
-The matching client prerelease is being prepared with the existing tested Windows MSI
-and Linux tarball. macOS and additional Linux package formats remain pending.
+The [matching client draft](https://github.com/brianmiller/phvalheim-client/releases)
+contains the tested Windows MSI, Linux tarball, and Flatpak. macOS, Debian, and RPM
+packages remain pending.
 
 ## Config delivery and player preferences
 
