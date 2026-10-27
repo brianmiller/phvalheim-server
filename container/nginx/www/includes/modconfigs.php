@@ -42,6 +42,31 @@ function modConfigExcludedFiles() {
     return ['BepInEx.cfg', 'ZeroBandwidth.CustomSeed.cfg', 'quick_connect_servers.cfg'];
 }
 
+/** Import a client-generated shape for a selected mod; publishing remains a separate choice. */
+function modConfigImportClientShape($pdo, $world, $modId, $file, $text) {
+    $wid = worldIdByName($pdo, $world);
+    if (!$wid || !is_string($file) || !preg_match('/^[^\\\\\/:\x00]+\.cfg$/D', $file)
+        || strpos($file, '..') !== false || strlen($file) > 160
+        || in_array($file, modConfigExcludedFiles(), true) || !is_string($text)
+        || strlen($text) > 1048576 || strpos($text, "\0") !== false) {
+        return ['ok' => false, 'error' => 'Choose a valid .cfg file, up to 1 MB, for an installed mod.'];
+    }
+    $st = $pdo->prepare('SELECT 1 FROM world_mods WHERE world_id=? AND mod_id=?');
+    $st->execute([$wid, $modId]);
+    if (!$st->fetchColumn()) { return ['ok'=>false, 'error'=>'Save this mod in the world selection first.']; }
+    $tmp = tempnam(sys_get_temp_dir(), 'phvshape');
+    try {
+        file_put_contents($tmp, $text);
+        $parsed = json_decode((string)shell_exec(MODCONFIG_TOOL . ' --parse-file ' . escapeshellarg($tmp)), true);
+    } finally { unlink($tmp); }
+    if (empty($parsed['entries'])) { return ['ok'=>false, 'error'=>'This file contains no BepInEx settings. Run the mod once first.']; }
+    $pdo->prepare('INSERT INTO mod_config_shapes (world_id,cfg_file,cfg_text) VALUES (?,?,?)
+        ON DUPLICATE KEY UPDATE cfg_text=VALUES(cfg_text),date_seen=CURRENT_TIMESTAMP')->execute([$wid,$file,$text]);
+    $matched = modConfigMatchFile($pdo, $world, $file, $modId);
+    if (empty($matched['ok'])) { return $matched; }
+    return ['ok'=>true, 'entries'=>count($parsed['entries'])];
+}
+
 /**
  * This world's running state, read through $pdo.
  *
@@ -361,7 +386,7 @@ function modConfigUnmatchFile($pdo, $world, $file) {
  */
 function modConfigOverrides($pdo, $worldId) {
     $st = $pdo->prepare(
-        "SELECT cfg_file, section, ckey, cvalue, mod_id, server_only, locked, origin
+        "SELECT cfg_file, section, ckey, cvalue, mod_id, server_only, overridable, locked, origin
          FROM mod_config_overrides WHERE world_id = ?");
     $st->execute([$worldId]);
     $out = [];
@@ -380,47 +405,30 @@ function modConfigOverrides($pdo, $worldId) {
 function modConfigReachMap($pdo, $worldId) {
     $out = [];
     $mm = $pdo->prepare(
-        "SELECT wm.mod_id, IFNULL(wm.deploy_client,1) AS dc, m.owner, m.name
+        "SELECT wm.mod_id, IFNULL(wm.deploy_client,1) AS dc, IFNULL(wm.deploy_server,1) AS ds,
+                COALESCE(cp.push_server,1) AS ps, COALESCE(cp.push_client,0) AS pc, m.owner, m.name
            FROM world_mods wm JOIN mods m ON m.id = wm.mod_id
+           LEFT JOIN world_mod_config_policy cp ON cp.world_id=wm.world_id AND cp.mod_id=wm.mod_id
           WHERE wm.world_id = ?");
     $mm->execute([$worldId]);
     foreach ($mm->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $out[(int)$r['mod_id']] = [
-            'client' => ((int)$r['dc'] === 1),
+            'client' => ((int)$r['dc'] === 1 && (int)$r['pc'] === 1),
+            'installed_client' => (int)$r['dc'] === 1,
+            'config_client' => (int)$r['pc'] === 1,
+            'server' => ((int)$r['ds'] === 1 && (int)$r['ps'] === 1),
             'label'  => $r['owner'] . '-' . $r['name'],
         ];
     }
     return $out;
 }
 
-/**
- * Who has to receive a change for it to take effect. THREE answers, and the third one is
- * not a cop-out -- on a real world 15 of 40 override rows have no mod_id at all.
- *
- *  'server'  - server_only, so it is never written into the client payload; or the mod is
- *              not deployed to players' clients, so nothing there reads it. Note the
- *              difference: a deploy_client=0 mod's config IS still written into the
- *              payload (materialise filters on server_only alone), it simply has no
- *              plugin on the player's side to read it. So no push is needed either way.
- *  'players' - the mod runs on players' clients, so they need a rebuilt payload.
- *  'unknown' - PhValheim could not attribute the config FILE to one of this world's mods.
- *              Attribution matches the filename against installed mods and deliberately
- *              refuses near-misses, so this is common and expected. The value ships
- *              regardless; we just cannot say whether anything client-side reads it.
- *
- * Unknown is grouped WITH players for the purpose of "do you need to push", because the
- * two errors are not symmetric: pushing unnecessarily costs one small download, while not
- * pushing loses the operator's change with no symptom.
- *
- * ONE implementation, used by the save summary AND by modConfigPending(). It was a closure
- * inside modConfigSaveOverrides() until 2.55 needed the same answer for the restart badge;
- * a second copy there would have been free to disagree with the modal about the very same
- * setting, which is the shape of the bug this project keeps finding in mirrored logic.
- */
+/** Classify delivery for the save summary. Unknown owners are stored, never published. */
 function modConfigReachOf($modMap, $serverOnly, $modId) {
-    if ($serverOnly) { return 'server'; }
     if ($modId === null || !isset($modMap[$modId])) { return 'unknown'; }
-    return $modMap[$modId]['client'] ? 'players' : 'server';
+    $policy = $modMap[$modId];
+    if (!$serverOnly && $policy['client']) { return 'players'; }
+    return !empty($policy['server']) ? 'server' : 'stored';
 }
 
 /**
@@ -475,12 +483,12 @@ function modConfigPending($pdo, $world, $isOnline) {
     foreach ($saved as $key => $row) {
         if (in_array($row['cfg_file'], $excluded, true)) { continue; }
         $was = $applied[$key] ?? null;
-        if ($was !== null && (string)$was['value'] === (string)$row['cvalue']
+        if ($was !== null && ($was['server_enabled'] ?? true) && (string)$was['value'] === (string)$row['cvalue']
             && (int)$was['server_only'] === (int)$row['server_only']) {
             continue;
         }
         $modId = $row['mod_id'] !== null ? (int)$row['mod_id'] : null;
-        if (modConfigReachOf($modMap, !empty($row['server_only']), $modId) !== 'server') {
+        if ($modId === null || empty($modMap[$modId]['server'])) {
             continue;
         }
         $pending[] = [
@@ -503,7 +511,7 @@ function modConfigPending($pdo, $world, $isOnline) {
         // No mod_id survives a deleted row, so an attributed client-side mod's reset reads as
         // 'unknown' here and is skipped unless it was server_only. Deliberate: the server-side
         // claim has to be one we can still make honestly.
-        if (!(int)($was['server_only'] ?? 0)) { continue; }
+        if (!(bool)($was['server_enabled'] ?? $was['server_only'] ?? false)) { continue; }
         $pending[] = [
             'file' => $parts[0], 'section' => $parts[1], 'key' => $parts[2],
             'action' => 'reset',
@@ -563,6 +571,7 @@ function modConfigEditorPayload($pdo, $world) {
     }
 
     $overrides = modConfigOverrides($pdo, $worldId);
+    $deliveryMap = modConfigReachMap($pdo, $worldId);
     $modNames = [];
     $manualGuids = [];
     foreach (modConfigCatalogueJson($pdo, $worldId) as $m) {
@@ -640,6 +649,7 @@ function modConfigEditorPayload($pdo, $world) {
                 'overridden'  => $ov !== null,
                 'modified'    => $modified,
                 'server_only' => $ov ? (int)$ov['server_only'] : 0,
+                'overridable' => $ov ? (int)$ov['overridable'] : 1,
                 'locked'      => $ov ? (int)$ov['locked'] : 0,
                 'origin'      => $ov ? $ov['origin'] : null,
             ];
@@ -668,6 +678,8 @@ function modConfigEditorPayload($pdo, $world) {
             'guid'           => $f['guid'],
             'mod_id'         => $modId,
             'mod_name'       => $modId !== null ? ($modNames[$modId] ?? null) : null,
+            'push_server' => $modId !== null && !empty($deliveryMap[$modId]['server']),
+            'push_client' => $modId !== null && !empty($deliveryMap[$modId]['client']),
             // True when this file's owner is the operator's own match rather than something
             // PhValheim worked out -- the page shows "matched by you" and an Undo for it.
             'matched_manually' => $modId !== null
@@ -833,9 +845,12 @@ function modConfigSaveOverrides($pdo, $world, $items) {
     $saved = $removed = 0;
     $refused = [];
     $changes = [];
+    $syncNeeded = false;
+    $serverChanges = 0;
+    $clientEnabled = [];
 
     $modMap  = modConfigReachMap($pdo, $worldId);
-    $reachOf = function ($serverOnly, $modId) use ($modMap) {
+    $reachOf = function ($serverOnly, $modId) use (&$modMap) {
         return modConfigReachOf($modMap, $serverOnly, $modId);
     };
 
@@ -846,7 +861,7 @@ function modConfigSaveOverrides($pdo, $world, $items) {
     // just the new value. Nothing read the previous value before 2.55's save summary, which is
     // why the old confirmation could only ever report a count.
     $prevSt = $pdo->prepare(
-        "SELECT cvalue, server_only, mod_id FROM mod_config_overrides
+        "SELECT cvalue, server_only, overridable, mod_id FROM mod_config_overrides
          WHERE world_id = ? AND cfg_file = ? AND section = ? AND ckey = ?");
     $del = $pdo->prepare(
         "DELETE FROM mod_config_overrides
@@ -857,11 +872,12 @@ function modConfigSaveOverrides($pdo, $world, $items) {
     // about a decision they have already made.
     $up = $pdo->prepare(
         "INSERT INTO mod_config_overrides
-           (world_id, cfg_file, section, ckey, cvalue, mod_id, server_only, locked, origin)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'operator')
+           (world_id, cfg_file, section, ckey, cvalue, mod_id, server_only, overridable, locked, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'operator')
          ON DUPLICATE KEY UPDATE cvalue = VALUES(cvalue),
                                  mod_id = VALUES(mod_id),
                                  server_only = VALUES(server_only),
+                                 overridable = VALUES(overridable),
                                  origin = 'operator',
                                  date_set = CURRENT_TIMESTAMP");
 
@@ -881,6 +897,12 @@ function modConfigSaveOverrides($pdo, $world, $items) {
             continue;
         }
 
+        if (preg_match('/[\r\n\x00\[\]]/', $section) || preg_match('/[\r\n\x00=]/', $key)
+            || preg_match('/[\r\n\x00]/', (string)($it['value'] ?? ''))) {
+            $refused[] = "[$section] $key must be a single config entry; use escaped newlines in string values.";
+            continue;
+        }
+
         $lockSt->execute([$worldId, $file, $section, $key]);
         if ((int)$lockSt->fetchColumn() === 1) {
             $refused[] = "[$section] $key in $file is managed by PhValheim and cannot be changed here";
@@ -892,8 +914,8 @@ function modConfigSaveOverrides($pdo, $world, $items) {
         $prevSt->execute([$worldId, $file, $section, $key]);
         $prev = $prevSt->fetch(PDO::FETCH_ASSOC);
 
-        $newModId = isset($it['mod_id']) && $it['mod_id'] !== '' && $it['mod_id'] !== null
-            ? (int)$it['mod_id'] : null;
+        $modId = $it['mod_id'] ?? ($prev['mod_id'] ?? null);
+        $newModId = $modId !== null && $modId !== '' ? (int)$modId : null;
 
         if (!empty($it['reset'])) {
             $del->execute([$worldId, $file, $section, $key]);
@@ -904,6 +926,8 @@ function modConfigSaveOverrides($pdo, $world, $items) {
             // modal claim work that did not happen.
             if ($n > 0) {
                 $prevModId = ($prev && $prev['mod_id'] !== null) ? (int)$prev['mod_id'] : null;
+                $syncNeeded = $syncNeeded || !empty($modMap[$prevModId]['client']);
+                if (!empty($modMap[$prevModId]['server'])) { $serverChanges++; }
                 $changes[] = [
                     'action'  => 'reset',
                     'file'    => $file,
@@ -920,12 +944,34 @@ function modConfigSaveOverrides($pdo, $world, $items) {
         }
 
         $newValue   = (string)($it['value'] ?? '');
-        $newSrvOnly = !empty($it['server_only']) ? 1 : 0;
+        $newSrvOnly = array_key_exists('server_only', $it)
+            ? (int)(bool)$it['server_only'] : (int)($prev['server_only'] ?? 0);
+        // An operator-supplied value applies by default. An explicit Overridable choice
+        // still wins; a flag-only save does not silently change a previously chosen policy.
+        $valueEdited = !$prev || $newValue !== (string)$prev['cvalue'];
+        $newOverridable = array_key_exists('overridable', $it) ? (int)(bool)$it['overridable']
+            : ($valueEdited ? 0 : (int)$prev['overridable']);
 
         $up->execute([
-            $worldId, $file, $section, $key, $newValue, $newModId, $newSrvOnly,
+            $worldId, $file, $section, $key, $newValue, $newModId, $newSrvOnly, $newOverridable,
         ]);
+        // Editing a private server value never enables client delivery. Preserve the
+        // operator's Server switch, and never change where the mod itself is installed.
+        if (!$newSrvOnly && isset($modMap[$newModId]) && !$modMap[$newModId]['config_client']) {
+            $pdo->prepare('INSERT INTO world_mod_config_policy (world_id,mod_id,push_client)
+                VALUES (?,?,1) ON DUPLICATE KEY UPDATE push_client=1')->execute([$worldId,$newModId]);
+            $modMap[$newModId]['config_client'] = true;
+            $modMap[$newModId]['client'] = $modMap[$newModId]['installed_client'];
+            $clientEnabled[$newModId] = $modMap[$newModId]['label'];
+        }
         $saved++;
+        // A newly server-only entry must also remove its previously published client rule.
+        // Resetting a server-only override above can expose the default to clients again.
+        $oldModId = $prev && $prev['mod_id'] !== null ? (int)$prev['mod_id'] : $newModId;
+        $syncNeeded = $syncNeeded
+            || !empty($modMap[$newModId]['client'])
+            || ($prev && empty($prev['server_only']) && !empty($modMap[$oldModId]['client']));
+        if (!empty($modMap[$newModId]['server'])) { $serverChanges++; }
 
         $changes[] = [
             'action'  => $prev ? 'changed' : 'set',
@@ -942,15 +988,18 @@ function modConfigSaveOverrides($pdo, $world, $items) {
         ];
     }
 
-    $tally = ['players' => 0, 'server' => 0, 'unknown' => 0];
+    $tally = ['players' => 0, 'server' => 0, 'unknown' => 0, 'stored' => 0];
     foreach ($changes as $c) { $tally[$c['reach']]++; }
+    // Count only accepted changes, including shared settings that affect both sides.
+    $tally['server'] = $serverChanges;
 
     return ['ok' => true, 'saved' => $saved, 'removed' => $removed, 'refused' => $refused,
             'changes' => $changes,
             'tally'   => $tally,
+            'clientConfigEnabled' => array_values($clientEnabled),
             // Whether a push is needed at all, decided here rather than in the browser so the
             // button and the explanation cannot disagree about it.
-            'needsPush' => ($tally['players'] + $tally['unknown']) > 0,
+            'needsPush' => $syncNeeded,
             // The world's mode right now, so the summary can say what a restart would even
             // mean. A stopped world picks server-side changes up on its next start, with
             // nothing for the operator to do.
@@ -960,8 +1009,7 @@ function modConfigSaveOverrides($pdo, $world, $items) {
             // mod reads the config from the client payload zip, which only packageClient()
             // rebuilds. "Restart to apply" sent an operator looking for a change that a
             // restart could not possibly have delivered.
-            'note' => 'Restart the world to apply. If the mod runs on players\' clients, '
-                    . 'use Apply to players so the client payload is rebuilt.'];
+            'note' => 'Delivery follows the mod Config switches. Restart for server changes; apply to players for client changes. Overridable values preserve existing player preferences.'];
 }
 
 /**

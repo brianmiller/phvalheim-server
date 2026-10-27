@@ -32,6 +32,19 @@ $jsonIncoming = json_decode(file_get_contents("php://input"));
 
 ############## BEGIN: Mode detectors ##############
 
+# 2.60 capability gate: old clients delete personal configs during extraction.
+# A world switches contracts only after a new policy-bearing payload is published.
+if (in_array($mode, ['getMD5', 'getSyncState'], true)) {
+    $st = $pdo->prepare('SELECT config_policy_version FROM worlds WHERE name=?');
+    $st->execute([$world]);
+    if ((int)$st->fetchColumn() > 0 && ($_GET['configPolicy'] ?? '') !== '1') {
+        http_response_code(426);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "This world requires PhValheim Client 2.0.17 or newer. Update your client before launching.\n";
+        exit;
+    }
+}
+
 # getMD5 of world
 if ($mode == "getMD5") {
 	print getMD5($pdo,$world);

@@ -267,11 +267,14 @@ function worldModSelection($pdo, $world)
         "SELECT wm.mod_id, wm.is_dep, wm.pin_version_id,
                 IFNULL(wm.deploy_server,1) AS deploy_server,
                 IFNULL(wm.deploy_client,1) AS deploy_client,
+                COALESCE(cp.push_server,1) AS config_server,
+                COALESCE(cp.push_client,0) AS config_client,
                 v.version AS pin_version,
                 m.source, m.owner, m.name,
                 COALESCE(latest.version,'') AS latest_version
            FROM world_mods wm
            JOIN mods m ON m.id = wm.mod_id
+           LEFT JOIN world_mod_config_policy cp ON cp.world_id=wm.world_id AND cp.mod_id=wm.mod_id
            LEFT JOIN mod_versions v ON v.id = wm.pin_version_id
            LEFT JOIN mod_versions latest ON latest.mod_id = m.id AND latest.source_rank = 0
           WHERE wm.world_id = ?"
@@ -297,6 +300,8 @@ function worldModSelection($pdo, $world)
             // dependency on a side where its parent runs.
             'server' => (int)$r['deploy_server'] === 1,
             'client' => (int)$r['deploy_client'] === 1,
+            'config_server' => (int)$r['config_server'] === 1,
+            'config_client' => (int)$r['config_client'] === 1,
         ];
         if ((int)$r['is_dep'] === 1) {
             $deps[] = $entry;
@@ -338,6 +343,7 @@ function saveWorldModSelection($pdo, $world, $mods)
 
     $wanted = [];
     $dest = [];
+    $configPolicy = [];
     $rejected = [];
     foreach ((array)$mods as $m) {
         if (is_array($m)) {
@@ -370,6 +376,9 @@ function saveWorldModSelection($pdo, $world, $mods)
             $rejected[] = "mod id $id was set to install on neither the server nor the "
                         . "client, which is the same as not selecting it, so it was removed";
             continue;
+        }
+        if (is_array($m) && (array_key_exists('config_server', $m) || array_key_exists('config_client', $m))) {
+            $configPolicy[$id] = [!empty($m['config_server']), !empty($m['config_client'])];
         }
         $wanted[$id] = $pin;
         $dest[$id] = [$srv, $cli];
@@ -510,6 +519,13 @@ function saveWorldModSelection($pdo, $world, $mods)
         foreach ($wanted as $id => $pin) {
             $d = $dest[$id] ?? [true, true];
             $ins->execute([$wid, $id, $pin, $d[0] ? 1 : 0, $d[1] ? 1 : 0]);
+        }
+        $policyStmt = $pdo->prepare("INSERT INTO world_mod_config_policy (world_id,mod_id,push_server,push_client)
+            VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE push_server=VALUES(push_server),push_client=VALUES(push_client)");
+        foreach ($configPolicy as $id => $flags) {
+            if (isset($wanted[$id]) || array_key_exists($id, $wanted)) {
+                $policyStmt->execute([$wid,$id,(int)$flags[0],(int)$flags[1]]);
+            }
         }
         $pdo->commit();
     } catch (Throwable $e) {

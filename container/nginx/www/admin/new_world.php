@@ -218,6 +218,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			<div class="loading-dots"><span></span><span></span><span></span><span></span><span></span></div>
 			<div class="loading-eye"></div>
 		</div>
+		<script src="/js/config-delivery.js"></script>
 		<script>
 			var sauronTimer = setTimeout(function() {
 				var dots = document.querySelector('#spinner .loading-dots');
@@ -590,6 +591,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 			// be overridden here is the one thing that can starve a mod of a dependency on a
 			// side where its parent runs. See section 8.2 of docs/RELEASE-2.53-DESIGN.md.
 			var destSet = {};
+            var deliveryPicker = new PhvConfigDelivery(function () { return checkedSet; }, function () { rebuildTables(); });
 			var versionCache = {};     // mods.id -> full version list, fetched on demand
 			var activeSources = {};    // source key -> true when that catalogue is shown
 			var catalogSourceDefs = [];
@@ -1047,7 +1049,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 					var checkbox = '<input type="checkbox" class="form-check-input mod-checkbox" value="' + uuid + '" data-uuid="' + uuid + '"' + (isChecked ? ' checked' : '') + '>';
 
 					var row = [checkbox, nameHtml, escapeHtml(mod.owner), mod.updated || '',
-					           versionCell(mod, isChecked), destinationCell(uuid, isChecked, neededDeps)];
+					           versionCell(mod, isChecked), destinationCell(uuid, isChecked, neededDeps), deliveryPicker.cell(uuid, isChecked)];
 
 					// A needed-but-unchecked dependency counts as part of the selection --
 					// that is what the Selected tab already shows, and it carries the
@@ -1080,14 +1082,15 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 						scrollCollapse: true,
 						paging: true,
 						lengthMenu: [[20, 50, 75, -1], [20, 50, 75, 'All']],
-						columnDefs: [{ orderable: false, targets: [0, 5] }],
+						columnDefs: [{ orderable: false, targets: [0, 5, 6] }],
 						columns: [
 							{ title: 'Select', width: '50px', className: 'alt-color' },
 							{ title: 'Name', className: 'alt-color' },
 							{ title: 'Author', className: 'alt-color' },
 							{ title: 'Last Updated', className: 'alt-color' },
 							{ title: 'Version', className: 'alt-color', width: '150px' },
-								{ title: 'Installs on', className: 'alt-color', width: '150px' }
+								{ title: 'Installs on', className: 'alt-color', width: '150px' },
+                                { title: 'Config', className: 'alt-color', width: '155px' }
 						],
 						rowCallback: function(row, data, index) {
 							$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
@@ -1292,7 +1295,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 				return Object.keys(checkedSet).map(function(id) {
 					var d = destSet[id] || [true, true];
 					return { id: parseInt(id, 10), pin: pinSet[id] || null,
-					         server: !!d[0], client: !!d[1] };
+					         server: !!d[0], client: !!d[1],
+                             config_server: deliveryPicker.flags(id).config_server, config_client: deliveryPicker.flags(id).config_client };
 				});
 			}
 

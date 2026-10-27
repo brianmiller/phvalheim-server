@@ -58,11 +58,11 @@ grep -q 'writeClientManifest "\$worldName"' "$FUNCS" \
 pkg=$(grep -n '^function packageClient()' "$FUNCS" | head -1 | cut -d: -f1)
 callLine=$(awk -v s="$pkg" 'NR>s && /writeClientManifest "\$worldName"/{print NR; exit}' "$FUNCS")
 # The zip must not be anchored to the start of its line. It is now
-#   ( cd "$stage" && zip "$zipPath" -r \
+#   ( cd "$stage" && zip "$fullTmp" -r \
 # because the payload is built from a staging dir in a subshell, and the old
 # ^[[:space:]]*zip pattern stopped matching -- so this reported "could not locate the call and
 # the zip", i.e. it went BLIND rather than failing on the ordering it exists to check.
-zipLine=$(awk -v s="$pkg" 'NR>s && /zip "\$zipPath"/{print NR; exit}' "$FUNCS")
+zipLine=$(awk -v s="$pkg" 'NR>s && /zip "\$fullTmp"/{print NR; exit}' "$FUNCS")
 if [ -n "$callLine" ] && [ -n "$zipLine" ]; then
 	[ "$callLine" -lt "$zipLine" ] \
 		&& pass "written BEFORE the zip (line $callLine < $zipLine)" \

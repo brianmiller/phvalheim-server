@@ -7540,3 +7540,9 @@ pre.ms-log {
 .public-footer { align-items:center; }
 .public-footer .social-link { width:44px; height:44px; flex:0 0 44px; box-sizing:border-box; padding:0; }
 .public-footer .social-link:focus-visible { outline:2px solid var(--accent-primary); outline-offset:3px; }
+
+/* Mod installation and config delivery are separate pairs with generous click targets. */
+.dest-pair { display: flex; flex-wrap: wrap; gap: .3rem .75rem; margin-bottom: .25rem; }
+.dest-sw { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; cursor: pointer; }
+.config-delivery-toolbar summary { cursor: pointer; }
+.config-delivery-toolbar button { margin: .2rem 0; }

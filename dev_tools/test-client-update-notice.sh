@@ -128,13 +128,12 @@ echo "== what it says =="
 body=$(awk '/clientUpdateNoticeOverlay/{f=1} f&&/<\/script>/{exit} f{print}' "$INDEX" \
 	| awk '/<!--/{c=1} !c{print} /-->/{c=0}' | tr '\n' ' ' | tr -s ' ')
 
-case "$body" in *"needs the current PhValheim client"*) pass "says the client must be updated" ;;
-	*) fail "does not say the client must be updated -- that is the entire point" ;; esac
-case "$body" in *"Nobody is locked out"*) pass "says nobody is locked out" ;;
-	*) fail "does not say nobody is locked out" \
-	        "an operator who thinks their players cannot get in will panic -- they can, by hand" ;; esac
-case "$body" in *QuickConnect*) pass "explains the server-list entry is gone" ;;
-	*) fail "does not mention QuickConnect/the server list" ;; esac
+case "$body" in *"PhValheim Client 2.0.17 or newer"*) pass "states the required version" ;;
+    *) fail "does not state the required version" ;; esac
+case "$body" in *"Older clients are stopped"*) pass "explains old-client protection" ;;
+    *) fail "does not explain old-client protection" ;; esac
+case "$body" in *"personal mod settings"*) pass "explains why the upgrade matters" ;;
+    *) fail "does not explain personal setting preservation" ;; esac
 case "$body" in *"shown once"*) pass "says it is shown once" ;;
 	*) fail "does not say it is shown once" ;; esac
 

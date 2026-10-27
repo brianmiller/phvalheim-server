@@ -108,8 +108,8 @@ drive() {
 }
 
 # A mod the players run (deploy_client=1) and one only the server runs (0).
-MODS='[{"mod_id":7,"dc":1,"owner":"acme","name":"HudThing"},
-       {"mod_id":9,"dc":0,"owner":"acme","name":"ServerThing"}]'
+MODS='[{"mod_id":7,"dc":1,"ds":0,"ps":1,"pc":1,"owner":"acme","name":"HudThing"},
+       {"mod_id":9,"dc":0,"ds":1,"ps":1,"pc":0,"owner":"acme","name":"ServerThing"}]'
 
 # One override per case, written as the DB row shape modConfigOverrides() returns.
 row() { # file section key value mod_id server_only
@@ -231,8 +231,8 @@ esac
 snap hud.cfg Main Size 1 1
 out=$(drive "{\"online\":true,\"mods\":$MODS,\"overrides\":[$(row hud.cfg Main Size 2 7 1)]}")
 case "$out" in
-	pending*) pass "T6b the SAME setting marked server_only IS pending -- T6 is about reach, not about being ignorable" ;;
-	*)        fail "T6b a server_only change on a client mod's file was not pending" "got: $out" ;;
+	clean\|\|) pass "T6b server_only on a client-only mod does not require restarting a server that does not run it" ;;
+	*)        fail "T6b a client-only mod was incorrectly reported as needing a server restart" "got: $out" ;;
 esac
 
 # A mod that is installed but NOT deployed to clients also reads its config on the server.
@@ -300,7 +300,7 @@ done
 # overrides were all reset keeps the previous run's file and reports settings pending forever
 # with no action that clears it. Asserted by line order: the call must come BEFORE the
 # early return it would otherwise sit under.
-callLine=$(grep -n '^    record_applied(world, overrides)' "$PY" | head -1 | cut -d: -f1)
+callLine=$(grep -n '^    record_applied(world, overrides, server_enabled)' "$PY" | head -1 | cut -d: -f1)
 retLine=$(awk '/^    if not overrides:/{print NR; exit}' "$PY")
 if [ -n "$callLine" ] && [ -n "$retLine" ]; then
 	[ "$callLine" -lt "$retLine" ] \

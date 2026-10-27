@@ -231,6 +231,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			<div class="loading-dots"><span></span><span></span><span></span><span></span><span></span></div>
 			<div class="loading-eye"></div>
 		</div>
+		<script src="/js/config-delivery.js"></script>
 		<script>
 			var sauronTimer = setTimeout(function() {
 				var dots = document.querySelector('#spinner .loading-dots');
@@ -431,6 +432,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 			// be overridden here is the one thing that can starve a mod of a dependency on a
 			// side where its parent runs. See section 8.2 of docs/RELEASE-2.53-DESIGN.md.
 			var destSet = {};
+            var deliveryPicker = new PhvConfigDelivery(function () { return checkedSet; }, function () { markChanged(); rebuildTables(); });
 			// mods.id -> how many config settings this world has saved for that mod (2.55).
 			// Empty until the summary call lands, and empty is a legitimate value -- the Config
 			// column shows no badge for 0 rather than a "0", because "nothing overridden" and
@@ -910,7 +912,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 							{ title: 'Last Updated', className: 'alt-color' },
 							{ title: 'Version', className: 'alt-color', width: '150px' },
 								{ title: 'Installs on', className: 'alt-color', width: '150px' },
-								{ title: 'Config', className: 'alt-color', width: '90px' }
+								{ title: 'Config', className: 'alt-color', width: '155px' }
 						],
 						rowCallback: function(row, data, index) {
 							$(row).removeClass('myodd myeven').addClass(index % 2 === 0 ? 'myodd' : 'myeven');
@@ -1022,7 +1024,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				var badge = n > 0
 					? ' <span class="badge bg-warning text-dark">' + n + '</span>'
 					: '';
-				return '<a class="btn btn-sm btn-outline-info" style="padding:0 7px;" '
+				return deliveryPicker.cell(uuid, isChecked) + '<a class="btn btn-sm btn-outline-info" style="padding:0 7px;" '
 				     + 'href="world_configs.php?world=' + encodeURIComponent(worldName)
 				     + '&mod=' + encodeURIComponent(uuid) + '" '
 				     + 'title="' + (n > 0
@@ -1038,7 +1040,8 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 				return Object.keys(checkedSet).map(function(id) {
 					var d = destSet[id] || [true, true];
 					return { id: parseInt(id, 10), pin: pinSet[id] || null,
-					         server: !!d[0], client: !!d[1] };
+					         server: !!d[0], client: !!d[1],
+                             config_server: deliveryPicker.flags(id).config_server, config_client: deliveryPicker.flags(id).config_client };
 				});
 			}
 
@@ -1294,6 +1297,7 @@ $allWorlds = $pdo->query("SELECT name FROM worlds WHERE name != '$world' ORDER B
 							// silently off.
 							if (typeof entry === 'object') {
 								destSet[id] = [entry.server !== false, entry.client !== false];
+                                deliveryPicker.adopt(id, entry);
 							}
 							if (typeof entry === 'object' && entry.pin) {
 								pinSet[id] = entry.pin;

@@ -1,0 +1,113 @@
+# 2.60 config delivery — development validation
+
+Validated on 2026-10-27 for Brian's requested development test. The server image was
+built and pushed to `theoriginalbrian/phvalheim-server:dev` and the local
+`phvalheim-dev` container was recreated with its existing `phvalheim-dev-data` volume.
+All seven existing worlds remain stopped. No production deployment or stable release.
+
+- Registry digest: `sha256:7c7c21eeb279b3091d5f760aea31e076647070e38318d419a17f9793040c4a9f`
+- Image ID: `sha256:1799def298dce759a8dbb95cdbe88a4af1a278a6ac9ede635f22eda51d3a6f1b`
+- Registry inspection independently confirmed the digest. The 16 changed runtime files
+  match the running image byte for byte. All five services are running.
+- In-image verification: `IMAGE VERIFY OK`, including the 2.60 gates.
+- Docker Scout: zero critical/high findings. `:rc` and `:latest` still resolve to the
+  2.59 digest `sha256:1b5ded166fb691d4f6888b474e6062c21e598a803ab0b9b3cc7a0bddc1d14405`.
+- Source changes and release notes are being saved to GitHub for draft prerelease
+  preparation. The exact tested Windows and Linux installers are the candidate assets;
+  no client release has been published. Unrelated release 2.55 notes and TrueNAS submission
+  files remain untouched. See [release notes](RELEASE-NOTES-2.60.md) for the publication checklist.
+
+## Behavior to test
+
+Install Client 2.0.17 before updating/repackaging a world. Config Server defaults on;
+Config Client defaults off, including upgraded worlds. Saved operator settings remain in
+the database. Saving a shared setting enables Client for its matched mod while preserving
+Server delivery and installation. Server-only edits, resets, and rejected edits do not
+enable Client. The save summary reports any automatically enabled delivery.
+
+Untouched settings are Overridable. Editing a value clears the flag; the operator can recheck
+it afterward to offer a suggested default. With Overridable on, a missing player setting
+receives the supplied default and an existing personal value wins. Clearing Overridable reapplies the operator's value before
+each launch, including launches without a download. Server only excludes the entire entry
+from the client policy. Removing an enforced rule clears its unchanged enforced value so
+the mod can regenerate its default; player edits are retained.
+
+Client-only mods must run once on a player's machine; their generated `.cfg` can be imported
+into the editor to discover settings. Importing does not automatically distribute that
+player's values. See [the design](CONFIG-POLICY-2.60.md) for the full model, including
+non-cfg files and mods with their own runtime synchronization.
+
+## Executed checks
+
+| Check | Result |
+|---|---|
+| Actual launcher Syncer, HTTP downloads, archives, config merger | 26 passed |
+| PHP saves, real database, materialiser, full/config archives, capability gate | 49 passed on final image |
+| Browser: both pickers, defaults, bulk controls, flag-only saves, reload, mobile | 26 passed on final image |
+| Initial 2.60 server archives consumed by the actual client ConfigPolicy class (unchanged contract) | 6 passed |
+| Existing mod config editor | 51 passed |
+| Existing save-summary database tests | 33 passed with the revised save code |
+| Existing client sync-display tests | 25 passed |
+| Standalone server suites | 74 passed, 0 failed, 0 unrunnable |
+| Cross-repository suites | 4 passed, 0 failed, 0 unrunnable |
+| Working-tree marker prediction | 783 passed, 0 failed, 232 unavailable outside image |
+| PHP lint, shell parsing, diff whitespace check | Passed |
+| Windows MSI artifact verification | 75 passed |
+| Client executable smoke checks | 24 passed |
+| MSI install/upgrade/UI behavior | 36 passed |
+
+Mutation controls were rejected at the intended assertions: removing personal-config
+preservation, ignoring enforced values, and allowing server-only values into the policy.
+Disposable database/world fixtures were removed; zero `zpolicy_` worlds remain.
+
+The final archive-to-client checks cover retained personal preferences, supplied defaults
+on a fresh player, enforced values, enforcement without a download, server-only exclusion,
+and config-only updates. These use the shipping code, not a reimplementation of it.
+
+The first full-image verification found a stale archive-filename matcher (`cpw`) after
+packaging was made atomic. That matcher was corrected and verification passed on the same
+image digest. No test gate was waived. Earlier browser checks against copied development
+files also exposed file permissions from `docker cp`; final-image browser checks use the
+image's normal ownership and pass.
+
+## Client test artifacts
+
+In the sibling `phvalheim-client/builds/` directory:
+
+- `phvalheim-client-2.0.17-x86_64.msi` — signed; SHA256
+  `388671d2963f650c932c6eddfbd069173cf25b5b8623e2fbd948a2907df7a1bf`
+- `phvalheim-client-2.0.17-universal-x86_64.tar.gz` — SHA256
+  `c389c2c219b7cbd02939db95cde27448e01cac4c74b8538c0afc32e2f8c3ead3`
+
+No live Unity/Steam player session, mod-specific runtime sync, or new macOS build was tested.
+Those are the limits of this development handoff, not claimed successes.
+
+## Automatic Client delivery refinement
+
+Brian requested operator edits to enable Client and clear Overridable. The revised server
+implements this on save, with an immediate checkbox change in the editor. A deliberate
+Overridable selection after editing is preserved, including through blur/change events.
+Undoing an edit restores the original flag and clean state. Pasted edits include their mod
+identity, default to enforcement, and respect Server only. Existing saved policies are not
+retroactively changed. No launcher rebuild was needed.
+
+The 49 server checks and 26 browser checks were rerun on the exact revised image. They
+include private/rejected/reset exceptions, preserving Server and installation choices,
+changed-value enforcement, explicit suggested defaults, saved picker state, and save-summary
+feedback. All 74 standalone suites pass. The client and cross-repository evidence above
+remains from the initial implementation; those unchanged paths were not unnecessarily rerun.
+
+## Evidence on the host
+
+- Build and image verification: `/tmp/phvalheim-rc-build.log`
+- Revised server/browser: `/tmp/phv260-auto-client-{server,ui}-final.log`
+- Revised regression/summary/predictor: `/tmp/phv260-auto-client-{standalone,summary,predict}.log`
+- Initial server/browser/summary: `/tmp/phv260-{server,ui,summary}-final.log`
+- Launcher: `/tmp/phv260-client-tests.log`; interoperability: `/tmp/phv260-contract.log`
+- Suites: `/tmp/phv260-{standalone,crossrepo,editor-tests,client-display,predict}.log`
+- Mutations: `/tmp/phv260-mutation-{lose-personal,ignore-enforcement,secret}.log`
+- Client build/signing/install checks: `/tmp/phv260-client-build.log`
+- Browser captures: `/tmp/phv260-ui/`
+- Actual server test archives: `/tmp/phv260-contract/`
+- Private dev database snapshot before container recreation:
+  `/tmp/phv260-dev-backup/phvalheim.sql` (directory 0700, file 0600).

@@ -114,6 +114,17 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   a=$(grep -c "modSelectionCard" /opt/stateless/nginx/www/admin/new_world.php)
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)
+  # 2.60: verify the complete delivery path, not just the UI label.
+  v60a=$(grep -c "^def package_policy" /opt/stateless/engine/tools/clientConfigPolicy.py)
+  v60b=$(grep -c "^addColumn mod_config_overrides overridable" /opt/stateless/engine/dbUpdates/dbUpdate_2.60.sh)
+  v60c=$(grep -c "class PhvConfigDelivery" /opt/stateless/nginx/www/js/config-delivery.js)
+  v60d=$(grep -c "http_response_code(426)" /opt/stateless/nginx/www/public/api.php)
+  v60e=$(grep -c 'clientMinVersion="2.0.17"' /opt/stateless/engine/includes/phvalheim-static.conf)
+  v60f=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -c "new PhvConfigDelivery")
+  v60g=$(grep -c 'class="cfg-overridable"' /opt/stateless/nginx/www/admin/world_configs.php)
+  v60h=$(grep -c "markCardEdited(" /opt/stateless/nginx/www/admin/world_configs.php)
+  echo "2.60 dirty-card paths=$v60h (want 3)"
+  echo "2.60 policy=$v60a (want 1) migration=$v60b (want 1) picker=$v60c (want 1) old-client gate=$v60d (want 1) minimum=$v60e (want 1) both pickers=$v60f (want 2) overridable=$v60g (want 1)"
   # The wrapper div itself, anchored. This used to be a bare count of "modSelectionArea"
   # with a printed (want 2) that deliberately included the comment explaining why the toggle
   # moved off it -- a number that any future comment edit would have broken, and which was
@@ -2136,14 +2147,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   mancall=$(awk -v s="$(grep -n '^function packageClient()' $zfun | head -1 | cut -d: -f1)" \
                 'NR>s && /writeClientManifest "\$worldName"/{print NR; exit}' $zfun)
-  # RE-ANCHORED: the leading ^[[:space:]]* is gone. The claim cpw makes is "the manifest is
-  # written BEFORE the payload is zipped" -- a claim about ORDER, not about what else shares
-  # the line. The getcwd fix wrapped the zip as `( cd "$stage" && zip "$zipPath" -r`, so the
-  # start-of-line anchor stopped matching, manzip came back empty, and cpw read 0 and failed
-  # the build. Nothing had regressed. `zip "$zipPath"` is the only zip of the payload in this
-  # function, so matching it anywhere on the line is precise and survives being wrapped.
+  # Match the full archive's temporary output: it is renamed only after zip succeeds.
+  # The manifest must precede that zip, including when zip runs inside a subshell.
   manzip=$(awk -v s="$(grep -n '^function packageClient()' $zfun | head -1 | cut -d: -f1)" \
-               'NR>s && /zip "\$zipPath" -r/{print NR; exit}' $zfun)
+               'NR>s && /zip "\$fullTmp" -r/{print NR; exit}' $zfun)
   cpw=0; [ -n "$mancall" ] && [ -n "$manzip" ] && [ "$mancall" -lt "$manzip" ] && cpw=1
 
   # NEGATIVE: no password may be written into the manifest. argv carries the password for the
@@ -2610,8 +2617,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # cannot be satisfied by a code comment.
   # 2.56 renamed the button to "Save & apply to players" because it now saves first, so this
   # sentence was reworded with it. Still anchored on the MARKUP for the reason above.
-  v55z=$(grep -c "<b>Save &amp; apply to players</b>, which saves your edits" /opt/stateless/nginx/www/admin/world_configs.php)
-  v55aa=$(grep -c "use Apply to players so the client payload is rebuilt" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55z=$(grep -c "<b>Save &amp; apply to players</b> to send enabled client settings" /opt/stateless/nginx/www/admin/world_configs.php)
+  v55aa=$(grep -c "apply to players for client changes" /opt/stateless/nginx/www/includes/modconfigs.php)
   # The overflow fix: a grid item defaults to min-width:auto and refuses to shrink below its
   # content, so one long documented default pushed the row outside the card.
   v55ab=$(grep -c "cfg-entry > div { min-width: 0; }" /opt/stateless/nginx/www/admin/world_configs.php)
@@ -2703,7 +2710,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
 
   # The previous value, read BEFORE the write. Without this the summary can only report the new
   # value twice, and a from/to table showing the same value in both columns looks plausible.
-  v55av=$(grep -c "SELECT cvalue, server_only, mod_id FROM mod_config_overrides" /opt/stateless/nginx/www/includes/modconfigs.php)
+  v55av=$(grep -c "SELECT cvalue, server_only, overridable, mod_id FROM mod_config_overrides" /opt/stateless/nginx/www/includes/modconfigs.php)
 
   # The three-way reach classifier and the push decision. needsPush is computed server-side on
   # purpose, so the button and the prose cannot disagree about whether a push is needed.
@@ -2860,7 +2867,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v56aj=$(grep -cF "event.target.closest('button, a, input, select, textarea')" /opt/stateless/nginx/www/admin/world_configs.php)
   # Unsaved edits are carried to the HEADER, which is the only marker a collapsed card shows.
   v56ak=$(grep -c "function markCardEdited" /opt/stateless/nginx/www/admin/world_configs.php)
-  v56al=$(grep -c "markCardEdited(" /opt/stateless/nginx/www/admin/world_configs.php)
+  # 2.60 retired the separate flag handler; it must not return alongside the unified path.
+  v56al=$(grep -c "markCardEdited(input)" /opt/stateless/nginx/www/admin/world_configs.php)
 
   # ---- the review GATES Mods / Start / Settings ----
   # ONE delegated capture-phase listener, not an onclick per control: those three are rendered
@@ -3235,7 +3243,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # v55ed -- the repackage hand-off: one definition, two call sites (want 3). Both apply paths
   #          are the same button to the operator and must end on the dashboard.
   v55dy=$(grep -c '^def record_applied' /opt/stateless/engine/tools/modConfigs.py)
-  zrecLine=$(grep -n '^    record_applied(world, overrides)' /opt/stateless/engine/tools/modConfigs.py | head -1 | cut -d: -f1)
+  zrecLine=$(grep -n '^    record_applied(world, overrides, server_enabled)' /opt/stateless/engine/tools/modConfigs.py | head -1 | cut -d: -f1)
   zretLine=$(awk '/^    if not overrides:/{print NR; exit}' /opt/stateless/engine/tools/modConfigs.py)
   v55dz=0
   if [ -n "$zrecLine" ] && [ -n "$zretLine" ]; then
@@ -3985,7 +3993,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 MODS HUB GATES: catalogue stopped-only=$v56d (want 1)  configs live=$v56e (want 1)"
   echo "2.56 ROW LAYOUT: status 10%=$v56g (want 1)  pill clamped=$v56h (want 2)  stale 7% copies=$v56i (want 0)"
   echo "2.56 CONFIG COVERAGE: summary keys=$v56m (want 2)  getWorldMode calls=$v56n (want 0)  mode reader=$v56r (want 1)  renderer=$v56o (want 1)  unmatched php=$v56p (want 1) js=$v56q (want 3)"
-  echo "2.56 CFG ACCORDION: php gate=$v56ag (want 1)  toggle fn=$v56ah (want 1)  body wrapper=$v56ai (want 3)  buttons exempt=$v56aj (want 1)  edited fn=$v56ak (want 1)  edited calls=$v56al (want 4)"
+  echo "2.56 CFG ACCORDION: php gate=$v56ag (want 1)  toggle fn=$v56ah (want 1)  body wrapper=$v56ai (want 3)  buttons exempt=$v56aj (want 1)  edited fn=$v56ak (want 1)  retired flag handler=$v56al (want 0)"
   echo "2.56 MIGRATION GATE: delegated listener=$v56ac (want 1)  capture phase=$v56ad (want 1)  per-world map=$v56ae (want 1)  re-click=$v56af (want 1)"
   echo "2.56 MIGRATION FOOTER: delete btn=$v56am (want 1)  continue label=$v56an (want 1)  in-body btn gone=$v56ao (want 0)  continue slot=$v56ap (want 3)  reveal writes=$v56aq (want 2)"
   echo "2.56 MIGRATION ORPHANS: classifier=$v56ar (want 1)  owners fn=$v56as (want 1)  --dir py=$v56at (want 1) php=$v56au (want 1)  fail-closed=$v56av (want 1)  js safe=$v56aw (want 1)  banner=$v56ax (want 1)  reason=$v56ba (want 1)  intro scoped=$v56bb (want 1)  'every setting' claim gone=$v56bc (want 0)"
@@ -4291,7 +4299,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v56aa" = "1" ] && [ "$v56ab" = "1" ] \
     && [ "$v56ac" = "1" ] && [ "$v56ad" = "1" ] && [ "$v56ae" = "1" ] && [ "$v56af" = "1" ] \
     && [ "$v56ag" = "1" ] && [ "$v56ah" = "1" ] && [ "$v56ai" = "3" ] \
-    && [ "$v56aj" = "1" ] && [ "$v56ak" = "1" ] && [ "$v56al" = "4" ] \
+    && [ "$v56aj" = "1" ] && [ "$v56ak" = "1" ] && [ "$v56al" = "0" ] \
     && [ "$v56am" = "1" ] && [ "$v56an" = "1" ] && [ "$v56ao" = "0" ] \
     && [ "$v56ap" = "3" ] && [ "$v56aq" = "2" ] \
     && [ "$v56ar" = "1" ] && [ "$v56as" = "1" ] && [ "$v56at" = "1" ] && [ "$v56au" = "1" ] \
@@ -4384,6 +4392,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
     && [ "$v59bz" = "4" ] && [ "$v59ca" = "0" ] \
+    && [ "$v60a" = "1" ] && [ "$v60b" = "1" ] && [ "$v60c" = "1" ] && [ "$v60d" = "1" ] && [ "$v60e" = "1" ] && [ "$v60f" = "2" ] && [ "$v60g" = "1" ] && [ "$v60h" = "3" ] \
     && [ "$v59ch" = "1" ] && [ "$v59ci" = "1" ] \
     && [ "$v59ce" = "2" ] && [ "$v59cf" = "1" ] && [ "$v59cg" = "0" ] && [ "$v59cb" = "2" ] && [ "$v59cc" = "2" ] && [ "$v59cd" = "0" ] \
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \

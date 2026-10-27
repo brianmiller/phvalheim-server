@@ -1146,6 +1146,16 @@ switch($action) {
         }
         break;
 
+    case 'importClientConfigShape':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['ok'=>false,'error'=>'POST method required']);
+            break;
+        }
+        $body = json_decode(file_get_contents('php://input'), true) ?: [];
+        echo json_encode(modConfigImportClientShape($pdo, $body['world'] ?? '', (int)($body['mod_id'] ?? 0),
+            $body['file'] ?? '', $body['text'] ?? ''));
+        break;
+
     case 'diffPastedModConfig':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             echo json_encode(['ok' => false, 'error' => 'POST method required']);

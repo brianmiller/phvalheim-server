@@ -19,12 +19,31 @@ Save your selection and **Update** the world to build its payload. The UI shows 
 
 ## Change configurations
 
-Use the world's configuration controls for editable mod settings. Shared configuration goes into the client payload; server-only configuration stays on the server. Apply the changes and follow any update or restart notice in the UI.
+Config delivery is separate from **Installed on**. For each selected mod, **Config Server**
+starts on and **Config Client** starts off. Save the mod selection to update the world.
+The bulk controls apply to all selected mods, including other pages and search results.
 
-| Folder | Purpose |
-| --- | --- |
-| `custom_configs/` | Shared files included in the client payload on world update |
-| `custom_configs_secure/` | Server-only files preserved through updates |
+Run a mod once before editing its settings. Mods installed on the server generate their
+config there. For a client-only mod, run the game once and import its `.cfg` through that
+mod's config editor. Importing makes settings editable without publishing the player's values.
+
+Untouched settings start **Overridable**. Editing a value clears that flag, and saving a
+shared setting enables **Config Client** for its mod. Recheck Overridable after editing to
+offer a suggested default instead. With Overridable enabled, this supplies a value
+only when the player does not already have one. Players can use their preferred config tool;
+their choices survive both mod updates and config-only updates. Clear Overridable to reapply
+the operator's value before every launch. **Server only** excludes that setting from the
+client policy regardless of the mod's delivery switches.
+
+Use **Save & apply to players** to send client settings at the next launch. Server changes
+require a restart. A mod's own runtime synchronization can still control settings in game.
+These per-setting controls apply to BepInEx `.cfg` files.
+
+**Client 2.0.17 or newer is required.** Upgrade players before updating a world with 2.60.
+Older launchers are blocked before they can overwrite personal configs; some show this as
+“world not found”. Existing worlds also start with Client delivery off after upgrading;
+previously saved operator settings remain available. Saving a shared setting enables delivery
+for its mod; Server-only edits and resets leave the Client switch unchanged.
 
 ## Catalogue sync
 

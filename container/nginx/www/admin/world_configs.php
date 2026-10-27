@@ -164,19 +164,38 @@ $payload = modConfigEditorPayload($pdo, $world);
 				was already saved, which made it a button named for an intent it did not carry
 				out.
 			-->
-			<p style="opacity:.8;font-size:.9rem;">
-				Changes are stored per setting and re-applied every time this world starts or
-				updates, so they survive a mod update instead of being wiped by it.
-			</p>
-			<p style="opacity:.8;font-size:.9rem;">
-				<b>Server-side mods:</b> restart the world.
-				<b>Mods that run on players&rsquo; clients</b> (anything they see or interact
-				with &mdash; HUDs, clocks, inventory tweaks): use
-				<b>Save &amp; apply to players</b>, which saves your edits and rebuilds the
-				client payload without stopping the world or disconnecting anyone. Players
-				receive it the next time they launch through PhValheim. <b>Save changes</b> on
-				its own stores the settings but does not reach them.
-			</p>
+            <div class="alert alert-info py-2">
+                <b>Edited values apply to players by default.</b> Requires Client 2.0.17 or newer.
+            </div>
+            <details class="mb-3"><summary>How config delivery works</summary>
+                <p>Choose Config Server and Client separately from installation in the mod picker.
+                Editing a value clears Overridable; saving a shared setting enables Config Client for its mod.
+                Recheck Overridable after editing to offer a default that preserves existing player values.
+                Server only keeps a value out of player downloads. A mod’s own runtime sync may also control its settings.</p>
+                <p>Run a mod once to discover its settings. Server-installed mods generate configs here.
+                For a client-only mod, import its generated .cfg below. Saved settings survive mod updates.</p>
+            </details>
+            <?php if ($modFilter): ?>
+            <details class="mb-3"><summary>Import a config generated on a player machine</summary>
+                <p>Run this mod once, then choose its .cfg from that player's BepInEx/config folder.
+                This makes the settings available to edit here. It does not publish the player's values.
+                Save the settings you want to supply; shared settings enable Config Client automatically.</p>
+                <input type="file" id="clientConfigFile" accept=".cfg" aria-label="Client mod config file">
+                <button type="button" class="btn btn-sm btn-outline-info" onclick="importClientShape(this)">Import settings</button>
+                <span id="clientConfigImportStatus" role="status"></span>
+            </details>
+            <?php endif; ?>
+            <details class="mb-3"><summary>Set flags for every setting on this page</summary>
+                <p class="small">Includes collapsed cards. Save changes to keep these selections.</p>
+                <span title="Keep these values on the dedicated server; never include them in the player policy.">Server only:</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bulkConfigFlag('serveronly',true)">Select all</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bulkConfigFlag('serveronly',false)">Deselect all</button>
+                <span title="Allow players to retain their own values. Unchecked values are reapplied at launch.">Overridable:</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bulkConfigFlag('overridable',true)">Select all</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="bulkConfigFlag('overridable',false)">Deselect all</button>
+            </details>
+            <p class="small text-secondary">Server changes take effect after a restart.
+                Use <b>Save &amp; apply to players</b> to send enabled client settings at the next launch.</p>
 
 			<!--
 				Shown for every world that reaches this page -- the vanilla check at the top
@@ -200,9 +219,8 @@ $payload = modConfigEditorPayload($pdo, $world);
 				$wcMode = getWorldMode($pdo, $world);
 				?>
 				<span id="apply-players-note" style="opacity:.75;font-size:.84rem;">
-					Rebuilds the client payload for <b><?php echo htmlspecialchars($world); ?></b>
-					with the settings on this page. <b>Mod settings only</b> &mdash; adding or
-					removing mods is still done from Edit Mods, with the world stopped.
+                    Applies enabled client settings for <b><?php echo htmlspecialchars($world); ?></b>.
+
 					<?php if ($wcMode === 'running'): ?>
 						This world stays up and nobody is disconnected.
 					<?php elseif ($wcMode === 'stopped'): ?>
@@ -228,9 +246,8 @@ $payload = modConfigEditorPayload($pdo, $world);
 			-->
 			<div class="alert alert-info">
 				<b>No mod configs have been generated yet.</b><br>
-				Mods write their config files the first time the world loads them. Start
-				<b><?php echo htmlspecialchars($world); ?></b> once, then come back here and
-				every setting its mods expose will be listed with its documented default.
+				Run the mod once to generate its config. Start this world for mods installed on the server.
+                For client-only mods, run the game on a player machine and import the generated .cfg from that mod’s config page.
 			</div>
 
 <?php else: ?>
@@ -479,6 +496,11 @@ $payload = modConfigEditorPayload($pdo, $world);
 				      // types, so a value edited and then collapsed still saves. Removing the
 				      // body from the DOM instead would silently drop those edits. ?>
 				<div class="cfg-file-body">
+                <p class="small px-3 pt-2">
+                    Config delivery: Server <?php echo !empty($f['push_server']) ? 'on' : 'off'; ?>;
+                    Client <?php echo !empty($f['push_client']) ? 'on' : 'off'; ?>.
+                    <?php if (empty($f['push_client'])): ?>Player settings are local. Saving a shared setting enables Config Client for this mod.<?php endif; ?>
+                </p>
 				<?php
 				$lastSection = null;
 				foreach ($f['entries'] as $e):
@@ -587,9 +609,16 @@ $payload = modConfigEditorPayload($pdo, $world);
 									       data-file="<?php echo htmlspecialchars($f['file']); ?>"
 									       data-section="<?php echo htmlspecialchars($e['section']); ?>"
 									       data-key="<?php echo htmlspecialchars($e['key']); ?>"
-									       <?php echo $e['server_only'] ? 'checked' : ''; ?>>
+									       data-original="<?php echo (int)$e['server_only']; ?>" <?php echo $e['server_only'] ? 'checked' : ''; ?>>
 									server only
 								</label>
+                                <label style="font-size:.76rem;display:flex;align-items:center;gap:4px;" title="Allow players to keep their own value using any config editor. Checked: fills missing settings only. Unchecked: PhValheim reapplies this value before every launch. Editing a value clears this flag; recheck it to suggest a default. Server only excludes the setting from clients.">
+                                    <input type="checkbox" class="cfg-overridable"
+                                        data-file="<?php echo htmlspecialchars($f['file']); ?>"
+                                        data-section="<?php echo htmlspecialchars($e['section']); ?>"
+                                        data-key="<?php echo htmlspecialchars($e['key']); ?>"
+                                        data-original="<?php echo (int)$e['overridable']; ?>" <?php echo $e['overridable'] ? 'checked' : ''; ?>> Overridable
+                                </label>
 								<?php if ($e['overridden']): ?>
 									<button class="btn btn-sm btn-outline-danger" style="padding:0 6px;"
 									        title="Delete this override so the mod's own default applies again, including any future change to that default."
@@ -703,7 +732,10 @@ $payload = modConfigEditorPayload($pdo, $world);
 			// Editing a field back to the value it already had is not a change. Without this
 			// the Save button stays lit after an operator types a value and undoes it, which
 			// then teaches them to ignore it.
-			if (!item.reset && String(item.value) === String(el.dataset.original)) {
+			var srv=flagFor('serveronly',item.file,item.section,item.key), over=flagFor('overridable',item.file,item.section,item.key);
+            if (!item.reset && String(item.value) === String(el.dataset.original)
+                && (!srv || item.server_only === Number(srv.dataset.original))
+                && (!over || item.overridable === Number(over.dataset.original))) {
 				delete dirty[k];
 				el.classList.remove('cfg-dirty');
 			} else {
@@ -727,50 +759,55 @@ $payload = modConfigEditorPayload($pdo, $world);
 			card.classList.toggle('cfg-card-edited', has);
 		}
 
-		document.addEventListener('input', function (ev) {
-			var el = ev.target;
-			if (!el.classList || !el.classList.contains('cfg-input')) { return; }
-			markDirty(el, {
-				file: el.dataset.file, section: el.dataset.section, key: el.dataset.key,
-				value: el.value, mod_id: el.dataset.modid || null,
-				server_only: serverOnlyFor(el.dataset.file, el.dataset.section, el.dataset.key)
-			});
-		});
-		document.addEventListener('change', function (ev) {
-			var el = ev.target;
-			if (el.classList && el.classList.contains('cfg-input')) {
-				markDirty(el, {
-					file: el.dataset.file, section: el.dataset.section, key: el.dataset.key,
-					value: el.value, mod_id: el.dataset.modid || null,
-					server_only: serverOnlyFor(el.dataset.file, el.dataset.section, el.dataset.key)
-				});
-			}
-			if (el.classList && el.classList.contains('cfg-serveronly')) {
-				// Flipping server-only is itself a change to the stored row, so it has to join
-				// the dirty set with the setting's CURRENT value -- not be applied on its own.
-				// Sending it alone would store the row with an empty value.
-				var input = document.querySelector('.cfg-input[data-file="' + cssEsc(el.dataset.file) +
-					'"][data-section="' + cssEsc(el.dataset.section) + '"][data-key="' + cssEsc(el.dataset.key) + '"]');
-				if (input) {
-					dirty[keyOf(el.dataset.file, el.dataset.section, el.dataset.key)] = {
-						file: el.dataset.file, section: el.dataset.section, key: el.dataset.key,
-						value: input.value, mod_id: input.dataset.modid || null,
-						server_only: el.checked ? 1 : 0
-					};
-					input.classList.add('cfg-dirty');
-					markCardEdited(input);
-					refreshBar();
-				}
-			}
-		});
-
-		function cssEsc(s) { return String(s).replace(/["\\]/g, '\\$&'); }
-
-		function serverOnlyFor(f, s, k) {
-			var cb = document.querySelector('.cfg-serveronly[data-file="' + cssEsc(f) +
-				'"][data-section="' + cssEsc(s) + '"][data-key="' + cssEsc(k) + '"]');
-			return cb && cb.checked ? 1 : 0;
-		}
+        function cssEsc(s) { return CSS.escape(String(s)); }
+        function flagFor(kind, f, s, k) {
+            return document.querySelector('.cfg-' + kind + '[data-file="' + cssEsc(f) +
+                '"][data-section="' + cssEsc(s) + '"][data-key="' + cssEsc(k) + '"]');
+        }
+        function serverOnlyFor(f,s,k) { var el=flagFor('serveronly',f,s,k); return el && el.checked ? 1 : 0; }
+        function changedSetting(el) {
+            var f=el.dataset.file, s=el.dataset.section, k=el.dataset.key;
+            var input = document.querySelector('.cfg-input[data-file="' + cssEsc(f) + '"][data-section="' + cssEsc(s) + '"][data-key="' + cssEsc(k) + '"]');
+            if (!input || input.disabled) return;
+            var srv=flagFor('serveronly',f,s,k), over=flagFor('overridable',f,s,k);
+            if (el === input && over && input.value !== (input.dataset.policyLastValue ?? input.dataset.original)) {
+                if (input.value === input.dataset.original) {
+                    if (over.dataset.autoBefore !== undefined) over.checked = over.dataset.autoBefore === '1';
+                    delete over.dataset.autoBefore;
+                } else {
+                    if (over.dataset.autoBefore === undefined) over.dataset.autoBefore = over.checked ? '1' : '0';
+                    over.checked = false;
+                }
+                input.dataset.policyLastValue = input.value;
+            } else if (el === over) {
+                // A deliberate flag choice survives blur/change events from the value input.
+                delete over.dataset.autoBefore;
+            }
+            markDirty(input, {file:f,section:s,key:k,value:input.value,mod_id:input.dataset.modid || null,
+                server_only:srv && srv.checked ? 1:0, overridable:over && !over.checked ? 0:1});
+        }
+        ['input','change'].forEach(function (type) {
+            document.addEventListener(type,function(ev) {
+                if (ev.target.matches('.cfg-input,.cfg-serveronly,.cfg-overridable')) changedSetting(ev.target);
+            });
+        });
+        async function importClientShape(button) {
+            if (!cfgMatchGuardUnsaved()) return;
+            var file=document.getElementById('clientConfigFile').files[0];
+            var status=document.getElementById('clientConfigImportStatus');
+            if (!file || file.size>1048576) { status.textContent='Choose a .cfg file up to 1 MB.'; return; }
+            button.disabled=true;
+            try {
+                var r=await post('importClientConfigShape',{world:WORLD,mod_id:<?php echo json_encode($modFilter); ?>,file:file.name,text:await file.text()});
+                if (!r.ok) throw new Error(r.error || 'Import failed');
+                location.reload();
+            } catch(e) { status.textContent=e.message; button.disabled=false; }
+        }
+        function bulkConfigFlag(kind, on) {
+            document.querySelectorAll('.cfg-' + kind + ':not(:disabled)').forEach(function(el) {
+                el.checked=on; changedSetting(el);
+            });
+        }
 
 		function resetOne(btn) {
 			dirty[keyOf(btn.dataset.file, btn.dataset.section, btn.dataset.key)] = {
@@ -867,27 +904,27 @@ $payload = modConfigEditorPayload($pdo, $world);
 				return '<span class="badge bg-secondary" title="Server-side only. Players never '
 				     + 'need to receive this.">server</span>';
 			}
-			return '<span class="badge bg-info text-dark" title="PhValheim could not match this '
-			     + 'config file to one of this world&rsquo;s mods, so it cannot tell whether '
-			     + 'anything on the player&rsquo;s side reads it. It is included in the push '
-			     + 'because that is the safe choice.">unknown</span>';
+            return '<span class="badge bg-secondary" title="Saved. Enable config delivery for the matched mod to apply this setting.">stored</span>';
 		}
 
 		function renderSaveSummary(r) {
 			var t = r.tally || { players: 0, server: 0, unknown: 0 };
 			var changes = r.changes || [];
-			var pushCount = t.players + t.unknown;
+			var pushCount = t.players;
 
 			document.getElementById('ssTitle').textContent =
 				changes.length === 1 ? 'Saved 1 change' : 'Saved ' + changes.length + ' changes';
 
 			// ---- the verdict: does anything still have to happen? ----
 			var v = '';
+            if (r.clientConfigEnabled && r.clientConfigEnabled.length) {
+                v += '<p><b>Config Client enabled:</b> ' + r.clientConfigEnabled.map(esc).join(', ') +
+                    '. Saving a shared setting enables delivery for its mod. Installation and the Server switch are unchanged.</p>';
+            }
 			if (r.needsPush) {
 				v += '<div class="alert alert-warning" style="margin-bottom:10px;">'
 				  +  '<b>Players do not have these changes yet.</b><br>'
-				  +  pushCount + ' of these ' + (pushCount === 1 ? 'affects a mod' : 'affect mods')
-				  +  ' that players run. Saving stored the change; players receive it only once the '
+				  +  'Client configuration rules changed. Saving stored the change; players receive it only once the '
 				  +  'client payload is rebuilt. Press <b>Apply to players now</b> &mdash; '
 				  // Same correction as the static note above the button: do not promise "keeps
 				  // running" to a world that is stopped. r.worldMode is already in this payload.
@@ -916,14 +953,11 @@ $payload = modConfigEditorPayload($pdo, $world);
 				  +  '</div>';
 			}
 
-			if (t.unknown > 0) {
-				v += '<div style="font-size:.88rem;opacity:.9;">'
-				  +  '<b>' + t.unknown + ' ' + (t.unknown === 1 ? 'setting is' : 'settings are')
-				  +  ' in a config file PhValheim could not match to one of this world&rsquo;s '
-				  +  'mods</b>, so it cannot say whether anything on the player&rsquo;s side reads '
-				  +  'them. They are included in the push, because an unnecessary push costs one '
-				  +  'small download while a missing one loses your change silently.</div>';
-			}
+            if (t.unknown > 0 || t.stored > 0) {
+                v += '<p>Some settings are stored without delivery. Match unmatched configs to their mod, then enable the appropriate Config switch in the mod picker.</p>';
+            }
+            if (r.needsPush) v += '<p>Overridable values fill missing settings only. Players keep existing personal values. Clear Overridable to apply your value on every launch.</p>';
+
 			document.getElementById('ssVerdict').innerHTML = v;
 
 			// ---- what actually changed ----
@@ -1299,7 +1333,10 @@ $payload = modConfigEditorPayload($pdo, $world);
 
 		function applyPasted(changes) {
 			var items = changes.map(function (c) {
-				return { file: pasteFile, section: c.section, key: c.key, value: c.value };
+                var input=document.querySelector('.cfg-input[data-file="'+cssEsc(pasteFile)+'"][data-section="'+cssEsc(c.section)+'"][data-key="'+cssEsc(c.key)+'"]');
+				return { file: pasteFile, section: c.section, key: c.key, value: c.value,
+                    mod_id: input ? input.dataset.modid || null : null,
+                    server_only: serverOnlyFor(pasteFile,c.section,c.key), overridable: 0 };
 			});
 			post('saveModConfigs', { world: WORLD, items: items }).then(function (r) {
 				if (!r.ok) { alert(r.error || 'Save failed.'); return; }

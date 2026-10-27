@@ -80,6 +80,12 @@ echo "  (client-deployed mod id: " . var_export($clientMod, true)
 $pdo->beginTransaction();
 
 try {
+    // Explicitly opt these legacy both-side fixtures into the 2.60 delivery model.
+    foreach (array_filter([$clientMod, $serverOnlyMod]) as $mid) {
+        $mid = (int)$mid;
+        $pdo->exec("INSERT INTO world_mod_config_policy (world_id,mod_id,push_server,push_client) VALUES ($worldId,$mid,1,1) ON DUPLICATE KEY UPDATE push_server=1,push_client=1");
+        $pdo->exec("UPDATE world_mods SET deploy_server=1 WHERE world_id=$worldId AND mod_id=$mid");
+    }
     $F_FILE = 'zz.SaveSummaryProbe.cfg';   // never a real mod; rolled back regardless
 
     /* ---- T1: the return carries the new reporting fields at all --------------------- */
@@ -184,7 +190,14 @@ try {
     $pushBatch = modConfigSaveOverrides($pdo, $world, [
         ['file' => $F_FILE, 'section' => 'S', 'key' => 'NeedsPush', 'value' => 'c'],
     ]);
-    is_('CONTROL: an unattributed change does need a push', true, $pushBatch['needsPush']);
+    is_('an unattributed change is withheld from players', false, $pushBatch['needsPush']);
+    if ($clientMod) {
+        $pdo->exec("UPDATE world_mods SET deploy_client=1 WHERE world_id=$worldId AND mod_id=".(int)$clientMod);
+        $pushBatch = modConfigSaveOverrides($pdo, $world, [
+            ['file'=>$F_FILE,'section'=>'S','key'=>'KnownPush','value'=>'c','mod_id'=>$clientMod],
+        ]);
+        is_('CONTROL: explicitly enabled client settings do need a push', true, $pushBatch['needsPush']);
+    }
 
     /* ---- T5: a reset that removes nothing is not a change -------------------------- */
     echo "\nT5  a no-op reset is not reported as a change\n";

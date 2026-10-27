@@ -550,7 +550,7 @@ def applied_configs_path(world):
     return os.path.join(WORLDS_ROOT, world, ".applied-configs")
 
 
-def record_applied(world, overrides):
+def record_applied(world, overrides, server_enabled=None):
     """Record WHICH override values this pass just put on disk, for the restart-pending check.
 
     The world's plugins read their config at load, so a setting saved after the world started
@@ -578,7 +578,8 @@ def record_applied(world, overrides):
     for ovs in overrides.values():
         for o in ovs:
             key = f"{o['cfg_file']}\x1f{o['section']}\x1f{o['ckey']}"
-            payload[key] = {"value": o["cvalue"], "server_only": int(o["server_only"])}
+            payload[key] = {"value": o["cvalue"], "server_only": int(o["server_only"]),
+                            "server_enabled": (server_enabled or {}).get(o["cfg_file"], True)}
 
     tmp = path + ".tmp"
     try:
@@ -600,12 +601,12 @@ def record_applied(world, overrides):
 
 def load_overrides(wid):
     out = {}
-    for cfg_file, section, ckey, cvalue, server_only, locked, origin in rows(
-            "SELECT cfg_file, section, ckey, cvalue, server_only, locked, origin "
+    for cfg_file, section, ckey, cvalue, server_only, overridable, locked, origin in rows(
+            "SELECT cfg_file, section, ckey, HEX(cvalue), server_only, overridable, locked, origin "
             f"FROM mod_config_overrides WHERE world_id = {wid};"):
         out.setdefault(cfg_file, []).append({
-            "cfg_file": cfg_file, "section": section, "ckey": ckey, "cvalue": cvalue,
-            "server_only": int(server_only), "locked": int(locked), "origin": origin,
+            "cfg_file": cfg_file, "section": section, "ckey": ckey, "cvalue": bytes.fromhex(cvalue).decode("utf-8"),
+            "server_only": int(server_only), "overridable": int(overridable), "locked": int(locked), "origin": origin,
         })
     return out
 
@@ -924,7 +925,11 @@ def materialise(world):
     # ABOVE the no-overrides return, deliberately. See record_applied(): an empty snapshot is a
     # real answer ("this world started with no overrides"), and not writing one leaves the
     # previous run's file to claim settings are pending that no longer exist.
-    record_applied(world, overrides)
+    from clientConfigPolicy import delivery
+    config_delivery = delivery(wid, rows)
+    server_enabled = {name: config_delivery.get(attribute(name, {}, catalogue, guids), (True, False))[0]
+                      for name in overrides}
+    record_applied(world, overrides, server_enabled)
 
     if not overrides:
         print(f"[modConfigs] {world}: no overrides to apply")
@@ -941,6 +946,11 @@ def materialise(world):
             continue
         for cfg_file, ovs in overrides.items():
             if cfg_file in EXCLUDED_FILES:
+                continue
+            parsed = parse_cfg(read_text(os.path.join(directory, cfg_file))) if os.path.isfile(os.path.join(directory, cfg_file)) else {}
+            mid = attribute(cfg_file, parsed, catalogue, guids)
+            push = config_delivery.get(mid, (True, False))
+            if not push[0 if tree == "server" else 1]:
                 continue
             if tree == "client":
                 ovs = [o for o in ovs if not o["server_only"]]

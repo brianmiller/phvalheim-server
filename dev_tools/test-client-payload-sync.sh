@@ -491,11 +491,13 @@ else
 	else
 		bad "the client records a payload as good without verifying what it downloaded"
 	fi
-	if grep -q "ZipFile.ExtractToDirectory(localConfigFile" "$SYNCER" && \
-	   grep -q "Directory.Delete(configDir, true)" "$SYNCER"; then
-		ok "the config directory is replaced wholesale, not merged"
+	# 2.60 replaces destructive extraction with a staged, per-key policy merge. The
+	# client executable oracle tests preservation, enforced-rule release, and rollback.
+	if grep -qF 'ConfigPolicy.InstallArchive(localConfigFile, localWorldDir, full: false)' "$SYNCER" && \
+	   ! grep -q 'Directory.Delete(configDir, true)' "$SYNCER"; then
+		ok "config-only sync uses the staged policy installer without deleting personal files"
 	else
-		bad "the config directory is not deleted before extracting -- a reset key would survive"
+		bad "config-only sync bypasses the policy installer or deletes personal files"
 	fi
 	if grep -q "mode=getMD5" "$SYNCER"; then
 		ok "falls back to getMD5 against a server with no getSyncState"

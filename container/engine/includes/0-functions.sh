@@ -622,6 +622,7 @@ function deleteWorldModRows() {
         #Joined rather than done as two statements: a separate "SELECT id" then
         #"DELETE WHERE world_id=$id" deletes EVERY row if the select came back empty and
         #the variable expanded to nothing.
+        SQL "DELETE cp FROM world_mod_config_policy cp JOIN worlds w ON w.id=cp.world_id WHERE w.name='$worldName';"
         SQL "DELETE wm FROM world_mods wm JOIN worlds w ON w.id = wm.world_id WHERE w.name='$worldName';"
 
         phvlog NOTICE "Cleared mod selection rows for world '$worldName'."
@@ -1506,8 +1507,9 @@ function packageClient() {
         local stage; stage="$(clientStagingRoot "$worldName")"
         local zipPath="/opt/stateful/games/valheim/worlds/$worldName/$worldName.zip"
 
-        #delete current world payload zip
-        rm -f "$zipPath" > /dev/null 2>&1
+        # Build alongside the last good archive; a policy/build failure must retain it.
+        local fullTmp="$zipPath.build.zip"
+        rm -f "$fullTmp"
 
         #Refused rather than attempted. zip with nothing to add leaves NO archive at all, so
         #the failure would surface downstream as an empty md5 -- which the engine's own
@@ -1527,6 +1529,13 @@ function packageClient() {
                 mkdir -p "$stage/BepInEx/config"
                 cp -pf "$gameDir/BepInEx/config/BepInEx.cfg" "$stage/BepInEx/config/BepInEx.cfg" > /dev/null 2>&1
         fi
+
+        # 2.60: package defaults and enforcement rules together with the config checksum.
+        # Never publish an unfiltered staging tree if policy generation fails.
+        python3 /opt/stateless/engine/tools/clientConfigPolicy.py "$worldName" || {
+                phvlog ERROR "Could not build client config policy for '$worldName'."
+                return 1
+        }
 
         # inject universal macOS doorstop dylib for macOS client support
         #
@@ -1570,7 +1579,7 @@ function packageClient() {
                 return 1
         fi
 
-        ( cd "$stage" && zip "$zipPath" -r \
+        ( cd "$stage" && zip "$fullTmp" -r \
         ./BepInEx \
         ./doorstop_libs \
         ./doorstop_config.ini \
@@ -1581,6 +1590,13 @@ function packageClient() {
         #`$?` -- so it reported the rm's exit code, which is 0 essentially always, and a
         #genuinely failed zip returned success.
         local zipStatus=$?
+        if [ "$zipStatus" -ne 0 ] || [ ! -s "$fullTmp" ]; then
+                rm -f "$fullTmp"
+                return 1
+        fi
+        mv -f "$fullTmp" "$zipPath" || return 1
+        SQL "UPDATE worlds SET config_policy_version=1 WHERE name='$worldName';"
+        SQL "UPDATE settings SET clientUpdateNoticeState=1, configPolicyNoticeState=1 WHERE configPolicyNoticeState=0;"
 
         #The config-only archive, from the SAME staging tree in the SAME pass. That is the
         #whole invariant: both checksums must describe one generation of the tree, or a client

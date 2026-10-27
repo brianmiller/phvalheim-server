@@ -1585,46 +1585,12 @@ $totalCount = count($worlds);
                 </h3>
             </div>
             <div class="mods-modal-body">
-                <!-- Deliberately does NOT say "you have updated a world". Automatic updates run
-                     this same path unattended, so on a server with autoupdate_mode set the
-                     operator meets this dialog having done nothing at all -- which is exactly how
-                     Brian first saw it, after the engine auto-updated a world minutes after the
-                     container came up. A dialog that asserts the reader did something they did
-                     not reads as a bug and buries the part that matters. -->
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
-                    A world has been updated to the new join path &mdash; by you, or on its own if
-                    that world has automatic updates switched on. <strong>Everyone who plays on it
-                    needs the current PhValheim client.</strong> An older client cannot hand the
-                    world&rsquo;s details to the Companion, so it never learns the world&rsquo;s
-                    password &mdash; and QuickConnect, which used to put the world in their in-game
-                    server list, is gone.
-                </p>
-
-                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">
-                    Which world it was is in the server log &mdash; look for
-                    <em>&ldquo;has been updated to the new join path&rdquo;</em>.
-                </p>
-
-                <div style="background: var(--bg-tertiary); border-left: 3px solid var(--warning); padding: 0.75rem 1rem; margin-bottom: 1rem;">
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 0.5rem;">
-                        <strong style="color: var(--text-primary);">On an old client, Launch no longer takes them all the way in.</strong>
-                        It still installs the mods and starts Valheim, but the world will not be in
-                        their server list and they will have to join it by hand.
-                    </p>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
-                        <strong>Nobody is locked out.</strong> A player on an old client can still
-                        get in using the world&rsquo;s address and its password, both of which are on
-                        the world&rsquo;s card on the public page.
-                    </p>
-                </div>
-
-                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
-                    They download the new client from the same place as always &mdash; the
-                    <strong>Download PhValheim Client</strong> button on the public page. After
-                    updating it, they should also download this world&rsquo;s client payload again
-                    so they get the matching mods.
-                </p>
-
+                <p>Worlds rebuilt manually or through automatic updates now require <strong>PhValheim Client 2.0.17 or newer</strong>
+                   to preserve personal mod settings and apply the operator's config rules.</p>
+                <p>Upgrade the client before launching an updated world. Older clients are stopped
+                   before they can replace personal configs; some display this as “world not found”.</p>
+                <p>Install the matching client build, then launch normally. The client downloads the
+                   world's changes and keeps settings marked <strong>Overridable</strong>.</p>
                 <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem;">
                     This is shown once, for the first world you update. Every world you update from
                     here on behaves the same way, so it will not be repeated.

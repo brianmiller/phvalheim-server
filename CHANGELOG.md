@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.60 (development)
+
+Per-mod config delivery is independent of installation: Server defaults on and Client off,
+including upgraded worlds. Existing operator settings remain saved. Untouched settings default
+to Overridable; player values survive full mod and config-only updates with Client 2.0.17.
+Editing a value clears Overridable and saving a shared setting enables Config Client.
+Operators can recheck Overridable to supply a suggested default. Server-only edits and resets
+do not enable Client. Clearing Overridable reapplies that value before each launch. Server-only entries never enter
+the client policy. Bulk controls, tooltips, and client-generated config import support the
+operator workflow. Imports discover editable settings without publishing personal values.
+
+Client 2.0.17 is required for worlds rebuilt with the new policy; older launchers are blocked
+before their destructive extraction. Some older clients report the rejection as world not
+found. Install the matching client before testing. New client installs are staged and
+roll back on failure. Config-only downloads carry the same policy as the full mod archive.
+
+
 ## v2.59
 
 ### Database Browser saves (#92)

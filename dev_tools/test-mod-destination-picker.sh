@@ -74,9 +74,9 @@ function lift(name) {
 
 let checkedSet = {}, destSet = {}, pinSet = {}, neededDeps = {};
 const body = lift('destinationCell') + '\n' + lift('getSelectedMods');
-const run = new Function('checkedSet', 'destSet', 'pinSet', 'neededDeps',
+const run = new Function('checkedSet', 'destSet', 'pinSet', 'neededDeps', 'deliveryPicker',
     body + '\nreturn { destinationCell, getSelectedMods };');
-const api = run(checkedSet, destSet, pinSet, neededDeps);
+const api = run(checkedSet, destSet, pinSet, neededDeps, {flags: () => ({config_server:true,config_client:false})});
 
 const results = [];
 const chk = (cond, msg, why) => results.push([!!cond, msg, why || '']);

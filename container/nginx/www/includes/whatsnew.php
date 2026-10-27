@@ -11,6 +11,14 @@
  */
 function whatsNewNotes() {
     return [
+        '2.60' => [
+            'New: <b>Choose where mod configs go.</b> Each selected mod has Config Server and Client switches, separate from where the mod is installed. Server starts on; Client starts off, including existing worlds after this upgrade. Saved settings are kept. Enable Client deliberately to share them.',
+            'New: <b>Players can keep personal settings.</b> Untouched settings start <b>Overridable</b>. Editing a value clears that flag, and saving a shared setting enables <b>Config Client</b> for its mod. Recheck Overridable after editing to supply a suggested default that preserves existing player values. Clear Overridable to reapply your value before every launch. Server only always keeps that value out of player downloads.',
+            '<b>Requires PhValheim Client 2.0.17 or newer.</b> Upgrade players before updating a modded world. Older clients are blocked from syncing worlds using the new policy; some older versions report this as a world-not-found error.',
+            '<b>Discover settings first.</b> Run the mod once so it generates its config. For a client-only mod, import its generated .cfg in the config editor, then edit and apply the settings you want to share. Importing does not publish the player’s values.',
+            'New: <b>Bulk config controls and tooltips.</b> Select or deselect delivery for all selected mods across pages, and set Server only or Overridable for every setting in the current editor. Save to apply the selections.',
+            '<b>Updates preserve working client files on failure.</b> Client 2.0.17 stages archive extraction and config changes before replacing the working folder. Mod-specific runtime sync can still govern settings while the game is running.',
+        ],
         '2.59' => [
             'Fixed: <b>Database Browser saves could fail with an incorrect datetime error</b> when changing a trophy or another field. Blank nullable dates, numbers and JSON now save correctly, while zero values and existing dates are preserved (#92).',
             'New: <a href="https://brianmiller.github.io/phvalheim-server/" target="_blank" rel="noopener noreferrer"><b>PhValheim Field Guide</b></a> &mdash; searchable guides for setup, worlds, mods, client syncing and Hugin, plus a one-minute tour. Open it from the dashboard or Vibes workbench, or click <b>Hugin&rsquo;s icon</b> in the player-page footer to visit <b>phvalheim.com</b>. The guide and community buttons now share matching rounded borders and alignment.',

@@ -57,6 +57,10 @@ import importlib.util, json, os, re, shutil, sys, tempfile
 spec = importlib.util.spec_from_file_location("mc", sys.argv[1])
 mc = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mc)
+sys.path.insert(0, os.path.dirname(os.path.abspath(sys.argv[1])))
+import clientConfigPolicy
+# These older BOTH-side fixtures explicitly opt into client config delivery.
+clientConfigPolicy.delivery = lambda wid, query=None: {None: (True, True)}
 
 P = F = 0
 def ok(m):
