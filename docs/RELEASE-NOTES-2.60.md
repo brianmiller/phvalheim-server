@@ -2,7 +2,7 @@
 
 Prerelease preparation for testing. The tested image is
 `theoriginalbrian/phvalheim-server:dev`, digest
-`sha256:99f225356f02e3b4a9f0b750ff586c7e8c68cf6cb8345f67c4c725083dbd0f42`.
+`sha256:c2857341b9feabdbb5904fa3cf1f0f418ae44541aad78356c2d7ac57774e772e`.
 The `:rc`, `:latest`, and stable version tags have not been promoted.
 
 **Install PhValheim Client 2.0.17 before updating a test world.** Older clients are
@@ -35,11 +35,14 @@ refinement. See [the behavior guide](CONFIG-POLICY-2.60.md) for details.
 
 ## Vibes time and tool limits
 
-Settings → Development now separates **Tool rounds per turn**, **Turn time limit**, and
-**Model response limit**. The defaults remain 40 rounds and 900 seconds for a turn; the new
-response limit defaults to 900 seconds. Increase rounds for longer tasks; increase response
-and turn time for slower models. These settings apply to the next turn, across Gemini,
-OpenAI-compatible/local endpoints, and Anthropic.
+Settings → Turn limits now separates **Tool rounds per turn**, **Turn time limit**, and
+**Model response limit**. The default is now 100 rounds, with 15-minute turn and response
+limits. Saved limits are preserved; choose Standard to adopt the new defaults. Increase
+rounds for longer tasks; increase response and turn time for slower models.
+
+Use the Turn limits shortcut beside Send, minute-based fields, or Standard / Long task /
+Slow model presets. Review the fields and click Save limits. These settings apply to the
+next turn, across Gemini, OpenAI-compatible/local endpoints, and Anthropic.
 
 A round limit is not a timeout. Stopped turns explain which limit was reached and invite you
 to send “Continue” using the saved project files. Stop interrupts a waiting model request,

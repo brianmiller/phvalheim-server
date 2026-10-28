@@ -223,7 +223,7 @@ function forgeUsage($u) {
 /** Plain-language recovery instructions, also kept in the conversation transcript. */
 function forgeStopMessage($reason, $rounds, $turnSeconds, $modelSeconds) {
     $saved = ' Files already saved are still on disk. Send “Continue” to resume from the project files.';
-    $settings = ' Change limits in Vibes Settings → Development for the next turn.';
+    $settings = ' Change limits in Vibes Settings → Turn limits for the next turn.';
     switch ($reason) {
         case 'round_limit': return 'Stopped after '.$rounds.' tool rounds; this was not a timeout. Increase Tool rounds per turn for longer tasks.'.$saved.$settings;
         case 'turn_timeout': return 'Stopped at the turn time limit of '.$turnSeconds.' seconds.'.$saved.$settings;
@@ -254,7 +254,7 @@ function forgeTurn(PDO $pdo, array $session, array $project, $userText, HvEmitte
 	$pdo->prepare("UPDATE hv_sessions SET status='running', title = IF(title = '', ?, title) WHERE id = ?")
 	    ->execute([vibesSubstr(preg_replace('/\s+/', ' ', $userText), 0, 120), (int)$session['id']]);
 
-	$maxRounds = max(1, min(200, (int)vibesSetting($doc, 'agent.max_rounds', 40)));
+	$maxRounds = max(1, min(200, (int)vibesSetting($doc, 'agent.max_rounds', 100)));
 	$turnSeconds = max(30, min(7200, (int)vibesSetting($doc, 'agent.turn_timeout_s', 900)));
 	$modelSeconds = max(30, min(7200, (int)vibesSetting($doc, 'agent.model_timeout_s', 900)));
 	$deadline = microtime(true) + $turnSeconds;

@@ -2,6 +2,11 @@
 // Runs shipping adapters and Forge loop, with a fake PDO (no live DB changes).
 require dirname(__DIR__).'/vibes-test-lib.php';
 vibesTestLoad('agent');
+$now=microtime(true);
+check('curl timer precision retains turn timeout reason',aiCallStopReason(['_deadline'=>$now+.005,'_requestDeadline'=>$now+10],.01)==='turn_timeout');
+check('curl timer precision retains response timeout reason',aiCallStopReason(['_deadline'=>$now+10,'_requestDeadline'=>$now+.005],.01)==='model_timeout');
+check('connection timeout well before budget is not a turn limit',aiCallStopReason(['_deadline'=>$now+60,'_requestDeadline'=>$now+30],.01)===null);
+check('normal progress checks do not expire early',aiCallStopReason(['_deadline'=>microtime(true)+.005])===null);
 $servers=[];
 register_shutdown_function(function()use(&$servers){foreach($servers as [$p,$dir]) {if(is_resource($p)){proc_terminate($p);proc_close($p);} vibesRmTree($dir);}});
 function providerFixture($kind,$mode) {

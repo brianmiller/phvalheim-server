@@ -128,6 +128,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 											<input type="text" class="vb-input vb-input-sm" id="vbModelInput" role="combobox" aria-autocomplete="list" aria-controls="vbModelList" aria-expanded="false" placeholder="provider default model" autocomplete="off">
 											<div id="vbModelList" class="vb-model-menu" role="listbox" hidden></div>
 										</div>
+										<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" id="vbComposerLimits" title="Adjust limits for future turns across all Vibes">Turn limits</button>
 										<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" id="vbComposerStop" hidden>Stop</button>
 										<button type="submit" class="vb-btn vb-btn-accent" id="vbComposerSend">Send</button>
 									</div>
@@ -352,6 +353,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 			<div class="vb-settings-grid">
 				<nav class="vb-settings-nav" id="vbSettingsNav">
 					<button type="button" class="active" data-stab="general">General</button>
+					<button type="button" data-stab="limits">Turn limits</button>
 					<button type="button" data-stab="dev">Dev Environment</button>
 					<button type="button" data-stab="libs">Libraries</button>
 					<button type="button" data-stab="assets">Assets</button>
@@ -374,6 +376,23 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 						<div class="vb-row-actions vb-right"><button type="submit" class="vb-btn vb-btn-accent">Save</button></div>
 					</form>
 
+					<form class="vb-stab vb-form" data-stab="limits">
+						<h4>Turn limits</h4>
+						<p class="vb-help">These limits apply to the next turn across all Vibes. A running turn keeps the limits it started with.</p>
+						<div class="vb-row-actions" aria-label="Limit presets">
+							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="standard">Standard · 100 rounds / 15 min</button>
+							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="long">Long task · 200 rounds / 30 min</button>
+							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="slow">Slow model · 100 rounds / 60 min</button>
+						</div>
+						<p class="vb-help">Presets fill the fields below. Review them, then Save limits. Higher limits can increase model usage and cost.</p>
+						<label class="vb-field">Tool rounds per turn <span class="vb-muted">One model response and its requested actions. Default 100; range 1–200.</span><input type="number" class="vb-input" data-setting="agent.max_rounds" data-type="int" min="1" max="200" required></label>
+						<label class="vb-field">Turn time limit (minutes) <span class="vb-muted">Total time budget for the turn. Default 15; range 0.5–120.</span><input type="number" class="vb-input" data-setting="agent.turn_timeout_s" data-type="minutes" min="0.5" max="120" step="any" required></label>
+						<label class="vb-field">Model response limit (minutes) <span class="vb-muted">Maximum wait for one reply, including streaming. Default 15; range 0.5–120.</span><input type="number" class="vb-input" data-setting="agent.model_timeout_s" data-type="minutes" min="0.5" max="120" step="any" required></label>
+						<p class="vb-help" id="vbLimitsSummary" role="status"></p>
+						<p class="vb-help">A tool-round limit is not a timeout. Model calls obey the remaining turn time, which is also checked between tools. Saved files remain; send “Continue” to resume after a stop. Changes apply to the next turn.</p>
+						<div class="vb-row-actions vb-right"><button type="submit" class="vb-btn vb-btn-accent">Save limits</button></div>
+					</form>
+
 					<form class="vb-stab vb-form" data-stab="dev">
 						<div class="vb-card vb-card-flat">
 							<h4>Build Pak</h4>
@@ -387,13 +406,7 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 						</div>
 						<label class="vb-field">Configuration <select class="vb-input" data-setting="defaults.configuration"><option>Release</option><option>Debug</option></select></label>
 						<label class="vb-field">dotnet verbosity <select class="vb-input" data-setting="advanced.dotnet_verbosity"><option>quiet</option><option>minimal</option><option>normal</option><option>detailed</option></select></label>
-						<div class="vb-field-row">
-							<label class="vb-field">Tool rounds per turn <input type="number" class="vb-input" data-setting="agent.max_rounds" data-type="int" min="1" max="200"></label>
-							<label class="vb-field">Turn time limit (seconds) <input type="number" class="vb-input" data-setting="agent.turn_timeout_s" data-type="int" min="30" max="7200"></label>
-							<label class="vb-field">Model response limit (seconds) <input type="number" class="vb-input" data-setting="agent.model_timeout_s" data-type="int" min="30" max="7200"></label>
-							<label class="vb-field">Context budget (tokens) <input type="number" class="vb-input" data-setting="agent.context_budget_tokens" data-type="int" min="4000" max="400000" step="1000"></label>
-						</div>
-						<p class="vb-help">A tool round is one model response and its requested actions; it is not a timeout. Increase Tool rounds for longer tasks. Model response limit controls how long one reply may take, including streaming; increase it for slower models. Turn time limit bounds model calls and is also checked between tools. The first limit reached stops the turn. Saved files remain available; send “Continue” to resume. Changes apply to the next turn.</p>
+						<label class="vb-field">Context budget (tokens) <input type="number" class="vb-input" data-setting="agent.context_budget_tokens" data-type="int" min="4000" max="400000" step="1000"></label>
 						<label class="vb-switch"><input type="checkbox" data-setting="agent.auto_build" data-type="bool"><span class="vb-switch-track"></span> Build after every turn that changed code</label>
 						<label class="vb-switch"><input type="checkbox" data-setting="agent.auto_commit" data-type="bool"><span class="vb-switch-track"></span> Commit after every green build</label>
 						<label class="vb-switch vb-switch-danger"><input type="checkbox" data-setting="agent.unrestricted_shell" data-type="bool"><span class="vb-switch-track"></span> Unrestricted shell</label>

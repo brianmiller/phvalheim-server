@@ -6,8 +6,10 @@ Vibes now separates Tool rounds, Turn time, and Model response limits. Hosted an
 requests (including compaction and compatibility retries) obey the remaining turn budget;
 Stop interrupts silent model requests. Interrupted responses never run partial tool calls.
 Stopped turns explain their limit and how to continue from saved files, and do not start an
-automatic build or commit. Limits retain their existing defaults; response limit defaults to
-900 seconds. Running tools keep their own bounded timeouts; turn time is checked between tools.
+automatic build or commit. New defaults allow 100 rounds with 15-minute turn and response
+limits; saved choices are preserved. A Turn limits shortcut, minute-based fields, and editable
+presets simplify setup. Running tools keep their own bounded timeouts; turn time is checked
+between tools.
 
 Per-mod config delivery is independent of installation: Server defaults on and Client off,
 including upgraded worlds. Existing operator settings remain saved. Untouched settings default

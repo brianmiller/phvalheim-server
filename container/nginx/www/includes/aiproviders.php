@@ -345,6 +345,7 @@ function aiHttp($method, $url, $headers, $body = null, $timeout = AI_HTTP_TIMEOU
     $res  = curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $err  = curl_error($ch);
+    $errno = curl_errno($ch);
     curl_close($ch);
 
     return [
@@ -352,7 +353,9 @@ function aiHttp($method, $url, $headers, $body = null, $timeout = AI_HTTP_TIMEOU
         'code'   => $code,
         'body'   => $onChunk ? $errBody : (string)$res,
         'error'  => $err,
-        'stop_reason' => $stopReason ?? ($control ? aiCallStopReason($control) : null),
+        // libcurl's millisecond timer can expire just before PHP's wall clock deadline.
+        // Apply a small tolerance only to an actual cURL timeout, never other failures.
+        'stop_reason' => $stopReason ?? ($control ? aiCallStopReason($control, $errno === CURLE_OPERATION_TIMEDOUT ? .01 : 0) : null),
     ];
 }
 
@@ -361,10 +364,11 @@ class AiCallInterrupted extends RuntimeException {
     public $reason;
     public function __construct($reason) { $this->reason = $reason; parent::__construct($reason); }
 }
-function aiCallStopReason(array $control) {
+function aiCallStopReason(array $control, $timeoutTolerance = 0) {
     if (is_callable($control['_isCancelled'] ?? null) && ($control['_isCancelled'])()) return 'cancelled';
-    if (isset($control['_deadline']) && microtime(true) >= $control['_deadline']) return 'turn_timeout';
-    if (isset($control['_requestDeadline']) && microtime(true) >= $control['_requestDeadline']) return 'model_timeout';
+    $turn = $control['_deadline'] ?? INF;
+    $response = $control['_requestDeadline'] ?? INF;
+    if (microtime(true) + $timeoutTolerance >= min($turn, $response)) return $turn <= $response ? 'turn_timeout' : 'model_timeout';
     return null;
 }
 function aiChatHttp(array $provider, $method, $url, $headers, $body, $timeout = AI_HTTP_TIMEOUT, $onChunk = null) {

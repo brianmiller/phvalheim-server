@@ -32,13 +32,15 @@ The workbench shows token totals and an estimate of context usage. Automatic com
 
 ### Time and tool limits in 2.60
 
-Under **Vibes Settings → Development**, three limits apply to each new turn:
+Open **Turn limits** beside Send, or **Vibes Settings → Turn limits**. Three limits apply to each new turn:
 
 | Control | Default | When to adjust it |
 | --- | --- | --- |
-| Tool rounds per turn | 40 | A longer task needs more model responses and tool actions |
-| Turn time limit | 900 seconds | The overall task needs more time |
-| Model response limit | 900 seconds | A slow model needs more time for one reply, including streaming |
+| Tool rounds per turn | 100 | A longer task needs more model responses and tool actions |
+| Turn time limit | 15 minutes | The overall task needs more time |
+| Model response limit | 15 minutes | A slow model needs more time for one reply, including streaming |
+
+**Standard** fills 100 rounds / 15-minute turn / 15-minute response. **Long task** fills 200 / 30 / 15; **Slow model** fills 100 / 60 / 30. Presets fill editable fields; click **Save limits** to apply them. Saved settings survive upgrades, including an existing 40-round limit. Choose Standard to adopt the new defaults.
 
 The first limit reached stops the turn. A tool-round limit is **not a timeout**. The result explains which limit was reached; saved project files remain available. Send **Continue** in the same session to resume, or adjust the relevant limit before sending your next message. If the model is repeating an unsuccessful action, give it a narrower instruction instead of simply increasing the limit.
 

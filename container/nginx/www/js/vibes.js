@@ -1438,8 +1438,10 @@ const Vibes = {};
 		for (const el of qsa('[data-setting]')) {
 			const v = getPath(doc, el.dataset.setting);
 			if (el.type === 'checkbox') el.checked = !!v;
+			else if (el.dataset.type === 'minutes') el.value = v == null ? '' : String(Number(v) / 60);
 			else el.value = v === null || v === undefined ? '' : String(v);
 		}
+		limitsSummary();
 		$('vbAssetsLimitNote').textContent = 'PHP itself accepts at most ' + fmtBytes(S.settings.phpUploadMax) + ' per file; the effective limit is ' + fmtBytes(S.settings.uploadMaxBytes) + '.';
 		loadModelList(doc.defaults.provider_id);
 	}
@@ -1454,10 +1456,19 @@ const Vibes = {};
 		for (const el of qsa('[data-setting]', form)) {
 			let v = el.type === 'checkbox' ? el.checked : el.value;
 			if (el.dataset.type === 'int') v = v === '' ? 0 : parseInt(v, 10);
+			if (el.dataset.type === 'minutes') v = v === '' ? 0 : Math.round(Number(v) * 60);
 			if (el.dataset.type === 'int-or-null') v = v === '' ? null : parseInt(v, 10);
 			setPath(out, el.dataset.setting, v);
 		}
 		return out;
+	}
+	function limitsSummary() {
+		const form = qs('form[data-stab="limits"]');
+		const turn = Number(qs('[data-setting="agent.turn_timeout_s"]', form).value);
+		const reply = Number(qs('[data-setting="agent.model_timeout_s"]', form).value);
+		$('vbLimitsSummary').textContent = turn > 0 && reply > 0
+			? 'A model reply gets at most ' + Math.min(turn, reply) + ' minutes, or the time remaining in the turn.' + (reply > turn ? ' The turn limit is shorter than the response limit.' : '')
+			: 'Enter both time limits to see the effective wait.';
 	}
 	async function save(form) {
 		const btn = qs('button[type=submit]', form); setBusy(btn, 'Saving…');
@@ -1582,6 +1593,15 @@ const Vibes = {};
 	}
 	function wire() {
 		$('vbBtnSettings').onclick = () => open();
+		$('vbComposerLimits').onclick = () => open('limits');
+		for (const el of qsa('form[data-stab="limits"] input')) el.addEventListener('input', limitsSummary);
+		for (const b of qsa('[data-limit-preset]')) b.addEventListener('click', () => {
+			const presets = { standard: [100, 15, 15], long: [200, 30, 15], slow: [100, 60, 30] };
+			const values = presets[b.dataset.limitPreset];
+			['max_rounds', 'turn_timeout_s', 'model_timeout_s'].forEach((key, i) => { qs('[data-setting="agent.' + key + '"]').value = values[i]; });
+			limitsSummary();
+			toast('ok', 'Preset filled. Choose Save limits to apply it to future turns.');
+		});
 		for (const b of qsa('#vbSettingsNav button')) b.addEventListener('click', () => showTab(b.dataset.stab));
 		for (const f of qsa('.vb-settings-body form')) f.addEventListener('submit', (e) => { e.preventDefault(); save(f); });
 		$('vbSetPakCheck').onclick = (e) => checkPak(e.currentTarget);

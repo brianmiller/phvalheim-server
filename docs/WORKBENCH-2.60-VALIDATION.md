@@ -1,5 +1,45 @@
 # 2.60 — development validation
 
+## 100-round defaults and easier controls — 2026-10-28
+
+This supersedes the prior Vibes dev candidate below. The default is 100 rounds, still
+configurable from 1 to 200. Turn and response defaults remain 15 minutes. Saved values
+are preserved, including 40 rounds; Standard followed by Save limits adopts the new defaults.
+
+Turn limits now has its own Settings tab and a shortcut beside Send. Times are edited in
+minutes, with Standard (100 / 15 / 15), Long task (200 / 30 / 15), and Slow model
+(100 / 60 / 30) presets: rounds / turn minutes / response minutes. Presets fill fields but
+do not save until requested. The panel explains the effective wait when the turn is shorter.
+Changes apply to future turns across Vibes; running turns retain their original limits.
+
+A regression run exposed a cURL timer boundary: a request can time out just before PHP's
+wall-clock comparison, leaving a generic error instead of the limit reason. Actual cURL
+timeouts now receive a 10-millisecond comparison tolerance; normal progress checks and
+other transport failures do not. A connection timeout well before the budget remains a
+transport failure. Both boundary tests fail against the prior transport source.
+
+- Current dev digest: `sha256:c2857341b9feabdbb5904fa3cf1f0f418ae44541aad78356c2d7ac57774e772e`
+- Image ID: `sha256:953bcc5242eeb597c73a9e0bf02fab63299ea05025ee92112621f0eb5d026f6c`
+- Registry digest independently verified. Local dev recreated with original data volume,
+  port bindings and development login setting; six changed runtime files byte-identical.
+  All five services running, no active worlds/jobs before recreation.
+- Image verification passed, including 100-round/default, separate-panel, minute-field and
+  timeout-precision markers. All 952 numeric printed expectations match; Scout critical/high zero.
+- Settings merge: 34 checks passed. Browser: 26 checks passed, including every preset,
+  explicit save, preserving other settings, minute conversion, exact round-trip of existing
+  31/61-second values, mobile bounds, composer shortcut and stopped-session recovery.
+  Browser tests restore prior agent settings. Desktop and mobile screenshots reviewed.
+- Full timeout/round-limit fixture: 41 checks passed, including real 30-second cutoffs.
+  The earlier 32/1 quick run is retained as evidence of the timing issue, not counted as a pass.
+- Standalone suites: 74 passed, zero failures. Zero-delta streaming regression passed.
+  Predictor: 791 passed, zero failures, 232 image-only checks skipped. Syntax/whitespace passed.
+- No client changes, live model session, or live gameplay test. Existing config/launcher
+  evidence below remains unchanged. Independently checked rc/latest remain at 2.59.
+
+Evidence: `/tmp/phv260-limits-easy-{backend-image,ui-image,standalone,predict-final,mutation,zero}.log`,
+`/tmp/phvalheim-rc-build.log`, and `/tmp/phv260-turn-limits-{desktop,mobile}.png`.
+Private dev snapshot: `/tmp/phv260-limits-easy-dev-backup/` (0700 directory, files 0600).
+
 ## Vibes limits update — 2026-10-28
 
 The current dev candidate adds separate model-response timing, remaining-turn enforcement

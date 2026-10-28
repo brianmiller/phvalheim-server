@@ -24,6 +24,9 @@ check('merge: an unknown key is kept by the merge (the client filter drops it la
 check('merge: non-array over -> defaults', vibesMergeSettings($defaults, 'junk') === $defaults);
 check('merge: every default section present', !array_diff(array_keys($defaults), array_keys($doc)));
 
+check('new default: 100 rounds with unchanged time limits', $defaults['agent']['max_rounds'] === 100 && $defaults['agent']['turn_timeout_s'] === 900 && $defaults['agent']['model_timeout_s'] === 900);
+check('upgrade: saved 40-round choice retained', vibesMergeSettings($defaults, ['agent' => ['max_rounds' => 40]])['agent']['max_rounds'] === 40);
+
 # 2. Masking for the client
 $client = vibesSettingsForClient($doc);
 check('client: token masked to •••• + last 4', $client['github']['token'] === VIBES_SECRET_MASK . '1234');

@@ -123,6 +123,12 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v60f=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -c "new PhvConfigDelivery")
   v60g=$(grep -c 'class="cfg-overridable"' /opt/stateless/nginx/www/admin/world_configs.php)
   v60h=$(grep -c "markCardEdited(" /opt/stateless/nginx/www/admin/world_configs.php)
+  v60p=$(grep -cF 'CURLE_OPERATION_TIMEDOUT ? .01 : 0' /opt/stateless/nginx/www/includes/aiproviders.php)
+  echo "2.60 cURL timeout precision: classified boundary=$v60p (want 1)"
+  v60m=$(grep -c "'max_rounds' => 100" /opt/stateless/nginx/www/includes/vibes.php)
+  v60n=$(grep -c 'data-stab="limits"' /opt/stateless/nginx/www/admin/hugins_vibes.php)
+  v60o=$(grep -c 'data-type="minutes"' /opt/stateless/nginx/www/admin/hugins_vibes.php)
+  echo "2.60 limits defaults/UI: 100-round default=$v60m (want 1) dedicated panel=$v60n (want 2) minute fields=$v60o (want 2)"
   v60i=$(grep -c "function aiChatHttp" /opt/stateless/nginx/www/includes/aiproviders.php)
   v60j=$(grep -c "agent.model_timeout_s" /opt/stateless/nginx/www/admin/hugins_vibes.php)
   v60k=$(grep -c "define.*AI_HTTP_TIMEOUT" /opt/stateless/engine/tools/vibes/vibes.php || true)
@@ -4397,6 +4403,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
     && [ "$v59bz" = "4" ] && [ "$v59ca" = "0" ] \
+    && [ "$v60p" = "1" ] \
+    && [ "$v60m" = "1" ] && [ "$v60n" = "2" ] && [ "$v60o" = "2" ] \
     && [ "$v60i" = "1" ] && [ "$v60j" = "1" ] && [ "$v60k" = "0" ] && [ "$v60l" = "1" ] \
     && [ "$v60a" = "1" ] && [ "$v60b" = "1" ] && [ "$v60c" = "1" ] && [ "$v60d" = "1" ] && [ "$v60e" = "1" ] && [ "$v60f" = "2" ] && [ "$v60g" = "1" ] && [ "$v60h" = "3" ] \
     && [ "$v59ch" = "1" ] && [ "$v59ci" = "1" ] \

@@ -154,7 +154,7 @@ included, because we store deps in the Thunderstore string form `Owner-Name-1.2.
   "schema": 1,
   "author":      { "namespace": "MyServer", "display": "Brian", "url": "" },
   "defaults":    { "template": "basic-plugin", "provider_id": null, "model": "", "configuration": "Release" },
-  "agent":       { "max_rounds": 40, "turn_timeout_s": 900, "unrestricted_shell": false,
+  "agent":       { "max_rounds": 100, "turn_timeout_s": 900, "model_timeout_s": 900, "unrestricted_shell": false,
                    "context_budget_tokens": 60000, "auto_build": true, "auto_commit": true },
   "libs":        { "source_world": "", "decompile": true, "publicize": true },
   "buildpak":    { "repo": "brianmiller/phvalheim-vibes-buildpak", "channel": "stable",
