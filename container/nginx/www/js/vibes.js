@@ -182,7 +182,7 @@ const Vibes = {};
 		clearTimeout(headerTimer);
 		src.setAttribute('class', 'ai-hugin vb-hugin-src ' + state);
 		const pet = $('vbPet'); if (pet) { clear(pet); pet.appendChild(huginNode(state, 30)); }
-		const status = $('vbLiveStatus'); if (status) status.textContent = ({idle:'Ready to forge',thinking:'Thinking · waiting for the model',working:'Working on your code',speaking:'Writing a response',done:'Turn complete',error:'Needs attention'})[state] || state;
+		const status = $('vbLiveStatus'); if (status) status.textContent = ({idle:'Ready to forge',thinking:'Thinking · waiting for the model',working:'Working on your code',speaking:'Writing a response',done:'Turn complete',paused:'Turn stopped · send Continue to resume',error:'Needs attention'})[state] || state;
 		// done/error are one-shot poses: he settles back to idle after they have played.
 		if (state === 'done' || state === 'error') headerTimer = setTimeout(() => src.setAttribute('class', 'ai-hugin vb-hugin-src idle'), 1200);
 	}
@@ -837,6 +837,10 @@ const Vibes = {};
 			if (!(r.events || []).length) $('vbTranscript').appendChild(emptyHint());
 			if (!$('vbForgeList').children.length) $('vbForgeList').appendChild(h('div.vb-forge-empty', 'Tool calls tick in here while Hugin works: reads, edits, builds, commits.'));
 			if (r.job && r.job.kind === 'turn' && ['queued', 'running'].includes(r.job.status)) beginRun(r.job);
+			else {
+				const lastTurn = [...(r.events || [])].reverse().find(ev => ['user', 'done', 'error'].includes(ev.type));
+				if (lastTurn && lastTurn.type === 'done' && lastTurn.stop_reason) setHugin('paused');
+			}
 		} catch (e) { fail(e, 'Could not load the transcript'); }
 		$('vbModelInput').value = (S.project && S.project.model) || '';
 		stream = new Vibes.Stream({ session: s.id }, (ev) => handle(ev, true), lastSeq);
@@ -889,9 +893,9 @@ const Vibes = {};
 		$('vbForgeList').appendChild(h('div.vb-forge-turn', 'turn ' + turnNo + ' · ' + fmtTime(Date.now())));
 		Vibes.library.load();
 	}
-	function endRun(ok) {
+	function endRun(ok, stopped = false) {
 		running = false; if (cur) finalizeAssistant();
-		setHugin(ok ? 'done' : 'error'); setLocked(null); Vibes.workspace.showJob(null);
+		setHugin(stopped ? 'paused' : ok ? 'done' : 'error'); setLocked(null); Vibes.workspace.showJob(null);
 		Vibes.workspace.reload();
 	}
 
@@ -913,7 +917,7 @@ const Vibes = {};
 			case 'thinking': if (live) { setHugin(ev.state === 'working' ? 'working' : 'thinking'); $('vbLiveStatus').textContent = ev.text || 'Thinking…'; } break;
 			case 'status':    $('vbForgeList').appendChild(h('div.vb-fstatus', ev.step || ev.detail || '')); break;
 			case 'error':     finalizeAssistant(); appendError(ev.error, ev.t); if (live) endRun(false); break;
-			case 'done':      if (ev.usage) $('vbForgeMeta').textContent = (ev.usage.in || 0) + '→' + (ev.usage.out || 0) + ' tok' + (ev.rounds ? ' · ' + ev.rounds + ' rounds' : ''); if (live) endRun(true); break;
+			case 'done':      if (ev.usage) $('vbForgeMeta').textContent = (ev.usage.in || 0) + '→' + (ev.usage.out || 0) + ' tok' + (ev.rounds ? ' · ' + ev.rounds + ' rounds' : ''); if (live) endRun(true, !!ev.stop_reason); break;
 			case 'job':       if (live && running && ev.status && !['queued', 'running'].includes(ev.status)) { if (ev.status !== 'done') appendError((ev.job && ev.job.error) || ('The turn ended as ' + ev.status + '.'), Date.now() / 1000); endRun(ev.status === 'done'); } else if (live && !running && ev.status === 'running' && ev.job && ev.job.kind === 'turn') beginRun(ev.job); break;
 			default: break;
 		}

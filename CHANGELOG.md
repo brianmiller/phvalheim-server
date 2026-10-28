@@ -2,6 +2,13 @@
 
 ## v2.60 (development)
 
+Vibes now separates Tool rounds, Turn time, and Model response limits. Hosted and local model
+requests (including compaction and compatibility retries) obey the remaining turn budget;
+Stop interrupts silent model requests. Interrupted responses never run partial tool calls.
+Stopped turns explain their limit and how to continue from saved files, and do not start an
+automatic build or commit. Limits retain their existing defaults; response limit defaults to
+900 seconds. Running tools keep their own bounded timeouts; turn time is checked between tools.
+
 Per-mod config delivery is independent of installation: Server defaults on and Client off,
 including upgraded worlds. Existing operator settings remain saved. Untouched settings default
 to Overridable; player values survive full mod and config-only updates with Client 2.0.17.

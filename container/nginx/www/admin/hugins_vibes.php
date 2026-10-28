@@ -388,10 +388,12 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 						<label class="vb-field">Configuration <select class="vb-input" data-setting="defaults.configuration"><option>Release</option><option>Debug</option></select></label>
 						<label class="vb-field">dotnet verbosity <select class="vb-input" data-setting="advanced.dotnet_verbosity"><option>quiet</option><option>minimal</option><option>normal</option><option>detailed</option></select></label>
 						<div class="vb-field-row">
-							<label class="vb-field">Max rounds per turn <input type="number" class="vb-input" data-setting="agent.max_rounds" data-type="int" min="1" max="200"></label>
-							<label class="vb-field">Turn timeout (s) <input type="number" class="vb-input" data-setting="agent.turn_timeout_s" data-type="int" min="30" max="7200"></label>
+							<label class="vb-field">Tool rounds per turn <input type="number" class="vb-input" data-setting="agent.max_rounds" data-type="int" min="1" max="200"></label>
+							<label class="vb-field">Turn time limit (seconds) <input type="number" class="vb-input" data-setting="agent.turn_timeout_s" data-type="int" min="30" max="7200"></label>
+							<label class="vb-field">Model response limit (seconds) <input type="number" class="vb-input" data-setting="agent.model_timeout_s" data-type="int" min="30" max="7200"></label>
 							<label class="vb-field">Context budget (tokens) <input type="number" class="vb-input" data-setting="agent.context_budget_tokens" data-type="int" min="4000" max="400000" step="1000"></label>
 						</div>
+						<p class="vb-help">A tool round is one model response and its requested actions; it is not a timeout. Increase Tool rounds for longer tasks. Model response limit controls how long one reply may take, including streaming; increase it for slower models. Turn time limit bounds model calls and is also checked between tools. The first limit reached stops the turn. Saved files remain available; send “Continue” to resume. Changes apply to the next turn.</p>
 						<label class="vb-switch"><input type="checkbox" data-setting="agent.auto_build" data-type="bool"><span class="vb-switch-track"></span> Build after every turn that changed code</label>
 						<label class="vb-switch"><input type="checkbox" data-setting="agent.auto_commit" data-type="bool"><span class="vb-switch-track"></span> Commit after every green build</label>
 						<label class="vb-switch vb-switch-danger"><input type="checkbox" data-setting="agent.unrestricted_shell" data-type="bool"><span class="vb-switch-track"></span> Unrestricted shell</label>

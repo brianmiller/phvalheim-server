@@ -292,15 +292,25 @@ function aiProviderSetDefault($pdo, $id) {
  * One curl call. $onChunk non-null switches to streaming: curl hands us bytes as they
  * arrive and we never buffer the body.
  */
-function aiHttp($method, $url, $headers, $body = null, $timeout = AI_HTTP_TIMEOUT, $onChunk = null) {
+function aiHttp($method, $url, $headers, $body = null, $timeout = AI_HTTP_TIMEOUT, $onChunk = null, $control = []) {
     $ch = curl_init($url);
     $hdr = [];
     foreach ($headers as $k => $v) $hdr[] = "$k: $v";
 
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $hdr);
-    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, min(15, $timeout));
+    curl_setopt($ch, CURLOPT_TIMEOUT_MS, max(1, (int)ceil($timeout * 1000)));
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, max(1, (int)ceil(min(15, $timeout) * 1000)));
+    $stopReason = null;
+    if ($control) {
+        curl_setopt($ch, CURLOPT_NOPROGRESS, false);
+        curl_setopt($ch, defined('CURLOPT_XFERINFOFUNCTION') ? CURLOPT_XFERINFOFUNCTION : CURLOPT_PROGRESSFUNCTION, function () use ($control, &$stopReason) {
+            $stopReason = aiCallStopReason($control);
+            if ($stopReason !== null) return 1;
+            if (is_callable($control['_onWait'] ?? null)) ($control['_onWait'])();
+            return 0;
+        });
+    }
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 
     // On the streaming path the body used to be discarded entirely ('body' => ''), because
@@ -342,7 +352,29 @@ function aiHttp($method, $url, $headers, $body = null, $timeout = AI_HTTP_TIMEOU
         'code'   => $code,
         'body'   => $onChunk ? $errBody : (string)$res,
         'error'  => $err,
+        'stop_reason' => $stopReason ?? ($control ? aiCallStopReason($control) : null),
     ];
+}
+
+/** Internal controls are scoped to one aiChat call, including negotiation retries. */
+class AiCallInterrupted extends RuntimeException {
+    public $reason;
+    public function __construct($reason) { $this->reason = $reason; parent::__construct($reason); }
+}
+function aiCallStopReason(array $control) {
+    if (is_callable($control['_isCancelled'] ?? null) && ($control['_isCancelled'])()) return 'cancelled';
+    if (isset($control['_deadline']) && microtime(true) >= $control['_deadline']) return 'turn_timeout';
+    if (isset($control['_requestDeadline']) && microtime(true) >= $control['_requestDeadline']) return 'model_timeout';
+    return null;
+}
+function aiChatHttp(array $provider, $method, $url, $headers, $body, $timeout = AI_HTTP_TIMEOUT, $onChunk = null) {
+    if (!isset($provider['_requestDeadline'])) return aiHttp($method, $url, $headers, $body, $timeout, $onChunk);
+    if (($reason = aiCallStopReason($provider)) !== null) throw new AiCallInterrupted($reason);
+    $remaining = min($provider['_requestDeadline'], $provider['_deadline'] ?? INF) - microtime(true);
+    $res = aiHttp($method, $url, $headers, $body, max(.001, $remaining), $onChunk, $provider);
+    // Never interpret partial streamed text or tool arguments as a completed response.
+    if ($res['stop_reason'] !== null) throw new AiCallInterrupted($res['stop_reason']);
+    return $res;
 }
 
 /**
@@ -657,10 +689,17 @@ function aiChat($provider, $messages, $system, $tools = [], $onDelta = null, $ma
         return ['success' => false, 'error' => 'No model selected for this provider', 'content' => '', 'tool_calls' => []];
     }
 
-    switch ($provider['kind']) {
-        case 'anthropic': $r = aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens); break;
-        case 'gemini':    $r = aiChatGemini($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens); break;
-        default:          $r = aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens);
+    if (isset($provider['_request_timeout_s']) || isset($provider['_deadline']) || isset($provider['_isCancelled'])) {
+        $provider['_requestDeadline'] = microtime(true) + max(.001, (float)($provider['_request_timeout_s'] ?? AI_HTTP_TIMEOUT));
+    }
+    try {
+        switch ($provider['kind']) {
+            case 'anthropic': $r = aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens); break;
+            case 'gemini':    $r = aiChatGemini($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens); break;
+            default:          $r = aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens);
+        }
+    } catch (AiCallInterrupted $e) {
+        $r = ['success' => false, 'error' => $e->getMessage(), 'stop_reason' => $e->reason, 'content' => '', 'tool_calls' => []];
     }
 
     // Single choke point for every upstream call, so no adapter can fail quietly. Only the
@@ -801,7 +840,7 @@ function aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $
     if (!$onDelta) {
         $res = null;
         for ($try = 0; $try <= count($quirks); $try++) {
-            $res = aiHttp('POST', $url, $h, json_encode($mkPayload($quirks)));
+            $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($mkPayload($quirks)));
             if ($res['ok']) break;
             $q = $diagnose($res);
             if ($q === null || $quirks[$q]) break;   // unrecognised, or already tried
@@ -863,7 +902,7 @@ function aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $
     $res = null;
     for ($try = 0; $try <= count($quirks); $try++) {
         $text = ''; $calls = []; $usage = null; $err = null;
-        $res = aiHttp('POST', $url, $h, json_encode($mkPayload($quirks)), AI_HTTP_TIMEOUT, $reader);
+        $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($mkPayload($quirks)), AI_HTTP_TIMEOUT, $reader);
         if ($res['ok'] || $text !== '') break;
         $q = $diagnose($res);
         if ($q === null || $quirks[$q]) break;
@@ -921,7 +960,7 @@ function aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta
     $h   = aiAuthHeaders($provider);
 
     if (!$onDelta) {
-        $res = aiHttp('POST', $url, $h, json_encode($payload));
+        $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($payload));
         if (!$res['ok']) return ['success' => false, 'error' => aiErrorText($res), 'content' => '', 'tool_calls' => []];
         $j = json_decode($res['body'], true);
         $text = ''; $calls = [];
@@ -962,7 +1001,7 @@ function aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta
         }
     });
 
-    $res = aiHttp('POST', $url, $h, json_encode($payload), AI_HTTP_TIMEOUT, $reader);
+    $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($payload), AI_HTTP_TIMEOUT, $reader);
     if (!$res['ok'] && $text === '') {
         return ['success' => false, 'error' => $err ?: aiErrorText($res), 'content' => '', 'tool_calls' => []];
     }
@@ -1055,8 +1094,8 @@ function aiChatGemini($provider, $model, $messages, $system, $tools, $onDelta, $
     $h    = aiAuthHeaders($provider);
 
     if (!$onDelta) {
-        $res = aiHttp('POST', $url, $h, json_encode($mkPayload(false)));
-        if (!$res['ok'] && $noSystemInstruction($res)) $res = aiHttp('POST', $url, $h, json_encode($mkPayload(true)));
+        $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($mkPayload(false)));
+        if (!$res['ok'] && $noSystemInstruction($res)) $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($mkPayload(true)));
         if (!$res['ok']) return ['success' => false, 'error' => aiErrorText($res), 'content' => '', 'tool_calls' => []];
         $j = json_decode($res['body'], true);
         $text = ''; $calls = [];
@@ -1099,11 +1138,11 @@ function aiChatGemini($provider, $model, $messages, $system, $tools, $onDelta, $
         }
     });
 
-    $res = aiHttp('POST', $url, $h, json_encode($mkPayload(false)), AI_HTTP_TIMEOUT, $reader);
+    $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($mkPayload(false)), AI_HTTP_TIMEOUT, $reader);
     // Nothing has been emitted to the browser yet when the refusal is a 400, so the retry
     // is invisible downstream -- there is no half-streamed answer to reconcile.
     if (!$res['ok'] && $text === '' && $noSystemInstruction($res)) {
-        $res = aiHttp('POST', $url, $h, json_encode($mkPayload(true)), AI_HTTP_TIMEOUT, $reader);
+        $res = aiChatHttp($provider, 'POST', $url, $h, json_encode($mkPayload(true)), AI_HTTP_TIMEOUT, $reader);
     }
     if (!$res['ok'] && $text === '') {
         return ['success' => false, 'error' => aiErrorText($res), 'content' => '', 'tool_calls' => []];

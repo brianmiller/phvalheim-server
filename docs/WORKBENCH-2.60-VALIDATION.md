@@ -1,4 +1,48 @@
-# 2.60 config delivery — development validation
+# 2.60 — development validation
+
+## Vibes limits update — 2026-10-28
+
+The current dev candidate adds separate model-response timing, remaining-turn enforcement
+during model calls and compaction, cancellation during silent requests, and distinct
+round/time/Stop messages. Completed file writes survive a stop; partial interrupted tool
+calls are discarded. No automatic build or commit starts after a limit or cancellation.
+Tools retain their own bounded timeouts; turn time is checked between tools.
+
+- Current registry digest: `sha256:99f225356f02e3b4a9f0b750ff586c7e8c68cf6cb8345f67c4c725083dbd0f42`
+- Image ID: `sha256:af5af4911e86420b0db2ce6499e7f752c22b2455ca5e72fdbdd2ee877acb28fa`
+- Registry digest independently inspected. Local dev uses this image and its original
+  data volume; all seven changed runtime files match the checkout byte for byte. Five
+  services are running. No worlds or Vibes jobs were active before recreation.
+- `IMAGE VERIFY OK`, including all four new limits markers; Scout critical/high: zero.
+  The older join-code marker's gate correctly expects three; its stale printed “want 4”
+  label was corrected to match the existing gate. No verification condition was relaxed.
+- Browser: 16 checks passed, including persistence, range rejection, preserving independent
+  controls, mobile visibility, stopped status after reload, and a later completed turn.
+  Settings were restored. Transcript fixtures were browser-local; no external model ran.
+- Limits/transport: 37 checks passed under the final image's PHP runtime, loading the
+  byte-verified source. Coverage includes all three adapters, partial streams, silent
+  cancellation, shared retry deadlines, initial compaction, saved file preservation,
+  last-round completion, and real 30-second response/turn cutoffs. A ready Build Pak
+  fixture ensures the stopped-turn auto-build check would detect an unwanted epilogue.
+- Existing Forge integration: seven checks passed on the running image, including nine
+  real tool calls through a deterministic OpenAI-compatible fixture, automatic compaction,
+  and the final answer. Disposable provider/project records were removed by the test.
+- Standalone regression: 74 suites passed; marker prediction: 787 passed, zero failed,
+  232 image-only checks skipped. PHP/JS/shell syntax and whitespace checks passed.
+- Mutation control: removing the interrupted-HTTP response guard made the partial Gemini
+  response test fail as intended. The shipping source was not mutated.
+
+Limits and provider tests use controlled HTTP responses, not a live Gemini account. Brian
+reported the affected model as “Flash 3.8”; its exact API ID and original transcript were
+not supplied. The reported message establishes a round stop, not a timeout or its cause.
+No client package changed. No live gameplay was tested. Independently inspected `:rc` and
+`:latest` remain at the 2.59 digest below; no stable or public prerelease promotion occurred.
+
+Evidence: `/tmp/phv260-vibes-{limits-image,ui,forge-image,standalone,predict,mutation,zero}.log`
+and `/tmp/phvalheim-rc-build.log`. The private pre-recreation snapshot is under
+`/tmp/phv260-vibes-dev-backup/` (0700 directory, 0600 files), outside the repository.
+
+## Initial config delivery validation — 2026-10-27
 
 Validated on 2026-10-27 for Brian's requested development test. The server image was
 built and pushed to `theoriginalbrian/phvalheim-server:dev` and the local

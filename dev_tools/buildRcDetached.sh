@@ -123,6 +123,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v60f=$(cat /opt/stateless/nginx/www/admin/edit_world.php /opt/stateless/nginx/www/admin/new_world.php | grep -c "new PhvConfigDelivery")
   v60g=$(grep -c 'class="cfg-overridable"' /opt/stateless/nginx/www/admin/world_configs.php)
   v60h=$(grep -c "markCardEdited(" /opt/stateless/nginx/www/admin/world_configs.php)
+  v60i=$(grep -c "function aiChatHttp" /opt/stateless/nginx/www/includes/aiproviders.php)
+  v60j=$(grep -c "agent.model_timeout_s" /opt/stateless/nginx/www/admin/hugins_vibes.php)
+  v60k=$(grep -c "define.*AI_HTTP_TIMEOUT" /opt/stateless/engine/tools/vibes/vibes.php || true)
+  v60l=$(grep -c "function forgeStopMessage" /opt/stateless/engine/tools/vibes/lib/agent.php)
+  echo "2.60 Vibes limits: bounded transport=$v60i (want 1) response setting=$v60j (want 1) old fixed transport timeout=$v60k (want 0) recovery messages=$v60l (want 1)"
   echo "2.60 dirty-card paths=$v60h (want 3)"
   echo "2.60 policy=$v60a (want 1) migration=$v60b (want 1) picker=$v60c (want 1) old-client gate=$v60d (want 1) minimum=$v60e (want 1) both pickers=$v60f (want 2) overridable=$v60g (want 1)"
   # The wrapper div itself, anchored. This used to be a bare count of "modSelectionArea"
@@ -4035,7 +4040,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.56 SERVER HEALTH: collector=$v56du (want 1)  rules=$v56dv (want 9)  api=$v56dw (want 1)  strip=$v56dx (want 1)  sidebar=$v56dy (want 1)  old banner=$v56dz (want 0)  player warning=$v56ea (want 0)  analytics record=$v56eb (want 1)"
   echo "2.56 EVENT LOG: phvlog=$v56ec (want 1)  opBegin=$v56ed (want 1)  raw echo engine=$v56ee (want 0)  raw echo functions=$v56ef (want 0)  loop opens op=$v56eg (want 1)  session mark=$v56eh (want 1)  phvEvent=$v56ei (want 1)  timeline api=$v56ej (want 1)  viewer allowlist=$v56ek (want 1)  logs nav=$v56el (want 1)  old world links=$v56em (want 0)  old panel links=$v56en (want 0)  hugin tool=$v56eo (want 1)  events table=$v56ep (want 1)  ops table=$v56eq (want 1)  retention=$v56er (want 2)  world page=$v56es (want 1)  logs page=$v56et (want 1)  hugin source=$v56eu (want 1)  command events=$v56ev (want 5)  tool named=$v56ew (want 1)"
   echo "2.56 LOG VIEWER + DASHBOARD: opSummary fn=$v56ex (want 1)  used=$v56ey (want 1)  old valheim branch=$v56ez (want 0)  ops always=$v56fa (want 1)  markers=$v56fb (want 1)  Configure th=$v56fc (want 0)  Resources th=$v56fd (want 2)  two-col=$v56fe (want 0)  maint list=$v56ff (want 0)  panel css=$v56fg (want 1)  links=$v56fl (want 1)  Server nav=$v56fm (want 1)  Logs nav section=$v56fn (want 0)  reload sync=$v56fo (want 0)  sync api=$v56fp (want 1)  sync js=$v56fq (want 1)  log in su=$v56fr (want 1)  log chown=$v56fs (want 1)  api fallback=$v56ft (want 1)  world ops column=$v56fu (want 1)  viewers themed=$v56fv (want 3)  vol row=$v56fh (want 1)  vol css=$v56fi (want 1)  one group=$v56fj (want 1)  configHtml=$v56fk (want 0)"
-  echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 0, retired 2.58)  unknown count has no time=$v56cp (want 4)"
+  echo "2.56 JOINCODE WRITER: migration=$v56ck (want 1)  reads history=$v56cm (want 1)  FORGETS ON NEW SESSION=$v56cl (want 1)  live-only greps=$v56cn (want 0)  history greps=$v56co (want 0, retired 2.58)  unknown count has no time=$v56cp (want 3; 2.58 uses Companion telemetry)"
   echo "2.56 UNMATCHED+BACK: php reads=$v56bq (want 1)  null filter=$v56br (want 1)  picker href=$v56bs (want 1)  banner=$v56by (want 1)  back link=$v56bw (want 1)  goBack fn gone=$v56bt (want 0)  onclick gone=$v56bu (want 0)  referrer guard gone=$v56bv (want 0)  edit_world link gone=$v56bx (want 0)"
   echo "2.56 MIGRATION REVIEW: fns=$v56w (want 2)  endpoint=$v56x (want 1)  containment=$v56y (want 2)  parse-fail=-1 $v56z (want 3)  sidebar door=$v56aa (want 1)  risk unticked=$v56ab (want 1)"
   echo "2.56 CONFIG BACK: hash const=$v56s (want 1)  restore on load=$v56t (want 1)  popstate=$v56u (want 1)  pushState=$v56v (want 1)"
@@ -4392,6 +4397,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
     && [ "$v59bz" = "4" ] && [ "$v59ca" = "0" ] \
+    && [ "$v60i" = "1" ] && [ "$v60j" = "1" ] && [ "$v60k" = "0" ] && [ "$v60l" = "1" ] \
     && [ "$v60a" = "1" ] && [ "$v60b" = "1" ] && [ "$v60c" = "1" ] && [ "$v60d" = "1" ] && [ "$v60e" = "1" ] && [ "$v60f" = "2" ] && [ "$v60g" = "1" ] && [ "$v60h" = "3" ] \
     && [ "$v59ch" = "1" ] && [ "$v59ci" = "1" ] \
     && [ "$v59ce" = "2" ] && [ "$v59cf" = "1" ] && [ "$v59cg" = "0" ] && [ "$v59cb" = "2" ] && [ "$v59cc" = "2" ] && [ "$v59cd" = "0" ] \

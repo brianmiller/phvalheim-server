@@ -18,14 +18,6 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';   // $pdo
 require_once '/opt/stateless/nginx/www/includes/vibes.php';
 require_once '/opt/stateless/nginx/www/includes/events.php';
-// The model transport's per-call wall clock. aiproviders.php defines AI_HTTP_TIMEOUT at 120 s,
-// sized for a chat reply; a coding turn streams whole source files and the first real turn on
-// the dev box died at 120 s with 84 KB already received. The constant is `if (!defined)`, so
-// defining it here, BEFORE lib/agent.php pulls aiproviders.php in, sizes it for the Forge loop
-// without touching Hugin's chat. Per-call, bounded by the operator's turn timeout.
-if (!defined('AI_HTTP_TIMEOUT')) {
-	define('AI_HTTP_TIMEOUT', max(120, (int)vibesSetting(vibesSettingsGet($pdo), 'agent.turn_timeout_s', 900)));
-}
 foreach (['env', 'jobs', 'pak', 'libs', 'git', 'project', 'build', 'package', 'catalog', 'tools', 'agent', 'scm', 'hosted'] as $l) require_once __DIR__ . "/lib/$l.php";
 
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -316,7 +308,7 @@ function jobTurn(PDO $pdo, array $job, array $project, array $args, HvEmitter $e
 	$r = forgeTurn($pdo, $session, $project, (string)($args['text'] ?? ''), $emit, $isCancelled);
 	if (!$r['success']) return $r;
 	// `done` carries usage/model/rounds (7.3); hvJobFinish adds the type.
-	return ['success' => true, 'usage' => $r['usage'], 'model' => $r['model'], 'rounds' => $r['rounds']];
+	return ['success' => true, 'usage' => $r['usage'], 'model' => $r['model'], 'rounds' => $r['rounds'], 'stop_reason' => $r['stop_reason'] ?? null];
 }
 
 function jobPush(PDO $pdo, array $doc, array $project, array $args, $step) {

@@ -69,7 +69,7 @@ function vibesSettingsDefaults() {
 		'schema'   => 1,
 		'author'   => ['namespace' => '', 'display' => '', 'url' => ''],
 		'defaults' => ['template' => 'basic-plugin', 'provider_id' => null, 'model' => '', 'configuration' => 'Release'],
-		'agent'    => ['max_rounds' => 40, 'turn_timeout_s' => 900, 'unrestricted_shell' => false,
+		'agent'    => ['max_rounds' => 40, 'turn_timeout_s' => 900, 'model_timeout_s' => 900, 'unrestricted_shell' => false,
 		               'context_budget_tokens' => 60000, 'auto_build' => true, 'auto_commit' => true],
 		'libs'     => ['source_world' => '', 'decompile' => true, 'publicize' => true],
 		'buildpak' => ['repo' => 'brianmiller/phvalheim-vibes-buildpak', 'channel' => 'stable',
@@ -169,7 +169,7 @@ function vibesSettingsApplyClient($stored, $incoming) {
 	// Validation of the fields whose wrong values would hurt later rather than now.
 	$ns = (string)vibesSetting($doc, 'author.namespace', '');
 	if ($ns !== '' && !vibesValidNamespace($ns)) $errors[] = 'Author namespace may contain letters, digits and underscores only (it becomes the catalogue owner).';
-	foreach (['agent.max_rounds' => [1, 200], 'agent.turn_timeout_s' => [30, 7200], 'agent.context_budget_tokens' => [4000, 400000], 'assets.max_upload_mb' => [1, 1024], 'advanced.keep_transcripts_days' => [0, 3650]] as $path => [$lo, $hi]) {
+	foreach (['agent.max_rounds' => [1, 200], 'agent.turn_timeout_s' => [30, 7200], 'agent.model_timeout_s' => [30, 7200], 'agent.context_budget_tokens' => [4000, 400000], 'assets.max_upload_mb' => [1, 1024], 'advanced.keep_transcripts_days' => [0, 3650]] as $path => [$lo, $hi]) {
 		$v = vibesSetting($doc, $path);
 		if (!is_numeric($v) || $v < $lo || $v > $hi) $errors[] = "$path must be a number between $lo and $hi.";
 	}

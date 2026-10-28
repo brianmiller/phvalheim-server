@@ -12,6 +12,7 @@
 function whatsNewNotes() {
     return [
         '2.60' => [
+            'New: <b>Clearer Vibes limits for hosted and local models.</b> Set a separate model response limit in Settings &rarr; Development. Model calls obey the remaining turn time, Stop interrupts a waiting response, and a stopped turn tells you whether it reached the tool-round limit or a time limit. Saved files remain; send Continue to resume.',
             'New: <b>Choose where mod configs go.</b> Each selected mod has Config Server and Client switches, separate from where the mod is installed. Server starts on; Client starts off, including existing worlds after this upgrade. Saved settings are kept. Enable Client deliberately to share them.',
             'New: <b>Players can keep personal settings.</b> Untouched settings start <b>Overridable</b>. Editing a value clears that flag, and saving a shared setting enables <b>Config Client</b> for its mod. Recheck Overridable after editing to supply a suggested default that preserves existing player values. Clear Overridable to reapply your value before every launch. Server only always keeps that value out of player downloads.',
             '<b>Requires PhValheim Client 2.0.17 or newer.</b> Upgrade players before updating a modded world. Older clients are blocked from syncing worlds using the new policy; some older versions report this as a world-not-found error.',

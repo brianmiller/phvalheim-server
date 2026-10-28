@@ -30,6 +30,20 @@ Vibes data lives beneath `/opt/stateful/vibes/`. Keep the persistent volume when
 
 The workbench shows token totals and an estimate of context usage. Automatic compaction summarizes earlier context between tool rounds when the configured budget is approached. Put essential project decisions in **Project Notes**, and use a fresh session for a substantially different task.
 
+### Time and tool limits in 2.60
+
+Under **Vibes Settings → Development**, three limits apply to each new turn:
+
+| Control | Default | When to adjust it |
+| --- | --- | --- |
+| Tool rounds per turn | 40 | A longer task needs more model responses and tool actions |
+| Turn time limit | 900 seconds | The overall task needs more time |
+| Model response limit | 900 seconds | A slow model needs more time for one reply, including streaming |
+
+The first limit reached stops the turn. A tool-round limit is **not a timeout**. The result explains which limit was reached; saved project files remain available. Send **Continue** in the same session to resume, or adjust the relevant limit before sending your next message. If the model is repeating an unsuccessful action, give it a narrower instruction instead of simply increasing the limit.
+
+**Stop** also works while a model request is silent or streaming. Interrupted tool calls are discarded, and no automatic build or commit starts after a stop. Model calls, compaction, and retries obey the remaining turn time. Running tools retain their own bounded timeouts; the turn limit is checked between tools.
+
 ## Removing the workshop
 
 **Delete Hugin's Vibes** in its Settings lets you choose what to retain, including projects, uploaded assets and the local catalogue. Review those choices before deleting data that a world still uses.
