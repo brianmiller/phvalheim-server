@@ -224,3 +224,27 @@ Evidence: `/tmp/phv218-{publish,package,safety,upgrade,config,window,display,pro
 `/tmp/phv218-negative-final.log`. An initial safety harness lacked procps in the SDK image;
 installing the test dependency produced the passing run. A full old-artifact comparison was
 stopped in favor of the focused negative control; no success is claimed for the stopped run.
+
+
+### Prerelease version correction — 2026-10-30
+
+Brian directed that the client remain **2.0.17** while in prerelease. This supersedes the
+2.0.18 packaging above. Runtime changes remain; Version, AssemblyVersion and FileVersion
+were restored to 2.0.17. Linux Flatpak and tar.gz were rebuilt, and release notes consolidated
+into RELEASE-2.0.17.md. The signed Windows MSI was not rebuilt (original SHA256 retained).
+The existing GitHub 2.0.17 release was observed already published as a prerelease; preserve
+that state. Replace only its Linux downloads and checksums, remove the mistaken 2.0.18
+draft, and retain the original 2.0.17 git tag. Revised Linux source is linked in release notes.
+
+Fresh revised-artifact checks: 42 Flatpak package, 53 runtime/browser, 33 native launch;
+16 installed same-version 2.0.17→2.0.17 checks verified active commit replacement, and
+16 installed 2.0.18→2.0.17 checks passed. Previous focused implementation tests above remain
+applicable; no additional runtime edits or live gameplay validation.
+
+Revised Linux SHA256:
+- Flatpak: ae7a40ef1ca16b15f6140ab4c5be6a64990961bf65e272fc01ace4249ec1770f
+- tar.gz: 26e60493238042c6f64a76531482f2a14399fb55f10a296e6b5330889e0bb198
+
+Logs: `/tmp/phv217-revision-{publish,package,same-version,from218}.log`.
+Prior artifacts preserved in `/tmp/phv217-pre-revision-20261030` for reproducibility.
+Testers must redownload this revision even if their client already displays 2.0.17.

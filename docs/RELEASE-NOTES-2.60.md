@@ -7,14 +7,14 @@ The `:rc`, `:latest`, and stable version tags have not been promoted.
 
 **Install PhValheim Client 2.0.17 or newer before updating a test world.** Older clients are
 blocked once a world contains the new config policy; some report this as “world not found.”
-The [matching client draft](https://github.com/brianmiller/phvalheim-client/releases)
+The [client prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.17)
 contains the tested Windows MSI, Linux tarball, and Flatpak. macOS, Debian, and RPM
 packages remain pending.
 
 ## Linux launcher follow-up
 
-Client **2.0.18** is the recommended Linux test client after a reported overlay startup
-hang. Its Flatpak and Linux tarball retain the 2.0.17 config-policy support. Direct modded
+The revised Client **2.0.17** is the recommended Linux test client after a reported overlay startup
+hang. Redownload its Flatpak or Linux tarball even if 2.0.17 is already installed. Direct modded
 Linux launches leave the overlay off unless explicitly enabled with
 `PHVALHEIM_ENABLE_OVERLAY=1`; `PHVALHEIM_NO_OVERLAY=1` still takes precedence.
 The launcher now observes the host game process from Flatpak, rejects concurrent launches
