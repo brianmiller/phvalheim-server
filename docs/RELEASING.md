@@ -138,7 +138,7 @@ Write notes to a file, not inline. Title style: `vX.YZ — <plain-language summa
 
 # TrueNAS catalog updates
 
-After each authorized stable release, follow the [TrueNAS update checklist](truenas/updates.md). The catalog pins a numeric release tag and digest, and its Renovate rule prepares image updates and catalog revision bumps. Verify that the bot picks up the release and help resolve any review or validation requirements. Numeric release tags must designate stable builds; use `dev`, `rc` or a suffixed tag for pre-release testing. General Docker users can keep using `:latest`. Retain versioned images and compatible full-data backups for recovery.
+After each authorized stable release, follow the [TrueNAS update checklist](truenas/updates.md). The catalog pins a numeric release tag and digest, and standard Renovate Docker versioning prepares image updates and catalog revision bumps without a PhValheim-specific rule. Verify that the bot picks up the release and help resolve any review or validation requirements. Numeric release tags must designate stable builds; use `dev`, `rc` or a suffixed tag for pre-release testing. General Docker users can keep using `:latest`. Retain versioned images and compatible full-data backups for recovery.
 
 # Rules that are not about releasing but will bite you here
 
