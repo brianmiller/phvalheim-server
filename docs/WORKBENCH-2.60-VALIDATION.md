@@ -195,3 +195,32 @@ remains from the initial implementation; those unchanged paths were not unnecess
 - Actual server test archives: `/tmp/phv260-contract/`
 - Private dev database snapshot before container recreation:
   `/tmp/phv260-dev-backup/phvalheim.sql` (directory 0700, file 0600).
+
+
+## 2026-10-30 — Client 2.0.18 Linux launch follow-up
+
+User reports intermittent startup hangs with a purported Steam overlay wait chain and
+accumulating launcher terminals; raw stacks/logs are not available here. The quick-relaunch
+hypothesis was withdrawn after the same symptom with a two-minute gap. This is not a proven
+config-policy regression or a reproduced Steam deadlock.
+
+Client 2.0.18 removes automatic overlay injection for direct modded Linux launches (explicit
+opt-in remains), strips inherited Steam renderer preload entries when off, and disables the
+implicit Vulkan overlay layer. Flatpak game monitoring now queries the host. A per-user
+launch lock and existing-game check precede prep/sync; unknown process state refuses launch.
+Host stdout/stderr draining is bounded by the timeout. Unobservable post-launch sessions
+close after a warning rather than accumulating terminals indefinitely.
+
+Built Linux Flatpak and tar.gz only. Signed Windows 2.0.17 and all other 2.0.17 assets are
+unchanged. No server image rebuild, deployment, stable/rc promotion, or public client release.
+
+Validation: 42 package + 53 Flatpak runtime/browser + 33 native launch + 22 process/lock/
+transport + 16 installed 2.0.17→2.0.18 upgrade checks passed. Config-policy26, launch-window14,
+sync-display25 and progress10 passed. The actual old 2.0.17 Linux executable fails the new
+default-overlay and Vulkan-disable assertions as expected. All runtime launches use recording
+stubs; live GPU/Steam/Unity and Flatpak Steam remain untested. Laptop retesting is required.
+
+Evidence: `/tmp/phv218-{publish,package,safety,upgrade,config,window,display,progress}.log`,
+`/tmp/phv218-negative-final.log`. An initial safety harness lacked procps in the SDK image;
+installing the test dependency produced the passing run. A full old-artifact comparison was
+stopped in favor of the focused negative control; no success is claimed for the stopped run.
