@@ -248,3 +248,52 @@ Revised Linux SHA256:
 Logs: `/tmp/phv217-revision-{publish,package,same-version,from218}.log`.
 Prior artifacts preserved in `/tmp/phv217-pre-revision-20261030` for reproducibility.
 Testers must redownload this revision even if their client already displays 2.0.17.
+
+
+## Complete Client 2.0.17 package set — 2026-10-31
+
+Brian requested all clients while retaining the 2.0.17 prerelease version. This
+supersedes the earlier Windows-unchanged and missing-platform statements above.
+Runtime code is unchanged from client 7ae44e0; packaging/test improvements are in
+client e087519, with final release/identity documentation in 0286965.
+
+All seven formats were built: Windows MSI, Linux tarball, Debian, RPM, Flatpak,
+and universal macOS tarball and PKG. Windows/Flatpak binaries embed source 23786bd;
+Linux native packages embed 7ae44e0; Mac packages embed e087519. Differences among
+those source commits affect packaging/tests/docs, not the runtime implementation.
+
+- Debian/RPM/tarball each passed 13 installed upgrade/removal checks from 2.0.16.
+- Flatpak: 42 package, 53 runtime/browser, 33 native launch, 16 same-version upgrade
+  checks passed. Browser readiness now waits for the link to be painted; the first
+  run clicked a black screen and failed rather than silently passing.
+- MSI: 78 structural/signature, 24 executable, 36 Wine behavior checks passed.
+  Native Windows: 14 original-to-revised 2.0.17 upgrade/hash/repair/uninstall checks
+  and 12 wizard checks passed. Old MSI as candidate correctly failed the new hash
+  assertion. Unknown same-version products remain blocked.
+- Mac: both binaries universal, native Apple Silicon tarball installation, PKG over
+  tarball, PKG reinstall, fresh PKG install, and URL activation passed. Fresh PKG
+  testing caught root-only Launch Services registration; fixed by registering for
+  the active desktop user and rerun successfully.
+
+Native evidence: https://github.com/brianmiller/phvalheim-client/actions/runs/41149946862
+Local logs: /tmp/phv217-all-*.log. Original packages: /tmp/phv217-all-original.
+Release: https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.17
+The original public git tag is retained; release notes link the revised source.
+New MSI ProductCode C3969E40-12FC-451D-88E8-8F6245182C2A explicitly migrates the
+original 07B715CA-56D4-4D73-A364-465E21B5E2E9 under the same version. Shared
+UpgradeCode unchanged. The new identity is recorded from the uploaded artifact.
+
+No server image build, deployment, or promotion. No live Steam/Unity/GPU test.
+Linux launch tests use recording Steam/Valheim stubs; macOS uses real installer
+and URL machinery, but no live game. Package SHA256 values:
+
+```text
+92bd8ea42625c9cac7f56e72ea36e6eb5c6caca3d41bafea5f9e9fd9233b7eeb  phvalheim-client-2.0.17-macos-universal.pkg
+174d403099e23f034ed5f2721f06a37d8146995a804e3b29a36c5307b65bb405  phvalheim-client-2.0.17-macos-universal.tar.gz
+bb9fde5c4dc494722cf521fe44a62b24dcb643002713930545344228b1bfd88d  phvalheim-client-2.0.17-universal-x86_64.tar.gz
+f1ec7ac64374689972d39edc21f0358bde2cff43d4f08516b1b1db23252d1288  phvalheim-client-2.0.17-x86_64.deb
+f2559ef554979d8ee786f1e32299f117fc9fe8e578f92cef465ef332ae63ba09  phvalheim-client-2.0.17-x86_64.flatpak
+9b588ebfb9eaa75ddd0e1a54243c996713d79b9cc1384d1c25d74187b8a6931e  phvalheim-client-2.0.17-x86_64.msi
+821299ec1b2022362515283a94d075ee5b3da87b59f2b2efc222329f3682e3f7  phvalheim-client-2.0.17-x86_64.rpm
+13c8894e2d76e0cebb1a6b097c7dbbd175a420175a134c65d2374299f748d925  macinstall.sh
+```

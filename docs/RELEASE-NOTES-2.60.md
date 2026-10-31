@@ -8,8 +8,8 @@ The `:rc`, `:latest`, and stable version tags have not been promoted.
 **Install PhValheim Client 2.0.17 or newer before updating a test world.** Older clients are
 blocked once a world contains the new config policy; some report this as “world not found.”
 The [client prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.17)
-contains the tested Windows MSI, Linux tarball, and Flatpak. macOS, Debian, and RPM
-packages remain pending.
+contains tested Windows MSI; Linux tarball, Debian, RPM and Flatpak; and universal
+macOS tarball and PKG packages. Redownload to get the complete 2026-10-31 revision.
 
 ## Linux launcher follow-up
 
@@ -20,7 +20,8 @@ Linux launches leave the overlay off unless explicitly enabled with
 The launcher now observes the host game process from Flatpak, rejects concurrent launches
 before syncing, and closes its window after the game exits. Failed observation is reported.
 The original Steam deadlock remains unconfirmed; live retesting on the affected laptop is
-required. The existing signed Windows 2.0.17 installer remains unchanged.
+required. The revised Windows MSI was tested upgrading the original 2.0.17 MSI with
+exact payload verification, repair, uninstall, and the full wizard.
 
 ## Config delivery and player preferences
 
@@ -88,5 +89,6 @@ Before publication, test a real player session:
 5. Confirm Server-only settings stay private and client-only config import works after
    the mod's first launch. Check any mod-specific runtime synchronization separately.
 
-Live Unity/Steam gameplay and the new macOS package are not yet validated. This draft
-does not announce a stable release or a production deployment.
+All client package formats now have installer validation, including native Windows and
+macOS checks. Live Unity/Steam gameplay is not yet validated. This draft does not announce
+a stable release or a production deployment.
