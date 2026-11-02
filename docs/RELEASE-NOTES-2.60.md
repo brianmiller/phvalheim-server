@@ -1,11 +1,11 @@
-# PhValheim Server 2.60 — player preferences and Vibes limits
+# PhValheim Server 2.60 — player preferences and container game ports
 
-Prerelease preparation for testing. The tested image is
-`theoriginalbrian/phvalheim-server:dev`, digest
-`sha256:c63614b8f77a582fe6d5af452251d75521535e2257e5a383808ee3960a11a393`.
-The `:rc`, `:latest`, and stable version tags have not been promoted.
+Release 2.60 adds player configuration preferences, clearer Vibes limits, and optional
+container-managed game port ranges. Take a consistent backup of all application data
+before updating. Existing Docker and Unraid port settings remain unchanged unless the
+new range environment variables are explicitly configured.
 
-**Install PhValheim Client 2.0.17 or newer before updating a test world.** Older clients are
+**Install PhValheim Client 2.0.17 or newer before updating worlds that distribute client configuration.** Older clients are
 blocked once a world contains the new config policy; some report this as “world not found.”
 The [client prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.17)
 contains tested Windows MSI; Linux tarball, Debian, RPM and Flatpak; and universal
@@ -13,7 +13,7 @@ macOS tarball and PKG packages. Redownload to get the complete 2026-10-31 revisi
 
 ## Linux launcher follow-up
 
-The revised Client **2.0.17** is the recommended Linux test client after a reported overlay startup
+The revised Client **2.0.17** is the required Linux client revision after a reported overlay startup
 hang. Redownload its Flatpak or Linux tarball even if 2.0.17 is already installed. Direct modded
 Linux launches leave the overlay off unless explicitly enabled with
 `PHVALHEIM_ENABLE_OVERLAY=1`; `PHVALHEIM_NO_OVERLAY=1` still takes precedence.
@@ -92,7 +92,7 @@ not rerun for the Vibes update. This does not reproduce the Discord user's exact
 session or establish why that task consumed its round budget.
 See [the validation record](WORKBENCH-2.60-VALIDATION.md) for scope and evidence.
 
-Before publication, test a real player session:
+Recommended checks with your own worlds and mods:
 
 1. Upgrade to Client 2.0.17, then update a test world on Server 2.60.
 2. Change a personal setting. Confirm it survives a mod update and a config-only update.
@@ -104,5 +104,6 @@ Before publication, test a real player session:
    the mod's first launch. Check any mod-specific runtime synchronization separately.
 
 All client package formats now have installer validation, including native Windows and
-macOS checks. Live Unity/Steam gameplay is not yet validated. This draft does not announce
-a stable release or a production deployment.
+macOS checks. Brian reports successful testing of 2.60. The specific live Unity/Steam
+scenarios above have not been independently observed; mod-specific synchronization
+should be checked with your own worlds. Publishing an image does not deploy existing installations.
