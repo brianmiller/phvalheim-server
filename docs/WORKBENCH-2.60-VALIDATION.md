@@ -297,3 +297,21 @@ f2559ef554979d8ee786f1e32299f117fc9fe8e578f92cef465ef332ae63ba09  phvalheim-clie
 821299ec1b2022362515283a94d075ee5b3da87b59f2b2efc222329f3682e3f7  phvalheim-client-2.0.17-x86_64.rpm
 13c8894e2d76e0cebb1a6b097c7dbbd175a420175a134c65d2374299f748d925  macinstall.sh
 ```
+
+## Optional container game port range — 2026-11-02
+
+The container range integration is opt-in through PHVALHEIM_GAME_PORT_START/END. It
+keeps saved Base Port unchanged, shows effective settings read-only, reserves bounded
+world port pairs under a database advisory lock, and reports existing out-of-range
+worlds without renumbering. No schema or Unraid template change is needed.
+
+Pre-build checks: 28 pure behavior assertions, 31 disposable HTTP/database lifecycle
+assertions, 75 standalone suites and the marker predictor (794 pass, 0 fail, 232 skip).
+The pure oracle rejects both an unbounded allocator and a disabled-policy mutation.
+Lifecycle checks include concurrent requests for the last pair, exhaustion with no
+world inserted, restart, conflict reporting, engine assignment/refusal, removing the
+range, ordinary fresh setup and the old one-time basePort migration.
+
+Evidence: /tmp/phv260-ports-{standalone,predict,integration-prebuild}.log. Pre-build
+HTTP tests overlay candidate files into a disposable image/container; they are not
+exact-image verification. Final image and browser results follow after the build.

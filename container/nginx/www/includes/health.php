@@ -300,6 +300,13 @@ function phvServerHealth($pdo, $in = []) {
 	$s = $in['settings'];
 
 	$checks = [];
+	if (function_exists('phvGamePortStatus') && phvGamePortPolicy()['enabled']) {
+		$range = phvGamePortStatus($pdo);
+		$conflicts = implode(', ', array_map(fn($w) => $w['name'] . ' (' . $w['port'] . ')', $range['conflicts']));
+		$checks[] = phvHealthItem('game_port_range', 'Game UDP range', $range['error'] ? 'fail' : ($conflicts ? 'warn' : 'ok'),
+			$range['error'] ?? ($conflicts ? 'Worlds outside container range: ' . $conflicts . '. Ports have not been changed.' : 'Managed by container: ' . $range['start'] . '-' . $range['end']),
+			'Change the range in container settings; preserve existing world ports.');
+	}
 	$checks[] = phvHealthRuleSettings($s['gameDNS'] ?? '', $s['basePort'] ?? '');
 
 	$steamKey = (string)($s['steamApiKey'] ?? '');

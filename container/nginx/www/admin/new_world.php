@@ -228,6 +228,14 @@ $allWorlds = $pdo->query("SELECT name FROM worlds ORDER BY name")->fetchAll(PDO:
 		</script>
 
 		<div class="container-fluid px-3 px-lg-4">
+            <?php if ($phvGamePorts['enabled']): $gamePortStatus = phvGamePortStatus($pdo); ?>
+            <div class="alert alert-info" id="managed-game-port-range">
+                <?php echo htmlspecialchars($gamePortStatus['error'] ?? ('Game ports are managed by your container: UDP ' . $gamePortStatus['start'] . '–' . $gamePortStatus['end'] . '. Each world reserves two ports.')); ?>
+                <?php if ($gamePortStatus['conflicts']): ?>
+                <div>Existing worlds outside this range: <?php echo htmlspecialchars(implode(', ', array_map(fn($w) => $w['name'] . ' (' . $w['port'] . ')', $gamePortStatus['conflicts']))); ?>. Expand the container range; their ports have not been changed.</div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
 			<!-- Page Header -->
 			<div class="d-flex justify-content-between align-items-center py-3 mb-3 border-bottom" style="border-color: var(--accent-primary) !important;">
 				<h4 class="mb-0" style="color: var(--accent-primary);">Create New World</h4>

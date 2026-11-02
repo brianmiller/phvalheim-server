@@ -2158,7 +2158,12 @@ function createWorldJson($pdo, $world, $seed, $mods, $cloneSource, $cloneConfigs
     }
     // No listed+crossplay gate on this path either -- see the note in saveWorldOptions().
 
-    $result = addWorld($pdo, $world, $gameDNS, $seed);
+    try {
+        $result = addWorld($pdo, $world, $gameDNS, $seed);
+    } catch (RuntimeException $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        return;
+    }
 
     if ($result === 0) {
         // World created successfully
@@ -2530,7 +2535,8 @@ function getServerSettingsJson($pdo) {
     echo json_encode([
         'success' => true,
         'settings' => [
-            'basePort' => (int)$settings['basePort'],
+            'basePort' => (int)(phvGamePortPolicy()['start'] ?? $settings['basePort']),
+            'gamePortRange' => phvGamePortStatus($pdo),
             'defaultSeed' => $settings['defaultSeed'] ?? '',
             'gameDNS' => $settings['gameDNS'] ?? '',
             'steamAPIKey' => $settings['steamApiKey'] ?? '',
@@ -2591,6 +2597,11 @@ function getServerSettingsJson($pdo) {
  * Save server settings
  */
 function saveServerSettingsJson($pdo, $input) {
+    try { $input = phvManagedSettingsInput($input); }
+    catch (RuntimeException $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        return;
+    }
     $allowedFields = [
         'basePort' => 'int',
         'defaultSeed' => 'string',
@@ -2683,7 +2694,7 @@ function saveServerSettingsJson($pdo, $input) {
         $settings = $pdo->query("SELECT * FROM settings LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $tz = $settings['timezone'] ?? 'Etc/UTC';
         $envVars = [
-            'basePort' => $settings['basePort'],
+            'basePort' => phvGamePortPolicy()['start'] ?? $settings['basePort'],
             'defaultSeed' => $settings['defaultSeed'],
             'gameDNS' => $settings['gameDNS'],
             'steamAPIKey' => $settings['steamApiKey'],
@@ -2733,7 +2744,11 @@ function saveServerSettingsJson($pdo, $input) {
  */
 function completeSetupJson($pdo, $input) {
     // Save all provided settings first
-    saveServerSettingsJson_internal($pdo, $input);
+    try { saveServerSettingsJson_internal($pdo, $input); }
+    catch (RuntimeException $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        return;
+    }
 
     // Mark setup as complete
     $stmt = $pdo->prepare("UPDATE settings SET setupComplete = 2");
@@ -2749,6 +2764,7 @@ function completeSetupJson($pdo, $input) {
  * Internal helper to save settings without JSON output
  */
 function saveServerSettingsJson_internal($pdo, $input) {
+    $input = phvManagedSettingsInput($input);
     $allowedFields = [
         'basePort' => 'int',
         'defaultSeed' => 'string',

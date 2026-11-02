@@ -10,6 +10,10 @@ require_once '/opt/stateless/nginx/www/includes/events.php';
 
 #return codes: 0=world created, 1=world failed to create, 2=world exists
 function addWorld($pdo,$new_world,$external_endpoint,$seed){
+	$portPolicy = phvRequireGamePortPolicy();
+	if ($portPolicy['enabled'] && !empty($new_world)) {
+		return phvInsertManagedWorld($pdo, $new_world, $external_endpoint, $seed);
+	}
 	if (!empty($new_world)){
 		$sql = "SELECT name FROM worlds WHERE name='$new_world'";
 		$result = $pdo->query($sql);

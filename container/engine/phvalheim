@@ -8,6 +8,11 @@ phvlog NOTICE "PhValheim Version: $phvalheimVersion"
 source /opt/stateless/engine/includes/phvalheim-static.conf
 source /opt/stateless/engine/includes/0-functions.sh
 
+if ! portPolicyError=$(php /opt/stateless/engine/tools/gamePorts.php validate 2>&1); then
+	phvlog FAIL "$portPolicyError"
+	exit 78
+fi
+
 # set initial timezone from env var (DB not ready yet)
 /opt/stateless/engine/tools/tzSetter.sh
 
@@ -90,6 +95,9 @@ fi
 
 # pull settings from database (DB is now the source of truth)
 export basePort=$(SQL "SELECT basePort FROM settings")
+if [ -n "${PHVALHEIM_GAME_PORT_START:-}" ]; then
+	export basePort=$(php /opt/stateless/engine/tools/gamePorts.php start)
+fi
 export defaultSeed=$(SQL "SELECT defaultSeed FROM settings")
 export gameDNS=$(SQL "SELECT gameDNS FROM settings")
 export steamAPIKey=$(SQL "SELECT steamApiKey FROM settings")
@@ -282,7 +290,13 @@ while [ true ]; do
 
 			# Assign port if not already assigned (may be NULL if directory was pre-created by clone)
 			worldPort=$(SQL "SELECT port FROM worlds WHERE name='$worldName'")
-			if [ -z "$worldPort" ] || [ "$worldPort" = "NULL" ]; then
+			if [ -n "${PHVALHEIM_GAME_PORT_START:-}" ]; then
+				if ! worldPort=$(php /opt/stateless/engine/tools/gamePorts.php assign "$worldID" 2>&1); then
+					phvlog ERROR "$worldPort"
+					SQL "UPDATE worlds SET mode='broken' WHERE id='$worldID'"
+					continue
+				fi
+			elif [ -z "$worldPort" ] || [ "$worldPort" = "NULL" ]; then
 				phvlog NOTICE "Assigning port for '$worldName'..."
 				worldPort=$(getNextPort)
 				SQL "UPDATE worlds SET port='$worldPort' WHERE name='$worldName'"

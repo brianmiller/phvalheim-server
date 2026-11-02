@@ -23,6 +23,16 @@ The original Steam deadlock remains unconfirmed; live retesting on the affected 
 required. The revised Windows MSI was tested upgrading the original 2.0.17 MSI with
 exact payload verification, repair, uninstall, and the full wizard.
 
+## Optional container managed game ports
+
+Container platforms can supply `PHVALHEIM_GAME_PORT_START` and
+`PHVALHEIM_GAME_PORT_END` from their published UDP range. Setup and Server
+Settings display that range read-only; new worlds reserve port pairs within it
+and explain when it is full. Existing world ports are not reassigned, and worlds
+outside the configured range are flagged. Saved settings and normal Docker/Unraid
+setup remain unchanged when both variables are unset. See
+[the range guide](CONTAINER-GAME-PORTS.md) for integration and recovery.
+
 ## Config delivery and player preferences
 
 - Config **Server** and **Client** are independent of where a mod is installed.

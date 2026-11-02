@@ -6895,7 +6895,9 @@ $totalCount = count($worlds);
                         </div>
                         <div class="col-3">
                             <label style="font-size:0.8rem;color:orchid" ${tip('Starting UDP port for world servers. Each world uses 2 consecutive ports.')}>Base Port <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
-                            <input type="number" class="form-control form-control-sm" id="ss-basePort" value="${s.basePort}" style="font-family:var(--font-mono)" ${tip('First UDP port in the range (default: 25000). Ensure ports are forwarded.')}>
+                            <input type="number" class="form-control form-control-sm" id="ss-basePort" value="${s.basePort}" style="font-family:var(--font-mono)" ${s.gamePortRange?.enabled ? 'readonly' : ''} ${tip('First UDP port in the range (default: 25000). Ensure ports are forwarded.')}>
+                            ${s.gamePortRange?.enabled ? `<small class="text-muted">${escapeHtmlBasic(s.gamePortRange.error || ('Managed by container: UDP ' + s.gamePortRange.start + '–' + s.gamePortRange.end + '. Change it in container settings.'))}</small>` : ''}
+                            ${s.gamePortRange?.conflicts?.length ? `<div class="text-warning">${escapeHtmlBasic('Worlds outside this range: ' + s.gamePortRange.conflicts.map(w => w.name + ' (' + w.port + ')').join(', ') + '. Expand the container range; existing ports have not been changed.')}</div>` : ''}
                         </div>
                     </div>
                     <div class="row mb-2">

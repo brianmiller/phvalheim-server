@@ -267,8 +267,10 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
                 <div class="setup-field">
                     <label>Base Port</label>
-                    <input type="number" id="setup-basePort" value="25000" placeholder="25000">
-                    <div class="field-help">Starting UDP port for game worlds. Must match the beginning of your Docker port range.</div>
+                    <input type="number" id="setup-basePort" value="<?php echo (int)$basePort; ?>" placeholder="25000" <?php if ($phvGamePorts['enabled']) echo 'readonly'; ?>>
+                    <div class="field-help"><?php echo htmlspecialchars($phvGamePorts['enabled']
+                        ? ($phvGamePorts['error'] ?? ('Managed by container: UDP ' . $phvGamePorts['start'] . '–' . $phvGamePorts['end'] . '. Change the range in your container settings.'))
+                        : 'Starting UDP port for game worlds. Must match the beginning of your Docker port range.'); ?></div>
                 </div>
 
                 <div class="setup-error" id="step2-error"></div>

@@ -29,7 +29,10 @@ $phvalheimVersion = getenv('phvalheimVersion');
 $phvalheimHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
 # All other settings from database
-$basePort = $_settingsRow['basePort'] ?? 25000;
+require_once __DIR__ . '/gameports.php';
+$phvGamePorts = phvGamePortPolicy();
+$basePort = ($phvGamePorts['enabled'] && !$phvGamePorts['error'])
+    ? $phvGamePorts['start'] : ($_settingsRow['basePort'] ?? 25000);
 $defaultSeed = $_settingsRow['defaultSeed'] ?? '';
 $gameDNS = $_settingsRow['gameDNS'] ?? '';
 $steamAPIKey = $_settingsRow['steamApiKey'] ?? '';

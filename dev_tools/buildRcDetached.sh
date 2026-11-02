@@ -124,6 +124,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v60g=$(grep -c 'class="cfg-overridable"' /opt/stateless/nginx/www/admin/world_configs.php)
   v60h=$(grep -c "markCardEdited(" /opt/stateless/nginx/www/admin/world_configs.php)
   v60p=$(grep -cF 'CURLE_OPERATION_TIMEDOUT ? .01 : 0' /opt/stateless/nginx/www/includes/aiproviders.php)
+  v60ports=$(grep -c 'function phvNextManagedGamePort' /opt/stateless/nginx/www/includes/gameports.php)
+  v60portengine=$(grep -c 'gamePorts.php assign' /opt/stateless/engine/phvalheim)
+  v60portui=$(grep -c 's.gamePortRange?.enabled' /opt/stateless/nginx/www/admin/index.php)
+  echo "2.60 managed UDP range: bounded allocator=$v60ports (want 1) engine guard=$v60portengine (want 1) managed settings UI=$v60portui (want 2)"
   echo "2.60 cURL timeout precision: classified boundary=$v60p (want 1)"
   v60m=$(grep -c "'max_rounds' => 100" /opt/stateless/nginx/www/includes/vibes.php)
   v60n=$(grep -c 'data-stab="limits"' /opt/stateless/nginx/www/admin/hugins_vibes.php)
@@ -4403,7 +4407,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
     && [ "$v59bz" = "4" ] && [ "$v59ca" = "0" ] \
-    && [ "$v60p" = "1" ] \
+    && [ "$v60p" = "1" ] && [ "$v60ports" = "1" ] && [ "$v60portengine" = "1" ] && [ "$v60portui" = "2" ] \
     && [ "$v60m" = "1" ] && [ "$v60n" = "2" ] && [ "$v60o" = "2" ] \
     && [ "$v60i" = "1" ] && [ "$v60j" = "1" ] && [ "$v60k" = "0" ] && [ "$v60l" = "1" ] \
     && [ "$v60a" = "1" ] && [ "$v60b" = "1" ] && [ "$v60c" = "1" ] && [ "$v60d" = "1" ] && [ "$v60e" = "1" ] && [ "$v60f" = "2" ] && [ "$v60g" = "1" ] && [ "$v60h" = "3" ] \

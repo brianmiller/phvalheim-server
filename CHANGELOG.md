@@ -2,6 +2,12 @@
 
 ## v2.60 (development)
 
+Optional `PHVALHEIM_GAME_PORT_START` and `PHVALHEIM_GAME_PORT_END` make the container
+the source of the game UDP range. Setup and Server Settings show the managed range;
+new worlds reserve complete port pairs within it and report exhaustion. Existing worlds
+outside the range are flagged without renumbering. Saved Base Port and legacy Docker/Unraid
+behavior remain in effect when the variables are unset. No Unraid template change is required.
+
 Vibes now separates Tool rounds, Turn time, and Model response limits. Hosted and local model
 requests (including compaction and compatibility retries) obey the remaining turn budget;
 Stop interrupts silent model requests. Interrupted responses never run partial tool calls.
