@@ -31,5 +31,6 @@ do not use it as the new container integration.
 
 This feature does not configure routers or inspect Docker's port mappings. A
 platform integrating it must publish the same range that it passes to PhValheim.
-TrueNAS catalog publication still needs a released versioned image containing
-the feature. The current `:dev` candidate is for prerelease testing.
+Stable Server 2.60 includes this feature. The TrueNAS submission pins that release
+and derives both variables from its game-port settings; store availability still
+depends on TrueNAS maintainer review and catalog publication.

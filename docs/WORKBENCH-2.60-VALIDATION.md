@@ -1,4 +1,47 @@
-# 2.60 — development validation
+# 2.60 — release validation
+
+## Stable release and TrueNAS review revision — 2026-11-02
+
+After Brian reported successful 2.60 testing and requested completion of the submission,
+the release build ran through buildRcDetached.sh with TAG=rc and EXTRA_TAGS="2.60 latest".
+IMAGE VERIFY OK and Scout critical/high zero. The rebuilt image has the same bytes as
+the tested dev candidate: manifest c63614b8f77a582fe6d5af452251d75521535e2257e5a383808ee3960a11a393,
+image 3f21ffc7d52596d6a1010669803b8c9cd182ccb554c66965663b16c0bbf1a1d4.
+Remote rc/latest/2.60 were independently inspected and match; 2.59 remains at its
+previous digest. Git tag v2.60 and the existing GitHub release now designate stable
+2.60, target 5243e9b4586b076463498ec11a685f934a73d070. Release body read back exactly
+matches the release notes. No production deployment or client release change occurred.
+Client-policy worlds require Client 2.0.17; its available packages remain a public prerelease.
+
+TrueNAS revision 1.0.4, catalog commit b6a31cc57679bbc201138f4aff804f305f010772, pins
+stable 2.60 plus the digest and supplies environment bounds from the same values as
+UDP mappings. Questions and generated notes remove duplicate Base Port entry.
+Submitted basic/extra tests follow Palworld resource/network/formatting conventions;
+hostpath-values and single-volume-values were removed. Both canonical renders assert
+matching environment/mappings. Both official CI render/install/health/cleanup runs
+passed with task-owned fixture paths; basic HTTP host bindings were remapped because
+the development instance occupies 8080/8081. Container ports, game range and image
+were unchanged. Extra values cover exposed HTTP, separate managed backups and scratch.
+
+Ten disposable 2.59-to-2.60 upgrade checks passed: setup, effective range, unchanged
+saved base and world ports, no conflict for a matching world, persistent setup/data/
+backups, and four running database/web/cron services. The fixture engine was stopped
+before seeding a stopped world, so no game download or live Steam login is claimed.
+Initial harness runs exposed a local UDP collision and a wrong Supervisor service name;
+the final harness removes host publication for its internal upgrade checks and waits
+for the actual mysqld/nginx/php-fpm8/cron services to reach RUNNING.
+
+Twelve renderer bind-mode/boundary checks, metadata stability, port validation and
+full catalog validation against master passed, including after committing the package.
+The validator needed safe.directory inside its disposable container; the initial Git
+ownership error was environmental. No validation guards were disabled.
+All four November review comments have replies. Fork workflow approval, re-review,
+CDN artwork upload and catalog merge/publication remain pending.
+
+Evidence: /tmp/phvalheim-rc-build.log and /tmp/phv260-store-{basic,extra}-{render,install}.log;
+/tmp/phv260-store-{upgrade,boundaries,metadata-check-final,catalog-committed,ports}.log.
+Earlier standalone/browser/config test results below remain unchanged evidence; they
+were not redundantly rerun for the catalog/doc-only revision. Fixtures were removed.
 
 ## 100-round defaults and easier controls — 2026-10-28
 
