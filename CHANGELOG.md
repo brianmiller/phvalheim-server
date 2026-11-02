@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.60 (development)
+## v2.60 (2026-11-02)
 
 Optional `PHVALHEIM_GAME_PORT_START` and `PHVALHEIM_GAME_PORT_END` make the container
 the source of the game UDP range. Setup and Server Settings show the managed range;

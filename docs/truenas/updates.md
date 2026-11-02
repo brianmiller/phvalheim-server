@@ -1,6 +1,6 @@
 # PhValheim TrueNAS update plan
 
-The TrueNAS catalog uses stable version tags pinned to image digests, starting with `theoriginalbrian/phvalheim-server:2.59@sha256:1b5ded166fb691d4f6888b474e6062c21e598a803ab0b9b3cc7a0bddc1d14405`. Brian selected version tags for the catalog on 26 October 2026. General Docker installations can continue using `:latest`.
+The TrueNAS catalog uses stable version tags pinned to image digests, currently `theoriginalbrian/phvalheim-server:2.60@sha256:c63614b8f77a582fe6d5af452251d75521535e2257e5a383808ee3960a11a393`. Brian selected version tags for the catalog on 26 October 2026. General Docker installations can continue using `:latest`.
 
 ## Stable release checklist
 
@@ -24,6 +24,6 @@ Retain versioned images, their pinned manifests and compatible full-data backups
 
 ## Validation and maintenance scope
 
-The initial `2.59` tag and its digest were independently verified against Docker Hub. The standard Docker versioning implementation was checked with stable, rolling and suffixed release-candidate examples, and the catalog's regular update/pinning tasks remain enabled. Actual future bot discovery depends on TrueNAS's service and maintainer review; no future PR or deployment is claimed as already tested.
+The `2.60` tag and its digest were independently verified against Docker Hub. The catalog supplies its UDP start/end values directly through the supported container environment variables; operators do not enter a second Base Port in PhValheim. Existing world ports remain unchanged and conflicting ranges are reported. The standard Docker versioning implementation was checked with stable, rolling and suffixed release-candidate examples, and the catalog's regular update/pinning tasks remain enabled. Actual future bot discovery depends on TrueNAS's service and maintainer review; no future PR or deployment is claimed as already tested.
 
 References: [TrueNAS contribution guide](https://github.com/truenas/apps/blob/master/CONTRIBUTIONS.md), [catalog Renovate configuration](https://github.com/truenas/apps/blob/master/.github/renovate-config.js), [Renovate Docker versioning](https://docs.renovatebot.com/modules/versioning/docker/).
