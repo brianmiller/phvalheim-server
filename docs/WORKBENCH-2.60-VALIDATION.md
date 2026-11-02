@@ -11,7 +11,9 @@ Remote rc/latest/2.60 were independently inspected and match; 2.59 remains at it
 previous digest. Git tag v2.60 and the existing GitHub release now designate stable
 2.60, target 5243e9b4586b076463498ec11a685f934a73d070. Release body read back exactly
 matches the release notes. No production deployment or client release change occurred.
-Client-policy worlds require Client 2.0.17; its available packages remain a public prerelease.
+Client-policy worlds require Client 2.0.17. At Brian's subsequent explicit request,
+Client 2.0.17 was promoted to the official stable release on 2 November with the
+previously tested package assets unchanged; its original public git tag was retained.
 
 TrueNAS revision 1.0.4, catalog commit b6a31cc57679bbc201138f4aff804f305f010772, pins
 stable 2.60 plus the digest and supplies environment bounds from the same values as

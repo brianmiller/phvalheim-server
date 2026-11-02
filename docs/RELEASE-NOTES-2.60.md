@@ -9,7 +9,7 @@ Image: `theoriginalbrian/phvalheim-server:2.60@sha256:c63614b8f77a582fe6d5af4522
 
 **Install PhValheim Client 2.0.17 or newer before updating worlds that distribute client configuration.** Older clients are
 blocked once a world contains the new config policy; some report this as “world not found.”
-The [client prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.17)
+The [official client release](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.17)
 contains tested Windows MSI; Linux tarball, Debian, RPM and Flatpak; and universal
 macOS tarball and PKG packages. Redownload to get the complete 2026-10-31 revision.
 
