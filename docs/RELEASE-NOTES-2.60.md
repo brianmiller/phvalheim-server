@@ -2,7 +2,7 @@
 
 Prerelease preparation for testing. The tested image is
 `theoriginalbrian/phvalheim-server:dev`, digest
-`sha256:c2857341b9feabdbb5904fa3cf1f0f418ae44541aad78356c2d7ac57774e772e`.
+`sha256:c63614b8f77a582fe6d5af452251d75521535e2257e5a383808ee3960a11a393`.
 The `:rc`, `:latest`, and stable version tags have not been promoted.
 
 **Install PhValheim Client 2.0.17 or newer before updating a test world.** Older clients are
@@ -31,7 +31,11 @@ Settings display that range read-only; new worlds reserve port pairs within it
 and explain when it is full. Existing world ports are not reassigned, and worlds
 outside the configured range are flagged. Saved settings and normal Docker/Unraid
 setup remain unchanged when both variables are unset. See
-[the range guide](CONTAINER-GAME-PORTS.md) for integration and recovery.
+[the range guide](https://github.com/brianmiller/phvalheim-server/blob/master/docs/CONTAINER-GAME-PORTS.md) for integration and recovery.
+
+The dev image passed 28 pure range checks, 34 disposable HTTP/database lifecycle checks,
+managed and ordinary settings browser checks, and a local TrueNAS adapter installation.
+These do not establish live gameplay or a TrueNAS hardware installation.
 
 ## Config delivery and player preferences
 
@@ -78,7 +82,7 @@ Vibes limits were checked with deterministic HTTP provider fixtures for Gemini,
 OpenAI-compatible endpoints, and Anthropic, including real elapsed-time cutoffs and Stop.
 Browser checks cover saved settings, limit validation, and reopening stopped sessions.
 The existing Forge integration also completed nine tool reads and automatic compaction.
-All 74 standalone server suites passed. Image verification passed and the build's Scout
+All 75 standalone server suites passed. Image verification passed and the build's Scout
 scan reported zero critical/high findings.
 
 Earlier config-delivery validation remains: 49 server and 26 browser checks on the prior

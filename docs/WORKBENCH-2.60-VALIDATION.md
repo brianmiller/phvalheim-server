@@ -315,3 +315,39 @@ range, ordinary fresh setup and the old one-time basePort migration.
 Evidence: /tmp/phv260-ports-{standalone,predict,integration-prebuild}.log. Pre-build
 HTTP tests overlay candidate files into a disposable image/container; they are not
 exact-image verification. Final image and browser results follow after the build.
+
+Final dev candidate: registry digest `sha256:c63614b8f77a582fe6d5af452251d75521535e2257e5a383808ee3960a11a393`,
+image `sha256:3f21ffc7d52596d6a1010669803b8c9cd182ccb554c66965663b16c0bbf1a1d4`.
+The detached build completed with IMAGE VERIFY OK and Scout critical/high 0. The
+new range markers report allocator=1, engine guard=1 and managed-settings UI=2.
+
+Exact-image verification passed 34 HTTP/database/engine lifecycle assertions. An
+earlier run of the same image also passed the 31 original assertions plus two real
+Chromium scenarios: managed read-only Base Port and conflict notices, and editable
+ordinary Base Port after removing the range, with no JavaScript errors. The three
+additional assertions verify ordinary unbounded world creation/engine assignment.
+No Steam login, world download or live player join is claimed; engines were stopped
+in the disposable fixtures before creating test worlds.
+
+The official TrueNAS CI basic profile rendered, installed, reached healthy status
+and cleaned up using the exact dev pin and an adapter deriving environment start/end
+and published UDP ports from one range. The adapter is saved as
+[port-range-2.60.patch](truenas/port-range-2.60.patch). It is not applied to the public
+catalog PR, which remains pinned to stable 2.59 until a stable image includes this
+feature. No catalog pin was moved to dev.
+
+The local phvalheim-dev container was recreated on its original phvalheim-dev-data
+volume with its original environment, Steam bypass and port bindings. All seven
+worlds remain stopped; names, ports and saved Base Port match the pre-deploy snapshot.
+Five Supervisor services run, the settings API responds, and all 11 changed runtime
+files match the source byte for byte. The new range variables remain unset on this
+existing install, exercising the opt-in compatibility path. A deployment harness
+initially treated Supervisor's exit status 3 for stopped world entries as a failure;
+checking the five running services and stopped worlds separately resolved it.
+
+Logs: /tmp/phv260-ports-integration-{image,compat}.log,
+/tmp/phv260-ports-truenas-install.log, /tmp/phv260-ports-dev-deploy-evidence.log and
+/tmp/phvalheim-rc-build.log. GitHub Oracle run 41503053038 passed both jobs for the
+runtime commit. The temporary test containers, volumes and managed-storage fixture
+were removed. No client changes, Unraid template edits, rc/latest/versioned tag
+promotion or production deployment were made.
