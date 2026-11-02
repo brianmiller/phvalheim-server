@@ -5,6 +5,8 @@ container-managed game port ranges. Take a consistent backup of all application 
 before updating. Existing Docker and Unraid port settings remain unchanged unless the
 new range environment variables are explicitly configured.
 
+Image: `theoriginalbrian/phvalheim-server:2.60@sha256:c63614b8f77a582fe6d5af452251d75521535e2257e5a383808ee3960a11a393`.
+
 **Install PhValheim Client 2.0.17 or newer before updating worlds that distribute client configuration.** Older clients are
 blocked once a world contains the new config policy; some report this as “world not found.”
 The [client prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.17)
@@ -33,7 +35,7 @@ outside the configured range are flagged. Saved settings and normal Docker/Unrai
 setup remain unchanged when both variables are unset. See
 [the range guide](https://github.com/brianmiller/phvalheim-server/blob/master/docs/CONTAINER-GAME-PORTS.md) for integration and recovery.
 
-The dev image passed 28 pure range checks, 34 disposable HTTP/database lifecycle checks,
+The published image passed 28 pure range checks, 34 disposable HTTP/database lifecycle checks,
 managed and ordinary settings browser checks, and a local TrueNAS adapter installation.
 These do not establish live gameplay or a TrueNAS hardware installation.
 
@@ -57,7 +59,7 @@ These do not establish live gameplay or a TrueNAS hardware installation.
 
 A mod's own runtime synchronization may still control values during gameplay.
 Existing saved operator choices are not retroactively rewritten by the automatic-delivery
-refinement. See [the behavior guide](CONFIG-POLICY-2.60.md) for details.
+refinement. See [the behavior guide](https://github.com/brianmiller/phvalheim-server/blob/master/docs/CONFIG-POLICY-2.60.md) for details.
 
 ## Vibes time and tool limits
 
@@ -90,7 +92,7 @@ dev candidate, 26 actual client synchronization checks, and 6 archive-to-client 
 Signed Windows installer and Linux executable checks passed. Those unchanged paths were
 not rerun for the Vibes update. This does not reproduce the Discord user's exact Gemini
 session or establish why that task consumed its round budget.
-See [the validation record](WORKBENCH-2.60-VALIDATION.md) for scope and evidence.
+See [the validation record](https://github.com/brianmiller/phvalheim-server/blob/master/docs/WORKBENCH-2.60-VALIDATION.md) for scope and evidence.
 
 Recommended checks with your own worlds and mods:
 
