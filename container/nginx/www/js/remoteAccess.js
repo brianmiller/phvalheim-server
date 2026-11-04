@@ -148,11 +148,15 @@
         choice = value;
         if (value !== 'direct') {
             $('raProvider').value = value;
-            step = data?.config?.provider === value ? 3 : 1;
+            step = providerStep(value);
             if (value === 'tailscale' && step === 1) step = 2;
             instructions();
         } else loadNetwork();
         layout();
+    }
+    function providerStep(provider) {
+        if (provider === 'tailscale' && data?.config?.provider === provider && !data?.config?.enabled && (data?.enrolling || data?.authUrl)) return 2;
+        return data?.config?.provider === provider ? 3 : 1;
     }
     function layout() {
         $('raWebsite').hidden = tab !== 'website'; $('raGames').hidden = tab !== 'games';
@@ -267,7 +271,7 @@
         const focused = overlay.contains(document.activeElement) ? document.activeElement.id : '';
         if (!initialized && data.available) {
             $('raProvider').value = data.config.provider || 'cloudflare';
-            if (!choice && data.config.provider) { choice = data.config.provider; step = 3; }
+            if (!choice && data.config.provider) { choice = data.config.provider; step = providerStep(choice); }
             $('raUrlInput').value = data.config.url || ''; initialized = true; instructions();
         }
         $('raTokenSaved').textContent = data.config?.tokenSaved ? '(saved)' : '';
