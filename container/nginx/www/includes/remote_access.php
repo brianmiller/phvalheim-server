@@ -1,25 +1,15 @@
 <?php
 declare(strict_types=1);
 
-function phvRemoteSecure(array $server): bool {
-    // Forwarded headers alone do not make the admin connection secure.
-    $peer = $server['REMOTE_ADDR'] ?? '';
-    $host = parse_url('http://' . ($server['HTTP_HOST'] ?? ''), PHP_URL_HOST);
-    // Docker can translate a loopback-published port's source to its bridge
-    // gateway. Browser localhost remains a loopback secure context; require the
-    // literal loopback Host too (the endpoint independently rejects other Hosts).
-    $localBrowser = in_array($host, ['localhost', '127.0.0.1', '[::1]'], true)
-        && filter_var($peer, FILTER_VALIDATE_IP)
-        && !filter_var($peer, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
-    return ($server['HTTPS'] ?? '') === 'on' || $localBrowser
-        || in_array($peer, ['127.0.0.1', '::1'], true);
-}
-
 function phvRemoteOriginAllowed(array $server): bool {
     $origin = $server['HTTP_ORIGIN'] ?? '';
     $host = $server['HTTP_HOST'] ?? '';
-    $scheme = ($server['HTTPS'] ?? '') === 'on' ? 'https' : 'http';
-    return $origin !== '' && hash_equals($scheme . '://' . $host, $origin)
+    // Match the browser-facing authority exactly, including its port. HTTPS
+    // may terminate at the operator's existing reverse proxy; no forwarded
+    // header is used to grant access. Direct TLS never accepts an HTTP origin.
+    $matches = $host !== '' && (hash_equals('https://' . $host, $origin)
+        || (($server['HTTPS'] ?? '') !== 'on' && hash_equals('http://' . $host, $origin)));
+    return $origin !== '' && $matches
         && !in_array($server['HTTP_SEC_FETCH_SITE'] ?? '', ['cross-site', 'same-site'], true);
 }
 

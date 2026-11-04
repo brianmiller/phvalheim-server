@@ -12,13 +12,11 @@ function remoteFail(int $status, string $message): void {
     exit;
 }
 
-// New secret-bearing controls deliberately require a secure local admin session.
-// In particular an internet origin rebinding to a LAN address cannot obtain a token.
-$secure = phvRemoteSecure($_SERVER);
-$host = parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST);
-$loopbackHost = in_array($host, ['localhost', '127.0.0.1', '[::1]'], true);
-if (!$secure || (!(($_SERVER['HTTPS'] ?? '') === 'on') && !$loopbackHost)) {
-    remoteFail(403, 'Open admin securely before setting up Remote Access. Use localhost or SSH forwarding; the setup instructions show how.');
+// Use the existing private admin boundary, including ordinary LAN access.
+// Reject cross-origin reads before issuing the session-bound mutation token.
+if (in_array($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '', ['cross-site', 'same-site'], true)
+    || (isset($_SERVER['HTTP_ORIGIN']) && !phvRemoteOriginAllowed($_SERVER))) {
+    remoteFail(403, 'Open Remote Access from the admin page.');
 }
 session_name('phv_remote_admin');
 session_start(['cookie_httponly' => true, 'cookie_samesite' => 'Strict',
@@ -28,7 +26,6 @@ $csrf = $_SESSION['remote_csrf'];
 session_write_close();
 $method = $_SERVER['REQUEST_METHOD'] ?? '';
 if ($method === 'GET') {
-    if (($_SERVER['HTTP_SEC_FETCH_SITE'] ?? '') === 'cross-site') remoteFail(403, 'Open Remote Access from the admin page.');
     $result = phvRemoteControl(['action' => 'status']);
     $result['csrf'] = $csrf;
     echo json_encode($result);
@@ -45,6 +42,6 @@ if (!is_array($input)) remoteFail(400, 'Invalid request.');
 $actions = ['save', 'connect', 'enroll', 'disconnect', 'forget', 'test', 'cancelTest'];
 if (!in_array($input['action'] ?? '', $actions, true)) remoteFail(400, 'Unknown action.');
 $result = phvRemoteControl($input);
-if (empty($result['available']) && ($result['success'] ?? false)) remoteFail(503, 'The secure connector is unavailable. Check installation and retry.');
+if (empty($result['available']) && ($result['success'] ?? false)) remoteFail(503, 'The built-in Remote Access service is stopped or starting. Wait a moment, then retry. If it persists, check Server Health.');
 if (empty($result['success'])) http_response_code(400);
 echo json_encode($result);

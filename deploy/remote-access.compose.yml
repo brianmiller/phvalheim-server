@@ -7,7 +7,8 @@ services:
       - phvalheim-data:/opt/stateful
     ports:
       - '8080:8080'
-      - '127.0.0.1:8081:8081'
+      # Admin is for your trusted network only; do not forward it on the router.
+      - '8081:8081'
       - '25000-25010:25000-25010/udp'
     restart: unless-stopped
 volumes:

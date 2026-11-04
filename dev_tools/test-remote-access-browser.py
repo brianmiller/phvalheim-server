@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import subprocess
 import time
+from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright, expect
 
 fixture=json.loads(Path('/tmp/phv-remote-browser-fixture.json').read_text())
@@ -26,7 +27,8 @@ while True:
 subprocess.run(['docker','exec',fixture['connector'],'python3','-c',
     "import socket,json; s=socket.socket(socket.AF_UNIX); s.connect('/run/phvalheim-remote/control.sock'); s.sendall(b'{\"action\":\"forget\"}\\n'); r=json.loads(s.makefile().readline()); assert r['success'],r"], check=True,capture_output=True)
 with sync_playwright() as p:
-    browser=p.chromium.launch(headless=True)
+    address=urlsplit(fixture['admin'])
+    browser=p.chromium.launch(headless=True,args=[f'--host-resolver-rules=MAP phvalheim-lan.test {address.hostname}'])
     page=browser.new_page(viewport={'width':1440,'height':1000})
     errors=[]; exposed=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
@@ -37,11 +39,25 @@ with sync_playwright() as p:
             except Exception: pass
     page.on('response',response)
     page.on('dialog',lambda d:d.accept())
+    # A hostname and an IP must both work without localhost's secure-context exception.
+    page.goto(f'http://phvalheim-lan.test:{address.port}',wait_until='domcontentloaded')
+    page.locator('.nav-item',has_text='Remote Access').click()
+    expect(page.locator('#raSummary')).to_contain_text('No provider configured',timeout=15000)
+    expect(page.locator('#raSave')).to_be_enabled()
+    page.locator('#raProvider').select_option('tailscale')
+    page.locator('#raSave').click()
+    expect(page.locator('#raMessage')).to_contain_text('Settings saved',timeout=10000)
+    page.locator('summary',has_text='Remove this connection').click()
+    page.locator('#raForget').click()
+    expect(page.locator('#raSummary')).to_contain_text('No provider configured',timeout=10000)
     page.goto(fixture['admin'],wait_until='domcontentloaded')
     page.locator('.nav-item',has_text='Remote Access').click()
     expect(page.locator('#raSummary')).to_contain_text('No provider configured',timeout=15000)
     expect(page.locator('#raInstructions ol li')).to_have_count(3)
     expect(page.locator('#raTest')).to_be_disabled()
+    expect(page.locator('#raSave')).to_be_enabled()
+    assert 'SSH' not in page.locator('#remoteAccessOverlay').inner_text()
+    assert 'Open admin securely' not in page.locator('#remoteAccessOverlay').inner_text()
     assert 'optional connector container' not in page.locator('#remoteAccessOverlay').inner_text()
     expect(page.locator('#raInstructions')).to_contain_text('127.0.0.1:18080')
     page.locator('#raUrlInput').fill('http://play.example.net')
@@ -106,5 +122,5 @@ with sync_playwright() as p:
     expect(page.locator('.nav-item',has_text='Remote Access')).to_be_focused()
     assert not errors,errors
     assert not exposed,'Saved token appeared in GET response'
-    print('PASS: real modal setup, validation, secret masking, live checks, reopen/cancel/disconnect, Tailscale sign-in, scope labels, narrow layout, keyboard focus, connector outage/recovery, zero page errors.')
+    print('PASS: ordinary HTTP hostname and IP admin setup, no SSH prerequisite, real modal setup, validation, secret masking, live checks, reopen/cancel/disconnect, Tailscale sign-in, scope labels, narrow layout, keyboard focus, connector outage/recovery, zero page errors.')
     browser.close()

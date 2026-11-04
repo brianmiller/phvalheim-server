@@ -17,6 +17,7 @@ import urllib.request
 import uuid
 
 IMAGE = os.environ.get('PHV_REMOTE_TEST_IMAGE', 'phvalheim-remote:candidate')
+HOST = os.environ.get('PHV_REMOTE_TEST_HOST', '127.0.0.1')
 NAME = 'phv-remote-oracle-' + uuid.uuid4().hex[:8]
 APP = NAME + '-app'; CONNECTOR = APP
 VOLUMES = [NAME+'-data']
@@ -56,19 +57,19 @@ def python_in(name, source, user=None):
 
 try:
     for volume in VOLUMES: command('docker','volume','create',volume)
-    command('docker','run','-d','--name',APP,'-p','127.0.0.1::8080','-p','127.0.0.1::8081',
+    command('docker','run','-d','--name',APP,'-p',HOST+'::8080','-p',HOST+'::8081',
             '-v',VOLUMES[0]+':/opt/stateful',IMAGE)
     inspection=json.loads(command('docker','inspect',APP))[0]
     ck(not inspection['HostConfig'].get('Privileged') and not inspection['HostConfig'].get('CapAdd')
        and len(inspection['Mounts'])==1, 'single standard container, existing data mount, no added capabilities')
-    port=int(command('docker','port',APP,'8081/tcp').rsplit(':',1)[1]); base='http://127.0.0.1:'+str(port)
+    port=int(command('docker','port',APP,'8081/tcp').rsplit(':',1)[1]); base='http://'+HOST+':'+str(port)
     pubport=int(command('docker','port',APP,'8080/tcp').rsplit(':',1)[1])
     jar=http.cookiejar.CookieJar(); opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
     csrf=''
     def http(path='/remoteAccessAPI.php', payload=None, headers=None, public=False):
         hdr={'Content-Type':'application/json','Origin':base,'Sec-Fetch-Site':'same-origin','X-PHV-CSRF':csrf}
         hdr.update(headers or {})
-        request=urllib.request.Request(('http://127.0.0.1:'+str(pubport) if public else base)+path,
+        request=urllib.request.Request(('http://'+HOST+':'+str(pubport) if public else base)+path,
                                        data=json.dumps(payload).encode() if payload is not None else None,headers=hdr)
         try:
             with opener.open(request,timeout=20) as r: return r.status,r.read()
@@ -82,7 +83,9 @@ try:
     s=wait(lambda: (d if (d:=status()).get('available') else None),60); csrf=s['csrf']
     ck(s['observed']['state']=='Off' and not s['config']['enabled'],'default off with genuine connector status')
     ck(http(public=True)[0]==404,'admin Remote Access API absent from player port')
-    ck(http(headers={'Host':'evil.example'})[0]==403,'foreign Host rejected before CSRF disclosure')
+    ck(http(headers={'Host':'evil.example'})[0]==403,'Host/Origin mismatch rejected before CSRF disclosure')
+    ck(http(headers={'Sec-Fetch-Site':'cross-site'})[0]==403,'cross-site status read rejected')
+    ck(http(headers={'Sec-Fetch-Site':'same-site'})[0]==403,'sibling-site status read rejected')
     ck(http(payload={'action':'disconnect'},headers={'X-PHV-CSRF':''})[0]==403,'mutation without CSRF rejected')
     ck(http(payload={'action':'disconnect'},headers={'Origin':'https://evil.example'})[0]==403,'cross-origin mutation rejected')
     ck(http(payload={'action':'save','provider':'cloudflare','url':'http://127.0.0.1','token':'A'*120})[0]==400,'unsafe URL rejected')
@@ -163,9 +166,9 @@ for p in Path('/proc').glob('[0-9]*'):
     action('save',provider='cloudflare',url='https://persist.example.net',token='B'*120)
     identity=python_in(APP,"from pathlib import Path;print(Path('/opt/stateful/remote-access/identity.json').read_text())")
     command('docker','rm','-f',APP)
-    command('docker','run','-d','--name',APP,'-p','127.0.0.1::8080','-p','127.0.0.1::8081',
+    command('docker','run','-d','--name',APP,'-p',HOST+'::8080','-p',HOST+'::8081',
             '-v',VOLUMES[0]+':/opt/stateful',IMAGE)
-    port=int(command('docker','port',APP,'8081/tcp').rsplit(':',1)[1]); base='http://127.0.0.1:'+str(port)
+    port=int(command('docker','port',APP,'8081/tcp').rsplit(':',1)[1]); base='http://'+HOST+':'+str(port)
     pubport=int(command('docker','port',APP,'8080/tcp').rsplit(':',1)[1])
     wait(lambda: http('/remote-test.php?nonce='+'0'*48,public=True)[0]==404,45)
     s=wait(lambda: (d if (d:=status()).get('available') else None),45); csrf=s['csrf']
@@ -176,7 +179,7 @@ for p in Path('/proc').glob('[0-9]*'):
     action('forget')
     print(f'PASS: {PASS} exact-image Remote Access integration checks. No account enrollment approved or live player login/download claimed.',flush=True)
     if os.environ.get('PHV_REMOTE_TEST_KEEP')=='1':
-        Path('/tmp/phv-remote-browser-fixture.json').write_text(json.dumps({'app':APP,'connector':CONNECTOR,'network':NET,'volumes':VOLUMES,'admin':base,'public':'http://127.0.0.1:'+str(pubport)}))
+        Path('/tmp/phv-remote-browser-fixture.json').write_text(json.dumps({'app':APP,'connector':CONNECTOR,'network':NET,'volumes':VOLUMES,'admin':base,'public':'http://'+HOST+':'+str(pubport)}))
 finally:
     if os.environ.get('PHV_REMOTE_TEST_KEEP')!='1':
         for name in (APP,): command('docker','rm','-f',name,check=False)

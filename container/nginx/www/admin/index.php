@@ -8902,6 +8902,6 @@ $totalCount = count($worlds);
 </div>
 <script>document.getElementById('piEgg').addEventListener('click',function(){document.getElementById('piModal').style.display='flex';});</script>
 <link rel="stylesheet" href="/css/remoteAccess.css">
-<script src="/js/remoteAccess.js"></script>
+<script src="/js/remoteAccess.js?v=<?= filemtime(__DIR__ . '/../js/remoteAccess.js') ?>"></script>
 </body>
 </html>

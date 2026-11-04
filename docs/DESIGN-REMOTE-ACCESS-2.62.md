@@ -256,15 +256,19 @@ flowchart LR
 The controller exposes a small admin-only contract: read configuration without
 secrets, save, enroll, connect, disconnect, replace credentials, forget, start/cancel
 a test, and read status. Mutations use POST, session-bound CSRF protection, strict
-Origin/Host validation, and the local admin access boundary. The existing admin UI
-is a trusted-network interface; do not describe it as an already authenticated
-internet service. Require operator authorization appropriate to that deployment,
-and prevent DNS rebinding and cross-origin access to the new controls. A prerequisite
-admin hardening change must be explicit if existing protections are insufficient.
-Credential entry requires an HTTPS admin connection or a loopback-only connection
-such as a local browser or SSH forwarding. If the operator is using plain HTTP
-across the LAN, show a short secure-setup instruction before accepting secrets;
-do not imply that the future public tunnel protects the current admin session.
+Origin/Host matching, and the existing private admin access boundary. Setup must
+work from the operator's ordinary admin URL, including LAN HTTP IP addresses and
+hostnames and existing HTTPS reverse proxies. It must not require SSH, localhost,
+a terminal, or another container. Keep the provider steps in the modal; transport
+failures report the failed request without inventing setup prerequisites.
+
+The admin UI is a trusted-network interface, not an authenticated internet
+service. HTTP does not encrypt entered credentials; existing HTTPS access is
+supported. Remote Access does not make admin public or change its network boundary.
+Strict same-origin checks and CSRF protect against cross-origin requests, but are
+not a complete DNS-rebinding defense for the existing admin application. Deployment
+network controls and any existing reverse-proxy Host allowlist remain applicable.
+Do not claim that a future player tunnel encrypts the current admin session.
 
 PHP handles validated requests; a worker performs slow provider operations. Use
 typed fixed arguments, never shell interpolation of token/hostname input. Reuse

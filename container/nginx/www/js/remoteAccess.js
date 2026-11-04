@@ -2,7 +2,7 @@
 (() => {
     'use strict';
     let overlay, lastFocus, timer, inflight = false, busy = false, csrf = '', data = null;
-    let initialized = false, lastReply = 0, dirty = false, epoch = 0, statusMessage = '', autoInstall = false, transportError = '';
+    let initialized = false, lastReply = 0, dirty = false, epoch = 0, statusMessage = '', transportError = '';
     const $ = id => document.getElementById(id);
     const escape = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const labels = {local:'Local player website',provider:'Provider connection',dns:'Website DNS',tls:'HTTPS certificate',route:'Correct website',transfer:'Small transfer'};
@@ -27,12 +27,7 @@
           <div class="mods-modal-body">
             <p>Connect your player website using your own account. Game connections use your existing settings.</p>
             <div id="raMessage" role="status" aria-live="polite"></div>
-            <details id="raInstall"><summary>Help opening admin securely</summary>
-              <p>Cloudflare and Tailscale are built into PhValheim. No separate container or client installation is needed. <a href="remote-access-help.html" target="_blank" rel="noopener noreferrer">Setup help</a></p>
-              <p>Before entering credentials, open admin over a secure local connection. On the Docker host use <code>http://localhost:8081</code>. From another computer use SSH forwarding, then open that same address:</p>
-              <pre>ssh -L 8081:127.0.0.1:8081 USER@YOUR_SERVER</pre>
-              <p>Replace USER and YOUR_SERVER with your SSH login and server. Keep the SSH window open. The future public tunnel does not secure an existing HTTP admin session.</p>
-            </details>
+            <p>Cloudflare and Tailscale are built in. Choose a connection type and follow the steps below. <a href="remote-access-help.html" target="_blank" rel="noopener noreferrer">Setup help</a></p>
             <div class="ra-status" id="raSummary" aria-live="polite">Loading connection status…</div>
             <p id="raLastChecked" aria-live="off"></p><div id="raUrl"></div>
             <div class="ra-actions"><button type="button" id="raTest">Test connection</button><button type="button" id="raCancel">Cancel test</button><button type="button" id="raDisconnect">Disconnect</button></div>
@@ -108,7 +103,7 @@
     }
     async function perform(fn) {
         if (busy) return;
-        if (!data?.available || !csrf) { message('Open admin securely and wait for the connector status before entering credentials.', true); return; }
+        if (!data?.available || !csrf) { message('Waiting for the built-in Remote Access service. Retry when live status returns.', true); return; }
         busy = true; buttons();
         try { message('Working…'); await fn(); if ($('raMessage').textContent === 'Working…') message('Action completed. Current connection status is shown below.'); }
         catch (e) { message(e.message || 'Connection operation failed. Retry.', true); }
@@ -139,10 +134,8 @@
         $('raSummary').textContent = !data.available ? 'Remote Access service unavailable' : stale ? 'Live status unavailable — last observation is stale' : `${observed.state || 'Unknown'} · ${data.config?.provider === 'cloudflare' ? 'Public website' : data.config?.provider === 'tailscale' ? 'Private website' : 'No provider configured'}`;
         $('raLastChecked').textContent = data.available ? `Last observation: ${new Date((observed.time || 0)*1000).toLocaleTimeString()}${stale ? ' — stale' : ''}` : '';
         if (!data.available) {
-            autoInstall = true;
             statusMessage = data.error || 'The built-in Remote Access service is starting or stopped. Retry in a moment.'; message(statusMessage, true);
         } else {
-            if (autoInstall) { $('raInstall').open = false; autoInstall = false; }
             if ((transportError || data.error) && !busy) { statusMessage = transportError || data.error; message(statusMessage, true); }
             else if (!data.error && statusMessage) {
                 if ($('raMessage').textContent === statusMessage) message('');
@@ -177,7 +170,7 @@
             const next = await response.json();
             if (!response.ok || !next.success) throw new Error(next.error || 'Live status unavailable.');
             if (!busy && epoch === startedEpoch) { transportError = ''; data = next; csrf = next.csrf || csrf; lastReply = Date.now(); render(); }
-        } catch (e) { transportError = e.message || 'Live status unavailable.'; statusMessage = transportError; message(statusMessage, true); $('raInstall').open = !csrf; if (data) render(); else { $('raSummary').textContent = 'Live status unavailable'; buttons(); } }
+        } catch (e) { transportError = e.message || 'Live status unavailable.'; statusMessage = transportError; message(statusMessage, true); if (data) render(); else { $('raSummary').textContent = 'Live status unavailable'; buttons(); } }
         finally {
             inflight = false;
             if (overlay?.classList.contains('show')) timer = setTimeout(poll, data?.test?.state === 'Running' || data?.enrolling ? 2000 : 5000);

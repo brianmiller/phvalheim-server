@@ -31,24 +31,17 @@ from reaching the LAN or other services. Host/network policy remains the boundar
 for deployments that require that protection. The UI creates only the supported
 player-website route and does not offer arbitrary forwarding targets.
 
-## Open admin securely
+## Open Remote Access
 
-Enter tokens only through an HTTPS admin connection or a browser's loopback
-connection. On the Docker host, use `http://localhost:8081`. From another computer,
-forward the admin port through SSH:
+Open your usual PhValheim admin address on your trusted network and choose
+**Remote Access**. Setup works from a LAN IP address or hostname, using the same
+HTTP or HTTPS access you already use for admin. No terminal or port forwarding
+is required. Choose a provider, follow its three setup steps, and connect.
 
-```bash
-ssh -L 8081:127.0.0.1:8081 USER@YOUR_SERVER
-```
-
-Replace the placeholders with your SSH login/server, keep that terminal open, and
-open `http://localhost:8081` on your computer. If that local port is occupied, choose
-another local port and use it in the browser. A public HTTPS tunnel does not secure
-an existing plain HTTP session to the private admin UI.
-
-The current admin interface is a trusted-network interface. Keep it bound to
-loopback or protected by your existing private admin access controls. Forwarded
-HTTPS headers alone do not authorize entering secrets into Remote Access.
+The admin interface remains a trusted-network interface; do not expose its port
+to the internet. HTTP admin traffic, including entered credentials, is not
+encrypted. Use your existing HTTPS admin address where available. The public
+player website's TLS is separate from the connection to admin.
 
 ## Cloudflare: public website
 
