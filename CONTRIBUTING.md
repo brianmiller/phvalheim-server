@@ -28,7 +28,7 @@ Use the contributor guide in the repository you are changing; cross-repository c
 
 Use Linux x86-64 (or an x86-64 Linux VM), Git, Docker with Compose v2+, Bash,
 PHP CLI 8.1+, Python 3 and Node.js. On Ubuntu, install the test dependencies with
-`sudo apt-get install git php-cli python3 nodejs`; install Docker and its Compose plugin
+`sudo apt-get install git php-cli python3 nodejs jq zip unzip`; install Docker and its Compose plugin
 using your distribution's supported instructions.
 
 ```bash
