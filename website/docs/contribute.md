@@ -6,7 +6,7 @@ for contributors **and their LLM coding agents**.
 
 ## One link to give your coding agent
 
-Share this page: **<https://brianmiller.github.io/phvalheim-server/contribute/>**
+Share this page with your LLM: **<https://brianmiller.github.io/phvalheim-server/contribute/>**
 
 Your agent can read the instructions below directly. If it needs plain text, use
 the [raw Markdown version](https://raw.githubusercontent.com/brianmiller/phvalheim-server/master/website/docs/contribute.md).
