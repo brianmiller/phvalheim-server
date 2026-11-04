@@ -1,0 +1,5 @@
+.git
+.claude
+.oracle-logs
+**/__pycache__
+.integration-logs

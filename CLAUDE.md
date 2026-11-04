@@ -109,7 +109,7 @@ The four that cost the most, in short:
 
 ## Database Schema Updates
 
-To add a database field, create `/container/engine/dbUpdates/dbUpdate_X.X.sh` and update the version in the Dockerfile. The engine runs `dbUpdater.sh` on startup which applies pending migrations.
+To add a database field, create `/container/engine/dbUpdates/dbUpdate_X.X.sh` after coordinating the target version with the maintainer. The maintainer updates the Dockerfile when releasing. The engine runs `dbUpdater.sh` on startup which applies pending migrations.
 
 ## Key Code Paths
 

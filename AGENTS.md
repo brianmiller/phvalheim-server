@@ -8,7 +8,7 @@ Codex, Cursor, Copilot or anything else.
 
 Three things that matter most:
 
-- One change per pull request, with a test under `dev_tools/` that fails without it.
+- One change per pull request, with a regression test for behavior changes; docs-only changes need link and command checks.
 - `bash dev_tools/run-oracles.sh --standalone` must pass before the PR is opened.
-- Do not bump the version, add release notes, build images or create tags. Releases are the
+- Local development image builds are allowed. Do not bump the version, add release notes, publish images or create release tags. Releases are the
   maintainer's job; the procedure is `docs/RELEASING.md`.

@@ -1,6 +1,6 @@
 # Contributing to PhValheim Server
 
-Thanks for helping. This is the only page you need to read to contribute. It is written for
+Thanks for helping. Start here to choose the setup and checks for your change. It is written for
 people and for AI coding assistants alike. If something here is wrong or missing, fixing this
 page is itself a welcome contribution.
 
@@ -10,7 +10,7 @@ page is itself a welcome contribution.
 2. Make one change.
 3. Run `bash dev_tools/run-oracles.sh --standalone`. It must pass.
 4. Open a pull request. Fill in the checklist the template gives you.
-5. The maintainer reviews, merges and releases. You never build, tag or publish an image.
+5. The maintainer reviews, merges and releases. Build local development images as needed; only maintainers publish images and releases.
 
 ## Which repo?
 
@@ -22,27 +22,26 @@ PhValheim is three repositories. Pick the right one before you start.
 | The launcher players install on Windows, Linux or macOS | [phvalheim-client](https://github.com/brianmiller/phvalheim-client) |
 | The in-game mod shipped with every world (join flow, player roster) | [phvalheim-companion](https://github.com/brianmiller/phvalheim-companion) |
 
-Each repo has its own `CONTRIBUTING.md` with the same shape as this one.
+Use the contributor guide in the repository you are changing; cross-repository changes must name the related PRs and tested revisions.
 
 ## Set up
 
-You need Docker, `git`, PHP CLI, Python 3 and Node. The tests run on those four runtimes.
+Use Linux x86-64 (or an x86-64 Linux VM), Git, Docker with Compose v2+, Bash,
+PHP CLI 8.1+, Python 3 and Node.js. On Ubuntu, install the test dependencies with
+`sudo apt-get install git php-cli python3 nodejs`; install Docker and its Compose plugin
+using your distribution's supported instructions.
 
 ```bash
-git clone git@github.com:<you>/phvalheim-server.git
+git clone https://github.com/<you>/phvalheim-server.git
 cd phvalheim-server
-bash dev_tools/run-oracles.sh --list        # shows every test and which ones need a container
+git switch -c my-change
+bash dev_tools/run-oracles.sh --list
+bash dev_tools/run-oracles.sh --standalone
 ```
 
-To run the server itself, build the image and start it the way the install guide describes:
-
-```bash
-docker build -t phvalheim-server:dev .
-```
-
-Then follow [the install guide](https://brianmiller.github.io/phvalheim-server/start/install/)
-using `phvalheim-server:dev` as the image. The admin UI is on port 8081, the public UI on 8080.
-`dev_tools/devUp.sh` does this for the maintainer's machine and is a good example to read.
+For an isolated running server, follow [the development recipe](docs/DEVELOPMENT.md).
+It builds your checkout, uses its own data volume, and binds web ports to localhost.
+`dev_tools/devUp.sh` is a maintainer helper, not the contributor setup command.
 
 ## Where the code lives
 
@@ -78,12 +77,16 @@ plausible zero instead of an error when read.
 
 ## Test it
 
+For docs-only changes, verify links and any changed commands. No new runtime test or game install is required. For code changes, run the checks below and record unavailable checks explicitly.
+
 ```bash
 bash dev_tools/run-oracles.sh --standalone     # what CI runs on your PR
-bash dev_tools/run-oracles.sh --container      # the rest; needs a running dev container
+# Disposable HTTP/database checks against your local image:
+PHV_SEC_TEST_IMAGE=phvalheim-contributor:local python3 dev_tools/test-public-security-integration.py
+PHV_PORT_TEST_IMAGE=phvalheim-contributor:local python3 dev_tools/test-game-port-integration.py
 ```
 
-Add a test for your change as `dev_tools/test-<what-it-checks>.sh`. The rules are short:
+For behavior changes, add a test as `dev_tools/test-<what-it-checks>.sh`. The rules are short:
 
 - **It must be able to fail.** Break the code on purpose, watch the test go red, then fix the
   code. A test that was never red proves nothing. CI mutates three load-bearing lines on every
@@ -95,17 +98,37 @@ Add a test for your change as `dev_tools/test-<what-it-checks>.sh`. The rules ar
 - If it needs a live container, put `# requires: container` in the header. If it needs a state
   no runner can create, `# requires: manual`.
 
+### Evidence by change type
+
+| Change | Evidence required |
+| --- | --- |
+| Documentation | Links and changed commands checked; no new runtime test |
+| PHP/UI/API | Standalone regression checks; disposable HTTP/DB checks; browser checks for UI behavior |
+| Engine/database | Disposable integration checks; upgrade, persistence and failure paths for changed behavior |
+| Client/Companion | Relevant platform checks; live gameplay for game behavior changes |
+| Cross-repository behavior | Related PRs and tested revisions; cross-repo contract tests |
+
+CI runs standalone checks, cross-repo contracts, and selected disposable-container suites.
+The container job covers public security and game-port allocation, not every engine feature.
+The remaining `--container` bucket includes maintainer fixtures: do not point it at an
+operator's container. See the development recipe for the supported disposable commands.
+Real Steam sign-in, Windows/macOS runtime checks and live gameplay are separate evidence.
+A draft PR may identify missing evidence; a reviewer must arrange it before declaring the
+changed behavior validated.
+
 ## Open a pull request
 
 The PR template is the checklist. In short:
 
 - [ ] One change, described in plain words: what changes for an operator or a player.
 - [ ] `bash dev_tools/run-oracles.sh --standalone` passes.
-- [ ] A test that fails without the change.
+- [ ] For behavior changes, a test that fails without the change. For docs-only changes, check links and commands; no new runtime test is required.
 - [ ] No version bump, no What's New, no changelog entry.
 - [ ] No secrets, internal hostnames, IPs, SteamIDs or pasted logs. See below.
 - [ ] What you did **not** test, stated plainly. "Built and tests pass, not run against a live
       world" is a fine answer. Silence is not.
+
+Report suspected vulnerabilities privately using [SECURITY.md](SECURITY.md), before opening a public issue or PR.
 
 ## Rules that protect everyone
 
