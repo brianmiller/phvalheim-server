@@ -1,8 +1,38 @@
 # Remote Access: architecture and operator experience
 
-**Status: proposed design for 2.62, not implemented.** Release inclusion depends on
-validation. [Issue #114](https://github.com/brianmiller/phvalheim-server/issues/114)
+**Status: development implementation; stable release inclusion remains subject to
+validation.** [Issue #114](https://github.com/brianmiller/phvalheim-server/issues/114)
 owns implementation tasks, ownership, acceptance criteria, and current status.
+
+## Development implementation
+
+The first implementation selects the isolated connector-container fallback below.
+Normal Docker settings on the development host reject unprivileged network
+namespaces, so bundling an unrestricted connector in the main container would not
+meet the isolation requirement. The same image supports both roles, joined only by
+a dedicated socket volume. One-time Docker setup is required; subsequent provider
+configuration happens in the admin modal. Linux Docker is the validated target;
+Unraid/TrueNAS installation integration and full live-account/client compatibility
+remain release gates tracked in issue #114.
+
+The modal uses a provider selector, three setup steps, copy buttons, connection
+summary, live diagnostic rows, and expandable details. Cloudflare and private
+Tailscale Serve are implemented; Funnel and managed provisioning remain deferred.
+A connector observation is distinct from a server-originated URL check and a
+browser/device challenge. The initial transfer check uses a small diagnostic
+response; it does not certify archive delivery. Tailscale requires a second
+authorized device to test its private route. No external verifier service is used.
+
+Connectors start off, persist their selected provider and credentials privately,
+and support disconnect/forget. Changing provider replaces the selected URL;
+re-enter the former URL when switching back. The existing public website already
+derives its URL from the request Host; the fixed gateway sets that hostname and
+HTTPS forwarding metadata without changing stored game connection settings.
+
+See [the operator guide](../website/docs/host/remote-access.md) and
+[Compose example](../deploy/remote-access.compose.yml) for the tested installation.
+The remaining sections record the design intent; issue #114 records validation
+and any remaining acceptance work rather than claiming every release gate passed.
 
 ## Product scope
 

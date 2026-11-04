@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # running environment
 FROM ubuntu:jammy
 
@@ -86,6 +87,7 @@ COPY container/nginx/nginx.conf	/etc/nginx/nginx.conf
 COPY container/nginx/phvalheim.conf /etc/nginx/sites-available/phvalheim.conf
 COPY container/nginx/www/ /opt/stateless/nginx/www/
 COPY container/engine/ /opt/stateless/engine/
+COPY container/remote-access/ /opt/stateless/remote-access/
 COPY LICENSE /opt/stateless/LICENSE
 COPY container/games/ /opt/stateless/games/
 COPY container/games/valheim/macos/libdoorstop.dylib /opt/stateless/games/valheim/macos/libdoorstop.dylib
@@ -114,6 +116,14 @@ RUN echo "phvalheim ALL=(root) NOPASSWD: /opt/stateless/engine/tools/applyTimezo
 
 # enable PhValheim within NGINX
 RUN ln -s /etc/nginx/sites-available/phvalheim.conf /etc/nginx/sites-enabled/phvalheim
+
+# Optional Remote Access connector mode uses the same image in its OWN network
+# namespace. These credentials-free binaries are pinned to publisher checksums.
+ADD --checksum=sha256:1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872 https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/cloudflared-linux-amd64 /usr/local/bin/cloudflared
+ADD --checksum=sha256:720cbbccbfc03d8b55df72afc19e5a72e31b0f65934700aa6fa38074d4ad7bf7 https://pkgs.tailscale.com/stable/tailscale_1.104.5_amd64.tgz /tmp/tailscale.tgz
+RUN tar -xzf /tmp/tailscale.tgz -C /tmp && install -m 755 /tmp/tailscale_1.104.5_amd64/tailscale /tmp/tailscale_1.104.5_amd64/tailscaled /usr/local/bin/ && rm -rf /tmp/tailscale* && chmod 755 /usr/local/bin/cloudflared
+RUN apt-get update && apt-get install --no-install-recommends -y iptables util-linux && rm -rf /var/lib/apt/lists/*
+RUN chmod 755 /opt/stateless/remote-access/start.sh
 
 # dooyet
 CMD ["/opt/stateless/engine/tools/startSupervisord.sh"]

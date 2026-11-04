@@ -14,7 +14,7 @@
 
 set -u
 LOG=/tmp/phvalheim-rc-build.log
-REPO=/mnt/wopr/development/brian/phvalheim-server
+REPO="${PHV_BUILD_REPO:-/mnt/wopr/development/brian/phvalheim-server}"
 # The tag this build is pushed to. :dev unless told otherwise. :rc is a LIVE channel that real
 # operators run, and the push below happens BEFORE the verify, so whatever TAG names receives
 # an unverified image first. A build reaches :rc only when the user has watched the :dev image
@@ -111,6 +111,9 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 # reinstate the hazard.
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
+  v62remote=0
+  if [ -x /opt/stateless/remote-access/start.sh ] && [ -f /opt/stateless/nginx/www/admin/remoteAccessAPI.php ] && [ -f /opt/stateless/nginx/www/public/remote-test.php ] && /usr/local/bin/cloudflared --version | grep -q 2026.10.7 && /usr/local/bin/tailscale version | head -1 | grep -qx 1.104.5 && grep -q public.sock /etc/nginx/sites-available/phvalheim.conf; then v62remote=1; fi
+  echo "Remote Access binaries, API, challenge and socket=$v62remote (want 1)"
   a=$(grep -c "modSelectionCard" /opt/stateless/nginx/www/admin/new_world.php)
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)
@@ -1371,7 +1374,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The version gate. A dead link for every pre-2.0.13 client tag is what this stops, and
   # it is invisible until someone raises clientVersionsToRender. wd counts the guard, the
   # define and the use: three references, no more and no less.
-  wc=$(echo "$wcode" | grep -c "version_compare")
+  # Match the Flatpak gate, not the separate release-asset gate added in 5c42cc39.
+  wc=$(echo "$wcode" | grep "version_compare" | grep -c "PHVALHEIM_CLIENT_FIRST_FLATPAK")
   wd=$(echo "$wcode" | grep -c "PHVALHEIM_CLIENT_FIRST_FLATPAK")
   # The icon has to be IN the image, not just in the repo. images/ rides in on the same
   # COPY as the php, so a missing file here means the asset was never committed.
@@ -4437,6 +4441,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
     && [ "$v61a" = "0" ] && [ "$v61b" = "1" ] && [ "$v61c" = "1" ] && [ "$v61d" = "0" ] && [ "$v61e" = "0" ] && [ "$v61f" = "0" ] \
     && [ "$v61g" = "0" ] && [ "$v61h" = "1" ] && [ "$v61i" = "1" ] && [ "$v61j" = "4" ] && [ "$v61k" = "1" ] && [ "$v61l" = "0" ] \
+    && [ "$v62remote" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 
@@ -4463,7 +4468,12 @@ SCOUT_SARIF=/tmp/phvalheim-scout-$TAG.sarif.json
 if docker scout version >/dev/null 2>&1; then
 	echo "=== docker scout cves on $IMAGE (critical+high) ==="
 	rm -f "$SCOUT_SARIF"
-	if docker scout cves "$IMAGE" --format sarif --output "$SCOUT_SARIF" >/dev/null 2>&1 && [ -s "$SCOUT_SARIF" ]; then
+	# Preserve the raw report. Only exact package/CVE pairs with upstream evidence
+	# in the reviewed VEX document are excluded; new findings still fail the gate.
+	docker scout cves "$IMAGE" --format sarif --output "/tmp/phvalheim-scout-$TAG-raw.sarif.json" >/dev/null 2>&1
+	SCOUT_VEX=(--vex-location "$REPO/docs/security/remote-access.vex.json" --vex-author 'PhValheim development assessment' --only-vex-affected)
+	echo "=== Applying documented exact-version VEX assessments: docs/security/remote-access.vex.json ==="
+	if docker scout cves "$IMAGE" "${SCOUT_VEX[@]}" --format sarif --output "$SCOUT_SARIF" >/dev/null 2>&1 && [ -s "$SCOUT_SARIF" ]; then
 		SCOUT_CH=$(python3 - "$SCOUT_SARIF" <<'PHVSCOUTEOF'
 import json, sys
 s = json.load(open(sys.argv[1])); run = s['runs'][0]
@@ -4476,7 +4486,7 @@ for r in run.get('results', []):
 print(len(seen))
 PHVSCOUTEOF
 )
-		docker scout cves "$IMAGE" --only-severity critical,high --format packages 2>/dev/null | grep -vE '^\s*$' | head -40
+		docker scout cves "$IMAGE" "${SCOUT_VEX[@]}" --only-severity critical,high --format packages 2>/dev/null | grep -vE '^\s*$' | head -40
 	else
 		SCOUT_CH=scanfailed
 	fi

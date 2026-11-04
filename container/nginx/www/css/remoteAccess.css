@@ -1,0 +1,26 @@
+.ra-modal { max-width: 760px; width: min(96vw,760px); }
+.ra-modal .mods-modal-body { max-height: 78vh; overflow-y: auto; overflow-wrap: anywhere; }
+.ra-modal label { display: block; margin-top: .8rem; font-weight: 600; }
+.ra-modal input, .ra-modal select { box-sizing: border-box; width: 100%; padding: .65rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border-color,#46536a); border-radius: 5px; }
+.ra-modal button { cursor: pointer; padding: .55rem .8rem; color: var(--text-primary,#e5eefb); background: var(--bg-secondary,#233248); border: 1px solid var(--border-color,#46536a); border-radius: 6px; font: inherit; font-size: .88rem; }
+.ra-modal button:hover:not(:disabled) { border-color: var(--accent-primary,#74cfff); }
+.ra-modal #raConnect, .ra-modal #raSignIn { background: #075b76; border-color: #32bedb; color: #fff; font-weight: 600; }
+.ra-modal .mods-modal-close { background: transparent; border: 0; font-size: 1.5rem; }
+.ra-modal h3 { font-size: 1.1rem; margin: 1.1rem 0 .6rem; }
+.ra-modal a { color: var(--accent-primary,#8ed9ff); }
+.ra-modal a:visited { color: var(--accent-primary,#8ed9ff); }
+.ra-modal button:disabled { opacity: .55; cursor: default; }
+.ra-modal summary { cursor: pointer; font-weight: 600; padding: .7rem 0; }
+.ra-modal details { border-top: 1px solid var(--border-color,#46536a); margin-top: .8rem; }
+.ra-modal li { margin-bottom: .7rem; }
+.ra-modal code, .ra-modal pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ra-modal [hidden] { display: none !important; }
+.ra-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; }
+.ra-status { padding: .75rem; font-weight: 600; background: var(--bg-primary); margin-top: .8rem; }
+.ra-error { color: var(--danger,#f88); }
+.ra-check { display: grid; grid-template-columns: 1fr auto; gap: .3rem .7rem; padding: .6rem 0; border-bottom: 1px solid var(--border-color,#46536a); }
+.ra-check p { grid-column: 1/-1; margin: 0; }
+.ra-modal dl { display: grid; grid-template-columns: minmax(100px,1fr) 2fr; gap: .4rem; }
+.ra-modal dd { margin: 0; }
+.ra-modal :focus-visible { outline: 2px solid var(--accent-primary,#74cfff); outline-offset: 3px; }
+@media(max-width:480px) { .ra-modal dl { grid-template-columns: 1fr; } .ra-modal .mods-modal-body { padding: .8rem; } }

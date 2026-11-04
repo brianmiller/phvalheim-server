@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Remote Access setup — PhValheim</title>
+<style>body{font:17px/1.6 system-ui;max-width:850px;margin:2rem auto;padding:1rem;background:#101827;color:#e5eefb}a{color:#79ceff}pre{padding:1rem;background:#1c283b;overflow:auto}code{overflow-wrap:anywhere}li{margin:.7rem 0}</style></head><body>
+<h1>Install the secure Remote Access connector</h1>
+<p>This is a one-time installation for the development build. Afterward, Cloudflare and Tailscale setup happens in the Remote Access modal.</p>
+<p><strong>Keep your existing PhValheim data volume, environment, and ports.</strong> Add a shared socket volume to that existing service. Do not replace its data volume with a new example volume.</p>
+<h2>Docker Compose</h2>
+<ol><li>Use <code>theoriginalbrian/phvalheim-server:dev</code> for your existing PhValheim service.</li><li>Add <code>remote-link:/run/phvalheim-remote</code> to that service's volumes.</li><li>Add the connector service and volumes/network below to your Compose file.</li><li>Recreate the services using your normal deployment tool. Open Remote Access in admin; the connector should report <strong>Off</strong> until you configure it.</li></ol>
+<pre>services:
+  remote-access:
+    image: theoriginalbrian/phvalheim-server:dev
+    entrypoint: ['/opt/stateless/remote-access/start.sh']
+    environment:
+      PHV_REMOTE_CONNECTOR: '1'
+    volumes:
+      - remote-link:/run/phvalheim-remote
+      - remote-state:/var/lib/phvalheim-remote
+    networks: [remote-egress]
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, SETPCAP, SETUID, SETGID, CHOWN, FOWNER, KILL]
+    security_opt: ['no-new-privileges:true']
+    read_only: true
+    tmpfs: ['/tmp:rw,nosuid,nodev,noexec', '/run:rw,nosuid,nodev,noexec']
+    restart: unless-stopped
+    pids_limit: 128
+volumes:
+  remote-link:
+  remote-state:
+networks:
+  remote-egress:
+    driver: bridge</pre>
+<p>Publish no ports on the connector. Never use host networking, share PhValheim's network namespace, or mount the Docker socket. Use a separate socket volume for each PhValheim instance. Keep the connector's private state volume out of ordinary backups/exports.</p>
+<p>Linux Docker is the initial supported setup. Unraid/TrueNAS need equivalent separate-container settings; their native installation flows are not yet validated. Do not disable isolation to make an unsupported configuration work.</p>
+<h2>Open admin securely</h2>
+<p>On the Docker host, open <code>http://localhost:8081</code>. From another computer, open an SSH tunnel and keep it running:</p>
+<pre>ssh -L 8081:127.0.0.1:8081 USER@YOUR_SERVER</pre>
+<p>Use your SSH user and server in place of the placeholders, then open <code>http://localhost:8081</code> in your browser. Choose another local port if 8081 is occupied. Remote Access accepts credentials on loopback or a directly secured HTTPS admin connection; spoofed forwarding headers do not make HTTP secure.</p>
+<h2>Connect your account</h2>
+<p>Return to <a href="/">admin</a> and open <strong>Remote Access</strong>. The Cloudflare modal walks you through creating a tunnel and hostname route. The Tailscale modal provides a browser sign-in link and instructions for private HTTPS access. Both show real connection tests and next steps when a check fails.</p>
+<p>Remote Access connects the player website. It does not expose admin or configure Valheim's game ports.</p>
+</body></html>

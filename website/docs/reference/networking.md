@@ -22,6 +22,13 @@ to localhost.
 
 Keep both mounts through container replacement. A backup archive of a world is not a complete server-data backup. On Unraid, [pin appdata to the pool](../start/other-platforms.md#unraid).
 
+## Remote Access development preview
+
+The `:dev` image includes an optional isolated connector for Cloudflare Tunnel and
+private Tailscale Serve. See [Remote Access setup](../host/remote-access.md) for
+installation, guided configuration, live checks, and current limits. Game UDP
+ports remain separate. This preview does not change the stable installation.
+
 ## Public website behind NGINX
 
 This example terminates HTTPS for the **player website**, forwarding to port 8080. Replace the domain and certificate paths. Adjust the upstream if NGINX runs in a separate container or on a different host.

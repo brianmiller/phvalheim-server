@@ -272,6 +272,7 @@ $totalCount = count($worlds);
                         Server Health
                         <span id="healthNavBadge" style="display:none; margin-left:auto; min-width:1.3rem; padding:0 0.4rem; border-radius:999px; font-size:0.7rem; font-weight:700; line-height:1.3rem; text-align:center; color:#fff; background:var(--warning);"></span>
                     </a>
+                    <a href="#" onclick="showRemoteAccessModal(); return false;" class="nav-item"><span>Remote Access</span></a>
                     <a href="#" onclick="showServerSettingsModal(); return false;" class="nav-item">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
@@ -8900,5 +8901,7 @@ $totalCount = count($worlds);
     <img src="/images/lordnikon.png" style="max-width:90%;max-height:90%;border-radius:6px;box-shadow:0 0 30px rgba(0,0,0,0.8);">
 </div>
 <script>document.getElementById('piEgg').addEventListener('click',function(){document.getElementById('piModal').style.display='flex';});</script>
+<link rel="stylesheet" href="/css/remoteAccess.css">
+<script src="/js/remoteAccess.js"></script>
 </body>
 </html>
