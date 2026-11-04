@@ -74,7 +74,9 @@ nav:
       - Set up the workshop: vibes/setup.md
       - GitHub, GitLab and imports: vibes/source-control.md
       - Package and publish: vibes/publishing.md
-  - Contribute: contribute.md
+  - Contribute:
+      - Contributor guide: contribute.md
+      - Public UI concepts: design/public-ui-2.62.md
   - Reference:
       - Ports, storage and HTTPS: reference/networking.md
       - Catalogue syncing: reference/catalogues.md
