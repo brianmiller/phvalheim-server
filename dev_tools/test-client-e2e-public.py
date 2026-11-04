@@ -102,12 +102,44 @@ def inner(server, world_pick):
     if zips:
         got = hashlib.md5(zips[0].read_bytes()).hexdigest()
         ck('...and its md5 equals what the server published', got == server_md5, (got, server_md5))
-    cfgs = list(Path('/root/.config/PhValheim').rglob(world + '-config.zip'))
-    ck('the config payload was downloaded', len(cfgs) >= 1)
+    # A first sync takes the FULL payload (which already carries the configs); the separate
+    # -config.zip is only fetched for a config-only update, so it is not asserted here. The
+    # URL itself is covered by test-public-security-integration.py.
+    syncs = list(Path('/root/.config/PhValheim').rglob(world + '.sync'))
+    ck('the client recorded the sync (<world>.sync written)', len(syncs) >= 1)
     bep = list(Path('/root/.config/PhValheim').rglob('BepInEx'))
     ck('the payload was unpacked (a BepInEx tree exists)', any(b.is_dir() for b in bep))
     steam_log = T.STEAM_LOG.read_text() if T.STEAM_LOG.exists() else ''
-    ck('stub Steam was asked to launch Valheim (-applaunch 892970)', '-applaunch' in steam_log and '892970' in steam_log, steam_log[-300:])
+    # Native Linux starts the game itself (the stub Valheim record above is the proof); Steam
+    # is only started so the overlay/friends layer is up, which the stub logs as ARGV.
+    ck('stub Steam was started', 'ARGV' in steam_log, steam_log[-300:])
+
+    # Second launch: a CONFIG-ONLY update. The sync record is what the client holds; telling
+    # it the configs are stale while the payload and mods still match makes Syncer take the
+    # config-only path, which is the ONLY path that requests <world>-config.zip -- the second
+    # of the two URLs the 2.61 nginx rule must keep serving.
+    print('== second launch: config-only update (sync record marked stale)')
+    if not syncs:
+        ck('second launch needs the sync record', False)
+        return
+    rec_path = syncs[0]
+    lines = [ln for ln in rec_path.read_text().splitlines() if not ln.startswith('configMd5=')]
+    rec_path.write_text('\n'.join(lines + ['configMd5=stale']) + '\n')
+    for lp in (T.STEAM_LOG, T.VALHEIM_LOG):
+        if lp.exists():
+            lp.unlink()
+    t0 = time.time()
+    p = subprocess.run(['/opt/client/phvalheim-client', 'phvalheim://?' + launch], env=env,
+                       capture_output=True, timeout=900, stdin=subprocess.DEVNULL)
+    print('  client exit', p.returncode, 'in %.0fs' % (time.time() - t0))
+    ck('second launch exited 0', p.returncode == 0, (p.stdout + p.stderr).decode(errors='replace')[-500:])
+    cfgs = list(Path('/root/.config/PhValheim').rglob(world + '-config.zip'))
+    ck('the config payload (<world>-config.zip) was downloaded on the config-only path', len(cfgs) >= 1,
+       [str(z) for z in Path('/root/.config/PhValheim').rglob('*.zip')])
+    rec2 = T.wait_for_json(T.VALHEIM_LOG, timeout=30)
+    ck('the stub Valheim was started again', rec2 is not None)
+    newrec = rec_path.read_text() if rec_path.exists() else ''
+    ck('the sync record now holds a real config checksum', 'configMd5=' in newrec and 'configMd5=stale' not in newrec, newrec)
 
 # ------------------------------------------------------------------ outer: drives docker
 def outer(a):
@@ -156,15 +188,17 @@ def outer(a):
 
         if a.container:
             print('== server side: what nginx saw from the client (since e2e start)')
-            log = subprocess.run(['docker', 'exec', a.container, 'sh', '-c',
-                                  'awk "/--- e2e start/{buf=\\"\\"} {buf=buf $0 \\"\\n\\"} END{printf \\"%s\\", buf}" /opt/stateful/logs/nginx.log'],
-                                 text=True, capture_output=True).stdout
+            full = subprocess.run(['docker', 'exec', a.container, 'tail', '-n', '2000', '/opt/stateful/logs/nginx.log'],
+                                  text=True, capture_output=True).stdout
+            log = full.rsplit('--- e2e start', 1)[-1]
             hits = [ln for ln in log.splitlines() if '/stateful/valheim/worlds/' in ln or 'api.php' in ln]
             for ln in hits[-12:]:
                 print('  |', ln[:200])
             ck('nginx served the world zip to the client with 200',
                any('.zip HTTP' in ln and ' 200 ' in ln and '-config.zip' not in ln for ln in hits), hits[-5:])
-            ck('nginx served the config zip with 200', any('-config.zip HTTP' in ln and ' 200 ' in ln for ln in hits))
+            ck('nginx served the config zip with 200 (second, config-only launch)', any('-config.zip HTTP' in ln and ' 200 ' in ln for ln in hits))
+            ck('every /stateful/ request the client made was answered 200 (none 404)',
+               not any('/stateful/' in ln and ' 404 ' in ln for ln in hits), [ln for ln in hits if ' 404 ' in ln])
             ck('the client asked getSyncState', any('mode=getSyncState' in ln and ' 200 ' in ln for ln in hits))
             ck('nothing else under /stateful/ was requested', not any('/stateful/' in ln and '.zip' not in ln for ln in hits), hits)
     finally:
