@@ -75,6 +75,13 @@ verify silently never runs and the leftover greps execute against the host. `bas
 catch it because the result is still valid shell. The script self-checks this and refuses to
 build; do not defeat it.
 
+**Verify client delivery.** Run `python3 dev_tools/check-client-delivery.py` with PHP CLI,
+Python 3 and authenticated GitHub CLI available. It renders the server's Windows/Linux
+menu, follows all five package links, and checks bytes against the published release's
+`SHA256SUMS` and GitHub asset metadata. A release is not complete when assets exist but
+players' links fail. This check does not exercise the macOS installer. Keep historical
+packages in client `builds/` for older server versions that still link there.
+
 **5. Run the tests, and make sure they are oracles.** A test that answers the same whether or
 not the bug is present is worse than none — it is a false all-clear. Mutation-check the new
 ones: reintroduce the bug and confirm the suite goes red. Report honestly when a mutation
