@@ -145,6 +145,7 @@ with sync_playwright() as p:
     page.locator('.nav-item',has_text='Remote Access').click()
     expect(page.locator('#raSignInLink a')).to_be_visible(timeout=10000)
     page.locator('#raDisconnect').click()
+    expect(page.locator('#raBack')).to_be_enabled(timeout=15000)
     page.locator('#raBack').click(); choose('tailscale')
     page.locator('summary',has_text='Remove saved connection').click()
     page.locator('#raForget').click()

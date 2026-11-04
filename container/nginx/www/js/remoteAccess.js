@@ -238,6 +238,8 @@
         finally { busy = false; buttons(); }
     }
     function buttons() {
+        ['raBack','raNext','raEdit','raEditInstructions'].forEach(id => $(id).disabled = busy);
+        overlay.querySelectorAll('[data-choice]').forEach(button => button.disabled = busy);
         const available = data?.available && !!csrf && !transportError, enabled = data?.config?.enabled, enrolling = data?.enrolling;
         ['raSave','raConnect','raSignIn','raForget'].forEach(id => $(id).disabled = busy || !available);
         $('raSave').disabled ||= enabled || enrolling;
