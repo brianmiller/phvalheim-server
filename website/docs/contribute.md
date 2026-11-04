@@ -1,6 +1,6 @@
 # Contribute to PhValheim
 
-Help improve the server, launcher, or in-game Companion. Bug fixes, documentation,
+Help improve the server, launcher, in-game Companion, or Vibes Build Pak. Bug fixes, documentation,
 reproductions, and testing reports are all welcome. These instructions are written
 for contributors **and their LLM coding agents**.
 
@@ -40,6 +40,11 @@ Task: [issue URL or description]
 | Server container, web UI, engine, backups, or this website | [Server](https://github.com/brianmiller/phvalheim-server/blob/master/CONTRIBUTING.md) | `master` | [Server AGENTS.md](https://raw.githubusercontent.com/brianmiller/phvalheim-server/master/AGENTS.md) |
 | Windows, Linux, or macOS launcher | [Client](https://github.com/brianmiller/phvalheim-client/blob/master/CONTRIBUTING.md) | `master` | [Client AGENTS.md](https://raw.githubusercontent.com/brianmiller/phvalheim-client/master/AGENTS.md) |
 | In-game join flow, UI, or player telemetry | [Companion](https://github.com/brianmiller/phvalheim-companion/blob/main/CONTRIBUTING.md) | `main` | [Companion AGENTS.md](https://raw.githubusercontent.com/brianmiller/phvalheim-companion/main/AGENTS.md) |
+| The toolchain archive used by Hugin's Vibes to build mods: SDK, git, BepInEx references, decompiler, and publicizer | [Vibes Build Pak](https://github.com/brianmiller/phvalheim-vibes-buildpak/blob/main/CONTRIBUTING.md) | `main` | [Build Pak AGENTS.md](https://raw.githubusercontent.com/brianmiller/phvalheim-vibes-buildpak/main/AGENTS.md) |
+
+The Build Pak is a separate PhValheim component with its own contributor and agent
+instructions. Toolchain and archive changes belong there; the Vibes UI, agent rules,
+and server integration belong in the server repository.
 
 For a new mod of your own, start with [Make your first Vibe](vibes/first-mod.md).
 The workflow below is for changes to PhValheim itself.
@@ -61,13 +66,18 @@ The workflow below is for changes to PhValheim itself.
    It builds your checkout and uses separate data with web ports bound to localhost.
    Use disposable worlds and data. Client and Companion prerequisites are in their
    contributor guides; Companion needs your own prepared game references.
+   For the Build Pak, follow its contributor guide's local build requirements and runtime-image
+   checks in a disposable environment. Its release instructions are for maintainers;
+   preparing a contribution does not authorize publishing a pak or updating a live server.
 5. **Implement and verify.** Run the checks required for your type of change.
    For behavior changes, add a meaningful regression test and show that it detects
    the original problem. Docs-only changes need link and changed-command checks,
    not a game installation or new runtime tests.
 6. **Prepare the PR.** Complete the mandatory [dynamic-page and status review](#always-review-dynamic-pages-and-status-content) below. Explain what changes for the user, link the issue, and report
    the commands run and their results. Identify the tested commit and any related
-   repository revisions. Use the repository's PR template.
+   repository revisions. Use the repository's PR template when present; otherwise
+   include the same change summary, checks, limitations, issue links, and
+   documentation/status review in the PR body.
 7. **Wait for Brian's approval.** Brian Miller (`@brianmiller`) must explicitly approve
    the revision before it enters `main` or `master`. Changes after approval require
    renewed approval. Green CI, another reviewer, an implementation request, and
@@ -80,8 +90,9 @@ The workflow below is for changes to PhValheim itself.
 
 Track bugs, planned work, ownership, acceptance criteria, validation evidence, and
 completion status in GitHub Issues: [Server](https://github.com/brianmiller/phvalheim-server/issues),
-[Client](https://github.com/brianmiller/phvalheim-client/issues), or
-[Companion](https://github.com/brianmiller/phvalheim-companion/issues).
+[Client](https://github.com/brianmiller/phvalheim-client/issues),
+[Companion](https://github.com/brianmiller/phvalheim-companion/issues), or
+[Vibes Build Pak](https://github.com/brianmiller/phvalheim-vibes-buildpak/issues).
 Search existing issues, including closed issues and linked follow-ups, before opening
 another. Every contribution must review affected issues and link them in its PR.
 Do not maintain a duplicate Markdown backlog or task/status list.
@@ -138,6 +149,8 @@ Report vulnerabilities privately using **Security → Report a vulnerability** i
 affected repository: [Server](https://github.com/brianmiller/phvalheim-server/security/advisories/new),
 [Client](https://github.com/brianmiller/phvalheim-client/security/advisories/new), or
 [Companion](https://github.com/brianmiller/phvalheim-companion/security/advisories/new).
+For the Build Pak, follow its [security reporting instructions](https://github.com/brianmiller/phvalheim-vibes-buildpak/blob/main/SECURITY.md),
+which route reports through the Server form and identify the affected component.
 Do not post vulnerability details in public issues or Discord.
 
 For ordinary contributor questions, [join Discord](https://discord.gg/8RMMrJVQgy).

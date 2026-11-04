@@ -38,15 +38,19 @@ and stale-approval dismissal; the CODEOWNERS file alone does not block merges.
 
 ## Which repo?
 
-PhValheim is three repositories. Pick the right one before you start.
+PhValheim spans these repositories. Pick the right one before you start.
 
 | You want to change | Repo |
 | --- | --- |
 | The server container: admin UI, public UI, engine, mod catalogue, backups, the docs website | **phvalheim-server** (this one) |
 | The launcher players install on Windows, Linux or macOS | [phvalheim-client](https://github.com/brianmiller/phvalheim-client) |
 | The in-game mod shipped with every world (join flow, player roster) | [phvalheim-companion](https://github.com/brianmiller/phvalheim-companion) |
+| The SDK, git, BepInEx references, decompiler, and publicizer packaged for Hugin's Vibes | [phvalheim-vibes-buildpak](https://github.com/brianmiller/phvalheim-vibes-buildpak) |
 
 Use the contributor guide in the repository you are changing; cross-repository changes must name the related PRs and tested revisions.
+Use the Build Pak's [contributor guide](https://github.com/brianmiller/phvalheim-vibes-buildpak/blob/main/CONTRIBUTING.md)
+for setup and validation. Follow the shared [contributor workflow](https://brianmiller.github.io/phvalheim-server/contribute/)
+and Brian's approval requirement there too. Vibes UI and server integration changes belong in this server repository.
 
 ## Set up
 
