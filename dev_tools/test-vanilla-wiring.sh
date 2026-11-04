@@ -59,7 +59,7 @@ ck "JS HEALTH block gated"          "$(grep -c 'world.vanilla ?' $I)" 1
 echo "4. Edit Mods gated"
 ck "vanilla in index.php data"      "$(grep -c "'vanilla' => " $I)" 1
 ck "vanilla in adminAPI data"       "$(grep -c "'vanilla' => " $M)" 2
-ck "PHP offline row gated"          "$(grep -c 'is a vanilla world . it runs no mods' $I)" 3
+ck "PHP offline row gated"          "$(grep -Fc 'is a vanilla world — it runs no mods' $I)" 3
 ck "edit_world.php guard"           "$(grep -c 'getVanilla' $E)" 1
 # Was a count of deleteAllWorldMods() call sites, which 2.43 legitimately changed: the mod
 # SAVE path now writes through saveWorldModSelection(). A call-site count cannot tell those

@@ -1,7 +1,7 @@
 # Local contributor environment
 
 Use an x86-64 Linux host or VM with Docker Compose v2+, Git, Bash, PHP CLI 8.1+,
-Python 3 and Node.js. Start with the clone and standalone tests in
+Python 3, Node.js, jq, zip and unzip. Start with the clone and standalone tests in
 [CONTRIBUTING.md](../CONTRIBUTING.md). No production data or credentials are needed
 for the setup and disposable integration checks below.
 
