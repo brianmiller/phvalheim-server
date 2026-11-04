@@ -31,9 +31,12 @@ with sync_playwright() as p:
         if route.request.method != 'GET':
             assert allow_publish, 'Provider navigation must not mutate configuration'
             body = route.request.post_data_json
-            assert body['action'] in ('connect', 'hostname')
+            assert body['action'] in ('connect', 'hostname', 'test')
             publish_requests.append(body)
-            if body['action'] == 'hostname':
+            if body['action'] == 'test':
+                state['test']={'id':'new-test','state':'Running','started':time.time(),'revision':1,'steps':{'local':{'state':'Passed'},'provider':{'state':'Checking','message':'Waiting for provider connection.'},'dns':{'state':'Waiting'}}}
+                state['testAvailableAt']=time.time()+10
+            elif body['action'] == 'hostname':
                 state['config'].update(hostname=body['hostname'],url='')
             else:
                 assert body['publicAccess'] is True
@@ -131,6 +134,30 @@ with sync_playwright() as p:
     expect(page.locator('#raProgress')).to_contain_text('Website verified',timeout=10000)
     expect(page.locator('#raTestSummary')).to_have_text('Website checks — all passed')
     assert not page.locator('#raTestDetails').evaluate('(e)=>e.open')
+    # A fast successful check cannot invite a click that only produces a cooldown error.
+    state['testAvailableAt']=time.time()+3
+    load()
+    expect(page.locator('#raTest')).to_be_disabled()
+    expect(page.locator('#raTest')).to_contain_text('Test again in')
+    expect(page.locator('#raMessage')).to_be_empty()
+    expect(page.locator('#raTest')).to_be_enabled(timeout=6000)
+    expect(page.locator('#raTest')).to_have_text('Test connection')
+    page.locator('#raTest').click()
+    expect(page.locator('#raTest')).to_have_text('Checking website…')
+    expect(page.locator('#raTest')).to_be_disabled()
+    expect(page.locator('#raProgress')).to_contain_text('1 of 6 checks passed')
+    expect(page.locator('#raProgress')).to_contain_text('Waiting for provider connection')
+    expect(page.locator('#raChecks')).to_contain_text('Queued')
+    expect(page.locator('#raChecks')).to_contain_text('Starts after the preceding checks pass')
+    expect(page.locator('#raMessage')).to_be_empty()
+    state['test']['state']='Retrying public website'
+    state['test']['steps']={'tls':{'state':'Retrying'}}
+    state['testAvailableAt']=time.time()+8; state['testRetryUntil']=time.time()+100
+    expect(page.locator('#raProgress')).to_contain_text('HTTPS certificate is not ready',timeout=10000)
+    expect(page.locator('#raProgress')).to_contain_text('Next attempt in')
+    state['test']['state']='URL verified from this server'
+    expect(page.locator('#raProgress')).to_contain_text('Website verified',timeout=10000)
+    expect(page.locator('#raMessage')).to_be_empty()
     assert not errors, errors
     browser.close()
 print('PASS: provider isolation both directions, actionable HTTPS approval, reopen, automatic recovery, initial-status races, no navigation writes, zero JavaScript errors.')

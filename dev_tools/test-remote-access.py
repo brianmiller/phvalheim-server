@@ -66,6 +66,21 @@ class Lifecycle(unittest.TestCase):
         self.assertIn('up', spawn.call_args.args[0])
         self.assertTrue(self.c.enrolling)
 
+    def test_test_cooldown_reuses_job_and_exposes_deadline(self):
+        self.c.config['enabled'] = True
+        with patch.object(remote.time, 'time', return_value=100), patch.object(remote.threading.Thread, 'start') as start:
+            first = self.c.action({'action':'test'})
+            self.c.test['state'] = 'URL verified from this server'
+            again = self.c.action({'action':'test'})
+            self.assertEqual(again['test']['id'], first['test']['id'])
+            self.assertEqual(again['testAvailableAt'], 110)
+            self.assertTrue(again['success'])
+            self.assertEqual(start.call_count, 1)
+        with patch.object(remote.time, 'time', return_value=110), patch.object(remote.threading.Thread, 'start') as start:
+            next_test = self.c.action({'action':'test'})
+            self.assertNotEqual(next_test['test']['id'], first['test']['id'])
+            self.assertEqual(start.call_count, 1)
+
     def test_defaults_off(self):
         self.assertFalse(self.c.snapshot()['config']['enabled'])
         self.assertEqual(self.c.snapshot()['observed']['state'], 'Off')

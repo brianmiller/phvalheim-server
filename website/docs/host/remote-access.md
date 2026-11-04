@@ -160,7 +160,10 @@ details; disconnect removes obsolete results. Public checks start after the
 connector is ready, so sign-in time is not mistaken for a failed connection.
 During the first two minutes, transient DNS/HTTPS startup failures retry
 automatically. Certificate mismatches and wrong-instance responses still fail
-immediately; Cancel test stops retries.
+immediately; Cancel test stops retries. The current check and number passed stay
+visible above the link. Automatic retries show a countdown; subsequent checks
+are marked Queued. After a quick test, the test button counts down the remaining
+ten-second cooldown before becoming available again.
 
 Earlier development builds used private Serve: upgrading
 leaves those connections off until you sign in with the saved device and select

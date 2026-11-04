@@ -444,3 +444,10 @@ them. Polling preserves unsaved name edits.
 After provider readiness, transient DNS and TLS transport startup failures retry
 within a two-minute window. Cancellation clears the pending retry; certificate
 validation, private DNS and wrong-instance failures are never treated as startup.
+
+The controller exposes the test cooldown deadline and automatic retry window in
+status. Repeated test requests within ten seconds reuse the existing job/result;
+they do not report a connection error. The browser updates countdowns each second
+without recreating controls, keeps the running test button disabled, and displays
+the active check and completed count above the URL. Pending checks are Queued
+with an explanation. Closing the modal stops the feedback timer.

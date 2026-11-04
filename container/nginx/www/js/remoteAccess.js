@@ -1,7 +1,7 @@
 /* Remote Access: observed state only. No simulated checks or saved-secret echo. */
 (() => {
     'use strict';
-    let overlay, lastFocus, timer, inflight = false, busy = false, csrf = '', data = null;
+    let overlay, lastFocus, timer, feedbackTimer, inflight = false, busy = false, csrf = '', data = null;
     let initialized = false, lastReply = 0, dirty = false, epoch = 0, statusMessage = '', transportError = '';
     let tab = 'website', choice = '', step = 1, network = null, networkError = '', networkBusy = false, networkTime = 0, networkViewKey = '';
     const $ = id => document.getElementById(id);
@@ -133,7 +133,7 @@
             await request('enroll', {authKey:$('raAuthKey').value.trim()}); $('raAuthKey').value = '';
             message('Waiting for the Tailscale sign-in link. Website access is still off.');
         });
-        $('raTest').onclick = () => perform(async () => { await request('test'); $('raTestDetails').open = true; }, 'Starting website checks…');
+        $('raTest').onclick = () => perform(async () => { await request('test'); $('raTestDetails').open = true; message(''); }, 'Starting website checks…');
         $('raCancel').onclick = () => perform(() => request('cancelTest'), 'Cancelling website checks…');
         $('raDisconnect').onclick = () => perform(async () => { await request('disconnect'); step = 3; dirty = false; render(); message('Website disconnected. Your sign-in and settings are saved.'); }, 'Disconnecting the public website…');
         $('raForget').onclick = () => {
@@ -249,6 +249,26 @@
         catch (e) { message(e.message || 'Connection operation failed. Retry.', true); }
         finally { busy = false; buttons(); }
     }
+    function serverNow() {
+        return (data?.now || Date.now()/1000) + Math.max(0, Date.now() - lastReply)/1000;
+    }
+    function testWait() {
+        return Math.max(0, Math.ceil((data?.testAvailableAt || (data?.test?.started || 0) + 10) - serverNow()));
+    }
+    function testFeedback() {
+        if (choice !== data?.config?.provider || !data?.config?.enabled || transportError || Date.now() - lastReply > 15000 || serverNow() - (data.observed?.time || 0) > 15) return;
+        const test = data?.test;
+        if (test?.state === 'Running') {
+            const current = Object.entries(test.steps || {}).find(([,v]) => v.state === 'Checking');
+            const passed = Object.values(test.steps || {}).filter(v => v.state === 'Passed').length;
+            $('raProgress').textContent = current ? `${passed} of 6 checks passed · ${labels[current[0]]}: ${current[1].message || 'Checking…'}` : `Starting website checks… ${passed} of 6 passed.`;
+        } else if (test?.state === 'Retrying public website') {
+            const current = Object.entries(test.steps || {}).find(([,v]) => v.state === 'Retrying');
+            const wait = testWait();
+            const remaining = Math.max(0, Math.ceil((data.testRetryUntil || 0) - serverNow()));
+            $('raProgress').textContent = `${current ? labels[current[0]] : 'Public website'} is not ready. ${wait ? `Next attempt in ${wait}s.` : 'Retrying now…'}${remaining ? ` Will keep trying for up to ${remaining}s.` : ''}`;
+        }
+    }
     function buttons() {
         ['raBack','raNext','raEdit','raEditInstructions'].forEach(id => $(id).disabled = busy);
         overlay.querySelectorAll('[data-choice]').forEach(button => button.disabled = busy);
@@ -261,7 +281,10 @@
         $('raTailReady').hidden = data?.observed?.details?.backend !== 'Running';
         $('raSignIn').hidden = !!data?.authUrl || data?.observed?.details?.backend === 'Running';
         $('raConnect').hidden = choice === 'tailscale' && data?.observed?.details?.backend !== 'Running';
-        $('raTest').hidden = !enabled || ['Running','Retrying public website'].includes(data?.test?.state);
+        const testing = ['Running','Retrying public website'].includes(data?.test?.state);
+        const wait = testWait();
+        $('raTest').hidden = !enabled;
+        $('raTest').textContent = testing ? 'Checking website…' : wait ? `Test again in ${wait}s` : 'Test connection';
         $('raCancel').hidden = !['Running','Retrying public website'].includes(data?.test?.state);
         $('raDisconnect').hidden = !enabled && !enrolling;
         $('raEdit').hidden = enabled || enrolling || choice === 'tailscale';
@@ -290,9 +313,10 @@
             $('raConnection').hidden = false; $('raEdit').hidden = true;
         }
         ['raUrlInput','raToken','raAuthKey'].forEach(id => $(id).disabled = busy || !available || enabled || enrolling);
-        $('raTest').disabled = busy || !available || !enabled || ['Running','Retrying public website'].includes(data?.test?.state);
+        $('raTest').disabled = busy || !available || !enabled || testing || wait > 0;
         $('raCancel').disabled = busy || !available || !['Running','Retrying public website'].includes(data?.test?.state);
         $('raDisconnect').disabled = busy || !available || (!enabled && !enrolling);
+        testFeedback();
     }
     function render() {
         if (!data) return;
@@ -341,7 +365,7 @@
         $('raChecks').hidden = !test;
         $('raChecks').innerHTML = Object.entries(labels).map(([key,label]) => {
             const step = test?.steps?.[key] || {state:'Not tested',message:''};
-            return `<div class="ra-check"><strong>${label}</strong><span>${escape(expired ? 'Stale' : step.state)}</span>${step.message && step.state !== 'Passed' ? `<p>${escape(step.message)}</p>` : ''}</div>`;
+            return `<div class="ra-check"><strong>${label}</strong><span>${escape(expired ? 'Stale' : step.state === 'Waiting' ? 'Queued' : step.state)}</span>${step.state === 'Waiting' ? '<p>Starts after the preceding checks pass.</p>' : ''}${step.message && step.state !== 'Passed' ? `<p>${escape(step.message)}</p>` : ''}</div>`;
         }).join('');
         $('raDevice').innerHTML = test?.deviceUrl && !expired ? `<p><a href="${escape(test.deviceUrl)}" target="_blank" rel="noopener noreferrer">Test from another device</a> <button type="button" id="raCopyTest">Copy test link</button></p><p>${escape(test.device || 'Not tested')}. For an outside-network check, use a phone on mobile data. This link expires five minutes after the test started.</p>` : '';
         if ($('raCopyTest')) $('raCopyTest').onclick = () => copy(test.deviceUrl);
@@ -369,11 +393,12 @@
     }
     function close() {
         if (dirty && !confirm('Discard unsaved connection changes? Active connections and accepted tests will continue.')) return;
-        clearTimeout(timer); overlay.classList.remove('show'); dirty = false; initialized = false; choice = ''; step = 1; tab = 'website';
+        clearTimeout(timer); clearInterval(feedbackTimer); overlay.classList.remove('show'); dirty = false; initialized = false; choice = ''; step = 1; tab = 'website';
         $('raToken').value = ''; $('raAuthKey').value = ''; lastFocus?.focus();
     }
     window.showRemoteAccessModal = () => {
         if (!overlay) make(); lastFocus = document.activeElement;
-        overlay.classList.add('show'); layout(); $('raClose').focus(); poll();
+        overlay.classList.add('show'); message(''); layout(); $('raClose').focus(); poll();
+        clearInterval(feedbackTimer); feedbackTimer = setInterval(() => { if (data) buttons(); }, 1000);
     };
 })();

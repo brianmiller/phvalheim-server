@@ -199,7 +199,8 @@ class Controller:
             c['tokenSaved'] = (STATE / 'cloudflare.token').exists()
             return {'success': True, 'available': True, 'config': c,
                     'observed': copy.deepcopy(self.observed), 'error': self.error,
-                    'test': copy.deepcopy(self.test), 'events': copy.deepcopy(self.events),
+                    'test': copy.deepcopy(self.test), 'testAvailableAt': self.last_test + 10,
+                    'testRetryUntil': self.verify_until, 'events': copy.deepcopy(self.events),
                     'origin': ORIGIN, 'authUrl': self.auth_url, 'enrolling': self.enrolling,
                     'packaging': 'built-in', 'networkPolicy': 'operator-managed', 'now': time.time()}
 
@@ -577,7 +578,8 @@ proxy_buffering off; proxy_read_timeout 120s; }
         if self.test and self.test['state'] == 'Running':
             return
         if time.time() - self.last_test < 10:
-            raise UserError('Wait a few seconds before retrying the test.')
+            # Repeated clicks reuse the current result; expose the cooldown in status.
+            return
         self.last_test = time.time()
         self.cancel.set()
         self.cancel = threading.Event()
