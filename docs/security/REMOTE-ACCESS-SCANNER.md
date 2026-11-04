@@ -34,11 +34,18 @@ patched package or scanner false positive. Failed downloads now fail immediately
 instead of retrying within APT. A complete build can be retried by the operator.
 
 The build checks `apt-config shell retries Acquire::Retries` in the actual image
-before publishing or applying the exact apt 2.4.14/CVE assessment. A missing or
+before publishing or applying the exact apt 2.4.14 or 2.4.15ubuntu0.1/CVE assessment. A missing or
 changed value fails the build. Overriding this setting invalidates the assessment;
 reassess and replace the workaround when Ubuntu publishes the fixed package.
 Raw findings remain visible in the saved report; the critical/high gate is not
 relaxed.
+
+The 2.62 rebuild installs APT **2.4.15ubuntu0.1**. Rechecked against Ubuntu's
+advisory on 2026-11-04: Jammy is still listed as vulnerable, and Scout now also
+flags this exact package version. The same required retry condition is disabled
+in the actual image (`apt-config shell retries Acquire::Retries` returns `0`).
+The VEX includes that exact version; this is still a configuration mitigation,
+not a claim that the newer package fixes this vulnerability.
 
 These assessments explain scanner applicability and the explicit APT mitigation only. They do not replace least-privilege processes, API defenses, deployment network
 controls, or real account/route validation.
