@@ -131,6 +131,49 @@ class Lifecycle(unittest.TestCase):
         with self.assertRaises(remote.UserError): self.c.action({'action':'connect'})
         self.assertFalse(self.c.config['enabled'])
 
+    def test_tailscale_serve_approval_timeout_and_recovery(self):
+        self.c.config.update(provider='tailscale', enabled=True)
+        status = {'BackendState':'Running', 'Self':{'DNSName':'fixture.example.ts.net.'}}
+        approval = 'https://login.tailscale.com/f/serve?node=fixture'
+        calls = []
+        approved = False
+        def command(args, timeout):
+            calls.append(args)
+            if args[len(remote.TS):] == ['status', '--json']:
+                return remote.subprocess.CompletedProcess(args, 0, json.dumps(status), '')
+            if '--bg' in args and not approved:
+                raise remote.subprocess.TimeoutExpired(args, timeout,
+                    output=('Serve is not enabled on your tailnet.\nTo enable, visit:\n' + approval).encode())
+            return remote.subprocess.CompletedProcess(args, 0, '{"Web":{"fixture":{}}}', '')
+        with patch.object(remote, 'run', side_effect=command), patch.object(self.c, 'gateway_start'), patch.object(remote.time, 'time', return_value=100):
+            self.c.observe()
+            self.assertEqual(self.c.observed['state'], 'HTTPS approval required')
+            self.assertEqual(self.c.observed['details']['backend'], 'Running')
+            self.assertEqual(self.c.snapshot()['authUrl'], approval)
+            self.assertEqual(self.c.config['url'], 'https://fixture.example.ts.net')
+            self.c.observe()
+            self.assertEqual(self.c.auth_url, approval)
+            self.assertEqual(sum('--bg' in x for x in calls), 1, 'Approval retries must back off')
+        approved = True
+        with patch.object(remote, 'run', side_effect=command), patch.object(self.c, 'gateway_start'), patch.object(remote.time, 'time', return_value=111):
+            self.c.observe()
+        self.assertEqual(self.c.observed['state'], 'Connected')
+        self.assertEqual(self.c.auth_url, '')
+        self.assertEqual(self.c.error, '')
+
+    def test_tailscale_timeout_rejects_untrusted_approval_url(self):
+        self.c.config.update(provider='tailscale', enabled=True)
+        def command(args, timeout):
+            if '--bg' in args:
+                raise remote.subprocess.TimeoutExpired(args, timeout, output=b'https://login.tailscale.com.evil.example/approve')
+            return remote.subprocess.CompletedProcess(args, 0,
+                '{"BackendState":"Running","Self":{"DNSName":"fixture.example.ts.net"}}', '')
+        with patch.object(remote, 'run', side_effect=command), patch.object(self.c, 'gateway_start'):
+            self.c.observe()
+        self.assertEqual(self.c.auth_url, '')
+        self.assertIn('Private HTTPS could not start', self.c.error)
+        self.assertEqual(self.c.observed['details']['backend'], 'Running')
+
     def test_no_test_when_off(self):
         self.save_cf()
         with self.assertRaises(remote.UserError): self.c.action({'action':'test'})

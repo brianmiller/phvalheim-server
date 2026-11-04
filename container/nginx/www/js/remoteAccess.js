@@ -51,6 +51,7 @@
                   <details><summary>Port mapping, DNS &amp; troubleshooting</summary><p>The host port may differ from 8080; use the port shown in your Docker, Unraid, or TrueNAS configuration. Host networking uses the service port directly.</p><p>Point DNS/DDNS at your public IP. For plain HTTP, forward your chosen external TCP port to the website's host port; HTTP is unencrypted. HTTPS is recommended for player sign-in and downloads.</p><p>Double NAT may need forwarding on both routers. CGNAT usually prevents inbound access; ask your ISP for a public address or choose Cloudflare. PhValheim cannot inspect or change your router rules.</p><a href="https://brianmiller.github.io/phvalheim-server/reference/networking/" target="_blank" rel="noopener noreferrer">Reverse proxy examples</a></details>
                 </div>
                 <div id="raProviderFlow" hidden>
+                  <div id="raSwitchNotice" class="ra-note" hidden><p id="raSwitchText"></p><button id="raViewActive"></button></div>
                   <input id="raProvider" type="hidden" value="cloudflare">
                   <div id="raPrepare"><div id="raInstructions"></div><button id="raNext" class="ra-primary">I have my token →</button></div>
                   <div id="raSetup" hidden>
@@ -64,7 +65,7 @@
                     <div class="ra-actions"><button id="raEditInstructions">← Setup instructions</button><button id="raConnect">Connect and test</button></div>
                     <details id="raSaveOptions"><summary>Save for later</summary><button id="raSave">Save without connecting</button></details>
                   </div>
-                  <div id="raConnection" hidden><div class="ra-status" id="raSummary" aria-live="polite">Loading connection status…</div><div id="raUrl"></div>
+                  <div id="raConnection" hidden><div class="ra-status" id="raSummary" aria-live="polite">Loading connection status…</div><div id="raApproval"></div><div id="raUrl"></div>
                     <div class="ra-actions"><button id="raTest">Test connection</button><button id="raCancel">Cancel test</button><button id="raDisconnect">Disconnect</button><button id="raEdit">Edit settings</button></div>
                     <div id="raChecks"></div><div id="raDevice"></div>
                     <details><summary>Connection details &amp; activity</summary><p id="raLastChecked"></p><p id="raTestSource"></p><dl id="raDetails"></dl><ul id="raEvents"></ul></details>
@@ -106,6 +107,7 @@
             }
         };
         $('raBack').onclick = () => { if (leaveForm()) { choice = ''; layout(); } };
+        $('raViewActive').onclick = () => choose(data?.config?.provider);
         $('raNext').onclick = () => { step = 2; layout(); $('raUrlInput').focus(); };
         $('raEditInstructions').onclick = () => { step = 1; layout(); };
         $('raEdit').onclick = () => { step = 2; layout(); };
@@ -148,11 +150,12 @@
         choice = value;
         if (value !== 'direct') {
             $('raProvider').value = value;
+            $('raUrlInput').value = value === 'cloudflare' && data?.config?.provider === value ? data.config.url || '' : '';
             step = providerStep(value);
             if (value === 'tailscale' && step === 1) step = 2;
             instructions();
         } else loadNetwork();
-        layout();
+        render(); layout();
     }
     function providerStep(provider) {
         if (provider === 'tailscale' && data?.config?.provider === provider && !data?.config?.enabled && (data?.enrolling || data?.authUrl)) return 2;
@@ -253,11 +256,17 @@
         $('raDisconnect').hidden = !enabled && !enrolling;
         $('raEdit').hidden = enabled || enrolling;
         const mismatch = (enabled || enrolling) && data?.config?.provider !== choice;
+        $('raSwitchNotice').hidden = !mismatch || !choice || choice === 'direct';
+        $('raViewActive').disabled = busy;
         $('raSetup').hidden ||= mismatch;
         $('raPrepare').hidden ||= mismatch;
         if (mismatch && choice && choice !== 'direct') {
-            $('raConnection').hidden = false;
-            $('raStepLabel').textContent = 'Disconnect the active provider to switch';
+            $('raConnection').hidden = true;
+            $('raStepLabel').textContent = '';
+            const active = data.config.provider === 'tailscale' ? 'Tailscale' : 'Cloudflare';
+            const selected = choice === 'tailscale' ? 'Tailscale' : 'Cloudflare';
+            $('raSwitchText').textContent = `${active} is active. Disconnect it before setting up ${selected}.`;
+            $('raViewActive').textContent = `View ${active} connection`;
         }
         // Enrollment does not publish the website. Keep a cancel control in its setup step.
         if (enrolling && step === 2 && choice === 'tailscale') {
@@ -272,28 +281,35 @@
         if (!data) return;
         const focused = overlay.contains(document.activeElement) ? document.activeElement.id : '';
         if (!initialized && data.available) {
-            $('raProvider').value = data.config.provider || 'cloudflare';
-            if (!choice && data.config.provider) { choice = data.config.provider; step = providerStep(choice); }
-            $('raUrlInput').value = data.config.url || ''; initialized = true; instructions();
+            if (!choice && data.config.provider) choice = data.config.provider;
+            if (choice === data.config.provider && !dirty) step = providerStep(choice);
+            $('raProvider').value = choice && choice !== 'direct' ? choice : data.config.provider || 'cloudflare';
+            if (!dirty) $('raUrlInput').value = choice === 'cloudflare' && data.config.provider === choice ? data.config.url || '' : '';
+            initialized = true; instructions();
         }
         $('raTokenSaved').textContent = data.config?.tokenSaved ? '(saved)' : '';
         const observed = data.observed || {}, age = Math.max(0, Math.round((data.now || Date.now()/1000) - (observed.time || 0)));
         const stale = !!transportError || Date.now() - lastReply > 15000 || age > 15;
         $('raSummary').textContent = !data.available ? 'Remote Access service unavailable' : stale ? 'Live status unavailable — last observation is stale' : `${observed.state || 'Unknown'} · ${data.config?.provider === 'cloudflare' ? 'Public website' : data.config?.provider === 'tailscale' ? 'Private website' : 'No provider configured'}`;
         $('raLastChecked').textContent = data.available ? `Last observation: ${new Date((observed.time || 0)*1000).toLocaleTimeString()}${stale ? ' — stale' : ''}` : '';
+        const providerError = choice === data.config?.provider ? data.error : '';
         if (!data.available) {
             statusMessage = 'Cloudflare/Tailscale service is unavailable. Direct and game setup are still available.'; message(statusMessage, true);
         } else {
-            if ((transportError || data.error) && !busy) { statusMessage = transportError || data.error; message(statusMessage, true); }
-            else if (!data.error && statusMessage) {
+            if ((transportError || providerError) && !busy) { statusMessage = transportError || providerError; message(statusMessage, true); }
+            else if (!providerError && statusMessage) {
                 if ($('raMessage').textContent === statusMessage) message('');
                 statusMessage = '';
             }
         }
-        const url = data.config?.url;
+        const sameProvider = choice === data.config?.provider;
+        const url = sameProvider ? data.config?.url : '';
         $('raUrl').innerHTML = url ? `<p><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(url)}</a> <button type="button" id="raCopyUrl">Copy URL</button>${data.config.enabled ? '' : ' — website is off'}</p>` : '';
         if ($('raCopyUrl')) $('raCopyUrl').onclick = () => copy(url);
-        $('raSignInLink').innerHTML = data.authUrl ? `<p><a class="ra-primary" href="${escape(data.authUrl)}" target="_blank" rel="noopener noreferrer">Continue in Tailscale</a> <button type="button" id="raCopyLogin">Copy sign-in link</button></p>` : '';
+        const authUrl = sameProvider && choice === 'tailscale' ? data.authUrl : '';
+        const approval = authUrl && data.config?.enabled;
+        $('raApproval').innerHTML = approval ? `<p><a class="ra-primary" href="${escape(authUrl)}" target="_blank" rel="noopener noreferrer">${observed.details?.backend === 'Running' ? 'Enable HTTPS in Tailscale' : 'Continue in Tailscale'}</a></p><p class="ra-muted">Complete the approval in Tailscale. This window updates automatically.</p>` : '';
+        $('raSignInLink').innerHTML = authUrl && !approval ? `<p><a class="ra-primary" href="${escape(authUrl)}" target="_blank" rel="noopener noreferrer">Continue in Tailscale</a> <button type="button" id="raCopyLogin">Copy sign-in link</button></p>` : '';
         if ($('raCopyLogin')) $('raCopyLogin').onclick = () => copy(data.authUrl);
         const test = data.test, expired = test && (Date.now()/1000 - test.started > 300 || test.revision !== data.config?.revision);
         $('raTestSource').textContent = test ? `${expired ? 'Stale test — run it again' : test.state}. Test source: ${test.source}. ${new Date(test.started*1000).toLocaleString()}. Outside-network access is not independently verified.` : 'No test has been run. Connector health alone does not verify your website.';

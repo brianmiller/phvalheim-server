@@ -39,6 +39,9 @@ HTTP or HTTPS access you already use for admin. No terminal or port forwarding
 is required. Use **Website** to choose Direct connection, Cloudflare, or Tailscale.
 Use **Game connections** to see a world’s UDP ports and crossplay mode. The modal
 shows only the selected method; connection details and troubleshooting expand on demand.
+If another provider is active, select **View Tailscale connection** or
+**View Cloudflare connection** to manage it. Disconnect it before setting up a
+different provider; its URL and controls never belong to the other method.
 
 The admin interface remains a trusted-network interface; do not expose its port
 to the internet. HTTP admin traffic, including entered credentials, is not
@@ -127,8 +130,11 @@ Players need Tailscale and permission to reach the server in your tailnet policy
    An optional single-use auth key can be used instead of interactive sign-in.
 2. Enable MagicDNS and HTTPS in Tailscale's DNS settings. Permit the intended
    devices/users to reach this device's HTTPS port 443 in your tailnet policy.
-3. Choose **Connect and test**. Open the generated test link on another authorized
-   Tailscale device, then return to PhValheim to see the browser test result.
+3. Choose **Connect and test**. If **HTTPS approval required** appears, select
+   **Enable HTTPS in Tailscale** and complete the account approval. PhValheim
+   retries automatically; keep the existing signed-in device.
+4. Once connected, choose **Test connection** and open the generated test link on
+   another authorized Tailscale device, then return to see the browser test result.
 
 PhValheim uses [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve),
 not Funnel. It does not enable a game VPN, exit node, subnet routing, or SSH. The

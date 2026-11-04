@@ -148,6 +148,7 @@ class Controller:
         self.events = []
         self.observed = {'state': 'Off', 'time': time.time(), 'details': {}}
         self.serving = False
+        self.next_serve = 0
         self.enrolling = False
         self.gateway = None
         self.auth_url = ''
@@ -196,6 +197,7 @@ class Controller:
         self.stop_process(self.proc)
         self.proc = None
         self.serving = False
+        self.next_serve = 0
         self.enrolling = False
         self.auth_url = ''
         self.stop_process(self.gateway)
@@ -249,6 +251,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
             self.stop_process(self.gateway)
             self.gateway = None
             self.serving = False
+            self.next_serve = 0
             args = ['/usr/local/bin/tailscaled', '--tun=userspace-networking',
                     '--state=' + str(STATE / 'tailscale/tailscaled.state'), '--statedir=' + str(STATE / 'tailscale'),
                     '--socket=/tmp/remote/provider/tailscaled.sock']
@@ -391,29 +394,45 @@ proxy_buffering off; proxy_read_timeout 120s; }
             result = run(TS + ['status', '--json'], 3)
             data = json.loads(result.stdout)
             self.ts_state = data.get('BackendState', '')
-            self.auth_url = provider_link(data.get('AuthURL', ''))
+            if self.ts_state != 'Running':
+                self.auth_url = provider_link(data.get('AuthURL', ''))
             node = data.get('Self') or {}
             host = str(node.get('DNSName', '')).rstrip('.')
             details.update(device=node.get('HostName', ''), addresses=node.get('TailscaleIPs', []),
                            identityExpires=node.get('KeyExpiry'), version='1.104.5', backend=self.ts_state)
             if self.ts_state == 'Running':
+                if not self.config['enabled']:
+                    self.auth_url = ''
                 (STATE / 'enrollment.key').unlink(missing_ok=True)
                 if host.endswith('.ts.net'):
                     url = website('https://' + host)
                     if self.config['url'] != url:
                         self.config['url'] = url
                         self.persist()
-                    if self.config['enabled'] and not self.serving:
+                    if self.config['enabled'] and not self.serving and time.time() >= self.next_serve:
+                        self.next_serve = time.time() + 10
                         # Never inherit a persisted Funnel or unrelated Serve route.
                         if run(TS + ['serve', 'reset'], 3).returncode != 0:
                             raise UserError('Could not reset the private website route. Reconnect Tailscale and retry.')
                         self.gateway_start(host)
-                        r = run(TS + ['serve', '--bg', '--https=443', ORIGIN], 4)
+                        try:
+                            r = run(TS + ['serve', '--bg', '--https=443', ORIGIN], 4)
+                        except subprocess.TimeoutExpired as exc:
+                            # Serve prints the operator approval URL and waits.
+                            # Preserve that actionable output when our bounded
+                            # command timeout expires instead of losing all status.
+                            def text(value):
+                                return value.decode('utf-8', 'replace') if isinstance(value, bytes) else value or ''
+                            r = subprocess.CompletedProcess(exc.cmd, 124, text(exc.stdout), text(exc.stderr))
                         self.serving = r.returncode == 0
-                        if not self.serving:
+                        if self.serving:
+                            self.auth_url = ''
+                            self.error = ''
+                        else:
                             matches = re.findall(r'https://[^\s]+', r.stdout + r.stderr)
                             self.auth_url = next((provider_link(x) for x in matches if provider_link(x)), '')
-                            self.error = 'Private HTTPS needs approval. Enable MagicDNS/HTTPS and check device permissions in Tailscale.'
+                            self.error = ('Enable HTTPS in Tailscale using the approval link below. PhValheim will retry automatically.'
+                                          if self.auth_url else 'Private HTTPS could not start. Check MagicDNS, HTTPS and device permissions in Tailscale; PhValheim will retry.')
                     if self.serving:
                         serve = json.loads(run(TS + ['serve', 'status', '--json'], 3).stdout)
                         if any((serve.get('AllowFunnel') or {}).values()):

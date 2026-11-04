@@ -24,7 +24,11 @@ response; it does not certify archive delivery. Tailscale requires a second
 authorized device to test its private route. No external verifier service is used.
 
 Connectors start off, persist their selected provider and credentials privately,
-and support disconnect/forget. Changing provider replaces the selected URL;
+and support disconnect/forget. Viewing another method shows a link back to the
+active connection, never its URL or actions under the other provider. Tailscale
+Serve approval output survives command timeouts and appears as an account approval
+action; retries back off and recover automatically after approval.
+Changing provider replaces the selected URL;
 re-enter the former URL when switching back. The existing public website already
 derives its URL from the request Host; the fixed gateway sets that hostname and
 HTTPS forwarding metadata without changing stored game connection settings.
