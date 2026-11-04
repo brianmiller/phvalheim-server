@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Optional connector controller. Unix control plane; fixed HTTP origin; no shell.
+"""Built-in Remote Access controller. Unix control plane; fixed HTTP gateway; no shell.
 
-Secrets stay in the connector's private volume. The app shares only the control
-socket, origin socket, and expiring diagnostic challenge. See remote-access.md.
+Clients run unprivileged in the main container. Private credentials persist under
+the existing data volume, outside served paths. See remote-access.md for the
+operator-owned provider account trust boundary.
 """
 import copy
 import hashlib
@@ -23,10 +24,10 @@ import threading
 import time
 from urllib.parse import urlsplit
 
-STATE = Path('/var/lib/phvalheim-remote')
+STATE = Path('/opt/stateful/remote-access')
 LINK = Path('/run/phvalheim-remote')
 RUN = Path('/tmp/remote')
-ORIGIN = 'http://127.0.0.1:8080'
+ORIGIN = 'http://127.0.0.1:18080'
 TS = ['/usr/local/bin/tailscale', '--socket=/tmp/remote/provider/tailscaled.sock']
 STEPS = ('local', 'provider', 'dns', 'tls', 'route', 'transfer')
 
@@ -118,6 +119,10 @@ class PinnedHTTPS(http.client.HTTPSConnection):
             raise
 
 
+def child_args(args):
+    return ['/usr/bin/python3', '/opt/stateless/remote-access/child.py', str(os.getpid()), *args]
+
+
 def run(args, timeout=5):
     # Output is interpreted only in memory; never include raw provider errors in UI/logs.
     return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -157,7 +162,7 @@ class Controller:
             atomic(STATE / 'config.json', self.config)
         except OSError:
             self.config = read_json(STATE / 'config.json', {'provider':'', 'url':'', 'enabled':False, 'revision':0})
-            raise UserError('Connection settings could not be saved. Check free space and private-volume permissions.')
+            raise UserError('Connection settings could not be saved. Check free space and private storage permissions.')
 
     def snapshot(self):
         with self.lock:
@@ -173,7 +178,7 @@ class Controller:
                     'observed': copy.deepcopy(self.observed), 'error': self.error,
                     'test': copy.deepcopy(self.test), 'events': copy.deepcopy(self.events),
                     'origin': ORIGIN, 'authUrl': self.auth_url, 'enrolling': self.enrolling,
-                    'networkPolicy': 'restricted-v1', 'now': time.time()}
+                    'packaging': 'built-in', 'networkPolicy': 'operator-managed', 'now': time.time()}
 
     def stop_process(self, proc):
         if proc and proc.poll() is None:
@@ -209,8 +214,8 @@ proxy_temp_path /tmp/remote/provider/proxy;
 fastcgi_temp_path /tmp/remote/provider/fastcgi;
 uwsgi_temp_path /tmp/remote/provider/uwsgi;
 scgi_temp_path /tmp/remote/provider/scgi;
-server { listen 127.0.0.1:8080 default_server; server_name _; return 421; }
-server { listen 127.0.0.1:8080; server_name HOSTNAME;
+server { listen 127.0.0.1:18080 default_server; server_name _; return 421; }
+server { listen 127.0.0.1:18080; server_name HOSTNAME;
 client_max_body_size 1m;
 location / { proxy_pass http://unix:/run/phvalheim-remote/public.sock:;
 proxy_http_version 1.1; proxy_set_header Host HOSTNAME;
@@ -224,12 +229,12 @@ proxy_buffering off; proxy_read_timeout 120s; }
         if self.gateway and self.gateway.poll() is None:
             self.gateway.send_signal(signal.SIGHUP)
         else:
-            self.gateway = subprocess.Popen(['/usr/sbin/nginx', '-c', str(RUN / 'nginx.conf'), '-g', 'daemon off;'],
+            self.gateway = subprocess.Popen(child_args(['/usr/sbin/nginx', '-c', str(RUN / 'nginx.conf'), '-g', 'daemon off;']),
                                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                             user=1001, group=1001, extra_groups=[])
 
     def spawn(self, args):
-        return subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        return subprocess.Popen(child_args(args), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                 user=1001, group=1001, extra_groups=[],
                                 env={'PATH': '/usr/local/bin:/usr/bin:/bin', 'HOME': str(STATE / 'tailscale')})
 
@@ -246,8 +251,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
             self.serving = False
             args = ['/usr/local/bin/tailscaled', '--tun=userspace-networking',
                     '--state=' + str(STATE / 'tailscale/tailscaled.state'), '--statedir=' + str(STATE / 'tailscale'),
-                    '--socket=/tmp/remote/provider/tailscaled.sock',
-                    '--socks5-server=127.0.0.1:1055']
+                    '--socket=/tmp/remote/provider/tailscaled.sock']
         self.proc = self.spawn(args)
         self.last_start = time.time()
         self.restarts += 1
@@ -317,7 +321,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
                     self.persist()
                 except UserError:
                     self.config['enabled'] = False
-                    self.error = 'Processes stopped, but Off could not be saved. Fix private-volume storage before restarting the connector.'
+                    self.error = 'Processes stopped, but Off could not be saved. Fix private storage before restarting the connector.'
                     try:
                         (STATE / 'config.json').unlink(missing_ok=True)
                     except OSError:
@@ -328,9 +332,9 @@ proxy_buffering off; proxy_read_timeout 120s; }
                 if action == 'forget':
                     for name in ('cloudflare.token', 'enrollment.key'):
                         (STATE / name).unlink(missing_ok=True)
-                    result = run(['/usr/bin/python3', '-c', 'import shutil; from pathlib import Path; base=Path("/var/lib/phvalheim-remote/tailscale"); [(shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()) for p in base.iterdir()]'])
+                    result = run(['/usr/bin/python3', '-c', 'import shutil; from pathlib import Path; base=Path("/opt/stateful/remote-access/tailscale"); [(shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()) for p in base.iterdir()]'])
                     if result.returncode != 0:
-                        raise UserError('Connection stopped, but device state could not be removed. Check private-volume permissions and retry Forget.')
+                        raise UserError('Connection stopped, but device state could not be removed. Check private storage permissions and retry Forget.')
                     self.config.update(provider='', url='')
                     self.ts_state = ''
                     self.test = None
@@ -365,7 +369,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
                 self.login = self.spawn(args)
         except OSError:
             with self.lock:
-                self.error = 'Could not start Tailscale sign-in. Retry or inspect the connector installation.'
+                self.error = 'Could not start Tailscale sign-in. Retry or inspect the Remote Access service.'
                 self.enrolling = False
 
     def observe(self):
@@ -590,7 +594,7 @@ class ControlHandler(socketserver.StreamRequestHandler):
         except (ValueError, UserError) as e:
             result = {'success': False, 'error': str(e) if isinstance(e, UserError) else 'Invalid request.'}
         except Exception:
-            result = {'success': False, 'error': 'Connector operation failed; check installation and retry.'}
+            result = {'success': False, 'error': 'Remote Access operation failed; retry or check server status.'}
         self.wfile.write(json.dumps(result).encode() + b'\n')
 
 
@@ -600,8 +604,6 @@ class ControlServer(socketserver.ThreadingUnixStreamServer):
 
 def main():
     os.umask(0o077)
-    if (RUN / 'network-policy').read_text().strip() != 'restricted-v1':
-        raise SystemExit('Network isolation was not initialized.')
     controller = Controller()
     sock = LINK / 'control.sock'
     sock.unlink(missing_ok=True)

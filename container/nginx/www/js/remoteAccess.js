@@ -2,7 +2,7 @@
 (() => {
     'use strict';
     let overlay, lastFocus, timer, inflight = false, busy = false, csrf = '', data = null;
-    let initialized = false, lastReply = 0, dirty = false, epoch = 0, statusMessage = '', autoInstall = false;
+    let initialized = false, lastReply = 0, dirty = false, epoch = 0, statusMessage = '', autoInstall = false, transportError = '';
     const $ = id => document.getElementById(id);
     const escape = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     const labels = {local:'Local player website',provider:'Provider connection',dns:'Website DNS',tls:'HTTPS certificate',route:'Correct website',transfer:'Small transfer'};
@@ -27,9 +27,8 @@
           <div class="mods-modal-body">
             <p>Connect your player website using your own account. Game connections use your existing settings.</p>
             <div id="raMessage" role="status" aria-live="polite"></div>
-            <details id="raInstall"><summary>Install the secure connector / open admin securely</summary>
-              <p>Remote Access uses an optional connector container to keep tunnels away from the admin UI and your LAN. Both containers use the PhValheim image. The connector needs its own network, a private state volume, and a shared socket volume.</p>
-              <p><a href="remote-access-help.html" target="_blank" rel="noopener noreferrer">Open step-by-step connector installation instructions</a>. Do not use host networking or mount the Docker socket.</p>
+            <details id="raInstall"><summary>Help opening admin securely</summary>
+              <p>Cloudflare and Tailscale are built into PhValheim. No separate container or client installation is needed. <a href="remote-access-help.html" target="_blank" rel="noopener noreferrer">Setup help</a></p>
               <p>Before entering credentials, open admin over a secure local connection. On the Docker host use <code>http://localhost:8081</code>. From another computer use SSH forwarding, then open that same address:</p>
               <pre>ssh -L 8081:127.0.0.1:8081 USER@YOUR_SERVER</pre>
               <p>Replace USER and YOUR_SERVER with your SSH login and server. Keep the SSH window open. The future public tunnel does not secure an existing HTTP admin session.</p>
@@ -90,9 +89,9 @@
     function instructions() {
         const provider = $('raProvider').value, cf = provider === 'cloudflare';
         $('raCloudFields').hidden = !cf; $('raTailFields').hidden = cf;
-        $('raInstructions').innerHTML = cf ? `<ol><li><strong>Create a tunnel.</strong> Open <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare</a> → Networking → Tunnels. Create a tunnel and copy its connector token. PhValheim runs the connector; do not run the installation command.</li><li><strong>Add your website route.</strong> Add a published application hostname on your domain. Choose HTTP and use this origin inside the secure connector: <code>${escape(data?.origin || 'http://127.0.0.1:8080')}</code> <button type="button" id="raCopyOrigin">Copy origin</button>.</li><li><strong>Connect and test.</strong> Enter the full HTTPS hostname and token below. Follow any failed checks to fix the connection.</li></ol>` : `<ol><li><strong>Sign in.</strong> Choose Sign in to Tailscale, then open the sign-in link that appears. Approve this device in your account if asked.</li><li><strong>Allow private HTTPS.</strong> Enable MagicDNS and HTTPS in <a href="https://login.tailscale.com/admin/dns" target="_blank" rel="noopener noreferrer">Tailscale DNS settings</a>. Your tailnet policy must permit the intended devices to reach this device on HTTPS port 443.</li><li><strong>Connect and test.</strong> Choose Connect and test, then open the test link from another authorized Tailscale device. Players need Tailscale; this does not make the website public.</li></ol>`;
+        $('raInstructions').innerHTML = cf ? `<ol><li><strong>Create a tunnel.</strong> Open <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare</a> → Networking → Tunnels. Create a tunnel and copy its connector token. PhValheim runs the connector; do not run the installation command.</li><li><strong>Add your website route.</strong> Add a published application hostname on your domain. Choose HTTP and use this player-website origin: <code>${escape(data?.origin || 'http://127.0.0.1:18080')}</code> <button type="button" id="raCopyOrigin">Copy origin</button>.</li><li><strong>Connect and test.</strong> Enter the full HTTPS hostname and token below. Follow any failed checks to fix the connection.</li></ol>` : `<ol><li><strong>Sign in.</strong> Choose Sign in to Tailscale, then open the sign-in link that appears. Approve this device in your account if asked.</li><li><strong>Allow private HTTPS.</strong> Enable MagicDNS and HTTPS in <a href="https://login.tailscale.com/admin/dns" target="_blank" rel="noopener noreferrer">Tailscale DNS settings</a>. Your tailnet policy must permit the intended devices to reach this device on HTTPS port 443.</li><li><strong>Connect and test.</strong> Choose Connect and test, then open the test link from another authorized Tailscale device. Players need Tailscale; this does not make the website public.</li></ol>`;
         $('raInstructions').insertAdjacentHTML('beforeend', `<p><a href="${official[provider]}" target="_blank" rel="noopener noreferrer">Official setup guide</a></p>`);
-        if ($('raCopyOrigin')) $('raCopyOrigin').onclick = () => copy(data?.origin || 'http://127.0.0.1:8080');
+        if ($('raCopyOrigin')) $('raCopyOrigin').onclick = () => copy(data?.origin || 'http://127.0.0.1:18080');
         $('raAudience').textContent = cf ? 'Connecting makes your player website public. Existing PhValheim player permissions still apply.' : 'Connecting shares only the player website with permitted tailnet devices. Funnel and game VPN routing are not enabled.';
     }
     async function save() {
@@ -105,7 +104,7 @@
             headers:{'Content-Type':'application/json','X-PHV-CSRF':csrf}, body:JSON.stringify({action,...fields}), signal:AbortSignal.timeout(15000)});
         const next = await response.json();
         if (!response.ok || !next.success) throw new Error(next.error || 'Connection operation failed.');
-        data = next; lastReply = Date.now(); render(); return next;
+        transportError = ''; data = next; lastReply = Date.now(); render(); return next;
     }
     async function perform(fn) {
         if (busy) return;
@@ -116,7 +115,7 @@
         finally { busy = false; buttons(); }
     }
     function buttons() {
-        const available = data?.available && !!csrf, enabled = data?.config?.enabled, enrolling = data?.enrolling;
+        const available = data?.available && !!csrf && !transportError, enabled = data?.config?.enabled, enrolling = data?.enrolling;
         ['raSave','raConnect','raSignIn','raForget'].forEach(id => $(id).disabled = busy || !available);
         $('raSave').disabled ||= enabled || enrolling;
         $('raSignIn').disabled ||= enabled;
@@ -136,15 +135,15 @@
         }
         $('raTokenSaved').textContent = data.config?.tokenSaved ? '(token saved; paste a replacement to change it)' : '';
         const observed = data.observed || {}, age = Math.max(0, Math.round((data.now || Date.now()/1000) - (observed.time || 0)));
-        const stale = Date.now() - lastReply > 15000 || age > 15;
-        $('raSummary').textContent = !data.available ? 'Secure connector unavailable' : stale ? 'Live status unavailable — last observation is stale' : `${observed.state || 'Unknown'} · ${data.config?.provider === 'cloudflare' ? 'Public website' : data.config?.provider === 'tailscale' ? 'Private website' : 'No provider configured'}`;
+        const stale = !!transportError || Date.now() - lastReply > 15000 || age > 15;
+        $('raSummary').textContent = !data.available ? 'Remote Access service unavailable' : stale ? 'Live status unavailable — last observation is stale' : `${observed.state || 'Unknown'} · ${data.config?.provider === 'cloudflare' ? 'Public website' : data.config?.provider === 'tailscale' ? 'Private website' : 'No provider configured'}`;
         $('raLastChecked').textContent = data.available ? `Last observation: ${new Date((observed.time || 0)*1000).toLocaleTimeString()}${stale ? ' — stale' : ''}` : '';
         if (!data.available) {
-            autoInstall = true; $('raInstall').open = true;
-            statusMessage = data.error || 'Install or start the secure connector.'; message(statusMessage, true);
+            autoInstall = true;
+            statusMessage = data.error || 'The built-in Remote Access service is starting or stopped. Retry in a moment.'; message(statusMessage, true);
         } else {
             if (autoInstall) { $('raInstall').open = false; autoInstall = false; }
-            if (data.error && !busy) { statusMessage = data.error; message(statusMessage, true); }
+            if ((transportError || data.error) && !busy) { statusMessage = transportError || data.error; message(statusMessage, true); }
             else if (!data.error && statusMessage) {
                 if ($('raMessage').textContent === statusMessage) message('');
                 statusMessage = '';
@@ -177,8 +176,8 @@
             const response = await fetch('remoteAccessAPI.php', {credentials:'same-origin', cache:'no-store', signal:AbortSignal.timeout(12000)});
             const next = await response.json();
             if (!response.ok || !next.success) throw new Error(next.error || 'Live status unavailable.');
-            if (!busy && epoch === startedEpoch) { data = next; csrf = next.csrf || csrf; lastReply = Date.now(); render(); }
-        } catch (e) { statusMessage = e.message || 'Live status unavailable.'; message(statusMessage, true); $('raInstall').open = !csrf; if (data) render(); else { $('raSummary').textContent = 'Live status unavailable'; buttons(); } }
+            if (!busy && epoch === startedEpoch) { transportError = ''; data = next; csrf = next.csrf || csrf; lastReply = Date.now(); render(); }
+        } catch (e) { transportError = e.message || 'Live status unavailable.'; statusMessage = transportError; message(statusMessage, true); $('raInstall').open = !csrf; if (data) render(); else { $('raSummary').textContent = 'Live status unavailable'; buttons(); } }
         finally {
             inflight = false;
             if (overlay?.classList.contains('show')) timer = setTimeout(poll, data?.test?.state === 'Running' || data?.enrolling ? 2000 : 5000);

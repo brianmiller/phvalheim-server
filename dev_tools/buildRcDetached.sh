@@ -112,8 +112,8 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62remote=0
-  if [ -x /opt/stateless/remote-access/start.sh ] && [ -f /opt/stateless/nginx/www/admin/remoteAccessAPI.php ] && [ -f /opt/stateless/nginx/www/public/remote-test.php ] && /usr/local/bin/cloudflared --version | grep -q 2026.10.7 && /usr/local/bin/tailscale version | head -1 | grep -qx 1.104.5 && grep -q public.sock /etc/nginx/sites-available/phvalheim.conf; then v62remote=1; fi
-  echo "Remote Access binaries, API, challenge and socket=$v62remote (want 1)"
+  if [ -x /opt/stateless/remote-access/start.sh ] && [ -r /opt/stateless/remote-access/child.py ] && grep -Fq "[program:remote-access]" /opt/stateless/supervisor.d/phvalheim.conf && [ -f /opt/stateless/nginx/www/admin/remoteAccessAPI.php ] && [ -f /opt/stateless/nginx/www/public/remote-test.php ] && /usr/local/bin/cloudflared --version | grep -q 2026.10.7 && /usr/local/bin/tailscale version | head -1 | grep -qx 1.104.5 && grep -q public.sock /etc/nginx/sites-available/phvalheim.conf; then v62remote=1; fi
+  echo "Built-in Remote Access supervision, binaries, API, challenge and socket=$v62remote (want 1)"
   a=$(grep -c "modSelectionCard" /opt/stateless/nginx/www/admin/new_world.php)
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)

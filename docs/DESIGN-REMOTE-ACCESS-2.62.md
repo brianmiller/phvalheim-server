@@ -6,14 +6,13 @@ owns implementation tasks, ownership, acceptance criteria, and current status.
 
 ## Development implementation
 
-The first implementation selects the isolated connector-container fallback below.
-Normal Docker settings on the development host reject unprivileged network
-namespaces, so bundling an unrestricted connector in the main container would not
-meet the isolation requirement. The same image supports both roles, joined only by
-a dedicated socket volume. One-time Docker setup is required; subsequent provider
-configuration happens in the admin modal. Linux Docker is the validated target;
-Unraid/TrueNAS installation integration and full live-account/client compatibility
-remain release gates tracked in issue #114.
+The implementation runs both clients inside the existing PhValheim container.
+The earlier sidecar design was rejected because it made installation too complex.
+Supervisor starts a small idle controller; provider processes run only after an
+operator requests connection/enrollment. No additional container, mount, TUN
+device, or Docker capability is required. Credentials persist in a private
+`/opt/stateful/remote-access` directory on the existing data volume. The public
+website gateway listens only on `127.0.0.1:18080` to avoid the existing 8080 listener.
 
 The modal uses a provider selector, three setup steps, copy buttons, connection
 summary, live diagnostic rows, and expandable details. Cloudflare and private
@@ -49,7 +48,7 @@ The operator should not need a terminal for the normal setup flow.
 
 Remote Access is **off by default**, including upgrades. Initially permit one active
 provider per instance; switching requires an explicit disconnect and preserves the
-previous configuration for recovery. A failed new connection never silently restarts
+saved credentials for recovery. A failed new connection never silently restarts
 the old public route.
 
 This feature connects the **player web UI and its required HTTP endpoints**. It does
@@ -99,9 +98,8 @@ website. You'll need a Cloudflare account and a domain managed there.” Provide
    run Cloudflare's installation command here.”
 2. **Add your website route.** Add a published application route with the desired
    hostname. Choose HTTP and paste the **Origin address** shown by PhValheim.
-   Include a **Copy** button. The generated address must match the supported
-   connector deployment; never assume `localhost` means the main container in a
-   separate connector container.
+   Include a **Copy** button. The generated address is `http://127.0.0.1:18080` inside the existing
+   PhValheim container. It requires no published port.
 3. **Connect and test.** Paste the token and the full HTTPS website URL into
    labeled fields. Show “This makes your player website publicly reachable” above
    **Connect and test**. Keep the live test results in this same modal.
@@ -246,7 +244,7 @@ flowchart LR
     A[Local admin modal] --> C[Remote Access controller]
     C --> S[Private credential and identity storage]
     C --> W[Lifecycle worker and diagnostic jobs]
-    W --> K[Restricted connector]
+    W --> K[Built-in unprivileged client]
     P[Players or authorized tailnet devices] --> E[Provider connection]
     E --> K
     K --> G[Public UI gateway]
@@ -282,27 +280,27 @@ evaluate [userspace networking](https://tailscale.com/docs/concepts/userspace-ne
 to avoid requiring a host TUN device or broad network privileges. Persist device
 identity across ordinary container restarts.
 
-**Packaging decision gate:** bundling a binary or using a different Unix user does
-not isolate network access. A remotely managed Cloudflare route can be changed in
-the operator's account; merely documenting port 8080 does not prevent targeting
-8081 or another local service. Before choosing in-container workers versus a
-companion container, prove enforceable connector egress restrictions on Docker,
-Unraid, and TrueNAS. The connector may reach only its public UI gateway, required
-DNS/provider services, and supported identity/certificate services. It must not
-reach admin, MariaDB, Supervisor, host services, or the LAN. A gateway alone is
-insufficient without that network boundary.
+**Packaging and account authority:** the operator explicitly selected built-in
+clients. They run as UID/GID 1001 with no effective capabilities or supplementary
+groups; the controller retains only identity, ownership, and signal permissions.
+It cannot administer network interfaces/firewalls. Tailscale uses userspace mode
+without SOCKS, SSH, route advertisements, exit-node mode, or Funnel. The fixed
+loopback gateway forwards only the public website and rejects unexpected Hosts.
 
-Prefer integrated in-container operation only if that isolation works without
-privileged mode or granting broad capabilities to the main application. Otherwise
-use a dedicated restricted connector container and provide platform installation
-support. Do not mount the Docker socket to automate it. Unsupported packaging must
-be reported as unavailable with a concrete installation instruction, never bypass
-the boundary. Resolve this gate before promising one-switch support on every host.
+This is process/credential separation, not a separate network namespace. Cloudflare
+remotely managed routes remain controlled by the operator's provider account.
+Changing those routes can target another service reachable from the container.
+The built-in deployment therefore trusts that account's route administrators;
+it does not claim to block account-side forwarding to the admin UI, database,
+host, or LAN. Use a dedicated tunnel, configure only the displayed origin, and
+protect the provider account. Deployments needing enforced egress restrictions
+must provide their network policy externally. Do not describe a Unix UID or the
+public gateway as a network sandbox. No Docker socket or extra privileges are used.
 
 Credentials live in private persistent storage outside all served directories,
 including the admin's broader stateful mappings. Use owner-only file permissions,
-write-only secret updates, and allowlisted diagnostic fields. Exclude secrets from
-normal backups/exports, or require a separately protected credential backup. Never
+write-only secret updates, and allowlisted diagnostic fields. World/config exports exclude this directory. Full host backups of `/opt/stateful`
+include it and must be protected or explicitly exclude it. Never
 include them in logs, URLs, telemetry, or command arguments. Cloudflare supports a
 [token file](https://developers.cloudflare.com/tunnel/reference/run-parameters/).
 Treat Tailscale state as a credential, not an ordinary settings file. Restoring a

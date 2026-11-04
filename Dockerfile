@@ -117,13 +117,13 @@ RUN echo "phvalheim ALL=(root) NOPASSWD: /opt/stateless/engine/tools/applyTimezo
 # enable PhValheim within NGINX
 RUN ln -s /etc/nginx/sites-available/phvalheim.conf /etc/nginx/sites-enabled/phvalheim
 
-# Optional Remote Access connector mode uses the same image in its OWN network
-# namespace. These credentials-free binaries are pinned to publisher checksums.
+# Built-in Remote Access clients, pinned to publisher checksums.
+# Supervisor manages them without extra containers, mounts, or capabilities.
 ADD --checksum=sha256:1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872 https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/cloudflared-linux-amd64 /usr/local/bin/cloudflared
 ADD --checksum=sha256:720cbbccbfc03d8b55df72afc19e5a72e31b0f65934700aa6fa38074d4ad7bf7 https://pkgs.tailscale.com/stable/tailscale_1.104.5_amd64.tgz /tmp/tailscale.tgz
 RUN tar -xzf /tmp/tailscale.tgz -C /tmp && install -m 755 /tmp/tailscale_1.104.5_amd64/tailscale /tmp/tailscale_1.104.5_amd64/tailscaled /usr/local/bin/ && rm -rf /tmp/tailscale* && chmod 755 /usr/local/bin/cloudflared
-RUN apt-get update && apt-get install --no-install-recommends -y iptables util-linux && rm -rf /var/lib/apt/lists/*
-RUN chmod 755 /opt/stateless/remote-access/start.sh
+RUN apt-get update && apt-get install --no-install-recommends -y util-linux && rm -rf /var/lib/apt/lists/*
+RUN chown -R root:root /opt/stateless/remote-access && chmod 755 /opt/stateless/remote-access/start.sh && chmod 644 /opt/stateless/remote-access/*.py
 
 # dooyet
 CMD ["/opt/stateless/engine/tools/startSupervisord.sh"]

@@ -26,7 +26,7 @@ function phvRemoteOriginAllowed(array $server): bool {
 function phvRemoteControl(array $request): array {
     $socket = @stream_socket_client('unix:///run/phvalheim-remote/control.sock', $errno, $error, 2);
     if (!$socket) {
-        return ['success' => true, 'available' => false, 'error' => 'The secure connector is not installed or is stopped. Open installation instructions.'];
+        return ['success' => true, 'available' => false, 'error' => 'The built-in Remote Access service is stopped or starting. Wait a moment, then retry. If it persists, check Server Health.'];
     }
     stream_set_timeout($socket, 10);
     $line = json_encode($request, JSON_THROW_ON_ERROR) . "\n";

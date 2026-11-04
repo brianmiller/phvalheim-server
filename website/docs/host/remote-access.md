@@ -4,43 +4,32 @@ Remote Access is available for testing in the `:dev` image. It connects the play
 website using your own Cloudflare or Tailscale account. It does not open game ports
 or expose the admin interface. Existing player/world permissions still apply.
 
-The feature uses an optional **secure connector container** with the same image.
-The extra container keeps provider routes away from the admin UI and your LAN.
-Credentials stay in its private state volume; the containers share only local
-sockets and short-lived connection-test data.
+Cloudflare and Tailscale are **built into the PhValheim container**. Update your
+existing instance to `theoriginalbrian/phvalheim-server:dev`, keeping its existing
+data volume, environment, and port mappings. Then open **Remote Access** in admin.
+No additional container, volume, published port, TUN device, or Docker capability
+is required. Both clients stay stopped until you choose to connect or sign in.
 
-## Install the connector once
+The controller starts automatically under Supervisor. Credentials and device
+identity persist privately in `/opt/stateful/remote-access` on the existing data
+volume. Client processes run as a separate unprivileged user with no effective
+capabilities. They cannot open the controller's admin socket; the web/application
+user cannot read their credentials. Tailscale uses userspace networking.
 
-Use [the Compose example](https://github.com/brianmiller/phvalheim-server/blob/feature/remote-access-262/deploy/remote-access.compose.yml)
-as a reference. **Merge its connector and socket-volume settings into your existing
-deployment. Keep your existing data volume, environment, and game port mappings.**
-Starting the example unchanged creates a separate empty instance.
+## Account and network boundary
 
-1. Use the same `theoriginalbrian/phvalheim-server:dev` image for both containers.
-2. Add a dedicated shared volume mounted at `/run/phvalheim-remote` in both.
-3. Add a private volume mounted at `/var/lib/phvalheim-remote` in the connector only.
-4. Use the connector entrypoint, capabilities, temporary filesystems, and separate
-   bridge network from the example. Publish **no connector ports**. Do not use host
-   networking, share the application's network namespace, or mount the Docker socket.
-5. Recreate the containers with your deployment tool, then open **Remote Access** in
-   PhValheim's admin navigation. It will report whether the connector is available.
+Use a provider account you control and a dedicated tunnel for this PhValheim
+instance. Set Cloudflare's route to the **exact origin shown in the modal**. Its
+fixed gateway serves the public player UI; it does not forward admin paths. Do not
+add routes to the admin port or other services. Protect the provider account and
+limit who can change its tunnel configuration.
 
-The connector starts with network-administration permission only to install its
-own firewall. It then permanently drops that permission. Its controller retains
-only process identity/ownership/signal permissions, and provider processes run
-under a separate user with no effective capabilities. They cannot open the admin
-control socket. Only the player UI is reachable through the shared origin socket.
-
-The initial transport supports IPv4 internet connections and blocks private,
-loopback (except fixed internal services), link-local, metadata, and reserved
-destinations. IPv6 transport is blocked to prevent bypasses. Tailscale can use public
-relays when direct private-network peer paths are blocked. Public provider HTTPS,
-DNS, and UDP traffic are allowed; this is not an allowlist of every provider IP.
-
-This setup is validated with Docker on Linux. Unraid and TrueNAS require equivalent
-separate-container settings; native platform installation flows are not yet
-validated. Do not weaken isolation to work around a platform restriction. A missing
-capability or failed firewall initialization leaves the connector stopped.
+The built-in clients share the container's network. A Cloudflare account owner
+can change remotely managed routes; an unprivileged Unix user is **not a network
+sandbox**. This integration does not claim to block arbitrary account-side routes
+from reaching the LAN or other services. Host/network policy remains the boundary
+for deployments that require that protection. The UI creates only the supported
+player-website route and does not offer arbitrary forwarding targets.
 
 ## Open admin securely
 
@@ -69,8 +58,8 @@ You need a Cloudflare account and a domain managed there.
    connector token. PhValheim runs the connector, so do not run the installation
    command from Cloudflare.
 2. Add a published application hostname on your domain. Select HTTP and use the
-   origin shown in the modal: `http://127.0.0.1:8080`. This is inside the isolated
-   connector, where a fixed gateway forwards to the player website.
+   origin shown in the modal: `http://127.0.0.1:18080`. This loopback-only gateway is built into
+   PhValheim and forwards to the player website. Do not publish port 18080.
 3. Select **Cloudflare** in Remote Access, enter the full HTTPS website URL and
    token, and choose **Connect and test**. Follow the failed check's instructions
    if DNS, TLS, routing, or provider connectivity needs attention.
@@ -87,7 +76,7 @@ in a browser while blocking the native PhValheim client's downloads; test both.
 
 Players need Tailscale and permission to reach the server in your tailnet policy.
 
-1. Select **Tailscale**, save the settings, then choose **Sign in to Tailscale**.
+1. Select **Tailscale**, then choose **Sign in to Tailscale**.
    Open the generated link and approve the device in your account if required.
    An optional single-use auth key can be used instead of interactive sign-in.
 2. Enable MagicDNS and HTTPS in Tailscale's DNS settings. Permit the intended
@@ -97,7 +86,7 @@ Players need Tailscale and permission to reach the server in your tailnet policy
 
 PhValheim uses [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve),
 not Funnel. It does not enable a game VPN, exit node, subnet routing, or SSH. The
-device identity persists across connector restarts. Re-enrollment may be needed
+device identity persists across container restarts and replacements. Re-enrollment may be needed
 when the identity expires or the device is removed from the provider account.
 
 ## Read the connection checks
@@ -126,6 +115,8 @@ Cloudflare token rotation alone does not disconnect existing connectors; follow
 its [revocation guidance](https://developers.cloudflare.com/tunnel/reference/tunnel-tokens/)
 if a token is compromised.
 
-Keep connector state out of ordinary exports/backups. A restored copy of its
-private volume carries the same device identity and must not be run concurrently
-as an independent installation. Re-enroll a new installation instead.
+PhValheim world/config exports do not include Remote Access credentials. A host
+backup of the entire data volume **does** include `/opt/stateful/remote-access`:
+protect that backup or exclude this directory. A restored copy carries the same
+device identity and must not run concurrently as an independent installation.
+Disconnect and forget, then re-enroll a cloned installation instead.

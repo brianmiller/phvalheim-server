@@ -1,41 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Remote Access setup — PhValheim</title>
 <style>body{font:17px/1.6 system-ui;max-width:850px;margin:2rem auto;padding:1rem;background:#101827;color:#e5eefb}a{color:#79ceff}pre{padding:1rem;background:#1c283b;overflow:auto}code{overflow-wrap:anywhere}li{margin:.7rem 0}</style></head><body>
-<h1>Install the secure Remote Access connector</h1>
-<p>This is a one-time installation for the development build. Afterward, Cloudflare and Tailscale setup happens in the Remote Access modal.</p>
-<p><strong>Keep your existing PhValheim data volume, environment, and ports.</strong> Add a shared socket volume to that existing service. Do not replace its data volume with a new example volume.</p>
-<h2>Docker Compose</h2>
-<ol><li>Use <code>theoriginalbrian/phvalheim-server:dev</code> for your existing PhValheim service.</li><li>Add <code>remote-link:/run/phvalheim-remote</code> to that service's volumes.</li><li>Add the connector service and volumes/network below to your Compose file.</li><li>Recreate the services using your normal deployment tool. Open Remote Access in admin; the connector should report <strong>Off</strong> until you configure it.</li></ol>
-<pre>services:
-  remote-access:
-    image: theoriginalbrian/phvalheim-server:dev
-    entrypoint: ['/opt/stateless/remote-access/start.sh']
-    environment:
-      PHV_REMOTE_CONNECTOR: '1'
-    volumes:
-      - remote-link:/run/phvalheim-remote
-      - remote-state:/var/lib/phvalheim-remote
-    networks: [remote-egress]
-    cap_drop: [ALL]
-    cap_add: [NET_ADMIN, SETPCAP, SETUID, SETGID, CHOWN, FOWNER, KILL]
-    security_opt: ['no-new-privileges:true']
-    read_only: true
-    tmpfs: ['/tmp:rw,nosuid,nodev,noexec', '/run:rw,nosuid,nodev,noexec']
-    restart: unless-stopped
-    pids_limit: 128
-volumes:
-  remote-link:
-  remote-state:
-networks:
-  remote-egress:
-    driver: bridge</pre>
-<p>Publish no ports on the connector. Never use host networking, share PhValheim's network namespace, or mount the Docker socket. Use a separate socket volume for each PhValheim instance. Keep the connector's private state volume out of ordinary backups/exports.</p>
-<p>Linux Docker is the initial supported setup. Unraid/TrueNAS need equivalent separate-container settings; their native installation flows are not yet validated. Do not disable isolation to make an unsupported configuration work.</p>
+<h1>Connect your player website</h1>
+<p>Cloudflare and Tailscale are built into PhValheim. Open <a href="/">admin</a> and choose <strong>Remote Access</strong>. You do not need another container, extra mounts, Docker permissions, or a separate client installation.</p>
+<h2>Cloudflare: public website</h2>
+<ol><li>In <a href="https://dash.cloudflare.com/">your Cloudflare account</a>, create a tunnel and copy its connector token. Do not run the install command: PhValheim runs the connector.</li><li>Add a published application hostname on your domain. Select HTTP and use <code>http://127.0.0.1:18080</code> as the origin. This is PhValheim's built-in player-website gateway; do not publish that port or route to admin.</li><li>Choose Cloudflare in Remote Access, paste the token and your full HTTPS website URL, then select <strong>Connect and test</strong>. Follow the live checks for DNS, TLS, routing, and connection problems.</li></ol>
+<h2>Tailscale: private website</h2>
+<ol><li>Choose Tailscale, select <strong>Sign in to Tailscale</strong>, and open the generated sign-in link. Approve the device in your account if asked.</li><li>Enable MagicDNS and HTTPS in <a href="https://login.tailscale.com/admin/dns">Tailscale DNS settings</a>. Permit your intended devices to reach this device on HTTPS port 443.</li><li>Select <strong>Connect and test</strong>, then open the test link on another authorized Tailscale device. Players need Tailscale; this option does not make your website public.</li></ol>
 <h2>Open admin securely</h2>
-<p>On the Docker host, open <code>http://localhost:8081</code>. From another computer, open an SSH tunnel and keep it running:</p>
+<p>Enter credentials over a directly secured HTTPS admin connection or on <code>http://localhost:8081</code>. If you need secure access from another computer, you can forward the admin port:</p>
 <pre>ssh -L 8081:127.0.0.1:8081 USER@YOUR_SERVER</pre>
-<p>Use your SSH user and server in place of the placeholders, then open <code>http://localhost:8081</code> in your browser. Choose another local port if 8081 is occupied. Remote Access accepts credentials on loopback or a directly secured HTTPS admin connection; spoofed forwarding headers do not make HTTP secure.</p>
-<h2>Connect your account</h2>
-<p>Return to <a href="/">admin</a> and open <strong>Remote Access</strong>. The Cloudflare modal walks you through creating a tunnel and hostname route. The Tailscale modal provides a browser sign-in link and instructions for private HTTPS access. Both show real connection tests and next steps when a check fails.</p>
-<p>Remote Access connects the player website. It does not expose admin or configure Valheim's game ports.</p>
+<p>Replace the placeholders with your SSH login and server, leave that connection open, and visit <code>http://localhost:8081</code>. The future public tunnel does not secure a plain HTTP admin session.</p>
+<h2>Stop or change access</h2>
+<p><strong>Disconnect</strong> stops access and keeps settings. <strong>Disconnect and forget</strong> also removes local credentials. Delete unused tunnels, hostnames, or devices from the provider account separately. Remote Access configures the player website; Valheim game connections keep their existing settings.</p>
 </body></html>

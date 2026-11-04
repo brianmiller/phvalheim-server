@@ -1,36 +1,14 @@
-# Example: merge the relevant settings into your EXISTING Compose deployment.
-# Keep your existing data volume, environment and port mappings unchanged.
+# Optional reference for a NEW instance. Existing deployments only update the image;
+# retain their existing data volume, environment and port mappings.
 services:
   phvalheim:
     image: theoriginalbrian/phvalheim-server:dev
     volumes:
       - phvalheim-data:/opt/stateful
-      - remote-link:/run/phvalheim-remote
     ports:
       - '8080:8080'
       - '127.0.0.1:8081:8081'
       - '25000-25010:25000-25010/udp'
     restart: unless-stopped
-  remote-access:
-    image: theoriginalbrian/phvalheim-server:dev
-    entrypoint: ['/opt/stateless/remote-access/start.sh']
-    environment:
-      PHV_REMOTE_CONNECTOR: '1'
-    volumes:
-      - remote-link:/run/phvalheim-remote
-      - remote-state:/var/lib/phvalheim-remote
-    networks: [remote-egress]
-    cap_drop: [ALL]
-    cap_add: [NET_ADMIN, SETPCAP, SETUID, SETGID, CHOWN, FOWNER, KILL]
-    security_opt: ['no-new-privileges:true']
-    read_only: true
-    tmpfs: ['/tmp:rw,nosuid,nodev,noexec', '/run:rw,nosuid,nodev,noexec']
-    restart: unless-stopped
-    pids_limit: 128
 volumes:
   phvalheim-data:
-  remote-link:
-  remote-state:
-networks:
-  remote-egress:
-    driver: bridge

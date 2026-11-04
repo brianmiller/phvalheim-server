@@ -24,9 +24,10 @@ Keep both mounts through container replacement. A backup archive of a world is n
 
 ## Remote Access development preview
 
-The `:dev` image includes an optional isolated connector for Cloudflare Tunnel and
+The `:dev` image includes built-in clients for Cloudflare Tunnel and
 private Tailscale Serve. See [Remote Access setup](../host/remote-access.md) for
-installation, guided configuration, live checks, and current limits. Game UDP
+guided configuration, live checks, and current limits. No extra container or
+mount is required. Game UDP
 ports remain separate. This preview does not change the stable installation.
 
 ## Public website behind NGINX
