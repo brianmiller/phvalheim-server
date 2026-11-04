@@ -224,8 +224,9 @@ above the force check each turn exactly one red.
 both `TINYINT DEFAULT 0`, and a tree-wide search finds nothing setting either to 1. Auto-updates
 were already off by default; what 2.55 adds is the Beta marking and the refusal.
 
-**Backlog:** `docs/BACKLOG.md` — Companion-side `ZNet.GetConnectedPeers()`, as a **heartbeat
-rather than an event**, which is the property the log signal lacks.
+**Historical 2.55 proposal:** Companion-side `ZNet.GetConnectedPeers()` as a heartbeat.
+**Superseded in 2.58:** the implemented heartbeat uses `ZNet.GetPlayerList()`; see
+[the runtime reference](PLAYER-TELEMETRY.md) and [validation issue #99](https://github.com/brianmiller/phvalheim-server/issues/99).
 
 ---
 
@@ -278,7 +279,8 @@ Stated so it is not mistaken for covered:
 - **The small-payload path end to end** against a real client and a real world.
 - **The macOS Rosetta launch** (above).
 - **Crossplay player counting against real players.** The very signal this release stopped
-  trusting; `docs/BACKLOG.md` is the fix.
+  trusting in 2.55. Subsequent telemetry is described in [the runtime reference](PLAYER-TELEMETRY.md);
+  current validation is tracked in [issue #99](https://github.com/brianmiller/phvalheim-server/issues/99).
 
 ## Known-not-fixed, carried forward
 

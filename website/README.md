@@ -4,6 +4,12 @@ The user-facing site lives in `website/docs/`. Internal plans, release notes and
 
 `overrides/partials/source.html` preserves the theme's GitHub metrics and adds a linked Docker Hub total-pulls badge. Shields.io refreshes the repository-wide count independently of site deployments (one-hour cache requested); the badge abbreviates large counts, for example `53k`. The same link is available in the mobile navigation drawer.
 
+Every contribution must [review dynamic pages and status content](../CONTRIBUTING.md#always-review-dynamic-pages-and-status-content)
+for needed changes, including the landing page, portal guidance, download links and
+fallbacks, and GitHub Issues for work status. Record reviewed paths and updates or specific reasons for
+no changes in the PR. A successful build or dynamic API refresh does not establish
+that descriptions and status are current.
+
 ## Preview
 
 ```bash

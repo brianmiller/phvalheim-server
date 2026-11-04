@@ -8,6 +8,18 @@ Do not merge, enable auto-merge, push directly, or bypass protections without hi
 explicit authorization. Never submit an approval as Brian or impersonate his review.
 See [the approval procedure](CONTRIBUTING.md#brian-must-approve-every-merge).
 
+**GitHub Issues is the source of truth for work tracking.** Review and link affected
+issues in every PR. Keep tasks, ownership, acceptance criteria, and completion status
+in issues; do not maintain duplicate Markdown task lists. Repository docs explain
+architecture, setup, and current behavior.
+
+**Dynamic-page review is mandatory for every contribution**, including code-only and
+docs-only work. Review the landing page, portal guidance, download pages/fallbacks,
+GitHub Issues for work status, and related docs for needed changes. Update affected content;
+record reviewed paths and explain when no update is needed. Never assume automatic
+refresh keeps descriptions or status correct. Follow the
+[documentation/status review](CONTRIBUTING.md#always-review-dynamic-pages-and-status-content).
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 **Contributing a change? Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first and follow it.** It is

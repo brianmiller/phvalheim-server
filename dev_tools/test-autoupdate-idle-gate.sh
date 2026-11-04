@@ -36,7 +36,6 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 APPLIER="$REPO/container/engine/tools/updateApplier"
 ADMIN="$REPO/container/nginx/www/admin/index.php"
 MIG47="$REPO/container/engine/dbUpdates/dbUpdate_2.47.sh"
-BACKLOG="$REPO/docs/BACKLOG.md"
 
 PASS=0; FAIL=0
 pass(){ echo "  PASS: $1"; PASS=$((PASS+1)); }
@@ -226,17 +225,8 @@ grep -q 'Off (default)' "$ADMIN" \
 	&& pass "the selects name Off as the default" \
 	|| fail "neither select says Off is the default"
 
-echo
-echo "== part 7: follow-up validation remains discoverable =="
-
-[ -f "$BACKLOG" ] \
-    && pass "docs/BACKLOG.md exists" \
-    || fail "no backlog file" "the remaining telemetry validation work would be lost"
-
-# Do not assert that this document names a proposed API or describes the heartbeat as
-# missing. 2.58 implemented PlayerTelemetry using GetPlayerList; the old GetConnectedPeers
-# prose assertion prevented correcting the backlog. The behavioral idle checks above and
-# test-world-player-telemetry.sh guard runtime behavior independently of documentation.
+# Runtime safety assertions above stand independently of work-tracking documents.
+# Follow-up validation: https://github.com/brianmiller/phvalheim-server/issues/99
 
 echo
 echo "$PASS passed, $FAIL failed"
