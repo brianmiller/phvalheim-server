@@ -1,6 +1,6 @@
 # PhValheim TrueNAS update plan
 
-The TrueNAS catalog uses stable version tags pinned to image digests, currently `theoriginalbrian/phvalheim-server:2.60@sha256:c63614b8f77a582fe6d5af452251d75521535e2257e5a383808ee3960a11a393`. Brian selected version tags for the catalog on 26 October 2026. General Docker installations can continue using `:latest`.
+The TrueNAS catalog uses stable version tags pinned to image digests, currently `theoriginalbrian/phvalheim-server:2.61@sha256:bfadfa9563d23e85719dd2743b4537a0b69fcc313621ed7173b441f34f7d317a` (catalog 1.0.5, pushed to the open PR 6264 branch on 2026-11-04). Brian selected version tags for the catalog on 26 October 2026. General Docker installations can continue using `:latest`.
 
 ## Stable release checklist
 
