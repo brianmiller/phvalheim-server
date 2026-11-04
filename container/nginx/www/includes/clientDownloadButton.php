@@ -3,7 +3,7 @@ include '../includes/git.php';
 include '../includes/phvalheim-frontend-config.php';
 
 // The Flatpak bundle first appears in phvalheim-client 2.0.13. Every earlier tag still has a
-// .msi, a .tar.gz, a .deb and a .rpm in builds/, but no .flatpak -- so an ungated link would
+// .msi, a .tar.gz, a .deb and a .rpm, but no .flatpak -- so an ungated link would
 // 404 for anyone rendering an older release. $clientVersionsToRender is 1 by default, which
 // means only the newest tag is ever shown, but it is a setting and raising it is the whole
 // point of it; the gate is what makes that safe.
@@ -47,13 +47,18 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 
 		foreach ($phValheimClientGitReleases as $release) {
 			if(!empty($release)) {
+                // 2.0.12 is the first release carrying all four original package assets.
+                // Older releases still need their historical tracked builds; preserve them.
+                $downloadBase = version_compare($release, '2.0.12', '>=')
+                    ? "$phValheimClientGitRepo/releases/download/$release"
+                    : "$phValheimClientGitRepo/raw/master/builds";
 
 
 				if($operatingSystem == "Windows"){
 					echo "
 						<div class='client_download_os_icon $release'>
 							<td class='client_download_cell'>
-								<a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.msi'>
+								<a class='client_download_os_icon' target='_blank' href='$downloadBase/phvalheim-client-$release-x86_64.msi'>
 									<img class='client_download_link_colorizer' src='../images/win11.png'>
 									<p class='versionLabel'>Windows</p>
 								</a>
@@ -67,19 +72,19 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                         echo "
                                                 <div class='client_download_os_icon $release'>
                                                         <td class='client_download_cell'>
-                                                                <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-universal-x86_64.tar.gz'>
+                                                                <a class='client_download_os_icon' target='_blank' href='$downloadBase/phvalheim-client-$release-universal-x86_64.tar.gz'>
                                                                         <img class='client_download_link_colorizer' src='../images/linux.png'>
                                                                         <p class='versionLabel'>Universal</p>
                                                                 </a>
                                                         </td>
                                                         <td class='client_download_cell'>
-                                                                <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.deb'>
+                                                                <a class='client_download_os_icon' target='_blank' href='$downloadBase/phvalheim-client-$release-x86_64.deb'>
                                                                         <img class='client_download_link_colorizer' src='../images/ubuntu.png'>
                                                                         <p class='versionLabel'>Ubuntu</p>
                                                                 </a>
                                                         </td>
                                                         <td class='client_download_cell'>
-                                                                <a class='client_download_os_icon' target='_blank' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.rpm'>
+                                                                <a class='client_download_os_icon' target='_blank' href='$downloadBase/phvalheim-client-$release-x86_64.rpm'>
                                                                         <img class='client_download_link_colorizer' src='../images/fedora.png'>
                                                                         <p class='versionLabel'>Fedora</p>
                                                                 </a>
@@ -100,7 +105,7 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                         if (version_compare($release, PHVALHEIM_CLIENT_FIRST_FLATPAK, '>=')) {
                                                 echo "
                                                         <td class='client_download_cell'>
-                                                                <a class='client_download_os_icon' target='_blank' rel='noopener' onclick='return openFlatpakInstall(this);' href='$phValheimClientGitRepo/raw/master/builds/phvalheim-client-$release-x86_64.flatpak'>
+                                                                <a class='client_download_os_icon' target='_blank' rel='noopener' onclick='return openFlatpakInstall(this);' href='$downloadBase/phvalheim-client-$release-x86_64.flatpak'>
                                                                         <img class='client_download_link_colorizer' src='../images/flatpak.svg'>
                                                                         <p class='versionLabel'>Flatpak</p>
                                                                 </a>
@@ -137,7 +142,7 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 						<td style='text-align:center; color:#34e2e2 !important; padding-top: 0px;'>---------------------------</td>
 			</table>
 			<table class='center' border=0 style='width:100%;'>
-						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/tree/master/builds'>looking for other builds?</a></p></td>
+						<td><p class='client_download_tooltip_otherbuilds'><a class='client_download_tooltip_otherbuilds' target='_blank' href='$phValheimClientGitRepo/releases'>looking for other builds?</a></p></td>
 
 			</table>
 
