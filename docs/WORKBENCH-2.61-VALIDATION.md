@@ -4,8 +4,9 @@ Candidate: `theoriginalbrian/phvalheim-server:dev`, registry digest
 `sha256:bfadfa9563d23e85719dd2743b4537a0b69fcc313621ed7173b441f34f7d317a`, image id
 `65b59caf7da5`, built 2026-11-04 00:14 UTC from commit `b6bd703c` (tests revised in `13a73c5b`,
 which does not change the image: `dev_tools/` is not shipped). Detached build printed
-`IMAGE VERIFY OK`; Docker Scout critical+high 0. Only `:dev` moved — `rc`, `latest` and
-`2.60` all still resolve to `sha256:c63614b8…`.
+`IMAGE VERIFY OK`; Docker Scout critical+high 0. Promoted 2026-11-04 01:05 UTC: the
+`TAG=rc EXTRA_TAGS="2.61 latest"` rebuild verified clean and came out at the SAME digest, so
+`rc`, `2.61`, `latest` and `dev` all resolve to `sha256:bfadfa95…`; `2.60` still `sha256:c63614b8…`.
 
 Scope: the Discord report (unverified Steam sign-in) plus what the review of the 8080
 surface found. See `docs/RELEASE-NOTES-2.61.md` for the operator-facing description.

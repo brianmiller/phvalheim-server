@@ -4,8 +4,8 @@ Release 2.61 is a security release for the player portal on port 8080. Update pr
 No configuration, template, client or Companion change is needed. Take a consistent backup
 of application data before updating, as with every release.
 
-Image: `theoriginalbrian/phvalheim-server:dev` (candidate; the stable digest is recorded here
-when 2.61 is promoted).
+Image: `theoriginalbrian/phvalheim-server:2.61@sha256:bfadfa9563d23e85719dd2743b4537a0b69fcc313621ed7173b441f34f7d317a`
+(also `:latest` and `:rc`; the same digest that was validated as `:dev`).
 
 Reported by a community member on Discord on 2026-11-03. Thank you.
 
