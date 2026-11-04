@@ -5,10 +5,9 @@
 <video class="phv-tour" controls playsinline preload="metadata" poster="../../assets/tour-poster.png" aria-label="PhValheim full product tour">
   <source src="../assets/phvalheim-tour.mp4" type="video/mp4">
   <track kind="captions" src="../assets/phvalheim-tour.vtt" srclang="en" label="English">
-  Your browser does not support embedded video. Download the tour below.
+  Your browser does not support embedded video.
 </video>
 
-[Download the vertical MP4](../assets/phvalheim-tour.mp4){ .md-button }
 [Set up your server](install.md){ .md-button .md-button--primary }
 
 Real interface captures and animated workflow diagrams, condensed into 60 seconds. This is a product overview, not a real-time installation, sync or gameplay recording. Captions and the guide below work with sound off.
