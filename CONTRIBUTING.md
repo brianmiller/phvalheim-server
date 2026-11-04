@@ -4,13 +4,37 @@ Thanks for helping. Start here to choose the setup and checks for your change. I
 people and for AI coding assistants alike. If something here is wrong or missing, fixing this
 page is itself a welcome contribution.
 
+## Brian must approve every merge
+
+**Every change to `main` or `master` requires Brian Miller's (`@brianmiller`)
+explicit approval of the revision being merged.** This includes code, documentation,
+CI, dependency updates, release changes, and work produced by an LLM coding agent.
+
+- Prepare the change on a separate branch, run the applicable checks, and open a PR.
+  Then wait for Brian to review and approve it.
+- Passing CI, approval from another reviewer, a request to implement a task, or access
+  to Brian's account does **not** constitute Brian's merge approval.
+- Approval applies only to the reviewed revision. If the PR changes afterward, obtain
+  Brian's approval again before merging.
+- Contributors and coding agents must not merge, enable auto-merge, push directly to
+  `main`/`master`, or bypass branch protection without Brian's explicit authorization
+  for that action. Approval to implement is not approval to merge.
+- Never submit an approval using Brian's credentials on his behalf. Brian normally
+  approves through a GitHub review. If the PR was opened under his account, GitHub
+  does not allow self-approval: wait for his explicit approval identifying the PR and
+  revision, and let Brian handle any required administrative merge.
+
+`.github/CODEOWNERS` names Brian for every file, including these instructions.
+GitHub enforcement additionally requires a branch rule with required code-owner review
+and stale-approval dismissal; the CODEOWNERS file alone does not block merges.
+
 ## The 30-second version
 
 1. Fork the repo and branch from `master`.
 2. Make one change.
 3. Run `bash dev_tools/run-oracles.sh --standalone`. It must pass.
 4. Open a pull request. Fill in the checklist the template gives you.
-5. The maintainer reviews, merges and releases. Build local development images as needed; only maintainers publish images and releases.
+5. Wait for Brian Miller (`@brianmiller`) to approve the reviewed revision before merge. Brian controls merging and official releases.
 
 ## Which repo?
 
