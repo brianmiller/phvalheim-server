@@ -84,7 +84,7 @@ For a **direct UDP** world:
 
 The modal shows your configured Game DNS and provides a copyable forwarding rule.
 If game DNS is managed by Cloudflare, use a **DNS-only** record for game traffic.
-Cloudflare's website proxy and the built-in private Tailscale Serve route do not
+Cloudflare's website proxy and the built-in Tailscale Funnel route do not
 carry Valheim UDP. Website tests do not prove a game connection works.
 
 For **crossplay**, Valheim uses the PlayFab relay and does not require inbound game
@@ -121,25 +121,32 @@ The [official setup guide](https://developers.cloudflare.com/tunnel/get-started/
 describes the provider's dashboard. Account-side sign-in/bot challenges may work
 in a browser while blocking the native PhValheim client's downloads; test both.
 
-## Tailscale: private website
+## Tailscale: public website
 
-Players need Tailscale and permission to reach the server in your tailnet policy.
+Tailscale Funnel gives your player website a public HTTPS address. Players open
+it in a normal browser; they do not need a Tailscale account or app.
 
-1. Select **Tailscale**, then choose **Sign in to Tailscale**.
-   Open the generated link and approve the device in your account if required.
-   An optional single-use auth key can be used instead of interactive sign-in.
-2. Enable MagicDNS and HTTPS in Tailscale's DNS settings. Permit the intended
-   devices/users to reach this device's HTTPS port 443 in your tailnet policy.
-3. Choose **Connect and test**. If **HTTPS approval required** appears, select
-   **Enable HTTPS in Tailscale** and complete the account approval. PhValheim
-   retries automatically; keep the existing signed-in device.
-4. Once connected, choose **Test connection** and open the generated test link on
-   another authorized Tailscale device, then return to see the browser test result.
+1. Select **Tailscale**, then **Sign in to Tailscale**. Open the generated account
+   link and approve the server device if asked. An optional single-use auth key
+   can be used instead. Signing in alone does not publish the website.
+2. Select **Publish website**. If an approval link appears, choose **Enable public
+   access in Tailscale** and complete the provider's approval. PhValheim retries
+   automatically using the same enrolled device.
+3. Share the displayed HTTPS link. The connection test checks public DNS, the
+   certificate, this instance's response, and a small transfer. Also open it on a
+   phone with Wi-Fi and Tailscale off, then test a native-client download.
 
-PhValheim uses [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve),
-not Funnel. It does not enable a game VPN, exit node, subnet routing, or SSH. The
-device identity persists across container restarts and replacements. Re-enrollment may be needed
-when the identity expires or the device is removed from the provider account.
+Public DNS can take up to 10 minutes to appear after first publishing; retry
+**Test connection** if DNS is still pending. Funnel uses a Tailscale hostname and
+has provider bandwidth limits, so full archive downloads need testing for your
+worlds. See [Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel).
+
+The device identity survives container replacement. Disconnect stops access and
+keeps that identity. Earlier development builds used private Serve: upgrading
+leaves those connections off until you sign in with the saved device and select
+**Publish website**. An upgrade alone never changes a private connection to public.
+Funnel publishes the player website only; it does not carry game UDP, expose the
+admin UI, enable an exit node, or provide SSH.
 
 ## Read the connection checks
 
@@ -148,10 +155,8 @@ connector, local website, DNS, certificate, correct-instance route challenge, an
 a small diagnostic transfer. A running process alone never means the website is
 ready. Failed checks provide the next action; stale evidence is labeled stale.
 
-Cloudflare URL checks originate from the server. For an outside-network check,
-open the test link from a phone on mobile data. Tailscale's private hostname must
-be tested from another authorized device; the connector does not pretend a local
-node test proves another user's permissions. A recorded browser test proves that
+Both providers' URL checks originate from the server. For an outside-network
+check, open the test link from a phone on mobile data with Tailscale off. A recorded browser test proves that
 browser reached the route, not its network location, Steam login, or game access.
 
 The small transfer is a diagnostic response, **not a full mod pack or archive-path

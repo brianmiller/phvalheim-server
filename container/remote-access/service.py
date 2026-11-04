@@ -154,6 +154,12 @@ class Controller:
         self.auth_url = ''
         self.ts_state = ''
         self.shutting_down = False
+        # Private Serve from earlier development builds is not permission to
+        # publish on upgrade. Keep the node identity; require the public action.
+        if self.config['provider'] == 'tailscale' and self.config['enabled'] and not self.config.get('publicAccess'):
+            self.config['enabled'] = False
+            self.persist()
+            self.error = 'Tailscale now provides a public website. Sign in with the saved device, then select Publish website.'
 
     def event(self, message):
         self.events = (self.events + [{'time': time.time(), 'message': message}])[-30:]
@@ -286,16 +292,19 @@ proxy_buffering off; proxy_read_timeout 120s; }
                         raise UserError('Paste the Cloudflare tunnel token.')
                 self.cancel.set()
                 self.test = None
-                self.config.update(provider=provider, url=url, revision=self.config['revision'] + 1)
+                self.config.update(provider=provider, url=url, publicAccess=False, revision=self.config['revision'] + 1)
                 self.persist()
                 self.error = ''
                 self.event('Connection settings saved; access remains off.')
             elif action == 'connect':
                 if not self.config['provider']:
                     raise UserError('Save the connection settings first.')
+                if self.config['provider'] == 'tailscale' and request.get('publicAccess') is not True:
+                    raise UserError('Choose Publish website to make this Tailscale URL public.')
                 if self.config['provider'] == 'tailscale' and self.ts_state != 'Running':
                     raise UserError('Sign in to Tailscale and approve the device first.')
                 self.config['enabled'] = True
+                self.config['publicAccess'] = True
                 self.persist()
                 self.error = ''
                 self.start()
@@ -316,7 +325,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
                 self.start()
                 self.error = ''
                 threading.Thread(target=self.enroll, args=(bool(key),), daemon=True).start()
-                self.event('Tailscale sign-in requested; private website is still off.')
+                self.event('Tailscale sign-in requested; public website is still off.')
             elif action in ('disconnect', 'forget'):
                 self.stop()
                 self.config['enabled'] = False
@@ -359,7 +368,8 @@ proxy_buffering off; proxy_read_timeout 120s; }
             for _ in range(30):
                 if not self.enrolling:
                     return
-                if run(TS + ['status', '--json'], 2).stdout:
+                status = run(TS + ['status', '--json'], 2).stdout
+                if status:
                     break
                 time.sleep(.2)
             with self.lock:
@@ -369,8 +379,13 @@ proxy_buffering off; proxy_read_timeout 120s; }
                              '--hostname=phvalheim-' + self.instance[:8], '--timeout=5m']
                 if key:
                     args += ['--auth-key=file:' + str(STATE / 'enrollment.key')]
+                # A fresh daemon has no netMap and cannot reset Serve until signed in.
+                # The player gateway stays stopped until explicit public Connect.
+                if json.loads(status or '{}').get('BackendState') == 'Running':
+                    if run(TS + ['serve', 'reset'], 3).returncode != 0:
+                        raise OSError('Could not clear the previous website route')
                 self.login = self.spawn(args)
-        except OSError:
+        except (OSError, ValueError, subprocess.SubprocessError):
             with self.lock:
                 self.error = 'Could not start Tailscale sign-in. Retry or inspect the Remote Access service.'
                 self.enrolling = False
@@ -411,14 +426,16 @@ proxy_buffering off; proxy_read_timeout 120s; }
                         self.persist()
                     if self.config['enabled'] and not self.serving and time.time() >= self.next_serve:
                         self.next_serve = time.time() + 10
-                        # Never inherit a persisted Funnel or unrelated Serve route.
+                        if not self.config.get('publicAccess'):
+                            raise UserError('Choose Publish website before enabling public access.')
+                        # Replace any earlier private Serve or unrelated route.
                         if run(TS + ['serve', 'reset'], 3).returncode != 0:
-                            raise UserError('Could not reset the private website route. Reconnect Tailscale and retry.')
+                            raise UserError('Could not reset the website route. Reconnect Tailscale and retry.')
                         self.gateway_start(host)
                         try:
-                            r = run(TS + ['serve', '--bg', '--https=443', ORIGIN], 4)
+                            r = run(TS + ['funnel', '--bg', '--https=443', ORIGIN], 4)
                         except subprocess.TimeoutExpired as exc:
-                            # Serve prints the operator approval URL and waits.
+                            # Funnel prints the operator approval URL and waits.
                             # Preserve that actionable output when our bounded
                             # command timeout expires instead of losing all status.
                             def text(value):
@@ -431,18 +448,19 @@ proxy_buffering off; proxy_read_timeout 120s; }
                         else:
                             matches = re.findall(r'https://[^\s]+', r.stdout + r.stderr)
                             self.auth_url = next((provider_link(x) for x in matches if provider_link(x)), '')
-                            self.error = ('Enable HTTPS in Tailscale using the approval link below. PhValheim will retry automatically.'
-                                          if self.auth_url else 'Private HTTPS could not start. Check MagicDNS, HTTPS and device permissions in Tailscale; PhValheim will retry.')
+                            self.error = ('Enable public access in Tailscale using the approval link below. PhValheim will retry automatically.'
+                                          if self.auth_url else 'Public HTTPS could not start. Check Funnel permission in Tailscale; PhValheim will retry.')
                     if self.serving:
                         serve = json.loads(run(TS + ['serve', 'status', '--json'], 3).stdout)
-                        if any((serve.get('AllowFunnel') or {}).values()):
-                            self.config['enabled'] = False
-                            self.persist()
-                            self.stop()
-                            raise UserError('Unexpected public Funnel configuration; connection stopped.')
-                        if not serve.get('Web'):
-                            self.serving = False
-                state = 'Connected' if self.serving else 'Signed in — website off' if not self.config['enabled'] else 'HTTPS approval required'
+                        endpoint = host + ':443'
+                        route = (serve.get('Web') or {}).get(endpoint, {}).get('Handlers', {}).get('/', {})
+                        # Serve being configured is not proof of public access.
+                        self.serving = ((serve.get('AllowFunnel') or {}).get(endpoint) is True
+                                        and (serve.get('TCP') or {}).get('443', {}).get('HTTPS') is True
+                                        and route.get('Proxy') == ORIGIN)
+                        if not self.serving:
+                            self.error = 'The public website route is not active. PhValheim will retry.'
+                state = 'Connected' if self.serving else 'Signed in — website off' if not self.config['enabled'] else 'Public access approval required' if self.auth_url else 'Connecting public website'
             else:
                 state = 'Waiting for sign-in' if self.ts_state == 'NeedsLogin' else 'Device approval required' if self.ts_state == 'NeedsMachineAuth' else 'Connecting'
             if self.login and self.login.poll() is not None and self.ts_state != 'Running':
@@ -531,23 +549,15 @@ proxy_buffering off; proxy_read_timeout 120s; }
             self.step(test, current, 'Passed', 'Provider reports an active connection.')
             with self.lock:
                 url = self.config['url']
-                provider = self.config['provider']
             host = urlsplit(url).hostname
-            if provider == 'tailscale':
-                # Own-node self-proxy does not prove another user's tailnet ACL. Do not
-                # silently use a public DNS lookup for the private MagicDNS address.
-                for name in ('dns', 'tls', 'route', 'transfer'):
-                    self.step(test, name, 'Not tested', 'Open the test link from another authorized Tailscale device.')
-                with self.lock:
-                    if self.test is test:
-                        test['deviceUrl'] = url + path + '&browser=1'
-                        test['state'] = 'Needs device test'
-                return
             current = 'dns'
             self.step(test, current, 'Checking', 'Resolving the website from this server.')
-            answers = {x[4][0] for x in socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)}
+            try:
+                answers = {x[4][0] for x in socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)}
+            except socket.gaierror:
+                raise UserError('Public DNS is not ready. For a new Tailscale Funnel, DNS can take up to 10 minutes; retry Test connection.')
             if not answers or not all(public_ip(a) for a in answers):
-                raise UserError('The hostname must resolve only to public IPv4 addresses for this public test.')
+                raise UserError('Public DNS is not ready or returned a private address. For a new Tailscale Funnel, DNS can take up to 10 minutes; retry Test connection.')
             self.step(test, current, 'Passed', 'Public DNS answers found; destination pinned for this test.')
             current = 'tls'
             self.step(test, current, 'Checking', 'Validating hostname and certificate trust.')

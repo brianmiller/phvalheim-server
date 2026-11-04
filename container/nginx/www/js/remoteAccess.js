@@ -9,7 +9,7 @@
     const labels = {local:'Local player website',provider:'Provider connection',dns:'Website DNS',tls:'HTTPS certificate',route:'Correct website',transfer:'Small transfer'};
     const official = {
         cloudflare:'https://developers.cloudflare.com/tunnel/get-started/',
-        tailscale:'https://tailscale.com/docs/features/tailscale-serve'
+        tailscale:'https://tailscale.com/docs/features/tailscale-funnel'
     };
     async function copy(value) {
         try { await navigator.clipboard.writeText(value); message('Copied.'); }
@@ -36,7 +36,7 @@
                 <div class="ra-choices">
                   <button data-choice="direct"><span class="ra-choice-icon" aria-hidden="true">↔</span><strong>Direct connection</strong><span>Your router &amp; firewall</span></button>
                   <button data-choice="cloudflare"><span class="ra-choice-icon" aria-hidden="true">☁</span><strong>Cloudflare</strong><span>Public website · your domain</span></button>
-                  <button data-choice="tailscale"><span class="ra-choice-icon" aria-hidden="true">⌘</span><strong>Tailscale</strong><span>Private website · your devices</span></button>
+                  <button data-choice="tailscale"><span class="ra-choice-icon" aria-hidden="true">⌘</span><strong>Tailscale</strong><span>Public website · free hostname</span></button>
                 </div>
                 <p class="ra-muted ra-built-in">Cloudflare and Tailscale are built in. No extra installation.</p>
               </div>
@@ -57,9 +57,9 @@
                   <div id="raSetup" hidden>
                     <div id="raCloudFields"><label for="raUrlInput">Website URL</label><input id="raUrlInput" type="url" placeholder="https://play.example.net" autocomplete="off" maxlength="253">
                       <label for="raToken">Tunnel token <span id="raTokenSaved" class="ra-muted"></span></label><input id="raToken" type="password" autocomplete="new-password" maxlength="4096" placeholder="Paste the connector token"></div>
-                    <div id="raTailFields" hidden><p>Sign in with your own Tailscale account to add this server.</p><div id="raSignInLink"></div><button id="raSignIn">Sign in to Tailscale</button>
+                    <div id="raTailFields" hidden><p>Sign in once to create a public website link. Players do not need Tailscale.</p><div id="raSignInLink"></div><button id="raSignIn">Sign in to Tailscale</button>
                       <details><summary>Use an auth key instead</summary><p>Create a single-use key in <a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer">Tailscale settings</a>. It is removed after enrollment.</p><label for="raAuthKey">Enrollment key</label><input id="raAuthKey" type="password" autocomplete="new-password" maxlength="400"></details>
-                      <div id="raTailReady" hidden><p><strong>Device signed in.</strong> Enable MagicDNS and HTTPS in <a href="https://login.tailscale.com/admin/dns" target="_blank" rel="noopener noreferrer">Tailscale DNS settings</a>. Allow your players' devices to reach this device on HTTPS port 443.</p></div>
+                      <div id="raTailReady" hidden><p><strong>Device signed in.</strong> Publish your website, then complete any Tailscale approval shown here.</p></div>
                     </div>
                     <p id="raAudience" class="ra-muted"></p>
                     <div class="ra-actions"><button id="raEditInstructions">← Setup instructions</button><button id="raConnect">Connect and test</button></div>
@@ -117,7 +117,7 @@
         $('raSave').onclick = () => perform(async () => { await save(); step = 3; layout(); message('Settings saved. Access is off.'); });
         $('raConnect').onclick = () => perform(async () => {
             if (!data?.config?.enabled && ($('raProvider').value === 'cloudflare' || dirty || data?.config?.provider !== $('raProvider').value)) await save();
-            await request('connect'); dirty = false; step = 3; layout(); message('Connection requested. Live checks are running.');
+            await request('connect', {publicAccess:true}); dirty = false; step = 3; layout(); message('Connection requested. Live checks are running.');
         });
         $('raSignIn').onclick = () => perform(async () => {
             if (data?.config?.provider !== 'tailscale' || dirty) await save();
@@ -166,7 +166,7 @@
         ['website','games'].forEach(t => { const el = $(t === 'website' ? 'raWebsiteTab' : 'raGamesTab'); el.setAttribute('aria-selected', String(tab === t)); el.tabIndex = tab === t ? 0 : -1; });
         $('raChoices').hidden = !!choice; $('raChosen').hidden = !choice;
         $('raDirect').hidden = choice !== 'direct'; $('raProviderFlow').hidden = !choice || choice === 'direct';
-        $('raMethodTitle').textContent = {direct:'Direct connection',cloudflare:'Cloudflare · Public website',tailscale:'Tailscale · Private website'}[choice] || '';
+        $('raMethodTitle').textContent = {direct:'Direct connection',cloudflare:'Cloudflare · Public website',tailscale:'Tailscale · Public website'}[choice] || '';
         $('raStepLabel').textContent = choice === 'cloudflare' && step < 3 ? `Step ${step} of 2` : '';
         $('raPrepare').hidden = choice !== 'cloudflare' || step !== 1;
         $('raSetup').hidden = step !== 2;
@@ -179,7 +179,7 @@
         $('raCloudFields').hidden = !cf; $('raTailFields').hidden = cf;
         $('raInstructions').innerHTML = `<ol class="ra-steps"><li><strong>Create a tunnel.</strong> Open <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare</a> → Networking → Tunnels. Copy the connector token. PhValheim runs the connector for you.</li><li><strong>Add a website route.</strong> Choose your domain and subdomain. Set service type to HTTP and paste this origin:</li></ol><div class="ra-copy-row"><code>${escape(data?.origin || 'http://127.0.0.1:18080')}</code><button id="raCopyOrigin">Copy origin</button></div><p class="ra-muted">No installation command is needed. <a href="${official.cloudflare}" target="_blank" rel="noopener noreferrer">Cloudflare setup guide</a></p>`;
         $('raCopyOrigin').onclick = () => copy(data?.origin || 'http://127.0.0.1:18080');
-        $('raAudience').textContent = cf ? 'Connect makes the player website public immediately. Existing player permissions still apply.' : 'Private website only. Players need Tailscale and permission in your tailnet.';
+        $('raAudience').textContent = cf ? 'Connect makes the player website public immediately. Existing player permissions still apply.' : 'Publish makes the player website public through Tailscale Funnel. Players need no Tailscale app. Existing player permissions still apply.';
     }
     async function loadNetwork(force=false) {
         if (networkBusy || (!force && Date.now()-networkTime < 10000)) return;
@@ -247,6 +247,7 @@
         ['raSave','raConnect','raSignIn','raForget'].forEach(id => $(id).disabled = busy || !available);
         $('raSave').disabled ||= enabled || enrolling;
         $('raSignIn').disabled ||= enabled;
+        $('raConnect').textContent = choice === 'tailscale' ? 'Publish website' : 'Connect and test';
         $('raConnect').disabled ||= enabled || ($('raProvider').value === 'tailscale' && data?.observed?.details?.backend !== 'Running');
         $('raTailReady').hidden = data?.observed?.details?.backend !== 'Running';
         $('raSignIn').hidden = !!data?.authUrl || data?.observed?.details?.backend === 'Running';
@@ -290,7 +291,7 @@
         $('raTokenSaved').textContent = data.config?.tokenSaved ? '(saved)' : '';
         const observed = data.observed || {}, age = Math.max(0, Math.round((data.now || Date.now()/1000) - (observed.time || 0)));
         const stale = !!transportError || Date.now() - lastReply > 15000 || age > 15;
-        $('raSummary').textContent = !data.available ? 'Remote Access service unavailable' : stale ? 'Live status unavailable — last observation is stale' : `${observed.state || 'Unknown'} · ${data.config?.provider === 'cloudflare' ? 'Public website' : data.config?.provider === 'tailscale' ? 'Private website' : 'No provider configured'}`;
+        $('raSummary').textContent = !data.available ? 'Remote Access service unavailable' : stale ? 'Live status unavailable — last observation is stale' : `${observed.state || 'Unknown'} · ${data.config?.provider === 'cloudflare' ? 'Public website' : data.config?.provider === 'tailscale' ? 'Public website' : 'No provider configured'}`;
         $('raLastChecked').textContent = data.available ? `Last observation: ${new Date((observed.time || 0)*1000).toLocaleTimeString()}${stale ? ' — stale' : ''}` : '';
         const providerError = choice === data.config?.provider ? data.error : '';
         if (!data.available) {
@@ -308,7 +309,7 @@
         if ($('raCopyUrl')) $('raCopyUrl').onclick = () => copy(url);
         const authUrl = sameProvider && choice === 'tailscale' ? data.authUrl : '';
         const approval = authUrl && data.config?.enabled;
-        $('raApproval').innerHTML = approval ? `<p><a class="ra-primary" href="${escape(authUrl)}" target="_blank" rel="noopener noreferrer">${observed.details?.backend === 'Running' ? 'Enable HTTPS in Tailscale' : 'Continue in Tailscale'}</a></p><p class="ra-muted">Complete the approval in Tailscale. This window updates automatically.</p>` : '';
+        $('raApproval').innerHTML = approval ? `<p><a class="ra-primary" href="${escape(authUrl)}" target="_blank" rel="noopener noreferrer">${observed.details?.backend === 'Running' ? 'Enable public access in Tailscale' : 'Continue in Tailscale'}</a></p><p class="ra-muted">Complete the approval in Tailscale. This window updates automatically.</p>` : '';
         $('raSignInLink').innerHTML = authUrl && !approval ? `<p><a class="ra-primary" href="${escape(authUrl)}" target="_blank" rel="noopener noreferrer">Continue in Tailscale</a> <button type="button" id="raCopyLogin">Copy sign-in link</button></p>` : '';
         if ($('raCopyLogin')) $('raCopyLogin').onclick = () => copy(data.authUrl);
         const test = data.test, expired = test && (Date.now()/1000 - test.started > 300 || test.revision !== data.config?.revision);
@@ -318,7 +319,7 @@
             const step = test?.steps?.[key] || {state:'Not tested',message:''};
             return `<div class="ra-check"><strong>${label}</strong><span>${escape(expired ? 'Stale' : step.state)}</span>${step.message && step.state !== 'Passed' ? `<p>${escape(step.message)}</p>` : ''}</div>`;
         }).join('');
-        $('raDevice').innerHTML = test?.deviceUrl && !expired ? `<p><a href="${escape(test.deviceUrl)}" target="_blank" rel="noopener noreferrer">Test from another device</a> <button type="button" id="raCopyTest">Copy test link</button></p><p>${escape(test.device || 'Not tested')}. ${data.config?.provider === 'tailscale' ? 'Use another authorized Tailscale device.' : 'For an outside-network check, use a phone on mobile data.'} This link expires five minutes after the test started.</p>` : '';
+        $('raDevice').innerHTML = test?.deviceUrl && !expired ? `<p><a href="${escape(test.deviceUrl)}" target="_blank" rel="noopener noreferrer">Test from another device</a> <button type="button" id="raCopyTest">Copy test link</button></p><p>${escape(test.device || 'Not tested')}. For an outside-network check, use a phone on mobile data. This link expires five minutes after the test started.</p>` : '';
         if ($('raCopyTest')) $('raCopyTest').onclick = () => copy(test.deviceUrl);
         $('raDetails').innerHTML = Object.entries(observed.details || {}).map(([key,value]) => `<dt>${escape(key)}</dt><dd>${escape(Array.isArray(value) ? value.join(', ') : value ?? 'Unavailable')}</dd>`).join('');
         $('raEvents').innerHTML = (data.events || []).slice().reverse().map(e => `<li>${escape(new Date(e.time*1000).toLocaleTimeString())}: ${escape(e.message)}</li>`).join('');

@@ -25,7 +25,7 @@ Keep both mounts through container replacement. A backup archive of a world is n
 ## Remote Access development preview
 
 The `:dev` image includes built-in clients for Cloudflare Tunnel and
-private Tailscale Serve. See [Remote Access setup](../host/remote-access.md) for
+public Tailscale Funnel. See [Remote Access setup](../host/remote-access.md) for
 guided configuration, live checks, and current limits. Its Game connections tab
 shows each world’s actual UDP pair and explains direct forwarding versus crossplay. No extra container or
 mount is required. Game UDP

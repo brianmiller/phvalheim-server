@@ -57,6 +57,15 @@ class Lifecycle(unittest.TestCase):
     def save_cf(self):
         return self.c.action({'action':'save','provider':'cloudflare','url':'https://play.example.net','token':'A'*120})
 
+    def test_fresh_enrollment_does_not_require_a_network_map(self):
+        from types import SimpleNamespace
+        self.c.enrolling = True
+        with patch.object(remote, 'run', return_value=SimpleNamespace(stdout='{"BackendState":"NeedsLogin"}')) as run, patch.object(self.c, 'spawn') as spawn:
+            self.c.enroll('')
+        self.assertEqual(run.call_count, 1)
+        self.assertIn('up', spawn.call_args.args[0])
+        self.assertTrue(self.c.enrolling)
+
     def test_defaults_off(self):
         self.assertFalse(self.c.snapshot()['config']['enabled'])
         self.assertEqual(self.c.snapshot()['observed']['state'], 'Off')
@@ -131,23 +140,25 @@ class Lifecycle(unittest.TestCase):
         with self.assertRaises(remote.UserError): self.c.action({'action':'connect'})
         self.assertFalse(self.c.config['enabled'])
 
-    def test_tailscale_serve_approval_timeout_and_recovery(self):
-        self.c.config.update(provider='tailscale', enabled=True)
+    def test_tailscale_funnel_approval_timeout_and_recovery(self):
+        self.c.config.update(provider='tailscale', enabled=True, publicAccess=True)
         status = {'BackendState':'Running', 'Self':{'DNSName':'fixture.example.ts.net.'}}
-        approval = 'https://login.tailscale.com/f/serve?node=fixture'
+        approval = 'https://login.tailscale.com/f/funnel?node=fixture'
         calls = []
         approved = False
         def command(args, timeout):
             calls.append(args)
             if args[len(remote.TS):] == ['status', '--json']:
                 return remote.subprocess.CompletedProcess(args, 0, json.dumps(status), '')
+            if '--bg' in args:
+                self.assertEqual(args[len(remote.TS)], 'funnel')
             if '--bg' in args and not approved:
                 raise remote.subprocess.TimeoutExpired(args, timeout,
-                    output=('Serve is not enabled on your tailnet.\nTo enable, visit:\n' + approval).encode())
-            return remote.subprocess.CompletedProcess(args, 0, '{"Web":{"fixture":{}}}', '')
+                    output=('Funnel is not enabled on your tailnet.\nTo enable, visit:\n' + approval).encode())
+            return remote.subprocess.CompletedProcess(args, 0, json.dumps({'TCP':{'443':{'HTTPS':True}}, 'Web':{'fixture.example.ts.net:443':{'Handlers':{'/':{'Proxy':remote.ORIGIN}}}}, 'AllowFunnel':{'fixture.example.ts.net:443':True}}), '')
         with patch.object(remote, 'run', side_effect=command), patch.object(self.c, 'gateway_start'), patch.object(remote.time, 'time', return_value=100):
             self.c.observe()
-            self.assertEqual(self.c.observed['state'], 'HTTPS approval required')
+            self.assertEqual(self.c.observed['state'], 'Public access approval required')
             self.assertEqual(self.c.observed['details']['backend'], 'Running')
             self.assertEqual(self.c.snapshot()['authUrl'], approval)
             self.assertEqual(self.c.config['url'], 'https://fixture.example.ts.net')
@@ -162,7 +173,7 @@ class Lifecycle(unittest.TestCase):
         self.assertEqual(self.c.error, '')
 
     def test_tailscale_timeout_rejects_untrusted_approval_url(self):
-        self.c.config.update(provider='tailscale', enabled=True)
+        self.c.config.update(provider='tailscale', enabled=True, publicAccess=True)
         def command(args, timeout):
             if '--bg' in args:
                 raise remote.subprocess.TimeoutExpired(args, timeout, output=b'https://login.tailscale.com.evil.example/approve')
@@ -171,8 +182,39 @@ class Lifecycle(unittest.TestCase):
         with patch.object(remote, 'run', side_effect=command), patch.object(self.c, 'gateway_start'):
             self.c.observe()
         self.assertEqual(self.c.auth_url, '')
-        self.assertIn('Private HTTPS could not start', self.c.error)
+        self.assertIn('Public HTTPS could not start', self.c.error)
         self.assertEqual(self.c.observed['details']['backend'], 'Running')
+
+    def test_legacy_private_config_does_not_publish_on_upgrade(self):
+        legacy = {'provider':'tailscale', 'enabled':True, 'url':'https://fixture.example.ts.net', 'revision':3}
+        remote.atomic(self.base/'config.json', legacy)
+        identity = self.c.instance
+        upgraded = remote.Controller()
+        self.assertFalse(upgraded.config['enabled'])
+        self.assertFalse(json.loads((self.base/'config.json').read_text())['enabled'])
+        self.assertEqual(upgraded.instance, identity)
+        self.assertIn('Publish website', upgraded.error)
+
+    def test_public_connect_requires_explicit_intent_and_persists(self):
+        self.c.action({'action':'save','provider':'tailscale'})
+        self.c.ts_state = 'Running'
+        with self.assertRaises(remote.UserError): self.c.action({'action':'connect'})
+        self.assertFalse(self.c.config['enabled'])
+        with patch.object(self.c, 'start'), patch.object(self.c, 'begin_test'):
+            self.c.action({'action':'connect','publicAccess':True})
+        restarted = remote.Controller()
+        self.assertTrue(restarted.config['enabled'])
+        self.assertTrue(restarted.config['publicAccess'])
+
+    def test_private_serve_config_cannot_report_public_connection(self):
+        self.c.config.update(provider='tailscale', enabled=True, publicAccess=True)
+        self.c.serving = True
+        def command(args, timeout):
+            value = {'BackendState':'Running', 'Self':{'DNSName':'fixture.example.ts.net'}} if args[len(remote.TS)] == 'status' else {'TCP':{'443':{'HTTPS':True}},'Web':{'fixture.example.ts.net:443':{'Handlers':{'/':{'Proxy':remote.ORIGIN}}}}}
+            return remote.subprocess.CompletedProcess(args, 0, json.dumps(value), '')
+        with patch.object(remote,'run',side_effect=command): self.c.observe()
+        self.assertFalse(self.c.serving)
+        self.assertNotEqual(self.c.observed['state'], 'Connected')
 
     def test_no_test_when_off(self):
         self.save_cf()
@@ -200,12 +242,12 @@ class Lifecycle(unittest.TestCase):
         (self.base/'device-test.json').write_text(json.dumps({'nonce':'good','time':time.time()}))
         self.assertIn('browser reached',self.c.snapshot()['test']['device'])
 
-    def diagnostic(self, mode='good'):
+    def diagnostic(self, mode='good', provider='cloudflare'):
         import time, threading
         from unittest.mock import MagicMock
         self.c.config['enabled'] = False
         self.save_cf()
-        self.c.config['enabled'] = True
+        self.c.config.update(enabled=True, provider=provider, publicAccess=True)
         self.c.observed = {'state':'Connected', 'time':time.time(), 'details':{}}
         test = {'revision':self.c.config['revision'], 'state':'Running', 'steps':{}}
         self.c.test = test
@@ -237,6 +279,14 @@ class Lifecycle(unittest.TestCase):
         test = self.diagnostic()
         self.assertEqual(test['state'],'URL verified from this server')
         self.assertEqual(set(s['state'] for s in test['steps'].values()), {'Passed'})
+
+    def test_tailscale_checks_public_dns_tls_and_correct_instance(self):
+        test = self.diagnostic(provider='tailscale')
+        self.assertEqual(test['state'], 'URL verified from this server')
+        self.assertEqual(set(s['state'] for s in test['steps'].values()), {'Passed'})
+        for mode in ['private_dns','wrong_instance','tls']:
+            with self.subTest(mode=mode):
+                self.assertEqual(self.diagnostic(mode, provider='tailscale')['state'], 'Check failed')
 
     def test_diagnostic_refuses_false_success(self):
         for mode, step in [('wrong_instance','route'),('cached','route'),('access_page','route'),('redirect','route'),('truncated','transfer'),('tls','tls'),('private_dns','dns')]:

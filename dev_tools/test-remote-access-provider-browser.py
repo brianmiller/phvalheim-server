@@ -16,17 +16,27 @@ with sync_playwright() as p:
     state = {
         'success':True, 'available':True, 'csrf':'fixture', 'enrolling':False,
         'config':{'provider':'tailscale', 'enabled':True, 'url':'https://fixture.example.ts.net', 'revision':1},
-        'observed':{'state':'HTTPS approval required', 'details':{'backend':'Running'}},
+        'observed':{'state':'Public access approval required', 'details':{'backend':'Running'}},
         'authUrl':'https://login.tailscale.com/f/serve?node=fixture',
-        'error':'Enable HTTPS in Tailscale using the approval link below.', 'events':[], 'test':None,
+        'error':'Enable public access in Tailscale using the approval link below.', 'events':[], 'test':None,
     }
     pending = []
     hold = False
+    publish_requests = []
+    allow_publish = False
     def reply(route):
         state['now'] = time.time(); state['observed']['time'] = time.time()
         route.fulfill(json=state)
     def api(route):
-        assert route.request.method == 'GET', 'Provider navigation must not mutate configuration'
+        if route.request.method != 'GET':
+            assert allow_publish, 'Provider navigation must not mutate configuration'
+            body = route.request.post_data_json
+            assert body['action'] == 'connect' and body['publicAccess'] is True
+            publish_requests.append(body)
+            state['config'].update(enabled=True, publicAccess=True)
+            state['enrolling'] = False
+            reply(route)
+            return
         if hold: pending.append(route)
         else: reply(route)
     page.route('http://fixture.test/', lambda r:r.fulfill(body='<style>[hidden]{display:none!important}.modal-overlay:not(.show){display:none}</style><button onclick="showRemoteAccessModal()">Remote Access</button>'))
@@ -46,7 +56,7 @@ with sync_playwright() as p:
         expect(page.locator('#raConnect')).not_to_be_visible()
     load()
     expect(page.locator('#raMethodTitle')).to_contain_text('Tailscale')
-    expect(page.locator('#raApproval a')).to_have_text('Enable HTTPS in Tailscale')
+    expect(page.locator('#raApproval a')).to_have_text('Enable public access in Tailscale')
     expect(page.locator('#raApproval a')).to_be_visible()
     expect(page.locator('#raUrl a')).to_have_text(state['config']['url'])
     page.locator('#raBack').click(); page.locator('[data-choice="cloudflare"]').click()
@@ -83,6 +93,17 @@ with sync_playwright() as p:
     expect(page.locator('#raUrl')).to_be_empty()
     page.locator('#raViewActive').click()
     expect(page.locator('#raUrl a')).to_be_visible()
+    # The public action communicates intent to the controller, with no app prerequisite.
+    state['config'].update(provider='tailscale', enabled=False, publicAccess=False, url='https://fixture.example.ts.net')
+    state['enrolling'] = True; state['observed']['details']={'backend':'Running'}
+    state['observed']['state']='Signed in — website off'; load()
+    expect(page.locator('#raAudience')).to_contain_text('Players need no Tailscale app')
+    expect(page.locator('#raConnect')).to_have_text('Publish website')
+    allow_publish = True
+    page.locator('#raConnect').click()
+    expect(page.locator('#raConnection')).to_be_visible()
+    assert len(publish_requests) == 1
+    assert 'Private website' not in page.locator('#remoteAccessOverlay').inner_text()
     assert not errors, errors
     browser.close()
 print('PASS: provider isolation both directions, actionable HTTPS approval, reopen, automatic recovery, initial-status races, no navigation writes, zero JavaScript errors.')

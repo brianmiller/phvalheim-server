@@ -16,17 +16,16 @@ website gateway listens only on `127.0.0.1:18080` to avoid the existing 8080 lis
 
 The modal has Website and Game connections tabs. Website starts with three
 method cards, followed by compact setup steps and connection status. Copy buttons,
-live diagnostic rows, and expandable details provide evidence without crowding setup. Cloudflare and private
-Tailscale Serve are implemented; Funnel and managed provisioning remain deferred.
+live diagnostic rows, and expandable details provide evidence without crowding setup. Cloudflare and public
+Tailscale Funnel are implemented; managed provisioning remains deferred.
 A connector observation is distinct from a server-originated URL check and a
 browser/device challenge. The initial transfer check uses a small diagnostic
-response; it does not certify archive delivery. Tailscale requires a second
-authorized device to test its private route. No external verifier service is used.
+response; it does not certify archive delivery. Both providers expose public links; players need no provider client. No external verifier service is used.
 
 Connectors start off, persist their selected provider and credentials privately,
 and support disconnect/forget. Viewing another method shows a link back to the
 active connection, never its URL or actions under the other provider. Tailscale
-Serve approval output survives command timeouts and appears as an account approval
+Funnel approval output survives command timeouts and appears as an account approval
 action; retries back off and recover automatically after approval.
 Changing provider replaces the selected URL;
 re-enter the former URL when switching back. The existing public website already
@@ -47,8 +46,7 @@ The operator should not need a terminal for the normal setup flow.
 | Connection | Audience | Setup | Initial scope |
 | --- | --- | --- | --- |
 | Cloudflare Tunnel | Public internet, with existing PhValheim player authentication | Operator's tunnel token and HTTPS hostname | First provider |
-| Tailscale Serve | Devices/users permitted by the operator's tailnet policy | Browser sign-in, then enable private HTTPS access | Second provider |
-| Tailscale Funnel | Public internet on a Tailscale hostname | Separate explicit public-access setup | Deferred |
+| Tailscale Funnel | Public internet on a Tailscale hostname | Browser sign-in, then Publish website | Second provider |
 | PhValheim-managed | Public internet on a PhValheim-provided hostname | Future enrollment service | Deferred |
 
 Remote Access is **off by default**, including upgrades. Initially permit one active
@@ -131,38 +129,28 @@ the request. Invalid or unsafe configuration never starts a connector.
 
 ## Tailscale setup modal
 
-Title: **Connect privately with Tailscale**. Intro: “Only devices allowed by your
-Tailscale network can reach this website. Players need Tailscale on their devices.”
+Title: **Tailscale · Public website**. Players need no Tailscale client or account.
 
-1. **Sign in.** Select **Sign in to Tailscale**. Start this instance's enrollment
-   and open the provider-issued login link in a new tab, with a copy-link fallback.
-   Show “Waiting for sign-in” and the actual expiry if available. Detect successful
-   enrollment automatically; do not ask the operator to claim it succeeded. Validate
-   the login link's HTTPS scheme and supported provider host before presenting it;
-   keep enrollment links out of ordinary logs and diagnostic exports.
-2. **Allow private HTTPS access.** Show the discovered device name and tailnet
-   hostname. If device approval, MagicDNS, HTTPS certificates, or policy changes
-   are required, show a specific **Open Tailscale settings** action and the missing
-   prerequisite. Explain that a tailnet administrator may need to approve it.
-3. **Connect and test.** Enable Serve for the player UI. Display the discovered
-   HTTPS URL with **Copy** and **Open**. Guide the operator to open a test link on
-   a second device signed into an authorized Tailscale account.
+1. **Sign in to Tailscale.** Enroll the server with an account login link or the
+   optional auth key. Preserve its private device identity across replacement.
+2. **Publish website.** Explicitly enable Funnel on HTTPS 443 to the fixed player
+   gateway. Capture any provider approval link, including timeout output, and
+   offer **Enable public access in Tailscale**. Retry after approval automatically.
+3. **Test and share.** Check public DNS, certificate trust, a fresh correct-instance
+   challenge, and the small transfer. Show the resulting URL and Copy action.
+   Explain DNS propagation (up to 10 minutes) when that check fails. Verify from
+   an ordinary browser outside Tailscale, with real downloads tested separately.
 
-Serve provides private HTTPS access; its setup prerequisites are described in the
-[Tailscale Serve documentation](https://tailscale.com/docs/features/tailscale-serve).
+Signing in alone does not publish. A public connect request must explicitly carry
+`publicAccess: true`; old cached clients cannot accidentally publish. Existing
+private Serve configurations are disabled on upgrade while preserving enrollment;
+the operator signs in with the saved device and selects Publish website. Existing
+public connections retain their explicit intent across restarts. Disconnect stops
+the connector; enrollment clears old routes before exposing a sign-in session.
+No subnet routes, exit-node mode, SSH, or game forwarding are enabled.
 
-Place **Use an auth key instead** in an optional advanced section. Explain where to
-create an enrollment key, recommend a single-use key for this device, and remove
-the bootstrap secret after successful enrollment. Persist the device identity
-separately. An expired enrollment key is different from an expired device identity;
-show the appropriate recovery action. See [auth keys](https://tailscale.com/docs/features/access-control/auth-keys).
-
-Enrollment and website exposure are separate states. Signing in creates a device;
-**Connect and test** enables the private website. Do not enable Funnel, accept
-subnet routes, advertise routes, enable SSH, or make this an exit node during setup.
-Do not offer a casual public/private switch: Funnel changes the audience and has
-different constraints, including bandwidth limits and Tailscale hostnames.
-[Funnel documentation](https://tailscale.com/docs/features/tailscale-funnel)
+Funnel's public hostname, approval requirements and bandwidth limits are described
+in the [official documentation](https://tailscale.com/docs/features/tailscale-funnel).
 
 ## Live testing and honest status
 
@@ -229,13 +217,13 @@ Test the external hostname from the instance first, labeling that vantage point
 explicitly. Offer **Test from another device** with a copyable short-lived test
 link. A successful browser callback proves that browser reached the route; it does
 not prove the browser was outside the LAN. Ask the operator to try a phone on mobile
-data for public access, or another authorized Tailscale device for private access.
+data with Tailscale off.
 Separate a reported manual result from a recorded challenge response. A user
 clicking “I tested it” is not an automated pass.
 
 No hosted external probe service is required for the initial feature. Consequently,
 the UI must not claim independent external verification when none was performed.
-Self-tests on a Tailscale node cannot establish another user's policy permissions.
+Server-originated tests do not independently prove an outside-network browser can connect.
 If an external probe service is added later, its location and result source must be
 recorded, and operators must explicitly opt into sending it the hostname.
 
@@ -296,7 +284,7 @@ identity across ordinary container restarts.
 clients. They run as UID/GID 1001 with no effective capabilities or supplementary
 groups; the controller retains only identity, ownership, and signal permissions.
 It cannot administer network interfaces/firewalls. Tailscale uses userspace mode
-without SOCKS, SSH, route advertisements, exit-node mode, or Funnel. The fixed
+without SOCKS, SSH, route advertisements, or exit-node mode; Funnel publishes only the configured player website. The fixed
 loopback gateway forwards only the public website and rejects unexpected Hosts.
 
 This is process/credential separation, not a separate network namespace. Cloudflare
@@ -325,9 +313,9 @@ only the saved normalized HTTPS hostname and fixed diagnostic paths. Reject priv
 loopback, link-local, multicast, reserved, metadata, and IPv4-mapped bypass addresses;
 check every resolved address, pin the vetted destination while retaining correct
 TLS SNI/Host, and defend against DNS rebinding. Do not follow arbitrary redirects.
-Bound response sizes, time, concurrency, and retries. Tailscale checks use a separate
-restricted path to the instance's own discovered node identity; they must not grant
-generic access to tailnet or LAN addresses.
+Bound response sizes, time, concurrency, and retries. Tailscale Funnel uses the
+same public DNS/TLS/route checks. Device checks use the same short-lived
+public challenge endpoint; they do not grant access to tailnet or LAN addresses.
 
 Use an explicit effective web base URL for generated website/client links and
 Steam callbacks. Preview any change to an existing manually configured URL before
@@ -361,7 +349,7 @@ using an operator-owned account does not remove these constraints. See
 | Wrong route or instance | “This address is not reaching this PhValheim instance.” Show the exact origin value to copy into provider settings. |
 | Access challenge | “The provider returned a sign-in or verification page.” Explain browser/client implications and link to relevant provider settings. |
 | Tailscale approval or login required | “This device needs approval/sign-in.” Open the relevant provider page. |
-| Second device cannot connect | “Check that this device is signed in and permitted by your tailnet policy.” Keep server-side results separate. |
+| Second device cannot connect | “Check public DNS and retry from mobile data with Tailscale off.” Keep server-side results separate. |
 | Status request fails | “Live status unavailable; last update …” Retry without reporting the connector itself as stopped. |
 
 Connection details include the selected audience, URL, fixed origin target,

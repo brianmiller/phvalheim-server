@@ -137,7 +137,7 @@ with sync_playwright() as p:
     page.locator('#raDisconnect').click()
     expect(page.locator('#raSummary')).to_contain_text('Off',timeout=10000)
     page.locator('#raBack').click(); choose('tailscale')
-    expect(page.locator('#raAudience')).to_contain_text('Players need Tailscale')
+    expect(page.locator('#raAudience')).to_contain_text('Players need no Tailscale app')
     expect(page.locator('#raConnect')).not_to_be_visible()
     page.locator('#raSignIn').click()
     expect(page.locator('#raSignInLink a')).to_be_visible(timeout=60000)
