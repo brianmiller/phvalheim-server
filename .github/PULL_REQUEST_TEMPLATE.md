@@ -28,17 +28,19 @@
 ## Documentation and status review (required for every PR)
 
 <!-- Review landing-page/website content, portal/admin guidance, download/install pages
-and fallbacks, README/version references, contributor guides, backlog and related issue
+and fallbacks, README/version references, contributor guides, GitHub Issues for work
 status, including affected content in other repositories. Review is always required;
 edit only what needs changing. Do not leave this blank or write unexplained N/A. -->
 
+- Affected GitHub issues reviewed (links, acceptance criteria, status/evidence or reason none apply):
 - Pages/files reviewed:
 - Updates made, or specific reasons no changes are needed:
 - Validation and any unverified checks:
 - Related documentation PRs or follow-ups (owner and release/deployment dependency):
 
-<!-- Keep implemented, merged, released, and deployed status distinct. Do not advertise
-unreleased behavior as available or claim a backlog task is complete without evidence. -->
+<!-- GitHub Issues is the source of truth for work tracking; do not maintain Markdown task lists.
+Keep implemented, merged, released, and deployed status distinct. Do not advertise
+unreleased behavior as available or claim an issue is complete without evidence. -->
 
 ## Brian's merge approval
 

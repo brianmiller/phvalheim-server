@@ -15,7 +15,12 @@ contributor; `CONTRIBUTING.md` at the repo root is.
 | **Security** | `SECURITY-*.md` | Security reviews and remediation plans. |
 | **Reviews** | `REVIEW-*.md` | Code reviews of a specific area. |
 | **TrueNAS** | `truenas/` | The TrueNAS catalogue submission packet. |
-| **Backlog** | `BACKLOG.md` | Ideas not yet scheduled. |
+| **Work tracking** | [GitHub Issues](https://github.com/brianmiller/phvalheim-server/issues) | Canonical tasks, ownership, acceptance criteria, and status; no Markdown backlog. |
+| **Runtime reference** | `PLAYER-TELEMETRY.md` | How Companion observations feed the idle-update decision; validation work is tracked in issue #99. |
+
+Release-specific plans and next-step records are historical evidence. Track current work
+and decisions in GitHub Issues; do not use these records as parallel task lists.
+The old backlog was retired; historical references to it can be read in Git history.
 
 File names are kept stable because the changelog and published GitHub releases link to them.
 Do not rename or move files in here.

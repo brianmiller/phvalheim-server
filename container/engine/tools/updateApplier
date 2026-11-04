@@ -85,9 +85,9 @@ getEffective() {
 # disconnection after N hours is a decision an operator can make; having it made for them
 # silently, 30 minutes into someone's session, is not.
 #
-# Accurate live player detection -- via the server-side Companion rather than log scraping --
-# is the real fix and is on the backlog (docs/BACKLOG.md). Until it lands, auto-updates are
-# marked Beta in the admin UI and remain OFF by default.
+# Companion heartbeat replaced the event-only count in 2.58 (docs/PLAYER-TELEMETRY.md).
+# Remaining validation: https://github.com/brianmiller/phvalheim-server/issues/99
+# Automatic updates remain OFF by default.
 #
 # A world with no observation at all (player_count_at IS NULL) is NOT idle. That is the
 # unknown case, and unknown must never authorise a restart.

@@ -6,7 +6,7 @@ The user-facing site lives in `website/docs/`. Internal plans, release notes and
 
 Every contribution must [review dynamic pages and status content](../CONTRIBUTING.md#always-review-dynamic-pages-and-status-content)
 for needed changes, including the landing page, portal guidance, download links and
-fallbacks, and backlog. Record reviewed paths and updates or specific reasons for
+fallbacks, and GitHub Issues for work status. Record reviewed paths and updates or specific reasons for
 no changes in the PR. A successful build or dynamic API refresh does not establish
 that descriptions and status are current.
 

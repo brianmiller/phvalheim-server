@@ -145,7 +145,7 @@ check "2 players, seen just now -> busy"          "BUSY" "$(runIdle 2 1 30)"
 # autoupdate_max_wait_hours + on_timeout='force', which is checked BEFORE this gate.
 #
 # Companion telemetry replaced the event-only count in 2.58. Nonzero remains busy;
-# docs/BACKLOG.md tracks the remaining freshness and live-game validation.
+# https://github.com/brianmiller/phvalheim-server/issues/99 tracks validation.
 check "2 players, last seen 90m ago -> busy"      "BUSY" "$(runIdle 2 90 30)"
 check "2 players, last seen 20m ago -> busy"      "BUSY" "$(runIdle 2 20 30)"
 # A zero that is itself ancient means the log stopped being written. Not knowing is not

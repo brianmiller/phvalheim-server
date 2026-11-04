@@ -22,9 +22,11 @@ and CLAUDE.md before editing. Follow the linked references for the affected area
 
 Implement the task on a separate branch, using isolated test data. Run the
 applicable checks and prepare a pull request with evidence and limitations.
-Always review dynamic pages, landing/portal content, download fallbacks, backlog,
+Always review dynamic pages, landing/portal content, download fallbacks, GitHub issue status,
 and related docs for needed changes. Update affected content and list reviewed
 paths, updates, or specific reasons no changes are needed in the PR.
+Use GitHub Issues as the work tracker; review and link affected issues.
+Do not maintain duplicate Markdown task lists.
 Wait for Brian Miller's explicit approval before merging to main or master.
 Do not publish releases or deploy changes.
 
@@ -44,7 +46,7 @@ The workflow below is for changes to PhValheim itself.
 
 ## Instructions for the contributor and agent
 
-1. **Choose a scoped task.** Read the [community backlog](https://github.com/brianmiller/phvalheim-server/blob/master/docs/BACKLOG.md)
+1. **Choose a scoped task.** Read the [GitHub Issues](https://github.com/brianmiller/phvalheim-server/issues)
    or propose a change in an issue. The contributor should comment on the issue
    before starting so work can be coordinated. Use the issue's acceptance criteria.
 2. **Work in a fork and a separate branch.** Start from the current default branch.
@@ -74,12 +76,28 @@ The workflow below is for changes to PhValheim itself.
    Never submit a review pretending to be Brian. Once Brian explicitly authorizes
    a merge, an agent may perform that merge on his behalf.
 
+## GitHub Issues is the work tracker
+
+Track bugs, planned work, ownership, acceptance criteria, validation evidence, and
+completion status in GitHub Issues: [Server](https://github.com/brianmiller/phvalheim-server/issues),
+[Client](https://github.com/brianmiller/phvalheim-client/issues), or
+[Companion](https://github.com/brianmiller/phvalheim-companion/issues).
+Search existing issues, including closed issues and linked follow-ups, before opening
+another. Every contribution must review affected issues and link them in its PR.
+Do not maintain a duplicate Markdown backlog or task/status list.
+
+Use PRs for implementation and review; use repository docs for architecture, setup,
+and supported behavior. Keep historical validation records as evidence, not an active
+work queue. A closed issue or merged PR does not establish that users have received
+a release or deployment. Report those separately and link the evidence. Use the
+private reporting route below for security vulnerabilities.
+
 ## Always review dynamic pages and status content
 
 **Every contribution must include this review**, even code-only or docs-only changes.
 Always inspect the landing page, portal/admin guidance, download/install pages and
-fallback links, README/version references, contributor guides, backlog files, and
-related issue status for needed changes. Include affected content in other repositories.
+fallback links, README/version references, contributor guides, and
+GitHub issue status for needed changes. Include affected content in other repositories.
 Reviewing these areas is required; editing content that is still accurate is not.
 
 Update affected content with the change. In the PR, list the pages/files reviewed,
@@ -89,12 +107,12 @@ you could not perform. Do not use an unexplained "N/A" to skip the review.
 
 Check the source and rendered output when dynamic behavior changes. A website rebuild
 does not rewrite descriptions, a release API does not update static fallbacks, and
-closing an issue does not update a backlog file. Validate changed links, builds, and
+closing an issue does not update public documentation or publish a release. Validate changed links, builds, and
 page behavior as appropriate; automated checks cannot establish that every description
 is accurate.
 
 Keep **implemented**, **merged**, **released**, and **deployed** status distinct.
-Never describe unreleased work as available or mark a backlog task complete without
+Never describe unreleased work as available or mark an issue complete without
 meeting its acceptance criteria. Keep published instructions accurate for released
 behavior, label future behavior clearly, and record release-time updates for Brian.
 This review does not authorize a release, deployment, version bump, or issue closure.

@@ -86,7 +86,7 @@ plausible zero instead of an error when read.
 
 ## Make a change
 
-Choose a scoped task from [the community queue](docs/BACKLOG.md), or describe a new change in an issue. Claim work in the issue to avoid duplication and use its acceptance criteria in your PR.
+Choose a scoped task from [GitHub Issues](https://github.com/brianmiller/phvalheim-server/issues), or describe a new change in an issue. Claim work in the issue to avoid duplication and use its acceptance criteria in your PR.
 
 - **One change per pull request.** A fix and a refactor are two PRs.
 - **Do not bump the version** in the `Dockerfile`, and do not add `whatsnew.php`, `CHANGELOG.md`
@@ -101,6 +101,26 @@ Choose a scoped task from [the community queue](docs/BACKLOG.md), or describe a 
 - **Do not reach for the dead code.** `tsmods`, `worlds.thunderstore_mods`, `tsSync*.sh`,
   `modLookup.sh` and friends are listed in `CLAUDE.md`. Reading them gives wrong answers quietly.
 
+## Track work in GitHub Issues
+
+**GitHub Issues is the single source of truth for bugs, planned work, ownership,
+acceptance criteria, and completion status.** Use [this repository's issues](https://github.com/brianmiller/phvalheim-server/issues),
+and link issues in other repositories when the change crosses boundaries. Search
+existing issues before opening a new one; do not duplicate a closed request when a
+linked follow-up already tracks the remaining work.
+
+Every contribution must review affected issues and link them in its PR. Record
+scope, acceptance criteria, validation evidence, and remaining work there. Keep
+implementation details and review evidence in the PR and link back to the issue.
+Do not maintain a parallel task/status list in `BACKLOG.md` or another Markdown file.
+Repository documentation describes architecture, setup, and supported behavior;
+historical release/validation records remain evidence, not a current work queue.
+
+An issue being closed or a PR being merged does not mean a release or deployment
+occurred. State those separately with evidence. Public tracking must not disclose
+vulnerabilities; use [SECURITY.md](SECURITY.md) for private reporting. Issue review
+is not permission to close issues, publish, deploy, or merge without authorization.
+
 ## Always review dynamic pages and status content
 
 **Every contribution must review dynamic pages and maintained status content for
@@ -110,9 +130,9 @@ CI is green, or a page fetches data automatically.
 
 Review the [server website and landing page](https://github.com/brianmiller/phvalheim-server/tree/master/website/docs),
 player-portal and admin guidance, client download/install pages (including dynamic
-links and static fallbacks), README/version references, contributor guides, and the
-[community backlog](https://github.com/brianmiller/phvalheim-server/blob/master/docs/BACKLOG.md)
-and related issue status. Check other repository guides when the change crosses
+links and static fallbacks), README/version references, contributor guides, and
+[GitHub Issues](https://github.com/brianmiller/phvalheim-server/issues)
+for work status. Check other repository guides when the change crosses
 repository boundaries. Check both the content source and the displayed behavior
 when a dynamic page's output could change.
 
@@ -123,13 +143,13 @@ when a dynamic page's output could change.
   for each applicable area that needs no update. Report unavailable checks as
   unverified. A blanket "N/A" without an explanation is not sufficient.
 - Keep **implemented**, **merged**, **released**, and **deployed** distinct. Never
-  advertise unreleased work as available or mark a backlog item complete before its
+  advertise unreleased work as available or mark an issue complete before its
   acceptance criteria are met. Keep published instructions accurate for the released
   behavior; clearly label future behavior and record release-time follow-ups for
   Brian. This review does not authorize version bumps, releases, deployment, or
   issue closure.
 - A website rebuild publishes the source; it does not rewrite stale descriptions.
-  Dynamic release lookups do not maintain fallback links or backlog files. Check
+  Dynamic release lookups do not maintain fallback links or issue status. Check
   links/builds and changed rendered behavior as appropriate, and include the evidence
   in the PR's documentation/status review.
 
