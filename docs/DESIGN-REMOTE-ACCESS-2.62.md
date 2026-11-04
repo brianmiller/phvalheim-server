@@ -14,8 +14,9 @@ device, or Docker capability is required. Credentials persist in a private
 `/opt/stateful/remote-access` directory on the existing data volume. The public
 website gateway listens only on `127.0.0.1:18080` to avoid the existing 8080 listener.
 
-The modal uses a provider selector, three setup steps, copy buttons, connection
-summary, live diagnostic rows, and expandable details. Cloudflare and private
+The modal has Website and Game connections tabs. Website starts with three
+method cards, followed by compact setup steps and connection status. Copy buttons,
+live diagnostic rows, and expandable details provide evidence without crowding setup. Cloudflare and private
 Tailscale Serve are implemented; Funnel and managed provisioning remain deferred.
 A connector observation is distinct from a server-originated URL check and a
 browser/device challenge. The initial transfer check uses a small diagnostic
@@ -53,7 +54,8 @@ the old public route.
 
 This feature connects the **player web UI and its required HTTP endpoints**. It does
 not expose the admin UI, configure game UDP ports, or provide a game VPN. Show this
-plainly: “Connects your player website. Game connections use your existing settings.”
+plainly: “Website tunnels do not forward Valheim’s UDP traffic.” The Game
+connections view explains existing settings and manual firewall setup.
 DDNS, a central provisioning service, custom proxy targets, subnet routing, exit
 nodes, and Tailscale SSH are outside the initial scope.
 
@@ -61,9 +63,11 @@ nodes, and Tailscale SSH are outside the initial scope.
 
 Add **Remote Access** to the admin navigation and link it from Server Settings.
 Use the existing admin `mods-modal-overlay` dialog pattern, not the public site's
-Bootstrap modal components. The initial modal contains two provider cards with an
-audience label and a single **Set up** button. Once configured, it becomes a compact
-connection summary with **Configure**, **Test connection**, and **Disconnect**.
+Bootstrap modal components. Include a globe icon in navigation. The Website tab
+starts with Direct connection, Cloudflare, and Tailscale cards and an audience
+label. A configured provider opens its status view, with only currently relevant
+actions visible. The Game connections tab provides per-world direct UDP and
+crossplay guidance.
 
 Keep the hostname, audience, current condition, last check time, and next action
 visible. Put connection identifiers, technical observations, and sanitized recent
@@ -408,3 +412,20 @@ Before release, publish the verified instructions in the operator and networking
 guides, including supported packaging and limits. Until then, keep public install,
 download, and release pages describing shipped behavior. Implementation evidence
 and remaining work belong in [issue #114](https://github.com/brianmiller/phvalheim-server/issues/114).
+
+## Compact setup and game connection view
+
+The development UI separates Website and Game connections. Website opens with
+Direct connection, Cloudflare, and Tailscale choices; Cloudflare preparation and
+credential entry are separate steps. Existing provider connections open on their
+status. Inactive test/cancel/disconnect controls are hidden; activity and detailed
+evidence expand on demand. Choosing Direct connection only displays manual setup
+guidance and never changes an active provider.
+
+The read-only admin `getRemoteNetwork` response selects Game DNS, assigned world
+port pairs, crossplay, and port-range conflicts. Running backend evidence takes
+precedence over the launch snapshot and saved crossplay; the response labels the
+basis and pending restart. It excludes passwords and API keys. Its fixed local
+website probe never follows a user-supplied URL. It cannot inspect Docker-host
+port mappings, router rules, or external UDP reachability. These remain explicit
+operator steps, with an actual outside-network game join required for validation.

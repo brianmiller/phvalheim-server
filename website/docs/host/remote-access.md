@@ -36,12 +36,64 @@ player-website route and does not offer arbitrary forwarding targets.
 Open your usual PhValheim admin address on your trusted network and choose
 **Remote Access**. Setup works from a LAN IP address or hostname, using the same
 HTTP or HTTPS access you already use for admin. No terminal or port forwarding
-is required. Choose a provider, follow its three setup steps, and connect.
+is required. Use **Website** to choose Direct connection, Cloudflare, or Tailscale.
+Use **Game connections** to see a world’s UDP ports and crossplay mode. The modal
+shows only the selected method; connection details and troubleshooting expand on demand.
 
 The admin interface remains a trusted-network interface; do not expose its port
 to the internet. HTTP admin traffic, including entered credentials, is not
 encrypted. Use your existing HTTPS admin address where available. The public
 player website's TLS is separate from the connection to admin.
+
+## Direct connection: your router and firewall
+
+Select **Website → Direct connection** for the manual route. Publish container
+TCP port 8080 to a host port in Docker, Unraid, or TrueNAS. Point your public
+DNS/DDNS name at your public IP. For HTTPS, configure a reverse proxy targeting
+that published host port, then forward TCP 443 on your router to the proxy and
+allow it through the host firewall. Keep admin port 8081 private. See the
+[networking guide](../reference/networking.md) for reverse proxy examples.
+
+Host networking uses the service port directly. If you deliberately use plain
+HTTP, forward the chosen external TCP port to the website's host port; that
+traffic is unencrypted. A CGNAT connection generally cannot receive direct
+inbound traffic; use Cloudflare or ask the ISP for a public address.
+
+**Check local website** probes only the local player website. It cannot inspect
+Docker host mappings or the router. Verify internet access by opening the website
+from a phone with Wi-Fi off, then test a native-client download.
+
+## Game connections: UDP or crossplay
+
+Open **Game connections** and select a world. The view reads its assigned game
+port and the next UDP port, never a generic default pair. It labels whether the
+crossplay mode comes from the current running session, launch settings, or saved
+settings. If saved crossplay differs from running evidence, restart is required.
+
+For a **direct UDP** world:
+
+1. Publish both UDP ports in Docker, Unraid, or TrueNAS, keeping host and container
+   ports the same. With host networking, skip container port publishing.
+2. Reserve the server's LAN IP in the router. Forward the world's two external UDP
+   ports to that IP using the same ports. Allow both through the host firewall.
+3. Start the world and test an actual join from another network using your public
+   game address and the first port. Repeat the mapping for each direct world.
+
+The modal shows your configured Game DNS and provides a copyable forwarding rule.
+If game DNS is managed by Cloudflare, use a **DNS-only** record for game traffic.
+Cloudflare's website proxy and the built-in private Tailscale Serve route do not
+carry Valheim UDP. Website tests do not prove a game connection works.
+
+For **crossplay**, Valheim uses the PlayFab relay and does not require inbound game
+port forwarding. Start the world and share its join code or use the server list.
+Outbound internet access is still required. Local and loopback IP joins are not
+supported for crossplay. See [Valheim's dedicated server guide](https://www.valheimgame.com/support/a-guide-to-dedicated-servers/).
+
+The view does not change firewall rules, world options, or port allocation. Port
+range conflicts and unassigned ports are shown explicitly. A local check cannot
+prove that UDP is reachable through a router; only an external game join verifies
+that path. Double NAT may need forwarding at both routers; CGNAT generally needs
+an ISP public address or crossplay.
 
 ## Cloudflare: public website
 
@@ -53,11 +105,12 @@ You need a Cloudflare account and a domain managed there.
 2. Add a published application hostname on your domain. Select HTTP and use the
    origin shown in the modal: `http://127.0.0.1:18080`. This loopback-only gateway is built into
    PhValheim and forwards to the player website. Do not publish port 18080.
-3. Select **Cloudflare** in Remote Access, enter the full HTTPS website URL and
+3. Select **Cloudflare** in Remote Access. After the route instructions, choose
+   **I have my token**, enter the full HTTPS website URL and
    token, and choose **Connect and test**. Follow the failed check's instructions
    if DNS, TLS, routing, or provider connectivity needs attention.
 
-**Save without connecting** stores settings and keeps access off. Connect starts
+Under **Save for later**, **Save without connecting** stores settings and keeps access off. Connect starts
 the route immediately; tests can still be running or fail afterward. Use
 **Disconnect** to stop it. Cloudflare account API keys are not needed.
 

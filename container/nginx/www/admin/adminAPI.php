@@ -34,6 +34,13 @@ header('Content-Type: application/json');
 $action = $_GET['action'] ?? '';
 
 switch($action) {
+    case 'getRemoteNetwork':
+        header('Cache-Control: no-store');
+        require_once __DIR__ . '/../includes/remote_network.php';
+        try { echo json_encode(phvRemoteNetwork($pdo)); }
+        catch (Throwable $e) { http_response_code(503); echo json_encode(['success'=>false,'error'=>'Network settings are unavailable. Retry in a moment.']); }
+        break;
+
     case 'getWorlds':
         getWorldsJson($pdo);
         break;
