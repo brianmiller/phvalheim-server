@@ -21,9 +21,10 @@ health on its own, and shows which of them it consulted in every reply. It can a
 start, stop, restart, update or delete a world, take or restore a backup, and change world
 options, access lists, backup policy, mods or server settings.
 
-Nothing that matters happens without your say-so. Anything that stops a service, changes
-configuration or destroys data is shown first as a card listing every change, old value to new,
-with **Apply** and **Dismiss**. That card is built on the server from the validated change — not
+Starting a stopped world and taking a backup can run immediately. Actions that stop a service,
+change configuration or destroy data require a confirmation card with **Apply** and
+**Dismiss**. The card describes the validated action, including setting changes where
+applicable. That card is built on the server from the validated change — not
 from Hugin's description of it — works once, expires after fifteen minutes, and is re-checked at
 the moment you click. Deleting a world and restoring a backup additionally require you to type
 the world's name.

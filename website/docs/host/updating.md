@@ -23,6 +23,21 @@ A new container does not mean every world's installed files have been rebuilt. U
 
 **For 2.59:** world update plus client sync delivers Companion **1.0.6**, including its late join-code recovery dialog.
 
+## Automatic world updates
+
+Automatic updates are **off by default**. Configure global defaults in **Server Settings →
+Automatic Updates**, or override them in a world's **Settings**. These policies update
+world files; they do not upgrade the container image or the desktop client application.
+
+The normal automatic path waits for a recent report of zero players, the quiet period and
+the configured update window. Vanilla worlds do not supply Companion player telemetry and
+are not treated as idle just because no player count is available.
+
+**Update anyway** permits a forced update after the maximum wait. In the current engine,
+this check runs before both the idle check and the window check: it can restart a world
+with players connected **outside its configured update window**. Use **Keep waiting** if
+you do not want that forced behavior, and update manually when ready.
+
 ## Unraid or Kubernetes
 
 Pull the desired image through your platform and recreate the container or roll out the workload with the same persistent storage. Keep the admin UI private and wait for migrations to finish.

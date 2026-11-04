@@ -1,14 +1,14 @@
 # Logs and server health
 
-Everything PhValheim does is recorded as an **event** with the world it concerns and the
-**operation** it belongs to (a start, stop, update, create, delete or repackage, each with an
+PhValheim records management actions as **events** with the world they concern and the
+**operation** they belong to (a start, stop, update, create, delete or repackage, each with an
 outcome). A world's **Logs** button opens three tabs: **Activity** (PhValheim's actions on that
 world, grouped by operation), **Valheim** (the game's own log, this boot only by default) and
 **Both**, merged by time. The sidebar's **Logs** page is the server-wide stream, with filters
 for world, source and level, and a **Files** tab listing every raw log on disk. **Logs** pulses
 while there are warnings or errors you have not looked at; a world's **Logs** button pulses while
-PhValheim is working on it. Hugin reads the same record. Events are kept for 30 days (at most
-100,000); the raw files rotate at 1 MB as before.
+PhValheim is working on it. Hugin reads the same record. Event retention is 30 days with a
+cap of roughly 100,000 rows; raw files rotate at the configured log size (1 MB by default).
 
 ## Server Health
 

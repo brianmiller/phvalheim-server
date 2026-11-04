@@ -10,7 +10,9 @@ Start with a small world and a short mod list. You can grow it once everyone can
 | A shared collection of mods | A modded world |
 | To try a mod made with Hugin | A separate modded test world |
 
-Create a world from the admin dashboard. Give it a name and review its settings. For vanilla worlds, set a password that meets the rules shown in the UI. [More about vanilla and crossplay →](../host/vanilla.md)
+Create a world from the admin dashboard. Give it a name and review its settings. A password
+is required if you list the world in the server browser; otherwise it is optional. Follow
+the password rules shown in the UI. [More about vanilla and crossplay →](../host/vanilla.md)
 
 ## 2. Pick mods, if you want them
 

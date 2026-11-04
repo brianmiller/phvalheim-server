@@ -30,7 +30,7 @@ Real interface captures and animated workflow diagrams, condensed into 60 second
 | 0:50 | Helps with Hugin; writes, builds and packages mods in Vibes for your local catalogue and test worlds. | [Make your first Vibe](../vibes/first-mod.md) |
 | 0:55 | More worlds. Less admin. Host, configure, mod, sync and play. | [Start hosting](install.md) |
 
-For a mod-list change, save the selection and update the world, then have players sync before joining. For shared config changes, **Save & apply to players** rebuilds the config payload; players receive it on their next launch. Vanilla worlds use ordinary Valheim without the PhValheim client. Player-aware update policies require Companion telemetry; vanilla worlds need a scheduled window and an appropriate timeout policy. AI features are optional.
+For a mod-list change, save the selection and update the world, then have players sync before joining. For shared config changes, **Save & apply to players** rebuilds the config payload; players receive it on their next launch. Vanilla worlds use ordinary Valheim without the PhValheim client. Player-aware update policies require Companion telemetry. **Update anyway** can force a restart after the maximum wait, even outside the update window; [review the update policy](../host/updating.md#automatic-world-updates) before enabling it. AI features are optional.
 
 ## Soundtrack and sharing
 

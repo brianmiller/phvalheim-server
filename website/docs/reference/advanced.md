@@ -2,13 +2,16 @@
 
 ## Custom launch parameters
 
-Each world's **Settings** modal has a **Custom Launch Parameters** field, appended to the Valheim server command line after everything PhValheim generates, so it can override the defaults.
+Each world's **Settings** modal has a **Custom Launch Parameters** field. These arguments
+are appended after PhValheim's generated arguments. Valheim decides how to handle duplicate
+or unsupported options; do not assume a later argument overrides an earlier one.
 
 ```
 -saveinterval 900 -instanceid myserver
 ```
 
-Shell metacharacters are rejected. Invalid Valheim arguments will stop the world from booting, with the reason only visible in the world log — change these one at a time.
+Shell metacharacters are rejected. PhValheim does not validate whether each option is
+supported by Valheim. Change these one at a time and check the world log and actual behavior.
 
 ## How the pieces fit
 

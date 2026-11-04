@@ -20,6 +20,9 @@ Click **Publish to Catalogue** to add the packaged version to your own Hugin's V
 
 The button switches to **Unpublish from Catalogue** for a published version. Unpublishing removes local catalogue availability; it does not remotely uninstall files from worlds or clients that already received the mod. Review any worlds using that version before removing it.
 
+PhValheim refuses to unpublish a version pinned by a world, or the only published version
+of a mod that a world still selects. Change those selections first if you intend to remove it.
+
 ## Publish to Thunderstore or Hexium
 
 You can download the compatible ZIP and upload it through the service yourself. Or configure the service under **Vibes Settings → Publishing**, including its token, team and categories, and use the hosted publish action.

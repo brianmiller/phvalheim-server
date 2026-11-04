@@ -6,9 +6,12 @@
 | --- | --- |
 | `8080/tcp` | Public player website |
 | `8081/tcp` | Private admin website |
-| `25000–26000/udp` | Default published range for world connections |
+| `25000–26000/udp` | Range published in the Docker Compose example |
 
-Keep the configured world base port inside the game range you publish. The admin UI should be reachable only through your trusted network or a tunnel. The [Compose guide](../start/install.md) binds it to localhost.
+Each world uses its assigned UDP port and the next port. Publish both ports for every world;
+keeping only the base port in range is not enough. The admin UI should be reachable only
+through your trusted network or a tunnel. The [Compose guide](../start/install.md) binds it
+to localhost.
 
 ## Persistent storage
 

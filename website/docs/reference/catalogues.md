@@ -1,7 +1,8 @@
 # Catalogue settings and syncing
 
-PhValheim syncs public mods from **Thunderstore** and **Hexium**. **Hugin’s Vibes** is a third, local catalogue populated by the workbench. Both are enabled by default and a
-world can use either or both; search results show a coloured pill for each mod's origin
+PhValheim syncs public mods from **Thunderstore** and **Hexium**, both enabled by default.
+**Hugin’s Vibes** is a third, local catalogue populated by the workbench. A world can mix
+sources; search results show a coloured pill for each mod's origin
 (Thunderstore blue, Hexium purple).
 
 | Setting | Default | Description |
@@ -13,17 +14,16 @@ world can use either or both; search results show a coloured pill for each mod's
 Disabling a catalogue hides its mods from the picker but does **not** remove mods a world
 has already selected.
 
-**Version pinning.** Every published version of every mod is stored, not just the newest.
+**Version pinning.** PhValheim stores the versions returned by each catalogue, not just the newest.
 Select a mod and pick a version from the dropdown in its row to freeze it there; `Latest
 (auto)` keeps following new releases. A pinned version is kept in the database even if the
 source later delists it, so a pinned world does not silently move.
 
 ## When the catalogues are synced
 
-Both catalogues are checked **every time the server starts**, and on the configured interval
-after that. So a container you have just restarted comes back with a current mod list rather
-than whatever the last scheduled check left behind — the start-up sync ignores the interval
-deliberately, and costs about a second when nothing has changed.
+Enabled public catalogues are checked **every time the server starts**, and on the configured
+interval after that. The start-up sync ignores the interval. Check its result: a failed sync
+does not mean the stored mod list is current.
 
 It runs in the background, so a slow or unreachable catalogue never delays your worlds
 starting.
@@ -32,10 +32,9 @@ starting.
 
 There is nothing to tune. The sync is designed so that the common case does almost no work:
 
-- **Thunderstore** sends a `Last-Modified` header, so PhValheim makes a conditional request
-  and normally gets a bodiless `304 Not Modified` back in about a tenth of a second.
-- **Hexium** sends no validator, so its (much smaller) response body is hashed and compared
-  against the previous run.
+- **Thunderstore:** PhValheim saves the `Last-Modified` header when supplied and uses it for
+  a conditional request. A `304 Not Modified` response avoids fetching the body again.
+- **Hexium:** PhValheim hashes the response body and compares it against the previous run.
 - Every stored row carries a content hash, so even when a catalogue *has* changed only the
   rows that genuinely differ are rewritten.
 

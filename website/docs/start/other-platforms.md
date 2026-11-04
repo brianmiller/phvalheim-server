@@ -25,6 +25,9 @@ Prefer an app template or Helm chart? These are alternatives to the [Docker Comp
 > the array, list `/mnt/user0/appdata/phvalheim-server/` — `/mnt/user0` is the array-only view,
 > so anything it shows is **not** on your pool.
 
+See Unraid's [cache pool guidance](https://docs.unraid.net/unraid-os/using-unraid-to/manage-storage/cache-pools/)
+for keeping a share exclusively on a pool.
+
 ## Kubernetes / K3s
 
 Clone the server repository first. Its Helm chart is in `helm/phvalheim/`.
@@ -54,6 +57,9 @@ helm install phvalheim ./helm/phvalheim/ \
 
 - The pod runs with `hostNetwork: true` by default so Valheim's UDP game ports (25000-26000) bind directly to the node — no NodePort or LoadBalancer gymnastics required.
 - Two ClusterIP Services are created: one for the **public UI** (8080) and one for the **admin UI** (8081). Each has an optional Ingress resource (disabled by default).
+- With the default host networking, both web ports also listen directly on the node. Keep
+  port **8081** private using the node's firewall or trusted network; a ClusterIP Service
+  does not isolate a host-networked listener.
 - A 20Gi PersistentVolumeClaim is created for `/opt/stateful`. An optional separate PVC for backups can be enabled with `persistence.backups.enabled=true`.
 - Without Ingress enabled, access the admin UI via port-forward to run the Setup Wizard:
 

@@ -44,7 +44,10 @@ Open **Turn limits** beside Send, or **Vibes Settings → Turn limits**. Three l
 
 The first limit reached stops the turn. A tool-round limit is **not a timeout**. The result explains which limit was reached; saved project files remain available. Send **Continue** in the same session to resume, or adjust the relevant limit before sending your next message. If the model is repeating an unsuccessful action, give it a narrower instruction instead of simply increasing the limit.
 
-**Stop** also works while a model request is silent or streaming. Interrupted tool calls are discarded, and no automatic build or commit starts after a stop. Model calls, compaction, and retries obey the remaining turn time. Running tools retain their own bounded timeouts; the turn limit is checked between tools.
+**Stop** also works while a model request is silent or streaming. Tool calls from an
+interrupted model reply are discarded, and no automatic build or commit starts after a
+stop. Model calls, compaction, and retries obey the remaining turn time. Running tools
+retain their own bounded timeouts; the turn limit is checked between tools.
 
 ## Removing the workshop
 

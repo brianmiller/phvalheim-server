@@ -2,7 +2,7 @@
 
 Each world has three per-world player lists, all in the world's **Settings** modal:
 
-- **Citizens** — who may join (`permittedlist.txt`). Setting a world **Public** here removes the restriction entirely and lets anyone join.
+- **Citizens** — the player allowlist (`permittedlist.txt`). Turning **Use Access List** off removes this allowlist restriction; passwords and bans still apply.
 - **Admins** — who gets in-game admin commands (`adminlist.txt`).
 - **Banned** — who is blocked from the world (`bannedlist.txt`). A ban applies even when the world is public.
 
@@ -18,6 +18,9 @@ Changes take effect **without a restart** — Valheim re-reads all three files w
 
 The **database is the source of truth**. All three files are regenerated from it every time a world starts, so a world that was restored from a backup or rebuilt converges back to what the admin UI shows instead of quietly keeping an older list.
 
-> **Note:** **Use Access List** controls the Citizens gate only. It does *not* publish the world to the Valheim server browser — that is the separate **List in server browser** option on vanilla worlds.
+> **Note:** **Use Access List** controls the Citizens gate only. It does *not* publish the world to the Valheim server browser — that is the separate **List in server browser** option, available on both modded and vanilla worlds.
 
-**Use Access List** sits at the top of the Access tab, because it decides whether the Citizens list is consulted at all. On, only the players on the list may join. Off, anyone may join, so the editor is hidden — the list is kept, not cleared, and comes back when you switch it on again.
+**Use Access List** sits at the top of the Access tab. Keep at least one player ID in the
+list when enabling it: Valheim does not enforce an empty permitted list. PhValheim refuses
+to save an empty enforced list. Turning the switch off hides the editor and preserves its
+entries for when you enable it again. Passwords and bans are separate controls.

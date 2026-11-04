@@ -6,14 +6,18 @@ Tick **Vanilla world (no mods)** when creating a world, or flip it later in the 
 
 | Option | Notes |
 |---|---|
-| **Server Password** | Minimum 5 characters, and it cannot appear inside the world name — Valheim refuses to start otherwise. |
-| **Crossplay** | Lets Xbox / Microsoft Store players join. **Not vanilla-only** — this setting is available on every world from its **Settings** modal. Note that players on those platforms cannot install mods, so a heavily modded world may not be joinable for them. |
+| **Server Password** | Optional unless the world is listed in the server browser. When set, use at least 5 characters; it cannot be part of the world name or known seed, or contain `?`. PhValheim validates these rules when saving. |
+| **Crossplay** | Allows supported non-Steam platforms to join. This setting is available on both vanilla and modded worlds. Crossplay does not supply client mods: choose mods that work with unmodded clients if those players will join. |
 | **List in server browser** | Publishes the world to the public Valheim community server list. Valheim requires a password for this. |
 | **Show password on public UI** | On by default. Turn it off and the password row is removed from the world card entirely, for worlds whose password you share another way. |
 
-Players see a dedicated card on the public UI with the server address, the password (**show** to reveal, **copy** to put it on the clipboard), and a **Join** button. They can also connect from Valheim's own *Join IP* screen using the address shown.
+Players see a dedicated card on the public UI with connection details. For crossplay worlds,
+use the join code when it is ready. For a direct connection, use **Launch!** or Valheim's
+*Join IP* screen with the server address and port. If the host allows the password to be
+shown, the card offers **show** and **copy** controls; otherwise ask the host for it.
 
-> **Note:** Valheim has no way to pre-fill a server password from a launch argument, so players type it at the prompt — which is why the card shows it.
+> **Note:** The vanilla launch link does not pre-fill a password. If the world requires one,
+> players type it at Valheim's prompt.
 
 Because these worlds run no mods, a few PhValheim features that depend on the companion mod do not apply to them: boss progression ("hung heads"), player join/leave events, and tick-health metrics — so the **HEALTH** bar is hidden for them in the admin UI.
 
@@ -23,4 +27,5 @@ If you want a **specific** seed on a vanilla world, generate the world in the Va
 
 A vanilla world cannot have mods: **Edit Mods** is disabled for it, and turning the vanilla switch on clears any existing mod selection. Turn the switch back off to make it a modded world again, then use **Edit Mods** and run an **Update**.
 
-Modded worlds are unaffected by any of this — they continue to be gated by the **Citizens** list.
+Both modded and vanilla worlds can use the **Citizens** access list, passwords and bans.
+[Manage who can join →](access.md)

@@ -1,6 +1,8 @@
 # Set up your server
 
-You'll need a host that can run Docker and Valheim's dedicated server, space for your worlds and mods, and a Steam API key for player sign-in. More worlds and larger mod collections need more resources.
+You'll need a host that can run Docker and Valheim's dedicated server, space for your worlds
+and mods, and a Steam API key for player profile lookups. More worlds and larger mod
+collections need more resources.
 
 This guide uses Docker Compose. [Using Unraid or Kubernetes instead?](other-platforms.md)
 
@@ -50,10 +52,12 @@ Keep that terminal open, then visit **http://localhost:8081** on your computer.
 
 The wizard asks for:
 
-- **Steam API key:** used for Steam player sign-in. [Create a key with Steam](https://steamcommunity.com/dev/apikey).
+- **Steam API key:** used to display player names and avatars. Steam sign-in itself is
+  verified through OpenID. [Create a key with Steam](https://steamcommunity.com/dev/apikey).
 - **PhValheim Host:** the hostname players use for your website.
 - **Game DNS:** the hostname players use for world connections.
-- **Base Port:** the first world port; keep it inside the range published by Docker.
+- **Base Port:** the first world port. Each world uses a pair of UDP ports, so both its
+  assigned port and the next port must be published by Docker.
 
 These settings live in the admin UI. New installations do not need a collection of environment variables.
 

@@ -25,7 +25,7 @@ If no dedicated backup volume is detected, the admin UI will display a warning a
 
 | Setting | Default | Description |
 |---|---|---|
-| **Compression** | `None` | Algorithm: `none` (uncompressed tar), `gzip`, or `zstd`. Zstd is faster with better compression ratios. |
+| **Compression** | `None` | Algorithm: `none` (uncompressed tar), `gzip`, or `zstd`. Compression time and space savings depend on the data and level. |
 | **Compression Schedule** | `3:00 AM` | Hour to run deferred compression. Set to `Immediate` to compress at backup time. Deferred mode reduces CPU impact during active hours. |
 | **Compression Level** | `0` (default) | Higher levels = smaller files but more CPU. `0` uses each algorithm's default level. |
 
