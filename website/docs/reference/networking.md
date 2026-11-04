@@ -60,4 +60,4 @@ server {
 }
 ```
 
-Set PhValheim's public hostname in Server Settings to match. Website HTTPS does not forward the game's UDP connections; configure those separately.
+Open the player website using this public hostname; PhValheim derives website links from the request host. **Game DNS** in Server Settings is the game's connection address and may be different. Website HTTPS does not forward the game's UDP connections; configure those separately.
