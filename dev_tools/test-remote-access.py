@@ -81,6 +81,45 @@ class Lifecycle(unittest.TestCase):
             self.assertNotEqual(next_test['test']['id'], first['test']['id'])
             self.assertEqual(start.call_count, 1)
 
+    def test_both_providers_schedule_without_browser_and_never_overlap(self):
+        for provider in ['tailscale', 'cloudflare']:
+            with self.subTest(provider=provider):
+                self.c.config.update(provider=provider, enabled=True)
+                self.c.observed['state'] = 'Connected'
+                self.c.test = None; self.c.last_test = 0; self.c.next_check = 0
+                with patch.object(remote.time, 'time', return_value=1000), patch.object(remote.threading.Thread, 'start') as start:
+                    self.c.schedule_check()
+                    self.assertEqual(start.call_count, 1)
+                    self.assertEqual(self.c.snapshot()['nextCheckAt'], 1240)
+                    self.c.schedule_check()
+                    self.assertEqual(start.call_count, 1)
+                self.c.test['state'] = 'URL verified from this server'
+                with patch.object(remote.time, 'time', return_value=1239), patch.object(remote.threading.Thread, 'start') as start:
+                    self.c.schedule_check(); start.assert_not_called()
+                with patch.object(remote.time, 'time', return_value=1240), patch.object(remote.threading.Thread, 'start') as start:
+                    self.c.schedule_check(); self.assertEqual(start.call_count, 1)
+                self.c.test['state'] = 'Check failed'; self.c.next_check = 1300
+                with patch.object(remote.time, 'time', return_value=1300), patch.object(remote.threading.Thread, 'start') as start:
+                    self.c.schedule_check(); self.assertEqual(start.call_count, 1)
+                self.c.test = None; self.c.config['enabled'] = False
+                with patch.object(remote.time, 'time', return_value=2000), patch.object(remote.threading.Thread, 'start') as start:
+                    self.c.schedule_check(); start.assert_not_called()
+                self.c.config['enabled'] = True; self.c.observed['state'] = 'Connecting'
+                with patch.object(remote.time, 'time', return_value=2000), patch.object(remote.threading.Thread, 'start') as start:
+                    self.c.schedule_check(); start.assert_not_called()
+
+    def test_cancel_defers_automatic_check_without_disconnect(self):
+        self.c.config.update(provider='cloudflare', enabled=True)
+        self.c.observed['state']='Connected'
+        with patch.object(remote.time,'time',return_value=1000), patch.object(remote.threading.Thread,'start'):
+            self.c.begin_test(); self.c.action({'action':'cancelTest'})
+        self.assertEqual(self.c.next_check,1060)
+        self.assertTrue(self.c.config['enabled'])
+        with patch.object(remote.time,'time',return_value=1059), patch.object(remote.threading.Thread,'start') as start:
+            self.c.schedule_check(); start.assert_not_called()
+        with patch.object(remote.time,'time',return_value=1060), patch.object(remote.threading.Thread,'start') as start:
+            self.c.schedule_check(); self.assertEqual(start.call_count,1)
+
     def test_defaults_off(self):
         self.assertFalse(self.c.snapshot()['config']['enabled'])
         self.assertEqual(self.c.snapshot()['observed']['state'], 'Off')
@@ -355,6 +394,8 @@ class Lifecycle(unittest.TestCase):
         test = self.diagnostic()
         self.assertEqual(test['state'],'URL verified from this server')
         self.assertEqual(set(s['state'] for s in test['steps'].values()), {'Passed'})
+        self.assertEqual(self.c.last_verified['revision'], test['revision'])
+        self.assertAlmostEqual(self.c.next_check - self.c.last_verified['at'], 240, delta=1)
 
     def test_tailscale_checks_public_dns_tls_and_correct_instance(self):
         test = self.diagnostic(provider='tailscale')
@@ -379,12 +420,22 @@ class Lifecycle(unittest.TestCase):
         self.assertFalse(self.c.pending_test)
         self.assertEqual(self.c.verify_until,0)
 
+    def test_failed_refresh_clears_previous_success_for_both_providers(self):
+        for provider in ['tailscale','cloudflare']:
+            self.diagnostic(provider=provider)
+            self.assertIsNotNone(self.c.last_verified)
+            self.diagnostic('tls',provider=provider)
+            self.assertIsNone(self.c.last_verified)
+
     def test_diagnostic_refuses_false_success(self):
         for mode, step in [('wrong_instance','route'),('cached','route'),('access_page','route'),('redirect','route'),('truncated','transfer'),('tls','tls'),('private_dns','dns')]:
             with self.subTest(mode=mode):
                 test = self.diagnostic(mode)
                 self.assertEqual(test['state'],'Check failed')
                 self.assertEqual(test['steps'][step]['state'],'Failed')
+                self.assertIsNone(self.c.last_verified)
+                import time
+                self.assertAlmostEqual(self.c.next_check - time.time(), 60, delta=1)
 
 
 if __name__ == '__main__': unittest.main()

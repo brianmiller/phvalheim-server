@@ -215,9 +215,9 @@ $in = [
 	'recentErrors' => ['count' => 0, 'last_t' => null, 'last' => null],
 ];
 $h = phvServerHealth(null, $in);
-check('ten checks, in a fixed order', ['settings', 'steam_key', 'client_downloads', 'data_volume', 'mod_sync_thunderstore', 'mod_sync_hexium', 'backups', 'housekeeping', 'remote_access', 'recent_errors'],
+check('eleven checks, in a fixed order', ['settings', 'steam_key', 'client_downloads', 'data_volume', 'mod_sync_thunderstore', 'mod_sync_hexium', 'vibes_library', 'backups', 'housekeeping', 'remote_access', 'recent_errors'],
 	array_column($h['checks'], 'id'));
-check('counts match the states', ['ok' => 9, 'warn' => 0, 'fail' => 1, 'unknown' => 0], $h['counts']);
+check('counts match the states', ['ok' => 10, 'warn' => 0, 'fail' => 1, 'unknown' => 0], $h['counts']);
 check('every check has the same record shape', true,
 	count(array_filter($h['checks'], fn($c) => array_keys($c) !== ['id', 'name', 'state', 'detail', 'action', 'since'])) === 0);
 check('checked_at is the clock it was given', $NOW, $h['checked_at']);
@@ -225,7 +225,24 @@ $in2 = $in; $in2['settings']['steamApiKey'] = ''; $in2['steamProbe'] = null; $in
 $h2 = phvServerHealth(null, $in2);
 check('a missing key, an unwritable volume and no release record: 2 fail + the hexium fail, 1 unknown',
 	['fail' => 3, 'unknown' => 1], ['fail' => $h2['counts']['fail'], 'unknown' => $h2['counts']['unknown']]);
-check('an unknown state is never counted as ok', 6, $h2['counts']['ok']);
+check('an unknown state is never counted as ok', 7, $h2['counts']['ok']);
+
+$withVibes=$in;$withVibes['syncRuns']['vibes']=['last'=>null];
+$withVibes['vibesLibrary']=['state'=>'warn','detail'=>'Harvested references are missing.'];
+$vh=phvServerHealth(null,$withVibes);
+check('Vibes is never a scheduled sync', false, in_array('mod_sync_vibes',array_column($vh['checks'],'id')));
+check('Vibes health reports actual library problem', ['warn','vibes'], array_values(array_intersect_key(array_values(array_filter($vh['checks'],fn($c)=>$c['id']==='vibes_library'))[0],array_flip(['state','action']))));
+foreach (['tailscale','cloudflare'] as $provider) {
+    $r=$remote;$r['config']['provider']=$provider;$r['test']['state']='Running';
+    $r['lastVerified']=['revision'=>$r['config']['revision'],'at'=>$NOW-241];
+    check($provider.' stays healthy during scheduled refresh','ok',st(phvHealthRuleRemoteAccess($r,$NOW)));
+    $r['test']['state']='Check failed';$r['test']['steps']['dns']['state']='Failed';
+    check($provider.' new failure overrides earlier success','warn',st(phvHealthRuleRemoteAccess($r,$NOW)));
+    $r['test']['state']='Running';$r['lastVerified']['revision']=-1;
+    check($provider.' previous configuration cannot stay healthy','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+    $r['lastVerified']['revision']=$r['config']['revision'];$r['lastVerified']['at']=$NOW-301;
+    check($provider.' expired success is not green','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+}
 
 echo "\n-- 10. wiring --\n";
 $pub = file_get_contents("$WWW/public/authenticated.php");

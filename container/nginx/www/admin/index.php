@@ -371,6 +371,7 @@ $totalCount = count($worlds);
                 </button>
                 <h1>PhValheim Administrator Interface</h1>
                 <div class="header-actions">
+                    <div id="remoteConnectionPills" class="ra-header-connections" role="group" aria-label="Public website connections"></div>
 <?php
                     // 2.45: no longer hidden until a credential exists. The panel's
                     // health scan is deterministic PHP and needs no provider at all, so
@@ -5867,6 +5868,25 @@ $totalCount = count($worlds);
         error: 'ms-err', stopped: 'ms-warn', stale: 'ms-warn', disabled: 'ms-idle'
     };
 
+    function renderVibesLibrary(v) {
+        const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const count = value => Math.max(0, Number(value) || 0).toLocaleString();
+        if (!v?.available) return `<div class="ms-src vibes-library"><div class="ms-head"><span class="src-pill src-vibes">HUGIN’S VIBES</span><span class="ms-state ms-warn">Unavailable</span></div><p>${esc(v?.detail || 'Local library status unavailable.')}</p><a href="hugins_vibes.php" target="_blank">Open Hugin’s Vibes →</a></div>`;
+        const label = !v.installed ? 'Not installed' : v.jobs?.length ? 'Working' : v.state === 'ok' ? 'Ready to build' : v.state === 'warn' ? 'Needs attention' : 'Setup needed';
+        const lib = v.libs || {}, pak = v.pak || {};
+        const noun = (value, one, many = one + 's') => Number(value) === 1 ? one : many;
+        const harvested = lib.harvestedAt ? new Date(lib.harvestedAt) : null;
+        const harvestLabel = harvested && !Number.isNaN(harvested.getTime()) ? harvested.toLocaleString() : lib.harvestedAt;
+        return `<div class="ms-src vibes-library">
+            <div class="ms-head"><span class="src-pill src-vibes">HUGIN’S VIBES</span><span class="ms-state ${v.state === 'ok' && v.installed ? 'ms-ok' : v.state === 'warn' ? 'ms-warn' : 'ms-idle'}">${label}</span><span class="ms-trigger">LOCAL LIBRARY</span><a class="vibes-library-open" href="hugins_vibes.php" target="_blank">Open workshop ↗</a></div>
+            <div class="vibes-library-counts"><span><b>${count(v.projects)}</b> ${noun(v.projects, 'project')}</span><span><b>${count(v.mods)}</b> published ${noun(v.mods, 'mod')}</span><span><b>${count(v.versions)}</b> ${noun(v.versions, 'version')}</span><span><b>${count(v.worlds)}</b> ${noun(v.worlds, 'world')} using Vibes</span></div>
+            <div class="vibes-library-tools"><span>Build Pak <b>${esc(pak.version || 'Not installed')}</b></span><span>Game references <b>${lib.ready ? count(lib.assemblies) + ' assemblies' : 'Not ready'}</b></span>${lib.gameBuild ? `<span>Steam build <b>${esc(lib.gameBuild)}</b></span>` : ''}</div>
+            ${lib.harvestedAt ? `<div class="ms-note">Harvested ${esc(harvestLabel)}${lib.sourceWorld ? ' from ' + esc(lib.sourceWorld) : ''}.</div>` : ''}
+            <div class="ms-note">${esc(v.detail)}</div>
+            ${v.jobs?.length ? `<div class="vibes-library-jobs">${v.jobs.map(j => `<span>${esc(j.kind)} · ${esc(j.step || j.status)} · ${count(j.progress)}%</span>`).join('')}</div>` : ''}
+        </div>`;
+    }
+
     function renderModSyncSource(src, def, stats, runs, cache) {
         const r = runs || {};
         const live = r.running;
@@ -6127,6 +6147,11 @@ $totalCount = count($worlds);
             let html = '';
             (d.sources || []).forEach(def => {
                 const runs = (d.runs || {})[def.key] || {};
+                if (def.key === 'vibes') {
+                    html += renderVibesLibrary(d.vibes);
+                    if (d.vibes?.jobs?.length) anyRunning = true;
+                    return;
+                }
                 if (runs.running) anyRunning = true;
                 html += renderModSyncSource(def.key, def,
                     (d.stats || {})[def.key], runs, d.cache);
@@ -6503,6 +6528,11 @@ $totalCount = count($worlds);
         if (action === 'remote-access') {
             b.textContent = 'Open Remote Access';
             b.onclick = function () { closeServerHealthModal(); showRemoteAccessModal(); };
+            return b;
+        }
+        if (action === 'vibes') {
+            b.textContent = 'Open Hugin’s Vibes';
+            b.onclick = function () { window.open('hugins_vibes.php', '_blank'); };
             return b;
         }
         if (action === 'logs') {

@@ -228,7 +228,7 @@ function phvHealthRuleRemoteAccess($remote, $now) {
     }
     $test = $remote['test'] ?? null;
     if (!is_array($test) || ($test['revision'] ?? null) !== ($config['revision'] ?? null)) {
-        return $item('unknown', 'Provider connected. Run Test connection in Remote Access to verify the current website.', $name);
+        return $item('unknown', 'Provider connected. Automatic public website verification is starting.', $name);
     }
     $testState = $test['state'] ?? '';
     if ($testState === 'Check failed') {
@@ -239,6 +239,13 @@ function phvHealthRuleRemoteAccess($remote, $now) {
             }
         }
         return $item('warn', 'Website verification failed. Open Remote Access for details and retry.', $name);
+    }
+    $verified = $remote['lastVerified'] ?? [];
+    $verifiedAt = (int)($verified['at'] ?? 0);
+    if (($verified['revision'] ?? null) === ($config['revision'] ?? null) && $verifiedAt > 0
+        && $verifiedAt <= $now + 30 && $now - $verifiedAt <= 300) {
+        return $item('ok', 'Provider connected; public website verified ' . phvHealthAgo($verifiedAt, $now)
+            . '. Checks refresh automatically' . ($testState === 'Running' ? ' (refreshing now).' : '.'), $name);
     }
     if (in_array($testState, ['Running', 'Retrying public website'], true)) {
         return $item('unknown', 'Provider connected. Public website checks are running or retrying automatically.', $name);
@@ -251,7 +258,7 @@ function phvHealthRuleRemoteAccess($remote, $now) {
     if ($passed && $tested > 0 && $tested <= $now + 30 && $now - $tested <= 300) {
         return $item('ok', 'Provider connected; all six public website checks passed ' . phvHealthAgo($tested, $now) . '.', $name);
     }
-    return $item('unknown', 'Provider connected. Website verification is missing, cancelled or older than five minutes; run Test connection in Remote Access.', $name);
+    return $item('unknown', 'Provider connected. Public website verification is refreshing automatically.', $name);
 }
 
 /* $r: null (event log unavailable) or ['count' => n, 'last_t' => ts|null, 'last' => ['message','world']|null]. */
@@ -374,8 +381,16 @@ function phvServerHealth($pdo, $in = []) {
 	      : (function_exists('modSyncStatus') ? modSyncStatus($pdo) : []);
 	$stale = phvHealthSyncStaleAfter($s['modSyncIntervalHours'] ?? null);
 	foreach ($runs as $src => $run) {
+		if ($src === 'vibes') continue; // Locally published library, never a remote sync.
 		$checks[] = phvHealthRuleModSync($src, $run, $now, $stale);
 	}
+
+	if (!array_key_exists('vibesLibrary', $in)) {
+		if ($pdo) require_once __DIR__ . '/vibes_summary.php';
+		$in['vibesLibrary'] = $pdo ? phvVibesLibrarySummary($pdo) : ['state'=>'ok', 'detail'=>'Not installed.'];
+	}
+	$vibes = $in['vibesLibrary'];
+	$checks[] = phvHealthItem('vibes_library', "Hugin’s Vibes library", $vibes['state'] ?? 'unknown', $vibes['detail'] ?? 'Library status unavailable.', 'vibes');
 
 	if (!array_key_exists('backup', $in)) {
 		$in['backup'] = [

@@ -15,14 +15,13 @@ cap of roughly 100,000 rows; raw files rotate at the configured log size (1 MB b
 The dashboard checks the things that used to fail silently and shows anything that needs
 attention at the top of the page, in plain words, with a button for what to do: whether GitHub
 is answering client download lookups, whether Steam still accepts your API key, whether the data
-volume can be written, whether each mod catalogue's last sync and the last backup run succeeded,
+volume can be written, whether Thunderstore and Hexium's last sync and the last backup run succeeded,
 whether the required settings are set, and whether the configured Cloudflare or Tailscale
 public website is connected and verified. Remote Access warnings link directly to its setup
 and diagnostics. An intentionally disconnected or unconfigured provider does not warn.
-Verification older than five minutes is marked unknown until you run Test connection.
+Both providers automatically verify their public website every four minutes and retry failed checks after a minute. Hugin’s Vibes checks its local Build Pak and harvested game references instead of a catalogue sync. Its library card reports projects, published mods and versions, world usage, and harvest details.
 Analytics is excluded from Server Health and warning badges; diagnostic records remain in Logs. **Server Health** in the sidebar lists every check, including the ones that are fine.
-Nothing here is a heartbeat: the checks run when the dashboard asks, and the two that touch the
-network (GitHub, Steam) are cached so a dead network costs one short wait every five minutes,
+Health reads the Remote Access service’s background observations. Other checks run when the dashboard asks; GitHub and Steam lookups are cached so a dead network costs one short wait every five minutes,
 never one per page load.
 
 ## Analytics enrollment in 2.62 development

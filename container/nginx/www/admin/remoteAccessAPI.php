@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/remote_access.php';
+require_once __DIR__ . '/../includes/health.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
@@ -28,6 +29,7 @@ $method = $_SERVER['REQUEST_METHOD'] ?? '';
 if ($method === 'GET') {
     $result = phvRemoteControl(['action' => 'status']);
     $result['csrf'] = $csrf;
+    $result['health'] = phvHealthRuleRemoteAccess($result, time());
     echo json_encode($result);
     exit;
 }
@@ -42,6 +44,7 @@ if (!is_array($input)) remoteFail(400, 'Invalid request.');
 $actions = ['save', 'hostname', 'connect', 'enroll', 'disconnect', 'forget', 'test', 'cancelTest'];
 if (!in_array($input['action'] ?? '', $actions, true)) remoteFail(400, 'Unknown action.');
 $result = phvRemoteControl($input);
+$result['health'] = phvHealthRuleRemoteAccess($result, time());
 if (empty($result['available']) && ($result['success'] ?? false)) remoteFail(503, 'The built-in Remote Access service is stopped or starting. Wait a moment, then retry. If it persists, check Server Health.');
 if (empty($result['success'])) http_response_code(400);
 echo json_encode($result);

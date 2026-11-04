@@ -122,6 +122,10 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # 2.62 enrollment integration: verify the packaged sender and absence of the old transport.
+  v62periodic=$(grep -c "self.schedule_check()" /opt/stateless/remote-access/service.py)
+  v62header=$(grep -c 'id="remoteConnectionPills"' /opt/stateless/nginx/www/admin/index.php)
+  v62library=$(grep -c '^function phvVibesLibrarySummary' /opt/stateless/nginx/www/includes/vibes_summary.php)
+  echo "2.62 live status: periodic=$v62periodic header=$v62header local library=$v62library (want 1/1/1)"
   v62healthRemote=$(grep -c "^function phvHealthRuleRemoteAccess" /opt/stateless/nginx/www/includes/health.php)
   v62healthAnalytics=$(grep -c "phvHealthRuleAnalytics" /opt/stateless/nginx/www/includes/health.php)
   v62quietAnalytics=$(grep -c "phvlog WARN" /opt/stateless/engine/tools/pushAnalytics.sh)
@@ -3921,7 +3925,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # the migration carries its exec bit (2.45 shipped one without and created nothing); the
   # runner's only model transport is aiChat(); the page never assigns innerHTML; the image
   # still has no git/dotnet/node -- the Build Pak carries them.
-  v59aa=$(grep -c 'href="hugins_vibes.php"' /opt/stateless/nginx/www/admin/index.php)
+  v59aa=$(grep -c 'data-nav="hugins-vibes"' /opt/stateless/nginx/www/admin/index.php)
   v59ab=$(awk '/nav-section-title">Tools/{f=1} f&&/href=/{print; exit}' /opt/stateless/nginx/www/admin/index.php | grep -c 'hugins_vibes.php')
   v59ac=$(grep -c "Hugin's Vibes\", 'colour' => 'vibes'" /opt/stateless/nginx/www/includes/modcatalog.php)
   v59ad=$(grep -c "'thunderstoreEnabled', 'hexiumEnabled', 'vibesInstalled'" /opt/stateless/nginx/www/includes/modcatalog.php)
@@ -4463,6 +4467,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
     && [ "$v61a" = "0" ] && [ "$v61b" = "1" ] && [ "$v61c" = "1" ] && [ "$v61d" = "0" ] && [ "$v61e" = "0" ] && [ "$v61f" = "0" ] \
     && [ "$v61g" = "0" ] && [ "$v61h" = "1" ] && [ "$v61i" = "1" ] && [ "$v61j" = "4" ] && [ "$v61k" = "1" ] && [ "$v61l" = "0" ] \
+    && [ "$v62periodic" = "1" ] && [ "$v62header" = "1" ] && [ "$v62library" = "1" ] \
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62remote" = "1" ] \

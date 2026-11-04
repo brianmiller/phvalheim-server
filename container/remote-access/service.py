@@ -154,6 +154,8 @@ class Controller:
         self.test = None
         self.cancel = threading.Event()
         self.last_test = 0
+        self.last_verified = None
+        self.next_check = 0
         self.error = ''
         self.events = []
         self.observed = {'state': 'Off', 'time': time.time(), 'details': {}}
@@ -200,6 +202,7 @@ class Controller:
             return {'success': True, 'available': True, 'config': c,
                     'observed': copy.deepcopy(self.observed), 'error': self.error,
                     'test': copy.deepcopy(self.test), 'testAvailableAt': self.last_test + 10,
+                    'lastVerified': copy.deepcopy(self.last_verified), 'nextCheckAt': self.next_check,
                     'testRetryUntil': self.verify_until, 'events': copy.deepcopy(self.events),
                     'origin': ORIGIN, 'authUrl': self.auth_url, 'enrolling': self.enrolling,
                     'packaging': 'built-in', 'networkPolicy': 'operator-managed', 'now': time.time()}
@@ -224,6 +227,8 @@ class Controller:
         self.enrolling = False
         self.ts_state = ''
         self.pending_test = False
+        self.last_verified = None
+        self.next_check = 0
         self.verify_until = 0
         self.preparing = False
         self.test = None
@@ -407,6 +412,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
                 self.pending_test = False
                 self.verify_until = 0
                 self.cancel.set()
+                self.next_check = time.time() + 60
                 if self.test:
                     self.test['state'] = 'Cancelled'
                 (LINK / 'challenge.json').unlink(missing_ok=True)
@@ -547,7 +553,16 @@ proxy_buffering off; proxy_read_timeout 120s; }
         if self.config['enabled'] and self.gateway and self.gateway.poll() is not None:
             state = 'Website gateway stopped'
         self.observed = {'state': state, 'time': time.time(), 'details': details}
-        if state == 'Connected' and self.pending_test and time.time() - self.last_test >= 10:
+        self.schedule_check()
+
+    def schedule_check(self):
+        # The service owns cadence: no browser needs to be open, and GET is read-only.
+        now = time.time()
+        if not self.config['enabled'] or self.observed['state'] != 'Connected':
+            return
+        if self.test and self.test.get('state') == 'Running':
+            return
+        if (self.pending_test or now >= self.next_check) and now - self.last_test >= 10:
             self.pending_test = False
             if not self.verify_until:
                 self.verify_until = time.time() + 120
@@ -581,6 +596,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
             # Repeated clicks reuse the current result; expose the cooldown in status.
             return
         self.last_test = time.time()
+        self.next_check = self.last_test + 240
         self.cancel.set()
         self.cancel = threading.Event()
         test = {'id': secrets.token_hex(12), 'revision': self.config['revision'], 'state': 'Running',
@@ -676,25 +692,30 @@ proxy_buffering off; proxy_read_timeout 120s; }
             with self.lock:
                 if self.test is test:
                     test['state'] = 'URL verified from this server'
+                    self.last_verified = {'revision': test['revision'], 'at': time.time()}
+                    self.next_check = time.time() + 240
                     test['deviceUrl'] = url + path + '&browser=1'
         except (OSError, ValueError, UserError, http.client.HTTPException) as e:
             message = str(e) if isinstance(e, UserError) else 'Check failed (' + type(e).__name__ + '). Check DNS, TLS, provider access, and the origin address; then retry.'
             self.step(test, current, 'Failed', message)
             with self.lock:
                 if self.test is test:
+                    self.last_verified = None # A failed refresh invalidates earlier success, including during retry.
                     retryable = isinstance(e, PendingPublicError) or (current == 'tls' and isinstance(e, OSError) and not isinstance(e, ssl.SSLCertVerificationError))
-                    if (self.config['provider'] == 'tailscale' and self.config['enabled'] and not cancelled.is_set()
+                    if (self.config['enabled'] and not cancelled.is_set()
                             and retryable and time.time() < self.verify_until):
                         self.pending_test = True
                         test['state'] = 'Retrying public website'
-                        test['steps'][current].update(state='Retrying', message='Tailscale is preparing public DNS/HTTPS. Retrying automatically for up to two minutes.')
+                        test['steps'][current].update(state='Retrying', message='The provider is preparing public DNS/HTTPS. Retrying automatically for up to two minutes.')
                     else:
                         test['state'] = 'Check failed'
+                        self.next_check = time.time() + 60
         finally:
             with self.lock:
                 if self.test is test:
                     if cancelled.is_set():
                         test['state'] = 'Cancelled'
+                        self.next_check = time.time() + 60
                     for step in test['steps'].values():
                         if step['state'] in ('Waiting', 'Checking'):
                             step.update(state='Blocked', message='An earlier step did not complete.')

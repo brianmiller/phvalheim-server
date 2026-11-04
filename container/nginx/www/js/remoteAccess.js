@@ -16,6 +16,7 @@
         catch (_) { window.prompt('Copy this value:', value); }
     }
     function message(value, error=false) {
+        if (!$('raMessage')) return;
         $('raMessage').textContent = value;
         $('raMessage').classList.toggle('ra-error', error);
     }
@@ -318,8 +319,44 @@
         $('raDisconnect').disabled = busy || !available || (!enabled && !enrolling);
         testFeedback();
     }
+    function renderHeader() {
+        const group = $('remoteConnectionPills');
+        if (!group) return;
+        if (!group.children.length) {
+            for (const provider of ['tailscale', 'cloudflare']) {
+                const button = document.createElement('button');
+                button.type = 'button'; button.id = 'raPill-' + provider; button.className = 'ra-connection-pill';
+                const icon = provider === 'tailscale'
+                    ? '<svg viewBox="0 0 18 18" aria-hidden="true"><g fill="currentColor"><circle cx="4" cy="4" r="2"/><circle cx="9" cy="4" r="2"/><circle cx="14" cy="4" r="2" opacity=".35"/><circle cx="4" cy="9" r="2"/><circle cx="9" cy="9" r="2"/><circle cx="14" cy="9" r="2"/><circle cx="4" cy="14" r="2" opacity=".35"/><circle cx="9" cy="14" r="2"/><circle cx="14" cy="14" r="2" opacity=".35"/></g></svg>'
+                    : '<svg viewBox="0 0 20 18" aria-hidden="true"><path d="M5 14h11a3 3 0 0 0 0-6 5 5 0 0 0-9.7-1.6A4 4 0 0 0 5 14Z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>';
+                button.innerHTML = icon + '<span class="ra-pill-name">' + (provider === 'tailscale' ? 'Tailscale' : 'Cloudflare') + '</span><span class="ra-pill-dot"></span><span class="ra-pill-state"></span>';
+                button.onclick = () => window.showRemoteAccessModal(provider);
+                group.append(button);
+            }
+        }
+        for (const provider of ['tailscale', 'cloudflare']) {
+            const button = $('raPill-' + provider), name = provider === 'tailscale' ? 'Tailscale' : 'Cloudflare';
+            const same = data?.config?.provider === provider;
+            const stale = !!transportError || (data && (Date.now() - lastReply > 15000 || serverNow() - (data.observed?.time || 0) > 15));
+            let state = 'off', label = 'Off', detail = 'Website access is off. Open Remote Access to configure ' + name + '.';
+            if (!data || stale || !data.available) {
+                state = 'unknown'; label = !data && !transportError ? 'Loading' : 'Unknown'; detail = 'Live connection status is unavailable. Open Remote Access for details.';
+            } else if (same && (data.config.enabled || data.enrolling)) {
+                detail = data.health?.detail || 'Waiting for live website verification.';
+                if (data.authUrl) { state = 'warn'; label = 'Approval'; }
+                else if (data.health?.state === 'warn' || data.health?.state === 'fail') { state = 'warn'; label = 'Attention'; }
+                else if (data.health?.state === 'ok') { state = 'live'; label = 'Live'; }
+                else { state = 'pending'; label = data.observed?.state === 'Connected' ? 'Checking' : 'Connecting'; }
+            }
+            button.dataset.state = state;
+            button.querySelector('.ra-pill-state').textContent = label;
+            button.title = name + ': ' + detail;
+            button.setAttribute('aria-label', name + ': ' + label + '. ' + detail);
+        }
+    }
     function render() {
-        if (!data) return;
+        renderHeader();
+        if (!data || !overlay?.classList.contains('show')) return;
         const focused = overlay.contains(document.activeElement) ? document.activeElement.id : '';
         if (!initialized && data.available) {
             if (!choice && data.config.provider) choice = data.config.provider;
@@ -348,7 +385,7 @@
         const active = sameProvider && data.config?.enabled;
         const state = observed.state || '';
         const verified = data.test?.state === 'URL verified from this server' && data.test.revision === data.config?.revision && Date.now()/1000 - data.test.started <= 300;
-        $('raProgress').textContent = !sameProvider ? '' : stale ? 'Waiting for live status. Displayed connection information may be out of date.' : !active && !data.enrolling ? data.config?.enrolled ? 'Website is offline. Your saved device will be reused when you reconnect.' : 'Website is offline. Publish when you are ready to connect.' : data.authUrl ? 'Action needed: complete the Tailscale approval below. This page updates automatically.' : state === 'Updating hostname' ? 'Applying your website name. Waiting for Tailscale to return the assigned address…' : state === 'Connected' ? verified ? 'Website verified. Share the link with your players.' : data.test?.state === 'Retrying public website' ? 'Public website starting. Retrying DNS and HTTPS checks automatically…' : data.test?.state === 'Running' ? 'Published. Checking the public website…' : data.test?.state === 'Check failed' ? 'Published, but a website check failed. Open Website checks for the reason and retry.' : data.test?.state === 'Cancelled' ? 'Website is published. Checks cancelled; select Test connection to run them again.' : data.test ? 'Website is published. Run Test connection to refresh website checks.' : 'Published. Website checks will start automatically.' : data.enrolling && !active ? 'Waiting for sign-in. Your website is still offline.' : 'Restoring your saved device and publishing the website…';
+        $('raProgress').textContent = !sameProvider ? '' : stale ? 'Waiting for live status. Displayed connection information may be out of date.' : !active && !data.enrolling ? data.config?.enrolled ? 'Website is offline. Your saved device will be reused when you reconnect.' : 'Website is offline. Publish when you are ready to connect.' : data.authUrl ? 'Action needed: complete the Tailscale approval below. This page updates automatically.' : state === 'Updating hostname' ? 'Applying your website name. Waiting for Tailscale to return the assigned address…' : state === 'Connected' ? verified ? 'Website verified. Share the link with your players.' : data.test?.state === 'Retrying public website' ? 'Public website starting. Retrying DNS and HTTPS checks automatically…' : data.test?.state === 'Running' ? 'Published. Checking the public website…' : data.test?.state === 'Check failed' ? 'Published, but a website check failed. Open Website checks for the reason and retry.' : data.test?.state === 'Cancelled' ? 'Website is published. Checks cancelled; automatic verification resumes shortly.' : data.test ? 'Website is published. Checks refresh automatically every four minutes.' : 'Published. Website checks will start automatically.' : data.enrolling && !active ? 'Waiting for sign-in. Your website is still offline.' : 'Restoring your saved device and publishing the website…';
         $('raHostnameHelp').textContent = data.config?.enrolled ? 'Changes the public link after reconnecting. Your device and sign-in are kept.' : 'Letters, numbers and hyphens. Tailscale supplies the rest of the address.';
         const url = sameProvider ? data.config?.url : '';
         $('raUrl').innerHTML = url ? `<p><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(url)}</a> <button type="button" id="raCopyUrl">Copy URL</button>${data.config.enabled ? '' : ' — website is off'}</p>` : '';
@@ -376,7 +413,7 @@
     }
     async function poll() {
         clearTimeout(timer);
-        if (inflight || document.hidden || !overlay?.classList.contains('show')) return;
+        if (inflight || document.hidden) return;
         inflight = true;
         const startedEpoch = epoch;
         try {
@@ -384,21 +421,25 @@
             const next = await response.json();
             if (!response.ok || !next.success) throw new Error(next.error || 'Live status unavailable.');
             if (!busy && epoch === startedEpoch) { transportError = ''; data = next; csrf = next.csrf || csrf; lastReply = Date.now(); render(); }
-        } catch (e) { transportError = e.message || 'Live status unavailable.'; statusMessage = transportError; message(statusMessage, true); if (data) render(); else { $('raSummary').textContent = 'Live status unavailable'; buttons(); } }
+        } catch (e) { transportError = e.message || 'Live status unavailable.'; statusMessage = transportError; message(statusMessage, true); if (data) render(); else { renderHeader(); if (overlay?.classList.contains('show')) { $('raSummary').textContent = 'Live status unavailable'; buttons(); } } }
         finally {
             inflight = false;
-            if (tab === 'games' || choice === 'direct') loadNetwork();
-            if (overlay?.classList.contains('show')) timer = setTimeout(poll, ['Running','Retrying public website'].includes(data?.test?.state) || data?.enrolling ? 2000 : 5000);
+            if (overlay?.classList.contains('show') && (tab === 'games' || choice === 'direct')) loadNetwork();
+            timer = setTimeout(poll, overlay?.classList.contains('show') && (['Running','Retrying public website'].includes(data?.test?.state) || data?.enrolling) ? 2000 : 5000);
         }
     }
     function close() {
         if (dirty && !confirm('Discard unsaved connection changes? Active connections and accepted tests will continue.')) return;
         clearTimeout(timer); clearInterval(feedbackTimer); overlay.classList.remove('show'); dirty = false; initialized = false; choice = ''; step = 1; tab = 'website';
-        $('raToken').value = ''; $('raAuthKey').value = ''; lastFocus?.focus();
+        $('raToken').value = ''; $('raAuthKey').value = ''; lastFocus?.focus(); timer = setTimeout(poll, 5000);
     }
-    window.showRemoteAccessModal = () => {
+    window.showRemoteAccessModal = provider => {
         if (!overlay) make(); lastFocus = document.activeElement;
-        overlay.classList.add('show'); message(''); layout(); $('raClose').focus(); poll();
+        overlay.classList.add('show'); message('');
+        if (['tailscale','cloudflare'].includes(provider)) { tab = 'website'; choose(provider); }
+        render(); layout(); $('raClose').focus(); poll();
         clearInterval(feedbackTimer); feedbackTimer = setInterval(() => { if (data) buttons(); }, 1000);
     };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderHeader(); poll(); } else clearTimeout(timer); });
+    renderHeader(); poll();
 })();

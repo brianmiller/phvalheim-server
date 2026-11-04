@@ -160,7 +160,7 @@ details; disconnect removes obsolete results. Public checks start after the
 connector is ready, so sign-in time is not mistaken for a failed connection.
 During the first two minutes, transient DNS/HTTPS startup failures retry
 automatically. Certificate mismatches and wrong-instance responses still fail
-immediately; Cancel test stops retries. The current check and number passed stay
+immediately; Cancel test stops the current run and defers automatic checking for one minute. The current check and number passed stay
 visible above the link. Automatic retries show a countdown; subsequent checks
 are marked Queued. After a quick test, the test button counts down the remaining
 ten-second cooldown before becoming available again.
@@ -177,7 +177,16 @@ Server Health includes the configured Cloudflare or Tailscale connection. It use
 read-only provider status and the latest website test: opening Health never connects
 or publishes a website. Approval requirements, connection failures and failed checks
 appear in the dashboard banner with **Open Remote Access**. Off is quiet; startup
-and missing or outdated website verification are shown as unknown.
+and missing or outdated website verification are shown as unknown while automatic checking catches up.
+
+Both providers recheck the public website every four minutes, including when no admin
+browser is open. Failed checks retry after one minute. A recent success remains visible
+during the next check; a new failure immediately overrides it. Disconnect stops checks.
+The header beside **Ask Hugin** shows separate Tailscale and Cloudflare pills, refreshed
+every five seconds while the page is visible. **Live** means the provider is connected
+and the public website was recently verified; **Checking**, **Connecting**, **Approval**,
+**Attention**, **Unknown** and **Off** describe the other states. Select a pill to open
+that provider’s Remote Access view. Unavailable or stale status never remains green.
 
 ## Read the connection checks
 

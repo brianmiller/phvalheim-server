@@ -383,11 +383,13 @@ switch($action) {
         break;
 
     case 'getModSyncStatus':
+        require_once __DIR__ . '/../includes/vibes_summary.php';
         echo json_encode([
             'success' => true,
             'sources' => array_values(catalogSources($pdo)),
             'stats'   => catalogStats($pdo),
             'runs'    => modSyncStatus($pdo),
+            'vibes'   => phvVibesLibrarySummary($pdo),
             'cache'   => modCacheStats()
         ]);
         break;
