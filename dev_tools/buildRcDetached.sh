@@ -4495,6 +4495,11 @@ if docker scout version >/dev/null 2>&1; then
 	# Preserve the raw report. Only exact package/CVE pairs with upstream evidence
 	# in the reviewed VEX document are excluded; new findings still fail the gate.
 	docker scout cves "$IMAGE" --format sarif --output "/tmp/phvalheim-scout-$TAG-raw.sarif.json" >/dev/null 2>&1
+	# Applicability is tied to these exact binaries, not just shared Go module versions.
+	if ! docker run --rm -i --entrypoint sha256sum "$IMAGE" -c - < "$REPO/docs/security/remote-access-binaries.sha256"; then
+		echo "Provider binaries changed; reassess the VEX before publishing."
+		exit 1
+	fi
 	SCOUT_VEX=(--vex-location "$REPO/docs/security/remote-access.vex.json" --vex-author 'PhValheim development assessment' --only-vex-affected)
 	echo "=== Applying documented exact-version VEX assessments: docs/security/remote-access.vex.json ==="
 	if docker scout cves "$IMAGE" "${SCOUT_VEX[@]}" --format sarif --output "$SCOUT_SARIF" >/dev/null 2>&1 && [ -s "$SCOUT_SARIF" ]; then

@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/brianmiller/phvalheim-server/blob/feature/remote-access-262/docs/security/remote-access.vex.json",
   "author": "PhValheim development assessment",
-  "timestamp": "2026-11-04T20:14:00Z",
-  "version": 3,
+  "timestamp": "2026-11-04T22:47:00Z",
+  "version": 4,
   "statements": [
     {
       "vulnerability": {
@@ -59,6 +59,22 @@
       "status": "not_affected",
       "justification": "inline_mitigations_already_exist",
       "impact_statement": "PhValheim sets Acquire::Retries to 0 before the first APT build operation and retains that configuration in the delivered image. Ubuntu states exploitation requires a non-zero Acquire::Retries setting. buildRcDetached.sh checks the effective value inside the built image before publishing or applying this assessment. This is a configuration mitigation, not a patched APT package; overriding the setting invalidates this assessment. https://ubuntu.com/security/CVE-2026-109518"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-78661"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/net@0.60.0"
+        },
+        {
+          "@id": "pkg:golang/golang.org/x/net@0.61.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "For the three SHA256-pinned Linux amd64 binaries listed in remote-access-binaries.sha256 only. Go advisory GO-2026-6860 affects golang.org/x/net/html parsing. govulncheck v1.9.0 binary scans report module metadata only, with no affected html package or symbols in tailscale, tailscaled or cloudflared. A v0.61.0 html.Parse positive-control binary reports the affected package and Parse/ParseWithOptions symbols. Build verification requires all three exact binary checksums before applying this assessment. Evidence: remote-access-html-scan.json; https://pkg.go.dev/vuln/GO-2026-6860"
     }
   ]
 }

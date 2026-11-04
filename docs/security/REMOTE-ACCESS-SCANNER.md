@@ -2,7 +2,7 @@
 
 Assessment on 2026-11-04, for the exact provider binaries pinned by SHA256 in the
 Dockerfile. This is a development assessment, not maintainer merge approval.
-Raw Docker Scout output reports four high findings as of the final build. The accompanying
+Raw Docker Scout findings can change as advisories are indexed. The accompanying
 [OpenVEX document](remote-access.vex.json) excludes only these exact package/CVE
 pairs, preserving all other findings and the zero critical/high gate. The build
 keeps both raw and assessed SARIF reports under `/tmp/phvalheim-scout-<tag>*`.
@@ -49,3 +49,27 @@ not a claim that the newer package fixes this vulnerability.
 
 These assessments explain scanner applicability and the explicit APT mitigation only. They do not replace least-privilege processes, API defenses, deployment network
 controls, or real account/route validation.
+
+## HTML parser advisory (November 4 health build)
+
+Scout added [CVE-2026-78661 / GO-2026-6860](https://pkg.go.dev/vuln/GO-2026-6860),
+which affects the `golang.org/x/net/html` parser before v0.62.0. The pinned
+Tailscale binaries carry x/net v0.60.0 metadata; cloudflared carries v0.61.0.
+These are not patched module versions. However, `govulncheck` v1.9.0 in binary
+mode reports only module-level findings for these binaries: the affected HTML
+package and parser symbols are absent. A separately built v0.61.0 program calling
+`html.Parse(os.Stdin)` produces package-level and `Parse`/`ParseWithOptions`
+symbol findings with the same scanner, proving that the check detects the parser.
+
+[Recorded evidence](remote-access-html-scan.json) contains the actual filtered
+findings and positive-control source. [Binary checksums](remote-access-binaries.sha256)
+pin all three assessed executables. The build verifies these checksums **before**
+applying VEX; any binary change requires reassessment, even with the same module
+version. Raw Scout findings remain retained; the critical/high allowance stays zero.
+
+To reproduce, copy `/usr/local/bin/{tailscale,tailscaled,cloudflared}` from the
+image, verify their SHA256 values, and run
+`govulncheck -mode=binary -json <binary>` with v1.9.0 for each. For the positive
+control, create a Go module requiring `golang.org/x/net v0.61.0`, compile the
+recorded source, and scan that binary identically. The module-only result is not
+a blanket claim about every x/net consumer or other vulnerabilities.

@@ -1,0 +1,103 @@
+{
+  "advisory": "GO-2026-6860",
+  "scanner": "golang.org/x/vuln/cmd/govulncheck v1.9.0",
+  "mode": "binary",
+  "binaries": {
+    "tailscale": {
+      "sha256": "ae6d013e3a9dac4d6ae7cd682cf89215e512d6f12ae94d39c72a93f13d2fce66",
+      "findings": [
+        {
+          "osv": "GO-2026-6860",
+          "fixed_version": "v0.62.0",
+          "trace": [
+            {
+              "module": "golang.org/x/net",
+              "version": "v0.60.0"
+            }
+          ]
+        }
+      ]
+    },
+    "tailscaled": {
+      "sha256": "0dd3bfb1c8316cb6b6bb23d41d716a976313e8aa9387abc722e2a14782c06bbf",
+      "findings": [
+        {
+          "osv": "GO-2026-6860",
+          "fixed_version": "v0.62.0",
+          "trace": [
+            {
+              "module": "golang.org/x/net",
+              "version": "v0.60.0"
+            }
+          ]
+        }
+      ]
+    },
+    "cloudflared": {
+      "sha256": "1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872",
+      "findings": [
+        {
+          "osv": "GO-2026-6860",
+          "fixed_version": "v0.62.0",
+          "trace": [
+            {
+              "module": "golang.org/x/net",
+              "version": "v0.61.0"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "positive_control": {
+    "module": "golang.org/x/net@v0.61.0",
+    "code": "package main\nimport(\"golang.org/x/net/html\";\"os\";\"fmt\")\nfunc main(){doc,err:=html.Parse(os.Stdin);fmt.Println(doc,err)}",
+    "findings": [
+      {
+        "osv": "GO-2026-6860",
+        "fixed_version": "v0.62.0",
+        "trace": [
+          {
+            "module": "golang.org/x/net",
+            "version": "v0.61.0"
+          }
+        ]
+      },
+      {
+        "osv": "GO-2026-6860",
+        "fixed_version": "v0.62.0",
+        "trace": [
+          {
+            "module": "golang.org/x/net",
+            "version": "v0.61.0",
+            "package": "golang.org/x/net/html"
+          }
+        ]
+      },
+      {
+        "osv": "GO-2026-6860",
+        "fixed_version": "v0.62.0",
+        "trace": [
+          {
+            "module": "golang.org/x/net",
+            "version": "v0.61.0",
+            "package": "golang.org/x/net/html",
+            "function": "ParseWithOptions"
+          }
+        ]
+      },
+      {
+        "osv": "GO-2026-6860",
+        "fixed_version": "v0.62.0",
+        "trace": [
+          {
+            "module": "golang.org/x/net",
+            "version": "v0.61.0",
+            "package": "golang.org/x/net/html",
+            "function": "Parse"
+          }
+        ]
+      }
+    ]
+  }
+}
