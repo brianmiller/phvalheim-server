@@ -86,6 +86,16 @@ echo "=== building $IMAGE ==="
 # the base image alone carried 13 findings that the current jammy tag had already dropped.
 docker buildx build --pull --network=host --build-arg SECURITY_REFRESH="$(date -u +%F)" -t "$IMAGE" . || { echo "BUILD FAILED"; echo "=== done FAILED ==="; exit 1; }
 
+# The APT VEX assessment is valid only with the shipped retry mitigation.
+# Check the actual image before publishing or applying the assessment.
+apt_retry_setting=$(docker run --rm --entrypoint apt-config "$IMAGE" shell retries Acquire::Retries)
+if [ "$apt_retry_setting" != "retries='0'" ]; then
+    echo "APT retry mitigation missing; refusing to publish or apply its VEX assessment."
+    echo "=== done FAILED ==="
+    exit 1
+fi
+echo "=== APT retry mitigation verified in image ==="
+
 echo "=== pushing ==="
 docker push "$IMAGE" || { echo "PUSH FAILED"; echo "=== done FAILED ==="; exit 1; }
 

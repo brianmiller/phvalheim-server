@@ -10,6 +10,11 @@ LABEL maintainer="Brian Miller <brian@phospher.com>"
 
 ARG DEBIAN_FRONTEND=noninteractive
 
+# CVE-2026-109518 requires non-zero APT download retries. Apply the
+# documented mitigation before the first package operation and retain it at runtime.
+# https://ubuntu.com/security/CVE-2026-109518
+RUN printf 'Acquire::Retries "0";\n' > /etc/apt/apt.conf.d/99phvalheim-no-retries
+
 # update the container
 RUN apt-get -y update
 RUN apt-get -y upgrade

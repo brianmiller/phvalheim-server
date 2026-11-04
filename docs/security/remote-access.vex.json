@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/brianmiller/phvalheim-server/blob/feature/remote-access-262/docs/security/remote-access.vex.json",
   "author": "PhValheim development assessment",
-  "timestamp": "2026-11-04T17:10:00Z",
-  "version": 1,
+  "timestamp": "2026-11-04T19:10:00Z",
+  "version": 2,
   "statements": [
     {
       "vulnerability": {
@@ -43,6 +43,19 @@
       "status": "not_affected",
       "justification": "vulnerable_code_not_present",
       "impact_statement": "Official Linux amd64 cloudflared 2026.10.7 (SHA256 pinned in Dockerfile). This advisory affects Windows before 2020.8.1. The Go pseudoversion is incorrectly compared to a calendar release version. https://github.com/cloudflare/cloudflared/security/advisories/GHSA-hgwp-4vp4-qmm2"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-109518"
+      },
+      "products": [
+        {
+          "@id": "pkg:deb/ubuntu/apt@2.4.14?os_distro=jammy&os_name=ubuntu&os_version=22.04"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "inline_mitigations_already_exist",
+      "impact_statement": "PhValheim sets Acquire::Retries to 0 before the first APT build operation and retains that configuration in the delivered image. Ubuntu states exploitation requires a non-zero Acquire::Retries setting. buildRcDetached.sh checks the effective value inside the built image before publishing or applying this assessment. This is a configuration mitigation, not a patched APT package; overriding the setting invalidates this assessment. https://ubuntu.com/security/CVE-2026-109518"
     }
   ]
 }

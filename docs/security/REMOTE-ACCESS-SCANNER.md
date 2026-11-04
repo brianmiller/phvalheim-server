@@ -2,7 +2,7 @@
 
 Assessment on 2026-11-04, for the exact provider binaries pinned by SHA256 in the
 Dockerfile. This is a development assessment, not maintainer merge approval.
-Raw Docker Scout output reports three high findings. The accompanying
+Raw Docker Scout output reports four high findings as of the final build. The accompanying
 [OpenVEX document](remote-access.vex.json) excludes only these exact package/CVE
 pairs, preserving all other findings and the zero critical/high gate. The build
 keeps both raw and assessed SARIF reports under `/tmp/phvalheim-scout-<tag>*`.
@@ -20,6 +20,25 @@ Both report GOOS=linux and GOARCH=amd64. The image's `cloudflared --version`
 independently reports 2026.10.7. Package/checksum changes require reassessment;
 there are no wildcard versions or blanket image exclusions.
 
-These exceptions explain scanner applicability only. They do not replace the
-connector's network isolation, least-privilege processes, API defenses, or real
-account/route validation.
+## APT retry mitigation
+
+The final LAN-setup build also detected **CVE-2026-109518**, published on
+2026-11-04. [Ubuntu's advisory](https://ubuntu.com/security/CVE-2026-109518)
+reports Jammy APT as vulnerable and states that exploitation requires non-zero
+`Acquire::Retries`. There was no fixed Jammy package listed at assessment time.
+
+The Dockerfile sets `Acquire::Retries "0"` before its first package operation and
+retains `/etc/apt/apt.conf.d/99phvalheim-no-retries` in the runtime image. This
+removes the required retry condition; it is a configuration mitigation, not a
+patched package or scanner false positive. Failed downloads now fail immediately
+instead of retrying within APT. A complete build can be retried by the operator.
+
+The build checks `apt-config shell retries Acquire::Retries` in the actual image
+before publishing or applying the exact apt 2.4.14/CVE assessment. A missing or
+changed value fails the build. Overriding this setting invalidates the assessment;
+reassess and replace the workaround when Ubuntu publishes the fixed package.
+Raw findings remain visible in the saved report; the critical/high gate is not
+relaxed.
+
+These assessments explain scanner applicability and the explicit APT mitigation only. They do not replace least-privilege processes, API defenses, deployment network
+controls, or real account/route validation.
