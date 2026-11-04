@@ -5,6 +5,11 @@ read [CONTRIBUTING.md](../CONTRIBUTING.md), and link the issue in your PR. Imple
 is unassigned unless a contributor claims it in the issue. Maintainer review is Brian Miller.
 Acceptance criteria live in the linked issues so discussion and the review checklist stay together.
 
+Every contribution must [review this queue and dynamic/status content](../CONTRIBUTING.md#always-review-dynamic-pages-and-status-content)
+for needed changes and record the outcome in its PR. Issue closure does not update
+this file automatically. Keep implemented, merged, released, and deployed status
+distinct; do not mark work complete without its acceptance evidence.
+
 ## Scoped implementation and validation tasks
 
 | Task | Current state | Done means |

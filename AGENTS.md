@@ -8,6 +8,13 @@ Do not merge, enable auto-merge, push directly, or bypass protections without hi
 explicit authorization. Never submit an approval as Brian or impersonate his review.
 See [the approval procedure](CONTRIBUTING.md#brian-must-approve-every-merge).
 
+**Dynamic-page review is mandatory for every contribution**, including code-only and
+docs-only work. Review the landing page, portal guidance, download pages/fallbacks,
+backlog/status files, and related docs for needed changes. Update affected content;
+record reviewed paths and explain when no update is needed. Never assume automatic
+refresh keeps descriptions or status correct. Follow the
+[documentation/status review](CONTRIBUTING.md#always-review-dynamic-pages-and-status-content).
+
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first and follow it. It is short and complete.
 
 Then read [`CLAUDE.md`](CLAUDE.md) for the architecture, the data model and the list of dead

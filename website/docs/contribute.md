@@ -22,6 +22,9 @@ and CLAUDE.md before editing. Follow the linked references for the affected area
 
 Implement the task on a separate branch, using isolated test data. Run the
 applicable checks and prepare a pull request with evidence and limitations.
+Always review dynamic pages, landing/portal content, download fallbacks, backlog,
+and related docs for needed changes. Update affected content and list reviewed
+paths, updates, or specific reasons no changes are needed in the PR.
 Wait for Brian Miller's explicit approval before merging to main or master.
 Do not publish releases or deploy changes.
 
@@ -60,7 +63,7 @@ The workflow below is for changes to PhValheim itself.
    For behavior changes, add a meaningful regression test and show that it detects
    the original problem. Docs-only changes need link and changed-command checks,
    not a game installation or new runtime tests.
-6. **Prepare the PR.** Explain what changes for the user, link the issue, and report
+6. **Prepare the PR.** Complete the mandatory [dynamic-page and status review](#always-review-dynamic-pages-and-status-content) below. Explain what changes for the user, link the issue, and report
    the commands run and their results. Identify the tested commit and any related
    repository revisions. Use the repository's PR template.
 7. **Wait for Brian's approval.** Brian Miller (`@brianmiller`) must explicitly approve
@@ -70,6 +73,31 @@ The workflow below is for changes to PhValheim itself.
    auto-merge, push directly, or bypass protection without his explicit authorization.
    Never submit a review pretending to be Brian. Once Brian explicitly authorizes
    a merge, an agent may perform that merge on his behalf.
+
+## Always review dynamic pages and status content
+
+**Every contribution must include this review**, even code-only or docs-only changes.
+Always inspect the landing page, portal/admin guidance, download/install pages and
+fallback links, README/version references, contributor guides, backlog files, and
+related issue status for needed changes. Include affected content in other repositories.
+Reviewing these areas is required; editing content that is still accurate is not.
+
+Update affected content with the change. In the PR, list the pages/files reviewed,
+updates made, and specific reasons when no changes are needed. Identify linked
+cross-repository documentation PRs or follow-ups with an owner, and report any checks
+you could not perform. Do not use an unexplained "N/A" to skip the review.
+
+Check the source and rendered output when dynamic behavior changes. A website rebuild
+does not rewrite descriptions, a release API does not update static fallbacks, and
+closing an issue does not update a backlog file. Validate changed links, builds, and
+page behavior as appropriate; automated checks cannot establish that every description
+is accurate.
+
+Keep **implemented**, **merged**, **released**, and **deployed** status distinct.
+Never describe unreleased work as available or mark a backlog task complete without
+meeting its acceptance criteria. Keep published instructions accurate for released
+behavior, label future behavior clearly, and record release-time updates for Brian.
+This review does not authorize a release, deployment, version bump, or issue closure.
 
 ## Report what was actually tested
 
