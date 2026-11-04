@@ -31,9 +31,13 @@ with sync_playwright() as p:
         if route.request.method != 'GET':
             assert allow_publish, 'Provider navigation must not mutate configuration'
             body = route.request.post_data_json
-            assert body['action'] == 'connect' and body['publicAccess'] is True
+            assert body['action'] in ('connect', 'hostname')
             publish_requests.append(body)
-            state['config'].update(enabled=True, publicAccess=True)
+            if body['action'] == 'hostname':
+                state['config'].update(hostname=body['hostname'],url='')
+            else:
+                assert body['publicAccess'] is True
+                state['config'].update(enabled=True, publicAccess=True)
             state['enrolling'] = False
             reply(route)
             return
@@ -104,6 +108,29 @@ with sync_playwright() as p:
     expect(page.locator('#raConnection')).to_be_visible()
     assert len(publish_requests) == 1
     assert 'Private website' not in page.locator('#remoteAccessOverlay').inner_text()
+    # A saved, disconnected device exposes an editable name and one reconnect action.
+    state['config'].update(enabled=False, enrolled=True, hostname='old-world', url='https://old-world.example.ts.net')
+    state['enrolling']=False; state['observed'].update(state='Off',details={}); state['test']=None
+    load()
+    expect(page.locator('#raReconnect')).to_be_visible()
+    expect(page.locator('#raHostname')).to_be_enabled()
+    expect(page.locator('#raHostname')).to_have_value('old-world')
+    expect(page.locator('#raSetup')).not_to_be_visible()
+    page.locator('#raHostname').fill('new-world')
+    # Polling must preserve an unsaved edit.
+    page.wait_for_timeout(5500)
+    expect(page.locator('#raHostname')).to_have_value('new-world')
+    page.locator('#raReconnect').click()
+    expect(page.locator('#raHostnameFields')).not_to_be_visible()
+    assert [x['action'] for x in publish_requests[-2:]]==['hostname','connect']
+    assert publish_requests[-2]['hostname']=='new-world'
+    expect(page.locator('#raUrl')).to_be_empty()
+    expect(page.locator('#raProgress')).to_contain_text('publishing')
+    state['observed']['state']='Connected';state['config']['url']='https://new-world.example.ts.net'
+    state['test']={'state':'URL verified from this server','started':time.time(),'revision':1,'steps':{},'source':'This server'}
+    expect(page.locator('#raProgress')).to_contain_text('Website verified',timeout=10000)
+    expect(page.locator('#raTestSummary')).to_have_text('Website checks — all passed')
+    assert not page.locator('#raTestDetails').evaluate('(e)=>e.open')
     assert not errors, errors
     browser.close()
 print('PASS: provider isolation both directions, actionable HTTPS approval, reopen, automatic recovery, initial-status races, no navigation writes, zero JavaScript errors.')

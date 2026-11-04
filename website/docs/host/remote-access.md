@@ -126,7 +126,7 @@ in a browser while blocking the native PhValheim client's downloads; test both.
 Tailscale Funnel gives your player website a public HTTPS address. Players open
 it in a normal browser; they do not need a Tailscale account or app.
 
-1. Select **Tailscale**, then **Sign in to Tailscale**. Open the generated account
+1. Select **Tailscale**, choose a **Website name**, then **Sign in to Tailscale**. Open the generated account
    link and approve the server device if asked. An optional single-use auth key
    can be used instead. Signing in alone does not publish the website.
 2. Select **Publish website**. If an approval link appears, choose **Enable public
@@ -142,7 +142,27 @@ has provider bandwidth limits, so full archive downloads need testing for your
 worlds. See [Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel).
 
 The device identity survives container replacement. Disconnect stops access and
-keeps that identity. Earlier development builds used private Serve: upgrading
+keeps that identity. Use **Reconnect** to restore the public website in one action;
+there is no separate sign-in and publish sequence for an enrolled device. If its
+login has expired, the required approval link appears automatically.
+
+While disconnected, edit **Website name** and select **Reconnect** to save, apply
+and publish it, or **Save name** to leave access off. Enter a short name such as
+`my-valheim`, not a full URL. Renaming keeps the same device identity but changes
+the link players use. Tailscale supplies the domain and may add a numeric suffix
+if the name is taken; PhValheim displays the actual assigned URL. If a manually
+pinned name prevents an update, use the device's name controls in
+[Tailscale Machines](https://login.tailscale.com/admin/machines).
+
+Progress distinguishes restoring the device, applying its name, provider approval,
+publishing, and checking the public website. **Website checks** expands the test
+details; disconnect removes obsolete results. Public checks start after the
+connector is ready, so sign-in time is not mistaken for a failed connection.
+During the first two minutes, transient DNS/HTTPS startup failures retry
+automatically. Certificate mismatches and wrong-instance responses still fail
+immediately; Cancel test stops retries.
+
+Earlier development builds used private Serve: upgrading
 leaves those connections off until you sign in with the saved device and select
 **Publish website**. An upgrade alone never changes a private connection to public.
 Funnel publishes the player website only; it does not carry game UDP, expose the

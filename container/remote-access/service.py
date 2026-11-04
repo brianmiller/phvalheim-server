@@ -36,6 +36,10 @@ class UserError(Exception):
     pass
 
 
+class PendingPublicError(UserError):
+    pass
+
+
 def website(value):
     if not isinstance(value, str) or len(value) > 253:
         raise UserError('Enter the full HTTPS website URL.')
@@ -60,6 +64,12 @@ def website(value):
         if len(label) > 63 or label.startswith('-') or label.endswith('-'):
             raise UserError('This hostname is not valid.')
     return 'https://' + host.lower()
+
+
+def hostname(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?', value.strip()):
+        raise UserError('Use 1–63 letters, numbers or hyphens; start and end with a letter or number. Enter only the name, not a URL.')
+    return value.strip().lower()
 
 
 def public_ip(value):
@@ -153,6 +163,10 @@ class Controller:
         self.gateway = None
         self.auth_url = ''
         self.ts_state = ''
+        self.pending_test = bool(self.config.get('enabled'))
+        self.verify_until = 0
+        self.preparing = False
+        self.next_hostname = 0
         self.shutting_down = False
         # Private Serve from earlier development builds is not permission to
         # publish on upgrade. Keep the node identity; require the public action.
@@ -180,6 +194,8 @@ class Controller:
                     if self.test['state'] == 'Needs device test':
                         self.test['state'] = 'Browser reached website'
             c = copy.deepcopy(self.config)
+            c['hostname'] = self.config.get('hostname') or (urlsplit(self.config.get('url', '')).hostname or '').split('.')[0] or 'phvalheim-' + self.instance[:8]
+            c['enrolled'] = bool(self.config.get('enrolled') or (self.config.get('provider') == 'tailscale' and self.config.get('url')))
             c['tokenSaved'] = (STATE / 'cloudflare.token').exists()
             return {'success': True, 'available': True, 'config': c,
                     'observed': copy.deepcopy(self.observed), 'error': self.error,
@@ -205,6 +221,11 @@ class Controller:
         self.serving = False
         self.next_serve = 0
         self.enrolling = False
+        self.ts_state = ''
+        self.pending_test = False
+        self.verify_until = 0
+        self.preparing = False
+        self.test = None
         self.auth_url = ''
         self.stop_process(self.gateway)
         self.gateway = None
@@ -278,7 +299,8 @@ proxy_buffering off; proxy_read_timeout 120s; }
                 provider = request.get('provider')
                 if provider not in ('cloudflare', 'tailscale'):
                     raise UserError('Choose Cloudflare or Tailscale.')
-                url = website(request.get('url', '')) if provider == 'cloudflare' else ''
+                name = hostname(request.get('hostname', self.snapshot()['config']['hostname'])) if provider == 'tailscale' else ''
+                url = website(request.get('url', '')) if provider == 'cloudflare' else (self.config.get('url', '') if self.config['provider'] == provider and name == self.snapshot()['config']['hostname'] else '')
                 token = request.get('token', '')
                 if not isinstance(token, str) or len(token) > 4096:
                     raise UserError('Paste only the tunnel token.')
@@ -292,24 +314,49 @@ proxy_buffering off; proxy_read_timeout 120s; }
                         raise UserError('Paste the Cloudflare tunnel token.')
                 self.cancel.set()
                 self.test = None
-                self.config.update(provider=provider, url=url, publicAccess=False, revision=self.config['revision'] + 1)
+                self.config.update(provider=provider, url=url, hostname=name, publicAccess=False, revision=self.config['revision'] + 1)
                 self.persist()
                 self.error = ''
                 self.event('Connection settings saved; access remains off.')
+            elif action == 'hostname':
+                if self.config['provider'] != 'tailscale' or self.config['enabled'] or self.enrolling:
+                    raise UserError('Disconnect Tailscale before changing its hostname.')
+                name = hostname(request.get('hostname'))
+                if name != self.snapshot()['config']['hostname']:
+                    self.cancel.set()
+                    self.test = None
+                    (LINK / 'challenge.json').unlink(missing_ok=True)
+                    self.config.update(enrolled=self.snapshot()['config']['enrolled'], hostname=name, url='', revision=self.config['revision'] + 1)
+                    self.persist()
+                elif self.config.get('hostname') != name:
+                    self.config['hostname'] = name
+                    self.persist()
+                self.error = ''
+                self.event('Hostname saved. Reconnect to apply it; the public URL may change.')
             elif action == 'connect':
                 if not self.config['provider']:
                     raise UserError('Save the connection settings first.')
                 if self.config['provider'] == 'tailscale' and request.get('publicAccess') is not True:
                     raise UserError('Choose Publish website to make this Tailscale URL public.')
-                if self.config['provider'] == 'tailscale' and self.ts_state != 'Running':
-                    raise UserError('Sign in to Tailscale and approve the device first.')
+                if self.config['enabled']:
+                    return self.snapshot()
                 self.config['enabled'] = True
                 self.config['publicAccess'] = True
+                self.config['revision'] += 1
                 self.persist()
                 self.error = ''
                 self.start()
-                self.event('Connection requested.')
-                self.begin_test()
+                self.event('Connection requested; saved device identity will be reused.')
+                self.cancel.set()
+                self.test = None
+                self.pending_test = self.config['provider'] == 'tailscale'
+                self.verify_until = 0
+                if self.config['provider'] == 'cloudflare':
+                    self.begin_test()
+                if self.config['provider'] == 'tailscale' and not (self.login and self.login.poll() is None):
+                    self.enrolling = True
+                    self.preparing = True
+                    threading.Thread(target=self.enroll, args=(False, self.config['revision']), daemon=True).start()
             elif action == 'enroll':
                 if self.config['provider'] != 'tailscale' or self.config['enabled']:
                     raise UserError('Save Tailscale settings with access off before signing in.')
@@ -322,9 +369,10 @@ proxy_buffering off; proxy_read_timeout 120s; }
                     atomic(STATE / 'enrollment.key', key)
                     os.chown(STATE / 'enrollment.key', 1001, 1001)
                 self.enrolling = True
+                self.preparing = True
                 self.start()
                 self.error = ''
-                threading.Thread(target=self.enroll, args=(bool(key),), daemon=True).start()
+                threading.Thread(target=self.enroll, args=(bool(key), self.config['revision']), daemon=True).start()
                 self.event('Tailscale sign-in requested; public website is still off.')
             elif action in ('disconnect', 'forget'):
                 self.stop()
@@ -347,7 +395,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
                     result = run(['/usr/bin/python3', '-c', 'import shutil; from pathlib import Path; base=Path("/opt/stateful/remote-access/tailscale"); [(shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()) for p in base.iterdir()]'])
                     if result.returncode != 0:
                         raise UserError('Connection stopped, but device state could not be removed. Check private storage permissions and retry Forget.')
-                    self.config.update(provider='', url='')
+                    self.config.update(provider='', url='', hostname='', enrolled=False, publicAccess=False)
                     self.ts_state = ''
                     self.test = None
                 self.persist()
@@ -355,6 +403,8 @@ proxy_buffering off; proxy_read_timeout 120s; }
             elif action == 'test':
                 self.begin_test()
             elif action == 'cancelTest':
+                self.pending_test = False
+                self.verify_until = 0
                 self.cancel.set()
                 if self.test:
                     self.test['state'] = 'Cancelled'
@@ -363,20 +413,20 @@ proxy_buffering off; proxy_read_timeout 120s; }
                 raise UserError('Unknown Remote Access action.')
             return self.snapshot()
 
-    def enroll(self, key):
+    def enroll(self, key, generation=None):
         try:
             for _ in range(30):
-                if not self.enrolling:
+                if not self.enrolling or (generation is not None and generation != self.config['revision']):
                     return
                 status = run(TS + ['status', '--json'], 2).stdout
                 if status:
                     break
                 time.sleep(.2)
             with self.lock:
-                if not self.enrolling:
+                if not self.enrolling or (generation is not None and generation != self.config['revision']):
                     return
                 args = TS + ['up', '--accept-dns=false', '--accept-routes=false', '--ssh=false',
-                             '--hostname=phvalheim-' + self.instance[:8], '--timeout=5m']
+                             '--hostname=' + self.snapshot()['config']['hostname'], '--timeout=5m']
                 if key:
                     args += ['--auth-key=file:' + str(STATE / 'enrollment.key')]
                 # A fresh daemon has no netMap and cannot reset Serve until signed in.
@@ -387,8 +437,17 @@ proxy_buffering off; proxy_read_timeout 120s; }
                 self.login = self.spawn(args)
         except (OSError, ValueError, subprocess.SubprocessError):
             with self.lock:
+                if generation is not None and generation != self.config['revision']:
+                    return
                 self.error = 'Could not start Tailscale sign-in. Retry or inspect the Remote Access service.'
                 self.enrolling = False
+                if self.config['enabled']:
+                    self.config['enabled'] = False
+                    self.persist()
+        finally:
+            with self.lock:
+                if generation is None or generation == self.config['revision']:
+                    self.preparing = False
 
     def observe(self):
         details = {'startedAt': self.last_start, 'reconnects': max(0, self.restarts - 1), 'origin': ORIGIN}
@@ -416,8 +475,27 @@ proxy_buffering off; proxy_read_timeout 120s; }
             details.update(device=node.get('HostName', ''), addresses=node.get('TailscaleIPs', []),
                            identityExpires=node.get('KeyExpiry'), version='1.104.5', backend=self.ts_state)
             if self.ts_state == 'Running':
+                if not self.config.get('enrolled'):
+                    self.config['enrolled'] = True
+                    self.persist()
+                if self.preparing:
+                    self.observed = {'state':'Restoring saved device', 'time':time.time(), 'details':details}
+                    return
+                if self.config['enabled'] and (self.login is None or self.login.poll() is not None):
+                    self.enrolling = False
                 if not self.config['enabled']:
                     self.auth_url = ''
+                desired = self.config.get('hostname')
+                if desired and (node.get('HostName') != desired or not re.fullmatch(re.escape(desired) + r'(-[0-9]+)?', host.split('.')[0])):
+                    if time.time() >= self.next_hostname:
+                        self.next_hostname = time.time() + 10
+                        if run(TS + ['set', '--hostname=' + desired], 3).returncode != 0:
+                            raise UserError('Could not apply the hostname. Disconnect, check the name, and reconnect.')
+                    self.observed = {'state':'Updating hostname', 'time':time.time(), 'details':details}
+                    self.error = 'Waiting for Tailscale to assign the hostname. If it stays unchanged, check the device name and automatic naming in Tailscale Machines.'
+                    return
+                if self.error.startswith('Waiting for Tailscale to assign'):
+                    self.error = ''
                 (STATE / 'enrollment.key').unlink(missing_ok=True)
                 if host.endswith('.ts.net'):
                     url = website('https://' + host)
@@ -468,6 +546,11 @@ proxy_buffering off; proxy_read_timeout 120s; }
         if self.config['enabled'] and self.gateway and self.gateway.poll() is not None:
             state = 'Website gateway stopped'
         self.observed = {'state': state, 'time': time.time(), 'details': details}
+        if state == 'Connected' and self.pending_test and time.time() - self.last_test >= 10:
+            self.pending_test = False
+            if not self.verify_until:
+                self.verify_until = time.time() + 120
+            self.begin_test()
 
     def monitor(self):
         while not self.shutting_down:
@@ -555,7 +638,7 @@ proxy_buffering off; proxy_read_timeout 120s; }
             try:
                 answers = {x[4][0] for x in socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)}
             except socket.gaierror:
-                raise UserError('Public DNS is not ready. For a new Tailscale Funnel, DNS can take up to 10 minutes; retry Test connection.')
+                raise PendingPublicError('Public DNS is not ready. For a new Tailscale Funnel, DNS can take up to 10 minutes; retry Test connection.')
             if not answers or not all(public_ip(a) for a in answers):
                 raise UserError('Public DNS is not ready or returned a private address. For a new Tailscale Funnel, DNS can take up to 10 minutes; retry Test connection.')
             self.step(test, current, 'Passed', 'Public DNS answers found; destination pinned for this test.')
@@ -597,7 +680,14 @@ proxy_buffering off; proxy_read_timeout 120s; }
             self.step(test, current, 'Failed', message)
             with self.lock:
                 if self.test is test:
-                    test['state'] = 'Check failed'
+                    retryable = isinstance(e, PendingPublicError) or (current == 'tls' and isinstance(e, OSError) and not isinstance(e, ssl.SSLCertVerificationError))
+                    if (self.config['provider'] == 'tailscale' and self.config['enabled'] and not cancelled.is_set()
+                            and retryable and time.time() < self.verify_until):
+                        self.pending_test = True
+                        test['state'] = 'Retrying public website'
+                        test['steps'][current].update(state='Retrying', message='Tailscale is preparing public DNS/HTTPS. Retrying automatically for up to two minutes.')
+                    else:
+                        test['state'] = 'Check failed'
         finally:
             with self.lock:
                 if self.test is test:

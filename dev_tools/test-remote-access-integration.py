@@ -141,6 +141,9 @@ for path in ['/remoteAccessAPI.php','/supervisor/','/stateful/remote-access/conf
     ck(s['config']['tokenSaved'] and not s['config']['enabled'],'restart retains configuration and off state')
     # Real Tailscale daemon and sign-in handshake, without authorizing an account.
     action('save',provider='tailscale')
+    action('hostname',hostname='Fixture-Web')
+    ck(status()['config']['hostname']=='fixture-web' and not status()['config']['enabled'], 'offline hostname saved without publishing')
+    ck(http(payload={'action':'hostname','hostname':'https://bad.example'})[0]==400, 'hostname URL injection rejected')
     action('enroll')
     s=wait(lambda: (d if (d:=status()).get('authUrl') else None),45)
     ck(s['authUrl'].startswith('https://login.tailscale.') and not s['config']['enabled'],'real Tailscale sign-in link appears while website stays off')
@@ -162,6 +165,15 @@ for p in Path('/proc').glob('[0-9]*'):
     ck(old_pids and not s['config']['enabled'],'controller crash stops old provider processes and restarts safely Off')
     action('disconnect'); action('forget')
     ck(not status()['config']['tokenSaved'] and status()['config']['provider']=='','forget removes local credentials')
+    action('save',provider='tailscale',hostname='reconnect-fixture')
+    action('connect',publicAccess=True)
+    s=wait(lambda: (d if (d:=status()).get('authUrl') else None),45)
+    ck(s['config']['enabled'] and s['authUrl'].startswith('https://login.tailscale.'), 'one connect action starts daemon and supplies required sign-in')
+    ck(http(payload={'action':'hostname','hostname':'changed'})[0]==400, 'active connection rejects rename')
+    action('disconnect')
+    s=status()
+    ck(s['config']['hostname']=='reconnect-fixture' and not s['config']['enabled'] and s['test'] is None, 'disconnect retains name and removes obsolete checks')
+    action('forget')
     # Recreate a main container with its original data volume and the telemetry block. This catches
     # accidental reliance on the old sidecar, shared socket mount, or writable layer.
     action('save',provider='cloudflare',url='https://persist.example.net',token='B'*120)

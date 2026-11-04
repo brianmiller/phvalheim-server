@@ -200,11 +200,71 @@ class Lifecycle(unittest.TestCase):
         self.c.ts_state = 'Running'
         with self.assertRaises(remote.UserError): self.c.action({'action':'connect'})
         self.assertFalse(self.c.config['enabled'])
-        with patch.object(self.c, 'start'), patch.object(self.c, 'begin_test'):
+        with patch.object(self.c, 'start'), patch.object(self.c, 'begin_test'), patch.object(remote.threading.Thread, 'start'):
             self.c.action({'action':'connect','publicAccess':True})
         restarted = remote.Controller()
         self.assertTrue(restarted.config['enabled'])
         self.assertTrue(restarted.config['publicAccess'])
+
+    def test_reconnect_restores_identity_without_an_extra_enroll_action(self):
+        self.c.config.update(provider='tailscale', enabled=False, enrolled=True, hostname='my-world', publicAccess=True)
+        self.c.ts_state = ''
+        identity = self.c.instance
+        with patch.object(self.c, 'start') as start, patch.object(remote.threading.Thread, 'start') as worker:
+            result = self.c.action({'action':'connect','publicAccess':True})
+        start.assert_called_once(); worker.assert_called_once()
+        self.assertTrue(result['config']['enabled'])
+        self.assertTrue(self.c.pending_test)
+        self.assertIsNone(result['test'])
+        self.assertEqual(self.c.instance, identity)
+        self.c.action({'action':'disconnect'})
+        self.assertTrue(self.c.config['enrolled'])
+        self.assertEqual(self.c.config['hostname'], 'my-world')
+        self.assertFalse(self.c.pending_test)
+
+    def test_rename_offline_preserves_identity_and_invalidates_old_url(self):
+        self.c.config.update(provider='tailscale', enabled=False, url='https://old.example.ts.net')
+        identity = self.c.instance
+        result = self.c.action({'action':'hostname','hostname':'New-World'})
+        self.assertEqual(result['config']['hostname'], 'new-world')
+        self.assertEqual(result['config']['url'], '')
+        self.assertTrue(result['config']['enrolled'])
+        self.assertFalse(result['config']['enabled'])
+        self.assertEqual(remote.Controller().config['hostname'], 'new-world')
+        self.assertEqual(self.c.instance, identity)
+        for name in ['', '-bad', 'bad-', 'https://example.net', 'two.words', 'a'*64, 'x;id', None]:
+            with self.subTest(name=name), self.assertRaises(remote.UserError):
+                self.c.action({'action':'hostname','hostname':name})
+        self.c.config['enabled'] = True
+        with self.assertRaises(remote.UserError): self.c.action({'action':'hostname','hostname':'other'})
+
+    def test_rename_waits_for_provider_assigned_url_before_publishing(self):
+        self.c.config.update(provider='tailscale', enabled=True, publicAccess=True, hostname='new-world', url='')
+        status = {'BackendState':'Running', 'Self':{'HostName':'old', 'DNSName':'old.example.ts.net'}}
+        calls=[]
+        def command(args, timeout):
+            calls.append(args)
+            result = status if args[len(remote.TS)] == 'status' else {'TCP':{'443':{'HTTPS':True}}, 'Web':{'new-world-1.example.ts.net:443':{'Handlers':{'/':{'Proxy':remote.ORIGIN}}}}, 'AllowFunnel':{'new-world-1.example.ts.net:443':True}}
+            return remote.subprocess.CompletedProcess(args,0,json.dumps(result),'')
+        with patch.object(remote,'run',side_effect=command), patch.object(self.c,'gateway_start'):
+            self.c.observe()
+            self.assertEqual(self.c.observed['state'],'Updating hostname')
+            self.assertEqual(self.c.config['url'],'')
+            self.assertIn(remote.TS+['set','--hostname=new-world'],calls)
+            self.assertFalse(any('funnel' in c for c in calls))
+            status['Self'].update(HostName='new-world',DNSName='new-world-1.example.ts.net')
+            self.c.pending_test=True
+            with patch.object(self.c,'begin_test') as test:
+                self.c.observe(); test.assert_called_once()
+            self.assertEqual(self.c.observed['state'],'Connected')
+            self.assertEqual(self.c.config['url'],'https://new-world-1.example.ts.net')
+
+    def test_cancelled_enrollment_cannot_mutate_new_connection(self):
+        self.c.enrolling=True
+        self.c.config['revision']=5
+        with patch.object(remote,'run') as run, patch.object(self.c,'spawn') as spawn:
+            self.c.enroll(False,4)
+        run.assert_not_called(); spawn.assert_not_called()
 
     def test_private_serve_config_cannot_report_public_connection(self):
         self.c.config.update(provider='tailscale', enabled=True, publicAccess=True)
@@ -268,6 +328,7 @@ class Lifecycle(unittest.TestCase):
             if mode == 'truncated': value['payload'] = 'short'
             return b'<html>Access login</html>' if mode == 'access_page' else json.dumps(value).encode()
         public.getresponse.return_value.read.side_effect = body
+        if mode == 'timeout': public.connect.side_effect = TimeoutError('starting')
         if mode == 'tls': public.connect.side_effect = remote.ssl.SSLCertVerificationError('mismatch')
         ip = '127.0.0.1' if mode == 'private_dns' else '1.1.1.1'
         with patch.object(remote,'UnixHTTP',return_value=local), patch.object(remote,'PinnedHTTPS',return_value=public) as https, patch.object(remote.socket,'getaddrinfo',return_value=[(2,1,6,'',(ip,443))]):
@@ -287,6 +348,21 @@ class Lifecycle(unittest.TestCase):
         for mode in ['private_dns','wrong_instance','tls']:
             with self.subTest(mode=mode):
                 self.assertEqual(self.diagnostic(mode, provider='tailscale')['state'], 'Check failed')
+
+    def test_public_startup_retry_is_bounded_and_never_masks_invalid_routes(self):
+        import time
+        self.c.verify_until=time.time()+120
+        test=self.diagnostic('timeout',provider='tailscale')
+        self.assertEqual(test['state'],'Retrying public website')
+        self.assertTrue(self.c.pending_test)
+        self.c.verify_until=time.time()-1
+        self.assertEqual(self.diagnostic('timeout',provider='tailscale')['state'],'Check failed')
+        self.c.verify_until=time.time()+120
+        for mode in ['tls','private_dns','wrong_instance']:
+            self.assertEqual(self.diagnostic(mode,provider='tailscale')['state'],'Check failed')
+        self.c.action({'action':'cancelTest'})
+        self.assertFalse(self.c.pending_test)
+        self.assertEqual(self.c.verify_until,0)
 
     def test_diagnostic_refuses_false_success(self):
         for mode, step in [('wrong_instance','route'),('cached','route'),('access_page','route'),('redirect','route'),('truncated','transfer'),('tls','tls'),('private_dns','dns')]:

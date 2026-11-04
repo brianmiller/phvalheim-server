@@ -421,3 +421,26 @@ basis and pending restart. It excludes passwords and API keys. Its fixed local
 website probe never follows a user-supplied URL. It cannot inspect Docker-host
 port mappings, router rules, or external UDP reachability. These remain explicit
 operator steps, with an actual outside-network game join required for validation.
+
+### Saved Tailscale connection lifecycle
+
+Disconnect stops the public route and clears obsolete test results while retaining
+the device identity and requested hostname. Reconnect starts the existing device,
+requests sign-in only when required, applies the hostname, publishes Funnel, then
+starts public checks after provider readiness. Enrollment workers carry a
+configuration revision so a cancelled attempt cannot alter a later connection.
+
+Website name is editable while disconnected. Save name persists it without
+publishing; Reconnect also saves unsaved name edits. Names are bounded DNS labels,
+passed as CLI arguments, never shell text. An edit invalidates the former URL and
+challenge. The controller waits for Tailscale's actual assigned name (including
+a collision suffix); it does not invent a successful URL. A pinned account-side
+name is reported as waiting with instructions to check Tailscale Machines.
+
+The status view offers Reconnect directly and shows lifecycle progress. Detailed
+website checks collapse beneath their outcome; explicit Test connection opens
+them. Polling preserves unsaved name edits.
+
+After provider readiness, transient DNS and TLS transport startup failures retry
+within a two-minute window. Cancellation clears the pending retry; certificate
+validation, private DNS and wrong-instance failures are never treated as startup.

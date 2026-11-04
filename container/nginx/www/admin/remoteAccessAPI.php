@@ -39,7 +39,7 @@ if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 16384) remoteFail(413, 'Request is 
 if (strtolower(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0]) !== 'application/json') remoteFail(415, 'JSON required.');
 $input = json_decode(file_get_contents('php://input', false, null, 0, 16385), true);
 if (!is_array($input)) remoteFail(400, 'Invalid request.');
-$actions = ['save', 'connect', 'enroll', 'disconnect', 'forget', 'test', 'cancelTest'];
+$actions = ['save', 'hostname', 'connect', 'enroll', 'disconnect', 'forget', 'test', 'cancelTest'];
 if (!in_array($input['action'] ?? '', $actions, true)) remoteFail(400, 'Unknown action.');
 $result = phvRemoteControl($input);
 if (empty($result['available']) && ($result['success'] ?? false)) remoteFail(503, 'The built-in Remote Access service is stopped or starting. Wait a moment, then retry. If it persists, check Server Health.');

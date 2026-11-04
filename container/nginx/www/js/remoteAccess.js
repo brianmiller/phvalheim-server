@@ -53,6 +53,7 @@
                 <div id="raProviderFlow" hidden>
                   <div id="raSwitchNotice" class="ra-note" hidden><p id="raSwitchText"></p><button id="raViewActive"></button></div>
                   <input id="raProvider" type="hidden" value="cloudflare">
+                  <div id="raHostnameFields" hidden><label for="raHostname">Website name</label><input id="raHostname" type="text" maxlength="63" autocomplete="off" placeholder="my-valheim"><p class="ra-muted" id="raHostnameHelp">Letters, numbers and hyphens. Tailscale supplies the rest of the address.</p><button id="raSaveHostname">Save name</button></div>
                   <div id="raPrepare"><div id="raInstructions"></div><button id="raNext" class="ra-primary">I have my token →</button></div>
                   <div id="raSetup" hidden>
                     <div id="raCloudFields"><label for="raUrlInput">Website URL</label><input id="raUrlInput" type="url" placeholder="https://play.example.net" autocomplete="off" maxlength="253">
@@ -65,9 +66,9 @@
                     <div class="ra-actions"><button id="raEditInstructions">← Setup instructions</button><button id="raConnect">Connect and test</button></div>
                     <details id="raSaveOptions"><summary>Save for later</summary><button id="raSave">Save without connecting</button></details>
                   </div>
-                  <div id="raConnection" hidden><div class="ra-status" id="raSummary" aria-live="polite">Loading connection status…</div><div id="raApproval"></div><div id="raUrl"></div>
-                    <div class="ra-actions"><button id="raTest">Test connection</button><button id="raCancel">Cancel test</button><button id="raDisconnect">Disconnect</button><button id="raEdit">Edit settings</button></div>
-                    <div id="raChecks"></div><div id="raDevice"></div>
+                  <div id="raConnection" hidden><div class="ra-status" id="raSummary" aria-live="polite">Loading connection status…</div><p id="raProgress" role="status" aria-live="polite"></p><div id="raApproval"></div><div id="raUrl"></div>
+                    <div class="ra-actions"><button id="raReconnect" class="ra-primary">Reconnect</button><button id="raTest">Test connection</button><button id="raCancel">Cancel test</button><button id="raDisconnect">Disconnect</button><button id="raEdit">Edit settings</button></div>
+                    <details id="raTestDetails"><summary id="raTestSummary">Website checks</summary><div id="raChecks"></div><div id="raDevice"></div></details>
                     <details><summary>Connection details &amp; activity</summary><p id="raLastChecked"></p><p id="raTestSource"></p><dl id="raDetails"></dl><ul id="raEvents"></ul></details>
                     <details><summary>Remove saved connection</summary><p>Forget removes local credentials. Remove unused tunnels, DNS records, or devices in your provider account separately.</p><button id="raForget">Disconnect and forget</button></details>
                   </div>
@@ -96,7 +97,7 @@
                 else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
             }
         });
-        ['raUrlInput','raToken','raAuthKey'].forEach(id => $(id).addEventListener('input', () => { dirty = true; }));
+        ['raUrlInput','raToken','raAuthKey','raHostname'].forEach(id => $(id).addEventListener('input', () => { dirty = true; buttons(); }));
         overlay.querySelectorAll('[data-choice]').forEach(button => button.onclick = () => choose(button.dataset.choice));
         $('raWebsiteTab').onclick = () => selectTab('website');
         $('raGamesTab').onclick = () => selectTab('games');
@@ -115,18 +116,26 @@
         $('raRefreshGames').onclick = () => loadNetwork(true);
         $('raWorld').onchange = renderNetwork;
         $('raSave').onclick = () => perform(async () => { await save(); step = 3; layout(); message('Settings saved. Access is off.'); });
-        $('raConnect').onclick = () => perform(async () => {
-            if (!data?.config?.enabled && ($('raProvider').value === 'cloudflare' || dirty || data?.config?.provider !== $('raProvider').value)) await save();
-            await request('connect', {publicAccess:true}); dirty = false; step = 3; layout(); message('Connection requested. Live checks are running.');
-        });
+        const publish = () => perform(async () => {
+            if (choice === 'tailscale' && data?.config?.provider === 'tailscale') {
+                if (dirty) { await request('hostname', {hostname:$('raHostname').value.trim()}); dirty = false; }
+            } else if (!data?.config?.enabled) await save();
+            await request('connect', {publicAccess:true}); dirty = false; step = 3; layout(); message('');
+        }, 'Connecting and publishing your website…');
+        $('raConnect').onclick = publish;
+        $('raReconnect').onclick = publish;
+        $('raSaveHostname').onclick = () => perform(async () => {
+            await request('hostname', {hostname:$('raHostname').value.trim()}); dirty = false; render();
+            message('Name saved. Reconnect to apply it and publish the new address.');
+        }, 'Saving website name…');
         $('raSignIn').onclick = () => perform(async () => {
             if (data?.config?.provider !== 'tailscale' || dirty) await save();
             await request('enroll', {authKey:$('raAuthKey').value.trim()}); $('raAuthKey').value = '';
             message('Waiting for the Tailscale sign-in link. Website access is still off.');
         });
-        $('raTest').onclick = () => perform(() => request('test'));
-        $('raCancel').onclick = () => perform(() => request('cancelTest'));
-        $('raDisconnect').onclick = () => perform(() => request('disconnect'));
+        $('raTest').onclick = () => perform(async () => { await request('test'); $('raTestDetails').open = true; }, 'Starting website checks…');
+        $('raCancel').onclick = () => perform(() => request('cancelTest'), 'Cancelling website checks…');
+        $('raDisconnect').onclick = () => perform(async () => { await request('disconnect'); step = 3; dirty = false; render(); message('Website disconnected. Your sign-in and settings are saved.'); }, 'Disconnecting the public website…');
         $('raForget').onclick = () => {
             if (confirm('Disconnect and delete local credentials? You may also need to remove the tunnel or device in your provider account.')) {
                 perform(async () => { await request('forget'); dirty = false; choice = ''; step = 1; initialized = true; $('raToken').value = ''; $('raAuthKey').value = ''; $('raUrlInput').value = ''; render(); });
@@ -139,7 +148,7 @@
     function leaveForm() {
         if (dirty && !confirm('Discard unsaved connection changes?')) return false;
         dirty = false; $('raToken').value = ''; $('raAuthKey').value = '';
-        $('raUrlInput').value = data?.config?.url || ''; message(''); return true;
+        $('raUrlInput').value = data?.config?.url || ''; $('raHostname').value = data?.config?.hostname || ''; message(''); return true;
     }
     function selectTab(value) {
         tab = value; layout();
@@ -221,7 +230,7 @@
         if ($('raCopyPorts')) $('raCopyPorts').onclick = () => copy(`UDP ${w.port}-${w.queryPort}: router external ports → server LAN IP, same host ports → container ports ${w.port}-${w.queryPort}. Allow both through the host firewall.`);
     }
     async function save() {
-        await request('save', {provider:$('raProvider').value, url:$('raUrlInput').value.trim(), token:$('raToken').value.trim()});
+        await request('save', {provider:$('raProvider').value, url:$('raUrlInput').value.trim(), token:$('raToken').value.trim(), hostname:$('raHostname').value.trim() || data?.config?.hostname});
         $('raToken').value = ''; dirty = false;
     }
     async function request(action, fields={}) {
@@ -232,11 +241,11 @@
         if (!response.ok || !next.success) throw new Error(next.error || 'Connection operation failed.');
         transportError = ''; data = next; lastReply = Date.now(); render(); return next;
     }
-    async function perform(fn) {
+    async function perform(fn, progress='Saving connection settings…') {
         if (busy) return;
         if (!data?.available || !csrf) { message('Waiting for the built-in Remote Access service. Retry when live status returns.', true); return; }
         busy = true; buttons();
-        try { message('Working…'); await fn(); if ($('raMessage').textContent === 'Working…') message('Action completed. Current connection status is shown below.'); }
+        try { message(progress); await fn(); if ($('raMessage').textContent === progress) message(''); }
         catch (e) { message(e.message || 'Connection operation failed. Retry.', true); }
         finally { busy = false; buttons(); }
     }
@@ -244,7 +253,7 @@
         ['raBack','raNext','raEdit','raEditInstructions'].forEach(id => $(id).disabled = busy);
         overlay.querySelectorAll('[data-choice]').forEach(button => button.disabled = busy);
         const available = data?.available && !!csrf && !transportError, enabled = data?.config?.enabled, enrolling = data?.enrolling;
-        ['raSave','raConnect','raSignIn','raForget'].forEach(id => $(id).disabled = busy || !available);
+        ['raSave','raConnect','raSignIn','raForget','raReconnect','raSaveHostname'].forEach(id => $(id).disabled = busy || !available);
         $('raSave').disabled ||= enabled || enrolling;
         $('raSignIn').disabled ||= enabled;
         $('raConnect').textContent = choice === 'tailscale' ? 'Publish website' : 'Connect and test';
@@ -252,10 +261,16 @@
         $('raTailReady').hidden = data?.observed?.details?.backend !== 'Running';
         $('raSignIn').hidden = !!data?.authUrl || data?.observed?.details?.backend === 'Running';
         $('raConnect').hidden = choice === 'tailscale' && data?.observed?.details?.backend !== 'Running';
-        $('raTest').hidden = !enabled || data?.test?.state === 'Running';
-        $('raCancel').hidden = data?.test?.state !== 'Running';
+        $('raTest').hidden = !enabled || ['Running','Retrying public website'].includes(data?.test?.state);
+        $('raCancel').hidden = !['Running','Retrying public website'].includes(data?.test?.state);
         $('raDisconnect').hidden = !enabled && !enrolling;
-        $('raEdit').hidden = enabled || enrolling;
+        $('raEdit').hidden = enabled || enrolling || choice === 'tailscale';
+        $('raReconnect').hidden = enabled || enrolling || choice !== 'tailscale' || data?.config?.provider !== 'tailscale';
+        $('raReconnect').textContent = data?.config?.enrolled ? 'Reconnect' : 'Publish website';
+        $('raHostnameFields').hidden = choice !== 'tailscale' || enabled || enrolling;
+        $('raSaveHostname').hidden = data?.config?.provider !== 'tailscale' || !dirty;
+        $('raSaveHostname').disabled ||= !dirty;
+        $('raHostname').disabled = busy || !available || enabled || enrolling;
         const mismatch = (enabled || enrolling) && data?.config?.provider !== choice;
         $('raSwitchNotice').hidden = !mismatch || !choice || choice === 'direct';
         $('raViewActive').disabled = busy;
@@ -263,6 +278,7 @@
         $('raPrepare').hidden ||= mismatch;
         if (mismatch && choice && choice !== 'direct') {
             $('raConnection').hidden = true;
+            $('raHostnameFields').hidden = true;
             $('raStepLabel').textContent = '';
             const active = data.config.provider === 'tailscale' ? 'Tailscale' : 'Cloudflare';
             const selected = choice === 'tailscale' ? 'Tailscale' : 'Cloudflare';
@@ -274,8 +290,8 @@
             $('raConnection').hidden = false; $('raEdit').hidden = true;
         }
         ['raUrlInput','raToken','raAuthKey'].forEach(id => $(id).disabled = busy || !available || enabled || enrolling);
-        $('raTest').disabled = busy || !available || !enabled || data?.test?.state === 'Running';
-        $('raCancel').disabled = busy || !available || data?.test?.state !== 'Running';
+        $('raTest').disabled = busy || !available || !enabled || ['Running','Retrying public website'].includes(data?.test?.state);
+        $('raCancel').disabled = busy || !available || !['Running','Retrying public website'].includes(data?.test?.state);
         $('raDisconnect').disabled = busy || !available || (!enabled && !enrolling);
     }
     function render() {
@@ -303,7 +319,13 @@
                 statusMessage = '';
             }
         }
+        if (!dirty) $('raHostname').value = data.config?.hostname || '';
         const sameProvider = choice === data.config?.provider;
+        const active = sameProvider && data.config?.enabled;
+        const state = observed.state || '';
+        const verified = data.test?.state === 'URL verified from this server' && data.test.revision === data.config?.revision && Date.now()/1000 - data.test.started <= 300;
+        $('raProgress').textContent = !sameProvider ? '' : stale ? 'Waiting for live status. Displayed connection information may be out of date.' : !active && !data.enrolling ? data.config?.enrolled ? 'Website is offline. Your saved device will be reused when you reconnect.' : 'Website is offline. Publish when you are ready to connect.' : data.authUrl ? 'Action needed: complete the Tailscale approval below. This page updates automatically.' : state === 'Updating hostname' ? 'Applying your website name. Waiting for Tailscale to return the assigned address…' : state === 'Connected' ? verified ? 'Website verified. Share the link with your players.' : data.test?.state === 'Retrying public website' ? 'Public website starting. Retrying DNS and HTTPS checks automatically…' : data.test?.state === 'Running' ? 'Published. Checking the public website…' : data.test?.state === 'Check failed' ? 'Published, but a website check failed. Open Website checks for the reason and retry.' : data.test?.state === 'Cancelled' ? 'Website is published. Checks cancelled; select Test connection to run them again.' : data.test ? 'Website is published. Run Test connection to refresh website checks.' : 'Published. Website checks will start automatically.' : data.enrolling && !active ? 'Waiting for sign-in. Your website is still offline.' : 'Restoring your saved device and publishing the website…';
+        $('raHostnameHelp').textContent = data.config?.enrolled ? 'Changes the public link after reconnecting. Your device and sign-in are kept.' : 'Letters, numbers and hyphens. Tailscale supplies the rest of the address.';
         const url = sameProvider ? data.config?.url : '';
         $('raUrl').innerHTML = url ? `<p><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(url)}</a> <button type="button" id="raCopyUrl">Copy URL</button>${data.config.enabled ? '' : ' — website is off'}</p>` : '';
         if ($('raCopyUrl')) $('raCopyUrl').onclick = () => copy(url);
@@ -314,6 +336,8 @@
         if ($('raCopyLogin')) $('raCopyLogin').onclick = () => copy(data.authUrl);
         const test = data.test, expired = test && (Date.now()/1000 - test.started > 300 || test.revision !== data.config?.revision);
         $('raTestSource').textContent = test ? `${expired ? 'Stale test — run it again' : test.state}. Test source: ${test.source}. ${new Date(test.started*1000).toLocaleString()}. Outside-network access is not independently verified.` : 'No test has been run. Connector health alone does not verify your website.';
+        $('raTestDetails').hidden = !test;
+        $('raTestSummary').textContent = ['Running','Retrying public website'].includes(test?.state) ? 'Checking website…' : test?.state === 'Check failed' ? 'Website checks — needs attention' : verified && !expired ? 'Website checks — all passed' : 'Website checks';
         $('raChecks').hidden = !test;
         $('raChecks').innerHTML = Object.entries(labels).map(([key,label]) => {
             const step = test?.steps?.[key] || {state:'Not tested',message:''};
@@ -340,7 +364,7 @@
         finally {
             inflight = false;
             if (tab === 'games' || choice === 'direct') loadNetwork();
-            if (overlay?.classList.contains('show')) timer = setTimeout(poll, data?.test?.state === 'Running' || data?.enrolling ? 2000 : 5000);
+            if (overlay?.classList.contains('show')) timer = setTimeout(poll, ['Running','Retrying public website'].includes(data?.test?.state) || data?.enrolling ? 2000 : 5000);
         }
     }
     function close() {
