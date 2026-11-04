@@ -1,0 +1,23 @@
+name: phvalheim-contributor
+services:
+  server:
+    image: phvalheim-contributor:local
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:${PHV_DEV_PUBLIC_PORT:-18080}:8080"
+      - "127.0.0.1:${PHV_DEV_ADMIN_PORT:-18081}:8081"
+      - "127.0.0.1:${PHV_DEV_GAME_START:-25100}-${PHV_DEV_GAME_END:-25109}:${PHV_DEV_GAME_START:-25100}-${PHV_DEV_GAME_END:-25109}/udp"
+    environment:
+      PHVALHEIM_GAME_PORT_START: "${PHV_DEV_GAME_START:-25100}"
+      PHVALHEIM_GAME_PORT_END: "${PHV_DEV_GAME_END:-25109}"
+    volumes:
+      - data:/opt/stateful
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:8081/setup.php"]
+      interval: 5s
+      timeout: 6s
+      retries: 60
+      start_period: 30s
+volumes:
+  data:

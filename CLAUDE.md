@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Contributing a change? Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first and follow it.** It is
+the short, complete procedure: set up, change, test, open a PR. Everything below is reference
+material for when you are inside the code.
+
 ## Project Overview
 
 PhValheim Server is a Docker-based Valheim game server manager that synchronizes server and client files to ensure all players have identical mod configurations. It runs multiple services (NGINX, PHP-FPM, MariaDB, Supervisor) in a single container.
@@ -70,8 +74,9 @@ docker create --name phvalheim \
 
 ```bash
 # In dev_tools/
-./buildImage.sh          # Build and push Docker image
-./deployLocal.sh         # Local deployment
+./run-oracles.sh --standalone   # The tests CI runs on every PR (--list shows the partition)
+./devUp.sh               # Recreate the local dev container (optional Steam-auth bypass)
+./buildRcDetached.sh     # The ONLY release build path — maintainer only, see Releasing below
 ./promoteRCtoLatest.sh   # Bare retag of :rc — NOT for releases, see Releasing below
 ./saveGit.sh             # Git operations
 ```
@@ -104,7 +109,7 @@ The four that cost the most, in short:
 
 ## Database Schema Updates
 
-To add a database field, create `/container/engine/dbUpdates/dbUpdate_X.X.sh` and update the version in the Dockerfile. The engine runs `dbUpdater.sh` on startup which applies pending migrations.
+To add a database field, create `/container/engine/dbUpdates/dbUpdate_X.X.sh` after coordinating the target version with the maintainer. The maintainer updates the Dockerfile when releasing. The engine runs `dbUpdater.sh` on startup which applies pending migrations.
 
 ## Key Code Paths
 

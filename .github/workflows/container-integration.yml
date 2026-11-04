@@ -1,0 +1,54 @@
+name: Disposable container integration
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'container/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'compose.dev.yaml'
+      - 'dev_tools/test-public-security-integration.py'
+      - 'dev_tools/test-game-port-integration.py'
+      - '.github/workflows/container-integration.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'container/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'compose.dev.yaml'
+      - 'dev_tools/test-public-security-integration.py'
+      - 'dev_tools/test-game-port-integration.py'
+      - '.github/workflows/container-integration.yml'
+permissions:
+  contents: read
+jobs:
+  integration:
+    name: Public security and game ports (real HTTP/DB)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the checkout without publishing
+        run: |
+          mkdir -p .integration-logs
+          docker compose -f compose.dev.yaml config --quiet
+          docker build -t phvalheim-contributor:local . 2>&1 | tee .integration-logs/build.log
+      - name: Verify public security
+        env:
+          PHV_SEC_TEST_IMAGE: phvalheim-contributor:local
+        run: python3 dev_tools/test-public-security-integration.py 2>&1 | tee .integration-logs/security.log
+      - name: Verify allocation, exhaustion and persistence
+        env:
+          PHV_PORT_TEST_IMAGE: phvalheim-contributor:local
+        run: python3 dev_tools/test-game-port-integration.py 2>&1 | tee .integration-logs/ports.log
+      - name: Retain evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-integration-logs
+          path: .integration-logs/
+          include-hidden-files: true
+      - name: State coverage limits
+        if: always()
+        run: echo 'These checks do not run Steam sign-in, live Valheim, Windows or macOS clients, or every engine test.' >> "$GITHUB_STEP_SUMMARY"

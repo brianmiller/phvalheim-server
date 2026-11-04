@@ -63,7 +63,7 @@ Keep `/opt/stateful` persistent and the admin UI private. The install guide incl
 
 **Need help?** [Ask on Discord](https://discord.gg/8RMMrJVQgy) or [report an issue](https://github.com/brianmiller/phvalheim-server/issues).
 
-[PhValheim Client](https://github.com/brianmiller/phvalheim-client) · [Companion](https://github.com/brianmiller/phvalheim-companion) · [Changelog](CHANGELOG.md) · [Contribute to the docs](website/README.md)
+[PhValheim Client](https://github.com/brianmiller/phvalheim-client) · [Companion](https://github.com/brianmiller/phvalheim-companion) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Contribute to the docs](website/README.md)
 
 ## License
 
