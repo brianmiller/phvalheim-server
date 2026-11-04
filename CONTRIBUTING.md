@@ -48,7 +48,7 @@ PhValheim spans these repositories. Pick the right one before you start.
 | The SDK, git, BepInEx references, decompiler, and publicizer packaged for Hugin's Vibes | [phvalheim-vibes-buildpak](https://github.com/brianmiller/phvalheim-vibes-buildpak) |
 
 Use the contributor guide in the repository you are changing; cross-repository changes must name the related PRs and tested revisions.
-The Build Pak currently uses its [README](https://github.com/brianmiller/phvalheim-vibes-buildpak/blob/main/README.md)
+Use the Build Pak's [contributor guide](https://github.com/brianmiller/phvalheim-vibes-buildpak/blob/main/CONTRIBUTING.md)
 for setup and validation. Follow the shared [contributor workflow](https://brianmiller.github.io/phvalheim-server/contribute/)
 and Brian's approval requirement there too. Vibes UI and server integration changes belong in this server repository.
 
