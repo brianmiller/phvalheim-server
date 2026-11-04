@@ -42,6 +42,12 @@ Pick mods, edit settings, and update. PhValheim handles dependencies and packagi
 
     [Make your first Vibe →](vibes/first-mod.md)
 
+-   **04 · I want to contribute**
+
+    Improve PhValheim with your coding agent. One guide covers the repositories, setup, tests, and review process.
+
+    [Contributor and LLM instructions →](contribute.md)
+
 </div>
 
 ## A server that brings the group together
@@ -63,5 +69,14 @@ Pick mods, edit settings, and update. PhValheim handles dependencies and packagi
 ## Already running PhValheim?
 
 [Upgrade safely](host/updating.md) · [Fix a problem](host/troubleshooting.md) · [Read the 2.61 release notes](https://github.com/brianmiller/phvalheim-server/releases/tag/v2.61)
+
+## Help build PhValheim
+
+Give your LLM coding agent the [contributor guide](contribute.md) and an issue or idea.
+It explains which repository to use, which instructions to read, how to test safely,
+and how to prepare a PR for Brian's approval. Documentation and testing contributions
+are welcome too.
+
+[Open the contributor guide](contribute.md){ .md-button }
 
 Need a hand? [Join Discord](https://discord.gg/8RMMrJVQgy) or [report an issue](https://github.com/brianmiller/phvalheim-server/issues).
