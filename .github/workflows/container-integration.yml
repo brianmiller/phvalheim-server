@@ -9,6 +9,10 @@ on:
       - 'compose.dev.yaml'
       - 'dev_tools/test-public-security-integration.py'
       - 'dev_tools/test-game-port-integration.py'
+      - 'dev_tools/fixture_analytics.py'
+      - 'dev_tools/fixture-analytics.sh'
+      - 'dev_tools/fixtures/analytics-disabled.sh'
+      - 'dev_tools/test-fixture-analytics*.py'
       - '.github/workflows/container-integration.yml'
   push:
     branches: [master]
@@ -19,6 +23,10 @@ on:
       - 'compose.dev.yaml'
       - 'dev_tools/test-public-security-integration.py'
       - 'dev_tools/test-game-port-integration.py'
+      - 'dev_tools/fixture_analytics.py'
+      - 'dev_tools/fixture-analytics.sh'
+      - 'dev_tools/fixtures/analytics-disabled.sh'
+      - 'dev_tools/test-fixture-analytics*.py'
       - '.github/workflows/container-integration.yml'
 permissions:
   contents: read
@@ -34,6 +42,10 @@ jobs:
           mkdir -p .integration-logs
           docker compose -f compose.dev.yaml config --quiet
           docker build -t phvalheim-contributor:local . 2>&1 | tee .integration-logs/build.log
+      - name: Verify analytics isolation before booting fixtures
+        env:
+          PHV_FIXTURE_TEST_IMAGE: phvalheim-contributor:local
+        run: python3 dev_tools/test-fixture-analytics-container.py 2>&1 | tee .integration-logs/analytics-isolation.log
       - name: Verify public security
         env:
           PHV_SEC_TEST_IMAGE: phvalheim-contributor:local
