@@ -29,8 +29,10 @@ analytics is enabled, the server enrolls automatically and keeps a private
 credential at `/opt/stateful/analytics/credential.json`. Preserve that file with
 your private server backups; do not copy it into a different installation.
 
-The existing 2.61 release does not include this transport. Older senders can report
-an Analytics failure because the receiver now requires enrollment credentials.
-This does not affect worlds or player connections. A version string by itself is
-not a credential. Server Health reports whether an upload was accepted; disabling
-analytics remains available in settings. Enrollment support will ship with 2.62.
+The existing 2.61 release does not include this transport. The receiver acknowledges
+and discards unauthenticated reports from versions through 2.61 so their daily
+check completes without an analytics health warning. A warning left by the security
+cutover clears after the next daily push. This acknowledgment does not mean the
+report was recorded; collection resumes with authenticated enrollment in 2.62.
+Worlds and player connections are unaffected, and analytics can still be disabled
+in settings. A version string by itself is not a credential.
