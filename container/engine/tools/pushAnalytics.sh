@@ -151,8 +151,7 @@ work_file=$(mktemp /tmp/phvalheim_analytics_work.XXXXXX)
 # subsequent push. mktemp per run, cleaned by the trap that already covers the other three.
 # Same class of bug as the mod-sync lock. (2.52)
 payload_file=$(mktemp /tmp/phvalheim_analytics_payload.XXXXXX)
-resp_file=$(mktemp /tmp/phvalheim_analytics_resp.XXXXXX)
-trap 'rm -f "$worlds_file" "$mods_file" "$work_file" "$payload_file" "$resp_file"' EXIT INT TERM
+trap 'rm -f "$worlds_file" "$mods_file" "$work_file" "$payload_file"' EXIT INT TERM
 echo "[]" > "$worlds_file"
 
 world_ids=$(SQL "SELECT id FROM worlds" 2>/dev/null)
@@ -283,44 +282,19 @@ fi
 # payload_file is mktemp'd above, with the rest of this run's scratch files.
 printf '%s' "$payload" > "$payload_file"
 
-# ── POST ──────────────────────────────────────────────────────────
-# Primary: public HTTPS endpoint (requires analytics.phvalheim.com DNS → this node)
-# Fallback: node-local HTTP via nginx proxy on port 80 (always works when co-deployed)
-primary_url="https://analytics.phvalheim.com/api/ingest"
-fallback_url="http://localhost/api/ingest"
-
-http_code=$(curl -s -o "$resp_file" -w "%{http_code}" \
-	-X POST \
-	-H "Content-Type: application/json" \
-	--data-binary "@${payload_file}" \
-	--max-time 30 \
-	--connect-timeout 10 \
-	"$primary_url" 2>/dev/null)
-
-# If HTTPS endpoint fails or returns non-200, try the local fallback
-response_body=$(cat "$resp_file" 2>/dev/null)
-if [ "$http_code" != "200" ] || ! echo "$response_body" | grep -q '"success":true'; then
-	http_code=$(curl -s -o "$resp_file" -w "%{http_code}" \
-		-X POST \
-		-H "Content-Type: application/json" \
-		--data-binary "@${payload_file}" \
-		--max-time 10 \
-		--connect-timeout 5 \
-		"$fallback_url" 2>/dev/null)
-	response_body=$(cat "$resp_file" 2>/dev/null)
+# Enrollment and uploads use HTTPS only. The helper stores a private installation
+# credential on the persistent volume; neither argv nor logs contain the token.
+http_code=$(python3 /opt/stateless/engine/tools/analyticsTransport.py "$payload_file")
+transport_status=$?
+[[ "$http_code" =~ ^[0-9]{3}$ ]] || http_code=000
+push_ok=false
+if [ "$transport_status" = "0" ] && [ "$http_code" = "200" ]; then
+    push_ok=true
+else
+    phvlog WARN "Analytics upload failed (HTTP $http_code); see Server Health"
 fi
-
-if [ "$http_code" != "200" ]; then
-	response_body=$(cat "$resp_file" 2>/dev/null)
-	phvlog WARN "Analytics push failed (HTTP ${http_code:-000}): ${response_body}"
-fi
-
-# Record the outcome for the admin dashboard's Server Health check (2.56). Written whether the
-# push worked or not: no record at all means "never ran", which is a different answer.
 record_file="/opt/stateful/cache/analyticsPush.json"
 mkdir -p "$(dirname "$record_file")" 2>/dev/null
-push_ok=false; [ "$http_code" = "200" ] && push_ok=true
-printf '{"at":%s,"http_code":"%s","ok":%s}\n' "$(date +%s)" "${http_code:-000}" "$push_ok" > "${record_file}.tmp" 2>/dev/null \
-	&& mv -f "${record_file}.tmp" "$record_file" 2>/dev/null
-
-# cleanup is the EXIT trap set at the top; both files are mktemp'd (2.52)
+printf '{"at":%s,"http_code":"%s","ok":%s}\n' "$(date +%s)" "$http_code" "$push_ok" > "${record_file}.tmp" 2>/dev/null \
+    && mv -f "${record_file}.tmp" "$record_file" 2>/dev/null
+exit "$transport_status"
