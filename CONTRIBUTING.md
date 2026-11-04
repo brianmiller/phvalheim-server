@@ -62,6 +62,8 @@ plausible zero instead of an error when read.
 
 ## Make a change
 
+Choose a scoped task from [the community queue](docs/BACKLOG.md), or describe a new change in an issue. Claim work in the issue to avoid duplication and use its acceptance criteria in your PR.
+
 - **One change per pull request.** A fix and a refactor are two PRs.
 - **Do not bump the version** in the `Dockerfile`, and do not add `whatsnew.php`, `CHANGELOG.md`
   or release-notes entries. The maintainer does that when cutting a release. Instead, describe

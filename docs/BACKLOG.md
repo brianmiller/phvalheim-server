@@ -1,83 +1,73 @@
-# PhValheim backlog
+# Community contribution queue
 
-Work that is understood, wanted, and deliberately not in the current release. Each entry says
-what the problem is, why the obvious fix is not the right one, and what "done" would look like.
+Reviewed against the source and open GitHub issues on 2026-11-04. Choose one task,
+read [CONTRIBUTING.md](../CONTRIBUTING.md), and link the issue in your PR. Implementation
+is unassigned unless a contributor claims it in the issue. Maintainer review is Brian Miller.
+Acceptance criteria live in the linked issues so discussion and the review checklist stay together.
 
----
+## Scoped implementation and validation tasks
 
-## Accurate live player detection, via the server-side Companion
+| Task | Current state | Done means |
+| --- | --- | --- |
+| [Configurable Hugin chat timeout #96](https://github.com/brianmiller/phvalheim-server/issues/96) | Regular chat still defaults to a fixed 120 seconds; Vibes has separate limits | Validated saved setting, default preserved, all provider paths covered, delayed mock/cancellation/proxy tests |
+| [Player telemetry and idle-update validation #99](https://github.com/brianmiller/phvalheim-server/issues/99) | Heartbeat already implemented; live timing and failure-path validation remain | Freshness, malformed data, restart, monitor failure and joining-player scenarios tested; real Steam/crossplay evidence reviewed |
+| [Public rate limiting #100](https://github.com/brianmiller/phvalheim-server/issues/100) | Outside the 2.61 security release | Tested limits, recovery, trusted-proxy behavior and normal client traffic |
+| [Player-portal CSP #101](https://github.com/brianmiller/phvalheim-server/issues/101) | Outside the 2.61 security release | Enforced policy with working portal flows and a blocked-script negative control in Chromium/Firefox |
 
-**Status:** not started. Raised 2026-10-16 after a Discord operator's players were
-disconnected by an automatic update.
+These are separate changes. No release dates are promised. Suspected new vulnerabilities
+belong in the [private reporting route](../SECURITY.md), not public reproduction comments.
 
-### The problem
+## Correction: the player heartbeat is already present
 
-Valheim's dedicated server exposes no live player count. There is no query port answer, no
-admin RPC, no file. Everything PhValheim knows about who is on a world is scraped out of that
-world's log by `engine/tools/playerMonitor`, and the two available signals are both weak:
+The earlier version of this backlog described adding a server-side Companion heartbeat as
+not started. That became stale when 2.58 added `PlayerTelemetry.cs` to the Companion and
+updated `container/engine/tools/playerMonitor` to consume it.
 
-| World type   | Signal                                          | Emitted |
-|--------------|-------------------------------------------------|---------|
-| `crossplay=1`| `... now N player(s)`                           | on join and on leave, and **never otherwise** |
-| `crossplay=0`| `  Connections N ZDOS:...` heartbeat            | every ~10 minutes |
+The dedicated-server Companion writes `player_stats.json` every five seconds using
+`ZNet.GetPlayerList()`. The engine records the count and observation time only while the
+file is fresh and its count valid. Missing, malformed or stale observations become unknown
+(`player_count_at=NULL`, source `none`). Vanilla worlds have no Companion and remain
+unknown; the old log-scraping player-count fallback is not used. Log parsing still serves
+other monitoring purposes.
 
-`RELEASE-2.47-DESIGN.md` records what was already ruled out and why: socket enumeration,
-conntrack, and the TickMonitor plugin (which cannot work on a vanilla world, because there is
-no BepInEx to load it).
+`updateApplier.isIdle()` requires an observed, sufficiently recent zero; unknown and nonzero
+counts do not authorize idle updates. Automatic updates remain Beta and off by default.
+An explicitly configured force-on-timeout policy is a separate operator choice.
 
-The crossplay signal is the damaging one. A player who joins and then plays for two hours
-produces **one** log line, two hours old, saying `1`. Nothing further is written until they
-leave. So the count is correct and the *observation timestamp* is ancient, and those two facts
-together are indistinguishable from the opposite situation — a player whose disconnect was
-never logged, leaving a stale `1` on an empty world.
+Do not build a duplicate heartbeat or remove the Beta label based only on source inspection.
+The remaining task is [#99](https://github.com/brianmiller/phvalheim-server/issues/99), including
+join timing, freshness across the monitor/update cadence and real-game evidence.
 
-2.47 resolved that ambiguity in the dangerous direction: it treated a nonzero count as idle
-once the observation aged past `autoupdate_idle_minutes` (default 30). Half an hour into a
-normal session, a world with someone on it was declared quiet and stopped underneath them.
+Relevant code and existing checks:
 
-### What 2.55 did instead
+- Companion `PlayerTelemetry.cs` and its registration in the plugin.
+- `container/engine/tools/playerMonitor` and `container/engine/tools/updateApplier`.
+- `dev_tools/test-world-player-telemetry.sh`, `test-playerMonitor.sh` and
+  `test-autoupdate-idle-gate.sh`.
 
-Refused. `isIdle()` now returns idle **only** for a recently-observed zero; a nonzero count is
-never idle regardless of age. That removes the disconnection, and it is honestly a worse
-feature: a world whose count sticks nonzero will not auto-update on the idle path at all. The
-operator's escape hatch is `autoupdate_max_wait_hours` + `autoupdate_on_timeout='force'`, which
-is an explicit, opted-into decision to accept a disconnection after N hours.
+## Older reports needing current-version reproduction or scope
 
-Auto-updates are also now **marked Beta** in both places they can be switched on, and remain
-**off by default** (`settings.autoUpdateMode` and `worlds.autoupdate_mode` both `DEFAULT 0`;
-nothing in the tree sets either to 1).
+These remain open. This is triage, not a claim that a bug is fixed or reproducible today.
+Use a disposable environment and sanitized fixtures; do not post real world saves or player logs.
 
-This is a holding position, not a fix.
+| Report | Next useful contribution |
+| --- | --- |
+| [#91 database log warnings](https://github.com/brianmiller/phvalheim-server/issues/91) | Reproduce the redo-log pressure on a current image; measure workload and capacity before proposing tuning |
+| [#79 Firefox download button](https://github.com/brianmiller/phvalheim-server/issues/79) | Reproduce the click/focus behavior with OS/browser version; release-asset URL repair alone does not prove this UI report fixed |
+| [#67 restore a missing world](https://github.com/brianmiller/phvalheim-server/issues/67), [#48 import an existing save](https://github.com/brianmiller/phvalheim-server/issues/48), [#47 importWorld errors](https://github.com/brianmiller/phvalheim-server/issues/47) | Exercise current import/restore with disposable saves and document supported recovery steps |
+| [#66 file browser size limit](https://github.com/brianmiller/phvalheim-server/issues/66) | Identify the failing size and layer with synthetic files; test failure reporting and recovery |
+| [#63 mod version selection](https://github.com/brianmiller/phvalheim-server/issues/63) | Compare requested behavior with current version-pinning support and define the remaining rollback requirement |
+| [#50 installed mod discrepancy](https://github.com/brianmiller/phvalheim-server/issues/50) | Capture a minimal mod selection and compare install plan, files and recorded installed versions |
+| [#27 separate update/payload build](https://github.com/brianmiller/phvalheim-server/issues/27) | Compare the current rebuild workflow with the request and propose one bounded behavior change |
+| [#9 gameDNS propagation](https://github.com/brianmiller/phvalheim-server/issues/9) | Change DNS in a disposable setup and inspect persisted endpoints and generated launch links |
+| [Companion #2 out of memory](https://github.com/brianmiller/phvalheim-companion/issues/2) | Reproduce with current plugin and game versions; identify allocations before changing limits |
 
-### What the real fix looks like
+The old hardlink [PR #42](https://github.com/brianmiller/phvalheim-server/pull/42) needs a fresh
+comparison with the current config-policy and payload layout before revival. Do not merge a
+2023 filesystem change solely because its original diff looks small.
 
-The Companion mod already runs on the client. A **server-side** Companion plugin can read the
-player list directly out of the game — `ZNet.instance.GetConnectedPeers()` — which is the
-authoritative answer rather than an inference, and report it on a timer.
+## Distribution follow-up
 
-Requirements that the log-scraping approach cannot meet and that any replacement must:
-
-- **A heartbeat, not an event.** The count must be re-asserted on a fixed interval whether or
-  not anyone joined or left. The whole 2.47 failure is an event-only signal being read as if
-  it were a heartbeat. This is the single most important property.
-- **Freshness must be distinguishable from emptiness.** "I observed zero 20 seconds ago" and
-  "I have not heard anything for an hour" are different answers and must stay different in the
-  schema, not collapse into `player_count=0`. `worlds.player_count_source` already carries the
-  shape of this; see [[phvalheim_unknown_is_not_uptodate]] for the three times a 0/false
-  default silently doubled as a real answer in this codebase.
-- **A vanilla world still has no BepInEx.** So this cannot be the only source — the heartbeat
-  parse has to stay for `vanilla=1` worlds, and the two paths must be clearly labelled in
-  `player_count_source` so a bug in one is not read as data from the other.
-- **Fail closed.** A Companion that stops reporting must make the world *ineligible* for an
-  automatic update, not eligible. Unknown is not empty.
-
-Done means: `isIdle()` can trust a nonzero count's timestamp, the idle path can be restored for
-the common case, and the BETA badge comes off the two selects in `admin/index.php`.
-
-### Where the current behaviour lives
-
-- `container/engine/tools/updateApplier` — `isIdle()`, and the sweep that calls it
-- `container/engine/tools/playerMonitor` — the log scraping and the `player_count_*` columns
-- `container/nginx/www/admin/index.php` — the two BETA badges and warnings
-- `dev_tools/test-autoupdate-idle-gate.sh` — the oracle that pins the refusal
-- `docs/RELEASE-2.47-DESIGN.md` — what was ruled out when this was first built
+[TrueNAS PR #6264](https://github.com/truenas/apps/pull/6264) pins 2.61. Local catalog validation
+and both installation profiles pass; upstream fork-workflow approval, review and publication
+remain external requirements. An open catalog PR is not a store listing.
