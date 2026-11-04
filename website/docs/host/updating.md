@@ -11,13 +11,15 @@ docker compose pull
 docker compose up -d
 ```
 
-Use `theoriginalbrian/phvalheim-server:latest` to follow official releases, or a version such as `:2.59` to choose a specific release. Read the [release notes](https://github.com/brianmiller/phvalheim-server/releases) before upgrading.
+Use `theoriginalbrian/phvalheim-server:latest` to follow official releases, or a version such as `:2.61` to choose a specific release. Read the [release notes](https://github.com/brianmiller/phvalheim-server/releases) before upgrading.
 
 The startup process applies database migrations. Large upgrades can take longer; let them finish before treating a temporarily unavailable UI as a failed upgrade.
 
 ## Update worlds and clients too
 
 A new container does not mean every world's installed files have been rebuilt. Update your worlds from the dashboard when the release calls for it, then ask players to sync through the PhValheim client.
+
+**For 2.61:** a security update for the player portal. Pull and restart; no world update, client update or configuration change is needed, and signed-in players stay signed in. See the [2.61 release notes](https://github.com/brianmiller/phvalheim-server/releases/tag/v2.61).
 
 **For 2.59:** world update plus client sync delivers Companion **1.0.6**, including its late join-code recovery dialog.
 

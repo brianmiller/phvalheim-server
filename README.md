@@ -18,6 +18,8 @@
   <a href="https://discord.gg/8RMMrJVQgy">Join Discord</a>
 </p>
 
+> **Latest: 2.61 — security update for the player portal.** Steam sign-in is now verified with Steam and the public download path serves client payloads only. Please upgrade. [Release notes](https://github.com/brianmiller/phvalheim-server/releases/tag/v2.61)
+
 ## Where would you like to start?
 
 | I'm hosting | I'm playing | I have a mod idea |

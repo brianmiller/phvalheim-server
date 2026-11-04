@@ -32,6 +32,15 @@ shipping, that the user-facing notes describe what shipped, and that nothing rea
 invisible at runtime — the modal just shows nothing — so the gate is the only thing that
 catches it. (2.42)
 
+**1b. Update the public-facing version references.** The README's "Latest" callout, the
+landing page's "New in" line and release-notes link (`website/docs/index.md`, deployed to
+GitHub Pages by the Documentation workflow on every master push), and the updating guide's
+example tag and "For X.YZ" note (`website/docs/host/updating.md`). Run
+`dev_tools/check-release-refs.sh`; it reads the Dockerfile version and fails when any of
+them is missing or still names an older release. Nothing in the build or release path reads
+those files, so this gate is the only thing that catches it. 2.61 shipped with the README and
+the landing page still announcing 2.59. (2.61)
+
 **2. Add verify markers for THIS release to `dev_tools/buildRcDetached.sh`.** Do this even
 if the code is finished and tested. A release with no markers verifies nothing, and the
 script will still print `IMAGE VERIFY OK` — it is only checking the previous releases'

@@ -83,13 +83,18 @@ procedure and the list of traps that have actually bitten this project, each wit
 it bit. Claude Code users get it as the `phvalheim-release` subagent, which reads that same
 file — there is one copy, so the two cannot drift apart.
 
-The three that cost the most, in short:
+The four that cost the most, in short:
 
 - Every release must add an entry to `container/nginx/www/includes/whatsnew.php`. That file
   feeds the admin UI's one-shot "What's New" modal, which is how operators find out anything
   changed. Run `dev_tools/check-whatsnew.sh` before building; it fails when the Dockerfile
   version has no entry. A missing entry is invisible at runtime, so the gate is the only thing
   that catches it.
+- Every release must update the **public-facing version references**: the README's "Latest"
+  callout, the landing page's "New in" line (`website/docs/index.md`, published to GitHub Pages
+  from master) and the updating guide's example tag and "For X.YZ" note. Run
+  `dev_tools/check-release-refs.sh`; it fails when any still names an older release. 2.61
+  shipped with both the README and the landing page still announcing 2.59.
 - Every release must add **verify markers for itself** to `dev_tools/buildRcDetached.sh`.
   Without them that script still prints `IMAGE VERIFY OK` — it is only checking older
   releases' markers, which all still pass. 2.47 shipped three RCs with zero 2.47 markers.
