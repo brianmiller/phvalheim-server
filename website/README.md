@@ -26,6 +26,18 @@ The Documentation workflow validates pull requests and deploys successful master
 
 For a browser smoke check, serve `.site` under `/phvalheim-server/` and run `node website/check-browser.cjs` with Playwright available. Override `DOCS_URL` to check a deployed site. The check exercises search, setup-code copying, theme switching, video and mobile navigation.
 
+The join page links directly to client release assets. `javascripts/client-downloads.js`
+refreshes the links and Flatpak command together from GitHub's latest stable release;
+the versioned links in `docs/play/join.md` remain usable when JavaScript or the API is
+unavailable. When releasing a client, refresh those fallback links and the displayed
+version. macOS and Flatpak open native install dialogs; modified clicks keep the
+normal download link. Run `node website/check-join.cjs` for the focused browser checks.
+
+Platform icons in `docs/assets/platforms/` come from the theme's bundled
+[Font Awesome Free brands](https://fontawesome.com/license/free) (CC BY 4.0) and
+[Simple Icons](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md)
+(Flatpak, CC0 1.0).
+
 - [Zensical](https://zensical.org/docs/)
 - [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
 

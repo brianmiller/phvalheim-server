@@ -39,3 +39,25 @@
 @media(max-width:600px){.phv-hero{padding:1.1rem 1rem}.phv-hero h1{font-size:1.8rem;max-width:none}.phv-hero p{font-size:.82rem;line-height:1.55}.phv-hero-bird{width:90px;right:8px;top:12px;opacity:.22}}
 
 [data-md-color-scheme="default"]{--phv-nav-bg:#f5f3fb}
+
+.phv-downloads{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;margin:1rem 0 .65rem}
+.md-typeset .phv-download{display:flex;align-items:center;gap:.65rem;padding:.85rem .7rem;border:1px solid #8975ed80;border-radius:.7rem;color:var(--md-default-fg-color);background:var(--md-code-bg-color);font-weight:700;line-height:1.35;transition:border-color .15s,background .15s}
+.md-typeset .phv-download:hover{border-color:var(--md-typeset-a-color);background:#8975ed20}
+.md-typeset .phv-download{text-decoration:none}
+.phv-download img{flex-shrink:0;width:28px;height:28px;filter:invert(1);opacity:.9}
+[data-md-color-scheme="default"] .phv-download img{filter:none}
+.phv-download small{display:block;font-size:.65rem;font-weight:400;margin-top:.2rem;color:var(--md-default-fg-color--light)}
+.md-typeset .phv-download-note{font-size:.68rem;color:var(--md-default-fg-color--light)}
+.md-typeset .phv-install{box-sizing:border-box;width:min(35rem,calc(100% - 2rem));max-height:85vh;max-height:85dvh;margin:auto;padding:1.5rem;border:1px solid #8975ed80;border-radius:1rem;background:var(--md-default-bg-color);color:var(--md-default-fg-color);box-shadow:0 1rem 4rem #0006;overflow:auto}
+.phv-install::backdrop{background:#080c19b8}
+html:has(.phv-install[open]){overflow:hidden}
+.md-typeset .phv-install h2{margin:0 2rem 1rem 0}
+.phv-install form{position:absolute;top:.7rem;right:.8rem;margin:0}
+.phv-dialog-close{font-size:1.5rem;line-height:1;width:44px;height:44px;border-radius:.4rem;cursor:pointer;color:var(--md-default-fg-color)}
+.phv-dialog-close:hover{background:#8975ed20}
+.phv-command{padding:.7rem;border-radius:.5rem;background:var(--md-code-bg-color)}
+.md-typeset .phv-command code{display:block;padding:0;white-space:pre-wrap;overflow-wrap:anywhere;background:transparent}
+.phv-command button{display:block;margin-top:.65rem;padding:.5rem .8rem;border:1px solid #8975ed80;border-radius:.4rem;cursor:pointer;color:var(--md-typeset-a-color);font-weight:700;min-height:44px}
+.phv-copy-status{font-size:.72rem;min-height:1.5em}
+.phv-download:focus-visible,.phv-install button:focus-visible{outline:3px solid var(--md-typeset-a-color);outline-offset:3px}
+@media(max-width:700px){.phv-downloads{grid-template-columns:repeat(2,minmax(0,1fr))}.md-typeset .phv-download{padding:.7rem .55rem;gap:.5rem;font-size:.72rem}.phv-download small{font-size:.6rem}.md-typeset .phv-install{padding:1.1rem}}
