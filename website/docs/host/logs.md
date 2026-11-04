@@ -29,6 +29,14 @@ analytics is enabled, the server enrolls automatically and keeps a private
 credential at `/opt/stateful/analytics/credential.json`. Preserve that file with
 your private server backups; do not copy it into a different installation.
 
+The development image identifies itself as **2.62**. Its startup also handles
+inherited TrueNAS filesystem permissions automatically for the private analytics
+directory. An earlier development image could show `HTTP 000` before making a
+request because that directory inherited shared permissions. Update the container
+while keeping its existing data volume; no world rebuild is needed.
+The sender also identifies itself as PhValheim to avoid an HTTP 403 rejection of
+Python's generic HTTP client by the analytics service's edge filter.
+
 The existing 2.61 release does not include this transport. The receiver acknowledges
 and discards unauthenticated reports from versions through 2.61 so their daily
 check completes without an analytics health warning. A warning left by the security

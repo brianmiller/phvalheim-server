@@ -3,7 +3,7 @@
 FROM ubuntu:jammy
 
 # version of this build
-ENV phvalheimVersion=2.61
+ENV phvalheimVersion=2.62
 
 # me
 LABEL maintainer="Brian Miller <brian@phospher.com>"
