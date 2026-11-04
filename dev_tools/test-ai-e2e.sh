@@ -1,4 +1,5 @@
 #!/bin/bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixture-analytics.sh" || exit 1
 #
 # End-to-end test of the 2.45 AI Helper against a REAL running container.
 #
@@ -49,7 +50,7 @@ trap cleanup EXIT
 
 echo "=== booting $IMAGE ==="
 docker rm -f "$NAME" >/dev/null 2>&1
-docker run -d --name "$NAME" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
+docker run -d "${PHV_TEST_ANALYTICS_ARGS[@]}" --name "$NAME" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
 
 sql() { docker exec "$NAME" mysql --skip-column-names -uroot --database=phvalheim -e "$1" 2>/dev/null; }
 

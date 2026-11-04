@@ -15,6 +15,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from fixture_analytics import docker_args as analytics_isolation, verify_no_enrollment
 
 IMAGE = os.environ.get('PHV_REMOTE_TEST_IMAGE', 'phvalheim-remote:candidate')
 HOST = os.environ.get('PHV_REMOTE_TEST_HOST', '127.0.0.1')
@@ -57,11 +58,11 @@ def python_in(name, source, user=None):
 
 try:
     for volume in VOLUMES: command('docker','volume','create',volume)
-    command('docker','run','-d','--name',APP,'-p',HOST+'::8080','-p',HOST+'::8081',
+    command('docker','run',*analytics_isolation(),'-d','--name',APP,'-p',HOST+'::8080','-p',HOST+'::8081',
             '-v',VOLUMES[0]+':/opt/stateful',IMAGE)
     inspection=json.loads(command('docker','inspect',APP))[0]
     ck(not inspection['HostConfig'].get('Privileged') and not inspection['HostConfig'].get('CapAdd')
-       and len(inspection['Mounts'])==1, 'single standard container, existing data mount, no added capabilities')
+       and len([m for m in inspection['Mounts'] if m['Destination']=='/opt/stateful'])==1, 'single standard container, existing data mount, no added capabilities (telemetry blocked)')
     port=int(command('docker','port',APP,'8081/tcp').rsplit(':',1)[1]); base='http://'+HOST+':'+str(port)
     pubport=int(command('docker','port',APP,'8080/tcp').rsplit(':',1)[1])
     jar=http.cookiejar.CookieJar(); opener=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
@@ -161,12 +162,12 @@ for p in Path('/proc').glob('[0-9]*'):
     ck(old_pids and not s['config']['enabled'],'controller crash stops old provider processes and restarts safely Off')
     action('disconnect'); action('forget')
     ck(not status()['config']['tokenSaved'] and status()['config']['provider']=='','forget removes local credentials')
-    # Recreate a main container with ONLY its original data volume. This catches
+    # Recreate a main container with its original data volume and the telemetry block. This catches
     # accidental reliance on the old sidecar, shared socket mount, or writable layer.
     action('save',provider='cloudflare',url='https://persist.example.net',token='B'*120)
     identity=python_in(APP,"from pathlib import Path;print(Path('/opt/stateful/remote-access/identity.json').read_text())")
     command('docker','rm','-f',APP)
-    command('docker','run','-d','--name',APP,'-p',HOST+'::8080','-p',HOST+'::8081',
+    command('docker','run',*analytics_isolation(),'-d','--name',APP,'-p',HOST+'::8080','-p',HOST+'::8081',
             '-v',VOLUMES[0]+':/opt/stateful',IMAGE)
     port=int(command('docker','port',APP,'8081/tcp').rsplit(':',1)[1]); base='http://'+HOST+':'+str(port)
     pubport=int(command('docker','port',APP,'8080/tcp').rsplit(':',1)[1])
@@ -180,6 +181,8 @@ for p in Path('/proc').glob('[0-9]*'):
     print(f'PASS: {PASS} exact-image Remote Access integration checks. No account enrollment approved or live player login/download claimed.',flush=True)
     if os.environ.get('PHV_REMOTE_TEST_KEEP')=='1':
         Path('/tmp/phv-remote-browser-fixture.json').write_text(json.dumps({'app':APP,'connector':CONNECTOR,'network':NET,'volumes':VOLUMES,'admin':base,'public':'http://'+HOST+':'+str(pubport)}))
+    verify_no_enrollment(APP)
+    print("PASS: startup and explicit analytics calls created no enrollment", flush=True)
 finally:
     if os.environ.get('PHV_REMOTE_TEST_KEEP')!='1':
         for name in (APP,): command('docker','rm','-f',name,check=False)

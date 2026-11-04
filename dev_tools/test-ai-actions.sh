@@ -1,4 +1,5 @@
 #!/bin/bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixture-analytics.sh" || exit 1
 # Every agentic command, end to end, against a real MariaDB.
 #
 # Boots the shipped image, copies the working-tree files over the top, re-runs the migration and
@@ -45,7 +46,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Booting $IMAGE (no published ports)..."
-docker run -d --name "$NAME" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
+docker run -d "${PHV_TEST_ANALYTICS_ARGS[@]}" --name "$NAME" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
 
 # POLL for readiness; never sleep a fixed amount and hope. Bail early and for the right
 # reason if mysqld has died, otherwise a dead database reads as a failed migration.

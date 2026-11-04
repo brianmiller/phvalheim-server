@@ -51,7 +51,7 @@ check "the same ~512 KB via --slurpfile succeeds" \
 echo ""
 echo "The shipped script keeps large JSON off the command line"
 src=$(docker exec "$C" cat /opt/stateless/engine/tools/pushAnalytics.sh 2>/dev/null)
-[ -z "$src" ] && src=$(cat "$(dirname "$0")/../container/engine/tools/pushAnalytics.sh")
+[[ -z "$src" || "$src" == *PHV_TEST_ANALYTICS_DISABLED* ]] && src=$(cat "$(dirname "$0")/../container/engine/tools/pushAnalytics.sh")
 
 check "worlds are passed to jq by file, not argv" \
 	"$(echo "$src" | grep -q -- '--slurpfile worlds' && echo 1 || echo 0)"
@@ -65,29 +65,21 @@ check "temp files are cleaned up on exit" \
 
 echo ""
 echo "It still produces a valid payload end to end"
-# Run the real script with the POST short-circuited, and inspect what it built.
-# Run the real script with the POST short-circuited, and inspect what it built.
-# Must be run with BASH: the script uses `source`, which plain sh does not have -- running it
-# under sh silently skips the config include, leaves analyticsEnabled empty and exits 0 before
-# building anything, which looks exactly like a pass.
-# analyticsEnabled is forced on and restored IN THE SAME invocation, because shell state does not
-# persist between calls and a half-applied change would leave the setting flipped.
-out=$(docker exec "$C" bash -c '
-  orig=$(/opt/stateless/engine/tools/sql "SELECT analyticsEnabled FROM settings" 2>/dev/null)
-  /opt/stateless/engine/tools/sql "UPDATE settings SET analyticsEnabled=1" >/dev/null 2>&1
-  rm -f /tmp/phvalheim_analytics_payload.json
-  cp /opt/stateless/engine/tools/pushAnalytics.sh /tmp/_pa.sh
-  # The payload lives at a mktemp path the EXIT trap removes (deliberate: a fixed /tmp path wedged
-  # later runs). Copy it out at the moment the POST would have happened, then exit.
-  sed -i "s|^http_code=\$(python3|cp \"\$payload_file\" /tmp/phvalheim_analytics_payload.json; exit 0 # &|" /tmp/_pa.sh
-  bash /tmp/_pa.sh 2>&1 | tail -5
-  echo "---PAYLOAD---"
-  # Facts about the WHOLE file, not a 400-byte head: "worlds" sits after the system block, so
-  # grepping a truncated head for it read as "not JSON" on a correct payload (2026-10-22).
-  jq -c "{worlds_type:(.worlds|type), nested:((.worlds|type)==\"array\" and (.worlds|length)>0 and (.worlds[0]|type)==\"array\")}" /tmp/phvalheim_analytics_payload.json 2>/dev/null || echo INVALID-JSON
-  rm -f /tmp/_pa.sh /tmp/phvalheim_analytics_payload.json
-  # restore, whatever happened above
-  if [ -n "$orig" ]; then /opt/stateless/engine/tools/sql "UPDATE settings SET analyticsEnabled=$orig" >/dev/null 2>&1; fi' 2>&1)
+# Build only: never enable telemetry in the shared database or execute transport.
+# Refuse an unknown sender layout instead of silently failing to intercept its POST.
+transport='http_code=$(python3 /opt/stateless/engine/tools/analyticsTransport.py "$payload_file")'
+enabled='analyticsEnabled=$(SQL "SELECT analyticsEnabled FROM settings" 2>/dev/null)'
+if [ "$(printf '%s\n' "$src" | grep -Fc "$transport")" != 1 ] ||
+   [ "$(printf '%s\n' "$src" | grep -Fc "$enabled")" != 1 ]; then
+    echo "FAIL: unknown analytics sender layout; refusing execution"
+    exit 1
+fi
+# Truncate before transport, and force enabled only in this script's local variable.
+# The production database setting, credentials and health result are untouched.
+builder=${src%%"$transport"*}
+builder=${builder/"$enabled"/analyticsEnabled=1}
+builder+=$'\n'"jq -c '{worlds_type:(.worlds|type), nested:((.worlds|type)==\"array\" and (.worlds|length)>0 and (.worlds[0]|type)==\"array\")}' \"\$payload_file\""
+out=$(printf '%s\n' "$builder" | docker exec -i "$C" bash 2>&1)
 
 check "no 'Argument list too long' in the run" \
 	"$(echo "$out" | grep -qi 'argument list too long' && echo 0 || echo 1)" \
@@ -95,7 +87,7 @@ check "no 'Argument list too long' in the run" \
 check "no 'Failed to build analytics payload'" \
 	"$(echo "$out" | grep -q 'Failed to build analytics payload' && echo 0 || echo 1)"
 
-payload=$(echo "$out" | sed -n '/---PAYLOAD---/,$p' | tail -n +2)
+payload=$(printf '%s\n' "$out" | tail -n 1)
 check "a payload file was written" "$([ -n "$payload" ] && echo 1 || echo 0)"
 check "it is JSON with a worlds array" \
 	"$(echo "$payload" | grep -q '"worlds_type":"array"' && echo 1 || echo 0)" "got: $(echo "$payload" | head -c 120)"

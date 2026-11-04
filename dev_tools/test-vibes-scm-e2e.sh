@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixture-analytics.sh" || exit 1
 # requires: container
 # Disposable exact-image server + authenticated HTTPS GitHub/GitLab fixture + real smart Git.
 # No external account or repository is changed. All normal API, jobs and browser code is real.
@@ -24,7 +25,7 @@ python3 - "$SCM_TMP/tokens.json" <<'PY'
 import json,secrets,sys
 with open(sys.argv[1],'w') as f: json.dump({k:secrets.token_hex(20) for k in ('github','gitlab')},f)
 PY
-docker run -d --name "$SCM_CONTAINER" -p "127.0.0.1:$SCM_PORT:8081" \
+docker run -d "${PHV_TEST_ANALYTICS_ARGS[@]}" --name "$SCM_CONTAINER" -p "127.0.0.1:$SCM_PORT:8081" \
  --add-host github.com:127.0.0.1 --add-host gitlab.fixture.test:127.0.0.1 \
  -v "$SCM_VOLUME:/opt/stateful" \
  -v "$SOURCE_VOLUME/vibes/buildpak:/opt/stateful/vibes/buildpak:ro" \

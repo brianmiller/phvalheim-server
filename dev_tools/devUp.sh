@@ -1,4 +1,5 @@
 #!/bin/bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixture-analytics.sh" || exit 1
 # Recreate the local dev container, optionally with the Steam-auth bypass on.
 #
 #   dev_tools/devUp.sh                      # normal: real Steam login required
@@ -26,7 +27,7 @@ env_args=""
 
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 # shellcheck disable=SC2086
-docker run -d --name "$NAME" --restart unless-stopped \
+docker run -d "${PHV_TEST_ANALYTICS_ARGS[@]}" --name "$NAME" --restart unless-stopped \
 	-p 8080-8081:8080-8081/tcp \
 	-p 25000-25010:25000-25010/udp \
 	-v "$VOLUME":/opt/stateful \

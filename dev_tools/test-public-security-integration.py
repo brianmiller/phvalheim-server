@@ -23,6 +23,7 @@ import subprocess
 import sys
 import time
 import uuid
+from fixture_analytics import docker_args as analytics_isolation, verify_no_enrollment
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -79,7 +80,7 @@ def http(path, *extra, method='GET', body=None, port=8080):
 
 def boot(bypass=None):
     subprocess.run(['docker', 'rm', '-f', NAME], capture_output=True)
-    args = ['docker', 'create', '--name', NAME, '-v', VOLUME + ':/opt/stateful']
+    args = ['docker', 'create', *analytics_isolation(), '--name', NAME, '-v', VOLUME + ':/opt/stateful']
     if bypass:
         args += ['-e', 'phvalheimDevSteamID=' + bypass]
     run(args + [IMAGE])
@@ -275,6 +276,8 @@ try:
     ck('bypassed session: getMyWorldsStatus answers success with the world', st == 200 and '"success":true' in body and '"secw"' in body, (st, body[:120]))
     st, h, _ = http(f'/authenticated.php?openid_claimed_id={profile}')
     ck('bypassed: a forged callback is STILL refused', st == 302 and h.get('location', '').endswith('index.php?auth=failed'), (st, h.get('location')))
+    verify_no_enrollment(NAME)
+    print("PASS: startup and explicit analytics calls created no enrollment", flush=True)
 finally:
     if os.environ.get('PHV_SEC_TEST_KEEP') == '1':
         print('kept', NAME, VOLUME)

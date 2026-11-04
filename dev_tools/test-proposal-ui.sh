@@ -1,4 +1,5 @@
 #!/bin/bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixture-analytics.sh" || exit 1
 # The confirm-card, driven in a real browser.
 #
 # Boots the container with the admin UI reachable, points Hugin at a mock provider that
@@ -26,7 +27,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Booting $IMAGE on 127.0.0.1:$PORT ..."
-docker run -d --name "$NAME" -p "127.0.0.1:$PORT:8081" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
+docker run -d "${PHV_TEST_ANALYTICS_ARGS[@]}" --name "$NAME" -p "127.0.0.1:$PORT:8081" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
 
 sql() { docker exec "$NAME" mysql --skip-column-names -uroot --database=phvalheim -e "$1" 2>/dev/null; }
 

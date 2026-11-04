@@ -12,6 +12,7 @@ from pathlib import Path
 import subprocess
 import time
 import uuid
+from fixture_analytics import docker_args as analytics_isolation, verify_no_enrollment
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE = os.environ.get('PHV_PORT_TEST_IMAGE', 'theoriginalbrian/phvalheim-server:dev')
@@ -41,7 +42,7 @@ def request(action, payload=None):
 
 def boot(managed=False, legacy=False):
     subprocess.run(['docker', 'rm', '-f', NAME], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    args = ['docker', 'create', '--name', NAME, '-v', VOLUME + ':/opt/stateful']
+    args = ['docker', 'create', *analytics_isolation(), '--name', NAME, '-v', VOLUME + ':/opt/stateful']
     if managed:
         args += ['-e', 'PHVALHEIM_GAME_PORT_START=31000', '-e', 'PHVALHEIM_GAME_PORT_END=31003']
     if legacy:
@@ -142,6 +143,8 @@ try:
     settings = boot(legacy=True)
     ck('pre-2.31 basePort migration still works', settings['basePort'] == 26000 and settings['setupComplete'] == 1)
     print(f'{CHECKS} integration checks passed', flush=True)
+    verify_no_enrollment(NAME)
+    print("PASS: startup and explicit analytics calls created no enrollment", flush=True)
 finally:
     subprocess.run(['docker', 'rm', '-f', NAME], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     subprocess.run(['docker', 'volume', 'rm', VOLUME], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

@@ -7,6 +7,7 @@ Requires Python Playwright and Chromium; never targets an operator's container.
 """
 import json
 from pathlib import Path
+from fixture_analytics import assert_isolated
 import subprocess
 import time
 from urllib.parse import urlsplit
@@ -15,6 +16,7 @@ from playwright.sync_api import sync_playwright, expect
 fixture=json.loads(Path('/tmp/phv-remote-browser-fixture.json').read_text())
 assert fixture['app'].startswith('phv-remote-oracle-')
 assert fixture['connector'].startswith('phv-remote-oracle-')
+assert_isolated(json.loads(subprocess.check_output(['docker','inspect',fixture['app']], text=True))[0])
 deadline = time.monotonic() + 240
 while True:
     ready = subprocess.run(['docker','exec',fixture['app'],'mysql','-uroot','phvalheim','-e',
