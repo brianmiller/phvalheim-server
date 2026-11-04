@@ -1,10 +1,10 @@
 # Public UI concept images — 2.62
 
-Original AI-generated renderings for contributor design review. Created with OpenAI image generation on 4 November 2026. No live server captures or production assets are included. The gallery uses neutral sample world names.
+Revised AI-generated renderings for contributor design review. Created with OpenAI image generation on 4 November 2026. No live server captures or production assets are included. The gallery uses neutral sample world names.
 
 [View the complete gallery](../../../design/public-ui-2.62.md).
 
-Files are original PNGs, copied without visual edits. Checksums are in [SHA256SUMS](SHA256SUMS). Classic Reforged is displayed first as option 01. The earlier thirteen concepts now appear as 02–14. Their existing filenames remain stable so previously shared image links keep working; the review number below determines display order.
+All fourteen concepts were edited with the built-in imagegen tool to restore the original UI information and a seven-head Bosses defeated strip. Files are copied directly from the generated output without manual raster edits. [Revision prompts](PROMPTS.md) document the shared requirements and layout instructions. Previous artwork remains in Git history. Checksums are in [SHA256SUMS](SHA256SUMS). Classic Reforged is displayed first as option 01. The earlier thirteen concepts now appear as 02–14. Their existing filenames remain stable so previously shared image links keep working; the review number below determines display order.
 
 | Review option | File | Concept |
 | --- | --- | --- |
