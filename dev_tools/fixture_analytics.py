@@ -6,6 +6,9 @@ def docker_args():
     source = Path(__file__).resolve().parent / 'fixtures/analytics-disabled.sh'
     if not source.is_file():
         raise RuntimeError('Missing analytics isolation fixture')
+    # Network-filesystem checkouts can inherit 0770 despite Git's executable bit.
+    # This public, non-secret no-op must also be readable by the container UID.
+    source.chmod(0o755)
     # --mount fails closed if the source disappears; -v would create a directory.
     return ['--mount', f'type=bind,source={source},target=/opt/stateless/engine/tools/pushAnalytics.sh,readonly']
 

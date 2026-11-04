@@ -19,6 +19,12 @@ class Isolation(unittest.TestCase):
         self.assertEqual(Path(fields['source']), ROOT/'dev_tools/fixtures/analytics-disabled.sh')
         self.assertTrue(Path(fields['source']).is_file())
 
+    def test_private_checkout_mode_is_prepared_for_service_uid(self):
+        source=ROOT/'dev_tools/fixtures/analytics-disabled.sh'
+        source.chmod(0o770)
+        docker_args()
+        self.assertEqual(source.stat().st_mode & 0o777, 0o755)
+
     def test_python_launches_including_recreation(self):
         count = 0
         for name in ['test-game-port-integration.py', 'test-public-security-integration.py', 'test-remote-access-integration.py']:

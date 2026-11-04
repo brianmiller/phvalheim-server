@@ -10,6 +10,7 @@ for the setup and disposable integration checks below.
 From the repository root:
 
 ```bash
+chmod 755 dev_tools/fixtures/analytics-disabled.sh
 docker compose -f compose.dev.yaml build
 docker compose -f compose.dev.yaml up -d --wait --wait-timeout 360
 docker compose -f compose.dev.yaml ps
