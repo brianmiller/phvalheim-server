@@ -3,8 +3,8 @@
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 function getModViewerJsonForWorld($pdo,$world) {
-        $sth = $pdo->prepare("SELECT modsViewer FROM worlds WHERE name='$world'");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT modsViewer FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }
@@ -79,8 +79,8 @@ function getTotalModCountOfWorld($pdo,$world) {
 }
 
 function getSeed($pdo,$world) {
-	$sth = $pdo->prepare("SELECT seed FROM worlds WHERE name='$world'");
-	$sth->execute();
+	$sth = $pdo->prepare("SELECT seed FROM worlds WHERE name = ?");
+	$sth->execute([$world]);
 	$result = $sth->fetchColumn();
 	return $result;
 }
@@ -118,7 +118,12 @@ function sortWorldsOnlineFirst(array $worlds, array $isOnlineMap) {
 #
 # Online-first grouping is applied by the caller, which is the only place that can know it.
 function getMyWorlds($pdo,$citizen) {
-        $sth = $pdo->query("SELECT name FROM worlds WHERE citizens LIKE '%$citizen%' OR public = '1' ORDER BY name ASC");
+        # 2.61: bound, not interpolated. $citizen used to arrive from an unverified login
+        # callback, which made this an unauthenticated SQL injection. The LIKE wildcards
+        # that live in the id are escaped too, so a '%' or '_' in it cannot widen the match.
+        $like = '%' . addcslashes((string)$citizen, '%_\\') . '%';
+        $sth = $pdo->prepare("SELECT name FROM worlds WHERE citizens LIKE ? OR public = '1' ORDER BY name ASC");
+        $sth->execute([$like]);
         $result = $sth->fetchAll(PDO::FETCH_COLUMN);
         return $result;
 }
@@ -145,15 +150,15 @@ function getPublicPlayerCount($pdo,$world) {
 }
 
 function getHideSeed($pdo,$world) {
-        $sth = $pdo->prepare("SELECT hideseed FROM worlds WHERE name='$world'");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT hideseed FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }
 
 function getMD5($pdo,$world) {
-        $sth = $pdo->prepare("SELECT world_md5 FROM worlds WHERE name='$world'");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT world_md5 FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }
@@ -185,22 +190,22 @@ function getModsMD5($pdo,$world) {
 }
 
 function getWorldMemory($pdo,$world) {
-        $sth = $pdo->prepare("SELECT currentMemory FROM worlds WHERE name='$world'");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT currentMemory FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }
 
 function getDateDeployed($pdo,$world) {
-        $sth = $pdo->prepare("SELECT date_deployed FROM worlds WHERE name='$world'");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT date_deployed FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }
 
 function getDateUpdated($pdo,$world) {
-        $sth = $pdo->prepare("SELECT date_updated FROM worlds WHERE name='$world'");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT date_updated FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }
@@ -245,7 +250,8 @@ function phvLaunchCrossplayFields($pdo, $world, $isOnline) {
 }
 
 function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
-        $getWorldData = $pdo->query("SELECT status,mode,name,port FROM worlds WHERE name='$world'");
+        $getWorldData = $pdo->prepare("SELECT status,mode,name,port FROM worlds WHERE name = ?");
+        $getWorldData->execute([$world]);
         foreach($getWorldData as $row)
         {
                 $world = $row['name'];
@@ -282,15 +288,15 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
 }
 
 function getCitizens($pdo,$world) {
-        $sth = $pdo->query("SELECT citizens FROM worlds WHERE name='$world';");
-	$sth->execute();
+        $sth = $pdo->prepare("SELECT citizens FROM worlds WHERE name = ?");
+	$sth->execute([$world]);
 	$result = $sth->fetchColumn();
         return $result;
 }
 
 function getPublic($pdo,$world) {
-        $sth = $pdo->query("SELECT public FROM worlds WHERE name='$world';");
-        $sth->execute();
+        $sth = $pdo->prepare("SELECT public FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }
@@ -852,8 +858,13 @@ function getBanned($pdo,$world) {
 }
 
 function getBossTrophyStatus($pdo,$world,$trophy) {
-	$sth = $pdo->query("SELECT $trophy FROM worlds WHERE name='$world';");
-        $sth->execute();
+	# $trophy is a column name from the boss registry (includes/bosses.php), never user
+	# input; the pattern check is the backstop for a caller that forgets that.
+	if (!preg_match('/^[a-z_]+$/', (string)$trophy)) {
+		return false;
+	}
+	$sth = $pdo->prepare("SELECT `$trophy` FROM worlds WHERE name = ?");
+        $sth->execute([$world]);
         $result = $sth->fetchColumn();
         return $result;
 }

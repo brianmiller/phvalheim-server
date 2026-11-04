@@ -29,13 +29,24 @@ if($_SERVER['HTTP_X_FORWARDED_PROTO'] == "https") {
 $steamID = null;
 
 if (isset($_GET['openid_claimed_id'])) {
-	// Fresh Steam login callback - extract steamID and store in session
-	$steamIDArr = explode('/', $_GET['openid_claimed_id']);
-	$steamID = end($steamIDArr);
-	storeSessionSteamID($steamID);
+	// Fresh Steam login callback. The Steam ID is NOT read out of the URL: the whole
+	// assertion is posted back to Steam (OpenID check_authentication) and only a response
+	// Steam confirms it signed, for THIS site's return_to, establishes a session. Before 2.61
+	// the id was taken straight from openid.claimed_id, so anyone could sign in as any
+	// player by typing the URL. See includes/steam_openid.php for every check made.
+	require_once '/opt/stateless/nginx/www/includes/steam_openid.php';
+	$openid   = phvOpenIdParamsFromQuery($_SERVER['QUERY_STRING'] ?? '');
+	$returnTo = $httpScheme . '://' . $_SERVER['HTTP_HOST'] . '/authenticated.php';
+	$verified = phvSteamOpenIdVerify($openid, $returnTo);
+	if ($verified === null || !storeSessionSteamID($verified)) {
+		error_log('PhValheim: rejected Steam sign-in callback from ' . ($_SERVER['REMOTE_ADDR'] ?? '?')
+			. ' claimed_id=' . substr((string)($openid['openid.claimed_id'] ?? ''), 0, 120));
+		header('Location: ../index.php?auth=failed');
+		exit;
+	}
 
 	// Redirect to clean URL (removes openid params from address bar)
-	header('Location: ' . $httpScheme . '://' . $_SERVER['HTTP_HOST'] . '/authenticated.php');
+	header('Location: ' . $returnTo);
 	exit;
 } elseif (isSessionValid()) {
 	// Existing valid session
@@ -140,6 +151,13 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 				$playerName = $steamNickName;
 			}
 
+			# 2.61: both of these are chosen by a Steam user, not by the operator, and are
+			# printed into the page below. A persona name of "<script>" must stay text.
+			# The avatar is only ever an https URL from Steam's CDN; anything else is dropped.
+			$playerName = htmlspecialchars((string)$playerName, ENT_QUOTES, 'UTF-8');
+			$steamAvatarURL = preg_match('#^https://[A-Za-z0-9./_-]+$#', (string)$steamAvatarURL)
+				? htmlspecialchars((string)$steamAvatarURL, ENT_QUOTES, 'UTF-8') : '';
+
 		} else {
 			header('Location: ../index.php');
 			exit;
@@ -203,6 +221,10 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 
                 if(!empty($getMyWorlds)) {
                         foreach ($getMyWorlds as $myWorld) { //only query and return authorized worlds
+				# 2.61: the name as printed into markup. createWorld allowlists names to
+				# [A-Za-z0-9_-], so this is a no-op today; it stays so that the page does not
+				# depend on an input filter in a different file to be safe.
+				$myWorldHtml = htmlspecialchars((string)$myWorld, ENT_QUOTES, 'UTF-8');
                                 $launchString = getLaunchString($pdo,$myWorld,$gameDNS,$phvalheimHost,$httpScheme);
 				$md5 = getMD5($pdo,$myWorld);
 				$seed = getSeed($pdo,$myWorld);
@@ -447,9 +469,9 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
                                                         <tr>";
 
 					echo "
-                                        <div class=\"$worldDimmed catbox catbox-vanilla\" data-world=\"$myWorld\" data-vanilla=\"1\">
+                                        <div class=\"$worldDimmed catbox catbox-vanilla\" data-world=\"$myWorldHtml\" data-vanilla=\"1\">
                                                 <table width=100% height=100% border=0>
-                                                        <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
+                                                        <th class='$worldDimmed card_worldName' colspan=2>$myWorldHtml</th>
                                                         <tr>
                                                         <th class='$worldDimmed card_worldLaunch' colspan=2>$joinLink</th>
                                                         <tr>
@@ -573,9 +595,9 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 				# Reusing a vanilla class on a modded card inherited none of it. If a hint ever
 				# comes back here it needs its own class, not this one.
 				echo "
-                                        <div class=\"$worldDimmed catbox\" data-world=\"$myWorld\">
+                                        <div class=\"$worldDimmed catbox\" data-world=\"$myWorldHtml\">
                                                 <table width=100% height=100% border=0>
-                                                        <th class='$worldDimmed card_worldName' colspan=2>$myWorld</th>
+                                                        <th class='$worldDimmed card_worldName' colspan=2>$myWorldHtml</th>
                                                         <tr>
                                                         <th class='$worldDimmed card_worldLaunch' colspan=2><a class='$worldDimmed card_worldLaunch launch-link' href='phvalheim://?$launchString' data-launch='$launchString'>$launchLabel</a></th>
 

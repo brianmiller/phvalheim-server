@@ -11,6 +11,12 @@
  */
 function whatsNewNotes() {
     return [
+        '2.61' => [
+            '<b>Security: Steam sign-in is now verified with Steam.</b> The player portal used to trust the Steam ID in the sign-in callback URL, so anyone could open the portal as any player and see that player\'s world list, any published password, and their Steam name. The portal now confirms every sign-in with Steam before starting a session. No action is needed, but update promptly.',
+            '<b>Security: the world status API requires a signed-in session.</b> An unused compatibility path let any visitor request any player\'s world list and launch links without signing in. It is removed; the portal page itself is unaffected.',
+            '<b>Security: the public download path serves client payloads only.</b> It used to expose the whole games tree to anyone who knew a path, including each world\'s access lists and save files. Only <code>&lt;world&gt;.zip</code> and <code>&lt;world&gt;-config.zip</code> are served now; every PhValheim Client version keeps working because those two URLs are unchanged.',
+            '<b>Security: database lookups on the public side use bound parameters</b>, and world names in API requests are validated. Steam profile names are escaped before display. The public site sends standard browser hardening headers, marks the session cookie Secure behind HTTPS, and serves jQuery locally instead of from a CDN.',
+        ],
         '2.60' => [
             'New: <b>Container-managed game ports.</b> Optional PHVALHEIM_GAME_PORT_START and PHVALHEIM_GAME_PORT_END settings supply one UDP range for setup and new worlds. Full ranges report an error; existing world ports are never reassigned. Docker and Unraid settings remain unchanged when these variables are unset.',
             'New: <b>Clearer Vibes limits for hosted and local models.</b> Set a separate model response limit in Settings &rarr; Turn limits. New defaults allow 100 tool rounds; saved limits are preserved. Use minute-based fields and Standard, Long task, or Slow model presets, with a shortcut beside Send. Model calls obey the remaining turn time, Stop interrupts a waiting response, and a stopped turn tells you whether it reached the tool-round limit or a time limit. Saved files remain; send Continue to resume.',

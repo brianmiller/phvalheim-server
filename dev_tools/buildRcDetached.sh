@@ -114,6 +114,27 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   a=$(grep -c "modSelectionCard" /opt/stateless/nginx/www/admin/new_world.php)
   b=$(grep -c "Clearing world md5sum" /opt/stateless/engine/includes/0-functions.sh)
   c=$(grep -c "No client payload found for modded world" /opt/stateless/engine/phvalheim)
+  # 2.61: public-UI hardening (docs/RELEASE-NOTES-2.61.md). NEGATIVES first -- each hole is
+  # asserted GONE, anchored on the exact spelling of the code that was wrong, because "the new
+  # function exists" passes on an image that still carries the old path beside it.
+  v61a=$(grep -c "explode('/', \$_GET\['openid_claimed_id'\])" /opt/stateless/nginx/www/public/authenticated.php)
+  v61b=$(grep -c 'phvSteamOpenIdVerify(\$openid, \$returnTo)' /opt/stateless/nginx/www/public/authenticated.php)
+  v61c=$(grep -rlF "= 'check_authentication'" /opt/stateless/nginx/www | wc -l)
+  v61d=$(grep -c "\$_GET\['steamID'\]" /opt/stateless/nginx/www/public/api.php)
+  v61e=$(grep -c "name='\$world'" /opt/stateless/nginx/www/includes/db_gets.php)
+  v61f=$(grep -c "LIKE '%\$citizen%'" /opt/stateless/nginx/www/includes/db_gets.php)
+  # The public (8080) server block only: the admin block keeps its alias, so a whole-file
+  # count would read 1 on a correct image and 2 on a broken one, and nobody would notice.
+  v61g=$(awk '/listen 8080;/{p=1} /listen 8081;/{p=0} p' /etc/nginx/sites-available/phvalheim.conf | grep -c 'alias /opt/stateful/games/;')
+  v61h=$(awk '/listen 8080;/{p=1} /listen 8081;/{p=0} p' /etc/nginx/sites-available/phvalheim.conf | grep -cF 'location ~ ^/stateful/valheim/worlds/([A-Za-z0-9_-]+)/\1(-config)?\.zip$ {')
+  v61i=$(grep -c 'X-Content-Type-Options nosniff always' /etc/nginx/sites-available/phvalheim.conf)
+  v61j=$(grep -cE 'data-world=\\"\$myWorldHtml\\"|colspan=2>\$myWorldHtml</th>' /opt/stateless/nginx/www/public/authenticated.php)
+  v61k=$(grep -c "preg_match('/^\[0-9\]{17}\$/', \$steamID)" /opt/stateless/nginx/www/includes/session_auth.php)
+  v61l=$(grep -c "cdnjs.cloudflare.com/ajax/libs/jquery" /opt/stateless/nginx/www/public/index.php)
+  echo "2.61 Steam login: old URL-trust path=$v61a (want 0) verifier call=$v61b (want 1) check_authentication files=$v61c (want 1) session id guard=$v61k (want 1)"
+  echo "2.61 api/SQL: steamID GET fallback=$v61d (want 0) interpolated world=$v61e (want 0) interpolated citizen=$v61f (want 0)"
+  echo "2.61 nginx: whole-tree alias on 8080=$v61g (want 0) payload-only location=$v61h (want 1) nosniff=$v61i (want 1)"
+  echo "2.61 page: escaped card names=$v61j (want 4) CDN jquery=$v61l (want 0)"
   # 2.60: verify the complete delivery path, not just the UI label.
   v60a=$(grep -c "^def package_policy" /opt/stateless/engine/tools/clientConfigPolicy.py)
   v60b=$(grep -c "^addColumn mod_config_overrides overridable" /opt/stateless/engine/dbUpdates/dbUpdate_2.60.sh)
@@ -4414,6 +4435,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59ch" = "1" ] && [ "$v59ci" = "1" ] \
     && [ "$v59ce" = "2" ] && [ "$v59cf" = "1" ] && [ "$v59cg" = "0" ] && [ "$v59cb" = "2" ] && [ "$v59cc" = "2" ] && [ "$v59cd" = "0" ] \
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
+    && [ "$v61a" = "0" ] && [ "$v61b" = "1" ] && [ "$v61c" = "1" ] && [ "$v61d" = "0" ] && [ "$v61e" = "0" ] && [ "$v61f" = "0" ] \
+    && [ "$v61g" = "0" ] && [ "$v61h" = "1" ] && [ "$v61i" = "1" ] && [ "$v61j" = "4" ] && [ "$v61k" = "1" ] && [ "$v61l" = "0" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 

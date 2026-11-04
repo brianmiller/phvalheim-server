@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.61 (2026-11-03)
+
+Security release for the player portal (port 8080); see `docs/RELEASE-NOTES-2.61.md`.
+Reported by a community member on Discord.
+
+The Steam sign-in callback is now verified with Steam (OpenID `check_authentication`) before
+a session is created. Until now the portal took the Steam ID straight out of the callback
+URL, so anyone could sign in as any player and see that player's accessible worlds, any
+operator-published password, and their Steam profile name. Valheim's own access list still
+gated joining the game; this was information disclosure, not game access. The unused
+`steamID` query fallback in `api.php?mode=getMyWorldsStatus` is removed (it served any
+player's world list and launch links with no session at all). The `/stateful/` download
+location serves only `<world>/<world>.zip` and `<world>/<world>-config.zip` instead of the
+whole `/opt/stateful/games` tree, which exposed access lists, save files and configs to
+anyone who knew a path. Every query on the public side binds its parameters; world names in
+API requests are allowlisted; Steam persona names and world names are escaped before display;
+the public server block sends `X-Content-Type-Options`, `X-Frame-Options` and
+`Referrer-Policy`; `server_tokens` is off; the session cookie is `Secure` when the request
+arrived over TLS; the login page serves its local jQuery 3.6.0 instead of jQuery 2.1.3 from a
+CDN. No client or Companion change: the two payload URLs the client requests are byte-for-byte
+unchanged, and neither the client nor the Companion uses the Steam session.
+
 ## v2.60 (2026-11-02)
 
 Optional `PHVALHEIM_GAME_PORT_START` and `PHVALHEIM_GAME_PORT_END` make the container

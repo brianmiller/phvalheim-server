@@ -79,6 +79,9 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 				
 				<form class="form" id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login">
 					<p class="center alt-color" style="width:auto !important;">Click below to sign in with Steam</p>
+<?php if (($_GET['auth'] ?? '') === 'failed') { ?>
+					<p class="center" id="steamAuthFailed" style="width:auto !important;color:#e06666;">Steam did not confirm that sign-in. Please try again.</p>
+<?php } ?>
 					<div class="centered" id="steamSignInButton">
 						<input type="hidden" name="openid.identity" value="http://specs.openid.net/auth/2.0/identifier_select">
 						<input type="hidden" name="openid.claimed_id" value="http://specs.openid.net/auth/2.0/identifier_select">
@@ -144,7 +147,7 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 		</a>
 	</div>
 
-	<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js'></script><script  src="/js/login.js"></script>
+	<script src="/js/jquery-3.6.0.js"></script><script  src="/js/login.js"></script>
 
 </body>
 </html>

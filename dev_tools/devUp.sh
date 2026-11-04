@@ -13,7 +13,7 @@ set -eu
 
 DEV_ID="${1:-}"
 NAME=phvalheim-dev
-IMAGE=theoriginalbrian/phvalheim-server:rc
+IMAGE="${IMAGE:-theoriginalbrian/phvalheim-server:rc}"   # IMAGE=... overrides, e.g. a :dev digest
 VOLUME=phvalheim-dev-data
 
 if [ -n "$DEV_ID" ] && ! echo "$DEV_ID" | grep -qE '^[0-9]{17}$'; then

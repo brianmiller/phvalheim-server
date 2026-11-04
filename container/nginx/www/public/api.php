@@ -79,6 +79,16 @@ if ($jsonIncoming->world) {
         $world = $jsonIncoming->world;
 }
 
+# 2.61: a world name is [A-Za-z0-9_-] -- createWorld in adminAPI.php enforces exactly that
+# -- so a name shaped any other way can only be aimed at the queries below. Refuse it here,
+# once, for both the query-string and the JSON source, before any of them runs.
+if ($world !== NULL && !preg_match('/^[A-Za-z0-9_-]{1,64}$/', (string)$world)) {
+	http_response_code(400);
+	header('Content-Type: text/plain; charset=utf-8');
+	echo "error=invalid world name\n";
+	exit;
+}
+
 ############## END: Mode detectors ##############
 
 
@@ -109,14 +119,15 @@ if ($mode == "getMyWorldsStatus") {
     header('Content-Type: application/json');
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 
-    // Prefer session, fall back to GET param for backward compatibility
+    // The signed-in player, and nobody else. Until 2.61 this fell back to a steamID
+    // query parameter "for backward compatibility" -- with no caller anywhere (the page's
+    // own poll sends none, the client and the Companion never call this mode), so all it
+    // did was hand any visitor any player's world list and launch strings, unauthenticated.
     $steamID = getSessionSteamID();
-    if (empty($steamID) && isset($_GET['steamID'])) {
-        $steamID = $_GET['steamID'];
-    }
 
     if (empty($steamID)) {
-        echo json_encode(['success' => false, 'error' => 'Missing steamID']);
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Not signed in']);
         exit;
     }
 
