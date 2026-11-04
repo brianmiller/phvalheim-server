@@ -6,7 +6,7 @@ for contributors **and their LLM coding agents**.
 
 ## Review public UI concepts
 
-Explore [thirteen dark player-portal concepts for 2.62](design/public-ui-2.62.md)
+Explore [fourteen dark player-portal concepts for 2.62](design/public-ui-2.62.md)
 and share feedback on layout, readability, and joining a world. These are visual
 proposals for discussion, not released functionality.
 

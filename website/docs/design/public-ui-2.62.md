@@ -1,6 +1,6 @@
 # Public UI concepts for 2.62
 
-Thirteen dark visual directions for the PhValheim player portal. Compare how each helps a player choose a world, understand its status, and join. The original three concepts remain **01–03**; the ten additional options are **04–13**.
+Fourteen dark visual directions for the PhValheim player portal. **01. Classic Reforged** leads with a cleaner, bolder evolution of the existing UI. The thirteen alternatives follow as **02–14**. Compare how each helps a player choose a world, understand its status, and join.
 
 **Design exploration only.** These are static, AI-generated mockups, not an implemented interface or a promise of release scope. Buttons, map controls, status, and progression inside the images are illustrative. World names and values are sample content.
 
@@ -8,23 +8,24 @@ Thirteen dark visual directions for the PhValheim player portal. Compare how eac
 
 ## Compare the directions
 
-Use the same numbers when discussing or combining ideas. Click a rendering or its full-size link to inspect the original PNG.
+Use the current numbers and names when discussing or combining ideas. Classic Reforged was inserted first; earlier options 01–13 are now 02–14. Existing image URLs and earlier section links remain available. Click a rendering or its full-size link to inspect the original PNG.
 
 | Option | Layout | Visual direction |
 | --- | --- | --- |
-| [01. Obsidian](#01-obsidian) | World list + scenery | Monochrome fjord scenery beside a simple world list. |
-| [02. The Gate](#02-the-gate) | Focused launcher | One featured world, a portal backdrop, and a world selector along the bottom. |
-| [03. Night Atlas](#03-night-atlas) | Directory + detail panel | A compact directory and detail panel over subtle map contours. |
-| [04. Ember](#04-ember) | World list + scenery | Warm ember accents, numbered navigation, and a dark longhouse scene. |
-| [05. Monolith](#05-monolith) | Poster gallery | Tall landscape posters put all four sample worlds side by side. |
-| [06. Fjord](#06-fjord) | Split screen | A wide fjord scene pairs with a narrow navigation and action column. |
-| [07. Blackglass](#07-blackglass) | Compact directory | A simple table reveals selected-world details below its row. |
-| [08. Moonwell](#08-moonwell) | Centered launcher | A circular lake image and a single centered Join action minimize distractions. |
-| [09. Runestone](#09-runestone) | Expandable rows | Numbered world rows expand the selected world into a scene and action area. |
-| [10. Horizon](#10-horizon) | Panorama + selector | A thin mountain panorama, one horizontal summary, and a bottom world selector. |
-| [11. Afterlight](#11-afterlight) | World list + scenery | Moonlit forest artwork and restrained violet accents frame a simple world list. |
-| [12. Northstar](#12-northstar) | Map selector | A compass-style selector explores a spatial alternative, with a List toggle. |
-| [13. Slate](#13-slate) | Split-pane directory | A searchable world list sits beside selected-world details and a progression strip. |
+| [01. Classic Reforged](#01-classic-reforged) | Enhanced current UI | Navy world cards, cyan and magenta accents, bolder hierarchy, and familiar details and progression. |
+| [02. Obsidian](#02-obsidian) | World list + scenery | Monochrome fjord scenery beside a simple world list. |
+| [03. The Gate](#03-the-gate) | Focused launcher | One featured world, a portal backdrop, and a world selector along the bottom. |
+| [04. Night Atlas](#04-night-atlas) | Directory + detail panel | A compact directory and detail panel over subtle map contours. |
+| [05. Ember](#05-ember) | World list + scenery | Warm ember accents, numbered navigation, and a dark longhouse scene. |
+| [06. Monolith](#06-monolith) | Poster gallery | Tall landscape posters put all four sample worlds side by side. |
+| [07. Fjord](#07-fjord) | Split screen | A wide fjord scene pairs with a narrow navigation and action column. |
+| [08. Blackglass](#08-blackglass) | Compact directory | A simple table reveals selected-world details below its row. |
+| [09. Moonwell](#09-moonwell) | Centered launcher | A circular lake image and a single centered Join action minimize distractions. |
+| [10. Runestone](#10-runestone) | Expandable rows | Numbered world rows expand the selected world into a scene and action area. |
+| [11. Horizon](#11-horizon) | Panorama + selector | A thin mountain panorama, one horizontal summary, and a bottom world selector. |
+| [12. Afterlight](#12-afterlight) | World list + scenery | Moonlit forest artwork and restrained violet accents frame a simple world list. |
+| [13. Northstar](#13-northstar) | Map selector | A compass-style selector explores a spatial alternative, with a List toggle. |
+| [14. Slate](#14-slate) | Split-pane directory | A searchable world list sits beside selected-world details and a progression strip. |
 
 ## What to look for
 
@@ -34,7 +35,19 @@ Use the same numbers when discussing or combining ideas. Click a rendering or it
 - **Useful detail:** consider where mods, access information, join codes, passwords, and progression belong.
 - **Current behavior:** a future design must preserve authorized world visibility and existing join flows, including ordinary Valheim for vanilla worlds. These renderings do not define those interactions.
 
-## 01. Obsidian
+## 01. Classic Reforged
+
+A cleaner, bolder evolution of the current public UI. It preserves the navy card grid, cyan world headings and borders, magenta launch emphasis, compact details, and boss progression strip. A tighter header, clearer hierarchy, aligned content, and readable offline cards strengthen the existing style.
+
+[![Classic Reforged concept: five navy world cards with cyan and magenta accents, a prominent launch action, compact details, and boss progression.](../assets/ui-concepts/2.62/classic-reforged.png)](../assets/ui-concepts/2.62/classic-reforged.png)
+
+[Open full-size PNG](../assets/ui-concepts/2.62/classic-reforged.png) · [Back to comparison](#compare-the-directions)
+
+**Review prompt:** Does this feel like the current PhValheim UI made clearer and more polished? Which details should stay on each card, and which should move into Advanced details?
+
+<a id="01-obsidian"></a>
+
+## 02. Obsidian
 
 Monochrome fjord scenery beside a simple world list.
 
@@ -44,7 +57,9 @@ Monochrome fjord scenery beside a simple world list.
 
 **Review prompt:** Can the selected world and its Join action be found immediately?
 
-## 02. The Gate
+<a id="02-the-gate"></a>
+
+## 03. The Gate
 
 One featured world, a portal backdrop, and a world selector along the bottom.
 
@@ -54,7 +69,9 @@ One featured world, a portal backdrop, and a world selector along the bottom.
 
 **Review prompt:** Does switching worlds stay obvious without competing with the main action?
 
-## 03. Night Atlas
+<a id="03-night-atlas"></a>
+
+## 04. Night Atlas
 
 A compact directory and detail panel over subtle map contours.
 
@@ -64,7 +81,9 @@ A compact directory and detail panel over subtle map contours.
 
 **Review prompt:** Does the panel show enough useful information without crowding the page?
 
-## 04. Ember
+<a id="04-ember"></a>
+
+## 05. Ember
 
 Warm ember accents, numbered navigation, and a dark longhouse scene.
 
@@ -74,7 +93,9 @@ Warm ember accents, numbered navigation, and a dark longhouse scene.
 
 **Review prompt:** Do warm accents help identify selection and actions?
 
-## 05. Monolith
+<a id="05-monolith"></a>
+
+## 06. Monolith
 
 Tall landscape posters put all four sample worlds side by side.
 
@@ -84,7 +105,9 @@ Tall landscape posters put all four sample worlds side by side.
 
 **Review prompt:** Would this remain usable with long names or many more worlds?
 
-## 06. Fjord
+<a id="06-fjord"></a>
+
+## 07. Fjord
 
 A wide fjord scene pairs with a narrow navigation and action column.
 
@@ -94,7 +117,9 @@ A wide fjord scene pairs with a narrow navigation and action column.
 
 **Review prompt:** Does the split make choosing and joining a world feel connected?
 
-## 07. Blackglass
+<a id="07-blackglass"></a>
+
+## 08. Blackglass
 
 A simple table reveals selected-world details below its row.
 
@@ -104,7 +129,9 @@ A simple table reveals selected-world details below its row.
 
 **Review prompt:** Is the compact layout easier to scan, and are its details worth showing upfront?
 
-## 08. Moonwell
+<a id="08-moonwell"></a>
+
+## 09. Moonwell
 
 A circular lake image and a single centered Join action minimize distractions.
 
@@ -114,7 +141,9 @@ A circular lake image and a single centered Join action minimize distractions.
 
 **Review prompt:** Are other worlds and the world picker easy enough to discover?
 
-## 09. Runestone
+<a id="09-runestone"></a>
+
+## 10. Runestone
 
 Numbered world rows expand the selected world into a scene and action area.
 
@@ -124,7 +153,9 @@ Numbered world rows expand the selected world into a scene and action area.
 
 **Review prompt:** Does expansion preserve context when moving between worlds?
 
-## 10. Horizon
+<a id="10-horizon"></a>
+
+## 11. Horizon
 
 A thin mountain panorama, one horizontal summary, and a bottom world selector.
 
@@ -134,7 +165,9 @@ A thin mountain panorama, one horizontal summary, and a bottom world selector.
 
 **Review prompt:** Does the horizontal layout adapt well to smaller screens?
 
-## 11. Afterlight
+<a id="11-afterlight"></a>
+
+## 12. Afterlight
 
 Moonlit forest artwork and restrained violet accents frame a simple world list.
 
@@ -144,7 +177,9 @@ Moonlit forest artwork and restrained violet accents frame a simple world list.
 
 **Review prompt:** Does the image support the interface while keeping controls readable?
 
-## 12. Northstar
+<a id="12-northstar"></a>
+
+## 13. Northstar
 
 A compass-style selector explores a spatial alternative, with a List toggle.
 
@@ -154,7 +189,9 @@ A compass-style selector explores a spatial alternative, with a List toggle.
 
 **Review prompt:** Does the map add useful orientation, and is the list alternative clear?
 
-## 13. Slate
+<a id="13-slate"></a>
+
+## 14. Slate
 
 A searchable world list sits beside selected-world details and a progression strip.
 
@@ -185,4 +222,4 @@ Design decisions and implementation tracking belong in the issue. This gallery i
 
 Created on 4 November 2026 with OpenAI image generation for PhValheim design review. These are illustrative concept images, not screenshots of a running server; landscape art, symbols, and boss representations are not final production assets. Desktop composition is shown here; mobile layouts and accessible interactions need separate design and validation.
 
-The thirteen original PNGs are preserved unchanged with stable numbered filenames. [Image provenance and file inventory](../assets/ui-concepts/2.62/README.md).
+All fourteen PNGs are original renderings. The thirteen earlier images and their filenames remain unchanged to preserve shared links; display numbers in this gallery determine review order. [Image provenance and file inventory](../assets/ui-concepts/2.62/README.md).
