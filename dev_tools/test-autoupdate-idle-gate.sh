@@ -227,19 +227,16 @@ grep -q 'Off (default)' "$ADMIN" \
 	|| fail "neither select says Off is the default"
 
 echo
-echo "== part 7: the real fix is written down =="
+echo "== part 7: follow-up validation remains discoverable =="
 
 [ -f "$BACKLOG" ] \
-	&& pass "docs/BACKLOG.md exists" \
-	|| fail "no backlog file" "the Companion-based detection work would be lost"
+    && pass "docs/BACKLOG.md exists" \
+    || fail "no backlog file" "the remaining telemetry validation work would be lost"
 
-grep -q 'GetConnectedPeers' "$BACKLOG" \
-	&& pass "it names the authoritative source (ZNet GetConnectedPeers)" \
-	|| fail "the backlog entry does not say what the real fix is"
-
-grep -qi 'heartbeat, not an event' "$BACKLOG" \
-	&& pass "and records the property the log signal lacks (a heartbeat)" \
-	|| fail "the backlog entry does not record WHY the current signal fails"
+# Do not assert that this document names a proposed API or describes the heartbeat as
+# missing. 2.58 implemented PlayerTelemetry using GetPlayerList; the old GetConnectedPeers
+# prose assertion prevented correcting the backlog. The behavioral idle checks above and
+# test-world-player-telemetry.sh guard runtime behavior independently of documentation.
 
 echo
 echo "$PASS passed, $FAIL failed"
