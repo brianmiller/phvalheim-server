@@ -1,5 +1,9 @@
 # Analytics enrollment transport
 
+This transport is included in the **2.62 development branch**. The existing 2.61
+release does not contain it. The receiver accepts the protocol from version 2.61
+or newer, but a version label alone does not add enrollment support.
+
 Analytics-enabled installations enroll automatically with the compatible receiver.
 The receiver requires version 2.61+ and this enrollment protocol. A version number
 alone does not establish that an installation uses a particular executable.

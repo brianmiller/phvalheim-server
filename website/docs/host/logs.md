@@ -21,3 +21,16 @@ enabled). **Server Health** in the sidebar lists every check, including the ones
 Nothing here is a heartbeat: the checks run when the dashboard asks, and the two that touch the
 network (GitHub, Steam) are cached so a dead network costs one short wait every five minutes,
 never one per page load.
+
+## Analytics enrollment in 2.62 development
+
+The 2.62 development branch includes authenticated analytics enrollment. When
+analytics is enabled, the server enrolls automatically and keeps a private
+credential at `/opt/stateful/analytics/credential.json`. Preserve that file with
+your private server backups; do not copy it into a different installation.
+
+The existing 2.61 release does not include this transport. Older senders can report
+an Analytics failure because the receiver now requires enrollment credentials.
+This does not affect worlds or player connections. A version string by itself is
+not a credential. Server Health reports whether an upload was accepted; disabling
+analytics remains available in settings. Enrollment support will ship with 2.62.

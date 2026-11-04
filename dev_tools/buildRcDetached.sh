@@ -121,6 +121,13 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 # reinstate the hazard.
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
+  # 2.62 enrollment integration: verify the packaged sender and absence of the old transport.
+  v62analyticsCall=$(grep -cF 'http_code=$(python3 /opt/stateless/engine/tools/analyticsTransport.py "$payload_file")' /opt/stateless/engine/tools/pushAnalytics.sh)
+  v62analyticsLegacy=$(grep -cE '^primary_url=|^fallback_url=|^http_code=.*curl' /opt/stateless/engine/tools/pushAnalytics.sh)
+  v62analyticsIdentity=$(grep -cF "secrets.token_urlsafe(32)" /opt/stateless/engine/tools/analyticsTransport.py)
+  v62analyticsRedirect=$(grep -cF 'urllib.request.build_opener(NoRedirect).open' /opt/stateless/engine/tools/analyticsTransport.py)
+  v62analyticsProtocol=$(grep -cF "request('/api/enroll'" /opt/stateless/engine/tools/analyticsTransport.py)
+  echo "2.62 analytics: helper call=$v62analyticsCall legacy transport=$v62analyticsLegacy private identity=$v62analyticsIdentity redirect refusal=$v62analyticsRedirect enrollment=$v62analyticsProtocol (want 1/0/1/1/1)"
   v62remote=0
   if [ -x /opt/stateless/remote-access/start.sh ] && [ -r /opt/stateless/remote-access/child.py ] && grep -Fq "[program:remote-access]" /opt/stateless/supervisor.d/phvalheim.conf && [ -f /opt/stateless/nginx/www/admin/remoteAccessAPI.php ] && [ -f /opt/stateless/nginx/www/public/remote-test.php ] && /usr/local/bin/cloudflared --version | grep -q 2026.10.7 && /usr/local/bin/tailscale version | head -1 | grep -qx 1.104.5 && grep -q public.sock /etc/nginx/sites-available/phvalheim.conf; then v62remote=1; fi
   echo "Built-in Remote Access supervision, binaries, API, challenge and socket=$v62remote (want 1)"
@@ -4451,6 +4458,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
     && [ "$v61a" = "0" ] && [ "$v61b" = "1" ] && [ "$v61c" = "1" ] && [ "$v61d" = "0" ] && [ "$v61e" = "0" ] && [ "$v61f" = "0" ] \
     && [ "$v61g" = "0" ] && [ "$v61h" = "1" ] && [ "$v61i" = "1" ] && [ "$v61j" = "4" ] && [ "$v61k" = "1" ] && [ "$v61l" = "0" ] \
+    && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF

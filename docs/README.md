@@ -17,6 +17,7 @@ contributor; `CONTRIBUTING.md` at the repo root is.
 | **TrueNAS** | `truenas/` | The TrueNAS catalogue submission packet. |
 | **Work tracking** | [GitHub Issues](https://github.com/brianmiller/phvalheim-server/issues) | Canonical tasks, ownership, acceptance criteria, and status; no Markdown backlog. |
 | **Runtime reference** | `PLAYER-TELEMETRY.md` | How Companion observations feed the idle-update decision; validation work is tracked in issue #99. |
+| **Analytics enrollment** | [ANALYTICS-ENROLLMENT.md](ANALYTICS-ENROLLMENT.md) | Private persistent sender credentials and recovery; integrated into 2.62 development from PR #117. |
 | **Remote Access design** | [DESIGN-REMOTE-ACCESS-2.62.md](DESIGN-REMOTE-ACCESS-2.62.md) | Built-in Cloudflare/Tailscale clients, guided setup modals, and live connection diagnostics; development validation and release gates are tracked in issue #114. |
 
 Release-specific plans and next-step records are historical evidence. Track current work
