@@ -122,6 +122,11 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # 2.62 enrollment integration: verify the packaged sender and absence of the old transport.
+  v62healthRemote=$(grep -c "^function phvHealthRuleRemoteAccess" /opt/stateless/nginx/www/includes/health.php)
+  v62healthAnalytics=$(grep -c "phvHealthRuleAnalytics" /opt/stateless/nginx/www/includes/health.php)
+  v62quietAnalytics=$(grep -c "phvlog WARN" /opt/stateless/engine/tools/pushAnalytics.sh)
+  v62healthAction=$(grep -c "b.textContent = .*Open Remote Access" /opt/stateless/nginx/www/admin/index.php)
+  echo "2.62 health: remote=$v62healthRemote analytics=$v62healthAnalytics analytics warnings=$v62quietAnalytics remote action=$v62healthAction (want 1/0/0/1)"
   v62analyticsCall=$(grep -cF 'http_code=$(python3 /opt/stateless/engine/tools/analyticsTransport.py "$payload_file")' /opt/stateless/engine/tools/pushAnalytics.sh)
   v62analyticsLegacy=$(grep -cE '^primary_url=|^fallback_url=|^http_code=.*curl' /opt/stateless/engine/tools/pushAnalytics.sh)
   v62analyticsIdentity=$(grep -cF "secrets.token_urlsafe(32)" /opt/stateless/engine/tools/analyticsTransport.py)
@@ -4458,6 +4463,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v59bx" = "1" ] && [ "$v59by" = "0" ] \
     && [ "$v61a" = "0" ] && [ "$v61b" = "1" ] && [ "$v61c" = "1" ] && [ "$v61d" = "0" ] && [ "$v61e" = "0" ] && [ "$v61f" = "0" ] \
     && [ "$v61g" = "0" ] && [ "$v61h" = "1" ] && [ "$v61i" = "1" ] && [ "$v61j" = "4" ] && [ "$v61k" = "1" ] && [ "$v61l" = "0" ] \
+    && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

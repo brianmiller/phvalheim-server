@@ -92,6 +92,18 @@ phvEventSource('admin');
 $ev = phvEvents($pdo, ['world' => $W, 'source' => 'hugin']);
 check('the same command under Hugin is tagged hugin', ["Stop requested for world '$W'"], array_column($ev, 'message'));
 
+echo "\nquiet analytics\n";
+$beforeAnalytics = phvEventsSummary($pdo); $errorsBeforeAnalytics = phvRecentErrors($pdo);
+phvEventSource('analytics');
+phvEvent($pdo, 'warn', 'analytics warning fixture', $W);
+phvEvent($pdo, 'error', 'analytics error fixture', $W);
+phvEventSource('admin');
+$afterAnalytics = phvEventsSummary($pdo); $errorsAfterAnalytics = phvRecentErrors($pdo);
+check('analytics warnings/errors do not pulse the Logs badge',
+    [$beforeAnalytics['unseen_warn'], $beforeAnalytics['unseen_error']], [$afterAnalytics['unseen_warn'], $afterAnalytics['unseen_error']]);
+check('analytics does not contribute to recent-error health', $errorsBeforeAnalytics, $errorsAfterAnalytics);
+check('analytics diagnostic records remain in Logs', 2, count(array_filter(phvEvents($pdo, ['world'=>$W]), fn($e)=>$e['source']==='analytics')));
+
 echo "\nsummary and ack\n";
 $s = phvEventsSummary($pdo);
 check('unseen counts include this test\'s warn and error', [true, true], [$s['unseen_warn'] >= 1, $s['unseen_error'] >= 1]);
@@ -99,7 +111,7 @@ check('unseen counts include this test\'s warn and error', [true, true], [$s['un
 $j = json_decode($body, true);
 // The engine is live, so a warning may land between the two calls: what is still unseen must be
 // exactly what was written AFTER the acked id, nothing before it.
-$after = $pdo->prepare("SELECT level, COUNT(*) FROM phv_events WHERE id > ? AND level IN ('warn','error') GROUP BY level");
+$after = $pdo->prepare("SELECT level, COUNT(*) FROM phv_events WHERE id > ? AND COALESCE(source, '') <> 'analytics' AND level IN ('warn','error') GROUP BY level");
 $after->execute([$s['max_id']]); $cnt = ['warn' => 0, 'error' => 0]; foreach ($after->fetchAll(PDO::FETCH_NUM) as $r) { $cnt[$r[0]] = (int)$r[1]; }
 check('ack over HTTP: only events after the acked id remain unseen', [200, $cnt['warn'], $cnt['error']], [$code, $j['unseen_warn'] ?? -1, $j['unseen_error'] ?? -1]);
 phvEventsAck($pdo, 1);
@@ -128,7 +140,7 @@ check('getLogFiles lists the world log with its world', $W, array_values(array_f
 
 echo "\nhealth\n";
 $r = phvRecentErrors($pdo);
-$mine = phvEvents($pdo, ['world' => $W, 'min_level' => 'error']);
+$mine = array_filter(phvEvents($pdo, ['world' => $W, 'min_level' => 'error']), fn($e) => $e['source'] !== 'analytics');
 check('recent errors counts the error logged above (and has a latest)', [true, true], [$r['count'] >= count($mine) && count($mine) === 1, !empty($r['last']['message'])]);
 $h = phvServerHealth($pdo, ['steamProbe' => null, 'releaseCache' => null, 'dataWritable' => true, 'syncRuns' => [], 'backup' => [], 'housekeeping' => [], 'analyticsRecord' => null, 'settings' => ['analyticsEnabled' => 0]]);
 $re = array_values(array_filter($h['checks'], fn($c) => $c['id'] === 'recent_errors'))[0] ?? null;

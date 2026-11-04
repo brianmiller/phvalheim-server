@@ -171,6 +171,14 @@ leaves those connections off until you sign in with the saved device and select
 Funnel publishes the player website only; it does not carry game UDP, expose the
 admin UI, enable an exit node, or provide SSH.
 
+## Server Health
+
+Server Health includes the configured Cloudflare or Tailscale connection. It uses
+read-only provider status and the latest website test: opening Health never connects
+or publishes a website. Approval requirements, connection failures and failed checks
+appear in the dashboard banner with **Open Remote Access**. Off is quiet; startup
+and missing or outdated website verification are shown as unknown.
+
 ## Read the connection checks
 
 The modal polls real controller/provider observations. It separately reports the

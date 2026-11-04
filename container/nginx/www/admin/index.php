@@ -6500,6 +6500,11 @@ $totalCount = count($worlds);
             b.onclick = function () { closeServerHealthModal(); showServerSettingsModal(); };
             return b;
         }
+        if (action === 'remote-access') {
+            b.textContent = 'Open Remote Access';
+            b.onclick = function () { closeServerHealthModal(); showRemoteAccessModal(); };
+            return b;
+        }
         if (action === 'logs') {
             b.textContent = 'Open Logs';
             b.onclick = function () { window.open('logs.php', '_blank'); };

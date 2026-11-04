@@ -13,12 +13,12 @@ function phvRemoteOriginAllowed(array $server): bool {
         && !in_array($server['HTTP_SEC_FETCH_SITE'] ?? '', ['cross-site', 'same-site'], true);
 }
 
-function phvRemoteControl(array $request): array {
+function phvRemoteControl(array $request, int $timeout = 10): array {
     $socket = @stream_socket_client('unix:///run/phvalheim-remote/control.sock', $errno, $error, 2);
     if (!$socket) {
         return ['success' => true, 'available' => false, 'error' => 'The built-in Remote Access service is stopped or starting. Wait a moment, then retry. If it persists, check Server Health.'];
     }
-    stream_set_timeout($socket, 10);
+    stream_set_timeout($socket, $timeout);
     $line = json_encode($request, JSON_THROW_ON_ERROR) . "\n";
     $written = fwrite($socket, $line);
     $response = $written === strlen($line) ? fgets($socket, 131073) : false;

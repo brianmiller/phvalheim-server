@@ -40,8 +40,8 @@ file (`enrolled: true`). Stop concurrent analytics jobs during manual recovery a
 preserve service-account ownership and mode 0600.
 
 The receiver limits payloads to 2 MiB, 128 worlds, 4,096 mods across worlds, and
-bounded field lengths. Rejected reports are visible as a failed Analytics check in
-Server Health. The test suite covers enrollment retry, persistent identity, private
+bounded field lengths. Reporting outcomes remain in Logs and the local analytics status record. Analytics
+does not contribute to Server Health, dashboard warning banners or the Logs warning badge. The test suite covers enrollment retry, persistent identity, private
 file permissions, redirect refusal, opt-out, old versions, and authentication
 failure. No game runtime or client changes are needed for this transport.
 

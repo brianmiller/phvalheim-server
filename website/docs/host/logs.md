@@ -16,8 +16,11 @@ The dashboard checks the things that used to fail silently and shows anything th
 attention at the top of the page, in plain words, with a button for what to do: whether GitHub
 is answering client download lookups, whether Steam still accepts your API key, whether the data
 volume can be written, whether each mod catalogue's last sync and the last backup run succeeded,
-whether the required settings are set, and whether the daily analytics push went through (if
-enabled). **Server Health** in the sidebar lists every check, including the ones that are fine.
+whether the required settings are set, and whether the configured Cloudflare or Tailscale
+public website is connected and verified. Remote Access warnings link directly to its setup
+and diagnostics. An intentionally disconnected or unconfigured provider does not warn.
+Verification older than five minutes is marked unknown until you run Test connection.
+Analytics is excluded from Server Health and warning badges; diagnostic records remain in Logs. **Server Health** in the sidebar lists every check, including the ones that are fine.
 Nothing here is a heartbeat: the checks run when the dashboard asks, and the two that touch the
 network (GitHub, Steam) are cached so a dead network costs one short wait every five minutes,
 never one per page load.
