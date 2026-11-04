@@ -72,6 +72,10 @@ Reviewing the rest of the public surface found three more problems in the same a
 
 ## Verification
 
+A real Steam account completed the sign-in round trip against this image on a production
+server (37648-phvalheim1) on 2026-11-04, and the forged-callback and download-alias checks
+behaved as described there.
+
 See `docs/WORKBENCH-2.61-VALIDATION.md` for the evidence collected against the shipped image,
 including the forged-login and download-alias checks run against the previous image as a
 control, and the end-to-end run of PhValheim Client 2.0.17 against the candidate.

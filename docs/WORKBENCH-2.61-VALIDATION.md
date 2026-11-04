@@ -91,9 +91,10 @@ unpacked (BepInEx tree, doorstop in the game's environment); the stub Valheim re
 
 ## Not covered
 
-- A genuine Steam sign-in (a real account completing the OpenID round trip) has not been
-  observed on this image; the accept path is covered by the fake-Steam unit test and the
-  reject path by Steam's live `is_valid:false`. Brian's dev testing is the first real sign-in.
+- A genuine Steam sign-in: **observed 2026-11-04.** Brian pulled this digest onto the
+  production server 37648-phvalheim1 and completed a real Steam OpenID round trip; it
+  worked. Before that the accept path rested on the fake-Steam unit test and the reject path
+  on Steam's live `is_valid:false`.
 - No live Valheim or Companion; the e2e uses stubs for both, as client CI does.
 - Windows and macOS clients were not run; they share `Syncer.cs` and the same two URLs.
 
