@@ -1,5 +1,13 @@
 # CLAUDE.md
 
+**Merge approval is mandatory:** Brian Miller (`@brianmiller`) must explicitly approve
+any change before it enters `main` or `master`. Prepare and test a PR, then wait.
+Implementation requests, green CI, another reviewer's approval, and access to Brian's
+credentials are not merge authorization. New changes require renewed approval.
+Do not merge, enable auto-merge, push directly, or bypass protections without his
+explicit authorization. Never submit an approval as Brian or impersonate his review.
+See [the approval procedure](CONTRIBUTING.md#brian-must-approve-every-merge).
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 **Contributing a change? Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first and follow it.** It is
