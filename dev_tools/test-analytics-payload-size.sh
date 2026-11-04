@@ -79,7 +79,7 @@ out=$(docker exec "$C" bash -c '
   cp /opt/stateless/engine/tools/pushAnalytics.sh /tmp/_pa.sh
   # The payload lives at a mktemp path the EXIT trap removes (deliberate: a fixed /tmp path wedged
   # later runs). Copy it out at the moment the POST would have happened, then exit.
-  sed -i "s|^http_code=\$(curl|cp \"\$payload_file\" /tmp/phvalheim_analytics_payload.json; exit 0 # &|" /tmp/_pa.sh
+  sed -i "s|^http_code=\$(python3|cp \"\$payload_file\" /tmp/phvalheim_analytics_payload.json; exit 0 # &|" /tmp/_pa.sh
   bash /tmp/_pa.sh 2>&1 | tail -5
   echo "---PAYLOAD---"
   # Facts about the WHOLE file, not a 400-byte head: "worlds" sits after the system block, so
