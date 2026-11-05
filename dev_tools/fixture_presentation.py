@@ -23,7 +23,7 @@ else:raise AssertionError('startup')
 # The API becomes reachable before the engine has applied every historical migration.
 for i in range(120):
  ready=subprocess.run(['docker','exec',name,'mysql','-N','-uphvalheim_user','-pphvalheim_secretpassword','phvalheim','-e',
-  'SELECT password_public,config_policy_version FROM worlds LIMIT 0; SELECT configPolicyNoticeState FROM settings LIMIT 0;'],capture_output=True)
+  'SELECT password_public,config_policy_version,disableSteamOverlay FROM worlds LIMIT 0; SELECT publicTheme,configPolicyNoticeState FROM settings LIMIT 0;'],capture_output=True)
  if ready.returncode == 0: break
  time.sleep(1)
 else: raise AssertionError('schema migrations did not finish')

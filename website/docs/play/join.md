@@ -63,6 +63,33 @@ Choose your platform. The client syncs your world's mods and settings, then star
 Launch from the website each time to get your host's latest mods and shared settings.
 Your personal settings are preserved. [How settings work →](../host/mods.md#change-configurations)
 
+### Explore a world's mods
+
+Choose **View mods** on a world card to open its library, including while the world is offline.
+Search by mod, author or setting, or filter for player mods, server mods and customizable
+settings. The library shows the recorded installed version separately from the operator's
+selected version, plus descriptions, dependencies and links to the mod authors' pages.
+“Not recorded” means the server has no installation record; it does not mean a mod is absent.
+
+### Personal mod settings (development preview)
+
+The library's **Configuration** section shows settings the operator has published to players.
+**Customizable** settings can be saved for your Steam account and that world. Choose
+**Save my choice**, then launch again with the updated **2.0.18 draft client** to apply it.
+This preview is currently packaged only as a Flatpak; older clients ignore saved web choices.
+Your game must be restarted to pick up a new choice.
+
+**Use published default** saves the operator's suggested value as your personal choice.
+**Use local config** stops applying that saved choice and leaves the last value in your local
+file, so you can edit it with your usual config tool. Saved web choices are reapplied at each
+launch until you remove them. The browser cannot read your existing local config, so a
+published default displayed here may differ from what you currently use.
+
+**Operator controlled** settings are read-only. Private server settings are never displayed.
+If no settings appear, the operator may need to run the mod once, enable **Config Client**
+and publish its configuration. A mod's own runtime synchronization may still control a value
+in game.
+
 ## Join a vanilla world
 
 Use ordinary Valheim. The world's card on your host's website shows a **join code** or

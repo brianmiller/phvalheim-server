@@ -261,17 +261,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 				if(!$isOnline) {
 					$worldDimmed = "card_dimmed";
 					$launchLabel = "offline";
-					$modListToolTip = "offline";
 				} else {
-	                                # running mods public viewer
-        	                        $runningMods_head = "\n<table border=\"0\" style=\"line-height:auto;\">\n";
-	                                $runningMods_foot = "</table>\n";
-	                                $runningMods = $runningMods_head . generateToolTip($pdo,$myWorld) . $runningMods_foot;
-	                                $modListToolTip = "<a href='#' class='mod-view-link' style='box-shadow:none;border:none;outline:none;' tabindex='0' data-bs-trigger='focus' data-bs-toggle='popover' data-bs-placement='bottom' data-bs-title='Running Mods' data-bs-html='true' data-bs-content='$runningMods'>(<span class='view-text'>view</span>)</a>";
-
 					$worldDimmed = "";
 					$launchLabel = "Launch!";
 				}
+                $modListToolTip = "<button type='button' class='mod-view-link'>View mods</button>";
+
 
 				# Render the trophy row straight from the registry, in progression order.
 				# Adding a boss is an entry in includes/bosses.php -- nothing here changes.
@@ -712,6 +707,8 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 <link rel="stylesheet" href="/css/public-themes.css?v=3">
 <script defer src="/js/public-themes.js?v=2"></script>
 <?php } ?>
+<link rel="stylesheet" href="/css/player-mods.css?v=1">
+<script defer src="/js/player-mods.js?v=1"></script>
 </head>
         <body data-public-theme="<?php echo htmlspecialchars($publicTheme, ENT_QUOTES); ?>">
 <?php
@@ -1002,34 +999,10 @@ if (phvDevSteamID() !== NULL) {
                         // Update mods field
                         const modsEl = card.querySelector('.world-mods');
                         if (modsEl) {
-                            // Dispose existing popover if any
-                            const existingLink = modsEl.querySelector('.mod-view-link');
-                            if (existingLink) {
-                                const existingPopover = bootstrap.Popover.getInstance(existingLink);
-                                if (existingPopover) existingPopover.dispose();
-                            }
-
-                            if (isOnline && world.mods && world.mods.length > 0) {
-                                // Build mods tooltip content
-                                let modsContent = '<table border="0" style="line-height:auto;">';
-                                world.mods.sort((a, b) => b.name.toLowerCase().localeCompare(a.name.toLowerCase()));
-                                world.mods.forEach(mod => {
-                                    modsContent += `<tr><td><li><a target="_blank" href="${mod.url}">${mod.name}</a></li></td></tr>`;
-                                });
-                                modsContent += '</table>';
-
-                                modsEl.innerHTML = `<a href='#' class='mod-view-link' style='box-shadow:none;border:none;outline:none;' tabindex='0' data-bs-trigger='focus' data-bs-toggle='popover' data-bs-placement='bottom' data-bs-title='Running Mods' data-bs-html='true' data-bs-content="${modsContent.replace(/"/g, '&quot;')}">(<span class='view-text'>view</span>)</a>`;
-
-                                // Initialize new popover
-                                const newLink = modsEl.querySelector('.mod-view-link');
-                                if (newLink) {
-                                    new bootstrap.Popover(newLink, {
-                                        sanitize: false,
-                                        html: true
-                                    });
-                                }
-                            } else {
-                                modsEl.textContent = 'offline';
+                            if (!modsEl.querySelector('.mod-view-link')) {
+                                const button = document.createElement('button');
+                                button.type = 'button'; button.className = 'mod-view-link';
+                                button.textContent = 'View mods'; modsEl.replaceChildren(button);
                             }
                         }
 

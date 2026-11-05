@@ -45,6 +45,19 @@ Older launchers are blocked before they can overwrite personal configs; some sho
 previously saved operator settings remain available. Saving a shared setting enables delivery
 for its mod; Server-only edits and resets leave the Client switch unchanged.
 
+## Player mod library and personal settings
+
+The public **View mods** panel follows your selected theme and works for offline worlds too.
+It shows installation records and selected versions separately, avoiding claims that a
+pending update is already installed. Players can inspect published configuration and save
+personal choices for **Overridable** entries with the updated 2.0.18 draft client.
+These choices are stored separately for each Steam account and world; they do not edit
+operator settings or shared archives. Removing access to a world, disabling client delivery,
+or clearing Overridable prevents subsequent personal-setting delivery. Server-only entries
+are excluded even if an older published policy still contains them.
+
+[Player controls and current client availability →](../play/join.md#personal-mod-settings-development-preview)
+
 ## Catalogue sync
 
 The public catalogues sync at startup and on the configured interval. The **Mod Catalogues** panel shows progress and a live log for each source. Expand the log when a source is slow or a package is missing.

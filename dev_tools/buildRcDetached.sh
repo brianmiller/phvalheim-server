@@ -136,6 +136,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62bossGrey=$(grep -cF 'filter:grayscale(1) brightness(.65);' /opt/stateless/nginx/www/css/public-themes.css)
   v62bossGreyCache=$(grep -l 'public-themes.css?v=3' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 undefeated bosses: grey=$v62bossGrey cache=$v62bossGreyCache (want 1/2)"
+  v62playerViewer=$(grep -cF 'dialog.showModal()' /opt/stateless/nginx/www/js/player-mods.js)
+  v62playerScope=$(grep -cF 'playerConfigTokenPlayer($world' /opt/stateless/nginx/www/public/api.php)
+  v62playerPrivate=$(grep -c 'server_only.*continue' /opt/stateless/nginx/www/includes/player_mods.php)
+  echo "2.62 player mod viewer: modal=$v62playerViewer scoped reads=$v62playerScope private exclusion=$v62playerPrivate (want 1/1/1)"
   # 2.62 enrollment integration: verify the packaged sender and absence of the old transport.
   v62periodic=$(grep -c "self.schedule_check()" /opt/stateless/remote-access/service.py)
   v62header=$(grep -c 'id="remoteConnectionPills"' /opt/stateless/nginx/www/admin/index.php)
@@ -1464,7 +1468,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.51 labels: named=$wh (want 5)  spaced cells=$wi (want 5)  css cell rule=$wr (want 1)"
   echo "2.51 modal: refs=$wk (want 4)  cmd table=$wl (want 1)  copy btns=$wn (want 4)  dl btn=$wo (want 2)"
   echo "2.51 modal single-source: empty cmd blocks=$wm (want 4)"
-  echo "2.51 modal wiring: icon onclick=$wj (want 1)  popover sanitize off=$wp (want 2)  css=$wq (want 1)"
+  echo "2.51 modal wiring: icon onclick=$wj (want 1)  download popover sanitize off=$wp (want 1)  css=$wq (want 1)"
 
   # ---- 2.52: cross-user /tmp state -------------------------------------------------
   # STILL no apostrophes below, comments included. The whole body is inside sh -c and one
@@ -4279,7 +4283,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$we" = "1" ] && [ "$wf" = "1" ] && [ "$ws" = "1" ] && [ "$wt" = "$wu" ] \
     && [ "$wg" = "0" ] && [ "$wh" = "5" ] && [ "$wi" = "5" ] && [ "$wj" = "1" ] \
     && [ "$wk" = "4" ] && [ "$wl" = "1" ] && [ "$wm" = "4" ] && [ "$wn" = "4" ] \
-    && [ "$wo" = "2" ] && [ "$wp" = "2" ] && [ "$wq" = "1" ] && [ "$wr" = "1" ] \
+    && [ "$wo" = "2" ] && [ "$wp" = "1" ] && [ "$wq" = "1" ] && [ "$wr" = "1" ] \
     && [ "$xa" = "0" ] && [ "$xb" = "0" ] && [ "$xi" = "0" ] \
     && [ "$xc" = "1" ] && [ "$xd" = "1" ] && [ "$xe" = "1" ] && [ "$xf" = "1" ] && [ "$xg" = "2" ] \
     && [ "$xh" = "1" ] && [ "$xj" = "0" ] && [ "$xk" = "0" ] && [ "$xl" = "1" ] \
@@ -4485,6 +4489,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62periodic" = "1" ] && [ "$v62header" = "1" ] && [ "$v62library" = "1" ] \
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
+    && [ "$v62playerViewer" = "1" ] && [ "$v62playerScope" = "1" ] && [ "$v62playerPrivate" = "1" ] \
     && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "3" ] && [ "$v62presentationAssets" = "1" ] \

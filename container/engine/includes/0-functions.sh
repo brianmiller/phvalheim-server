@@ -622,6 +622,7 @@ function deleteWorldModRows() {
         #Joined rather than done as two statements: a separate "SELECT id" then
         #"DELETE WHERE world_id=$id" deletes EVERY row if the select came back empty and
         #the variable expanded to nothing.
+        SQL "DELETE pc FROM player_mod_configs pc JOIN worlds w ON w.id=pc.world_id WHERE w.name='$worldName';"
         SQL "DELETE cp FROM world_mod_config_policy cp JOIN worlds w ON w.id=cp.world_id WHERE w.name='$worldName';"
         SQL "DELETE wm FROM world_mods wm JOIN worlds w ON w.id = wm.world_id WHERE w.name='$worldName';"
 

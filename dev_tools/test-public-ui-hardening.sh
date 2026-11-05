@@ -38,7 +38,7 @@ echo "== api.php: no unauthenticated identity"
 check "the steamID query-parameter fallback is gone" \
 	"$(grep -c "\$_GET\['steamID'\]" "$W/public/api.php")" 0
 check "getMyWorldsStatus answers 401 with no session" \
-	"$(grep -c 'http_response_code(401)' "$W/public/api.php")" 1
+	"$(sed -n '/if ($mode == "getMyWorldsStatus")/,$p' "$W/public/api.php" | grep -c 'http_response_code(401)')" 1
 check "a world name is allowlisted before any query runs" \
 	"$(grep -c "preg_match('/^\[A-Za-z0-9_-\]{1,64}\$/', (string)\$world)" "$W/public/api.php")" 1
 
