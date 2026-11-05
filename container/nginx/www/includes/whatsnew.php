@@ -11,6 +11,12 @@
  */
 function whatsNewNotes() {
     return [
+        '2.62' => [
+            '<b>Development preview: public themes.</b> Choose Classic, Classic Reforged, The Gate or Ember in Server Settings. Classic remains the default. The new themes share boss artwork and Hugin branding.',
+            '<b>Steam overlay troubleshooting.</b> Server Settings has a disable toggle, with an inherit/enabled/disabled override in World Options. The updated client enables the overlay by default and honors these controls for direct modded Linux launches only. The currently published 2.0.17 client does not read this setting; an updated client build is required. Windows, macOS and vanilla launches use Steam settings.',
+            '<b>Built-in Remote Access.</b> Configure a public player website through Tailscale or Cloudflare, with automatic website checks, Server Health reporting and header status for configured connections.',
+            '<b>Quieter status.</b> Analytics runs without warning banners or health entries. Hugin&rsquo;s Vibes shows its local library and tool readiness instead of catalogue sync status.',
+        ],
         '2.61' => [
             '<b>Security: Steam sign-in is now verified with Steam.</b> The player portal used to trust the Steam ID in the sign-in callback URL, so anyone could open the portal as any player and see that player\'s world list, any published password, and their Steam name. The portal now confirms every sign-in with Steam before starting a session. No action is needed, but update promptly.',
             '<b>Security: the world status API requires a signed-in session.</b> An unused compatibility path let any visitor request any player\'s world list and launch links without signing in. It is removed; the portal page itself is unaffected.',
