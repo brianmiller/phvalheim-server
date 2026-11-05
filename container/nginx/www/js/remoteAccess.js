@@ -319,12 +319,18 @@
         $('raDisconnect').disabled = busy || !available || (!enabled && !enrolling);
         testFeedback();
     }
+    let headerProvider = '';
     function renderHeader() {
         const group = $('remoteConnectionPills');
         if (!group) return;
+        // Keep the last known configured provider visible if the service is unavailable.
+        // An explicit empty provider means the saved connection was removed.
+        if (typeof data?.config?.provider === 'string') headerProvider = data.config.provider;
+        group.hidden = !['tailscale', 'cloudflare'].includes(headerProvider);
         if (!group.children.length) {
             for (const provider of ['tailscale', 'cloudflare']) {
                 const button = document.createElement('button');
+                button.hidden = true;
                 button.type = 'button'; button.id = 'raPill-' + provider; button.className = 'ra-connection-pill';
                 const icon = provider === 'tailscale'
                     ? '<svg viewBox="0 0 18 18" aria-hidden="true"><g fill="currentColor"><circle cx="4" cy="4" r="2"/><circle cx="9" cy="4" r="2"/><circle cx="14" cy="4" r="2" opacity=".35"/><circle cx="4" cy="9" r="2"/><circle cx="9" cy="9" r="2"/><circle cx="14" cy="9" r="2"/><circle cx="4" cy="14" r="2" opacity=".35"/><circle cx="9" cy="14" r="2"/><circle cx="14" cy="14" r="2" opacity=".35"/></g></svg>'
@@ -336,6 +342,8 @@
         }
         for (const provider of ['tailscale', 'cloudflare']) {
             const button = $('raPill-' + provider), name = provider === 'tailscale' ? 'Tailscale' : 'Cloudflare';
+            button.hidden = headerProvider !== provider;
+            if (button.hidden) continue;
             const same = data?.config?.provider === provider;
             const stale = !!transportError || (data && (Date.now() - lastReply > 15000 || serverNow() - (data.observed?.time || 0) > 15));
             let state = 'off', label = 'Off', detail = 'Website access is off. Open Remote Access to configure ' + name + '.';

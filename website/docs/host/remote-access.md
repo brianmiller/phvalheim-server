@@ -182,8 +182,9 @@ and missing or outdated website verification are shown as unknown while automati
 Both providers recheck the public website every four minutes, including when no admin
 browser is open. Failed checks retry after one minute. A recent success remains visible
 during the next check; a new failure immediately overrides it. Disconnect stops checks.
-The header beside **Ask Hugin** shows separate Tailscale and Cloudflare pills, refreshed
-every five seconds while the page is visible. **Live** means the provider is connected
+The header beside **Ask Hugin** shows a pill only for the configured provider, refreshed
+every five seconds while the page is visible. A saved connection stays visible when
+disconnected; removing it hides the pill. Unconfigured providers are not shown. **Live** means the provider is connected
 and the public website was recently verified; **Checking**, **Connecting**, **Approval**,
 **Attention**, **Unknown** and **Off** describe the other states. Select a pill to open
 that provider’s Remote Access view. Unavailable or stale status never remains green.

@@ -98,3 +98,5 @@
     .health-row > div { overflow-wrap:anywhere; }
     .health-row > div > div:first-child { flex-wrap:wrap; }
 }
+
+.ra-header-connections[hidden], .ra-connection-pill[hidden] { display: none; }
