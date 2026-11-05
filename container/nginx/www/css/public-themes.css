@@ -157,3 +157,14 @@ body[data-public-theme="reforged"] #publicPortal .client_download_button button 
 
 body[data-public-theme="gate"] { background-color:#03090f!important; background-repeat:no-repeat!important; }
 body[data-public-theme="ember"] { background-color:#0e0806!important; background-repeat:no-repeat!important; }
+/* At tablet widths the featured card stacks before its title and action collide. */
+@media(min-width:701px) and (max-width:1100px) {
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child { display:flex!important; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-card-heading { padding-right:0; margin-bottom:0; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-launch { position:static; margin:18px 0; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child .trophy-table { border-left:0!important; border-top:1px solid #61738e!important; padding:18px 0 0; margin-top:20px!important; }
+}
+body[data-public-theme] .user-modal-container,
+body[data-public-theme] .user-modal-container * { font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif!important; }
+body[data-public-theme] .user-modal-container p { color:#dce5f2!important; font-size:16px!important; line-height:1.6; }
+body[data-public-theme] .user-modal-container a { color:var(--portal-accent)!important; }

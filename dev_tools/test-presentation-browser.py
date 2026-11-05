@@ -90,6 +90,13 @@ with sync_playwright() as p:
    page.evaluate("document.documentElement.style.scrollBehavior='auto';document.body.style.scrollBehavior='auto';scrollTo(0,document.body.scrollHeight)");page.wait_for_timeout(250);page.screenshot(path='/tmp/phv-presentation-'+theme+'-mobile-bottom.png')
    page.evaluate('scrollTo(0,0)')
   page.screenshot(path='/tmp/phv-presentation-'+theme+'-mobile.png',full_page=True)
+  if theme=='reforged':
+   for width in [768,1024,2135]:
+    page.set_viewport_size({'width':width,'height':1000})
+    title=page.locator('[data-world="Midgard"] h2');title.evaluate("e=>e.textContent='VikingOutlaws'")
+    a=title.bounding_box();b=page.locator('[data-world="Midgard"] .launch-link').bounding_box()
+    assert a['x']+a['width']<=b['x'] or a['y']+a['height']<=b['y'],str(width)+' title/action overlap'
+    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
   page.set_viewport_size({'width':1440,'height':1050})
  page.goto(f['admin'],wait_until='domcontentloaded');page.evaluate('showServerSettingsModal()')
  expect(page.locator('#ss-publicTheme')).to_be_visible();assert page.locator('#ss-publicTheme option').count()==4
