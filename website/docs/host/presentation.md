@@ -6,7 +6,7 @@ These controls are in development and have not been added to the published stabl
 
 In **Server Settings → Public UI theme**, choose **Classic**, **Classic Reforged**, **The Gate**, or **Ember**. Save, then reload the public website. The choice applies to the sign-in page and every player's world dashboard; it does not change the admin theme.
 
-Classic is the default and retains the existing presentation. Classic Reforged gives the first world a featured card, with searchable compact cards and expandable details for the other worlds. The Gate puts a world chooser below the selected world; Ember puts it beside the world on desktop and above it on mobile. The three new themes share seven boss heads and the landing page's Hugin artwork. All seven boss heads remain visible; checkmarks and the progression count identify defeated bosses. Vanilla worlds retain their connection details rather than showing modded progression.
+Classic is the default and retains the existing presentation. Classic Reforged gives the first world a featured card, with searchable compact cards and expandable details for the other worlds. The Gate puts a world chooser below the selected world; Ember puts it beside the world on desktop and above it on mobile. The three new themes share seven boss heads and the landing page's Hugin artwork. Undefeated boss heads are greyed out; defeated heads retain their color. Checkmarks and the live progression count also identify defeated bosses. Vanilla worlds retain their connection details rather than showing modded progression.
 
 Themes preserve access rules, launch behavior, password visibility, client downloads and live world updates.
 

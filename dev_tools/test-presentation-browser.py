@@ -38,6 +38,7 @@ with sync_playwright() as p:
   assert page.locator('.catbox').count()==3
   if theme=='classic':
    assert page.locator('script[src*="public-themes"]').count()==0
+   assert page.locator('[data-world="Midgard"] .trophy_dimmed').evaluate_all("es=>es.length===4 && es.every(e=>getComputedStyle(e).filter.includes('grayscale(1)'))"), 'Classic undefeated heads must stay grey'
   else:
    expect(page.locator('.theme-brand')).to_be_visible()
    assert page.locator('.theme-boss').count()==14
@@ -49,14 +50,20 @@ with sync_playwright() as p:
    cells=page.locator('[data-world="Midgard"] .trophy_icon')
    assert cells.evaluate_all("es=>es.every(e=>getComputedStyle(e).opacity==='1' && getComputedStyle(e).filter==='none')"),theme+' double-dimmed trophies'
    assert page.locator('[data-world="Midgard"] .theme-boss').evaluate_all("es=>es.every(e=>e.getBoundingClientRect().width>=70)"),theme+' collapsed boss artwork'
+   def boss_colors():
+    assert page.locator('.trophy_icon[data-defeated="false"] .theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter.includes('grayscale(1)'))"),theme+' undefeated heads must be grey'
+    assert page.locator('.trophy_icon[data-defeated="true"] .theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter==='none')"),theme+' defeated heads must retain color'
+   boss_colors()
    progress=page.locator('[data-world="Midgard"] .theme-progress')
    expect(progress).to_have_text('3 / 7')
    boss=page.locator('[data-world="Midgard"] .trophy-dragonQueen img')
    original=boss.get_attribute('title')
    boss.evaluate("e=>e.title='Moder has been defeated'")
    expect(progress).to_have_text('4 / 7')
+   boss_colors()
    boss.evaluate('(e,title)=>e.title=title',original)
    expect(progress).to_have_text('3 / 7')
+   boss_colors()
    if theme=='reforged':
     search=page.get_by_role('searchbox',name='Search worlds')
     search.fill('Raven');assert page.locator('.catbox:visible').count()==1

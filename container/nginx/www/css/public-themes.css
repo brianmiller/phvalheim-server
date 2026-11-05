@@ -55,7 +55,7 @@ body[data-public-theme] #publicPortal [hidden] { display:none!important; }
 #publicPortal .trophy_icon { display:block!important; width:auto!important; height:auto!important; padding:0!important; filter:none!important; opacity:1!important; margin:0!important; text-align:center; position:relative; }
 #publicPortal .trophy_icon img { position:absolute; width:1px!important; height:1px!important; opacity:0; }
 #publicPortal .theme-boss { display:block; width:100%; aspect-ratio:1; max-width:150px; margin:auto; background:url('/images/themes/bosses.png') 0 0/400% 200% no-repeat; }
-#publicPortal .trophy_icon[data-defeated="false"] .theme-boss { filter:saturate(.65) brightness(.85); }
+#publicPortal .trophy_icon[data-defeated="false"] .theme-boss { filter:grayscale(1) brightness(.65); }
 #publicPortal .theme-boss-name { display:block; font-size:12px; color:#d8e2f1; line-height:1.5; }
 #publicPortal .theme-boss-mark { display:inline-block; margin-right:4px; color:#b5c0d0; }
 #publicPortal [data-defeated="true"] .theme-boss-mark { color:#53ed9c; font-weight:800; }
