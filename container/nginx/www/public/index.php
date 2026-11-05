@@ -60,8 +60,12 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
                 <!-- CSS Reset -->
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css?refreshcss=<?php echo rand(100, 1000)?>">
 
+<?php if ($publicTheme !== 'classic') { ?>
+<link rel="stylesheet" href="/css/public-themes.css?v=1">
+<script defer src="/js/public-themes.js?v=1"></script>
+<?php } ?>
 </head>
-<body>
+<body data-public-theme="<?php echo htmlspecialchars($publicTheme, ENT_QUOTES); ?>">
 <!-- partial:index.partial.html -->
 
 <div class="login_header">Welcome to PhValheim</div>

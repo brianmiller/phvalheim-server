@@ -59,6 +59,8 @@ writer_order=$(
 		| awk '!seen[$0]++'
 )
 
+# The overlay boolean selects an optional literal tail; it is not interpolated as a field.
+# test-presentation.php executes that tail and verifies token/overlay positions.
 # The function signature lists the parameters first, so the interpolated order has to be read
 # from the "launch?..." string itself rather than from the whole body.
 writer_fields=$(
@@ -67,6 +69,7 @@ writer_fields=$(
 		| grep -o '"launch?[^"]*"[^;]*' \
 		| grep -o '\$[a-zA-Z_][a-zA-Z0-9_]*' \
 		| sed 's/^\$//' \
+		| grep -v '^disableSteamOverlay$' \
 		| awk '!seen[$0]++' | tr '\n' ' '
 )
 writer_actual="launch $writer_fields"

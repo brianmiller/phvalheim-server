@@ -708,8 +708,12 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 		<script src="../js/jquery-3.6.0.js"></script>
 		<script src="../js/bootstrap.min.js"></script>
 
-        </head>
-        <body>
+        <?php if ($publicTheme !== 'classic') { ?>
+<link rel="stylesheet" href="/css/public-themes.css?v=1">
+<script defer src="/js/public-themes.js?v=1"></script>
+<?php } ?>
+</head>
+        <body data-public-theme="<?php echo htmlspecialchars($publicTheme, ENT_QUOTES); ?>">
 <?php
 # Loud and unmissable, so a bypassed instance can never be mistaken for a real one. Fixed
 # position and pointer-events:none so it cannot disturb the layout being inspected.

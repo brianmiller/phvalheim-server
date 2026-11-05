@@ -117,7 +117,7 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
             phvLaunchCrossplayFields($pdo, $row['name'], $row['mode'] === 'running');
         $launchString = phvBuildLaunchString($row['name'], $password, $gameDNS, $row['port'],
                                              $phvalheimHost, $httpScheme, $vanilla,
-                                             $lsCrossplay, $lsJoinCode);
+                                             $lsCrossplay, $lsJoinCode, phvWorldOverlay($pdo, $row['name'])['disabled']);
 
         // A vanilla world has no client payload and no BepInEx, so phvalheim:// is
         // meaningless for it -- handing that link to the client makes it try to sync mods
@@ -5225,6 +5225,16 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="pv-section">
+                        <h6 class="pv-section-title">Steam overlay</h6>
+                        <label for="settingsOverlay">Overlay preference for this world</label>
+                        <select id="settingsOverlay" class="form-control pv-input">
+                            <option value="inherit" ${options.overlay?.override == null ? 'selected' : ''}>Use server setting (${options.overlay?.serverDisabled ? 'disabled' : 'enabled'})</option>
+                            <option value="0" ${options.overlay?.override === 0 ? 'selected' : ''}>Enabled</option>
+                            <option value="1" ${options.overlay?.override === 1 ? 'selected' : ''}>Disabled</option>
+                        </select>
+                        <p class="pv-field-hint">Optional troubleshooting for hangs or lockups. Modded Linux launches only; requires the next client release (2.0.17 does not read this setting). Other platforms and vanilla launches use Steam's own overlay settings. Applies on the next client launch, without a server restart.</p>
+                    </div>
+                    <div class="pv-section">
                         <h6 class="pv-section-title">Custom Launch Parameters</h6>
                         <div class="pv-panel" style="padding: 0.9rem;">
                             <label class="pv-field-label" for="settingsLaunchParams">Appended to the Valheim server command line, after everything PhValheim generates.</label>
@@ -5233,7 +5243,7 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="pv-actions">
-                        <p class="pv-section-hint pv-actions-hint">Changes here need a world restart to take effect.</p>
+                        <p class="pv-section-hint pv-actions-hint">World launch options need a world restart. The overlay setting applies on the next client launch.</p>
                         <span class="pv-status" id="settingsOptionsSaveStatus"></span>
                         <button class="action-btn success" onclick="saveWorldOptions()">Save World Options</button>
                     </div>
@@ -5649,6 +5659,7 @@ $totalCount = count($worlds);
                     crossplay: document.getElementById('settingsCrossplayToggle').checked ? 1 : 0,
                     listed: document.getElementById('settingsListedToggle').checked ? 1 : 0,
                     passwordPublic: document.getElementById('settingsPasswordPublicToggle').checked ? 1 : 0,
+                    disableSteamOverlay: document.getElementById('settingsOverlay').value === 'inherit' ? null : Number(document.getElementById('settingsOverlay').value),
                     launchParams: document.getElementById('settingsLaunchParams').value
                 })
             });
@@ -6927,6 +6938,13 @@ $totalCount = count($worlds);
             body.innerHTML = `
                 <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('Server', 'var(--accent-primary)')}
+                    <div class="mb-3">
+                        <label for="ss-publicTheme">Public website theme</label>
+                        <select class="form-control form-control-sm" id="ss-publicTheme">
+                            ${Object.entries({classic:'Classic',reforged:'Classic Reforged',gate:'The Gate',ember:'Ember'}).map(([v,n]) => `<option value="${v}" ${s.publicTheme === v ? 'selected' : ''}>${n}</option>`).join('')}
+                        </select>
+                        <small class="text-muted">Applies to sign-in and the player world dashboard. Classic preserves the original appearance. Players see changes on their next page load.</small>
+                    </div>
                     <div class="row mb-2">
                         <div class="col-6">
                             <label style="font-size:0.8rem;color:orchid" ${tip('The DNS name or IP that game clients use to connect to your Valheim worlds')}>Game DNS <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
@@ -6959,6 +6977,10 @@ $totalCount = count($worlds);
 
                 <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('Steam', '#1b9fff')}
+                    <div class="mb-3">
+                        <label><input type="checkbox" id="ss-disableSteamOverlay" ${s.disableSteamOverlay == 1 ? 'checked' : ''}> Disable Steam overlay</label>
+                        <p class="text-muted" style="font-size:.78rem;margin:.4rem 0">Optional troubleshooting for game hangs or lockups. Applies to modded Linux launches with the next PhValheim client release; released 2.0.17 does not read this setting. Windows, macOS and vanilla launches use the player's Steam settings. Worlds can override this default. Changes apply on the next client launch.</p>
+                    </div>
                     <div class="mb-2">
                         <label style="font-size:0.8rem;color:orchid" ${tip('Required for Steam authentication and player identity resolution')}>Steam API Key <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
                         ${keyField('ss-steamAPIKey', s.steamAPIKey)}
@@ -7291,6 +7313,8 @@ $totalCount = count($worlds);
             maxLogSize: parseInt(document.getElementById('ss-maxLogSize').value) || 1000000,
             timezone: document.getElementById('ss-timezone').value.trim() || 'Etc/UTC',
             steamAPIKey: document.getElementById('ss-steamAPIKey').value.trim(),
+            publicTheme: document.getElementById('ss-publicTheme').value,
+            disableSteamOverlay: document.getElementById('ss-disableSteamOverlay').checked ? 1 : 0,
             analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),
             thunderstoreApiKey: document.getElementById('ss-thunderstoreApiKey').value.trim(),
             hexiumApiKey: document.getElementById('ss-hexiumApiKey').value.trim(),

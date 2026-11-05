@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/presentation.php";
 
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
@@ -232,11 +233,11 @@ function getDateUpdated($pdo,$world) {
 # what a positional format breaks on. This makes it structural: add a field here and every
 # caller gets it.
 function phvBuildLaunchString($world, $password, $gameDNS, $port, $phvalheimHost,
-                              $httpScheme, $vanilla, $crossplay, $joinCode) {
+                              $httpScheme, $vanilla, $crossplay, $joinCode, $disableSteamOverlay = null) {
         require_once __DIR__ . '/companion.php';
         $refreshToken = phvCompanionToken($world);
         return base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost"
-                           . "?$httpScheme?$vanilla?$crossplay?$joinCode" . ($refreshToken !== '' ? "?$refreshToken" : ''));
+                           . "?$httpScheme?$vanilla?$crossplay?$joinCode" . ($disableSteamOverlay !== null ? "?$refreshToken?overlay=" . ($disableSteamOverlay ? 'off' : 'on') : ($refreshToken !== '' ? "?$refreshToken" : '')));
 }
 
 # The crossplay pair for a world, as the launch string wants them.
@@ -283,7 +284,7 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
 
                 return phvBuildLaunchString($world, $password, $gameDNS, $port,
                                             $phvalheimHost, $httpScheme, $vanilla,
-                                            $crossplay, $joinCode);
+                                            $crossplay, $joinCode, phvWorldOverlay($pdo, $world)['disabled']);
 	}
 }
 
