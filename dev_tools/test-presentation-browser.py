@@ -34,12 +34,41 @@ with sync_playwright() as p:
  for theme in ['classic','reforged','gate','ember']:
   save({'publicTheme':theme});page.goto(f['public']+'/authenticated.php',wait_until='networkidle')
   expect(page.locator('body')).to_have_attribute('data-public-theme',theme)
+  page.evaluate('acceptCookies()')
   assert page.locator('.catbox').count()==3
   if theme=='classic':
    assert page.locator('script[src*="public-themes"]').count()==0
   else:
    expect(page.locator('.theme-brand')).to_be_visible()
    assert page.locator('.theme-boss').count()==14
+   # Geometry checks target the shipped visual defects, not just DOM presence.
+   launch=page.locator('[data-world="Midgard"] .launch-link')
+   assert 80 <= launch.bounding_box()['width'] <= 260, theme+' oversized Launch'
+   assert page.locator('.theme-header').bounding_box()['height'] < 125, theme+' oversized header'
+   assert page.locator('[data-world="Midgard"] .card_worldInfo').first.evaluate("e=>parseFloat(getComputedStyle(e).fontSize)") >= 14
+   cells=page.locator('[data-world="Midgard"] .trophy_icon')
+   assert cells.evaluate_all("es=>es.every(e=>getComputedStyle(e).opacity==='1' && getComputedStyle(e).filter==='none')"),theme+' double-dimmed trophies'
+   assert page.locator('[data-world="Midgard"] .theme-boss').evaluate_all("es=>es.every(e=>e.getBoundingClientRect().width>=70)"),theme+' collapsed boss artwork'
+   progress=page.locator('[data-world="Midgard"] .theme-progress')
+   expect(progress).to_have_text('3 / 7')
+   boss=page.locator('[data-world="Midgard"] .trophy-dragonQueen img')
+   original=boss.get_attribute('title')
+   boss.evaluate("e=>e.title='Moder has been defeated'")
+   expect(progress).to_have_text('4 / 7')
+   boss.evaluate('(e,title)=>e.title=title',original)
+   expect(progress).to_have_text('3 / 7')
+   if theme=='reforged':
+    search=page.get_by_role('searchbox',name='Search worlds')
+    search.fill('Raven');assert page.locator('.catbox:visible').count()==1
+    page.locator('[data-world="Ravenholm"] summary').click()
+    expect(page.locator('[data-world="Ravenholm"] .world-seed')).to_be_visible()
+    page.locator('[data-world="Ravenholm"] summary').click();search.fill('')
+   elif theme=='gate':
+    assert page.locator('[data-world="Midgard"]').bounding_box()['width'] <= 950
+   else:
+    rail=page.locator('.theme-world-nav').bounding_box();card=page.locator('[data-world="Midgard"]').bounding_box()
+    assert rail['x']+rail['width'] < card['x'], 'Ember world chooser must sit beside the world'
+
    if theme in ['gate','ember']:
     assert page.locator('.catbox:visible').count()==1
     page.get_by_role('button',name='Meadows',exact=False).click()
@@ -53,7 +82,13 @@ with sync_playwright() as p:
    page.wait_for_timeout(500)
   page.screenshot(path='/tmp/phv-presentation-'+theme+'-desktop.png',full_page=True)
   page.set_viewport_size({'width':390,'height':844});page.wait_for_timeout(200)
-  if theme != 'classic': assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),theme+' mobile overflow'
+  if theme != 'classic':
+   assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'),theme+' mobile overflow'
+   assert page.locator('[data-world="Midgard"] .theme-boss').evaluate_all("es=>es.every(e=>e.getBoundingClientRect().width>=60)"),theme+' mobile boss heads too small'
+   assert page.locator('[data-world="Midgard"] .theme-boss-name').evaluate_all("es=>es.every(e=>parseFloat(getComputedStyle(e).fontSize)>=12)"),theme+' mobile labels too small'
+   # Capture the lower viewport as well: full-page screenshots alone can hide fixed-background bugs.
+   page.evaluate("document.documentElement.style.scrollBehavior='auto';document.body.style.scrollBehavior='auto';scrollTo(0,document.body.scrollHeight)");page.wait_for_timeout(250);page.screenshot(path='/tmp/phv-presentation-'+theme+'-mobile-bottom.png')
+   page.evaluate('scrollTo(0,0)')
   page.screenshot(path='/tmp/phv-presentation-'+theme+'-mobile.png',full_page=True)
   page.set_viewport_size({'width':1440,'height':1050})
  page.goto(f['admin'],wait_until='domcontentloaded');page.evaluate('showServerSettingsModal()')

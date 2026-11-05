@@ -129,6 +129,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62presentationAssets=0
   if [ -x /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh ] && [ -s /opt/stateless/nginx/www/images/themes/bosses.png ] && [ -s /opt/stateless/nginx/www/images/themes/gate.png ] && [ -s /opt/stateless/nginx/www/images/themes/ember.png ] && [ -s /opt/stateless/nginx/www/images/themes/hugin.svg ] && [ -s /opt/stateless/nginx/www/js/public-themes.js ]; then v62presentationAssets=1; fi
   echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/3/1)"
+  v62portalLayout=$(grep -c 'portal.id = .publicPortal.;' /opt/stateless/nginx/www/js/public-themes.js)
+  v62portalLegacy=$(grep -c 'const accountBody ='  /opt/stateless/nginx/www/js/public-themes.js)
+  v62portalCache=$(grep -l 'public-themes.js?v=2' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  echo "2.62 corrected portal: layout=$v62portalLayout old header=$v62portalLegacy cache=$v62portalCache (want 1/0/2)"
   # 2.62 enrollment integration: verify the packaged sender and absence of the old transport.
   v62periodic=$(grep -c "self.schedule_check()" /opt/stateless/remote-access/service.py)
   v62header=$(grep -c 'id="remoteConnectionPills"' /opt/stateless/nginx/www/admin/index.php)
@@ -4478,6 +4482,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62periodic" = "1" ] && [ "$v62header" = "1" ] && [ "$v62library" = "1" ] \
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
+    && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "3" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }

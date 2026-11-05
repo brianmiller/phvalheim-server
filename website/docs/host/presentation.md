@@ -6,7 +6,7 @@ These controls are in development and have not been added to the published stabl
 
 In **Server Settings → Public UI theme**, choose **Classic**, **Classic Reforged**, **The Gate**, or **Ember**. Save, then reload the public website. The choice applies to the sign-in page and every player's world dashboard; it does not change the admin theme.
 
-Classic is the default and retains the existing presentation. Classic Reforged gives the first world a wider card. The Gate puts a world chooser below the selected world; Ember puts it beside the world on desktop and above it on mobile. The three new themes share seven boss heads and the landing page's Hugin artwork. Lit trophies indicate defeated bosses. Vanilla worlds retain their connection details rather than showing modded progression.
+Classic is the default and retains the existing presentation. Classic Reforged gives the first world a featured card, with searchable compact cards and expandable details for the other worlds. The Gate puts a world chooser below the selected world; Ember puts it beside the world on desktop and above it on mobile. The three new themes share seven boss heads and the landing page's Hugin artwork. All seven boss heads remain visible; checkmarks and the progression count identify defeated bosses. Vanilla worlds retain their connection details rather than showing modded progression.
 
 Themes preserve access rules, launch behavior, password visibility, client downloads and live world updates.
 
@@ -14,7 +14,7 @@ Themes preserve access rules, launch behavior, password visibility, client downl
 
 The overlay is enabled by default in the updated client. An operator can select **Server Settings → Disable Steam overlay**. Under a world's **Settings → World Options → Steam overlay**, choose **Use server default**, **Enabled**, or **Disabled**. A world override wins over the server default. Changes apply on the next client launch and require no world restart.
 
-This control applies only to **direct modded Linux launches**, including the Linux Flatpak path. Windows, macOS and vanilla launches use Steam's own overlay settings. The originally published client **2.0.17 does not understand the operator setting**; this needs the updated client containing operator-overlay support. Its release target is pending confirmation.
+This control applies only to **direct modded Linux launches**, including the Linux Flatpak path. Windows, macOS and vanilla launches use Steam's own overlay settings. The originally published client **2.0.17 does not understand the operator setting**; this needs the updated client containing operator-overlay support. Client 2.0.18 is prepared as a draft Flatpak for testing and is not yet publicly released.
 
 Players can always opt out locally with `PHVALHEIM_NO_OVERLAY=1`. This takes precedence even when the operator enables the overlay. For Flatpak:
 

@@ -1,92 +1,159 @@
-/* Loaded only for the three opt-in themes. Classic keeps its original stylesheet. */
-body[data-public-theme][data-public-theme] {
-    --theme-accent: #66e2ed; --theme-border: #344c65; --theme-panel: #101c2de8;
-    margin:0!important; padding:0!important; background: #080f1d!important; color: #edf1f7; min-height: 100vh;
-    font-family: system-ui, sans-serif;
+/* Opt-in layouts own their typography and geometry. Classic never loads this file. */
+body[data-public-theme] { --portal-accent:#64e4dc; --portal-ink:#f3f5fa; --portal-muted:#aebcd1; --portal-line:#536176; background:#080f1d!important; margin:0!important; padding:0!important; color:var(--portal-ink); min-height:100vh; height:auto!important; }
+body[data-public-theme="gate"] { background:linear-gradient(90deg,#03090fef 0%,#03090fc4 39%,#03090f18 75%),linear-gradient(0deg,#03090ff5 0%,transparent 55%),url('/images/themes/gate.png') center top/cover fixed!important; --portal-accent:#a6eee4; }
+body[data-public-theme="ember"] { background:linear-gradient(0deg,#0e0806 5%,#0e0806c9 45%,#0e080622 85%),url('/images/themes/ember.png') center top/cover fixed!important; --portal-accent:#ffab60; --portal-line:#76503b; }
+#publicPortal, #publicPortal * { box-sizing:border-box; font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif!important; }
+#publicPortal { max-width:1800px; margin:0 auto; color:var(--portal-ink); padding:0 clamp(20px,3.5vw,60px); }
+#publicPortal a { text-decoration:none; }
+#publicPortal .theme-header { display:flex; align-items:center; gap:24px; min-height:88px; padding:18px 0; border-bottom:1px solid #ffffff26; }
+#publicPortal .theme-brand { display:flex; align-items:center; gap:12px; font-size:26px; color:var(--portal-ink)!important; white-space:nowrap; }
+#publicPortal .theme-brand img { width:42px; height:42px; }
+body[data-public-theme="reforged"] #publicPortal .theme-brand { font-weight:800; color:#20e2e7!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-brand span span { color:#fa19c4; }
+#publicPortal .theme-account { display:flex; align-items:center; gap:12px; margin-right:auto; min-width:0; }
+#publicPortal .theme-account img { width:32px; height:32px; border-radius:50%; }
+#publicPortal .theme-player { font-size:16px; font-weight:600; }
+#publicPortal .steamid-self { display:block; padding-left:18px; border-left:1px solid #ffffff38; margin:0; font-size:12px; color:var(--portal-muted)!important; cursor:pointer; overflow-wrap:anywhere; }
+#publicPortal .steamid-self::before { content:'Player ID · '; }
+#publicPortal .client_download_button { white-space:nowrap; }
+#publicPortal .client_download_button button { padding:10px 16px!important; color:var(--portal-ink)!important; font-size:14px!important; background:transparent!important; border:1px solid #ffffff60!important; border-radius:7px!important; box-shadow:none!important; }
+#publicPortal .signout-icon { display:flex; gap:8px; align-items:center; color:var(--portal-ink)!important; font-size:14px; white-space:nowrap; }
+#publicPortal .theme-main { padding:28px 0 10px; }
+#publicPortal .theme-toolbar { display:flex; align-items:center; gap:24px; margin-bottom:26px; }
+#publicPortal .theme-toolbar h1 { font-size:30px; font-weight:750; margin:0; }
+#publicPortal .theme-total { font-size:14px; color:var(--portal-muted); }
+#publicPortal .theme-search { margin-left:auto; width:300px; max-width:100%; padding:12px 16px; border:1px solid #65758d; border-radius:9px; background:#101b2c; color:#edf4ff; font-size:15px; }
+#publicPortal .theme-worlds { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px; align-items:start; }
+#publicPortal .catbox { width:auto!important; min-width:0!important; max-width:none!important; height:auto!important; margin:0!important; padding:22px!important; border:1px solid #62718b!important; border-radius:12px!important; outline:none!important; background:linear-gradient(120deg,#122035a8,#0b1426d9)!important; box-shadow:none!important; opacity:1!important; filter:none!important; display:flex!important; flex-direction:column!important; position:relative; cursor:auto!important; pointer-events:auto!important; }
+body[data-public-theme] #publicPortal [hidden] { display:none!important; }
+#publicPortal .theme-card-heading { grid-area:heading; min-width:0; }
+#publicPortal .card_worldName { padding:0!important; margin:0 0 10px!important; font-size:25px!important; line-height:1.15!important; font-weight:700!important; color:var(--portal-ink)!important; text-align:left!important; overflow-wrap:anywhere; outline:none!important; border:0!important; }
+#publicPortal .theme-status { display:inline-flex; align-items:center; gap:8px; font-size:14px; color:var(--portal-muted); }
+#publicPortal .theme-status::before, #publicPortal .theme-world-choice small::before { content:''; display:inline-block; width:8px; height:8px; border-radius:50%; background:#9ba8bb; margin-right:7px; }
+#publicPortal [data-online="true"] { color:#68efac; }
+#publicPortal [data-online="true"]::before { background:#54e99c; }
+#publicPortal .theme-launch { grid-area:launch; margin:18px 0; border:0!important; outline:none!important; }
+#publicPortal .catbox.card_dimmed .theme-launch { display:none; }
+#publicPortal .launch-link { display:inline-flex!important; width:auto!important; max-width:100%; padding:11px 25px!important; background:var(--portal-accent)!important; color:#07131b!important; border:0!important; border-radius:6px!important; font-size:17px!important; line-height:1.3!important; font-weight:700; text-transform:none; box-shadow:none!important; }
+#publicPortal .launch-link.card_dimmed { display:none!important; }
+#publicPortal .card_dimmed { opacity:1!important; filter:none!important; }
+#publicPortal .theme-details { grid-area:facts; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); column-gap:24px; margin:18px 0 0; }
+#publicPortal .theme-facts { width:100%; height:auto!important; border:0; border-collapse:collapse; table-layout:auto; align-self:start; }
+#publicPortal .theme-facts td.card_worldInfo { height:auto!important; padding:4px 0!important; background:transparent!important; font-size:14px!important; line-height:1.5!important; color:#e3e9f3!important; text-align:left!important; vertical-align:top; white-space:normal!important; overflow-wrap:anywhere; }
+#publicPortal .theme-facts td.card_worldInfo:first-child { width:88px; padding-right:14px!important; color:var(--portal-muted)!important; white-space:nowrap!important; }
+#publicPortal .theme-facts a { color:var(--portal-accent)!important; font-size:inherit!important; opacity:1!important; text-decoration:underline; text-underline-offset:3px; }
+#publicPortal .theme-facts code, #publicPortal .theme-facts span { font-size:inherit; color:inherit; }
+#publicPortal .theme-facts .world-md5 { font-size:11px!important; }
+#publicPortal .vanilla-badge { font-size:10px!important; color:var(--portal-accent)!important; border:1px solid var(--portal-accent); border-radius:20px; background:transparent!important; padding:2px 7px; opacity:1!important; }
+#publicPortal .theme-join-hint { grid-column:1/-1; font-size:13px; line-height:1.6; color:var(--portal-muted); margin-top:14px; }
+#publicPortal .trophy-table { grid-area:trophies; display:block; width:100%; margin:22px 0 0!important; height:auto!important; border-top:1px solid #ffffff35; padding-top:18px; }
+#publicPortal .trophy-table caption { display:flex; align-items:center; gap:12px; padding:0 0 14px!important; color:var(--portal-ink); font-size:20px; line-height:1.4; text-align:left; }
+#publicPortal .theme-progress { color:var(--portal-accent); white-space:nowrap; }
+#publicPortal .theme-legend { margin-left:auto; font-size:12px; color:var(--portal-muted); white-space:nowrap; }
+#publicPortal .trophy-table tbody { display:block; }
+#publicPortal .trophy-table tr { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+#publicPortal .trophy_icon { display:block!important; width:auto!important; height:auto!important; padding:0!important; filter:none!important; opacity:1!important; margin:0!important; text-align:center; position:relative; }
+#publicPortal .trophy_icon img { position:absolute; width:1px!important; height:1px!important; opacity:0; }
+#publicPortal .theme-boss { display:block; width:100%; aspect-ratio:1; max-width:150px; margin:auto; background:url('/images/themes/bosses.png') 0 0/400% 200% no-repeat; }
+#publicPortal .trophy_icon[data-defeated="false"] .theme-boss { filter:saturate(.65) brightness(.85); }
+#publicPortal .theme-boss-name { display:block; font-size:12px; color:#d8e2f1; line-height:1.5; }
+#publicPortal .theme-boss-mark { display:inline-block; margin-right:4px; color:#b5c0d0; }
+#publicPortal [data-defeated="true"] .theme-boss-mark { color:#53ed9c; font-weight:800; }
+#publicPortal .theme-disclosure { margin-top:18px; }
+#publicPortal .theme-disclosure summary { cursor:pointer; font-size:13px; color:var(--portal-accent); }
+#publicPortal .catbox:not(:first-child) .theme-details { grid-template-columns:1fr; }
+body[data-public-theme="reforged"] #publicPortal .catbox:first-child { grid-column:1/-1; display:grid!important; grid-template-columns:minmax(310px, .8fr) minmax(0,1.4fr); grid-template-areas:'heading trophies' 'facts trophies'; column-gap:30px; border:2px solid #20d9e2!important; }
+body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-card-heading { padding-right:140px; margin-bottom:18px; }
+body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-launch { position:absolute; right:calc(63.63% + 5px); top:22px; margin:0; }
+body[data-public-theme="reforged"] #publicPortal .catbox:first-child .card_worldName { color:#31e3ea!important; font-size:32px!important; }
+body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-details { grid-template-columns:1fr; margin:0; }
+body[data-public-theme="reforged"] #publicPortal .catbox:first-child .trophy-table { border-top:0; border-left:1px solid #61738e!important; padding:10px 0 10px 28px; margin:0!important; align-self:stretch; display:flex; flex-direction:column; justify-content:center; }
+body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .trophy-table caption { font-size:13px; }
+body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .theme-legend,
+body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .theme-boss-name { display:none; }
+body[data-public-theme="reforged"] #publicPortal .launch-link { background:#e500ad!important; color:white!important; }
+/* Gate: information occupies the left bank; the stone portal remains visible on the right. */
+body[data-public-theme="gate"] #publicPortal .theme-main { display:flex; flex-direction:column-reverse; }
+body[data-public-theme="gate"] #publicPortal .theme-worlds { display:block; }
+body[data-public-theme="gate"] #publicPortal .catbox { width:min(900px,67%)!important; background:transparent!important; border:0!important; padding:20px 0!important; }
+body[data-public-theme="gate"] #publicPortal .card_worldName { font-size:clamp(32px,3.2vw,54px)!important; font-weight:500!important; }
+body[data-public-theme="gate"] #publicPortal .launch-link { background:#faf3e7!important; }
+body[data-public-theme="gate"] #publicPortal .catbox .theme-details { grid-template-columns:repeat(2,minmax(0,1fr)); }
+#publicPortal .theme-overview { margin-top:18px; }
+#publicPortal .theme-world-nav { display:flex; gap:8px; padding:22px 0; border-top:1px solid #ffffff40; margin-top:14px; }
+#publicPortal .theme-world-choice { flex:1; min-width:0; display:grid; grid-template-columns:28px minmax(0,1fr); gap:6px 8px; text-align:left; padding:15px 12px; color:var(--portal-ink); background:transparent; border:0; border-bottom:2px solid transparent; border-radius:0; cursor:pointer; }
+#publicPortal .theme-world-choice strong { font-size:18px; font-weight:500; overflow-wrap:anywhere; }
+#publicPortal .theme-world-choice small { grid-column:2; color:var(--portal-muted); font-size:13px; }
+#publicPortal .theme-world-number { grid-row:1/3; color:var(--portal-muted); font-size:12px; align-self:center; }
+#publicPortal .theme-world-choice[aria-current="true"] { border-color:var(--portal-accent); background:#ffffff08; }
+/* Ember: a quiet left rail, scenic heading, progression, then join information. */
+body[data-public-theme="ember"] #publicPortal .theme-main { display:grid; grid-template-columns:220px minmax(0,1fr); gap:34px; }
+body[data-public-theme="ember"] #publicPortal .theme-worlds { display:block; }
+body[data-public-theme="ember"] #publicPortal .theme-world-nav { display:flex; flex-direction:column; margin:0; padding:0 20px 0 0; border-top:0; border-right:1px solid #ffffff22; align-self:start; }
+body[data-public-theme="ember"] #publicPortal .theme-world-choice { flex:none; border-bottom:0; border-left:3px solid transparent; margin-bottom:10px; padding:20px 9px; }
+body[data-public-theme="ember"] #publicPortal .theme-world-choice[aria-current="true"] { border-left-color:var(--portal-accent); }
+body[data-public-theme="ember"] #publicPortal .catbox { background:transparent!important; border:0!important; padding:0!important; display:grid!important; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:'heading heading' 'trophies trophies' 'facts launch'; column-gap:24px; }
+body[data-public-theme="ember"] #publicPortal .theme-card-heading { min-height:210px; padding-top:18px; }
+body[data-public-theme="ember"] #publicPortal .card_worldName { font-size:clamp(32px,3.2vw,54px)!important; font-weight:500!important; }
+body[data-public-theme="ember"] #publicPortal .trophy-table { border-top:0; padding-top:0; margin:0 0 24px!important; border-bottom:1px solid #c77d38!important; padding-bottom:24px; }
+body[data-public-theme="ember"] #publicPortal .trophy-table caption { font-size:26px; }
+body[data-public-theme="ember"] #publicPortal .theme-launch { align-self:center; }
+body[data-public-theme="ember"] #publicPortal .launch-link { background:linear-gradient(135deg,#d86518,#9c3207)!important; color:white!important; padding:16px 28px!important; }
+body[data-public-theme="ember"] #publicPortal .catbox .theme-details { grid-template-columns:repeat(2,minmax(0,1fr)); }
+#publicPortal :focus-visible { outline:2px solid var(--portal-accent)!important; outline-offset:4px; }
+body[data-public-theme] .public-footer { position:relative!important; inset:auto!important; margin:28px auto!important; justify-content:center; }
+body[data-public-theme] .login_header { display:flex; justify-content:center; padding-top:8vh; }
+body[data-public-theme] .login_header .theme-brand { display:flex; align-items:center; gap:12px; color:#edf4ff; font:28px system-ui; }
+body[data-public-theme] .login_header img { width:52px; height:52px; }
+body[data-public-theme] .user-modal { position:relative!important; inset:auto!important; height:auto; overflow:visible; }
+body[data-public-theme] .user-modal-container { margin:40px auto; transform:none!important; background:#101b2deb; border:1px solid #63738b; border-radius:12px; outline:none!important; }
+@media(max-width:1200px) {
+ #publicPortal .theme-header { flex-wrap:wrap; gap:16px; }
+ #publicPortal .theme-worlds { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ #publicPortal .theme-legend { display:none; }
+ body[data-public-theme="ember"] #publicPortal .theme-main { grid-template-columns:180px minmax(0,1fr); gap:24px; }
+ body[data-public-theme="ember"] #publicPortal .catbox { grid-template-columns:1fr; grid-template-areas:'heading' 'trophies' 'facts' 'launch'; }
+ body[data-public-theme="gate"] #publicPortal .catbox { width:80%!important; }
 }
-body[data-public-theme][data-public-theme="gate"] {
-    background: linear-gradient(90deg,#060d1ced,#080e1a66), url('/images/themes/gate.png') center top / cover fixed!important;
-}
-body[data-public-theme][data-public-theme="ember"] {
-    --theme-accent: #ffb264; --theme-border: #70543e; --theme-panel: #221b17ed;
-    background: linear-gradient(90deg,#170f0aee,#1b100888), url('/images/themes/ember.png') center top / cover fixed!important;
-}
-.theme-header { display:flex; align-items:center; gap:32px; padding:24px 4vw; border-bottom:1px solid var(--theme-border); background:#0c1422cc; }
-.theme-brand { display:flex; align-items:center; gap:12px; text-decoration:none; color:#f0f3fa; font-size:26px; font-weight:750; letter-spacing:.03em; }
-.theme-brand img { width:52px; height:52px; }
-.theme-brand small { display:block; color:#9aafc6; font-size:11px; letter-spacing:.16em; text-transform:uppercase; margin-top:3px; }
-.theme-header > table { width:auto; margin-left:auto; height:auto; }
-body[data-public-theme][data-public-theme] .theme-header .google_header img { border-radius:50%; width:36px; height:36px; }
-body[data-public-theme][data-public-theme] .outer { margin:32px auto!important; height:auto!important; }
-body[data-public-theme][data-public-theme] .inner { display:block!important; padding:0 4vw!important; width:100%!important; max-width:1600px!important; }
-body[data-public-theme][data-public-theme] .wrapper { display:grid!important; grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:24px!important; padding:0!important; background:transparent!important; }
-body[data-public-theme][data-public-theme] .catbox { width:auto!important; min-width:0!important; max-width:none!important; outline:none!important; height:auto!important; margin:0!important; padding:28px!important; background:var(--theme-panel)!important; border:1px solid var(--theme-border)!important; border-radius:16px!important; box-shadow:0 18px 48px #0004; }
-body[data-public-theme][data-public-theme] .catbox[hidden] { display:none!important; }
-body[data-public-theme][data-public-theme] .catbox > table:first-of-type { height:auto!important; flex:none!important; }
-body[data-public-theme][data-public-theme] .catbox .card_worldName { font-family:inherit!important; font-size:32px!important; color:#f1f5fa!important; text-align:left!important; padding:0 0 14px!important; overflow-wrap:anywhere; }
-body[data-public-theme][data-public-theme] .catbox th.card_worldLaunch { text-align:left!important; padding:4px 0 22px!important; }
-body[data-public-theme][data-public-theme] .catbox a.launch-link:not(.card_dimmed) { display:inline-block; padding:11px 28px; border-radius:8px; background:var(--theme-accent); color:#101827!important; text-decoration:none; font-size:18px!important; font-weight:750; }
-body[data-public-theme][data-public-theme] .catbox td.card_worldInfo { font-size:13px!important; line-height:1.7; color:#bdcddd!important; font-family:inherit!important; }
-body[data-public-theme][data-public-theme] .catbox td.card_worldInfo:first-child { color:#8398af!important; width:102px; }
-body[data-public-theme][data-public-theme] .catbox .world-md5 { font-size:10px!important; overflow-wrap:anywhere; }
-body[data-public-theme][data-public-theme] .catbox.card_dimmed { opacity:.72; cursor:auto; }
-body[data-public-theme][data-public-theme] .catbox .trophy-table { width:100%; margin-top:24px!important; table-layout:fixed; }
-body[data-public-theme][data-public-theme] .trophy-table caption { caption-side:top; color:var(--theme-accent); font:600 11px system-ui; text-transform:uppercase; letter-spacing:.16em; padding:0 0 16px; }
-body[data-public-theme][data-public-theme] .trophy_icon { height:auto!important; width:auto!important; padding:0!important; text-align:center; vertical-align:top; }
-body[data-public-theme][data-public-theme] .trophy_icon img { position:absolute; width:1px; height:1px; opacity:0; }
-.theme-boss { display:block; width:100%; aspect-ratio:1; background:url('/images/themes/bosses.png') 0 0 / 400% 200% no-repeat; }
-.theme-boss-name { display:block; font:500 10px system-ui; color:#c5d3e3; white-space:normal; }
-body[data-public-theme][data-public-theme] .trophy_dimmed { filter:grayscale(1); opacity:.5!important; }
-body[data-public-theme][data-public-theme="reforged"] .catbox:first-child { grid-column:1/-1; display:grid!important; grid-template-columns:minmax(280px,1fr) minmax(0,1.3fr); align-items:center; gap:40px; border-top:2px solid var(--theme-accent)!important; }
-body[data-public-theme][data-public-theme="reforged"] .catbox:first-child .theme-boss-name { font-size:12px; }
-body[data-public-theme][data-public-theme="gate"] .wrapper { grid-template-columns:minmax(0,1fr)!important; }
-body[data-public-theme][data-public-theme="gate"] .catbox { max-width:1000px; width:100%!important; justify-self:center; background:linear-gradient(90deg,#0c1829f5,#0c1829d9)!important; }
-body[data-public-theme][data-public-theme="gate"] .catbox .card_worldName { font-family:Georgia,serif!important; font-size:46px!important; }
-body[data-public-theme][data-public-theme="gate"] .theme-world-nav { grid-row:2; }
-body[data-public-theme][data-public-theme="ember"] .wrapper { grid-template-columns:230px minmax(0,1fr)!important; align-items:start; }
-body[data-public-theme][data-public-theme="ember"] .catbox { border-top:3px solid var(--theme-accent)!important; }
-body[data-public-theme][data-public-theme="ember"] .catbox .card_worldName { font-family:Georgia,serif!important; font-size:44px!important; }
-.theme-world-nav { display:flex; gap:12px; flex-wrap:wrap; }
-.theme-world-choice { display:grid; grid-template-columns:26px minmax(0,1fr); gap:3px 10px; text-align:left; color:#adbdce; background:#0e1829ed; border:1px solid var(--theme-border); border-radius:10px; padding:16px; cursor:pointer; min-width:160px; flex:1; }
-.theme-world-choice strong { overflow-wrap:anywhere; font-size:14px; }
-.theme-world-choice small { grid-column:2; font-size:11px; }
-.theme-world-number { color:var(--theme-accent); grid-row:1/3; align-self:center; font-size:12px; }
-.theme-world-choice[aria-current="true"] { border-color:var(--theme-accent); color:#f0f5fa; box-shadow:inset 0 0 0 1px var(--theme-accent); }
-body[data-public-theme][data-public-theme="ember"] .theme-world-nav { flex-direction:column; }
-body[data-public-theme][data-public-theme] :focus-visible { outline:2px solid var(--theme-accent); outline-offset:4px; }
-body[data-public-theme][data-public-theme] .login_header { display:flex; justify-content:center; padding-top:8vh; }
-body[data-public-theme][data-public-theme] .user-modal-container { border:1px solid var(--theme-border); border-radius:16px; overflow:hidden; background:var(--theme-panel); box-shadow:0 30px 80px #0007; }
-body[data-public-theme][data-public-theme] .public-footer { position:relative; margin:35px auto 20px; }
-@media(max-width:800px) {
-    .theme-header { padding:22px 18px; gap:14px; flex-wrap:wrap; }
-    .theme-brand { font-size:22px; }
-    .theme-header > table { width:100%; }
-    body[data-public-theme][data-public-theme] .wrapper,body[data-public-theme][data-public-theme="ember"] .wrapper { grid-template-columns:minmax(0,1fr)!important; }
-    body[data-public-theme][data-public-theme="reforged"] .catbox:first-child { display:flex!important; gap:0; }
-    body[data-public-theme][data-public-theme] .catbox { padding:20px!important; }
-    body[data-public-theme][data-public-theme] .catbox .card_worldName { font-size:28px!important; }
-    body[data-public-theme][data-public-theme="ember"] .theme-world-nav { flex-direction:row; }
-    .theme-world-choice { min-width:130px; padding:12px; }
-    .theme-boss-name { font-size:9px!important; }
+@media(max-width:700px) {
+ #publicPortal { padding:0 18px; }
+ #publicPortal .theme-header { gap:14px; min-height:0; }
+ #publicPortal .theme-brand { font-size:22px; }
+ #publicPortal .theme-account { order:4; flex-basis:100%; }
+ #publicPortal .client_download_button { margin-left:auto; }
+ #publicPortal .client_download_button button { font-size:12px!important; padding:8px!important; }
+ #publicPortal .signout-icon { font-size:0; }
+ #publicPortal .theme-toolbar { flex-wrap:wrap; gap:12px; }
+ #publicPortal .theme-toolbar h1 { font-size:26px; }
+ #publicPortal .theme-search { width:100%; }
+ #publicPortal .theme-worlds { grid-template-columns:1fr; }
+ #publicPortal .catbox { padding:18px!important; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child { display:flex!important; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-card-heading { padding-right:0; margin-bottom:0; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-launch { position:static; margin:18px 0; }
+ #publicPortal .theme-details,body[data-public-theme="gate"] #publicPortal .catbox .theme-details,body[data-public-theme="ember"] #publicPortal .catbox .theme-details { grid-template-columns:1fr; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:first-child .trophy-table { border-left:0!important; padding:18px 0 0; border-top:1px solid #ffffff40; margin-top:22px!important; }
+ #publicPortal .trophy-table caption { font-size:18px!important; }
+ #publicPortal .trophy-table tr { grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px 6px; }
+ #publicPortal .theme-boss-name { font-size:12px; }
+ body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .trophy-table tr { grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+ #publicPortal .theme-boss-mark { display:block; margin:0; }
+ body[data-public-theme="gate"] #publicPortal .catbox { width:100%!important; }
+ body[data-public-theme="gate"] { background:linear-gradient(#03090f99,#03090fe8),url('/images/themes/gate.png') 65% top/auto 100vh fixed!important; }
+ #publicPortal .theme-world-nav { flex-wrap:wrap; }
+ #publicPortal .theme-world-choice { flex:1 1 140px; }
+ #publicPortal .theme-world-choice strong { font-size:15px; }
+ body[data-public-theme="ember"] #publicPortal .theme-main { display:flex; flex-direction:column; }
+ body[data-public-theme="ember"] #publicPortal .theme-world-nav { flex-direction:row; overflow-x:auto; flex-wrap:nowrap; border:0; padding:0; width:100%; }
+ body[data-public-theme="ember"] #publicPortal .theme-world-choice { flex:0 0 165px; margin:0; padding:10px; }
+ body[data-public-theme="ember"] #publicPortal .theme-card-heading { min-height:145px; }
 }
 
-/* Offline is a status, not a reason to make the world's details unreadable. */
-body[data-public-theme][data-public-theme] .catbox.card_dimmed,
-body[data-public-theme][data-public-theme] .catbox .card_dimmed { opacity:1!important; }
-body[data-public-theme][data-public-theme] .catbox.card_dimmed { pointer-events:auto!important; }
-body[data-public-theme][data-public-theme] .theme-header > table { width:auto!important; min-width:340px; }
-body[data-public-theme][data-public-theme] .theme-header .client_download_button { white-space:nowrap; }
-body[data-public-theme][data-public-theme] .theme-header .google_header { width:48px!important; padding:0!important; }
-body[data-public-theme][data-public-theme] .theme-header .google_header img { width:36px!important; height:36px!important; }
-body[data-public-theme][data-public-theme] .theme-header .name_header { font:12px system-ui!important; padding:6px 0 0!important; }
-body[data-public-theme][data-public-theme] .theme-brand { color:#edf1f7!important; }
-@media(max-width:800px) {
- body[data-public-theme][data-public-theme] .theme-header > table { min-width:0; width:100%!important; }
- body[data-public-theme][data-public-theme] .theme-header .client_download_button { white-space:normal; }
-}
+/* Hidden world panels must beat every theme-specific display declaration. */
+body[data-public-theme] #publicPortal .catbox[hidden] { display:none!important; }
 
-body[data-public-theme][data-public-theme] .trophy-table caption small { display:block; margin-top:6px; color:#98aabe; font:400 10px system-ui; letter-spacing:0; text-transform:none; }
+body[data-public-theme="reforged"] #publicPortal .client_download_button button { border-color:#20d9e2!important; color:#4be3e8!important; }
+#publicPortal .theme-world-choice small[data-online="true"]::before { background:#54e99c; }
 
-body[data-public-theme][data-public-theme] .public-footer { inset:auto!important; width:auto; justify-content:center; }
-body[data-public-theme][data-public-theme] .user-modal { position:relative; top:auto; left:auto; height:auto; overflow:visible; }
-body[data-public-theme][data-public-theme] .user-modal-container { transform:none!important; margin:36px auto; outline:none; }
+body[data-public-theme="gate"] { background-color:#03090f!important; background-repeat:no-repeat!important; }
+body[data-public-theme="ember"] { background-color:#0e0806!important; background-repeat:no-repeat!important; }
