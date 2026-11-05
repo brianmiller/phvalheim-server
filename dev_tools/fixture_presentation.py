@@ -20,6 +20,13 @@ for i in range(90):
  except Exception:pass
  time.sleep(1)
 else:raise AssertionError('startup')
+# The API becomes reachable before the engine has applied every historical migration.
+for i in range(120):
+ ready=subprocess.run(['docker','exec',name,'mysql','-N','-uphvalheim_user','-pphvalheim_secretpassword','phvalheim','-e',
+  'SELECT password_public,config_policy_version FROM worlds LIMIT 0; SELECT configPolicyNoticeState FROM settings LIMIT 0;'],capture_output=True)
+ if ready.returncode == 0: break
+ time.sleep(1)
+else: raise AssertionError('schema migrations did not finish')
 run('docker','exec',name,'bash','/opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh')
 run('docker','exec',name,'mysql','-uphvalheim_user','-pphvalheim_secretpassword','phvalheim','-e',"UPDATE settings SET setupComplete=1,migrationNoticeShown=1,gameDNS='fixture.invalid',steamApiKey='fixture';")
 verify_no_enrollment(name)
