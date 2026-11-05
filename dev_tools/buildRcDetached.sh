@@ -125,7 +125,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62themes=$(grep -c "^function phvPublicThemes" /opt/stateless/nginx/www/includes/presentation.php)
   v62themePages=$(grep -l "public-themes.css" /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   v62overlayWriters=$(grep -h -c 'phvWorldOverlay.*disabled.*);' /opt/stateless/nginx/www/includes/db_gets.php /opt/stateless/nginx/www/admin/adminAPI.php /opt/stateless/nginx/www/admin/index.php | awk '{s+=$1} END {print s}')
-  v62presentationMigration=$(grep -c '^addColumn' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
+  v62presentationMigration=$(grep -c '^addColumn ' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
   v62presentationAssets=0
   if [ -x /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh ] && [ -s /opt/stateless/nginx/www/images/themes/bosses.png ] && [ -s /opt/stateless/nginx/www/images/themes/gate.png ] && [ -s /opt/stateless/nginx/www/images/themes/ember.png ] && [ -s /opt/stateless/nginx/www/images/themes/hugin.svg ] && [ -s /opt/stateless/nginx/www/js/public-themes.js ]; then v62presentationAssets=1; fi
   echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/3/1)"
