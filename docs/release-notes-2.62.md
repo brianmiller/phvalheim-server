@@ -6,6 +6,8 @@ Stable release. `theoriginalbrian/phvalheim-server:latest` and `:2.62` carry it.
 
 ## Changes
 
+- The Gate world chooser wraps large world lists into readable rows instead of squeezing all names into one desktop row. For this layout fix alone, pull/recreate the container and reload the player website; no world rebuild or client update is needed.
+
 - Built-in public website access through Tailscale Funnel or Cloudflare, with setup, connection status and diagnostics. Players do not need Tailscale. Existing private configurations require an explicit Publish action before becoming public.
 - Independent login and player website themes: Classic, Classic Reforged, The Gate and Ember. Classic retains the original login screen. Classic Reforged clearly distinguishes offline worlds, shows active players, and places world selectors beneath selected-world details.
 - A dedicated Server Settings page with categories, search, theme previews, clearer units, persistent Save/Discard controls and unsaved-change protection.

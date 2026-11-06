@@ -200,6 +200,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62portalCache=$(grep -l 'public-themes.js?v=8' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 corrected portal: layout=$v62portalLayout old header=$v62portalLegacy cache=$v62portalCache (want 1/0/2)"
   v62bossGrey=$(grep -cF 'filter:grayscale(1) brightness(.65);' /opt/stateless/nginx/www/css/public-themes.css)
+  v62gateGrid=$(grep -cF 'body[data-public-theme="gate"] #publicPortal .theme-world-nav { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); }' /opt/stateless/nginx/www/css/public-themes.css)
+  v62gateMobile=$(grep -cF 'body[data-public-theme="gate"] #publicPortal .theme-world-nav { grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); }' /opt/stateless/nginx/www/css/public-themes.css)
+  v62gateOldCache=$(grep -lF 'public-themes.css?v=7' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  echo "2.62 Gate world count: desktop=$v62gateGrid mobile=$v62gateMobile obsolete cache=$v62gateOldCache (want 1/1/0)"
   v62bossGreyCache=$(grep -l 'public-themes.css?v=8' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 undefeated bosses: grey=$v62bossGrey cache=$v62bossGreyCache (want 1/2)"
   v62playerViewer=$(grep -cF 'dialog.showModal()' /opt/stateless/nginx/www/js/player-mods.js)
@@ -4563,7 +4567,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62settingsRoute" = "1" ] && [ "$v62settingsModal" = "0" ] && [ "$v62settingsDraft" = "1" ] && [ "$v62settingsMobile" = "1" ] \
     && [ "$v62worldOrder" = "1" ] && [ "$v62magentaButton" = "0" ] \
     && [ "$v62offlineGrey" = "1" ] && [ "$v62flatpakLatest" = "1" ] && [ "$v62flatpakAdvanced" = "1" ] && [ "$v62reforgedMagenta" = "1" ] \
-    && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \
+    && [ "$v62bossGrey" = "1" ] && [ "$v62gateGrid" = "1" ] && [ "$v62gateMobile" = "1" ] && [ "$v62gateOldCache" = "0" ] && [ "$v62bossGreyCache" = "2" ] \
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "5" ] && [ "$v62huginLimits" = "3" ] && [ "$v62huginMigration" = "1" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62turnDefault" = "1" ] && [ "$v62turnCeiling" = "1" ] && [ "$v62turnUpgrade" = "1" ] && [ "$v62turnForm" = "1" ] && [ "$v62turnUnlock" = "1" ] && [ "$v62turnStale" = "0" ] && [ "$v62turnWatchdog" = "1" ] \
