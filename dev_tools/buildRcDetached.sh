@@ -121,6 +121,11 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 # reinstate the hazard.
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
+  v62settingsRoute=$(grep -c "define('PHV_SETTINGS_PAGE', true)" /opt/stateless/nginx/www/admin/settings.php)
+  v62settingsModal=$(grep -c 'class="mods-modal-overlay" id="serverSettingsOverlay"' /opt/stateless/nginx/www/admin/index.php)
+  v62settingsDraft=$(grep -c "window.addEventListener('beforeunload'" /opt/stateless/nginx/www/js/server-settings.js)
+  v62settingsMobile=$(grep -c 'settings-mobile,.settings-mobile-label { display:block; }' /opt/stateless/nginx/www/css/server-settings.css)
+  echo "2.62 settings page: route=$v62settingsRoute obsolete modal=$v62settingsModal draft guard=$v62settingsDraft mobile=$v62settingsMobile (want 1/0/1/1)"
   v62offlineGrey=$(grep -cF '.catbox.card_dimmed { filter:grayscale(1)!important;' /opt/stateless/nginx/www/css/public-themes.css)
   v62flatpakLatest=$(grep -cF 'href="https://github.com/brianmiller/phvalheim-client/releases/latest"' /opt/stateless/nginx/www/public/authenticated.php)
   v62flatpakAdvanced=$(grep -cF '<details class="flatpak-troubleshooting">' /opt/stateless/nginx/www/public/authenticated.php)
@@ -4519,6 +4524,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62playerViewer" = "1" ] && [ "$v62playerScope" = "1" ] && [ "$v62playerPrivate" = "1" ] \
+    && [ "$v62settingsRoute" = "1" ] && [ "$v62settingsModal" = "0" ] && [ "$v62settingsDraft" = "1" ] && [ "$v62settingsMobile" = "1" ] \
     && [ "$v62worldOrder" = "1" ] && [ "$v62magentaButton" = "0" ] \
     && [ "$v62offlineGrey" = "1" ] && [ "$v62flatpakLatest" = "1" ] && [ "$v62flatpakAdvanced" = "1" ] && [ "$v62reforgedMagenta" = "1" ] \
     && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \

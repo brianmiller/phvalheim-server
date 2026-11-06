@@ -9,6 +9,8 @@ on:
       - 'compose.dev.yaml'
       - 'dev_tools/test-public-security-integration.py'
       - 'dev_tools/test-game-port-integration.py'
+      - 'dev_tools/fixture_presentation.py'
+      - 'dev_tools/test-server-settings-browser.py'
       - 'dev_tools/fixture_analytics.py'
       - 'dev_tools/fixture-analytics.sh'
       - 'dev_tools/fixtures/analytics-disabled.sh'
@@ -23,6 +25,8 @@ on:
       - 'compose.dev.yaml'
       - 'dev_tools/test-public-security-integration.py'
       - 'dev_tools/test-game-port-integration.py'
+      - 'dev_tools/fixture_presentation.py'
+      - 'dev_tools/test-server-settings-browser.py'
       - 'dev_tools/fixture_analytics.py'
       - 'dev_tools/fixture-analytics.sh'
       - 'dev_tools/fixtures/analytics-disabled.sh'
@@ -54,6 +58,30 @@ jobs:
         env:
           PHV_PORT_TEST_IMAGE: phvalheim-contributor:local
         run: python3 dev_tools/test-game-port-integration.py 2>&1 | tee .integration-logs/ports.log
+      - name: Install browser test dependencies
+        run: |
+          python3 -m pip install playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+      - name: Verify Server Settings in a browser
+        env:
+          PHV_PRESENTATION_IMAGE: phvalheim-contributor:local
+          PHV_PRESENTATION_FIXTURE: .integration-logs/settings-fixture.json
+        run: |
+          python3 dev_tools/fixture_presentation.py 2>&1 | tee .integration-logs/settings-fixture.log
+          python3 dev_tools/test-server-settings-browser.py 2>&1 | tee .integration-logs/settings-browser.log
+      - name: Clean up settings fixture
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          path = Path('.integration-logs/settings-fixture.json')
+          if path.exists():
+              fixture = json.loads(path.read_text())
+              subprocess.run(['docker', 'rm', '-f', fixture['name']], check=False)
+              subprocess.run(['docker', 'volume', 'rm', fixture['volume']], check=False)
+          PY
+          cp /tmp/phv-settings-*.png .integration-logs/ 2>/dev/null || true
       - name: Retain evidence
         if: always()
         uses: actions/upload-artifact@v4
