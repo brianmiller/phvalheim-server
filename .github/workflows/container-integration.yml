@@ -12,6 +12,8 @@ on:
       - 'dev_tools/fixture_presentation.py'
       - 'dev_tools/test-server-settings-browser.py'
       - 'dev_tools/test-public-entry-browser.py'
+      - 'dev_tools/test-modsync-stale-pid.py'
+      - 'dev_tools/test-modsync-stale-pid-container.py'
       - 'dev_tools/fixture_analytics.py'
       - 'dev_tools/fixture-analytics.sh'
       - 'dev_tools/fixtures/analytics-disabled.sh'
@@ -29,6 +31,8 @@ on:
       - 'dev_tools/fixture_presentation.py'
       - 'dev_tools/test-server-settings-browser.py'
       - 'dev_tools/test-public-entry-browser.py'
+      - 'dev_tools/test-modsync-stale-pid.py'
+      - 'dev_tools/test-modsync-stale-pid-container.py'
       - 'dev_tools/fixture_analytics.py'
       - 'dev_tools/fixture-analytics.sh'
       - 'dev_tools/fixtures/analytics-disabled.sh'
@@ -72,6 +76,10 @@ jobs:
           python3 dev_tools/fixture_presentation.py 2>&1 | tee .integration-logs/settings-fixture.log
           python3 dev_tools/test-server-settings-browser.py 2>&1 | tee .integration-logs/settings-browser.log
           python3 dev_tools/test-public-entry-browser.py 2>&1 | tee .integration-logs/public-entry-browser.log
+      - name: Verify interrupted catalogue sync recovery with MariaDB
+        env:
+          PHV_PRESENTATION_FIXTURE: .integration-logs/settings-fixture.json
+        run: python3 dev_tools/test-modsync-stale-pid-container.py 2>&1 | tee .integration-logs/modsync-recovery.log
       - name: Clean up settings fixture
         if: always()
         run: |
