@@ -229,7 +229,7 @@ const Vibes = {};
 
 	async function refreshState(quiet) {
 		// reconcile() runs here and not in applyState(): it must only ever see a FRESH answer.
-		try { S.state = (await api('state')); applyState(); if (Vibes.vibeTab) Vibes.vibeTab.reconcile(S.state); }
+		try { S.state = (await api('state')); if (Vibes.library) Vibes.library.syncJobs(S.state.jobs); applyState(); if (Vibes.vibeTab) Vibes.vibeTab.reconcile(S.state); }
 		catch (e) { if (!quiet) fail(e, 'Could not read the state'); }
 		return S.state;
 	}
@@ -508,6 +508,26 @@ const Vibes = {};
 				p.openJob ? h('span', { title: p.openJob.step || '' }, p.openJob.kind + '…') : h('span', fmtAgo(p.updated))));
 		return el;
 	}
+	/**
+	 * A card's ring and "turn…" come from p.openJob, and the project list is only fetched now and
+	 * then: at the start of a turn, for one. Nothing fetched it again when the turn ended, so the
+	 * card went on spinning until some other job finished or the page was reloaded. The open jobs
+	 * are known from two fresher places -- the project answer and every state poll -- and both
+	 * now correct the cards. Returns true when a card changed.
+	 */
+	function setJob(projectId, job) {
+		const p = (S.projects || []).find(x => x.id === projectId);
+		if (!p) return false;
+		const was = p.openJob || null, now = job || null;
+		if ((was && was.id) === (now && now.id) && (!now || (was.step === now.step && was.progress === now.progress))) return false;
+		p.openJob = now;
+		return true;
+	}
+	function syncJobs(jobs) {
+		let changed = false;
+		for (const p of S.projects || []) changed = setJob(p.id, (jobs || []).find(j => j.project_id === p.id) || null) || changed;
+		return changed;
+	}
 	function ring(job) {
 		const r = h('span.vb-ring', { title: job.kind + (job.step ? ': ' + job.step : '') });
 		if (job.progress === -1 || !job.progress) r.classList.add('indeterminate'); else r.style.setProperty('--p', job.progress);
@@ -524,7 +544,7 @@ const Vibes = {};
 		const lib = $('vbLibrary'), open = force === undefined ? !lib.classList.contains('open') : force;
 		lib.classList.toggle('open', open); $('vbLibraryScrim').hidden = !open;
 	}
-	Vibes.library = { load, render, wire, toggleDrawer };
+	Vibes.library = { load, render, wire, toggleDrawer, setJob, syncJobs };
 })();
 
 /* =====================================================================================
@@ -624,7 +644,7 @@ const Vibes = {};
 		if (w.onDone) { try { await w.onDone(ok); } catch (e) { console.error(e); } }
 		await Vibes.router.refreshState(true);
 		await Vibes.library.load();
-		if (S.project && S.project.id === w.job.project_id) await Vibes.workspace.reload();
+		if (S.project && S.project.id === w.job.project_id) await Vibes.workspace.reload({ keepSession: true });
 	}
 
 	/** Called with the server's open jobs on every state refresh: adopt the ones we are not watching. */
@@ -703,7 +723,14 @@ const Vibes = {};
 		await reload();
 		Vibes.tabs.show('vibe');
 	}
-	async function reload() {
+	/**
+	 * Re-read the project and redraw around it. keepSession: the caller knows the conversation
+	 * on screen is current (a turn or a job just ended and the live stream drew every event), so
+	 * the transcript is left alone. Without it the session is fetched and rebuilt from the start,
+	 * which is right when the page may have missed something and wasteful otherwise: it used to
+	 * happen after every turn, build, package and publish, blanking the chat each time.
+	 */
+	async function reload(opts) {
 		if (!S.project) return;
 		try { S.project = (await api('project', { id: S.project.id })).project; }
 		catch (e) { fail(e, 'Could not open the Vibe'); S.project = null; renderEmptyState(); Vibes.library.render(); return; }
@@ -717,7 +744,9 @@ const Vibes = {};
 		// every turn long enough for one poll to have seen it. So correct the poll's copy for
 		// this project (openFor() reads it) and lock from the fresh answer only.
 		if (S.state) S.state.jobs = (S.state.jobs || []).filter(j => j.project_id !== S.project.id).concat(S.project.openJob ? [S.project.openJob] : []);
-		await Vibes.vibeTab.openSession(keep || sessions[0] || null);
+		if (Vibes.library.setJob(S.project.id, S.project.openJob || null)) Vibes.library.render();
+		if (opts && opts.keepSession && keep && Vibes.vibeTab.isAttached(keep.id)) { S.session = keep; renderSessions(); }
+		else await Vibes.vibeTab.openSession(keep || sessions[0] || null);
 		// openSession() has already locked for a turn the transcript says is running.
 		if (!Vibes.vibeTab.isRunning()) showJob(S.project.openJob || null);
 		Vibes.emit();
@@ -780,7 +809,7 @@ const Vibes = {};
 	async function rename(s) {
 		const title = prompt('Session title', s.title || '');
 		if (title === null) return;
-		try { await post('renameSession', { session: s.id, title }); await reload(); } catch (e) { fail(e, 'Rename failed'); }
+		try { await post('renameSession', { session: s.id, title }); await reload({ keepSession: true }); } catch (e) { fail(e, 'Rename failed'); }
 	}
 	async function newSession() {
 		if (!S.project) return;
@@ -836,18 +865,33 @@ const Vibes = {};
 
 	function detach() { if (stream) stream.close(); stream = null; running = false; cur = null; chips.clear(); setHugin('idle'); }
 
+	/**
+	 * Load a session into the pane. Two things here were visible to the operator (2.62):
+	 *  - the pane was emptied BEFORE the transcript was requested, so it sat blank for as long as
+	 *    the request and the replay took. The old content now stays until the new one is ready,
+	 *    and the swap happens in one task, so no empty frame is ever painted;
+	 *  - two overlapping calls (a turn ending while a build finishes) both replayed into the same
+	 *    pane and both opened a stream. Only the latest call may touch the pane.
+	 */
+	let openGen = 0;
 	async function openSession(s) {
+		const gen = ++openGen;
 		const preserveScroll = !!(s && S.session && s.id === S.session.id && !follow);
 		const priorTop = $('vbTranscript').scrollTop;
 		if (scrollFrame) { cancelAnimationFrame(scrollFrame); scrollFrame = null; }
 		detach();
 		S.session = s;
 		$('vbUsage').textContent = s ? Number(s.tokens_in || 0).toLocaleString() + ' in · ' + Number(s.tokens_out || 0).toLocaleString() + ' out · session' : ''; delete $('vbUsage').dataset.context; delete $('vbUsage').dataset.usage;
-		clear($('vbTranscript')); clear($('vbForgeList')); activity.clear(); follow = !preserveScroll; $('vbJumpLatest').hidden = !preserveScroll; lastSeq = 0; turnNo = 0; $('vbForgeMeta').textContent = '';
+		follow = !preserveScroll; $('vbJumpLatest').hidden = !preserveScroll;
+		const wipe = () => { clear($('vbTranscript')); clear($('vbForgeList')); activity.clear(); lastSeq = 0; turnNo = 0; $('vbForgeMeta').textContent = ''; };
 		Vibes.workspace.renderSessions();
-		if (!s) { $('vbTranscript').appendChild(emptyHint()); $('vbForgeList').appendChild(h('div.vb-forge-empty', 'Tool calls tick in here while Hugin works: reads, edits, builds, commits.')); $('vbModelInput').value = (S.project && S.project.model) || ''; return; }
+		if (!s) { wipe(); $('vbTranscript').appendChild(emptyHint()); $('vbForgeList').appendChild(h('div.vb-forge-empty', 'Tool calls tick in here while Hugin works: reads, edits, builds, commits.')); $('vbModelInput').value = (S.project && S.project.model) || ''; return; }
+		let r = null, failure = null;
+		try { r = await api('transcript', { session: s.id, after: 0 }); } catch (e) { failure = e; }
+		if (gen !== openGen) return;
+		wipe();
 		try {
-			const r = await api('transcript', { session: s.id, after: 0 });
+			if (failure) throw failure;
 			for (const ev of r.events || []) handle(ev, false);
 			if (!(r.events || []).length) $('vbTranscript').appendChild(emptyHint());
 			if (!$('vbForgeList').children.length) $('vbForgeList').appendChild(h('div.vb-forge-empty', 'Tool calls tick in here while Hugin works: reads, edits, builds, commits.'));
@@ -861,6 +905,7 @@ const Vibes = {};
 		stream = new Vibes.Stream({ session: s.id }, (ev) => handle(ev, true), lastSeq);
 		if (preserveScroll) { $('vbTranscript').scrollTop = priorTop; follow = false; }
 		scrollEnd();
+		forgeStick = true; forgeScroll();
 	}
 	function emptyHint() {
 		return h('div.vb-msg.system', h('div.vb-bubble', 'New session. Hugin knows this project’s files, its notes and the game libraries. Describe what you want; he reads, writes, builds and fixes.'));
@@ -926,7 +971,7 @@ const Vibes = {};
 	function endRun(ok, stopped = false) {
 		running = false; missedPolls = 0; if (cur) finalizeAssistant();
 		setHugin(stopped ? 'paused' : ok ? 'done' : 'error'); setLocked(null); Vibes.workspace.showJob(null);
-		Vibes.workspace.reload();
+		Vibes.workspace.reload({ keepSession: true });
 	}
 
 	/* ---- Event handling: one function per event type, the same for history and live --- */
@@ -951,10 +996,19 @@ const Vibes = {};
 			case 'job':       if (live && running && ev.status && !['queued', 'running'].includes(ev.status)) { if (ev.status !== 'done') appendError((ev.job && ev.job.error) || ('The turn ended as ' + ev.status + '.'), Date.now() / 1000); endRun(ev.status === 'done'); } else if (live && !running && ev.status === 'running' && ev.job && ev.job.kind === 'turn') beginRun(ev.job); break;
 			default: break;
 		}
-		if (live) scrollEnd();
-		forgeScroll();
+		// History is replayed in one go and scrolled once by openSession(). Asking for a scroll
+		// position after every replayed event made the browser lay the whole pane out again each
+		// time: 2,935 layouts and 4.6 of the 5.7 seconds it took to open a 3,845-event session.
+		if (live) { scrollEnd(); forgeScroll(); }
 	}
-	function forgeScroll() { const f = $('vbForgeList'); if (f.scrollHeight - f.scrollTop - f.clientHeight < 180) f.scrollTop = f.scrollHeight; }
+	/* The forge rail follows its tail unless the operator has scrolled up. Whether it is at the
+	   tail is learned from scroll events (when layout is already clean), never measured while
+	   events are being appended, and the scroll itself happens at most once a frame. */
+	let forgeStick = true, forgeFrame = null;
+	function forgeScroll() {
+		if (!forgeStick || forgeFrame) return;
+		forgeFrame = requestAnimationFrame(() => { forgeFrame = null; if (!forgeStick) return; const f = $('vbForgeList'); f.scrollTop = f.scrollHeight; });
+	}
 	function showUsage(ev) { const e = $('vbUsage'); if (ev.type === 'context') { e.dataset.context = '~' + Number(ev.tokens).toLocaleString() + ' / ' + Number(ev.budget).toLocaleString() + ' context'; e.classList.toggle('near-limit', ev.tokens >= ev.budget * .8); } if (ev.usage) e.dataset.usage = ev.reported === false ? 'Token usage not reported by provider' : Number(ev.usage.in).toLocaleString() + ' in · ' + Number(ev.usage.out).toLocaleString() + ' out'; e.textContent = [e.dataset.context, e.dataset.usage].filter(Boolean).join(' · '); }
 	function addActivity(ev) { const details = h('details.vb-tool-activity', h('summary', '◌ ' + ev.name + ' · ' + shortArg(ev.args)), h('pre.vb-pre', JSON.stringify(ev.args || {}, null, 2))); activity.set(ev.id, details); $('vbTranscript').appendChild(details); }
 	function finishActivity(ev) { const el = activity.get(ev.id); if (!el) return; el.querySelector('summary').textContent = (ev.ok ? '✓ ' : '✕ ') + el.querySelector('summary').textContent.slice(2) + ' · ' + fmtMs(ev.ms); el.appendChild(h('pre.vb-pre', ev.preview || 'Completed')); }
@@ -1033,6 +1087,7 @@ const Vibes = {};
 		$('vbTranscript').addEventListener('touchmove', ()=>{follow=false;}, {passive:true});
 		$('vbTranscript').addEventListener('scroll', ()=>{ const t=$('vbTranscript'); if(t.scrollHeight-t.scrollTop-t.clientHeight<12) {follow=true; $('vbJumpLatest').hidden=true;} });
 		$('vbJumpLatest').onclick=()=>{follow=true; $('vbJumpLatest').hidden=true; scrollEnd();};
+		$('vbForgeList').addEventListener('scroll', () => { const f = $('vbForgeList'); forgeStick = f.scrollHeight - f.scrollTop - f.clientHeight < 180; });
 		$('vbModelInput').addEventListener('focus', modelMenu); $('vbModelInput').addEventListener('input',modelMenu);
 		$('vbModelInput').addEventListener('change',saveModel);
 		$('vbModelInput').addEventListener('keydown', e=>{if(e.key==='Escape') {$('vbModelList').hidden=true; e.target.setAttribute('aria-expanded','false');} if(e.key==='ArrowDown') {e.preventDefault(); $('vbModelList').querySelector('button')?.focus();}});
@@ -1041,7 +1096,7 @@ const Vibes = {};
 		$('vbComposerText').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); send(); } });
 		Vibes.subscribe(() => { if (S.project && !S.project.loading) loadModels(); });
 	}
-	Vibes.vibeTab = { reconcile, isRunning: () => running, openSession, detach, setLocked, send, wire, handle };
+	Vibes.vibeTab = { reconcile, isRunning: () => running, isAttached: (id) => !!stream && !!S.session && S.session.id === id, openSession, detach, setLocked, send, wire, handle };
 })();
 
 /* =====================================================================================

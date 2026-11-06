@@ -17,6 +17,17 @@ the new default; a limit the operator entered is kept. Send no longer stays disa
 the job indicator spinning, after a turn ends: the page had locked the composer from a state
 poll taken while the turn was still running.
 
+Long Vibes conversations no longer open slowly or go blank. Replaying a session read a scroll
+position after every event, forcing a full layout each time (2,935 layouts and 4.6 of 5.7
+seconds for a 3,845-event session); the pane was also emptied before the transcript was
+requested, and the whole conversation was fetched and rebuilt after every turn, build, package
+and publish. History is now replayed without measuring, swapped in one step, and left in
+place when a turn or job ends.
+
+A Vibe's card in the library kept its spinning ring and "turn…" after the turn had ended,
+until another job finished or the page was reloaded: the project list was fetched when a turn
+started and never again. The cards now follow the project's own answer and every state poll.
+
 Docker `:rc` carries this candidate; `:latest` and `:2.61` remain stable. The existing
 HIGH Tailscale dependency finding (CVE-2026-116591) remains disclosed in the release
 notes; functional checks passing does not waive the security gate.

@@ -45,6 +45,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       if (!r.url().includes('action=state')) return;
       try { if (((await r.json()).jobs || []).some(j => j.kind === 'turn' && j.project_id === project.id)) pollsThatSawTheTurn++; } catch (e) { /* navigation */ }
     });
+    let transcriptRequests = 0;
+    page.on('request', r => { if (r.url().includes('action=transcript')) transcriptRequests++; });
+    // Session streams this page holds open. Each one occupies a browser connection (six per
+    // host) and a PHP worker (five in the pool) until the page is closed.
+    const openStreams = new Set();
+    const isSessionStream = r => r.url().includes('vibesStream.php') && r.url().includes('session=');
+    page.on('request', r => { if (isSessionStream(r)) openStreams.add(r); });
+    page.on('requestfinished', r => openStreams.delete(r));
+    page.on('requestfailed', r => openStreams.delete(r));
     await page.goto(base + '/hugins_vibes.php');
     await page.waitForFunction(() => document.body.dataset.vbReady === '1');
     await page.evaluate(id => Vibes.workspace.select(id), project.id);
@@ -66,6 +75,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const t0 = Date.now();
     await page.locator('#vbComposerSend').click();
     await page.waitForFunction(() => document.getElementById('vbComposerSend').disabled && !document.getElementById('vbWsJob').hidden, null, { timeout: 15000 });
+    // The library card of a Vibe with a turn running carries a spinning ring and "turn…".
+    const libraryCard = () => page.evaluate(() => { const c = document.querySelector('#vbLibList .vb-lib-card.active'); return c ? { ring: !!c.querySelector('.vb-ring'), text: c.querySelector('.vb-lib-card-meta').textContent } : null; });
+    let ringWhileRunning = false;
+    try { await page.waitForFunction(() => !!document.querySelector('#vbLibList .vb-lib-card.active .vb-ring'), null, { timeout: 15000 }); ringWhileRunning = true; } catch (e) { /* reported below */ }
     const stopText = 'Stopped after ' + rounds + ' tool rounds';
     await page.waitForFunction(t => document.getElementById('vbTranscript').textContent.includes(t), stopText, { timeout: Number(process.env.TURN_WAIT_MS || 300000) });
     const took = (Date.now() - t0) / 1000;
@@ -78,14 +91,20 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     let c = await composer();
     check('after the limit: Send is enabled, the job ring and Stop are gone', usable(c), JSON.stringify(c));
     check('after the limit: status says how to resume', c.live.includes('Continue'), c.live);
+    check('STIMULUS: the library card showed a ring while the turn ran', ringWhileRunning);
+    let card = await libraryCard();
+    check('after the turn: the library card has stopped spinning', card && !card.ring && !card.text.includes('turn'), JSON.stringify(card));
     await sleep(26000);  // one full 20-second poll cycle must not lock it again
     c = await composer();
     check('26 seconds later it is still usable', usable(c), JSON.stringify(c));
+    card = await libraryCard();
+    check('26 seconds later the library card is still at rest', card && !card.ring && !card.text.includes('turn'), JSON.stringify(card));
 
     // ---- 3. The next message goes through WITHOUT a reload --------------------------------
     fixture('mode', 'finish'); fixture('delay_ms', 200);
     await page.locator('#vbComposerText').fill('Continue');
     let sent = false;
+    const transcriptRequestsBeforeTurn = transcriptRequests;
     try { await page.locator('#vbComposerSend').click({ timeout: 5000 }); sent = true; } catch (e) { /* a disabled button cannot be clicked */ }
     check('Send accepts a click after the limit', sent);
     let finished = false;
@@ -94,6 +113,49 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(2500);
     c = await composer();
     check('after the follow-up: composer usable, status no longer says stopped', usable(c) && !c.live.includes('Continue'), JSON.stringify(c));
+    // The live stream drew the turn; fetching and rebuilding the whole conversation when it ends
+    // is what blanked the chat after every turn.
+    check('a finished turn does not re-request the transcript', finished && transcriptRequests === transcriptRequestsBeforeTurn, (transcriptRequests - transcriptRequestsBeforeTurn) + ' request(s)');
+
+    // ---- 3b. A long conversation opens quickly and is never shown empty --------------------
+    // Reported on a 3,845-event session: 5.7 seconds to open, 4.6 of them in 2,935 layouts,
+    // because a scroll position was read after every replayed event. Layout COUNT is the oracle,
+    // not a duration: it does not depend on how fast the machine running this is.
+    const events = Number(dex(['sh', '-c', 'cat /opt/stateful/vibes/projects/' + project.slug + '/.vibes/sessions/*.jsonl | wc -l']));
+    check('STIMULUS: the session on screen is a long one', events > 1000, events + ' events');
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Performance.enable');
+    const layoutCount = async () => (await cdp.send('Performance.getMetrics')).metrics.find(m => m.name === 'LayoutCount').value;
+    const nodesBefore = await page.evaluate(() => document.querySelectorAll('#vbTranscript *, #vbForgeList *').length);
+    const layoutsBefore = await layoutCount();
+    await page.evaluate(() => Vibes.vibeTab.openSession(Vibes.S.session));
+    const layouts = (await layoutCount()) - layoutsBefore;
+    const nodesAfter = await page.evaluate(() => document.querySelectorAll('#vbTranscript *, #vbForgeList *').length);
+    check('STIMULUS: reopening rebuilt the whole conversation', nodesAfter > 1000 && Math.abs(nodesAfter - nodesBefore) < 20, nodesBefore + ' nodes live, ' + nodesAfter + ' after reopening');
+    check('reopening it lays the page out a handful of times, not once per event', layouts < 50, layouts + ' layouts for ' + events + ' events');
+    // Slow the transcript down so an emptied pane would be on screen long enough to be painted.
+    const slowTranscript = url => url.href.includes('action=transcript');
+    await page.route(slowTranscript, async r => { await sleep(700); await r.continue(); });
+    const fewestBubbles = await page.evaluate(async () => {
+      const t = document.getElementById('vbTranscript'); let fewest = Infinity, frames = 0, on = true;
+      const tick = () => { fewest = Math.min(fewest, t.children.length); frames++; if (on) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+      await Vibes.vibeTab.openSession(Vibes.S.session);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      on = false; return { fewest, frames };
+    });
+    await page.unroute(slowTranscript);
+    check('STIMULUS: frames were painted while the transcript was on its way', fewestBubbles.frames > 10, fewestBubbles.frames + ' frames');
+    check('the chat is never painted empty while a session reloads', fewestBubbles.fewest > 0, 'fewest children in any frame: ' + fewestBubbles.fewest);
+
+    // ---- 3c. Two reloads at once (a turn ending as a build finishes) -----------------------
+    // Both used to replay into the same pane and both opened a stream; the first stream was
+    // never closed. Enough of those and the browser has no connection left for this server.
+    await page.evaluate(async () => { await Promise.all([Vibes.workspace.reload(), Vibes.workspace.reload(), Vibes.workspace.reload()]); });
+    await sleep(1500);
+    const nodesAfterOverlap = await page.evaluate(() => document.querySelectorAll('#vbTranscript *, #vbForgeList *').length);
+    check('overlapping reloads draw the conversation once', Math.abs(nodesAfterOverlap - nodesAfter) < 20, nodesAfter + ' nodes before, ' + nodesAfterOverlap + ' after');
+    check('overlapping reloads leave exactly one stream open', openStreams.size === 1, openStreams.size + ' session stream(s) open');
 
     // ---- 4. A turn whose end the page never hears about still unlocks ----------------------
     // The stream is the only messenger of `done`. Cut it (a dropped connection, a slept laptop)
