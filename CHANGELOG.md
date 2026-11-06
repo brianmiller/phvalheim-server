@@ -2,6 +2,9 @@
 
 ## v2.62 (2026-11-06)
 
+The Gate world chooser now wraps into readable rows with large world lists, fixing
+collapsed names on desktop. This layout fix only needs a container update and page reload.
+
 See [release notes](docs/release-notes-2.62.md) for upgrade steps and validation limits.
 This release adds public Remote Access through Tailscale Funnel or Cloudflare,
 independent login/player themes, a dedicated Server Settings page, personal mod

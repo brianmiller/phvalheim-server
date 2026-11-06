@@ -77,6 +77,8 @@ body[data-public-theme="gate"] #publicPortal .catbox .theme-details { grid-templ
 #publicPortal .theme-world-choice small { grid-column:2; color:var(--portal-muted); font-size:13px; }
 #publicPortal .theme-world-number { grid-row:1/3; color:var(--portal-muted); font-size:12px; align-self:center; }
 #publicPortal .theme-world-choice[aria-current="true"] { border-color:var(--portal-accent); background:#ffffff08; }
+/* Keep names readable as the world list grows, instead of squeezing one flex row. */
+body[data-public-theme="gate"] #publicPortal .theme-world-nav { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); }
 /* Ember: a quiet left rail, scenic heading, progression, then join information. */
 body[data-public-theme="ember"] #publicPortal .theme-main { display:grid; grid-template-columns:220px minmax(0,1fr); gap:34px; }
 body[data-public-theme="ember"] #publicPortal .theme-worlds { display:block; }
@@ -126,6 +128,7 @@ body[data-public-theme] .user-modal-container { margin:40px auto; transform:none
  #publicPortal .theme-boss-mark { display:block; margin:0; }
  body[data-public-theme="gate"] #publicPortal .catbox { width:100%!important; }
  body[data-public-theme="gate"] { background:linear-gradient(#03090f99,#03090fe8),url('/images/themes/gate.png') 65% top/auto 100vh fixed!important; }
+ body[data-public-theme="gate"] #publicPortal .theme-world-nav { grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr)); }
  #publicPortal .theme-world-nav { flex-wrap:wrap; }
  #publicPortal .theme-world-choice { flex:1 1 140px; }
  #publicPortal .theme-world-choice strong { font-size:15px; }
