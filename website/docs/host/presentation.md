@@ -4,7 +4,7 @@ These controls are in development and have not been added to the published stabl
 
 ## Choose the player portal's appearance
 
-In **Server Settings → Appearance**, choose a **Player website** preview card for the world dashboard and a **Login screen** card for the page before sign-in. See the [settings page guide](server-settings.md) for saving and navigation. Each row offers **Classic**, **Classic Reforged**, **The Gate**, and **Ember**. Save, then reload the public website. The two choices are independent; neither changes the admin theme.
+In **Server Settings → Appearance**, choose a **Player website** preview card for the world dashboard and a **Login screen** card for the page before sign-in. See the [settings page guide](server-settings.md) for saving and navigation. Each row offers **Classic**, **Classic Reforged**, **The Gate**, and **Ember**. Save, then reload the public website. The two choices are independent; neither changes the admin theme. **Classic login** restores the original Welcome to PhValheim screen, with Sign in/About tabs and the Steam sign-in image. Classic Reforged, The Gate, and Ember use the newer welcome card.
 
 **Classic Reforged is the default for both pages.** Existing saved choices survive upgrades. The login screens use Classic’s purple accents, Reforged’s compact styling, The Gate’s portal backdrop, or Ember’s warm landscape and colors.
 

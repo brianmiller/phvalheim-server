@@ -159,7 +159,8 @@
             [...select.options].forEach(option => {
                 const button = el('button','settings-theme-card'); button.type = 'button'; button.dataset.theme = option.value;
                 const preview = el('span','settings-theme-preview '+(id === 'loginTheme' ? 'preview-login' : 'preview-worlds')); preview.setAttribute('aria-hidden','true');
-                preview.append(el('span','preview-brand','PhValheim'),el('span','preview-content',id === 'loginTheme' ? 'Welcome, Viking.' : 'Your worlds'),el('span','preview-action',id === 'loginTheme' ? 'Sign in through Steam' : 'Launch'));
+                const classicLogin = id === 'loginTheme' && option.value === 'classic';
+                preview.append(el('span','preview-brand',classicLogin ? 'Welcome to PhValheim' : 'PhValheim'),el('span','preview-content',classicLogin ? 'Sign in · About' : id === 'loginTheme' ? 'Welcome, Viking.' : 'Your worlds'),el('span','preview-action',id === 'loginTheme' ? 'Sign in through Steam' : 'Launch'));
                 button.append(preview,el('span','settings-theme-name',option.textContent));
                 button.addEventListener('click',() => { select.value = option.value; refresh(); });
                 choices.append(button); themeCards.push({button,select,value:option.value});
