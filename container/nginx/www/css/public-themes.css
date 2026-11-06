@@ -62,15 +62,6 @@ body[data-public-theme] #publicPortal [hidden] { display:none!important; }
 #publicPortal .theme-disclosure { margin-top:18px; }
 #publicPortal .theme-disclosure summary { cursor:pointer; font-size:13px; color:var(--portal-accent); }
 #publicPortal .catbox:not(:first-child) .theme-details { grid-template-columns:1fr; }
-body[data-public-theme="reforged"] #publicPortal .catbox:first-child { grid-column:1/-1; display:grid!important; grid-template-columns:minmax(310px, .8fr) minmax(0,1.4fr); grid-template-areas:'heading trophies' 'facts trophies'; column-gap:30px; border:2px solid #20d9e2!important; }
-body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-card-heading { padding-right:140px; margin-bottom:18px; }
-body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-launch { position:absolute; right:calc(63.63% + 5px); top:22px; margin:0; }
-body[data-public-theme="reforged"] #publicPortal .catbox:first-child .card_worldName { color:#31e3ea!important; font-size:32px!important; }
-body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-details { grid-template-columns:1fr; margin:0; }
-body[data-public-theme="reforged"] #publicPortal .catbox:first-child .trophy-table { border-top:0; border-left:1px solid #61738e!important; padding:10px 0 10px 28px; margin:0!important; align-self:stretch; display:flex; flex-direction:column; justify-content:center; }
-body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .trophy-table caption { font-size:13px; }
-body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .theme-legend,
-body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .theme-boss-name { display:none; }
 body[data-public-theme="reforged"] #publicPortal .launch-link { background:#e500ad!important; color:white!important; }
 /* Gate: information occupies the left bank; the stone portal remains visible on the right. */
 body[data-public-theme="gate"] #publicPortal .theme-main { display:flex; flex-direction:column-reverse; }
@@ -128,15 +119,10 @@ body[data-public-theme] .user-modal-container { margin:40px auto; transform:none
  #publicPortal .theme-search { width:100%; }
  #publicPortal .theme-worlds { grid-template-columns:1fr; }
  #publicPortal .catbox { padding:18px!important; }
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child { display:flex!important; }
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-card-heading { padding-right:0; margin-bottom:0; }
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-launch { position:static; margin:18px 0; }
  #publicPortal .theme-details,body[data-public-theme="gate"] #publicPortal .catbox .theme-details,body[data-public-theme="ember"] #publicPortal .catbox .theme-details { grid-template-columns:1fr; }
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child .trophy-table { border-left:0!important; padding:18px 0 0; border-top:1px solid #ffffff40; margin-top:22px!important; }
  #publicPortal .trophy-table caption { font-size:18px!important; }
  #publicPortal .trophy-table tr { grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px 6px; }
  #publicPortal .theme-boss-name { font-size:12px; }
- body[data-public-theme="reforged"] #publicPortal .catbox:not(:first-child) .trophy-table tr { grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
  #publicPortal .theme-boss-mark { display:block; margin:0; }
  body[data-public-theme="gate"] #publicPortal .catbox { width:100%!important; }
  body[data-public-theme="gate"] { background:linear-gradient(#03090f99,#03090fe8),url('/images/themes/gate.png') 65% top/auto 100vh fixed!important; }
@@ -157,14 +143,54 @@ body[data-public-theme="reforged"] #publicPortal .client_download_button button 
 
 body[data-public-theme="gate"] { background-color:#03090f!important; background-repeat:no-repeat!important; }
 body[data-public-theme="ember"] { background-color:#0e0806!important; background-repeat:no-repeat!important; }
-/* At tablet widths the featured card stacks before its title and action collide. */
-@media(min-width:701px) and (max-width:1100px) {
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child { display:flex!important; }
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-card-heading { padding-right:0; margin-bottom:0; }
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child .theme-launch { position:static; margin:18px 0; }
- body[data-public-theme="reforged"] #publicPortal .catbox:first-child .trophy-table { border-left:0!important; border-top:1px solid #61738e!important; padding:18px 0 0; margin-top:20px!important; }
-}
 body[data-public-theme] .user-modal-container,
 body[data-public-theme] .user-modal-container * { font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif!important; }
 body[data-public-theme] .user-modal-container p { color:#dce5f2!important; font-size:16px!important; line-height:1.6; }
 body[data-public-theme] .user-modal-container a { color:var(--portal-accent)!important; }
+
+/* Reforged: a full-width matching world, then balanced, independently expandable cards. */
+body[data-public-theme="reforged"] #publicPortal { max-width:1800px; }
+body[data-public-theme="reforged"] #publicPortal .theme-worlds { grid-template-columns:repeat(var(--reforged-columns, 1),minmax(0,1fr)); gap:20px; align-items:stretch; }
+body[data-public-theme="reforged"] #publicPortal .catbox { padding:24px!important; border-color:#52637c!important; background:linear-gradient(130deg,#111d30,#0b1323)!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-card-heading { display:flex; flex-wrap:wrap; align-items:center; gap:12px 18px; margin-bottom:18px; }
+body[data-public-theme="reforged"] #publicPortal .card_worldName { flex:1 1 180px; margin:0!important; font-size:26px!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-status { order:3; flex-basis:100%; }
+body[data-public-theme="reforged"] #publicPortal .theme-launch { margin:0; flex:0 0 auto; }
+body[data-public-theme="reforged"] #publicPortal .theme-overview { margin:0; }
+body[data-public-theme="reforged"] #publicPortal .theme-reforged-info { grid-area:facts; min-width:0; }
+body[data-public-theme="reforged"] #publicPortal .theme-details { display:block; margin:10px 0 0; }
+body[data-public-theme="reforged"] #publicPortal .card_worldInfo { pointer-events:auto!important; cursor:auto!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-facts .world-md5 { overflow-wrap:anywhere; }
+body[data-public-theme="reforged"] #publicPortal .theme-facts .mod-view-link { color:#64e4dc!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-disclosure { margin-top:16px; }
+body[data-public-theme="reforged"] #publicPortal .theme-disclosure summary { width:fit-content; padding:8px 12px; border:1px solid #6a7b94; border-radius:6px; font-size:14px; color:#e1ebfa; }
+body[data-public-theme="reforged"] #publicPortal .theme-disclosure summary:hover { border-color:#64e4dc; background:#64e4dc0c; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured { grid-column:1/-1; display:grid!important; grid-template-columns:minmax(360px, .9fr) minmax(0,1.4fr); grid-template-areas:'heading trophies' 'facts trophies'; column-gap:28px; border:2px solid #20d9e2!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured.catbox-vanilla { grid-template-columns:minmax(250px,.8fr) minmax(0,1.2fr); grid-template-areas: 'heading facts'; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .theme-card-heading { align-self:start; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .card_worldName { color:#31e3ea!important; font-size:30px!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .theme-disclosure { margin-top:0; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .theme-disclosure summary { display:none; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .theme-details { margin-top:0; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .trophy-table { border-top:0; border-left:1px solid #52637c!important; margin:0!important; padding:12px 0 12px 28px; align-self:stretch; display:flex; flex-direction:column; justify-content:center; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .trophy-table caption { flex-wrap:wrap; font-size:23px; font-weight:650; }
+body[data-public-theme="reforged"] #publicPortal .theme-featured .theme-legend { font-size:11px; font-weight:400; }
+body[data-public-theme="reforged"] #publicPortal .theme-compact .trophy-table { margin-top:auto!important; padding-top:18px; }
+body[data-public-theme="reforged"] #publicPortal .theme-compact .theme-reforged-info { margin-bottom:20px; }
+body[data-public-theme="reforged"] #publicPortal .theme-compact .trophy-table caption { font-size:14px; padding-bottom:10px!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-compact .theme-legend,
+body[data-public-theme="reforged"] #publicPortal .theme-compact .theme-boss-name { display:none; }
+body[data-public-theme="reforged"] #publicPortal .theme-compact .theme-boss { max-width:64px; }
+#publicPortal .theme-empty { padding:40px 20px; border:1px dashed var(--portal-line); border-radius:12px; text-align:center; color:var(--portal-muted); }
+#publicPortal .theme-empty button { border:1px solid var(--portal-accent); border-radius:6px; background:transparent; color:var(--portal-accent); padding:10px 16px; cursor:pointer; }
+@media(max-width:1200px) {
+ body[data-public-theme="reforged"] #publicPortal .theme-worlds { grid-template-columns:repeat(min(2,var(--reforged-columns,1)),minmax(0,1fr)); }
+ body[data-public-theme="reforged"] #publicPortal .theme-featured { display:flex!important; }
+ body[data-public-theme="reforged"] #publicPortal .theme-featured .trophy-table { border-left:0!important; border-top:1px solid #52637c!important; margin-top:20px!important; padding:18px 0 0; }
+}
+@media(max-width:700px) {
+ body[data-public-theme="reforged"] #publicPortal .theme-worlds { grid-template-columns:1fr; }
+ body[data-public-theme="reforged"] #publicPortal .catbox { padding:18px!important; }
+ body[data-public-theme="reforged"] #publicPortal .theme-compact .trophy-table tr { grid-template-columns:repeat(7,minmax(0,1fr)); gap:4px; }
+}
+body[data-public-theme] #publicPortal .catbox[hidden] { display:none!important; }

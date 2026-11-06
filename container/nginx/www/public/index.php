@@ -61,8 +61,8 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
                 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css?refreshcss=<?php echo rand(100, 1000)?>">
 
 <?php if ($publicTheme !== 'classic') { ?>
-<link rel="stylesheet" href="/css/public-themes.css?v=3">
-<script defer src="/js/public-themes.js?v=2"></script>
+<link rel="stylesheet" href="/css/public-themes.css?v=4">
+<script defer src="/js/public-themes.js?v=3"></script>
 <?php } ?>
 </head>
 <body data-public-theme="<?php echo htmlspecialchars($publicTheme, ENT_QUOTES); ?>">

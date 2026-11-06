@@ -31,16 +31,17 @@
     portal.append(header);
     const main = make('main', 'theme-main'); portal.append(main);
     const toolbar = make('div', 'theme-toolbar');
-    const heading = make('h1', '', 'Your worlds'); const total = make('span', 'theme-total');
+    const heading = make('h1', '', 'Your worlds'); const total = make('span', 'theme-total', '0 online · 0 worlds');
     toolbar.append(heading, total);
+    let search;
     if (theme === 'reforged') {
-        const search = make('input', 'theme-search'); search.type = 'search'; search.placeholder = 'Search worlds…'; search.setAttribute('aria-label', 'Search worlds');
-        search.addEventListener('input', () => cards.forEach(c => { c.hidden = !c.dataset.world.toLowerCase().includes(search.value.toLowerCase()); })); toolbar.append(search);
+        search = make('input', 'theme-search'); search.type = 'search'; search.placeholder = 'Search worlds…'; search.setAttribute('aria-label', 'Search worlds');
+        search.addEventListener('input', filterWorlds); toolbar.append(search);
     }
     if (theme === 'reforged') main.append(toolbar);
     const wrapper = make('div', 'theme-worlds'); main.append(wrapper);
     const bosses = ['Eikthyr', 'The Elder', 'Bonemass', 'Moder', 'Yagluth', 'The Queen', 'Fader'];
-    cards.forEach((card, index) => {
+    cards.forEach(card => {
         const title = make('h2', 'card_worldName', card.dataset.world);
         const status = make('span', 'theme-status');
         const cardHead = make('div', 'theme-card-heading'); cardHead.append(title, status);
@@ -83,18 +84,56 @@
         }
         card.replaceChildren(cardHead, launch, details);
         if (trophies) card.append(trophies);
-        if (theme === 'reforged' && index > 0) {
+        if (theme === 'reforged') {
+            // Keep real action nodes in the overview, including offline mod libraries.
             const overview = make('table', 'theme-facts theme-overview'); overview.append(document.createElement('tbody'));
-            [...groups[0].rows].filter(row => /^(Type|Access)$/.test(row.cells[0].textContent)).forEach(row => overview.tBodies[0].append(row));
-            card.insertBefore(overview, trophies || details);
-            const disclosure = make('details', 'theme-disclosure'); disclosure.append(make('summary', '', 'World details'), details); card.append(disclosure);
+            [...groups[0].rows].filter(row => /^(Type|Mods|Access)$/.test(row.cells[0].textContent)).forEach(row => overview.tBodies[0].append(row));
+            const disclosure = make('details', 'theme-disclosure');
+            const summary = make('summary', '', 'World details');
+            summary.setAttribute('aria-label', 'World details for ' + card.dataset.world);
+            disclosure.append(summary, details);
+            const info = make('div', 'theme-reforged-info'); info.append(overview, disclosure);
+            cardHead.append(launch);
+            card.replaceChildren(cardHead, info);
+            if (trophies) card.append(trophies);
         }
         const refresh = () => { const online = !card.classList.contains('card_dimmed'); status.textContent = online ? 'Online' : 'Offline'; status.dataset.online = String(online); total.textContent = cards.filter(c => !c.classList.contains('card_dimmed')).length + ' online · ' + cards.length + ' worlds'; };
         refresh(); new MutationObserver(refresh).observe(card, {attributes:true, attributeFilter:['class']});
         wrapper.append(card);
     });
     legacy.remove();
-    if (theme === 'reforged' || !cards.length) return;
+    if (theme === 'reforged') {
+        const empty = make('div', 'theme-empty'); empty.hidden = true;
+        empty.append(make('p', '', cards.length ? 'No worlds match your search.' : 'No worlds are available yet.'));
+        if (cards.length) {
+            const clear = make('button', '', 'Clear search'); clear.type = 'button';
+            clear.addEventListener('click', () => { search.value = ''; filterWorlds(); search.focus(); });
+            empty.append(clear);
+        }
+        wrapper.after(empty);
+        filterWorlds();
+        return;
+    }
+    function filterWorlds() {
+        const query = search.value.trim().toLowerCase();
+        const visible = cards.filter(card => {
+            card.hidden = !card.dataset.world.toLowerCase().includes(query);
+            return !card.hidden;
+        });
+        cards.forEach(card => {
+            const wasFeatured = card.classList.contains('theme-featured');
+            const featured = card === visible[0];
+            card.classList.toggle('theme-featured', featured);
+            card.classList.toggle('theme-compact', !featured);
+            const disclosure = card.querySelector('.theme-disclosure');
+            if (featured) disclosure.open = true;
+            else if (wasFeatured) disclosure.open = false;
+        });
+        wrapper.style.setProperty('--reforged-columns', Math.max(1, Math.min(4, visible.length - 1)));
+        const empty = main.querySelector('.theme-empty');
+        if (empty) empty.hidden = visible.length !== 0;
+    }
+    if (!cards.length) return;
     const nav = make('nav', 'theme-world-nav'); nav.setAttribute('aria-label', 'Choose a world');
     const buttons = cards.map((card, i) => {
         const b = make('button', 'theme-world-choice'); b.type = 'button';

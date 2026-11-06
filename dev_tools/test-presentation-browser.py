@@ -67,9 +67,11 @@ with sync_playwright() as p:
    if theme=='reforged':
     search=page.get_by_role('searchbox',name='Search worlds')
     search.fill('Raven');assert page.locator('.catbox:visible').count()==1
+    expect(page.locator('[data-world="Ravenholm"] .world-seed')).to_be_visible()
+    search.fill('')
     page.locator('[data-world="Ravenholm"] summary').click()
     expect(page.locator('[data-world="Ravenholm"] .world-seed')).to_be_visible()
-    page.locator('[data-world="Ravenholm"] summary').click();search.fill('')
+    page.locator('[data-world="Ravenholm"] summary').click()
    elif theme=='gate':
     assert page.locator('[data-world="Midgard"]').bounding_box()['width'] <= 950
    else:
