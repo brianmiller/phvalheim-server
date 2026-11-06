@@ -121,6 +121,8 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 # reinstate the hazard.
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
+  v62companionClick=$(sha256sum /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | cut -d " " -f1)
+  echo "2.62 click-only Companion: SHA256=$v62companionClick (want 8705a9b960a48956e1756e116c8feccb4c8891dce92a71bcc42e54332e6dfa54)"
   v62syncRecovery=$(grep -c 'def reap_interrupted_runs()' /opt/stateless/engine/tools/modSync.py)
   v62syncPidGuard=$(grep -c 'os.kill(p, 0)' /opt/stateless/engine/tools/modSync.py)
   echo "2.62 catalogue recovery: recovery=$v62syncRecovery PID guard=$v62syncPidGuard (want 1/0)"
@@ -4530,6 +4532,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62playerViewer" = "1" ] && [ "$v62playerScope" = "1" ] && [ "$v62playerPrivate" = "1" ] \
+    && [ "$v62companionClick" = "8705a9b960a48956e1756e116c8feccb4c8891dce92a71bcc42e54332e6dfa54" ] \
     && [ "$v62syncRecovery" = "1" ] && [ "$v62syncPidGuard" = "0" ] \
     && [ "$v62classicLogin" = "1" ] && [ "$v62classicSteam" = "1" ] \
     && [ "$v62settingsRoute" = "1" ] && [ "$v62settingsModal" = "0" ] && [ "$v62settingsDraft" = "1" ] && [ "$v62settingsMobile" = "1" ] \
