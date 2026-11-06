@@ -7,6 +7,9 @@ from playwright.sync_api import sync_playwright, expect
 from fixture_analytics import assert_isolated
 f=json.loads(Path(os.environ['PHV_PRESENTATION_FIXTURE']).read_text())
 assert_isolated(json.loads(subprocess.check_output(['docker','inspect',f['name']]))[0])
+# Real public count rows, including zero, for both modded and vanilla worlds.
+subprocess.run(['docker','exec',f['name'],'mysql','-N','-uroot','phvalheim','-e',
+ "UPDATE worlds SET show_players_public=1, player_count=2, player_count_at=NOW() WHERE name='Midgard'; UPDATE worlds SET mode='running', show_players_public=1, player_count=0, player_count_at=NOW() WHERE name='Meadows';"],check=True,capture_output=True)
 with sync_playwright() as p:
  b=p.chromium.launch(); page=b.new_page(viewport={'width':1728,'height':822}); errors=[]
  page.on('pageerror',lambda e:errors.append(str(e)))
@@ -31,6 +34,10 @@ with sync_playwright() as p:
  page.evaluate("fetch('api.php?mode=getMyWorldsStatus').then(r=>r.json()).then(d=>updateWorldCards(d.worlds))")
  expect(raven).to_be_visible();expect(raven.locator('.world-seed')).to_be_visible()
  meadows=choose('Meadows',keyboard=True)
+ expect(meadows.locator('.theme-overview .world-players')).to_be_visible()
+ expect(meadows.locator('.world-players')).to_have_text('0 players')
+ assert meadows.locator('details .world-players').count()==0
+ assert raven.locator('.world-players').count()==0, 'offline counts must stay hidden'
  meadows.get_by_text('show',exact=False).first.click()
  expect(meadows.locator('.vanilla-password')).to_contain_text('testpass')
  search=page.get_by_role('searchbox',name='Search worlds')
@@ -42,6 +49,9 @@ with sync_playwright() as p:
  for width in [390,768,1024,1440,1728,2135]:
   page.set_viewport_size({'width':width,'height':822})
   card=choose('Midgard')
+  expect(card.locator('.theme-overview .world-players')).to_be_visible()
+  expect(card.locator('.world-players')).to_have_text('2 players')
+  assert card.locator('details .world-players').count()==0
   title=card.locator('h2');title.evaluate("e=>e.textContent='A very long Viking world name'")
   a=title.bounding_box();z=card.locator('.launch-link').bounding_box()
   assert a['x']+a['width']<=z['x']+1 or a['y']+a['height']<=z['y']+1 or z['y']+z['height']<=a['y']+1,f'{width}: title/action overlap'
@@ -55,6 +65,9 @@ with sync_playwright() as p:
  def sql(statement):
   subprocess.run(['docker','exec',f['name'],'mysql','-uphvalheim_user','-pphvalheim_secretpassword','phvalheim','-e',statement],check=True,capture_output=True)
  try:
+  sql("UPDATE worlds SET show_players_public=0 WHERE name='Midgard'")
+  page.reload(wait_until='networkidle');assert choose('Midgard').locator('.world-players').count()==0
+  sql("UPDATE worlds SET show_players_public=1 WHERE name='Midgard'")
   sql("INSERT INTO worlds (name,port,public,mode,status,seed,password,password_public,vanilla) VALUES ('ReforgedExtraA',2462,1,'stopped','ready','TestSeed','',1,0),('ReforgedExtraB',2464,1,'stopped','ready','TestSeed','',1,0)")
   for width in [390,1024,1728]:
    page.set_viewport_size({'width':width,'height':822});page.reload(wait_until='networkidle')
@@ -71,5 +84,5 @@ with sync_playwright() as p:
  finally:
   sql("DELETE FROM worlds WHERE name IN ('ReforgedExtraA','ReforgedExtraB'); UPDATE worlds SET public=1")
  assert not errors,errors
- print('PASS: click/keyboard world selection, no pinned first world, polling, mod viewer, offline controls, search/reset, six viewport sizes, compact geometry, five/zero worlds')
+ print('PASS: click/keyboard world selection, no pinned first world, polling, mod viewer, offline controls, search/reset, six viewport sizes, compact geometry, visible player counts including zero and privacy opt-out, five/zero worlds')
  b.close()

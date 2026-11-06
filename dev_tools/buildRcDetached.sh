@@ -133,6 +133,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62loginSetting=$(grep -c "'loginTheme' => phvPublicTheme" /opt/stateless/nginx/www/admin/adminAPI.php)
   v62loginSelector=$(grep -c 'id="ss-loginTheme"' /opt/stateless/nginx/www/admin/index.php)
   v62loginDefault=$(grep -c "addColumn settings loginTheme.*reforged" /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
+  v62playersOverview=$(grep -cF "row.querySelector('.world-players')" /opt/stateless/nginx/www/js/public-themes.js)
+  echo "2.62 visible player count: overview=$v62playersOverview (want 1)"
   v62joinOverview=$(grep -cF "row.querySelector('.world-joincode')" /opt/stateless/nginx/www/js/public-themes.js)
   echo "2.62 login choice: setting=$v62loginSetting selector=$v62loginSelector default=$v62loginDefault join overview=$v62joinOverview (want 1/1/1/1)"
   # 2.62 operator presentation: verify the actual assets and policy paths shipped.
@@ -145,7 +147,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/4/1)"
   v62portalLayout=$(grep -c 'portal.id = .publicPortal.;' /opt/stateless/nginx/www/js/public-themes.js)
   v62portalLegacy=$(grep -c 'const accountBody ='  /opt/stateless/nginx/www/js/public-themes.js)
-  v62portalCache=$(grep -l 'public-themes.js?v=5' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62portalCache=$(grep -l 'public-themes.js?v=6' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 corrected portal: layout=$v62portalLayout old header=$v62portalLegacy cache=$v62portalCache (want 1/0/2)"
   v62bossGrey=$(grep -cF 'filter:grayscale(1) brightness(.65);' /opt/stateless/nginx/www/css/public-themes.css)
   v62bossGreyCache=$(grep -l 'public-themes.css?v=5' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
@@ -4509,7 +4511,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "4" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "0" ] && [ "$v62entryPages" = "2" ] \
-    && [ "$v62loginSetting" = "1" ] && [ "$v62loginSelector" = "1" ] && [ "$v62loginDefault" = "1" ] && [ "$v62joinOverview" = "1" ] \
+    && [ "$v62loginSetting" = "1" ] && [ "$v62loginSelector" = "1" ] && [ "$v62loginDefault" = "1" ] && [ "$v62joinOverview" = "1" ] && [ "$v62playersOverview" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 

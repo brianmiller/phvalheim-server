@@ -53,7 +53,7 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 <link rel="stylesheet" href="/css/phvalheimStyles.css">
 <?php if ($loginTheme !== 'classic') { ?>
 <link rel="stylesheet" href="/css/public-themes.css?v=5">
-<script defer src="/js/public-themes.js?v=5"></script>
+<script defer src="/js/public-themes.js?v=6"></script>
 <?php } ?>
 <link rel="stylesheet" href="/css/public-entry.css?v=3">
 </head>
