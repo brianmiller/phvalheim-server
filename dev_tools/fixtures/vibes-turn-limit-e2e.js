@@ -47,6 +47,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     });
     let transcriptRequests = 0;
     page.on('request', r => { if (r.url().includes('action=transcript')) transcriptRequests++; });
+    // Session streams this page holds open. Each one occupies a browser connection (six per
+    // host) and a PHP worker (five in the pool) until the page is closed.
+    const openStreams = new Set();
+    const isSessionStream = r => r.url().includes('vibesStream.php') && r.url().includes('session=');
+    page.on('request', r => { if (isSessionStream(r)) openStreams.add(r); });
+    page.on('requestfinished', r => openStreams.delete(r));
+    page.on('requestfailed', r => openStreams.delete(r));
     await page.goto(base + '/hugins_vibes.php');
     await page.waitForFunction(() => document.body.dataset.vbReady === '1');
     await page.evaluate(id => Vibes.workspace.select(id), project.id);
@@ -140,6 +147,15 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await page.unroute(slowTranscript);
     check('STIMULUS: frames were painted while the transcript was on its way', fewestBubbles.frames > 10, fewestBubbles.frames + ' frames');
     check('the chat is never painted empty while a session reloads', fewestBubbles.fewest > 0, 'fewest children in any frame: ' + fewestBubbles.fewest);
+
+    // ---- 3c. Two reloads at once (a turn ending as a build finishes) -----------------------
+    // Both used to replay into the same pane and both opened a stream; the first stream was
+    // never closed. Enough of those and the browser has no connection left for this server.
+    await page.evaluate(async () => { await Promise.all([Vibes.workspace.reload(), Vibes.workspace.reload(), Vibes.workspace.reload()]); });
+    await sleep(1500);
+    const nodesAfterOverlap = await page.evaluate(() => document.querySelectorAll('#vbTranscript *, #vbForgeList *').length);
+    check('overlapping reloads draw the conversation once', Math.abs(nodesAfterOverlap - nodesAfter) < 20, nodesAfter + ' nodes before, ' + nodesAfterOverlap + ' after');
+    check('overlapping reloads leave exactly one stream open', openStreams.size === 1, openStreams.size + ' session stream(s) open');
 
     // ---- 4. A turn whose end the page never hears about still unlocks ----------------------
     // The stream is the only messenger of `done`. Cut it (a dropped connection, a slept laptop)
