@@ -69,7 +69,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const stopText = 'Stopped after ' + rounds + ' tool rounds';
     await page.waitForFunction(t => document.getElementById('vbTranscript').textContent.includes(t), stopText, { timeout: Number(process.env.TURN_WAIT_MS || 300000) });
     const took = (Date.now() - t0) / 1000;
-    const done = JSON.parse(dex(['sh', '-c', 'tail -n 1 /opt/stateful/vibes/projects/' + project.slug + '/.vibes/sessions/*.jsonl']));
+    // The stop message is on screen one event before `done` is written; wait for the runner.
+    let done = {};
+    for (let i = 0; i < 40 && done.type !== 'done'; i++) { done = JSON.parse(dex(['sh', '-c', 'tail -n 1 /opt/stateful/vibes/projects/' + project.slug + '/.vibes/sessions/*.jsonl'])); if (done.type !== 'done') await sleep(250); }
     check('the turn stopped at the round limit, server side', done.type === 'done' && done.stop_reason === 'round_limit' && done.rounds === rounds, JSON.stringify(done).slice(0, 200));
     check('STIMULUS: a background state poll saw the turn while it ran', pollsThatSawTheTurn > 0, pollsThatSawTheTurn + ' polls in ' + took.toFixed(1) + 's');
     await sleep(3000);   // the page reloads the project and transcript after `done`
