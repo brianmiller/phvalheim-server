@@ -5232,7 +5232,7 @@ $totalCount = count($worlds);
                             <option value="0" ${options.overlay?.override === 0 ? 'selected' : ''}>Enabled</option>
                             <option value="1" ${options.overlay?.override === 1 ? 'selected' : ''}>Disabled</option>
                         </select>
-                        <p class="pv-field-hint">Optional troubleshooting for hangs or lockups. Modded Linux launches only; requires the next client release (2.0.17 does not read this setting). Other platforms and vanilla launches use Steam's own overlay settings. Applies on the next client launch, without a server restart.</p>
+                        <p class="pv-field-hint">Optional troubleshooting for hangs or lockups. Requires PhValheim Client 2.0.18 or newer for modded Linux launches. Other platforms and vanilla launches use Steam's own overlay settings. Applies on the next client launch, without a server restart.</p>
                     </div>
                     <div class="pv-section">
                         <h6 class="pv-section-title">Custom Launch Parameters</h6>
@@ -6979,7 +6979,7 @@ $totalCount = count($worlds);
                     ${sectionHead('Steam', '#1b9fff')}
                     <div class="mb-3">
                         <label><input type="checkbox" id="ss-disableSteamOverlay" ${s.disableSteamOverlay == 1 ? 'checked' : ''}> Disable Steam overlay</label>
-                        <p class="text-muted" style="font-size:.78rem;margin:.4rem 0">Optional troubleshooting for game hangs or lockups. Applies to modded Linux launches with the next PhValheim client release; released 2.0.17 does not read this setting. Windows, macOS and vanilla launches use the player's Steam settings. Worlds can override this default. Changes apply on the next client launch.</p>
+                        <p class="text-muted" style="font-size:.78rem;margin:.4rem 0">Optional troubleshooting for game hangs or lockups. Requires PhValheim Client 2.0.18 or newer for modded Linux launches. Windows, macOS and vanilla launches use the player's Steam settings. Worlds can override this default. Changes apply on the next client launch.</p>
                     </div>
                     <div class="mb-2">
                         <label style="font-size:0.8rem;color:orchid" ${tip('Required for Steam authentication and player identity resolution')}>Steam API Key <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>

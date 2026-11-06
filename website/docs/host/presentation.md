@@ -14,7 +14,7 @@ Themes preserve access rules, launch behavior, password visibility, client downl
 
 The overlay is enabled by default in the updated client. An operator can select **Server Settings → Disable Steam overlay**. Under a world's **Settings → World Options → Steam overlay**, choose **Use server default**, **Enabled**, or **Disabled**. A world override wins over the server default. Changes apply on the next client launch and require no world restart.
 
-This control applies only to **direct modded Linux launches**, including the Linux Flatpak path. Windows, macOS and vanilla launches use Steam's own overlay settings. The originally published client **2.0.17 does not understand the operator setting**; this needs the updated client containing operator-overlay support. Client 2.0.18 is prepared as a draft Flatpak for testing and is not yet publicly released.
+This control applies only to **direct modded Linux launches**, including the Linux Flatpak path. Windows, macOS and vanilla launches use Steam's own overlay settings. Overlay controls require **PhValheim Client 2.0.18 or newer**. Client 2.0.18 is prepared as a draft Flatpak for testing and is not yet publicly released.
 
 Players can always opt out locally with `PHVALHEIM_NO_OVERLAY=1`. This takes precedence even when the operator enables the overlay. For Flatpak:
 
