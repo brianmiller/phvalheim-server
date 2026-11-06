@@ -19,6 +19,6 @@ for version, base in [('2.0.17', f'{repo}/releases/download/2.0.17'),
     linux = links('Linux', version)
     suffixes = ['universal-x86_64.tar.gz', 'x86_64.deb', 'x86_64.rpm']
     if version == '2.0.17':
-        suffixes.append('x86_64.flatpak')
+        suffixes.insert(0, 'x86_64.flatpak')
     assert linux == [f'{base}/phvalheim-client-{version}-{s}' for s in suffixes] + [f'{repo}/releases'], linux
     print(f'PASS: {version} renders correct Windows/Linux artifacts and release browsing link')

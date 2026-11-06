@@ -10,9 +10,9 @@ Choose your platform. The client syncs your world's mods and settings, then star
 <div class="phv-downloads">
   <a class="phv-download" data-client-package="windows" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.msi"><img src="../assets/platforms/windows.svg" alt="" width="28" height="28"><span>Windows<small>MSI installer</small></span></a>
   <a class="phv-download" data-client-package="macos" data-install-dialog="mac-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-macos-universal.pkg"><img src="../assets/platforms/apple.svg" alt="" width="28" height="28"><span>macOS<small>Intel &amp; Apple Silicon</small></span></a>
+  <a class="phv-download" data-client-package="flatpak" data-install-dialog="flatpak-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.flatpak"><img src="../assets/platforms/flatpak.svg" alt="" width="28" height="28"><span>Flatpak<small>Recommended for Linux</small></span></a>
   <a class="phv-download" data-client-package="deb" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.deb"><img src="../assets/platforms/ubuntu.svg" alt="" width="28" height="28"><span>Ubuntu / Debian<small>DEB package</small></span></a>
   <a class="phv-download" data-client-package="rpm" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.rpm"><img src="../assets/platforms/fedora.svg" alt="" width="28" height="28"><span>Fedora / RHEL<small>RPM package</small></span></a>
-  <a class="phv-download" data-client-package="flatpak" data-install-dialog="flatpak-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.flatpak"><img src="../assets/platforms/flatpak.svg" alt="" width="28" height="28"><span>Flatpak<small>SteamOS, Bazzite &amp; Linux</small></span></a>
   <a class="phv-download" data-client-package="linux" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-universal-x86_64.tar.gz"><img src="../assets/platforms/linux.svg" alt="" width="28" height="28"><span>Other Linux<small>Tarball · manual install</small></span></a>
 </div>
 
@@ -59,6 +59,10 @@ Choose your platform. The client syncs your world's mods and settings, then star
 1. **Open your host's website** and sign in with Steam.
 2. **Choose your world** and click its launch link. Allow your browser to open PhValheim.
 3. **Let the client sync**, then follow the connection dialog in Valheim.
+
+**2.62 development preview:** click **CONNECT: &lt;worldname&gt;** at the bottom of
+Valheim's main menu to open the dialog. It stays closed until you click. Hosts must
+update their container and then update the world to deliver this behavior.
 
 Launch from the website each time to get your host's latest mods and shared settings.
 Your personal settings are preserved. [How settings work →](../host/mods.md#change-configurations)

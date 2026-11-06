@@ -483,8 +483,8 @@ def plan(name):
     for r in install_rows(wid, warn=warn):
         if not r["version_id"] or not r["url"]:
             print(f"[worldmods] ERROR '{name}': {r['source']}/{r['owner']}/{r['name']} "
-                  f"has no installable version; it will be MISSING", file=sys.stderr)
-            continue
+                  f"has no installable version; refusing to build an incomplete plan", file=sys.stderr)
+            raise SystemExit(1)
         # Both switches off is not a state the picker can produce -- it unticks the mod
         # instead, because a mod that installs nowhere is indistinguishable from one that
         # was never selected. Reaching it anyway means a row was written by something else,

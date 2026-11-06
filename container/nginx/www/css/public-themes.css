@@ -157,7 +157,7 @@ body[data-public-theme="reforged"] #publicPortal .theme-main { padding:20px 0; }
 body[data-public-theme="reforged"] #publicPortal .theme-toolbar { gap:18px; margin-bottom:16px; }
 body[data-public-theme="reforged"] #publicPortal .theme-toolbar h1 { font-size:22px; }
 body[data-public-theme="reforged"] #publicPortal .theme-search { width:250px; padding:9px 12px; font-size:14px; }
-body[data-public-theme="reforged"] #publicPortal .theme-world-nav { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; border:0; margin:0 0 14px; padding:0; }
+body[data-public-theme="reforged"] #publicPortal .theme-world-nav { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; border:0; margin:14px 0 0; padding:0; }
 body[data-public-theme="reforged"] #publicPortal .theme-world-choice { display:flex; flex-direction:column; gap:5px; padding:12px 14px; border:1px solid #394960; border-radius:7px; background:#101b2b; }
 body[data-public-theme="reforged"] #publicPortal .theme-world-choice strong { font-size:15px; font-weight:600; }
 body[data-public-theme="reforged"] #publicPortal .theme-world-choice small { font-size:12px; }
@@ -204,3 +204,25 @@ body[data-public-theme="reforged"] #publicPortal .catbox-vanilla .theme-reforged
  body[data-public-theme="reforged"] #publicPortal .theme-boss-name { font-size:12px; }
 }
 body[data-public-theme] #publicPortal .catbox[hidden] { display:none!important; }
+
+/* Classic's cyan frame, monospace labels and magenta action, at a compact scale. */
+body[data-public-theme="reforged"] { background:#090e19!important; --portal-accent:#20e2e7; }
+body[data-public-theme="reforged"] #publicPortal .card_worldName,
+body[data-public-theme="reforged"] #publicPortal .theme-world-choice strong,
+body[data-public-theme="reforged"] #publicPortal .card_worldInfo,
+body[data-public-theme="reforged"] #publicPortal .trophy-table caption { font-family:ui-monospace,'Cascadia Code','DejaVu Sans Mono',monospace!important; }
+body[data-public-theme="reforged"] #publicPortal .catbox { background:#0b1422!important; border-radius:8px!important; transition:none!important; }
+body[data-public-theme="reforged"] #publicPortal .catbox:not(.card_dimmed) { border-color:#20d9e2!important; box-shadow:0 0 16px #20d9e21c,inset 0 0 24px #20d9e208!important; }
+body[data-public-theme="reforged"] #publicPortal .card_worldName { color:#20e2e7!important; }
+body[data-public-theme="reforged"] #publicPortal .launch-link { border:1px solid #ff36cf!important; background:#b6008e!important; color:#fff!important; box-shadow:0 0 12px #ef00bd40; border-radius:5px!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-world-choice[data-online="true"] { border-color:#20bfc9; background:#0b2531; color:#4cebf0; }
+body[data-public-theme="reforged"] #publicPortal .theme-world-choice[data-online="true"][aria-pressed="true"] { border-color:#20e2e7; box-shadow:inset 0 -2px #20e2e7,0 0 12px #20e2e726; }
+/* Apply desaturation to the whole box, including defeated trophies, before any polling.
+   No filter interpolation: switching worlds or receiving a status update must not flash color. */
+body[data-public-theme="reforged"] #publicPortal .catbox.card_dimmed { filter:grayscale(1)!important; border-color:#4c525d!important; background:#14171d!important; box-shadow:none!important; }
+body[data-public-theme="reforged"] #publicPortal .catbox.card_dimmed .theme-boss { filter:grayscale(1) brightness(.65)!important; }
+body[data-public-theme="reforged"] #publicPortal .catbox.card_dimmed,
+body[data-public-theme="reforged"] #publicPortal .catbox.card_dimmed *,
+body[data-public-theme="reforged"] #publicPortal .theme-world-choice { transition:none!important; animation:none!important; }
+body[data-public-theme="reforged"] #publicPortal .theme-world-choice[data-online="false"] { filter:grayscale(1); border-color:#424852; background:#14171d; color:#a8adb7; box-shadow:none; }
+body[data-public-theme="reforged"] #publicPortal .theme-world-choice[data-online="false"][aria-pressed="true"] { border-color:#b1b6bf; box-shadow:inset 0 -2px #b1b6bf; }

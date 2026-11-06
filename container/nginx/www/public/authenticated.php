@@ -704,11 +704,11 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 		<script src="../js/bootstrap.min.js"></script>
 
         <?php if ($publicTheme !== 'classic') { ?>
-<link rel="stylesheet" href="/css/public-themes.css?v=5">
-<script defer src="/js/public-themes.js?v=4"></script>
+<link rel="stylesheet" href="/css/public-themes.css?v=7">
+<script defer src="/js/public-themes.js?v=8"></script>
 <?php } ?>
-<link rel="stylesheet" href="/css/public-entry.css?v=1">
-<script defer src="/js/public-entry.js?v=1"></script>
+<link rel="stylesheet" href="/css/public-entry.css?v=5">
+<script defer src="/js/public-entry.js?v=2"></script>
 <link rel="stylesheet" href="/css/player-mods.css?v=1">
 <script defer src="/js/player-mods.js?v=1"></script>
 </head>
@@ -1162,52 +1162,48 @@ if (phvDevSteamID() !== NULL) {
                                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body mac-install-body">
-                                                <p class="flatpak-lead">For <strong>SteamOS</strong>, <strong>Bazzite</strong> and other immutable systems, where there is nowhere to install a <code class="flatpak-inline">.deb</code> or an <code class="flatpak-inline">.rpm</code>. Grab the file with the button at the bottom, then work through these.</p>
-
+                                                <p class="flatpak-lead">The recommended Linux package. Download the Flatpak, then open it with your software installer.</p>
+                                                <a href="#" id="flatpakDownloadBtn" target="_blank" rel="noopener" class="btn btn-outline-download flatpak-download-btn">Download the Flatpak</a>
                                                 <div class="flatpak-step">
-                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">1</span>Install the bundle</div>
-                                                        <p class="flatpak-step-text">Run this in whatever folder you saved the download to. No root needed &mdash; <code class="flatpak-inline">--user</code> installs it for you alone.</p>
+                                                        <div class="flatpak-step-title">Or install from a terminal</div>
+                                                        <p class="flatpak-step-text">Run this from the folder containing your download. Flatpak must be installed first.</p>
                                                         <div class="mac-install-command-wrap">
                                                                 <code class="mac-install-command" id="fpCmdInstall"></code>
                                                                 <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'install')" title="Copy to clipboard"></button>
                                                         </div>
                                                 </div>
-
-                                                <div class="flatpak-step">
-                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">2</span>Bare window managers only<span class="flatpak-step-tag">Hyprland &middot; Sway &middot; i3</span></div>
-                                                        <p class="flatpak-step-text"><strong>GNOME and KDE can skip this.</strong> Anywhere else, run it once and then log out and back in &mdash; otherwise clicking a world&rsquo;s launch link does nothing at all, silently. It puts Flatpak&rsquo;s applications directory on your session&rsquo;s search path so the <code class="flatpak-inline">phvalheim://</code> handler can be found. Every Flatpak needs this, not just ours, and no Flatpak can do it for you.</p>
-                                                        <div class="mac-install-command-wrap">
-                                                                <code class="mac-install-command" id="fpCmdPath"></code>
-                                                                <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'path')" title="Copy to clipboard"></button>
+                                                <p class="flatpak-step-text">Once installed, close this dialog and choose <strong>Launch</strong> on your world.</p>
+                                                <details class="flatpak-troubleshooting">
+                                                        <summary>Trouble opening world links?</summary>
+                                                        <div class="flatpak-step">
+                                                                <div class="flatpak-step-title">Hyprland, Sway and i3</div>
+                                                                <p class="flatpak-step-text">If your session cannot find Flatpak applications, add their location below, then log out and back in. GNOME and KDE usually handle this for you.</p>
+                                                                <div class="mac-install-command-wrap">
+                                                                        <code class="mac-install-command" id="fpCmdPath"></code>
+                                                                        <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'path')" title="Copy to clipboard"></button>
+                                                                </div>
                                                         </div>
-                                                </div>
-
-                                                <div class="flatpak-step">
-                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">3</span>Check it worked</div>
-                                                        <p class="flatpak-step-text">After logging back in. It should print <code class="flatpak-inline">com.phvalheim.Client.desktop</code>. Anything else means step 2 has not taken effect yet.</p>
-                                                        <div class="mac-install-command-wrap">
-                                                                <code class="mac-install-command" id="fpCmdCheck"></code>
-                                                                <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'check')" title="Copy to clipboard"></button>
+                                                        <div class="flatpak-step">
+                                                                <div class="flatpak-step-title">Check the world-link handler</div>
+                                                                <p class="flatpak-step-text">This should report <code class="flatpak-inline">com.phvalheim.Client.desktop</code>.</p>
+                                                                <div class="mac-install-command-wrap">
+                                                                        <code class="mac-install-command" id="fpCmdCheck"></code>
+                                                                        <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'check')" title="Copy to clipboard"></button>
+                                                                </div>
                                                         </div>
-                                                </div>
-
-                                                <div class="flatpak-step">
-                                                        <div class="flatpak-step-title"><span class="flatpak-step-num">4</span>Launch without desktop wiring</div>
-                                                        <p class="flatpak-step-text">Always works, even if step 2 is unresolved. Right-click a world&rsquo;s launch button above &rarr; <em>Copy Link Address</em>, and paste it in place of the link below.</p>
-                                                        <div class="mac-install-command-wrap">
-                                                                <code class="mac-install-command" id="fpCmdRun"></code>
-                                                                <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'run')" title="Copy to clipboard"></button>
+                                                        <div class="flatpak-step">
+                                                                <div class="flatpak-step-title">Launch from a terminal</div>
+                                                                <p class="flatpak-step-text">Copy your world&rsquo;s launch link and replace the placeholder below.</p>
+                                                                <div class="mac-install-command-wrap">
+                                                                        <code class="mac-install-command" id="fpCmdRun"></code>
+                                                                        <button type="button" class="btn btn-sm mac-install-copy-btn" onclick="copyFlatpakCmd(this,'run')" title="Copy to clipboard"></button>
+                                                                </div>
                                                         </div>
-                                                </div>
-
-                                                <p class="mac-install-note">Your synced worlds live in <code class="flatpak-inline">~/.config/PhValheim</code>, the same place the <code class="flatpak-inline">.deb</code> and <code class="flatpak-inline">.rpm</code> use, so switching packages keeps everything.</p>
+                                                </details>
                                         </div>
                                         <div class="modal-footer mac-install-footer">
-                                                <a href="https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.13" target="_blank" rel="noopener" class="mac-install-ref-link">Full release notes on GitHub</a>
-                                                <div class="flatpak-footer-actions">
-                                                        <button type="button" class="btn btn-sm btn-outline-download" data-bs-dismiss="modal">Close</button>
-                                                        <a href="#" id="flatpakDownloadBtn" target="_blank" rel="noopener" class="btn btn-sm btn-outline-download flatpak-download-btn">Download the Flatpak</a>
-                                                </div>
+                                                <a href="https://github.com/brianmiller/phvalheim-client/releases/latest" target="_blank" rel="noopener" class="mac-install-ref-link">Latest release notes on GitHub</a>
+                                                <button type="button" class="btn btn-sm btn-outline-download" data-bs-dismiss="modal">Close</button>
                                         </div>
                                 </div>
                         </div>
@@ -1233,6 +1229,7 @@ if (phvDevSteamID() !== NULL) {
                 // download URL and the version in the install command both come off the same element --
                 // the modal is never told a version separately and so cannot contradict the link.
                 function openFlatpakInstall(anchor) {
+                        document.querySelector('#flatpakInstallModal .flatpak-troubleshooting').open = false;
                         var url = anchor.getAttribute('href');
                         var file = url.substring(url.lastIndexOf('/') + 1);
                         FLATPAK_CMDS.install = 'flatpak install --user ./' + file;

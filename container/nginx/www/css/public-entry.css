@@ -37,9 +37,11 @@ body.entry-login .public-footer { position:static; margin:0; padding:16px 20px 2
 .client-download-panel .client-release-title { margin:14px 0 7px; color:var(--entry-muted); font-size:11px; letter-spacing:.04em; }
 .client-download-panel .client-package { display:flex; align-items:center; gap:12px; width:100%; padding:11px 10px; margin:0 0 4px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--entry-text); text-decoration:none; text-align:left; font:inherit; cursor:pointer; }
 .client-download-panel .client-package:hover,.client-download-panel .client-package:focus-visible,.client-download-close:hover { background:#ffffff0a; border-color:var(--entry-border); }
+.client-download-panel .client-package-recommended { border-color:var(--entry-accent); background:#ffffff06; }
 .client-package img { width:28px; height:28px; object-fit:contain; flex:none; }
 .client-package strong { display:block; font-size:14px; font-weight:600; }
 .client-package small { display:block; color:var(--entry-muted); font-size:11px; margin-top:3px; }
+.client-package-recommended small { color:var(--entry-accent); }
 .client-package-arrow { margin-left:auto; color:var(--entry-accent); }
 .client-download-more { display:block; margin-top:12px; padding-top:14px; border-top:1px solid var(--entry-border); font-size:12px; color:var(--entry-accent); text-decoration:none; }
 .client-download-more:hover { color:var(--entry-accent); text-decoration:underline; }
@@ -65,3 +67,16 @@ body.entry-login .entry-brand { color:var(--entry-text); }
 .client-download-panel a.client-download-more { color:var(--entry-accent); }
 body.entry-login .public-footer .social-link { color:var(--entry-accent); background:var(--entry-panel); border-color:var(--entry-border); }
 body.entry-login .public-footer .social-link:hover { border-color:var(--entry-accent); }
+
+/* Each login can be chosen independently of the world dashboard. */
+body.entry-login[data-public-theme="reforged"] .entry-brand { color:#20e2e7; }
+body.entry-login[data-public-theme="reforged"] .entry-brand > span > span { color:#f000c8; }
+body.entry-login[data-public-theme="gate"] .entry-main { width:100%; max-width:1180px; margin:0 auto; justify-items:start; }
+body.entry-login[data-public-theme="ember"] .entry-card { border-top:3px solid var(--entry-accent); }
+
+/* Reforged keeps its magenta heading punctuation. */
+body.entry-login[data-public-theme="reforged"] .entry-punctuation { color:#ff36cf; }
+#flatpakInstallModal .flatpak-download-btn { display:block; width:100%; padding:12px 16px; margin:0 0 20px; text-align:center; }
+#flatpakInstallModal .flatpak-troubleshooting { border-top:1px solid var(--entry-border); margin-top:20px; padding-top:14px; }
+#flatpakInstallModal .flatpak-troubleshooting summary { cursor:pointer; color:var(--entry-accent); font-size:14px; }
+#flatpakInstallModal .flatpak-troubleshooting summary:focus-visible { outline:2px solid var(--entry-accent); outline-offset:4px; }

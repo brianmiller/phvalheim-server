@@ -88,7 +88,7 @@
         if (theme === 'reforged') {
             // Keep real action nodes in the overview, including offline mod libraries.
             const overview = make('table', 'theme-facts theme-overview'); overview.append(document.createElement('tbody'));
-            [...groups[0].rows].filter(row => /^(Type|Mods|Access|Password|Server)$/.test(row.cells[0].textContent)).forEach(row => overview.tBodies[0].append(row));
+            groups.flatMap(group => [...group.rows]).filter(row => /^(Type|Mods|Access|Password|Server)$/.test(row.cells[0].textContent) || row.querySelector('.world-joincode') || row.querySelector('.world-players')).forEach(row => overview.tBodies[0].append(row));
             const disclosure = make('details', 'theme-disclosure');
             const summary = make('summary', '', 'World details');
             summary.setAttribute('aria-label', 'World details for ' + card.dataset.world);
@@ -106,7 +106,7 @@
     if (theme === 'reforged') {
         reforgedNav = make('nav', 'theme-world-nav');
         reforgedNav.setAttribute('aria-label', 'Choose a world');
-        wrapper.before(reforgedNav);
+        wrapper.after(reforgedNav);
         cards.forEach(card => {
             const button = make('button', 'theme-world-choice'); button.type = 'button';
             button.append(make('strong', '', card.dataset.world));
@@ -115,6 +115,7 @@
                 const online = !card.classList.contains('card_dimmed');
                 state.textContent = (online ? 'Online' : 'Offline') + ' · ' + (card.classList.contains('catbox-vanilla') ? 'Vanilla' : 'Modded');
                 state.dataset.online = String(online);
+                button.dataset.online = String(online);
             };
             refresh(); new MutationObserver(refresh).observe(card, {attributes:true, attributeFilter:['class']});
             button.addEventListener('click', () => { selectedWorld = card; filterWorlds(); });
