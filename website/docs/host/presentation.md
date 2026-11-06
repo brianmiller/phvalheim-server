@@ -1,6 +1,6 @@
 # Public themes and Steam overlay
 
-These controls are in development and have not been added to the published stable releases.
+These controls are available in Server 2.62. Steam overlay controls require Client 2.0.18.
 
 ## Choose the player portal's appearance
 
@@ -10,7 +10,7 @@ In **Server Settings → Appearance**, choose a **Player website** preview card 
 
 Classic retains the original world dashboard. Classic Reforged provides compact, searchable world selectors and a single panel for the selected world. Click a world to show its status, mod library, connection information and boss progress; **Players** (when enabled by the host), **Join code** and **Password** are directly accessible without expanding **World details**; expand that section for additional information. Offline worlds remain selectable. Search keeps the current selection when it matches, and a clear-search action appears when no worlds match. The Gate puts a world chooser below the selected world; Ember puts it beside the world on desktop and above it on mobile. The three new themes share seven boss heads and the landing page's Hugin artwork. Undefeated boss heads are greyed out; defeated heads retain their color. Checkmarks and the live progression count also identify defeated bosses. Vanilla worlds retain their connection details rather than showing modded progression.
 
-All four themes include a compact Steam sign-in card and a matching client download panel. On Linux, Flatpak is listed first and marked Recommended. The panel identifies package types and published versions, with installation guidance for Flatpak and macOS and a link to all releases. Sign-in remains a direct Steam form; the About section also works without JavaScript.
+Each theme includes a matching client download panel. On Linux, Flatpak is listed first and marked Recommended. The panel identifies package types and published versions, with installation guidance for Flatpak and macOS and a link to all releases. Sign-in remains a direct Steam form; the About section also works without JavaScript.
 
 Themes preserve access rules, launch behavior, password visibility, client downloads and live world updates.
 

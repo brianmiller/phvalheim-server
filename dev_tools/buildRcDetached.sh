@@ -200,7 +200,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62portalCache=$(grep -l 'public-themes.js?v=8' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 corrected portal: layout=$v62portalLayout old header=$v62portalLegacy cache=$v62portalCache (want 1/0/2)"
   v62bossGrey=$(grep -cF 'filter:grayscale(1) brightness(.65);' /opt/stateless/nginx/www/css/public-themes.css)
-  v62bossGreyCache=$(grep -l 'public-themes.css?v=7' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62bossGreyCache=$(grep -l 'public-themes.css?v=8' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 undefeated bosses: grey=$v62bossGrey cache=$v62bossGreyCache (want 1/2)"
   v62playerViewer=$(grep -cF 'dialog.showModal()' /opt/stateless/nginx/www/js/player-mods.js)
   v62playerScope=$(grep -cF 'playerConfigTokenPlayer($world' /opt/stateless/nginx/www/public/api.php)

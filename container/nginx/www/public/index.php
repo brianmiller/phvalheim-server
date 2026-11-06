@@ -56,7 +56,7 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
 <?php } else { ?>
 <link rel="stylesheet" href="/css/phvalheimStyles.css">
-<link rel="stylesheet" href="/css/public-themes.css?v=7">
+<link rel="stylesheet" href="/css/public-themes.css?v=8">
 <script defer src="/js/public-themes.js?v=8"></script>
 <link rel="stylesheet" href="/css/public-entry.css?v=5">
 <?php } ?>
