@@ -55,7 +55,7 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 <link rel="stylesheet" href="/css/public-themes.css?v=5">
 <script defer src="/js/public-themes.js?v=5"></script>
 <?php } ?>
-<link rel="stylesheet" href="/css/public-entry.css?v=2">
+<link rel="stylesheet" href="/css/public-entry.css?v=3">
 </head>
 <body class="entry-login" data-public-theme="<?php echo htmlspecialchars($loginTheme, ENT_QUOTES); ?>">
 <header class="entry-header"><a class="entry-brand" href="/" aria-label="PhValheim home"><?php echo huginSvg('idle', 36); ?><span>Ph<span>Valheim</span></span></a></header>

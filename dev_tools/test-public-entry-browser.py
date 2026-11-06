@@ -37,6 +37,9 @@ with sync_playwright() as p:
   button.click();expect(panel).to_be_visible();expect(panel.get_by_role('link',name='DEB package')).to_be_visible()
   assert panel.get_by_role('link',name='DEB package').get_attribute('href').endswith('.deb')
   assert panel.locator('.client-package').count()>=4
+  first=panel.locator('.client-package').first
+  expect(first).to_have_attribute('href',__import__('re').compile(r'\.flatpak$'))
+  expect(first).to_contain_text('Recommended')
   page.screenshot(path=f'/tmp/phv-entry-{theme}-downloads.png',full_page=True)
   page.keyboard.press('Escape');expect(panel).to_be_hidden();expect(button).to_be_focused()
   button.press('ArrowDown');expect(panel).to_be_visible()
@@ -69,6 +72,7 @@ with sync_playwright() as p:
   for version in ['2.0.12','2.0.11']:
    cache_versions([version]);page.goto(f['public']+'/authenticated.php',wait_until='networkidle');page.evaluate('acceptCookies()');page.locator('.client-download-trigger').click()
    panel=page.locator('#clientDownloadPanel');expect(panel.locator('.client-package')).to_have_count(3)
+   expect(panel).not_to_contain_text('Recommended')
    expected='/releases/download/'+version+'/' if version=='2.0.12' else '/raw/master/builds/'
    assert all(expected in href for href in panel.locator('.client-package').evaluate_all('(es)=>es.map(e=>e.href)'))
   cache_versions([]);page.reload(wait_until='networkidle');page.locator('.client-download-trigger').click()

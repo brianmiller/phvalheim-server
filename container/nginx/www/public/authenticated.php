@@ -707,8 +707,8 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 <link rel="stylesheet" href="/css/public-themes.css?v=5">
 <script defer src="/js/public-themes.js?v=5"></script>
 <?php } ?>
-<link rel="stylesheet" href="/css/public-entry.css?v=2">
-<script defer src="/js/public-entry.js?v=1"></script>
+<link rel="stylesheet" href="/css/public-entry.css?v=3">
+<script defer src="/js/public-entry.js?v=2"></script>
 <link rel="stylesheet" href="/css/player-mods.css?v=1">
 <script defer src="/js/player-mods.js?v=1"></script>
 </head>

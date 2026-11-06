@@ -125,8 +125,11 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   if [ -s /opt/stateless/nginx/www/css/public-entry.css ] && [ -s /opt/stateless/nginx/www/js/public-entry.js ]; then v62entryAssets=1; fi
   v62entryCard=$(grep -c 'class="entry-card"' /opt/stateless/nginx/www/public/index.php)
   v62entryLegacy=$(grep -c '/js/login.js' /opt/stateless/nginx/www/public/index.php)
-  v62entryPages=$(grep -l 'public-entry.css?v=2' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62entryPages=$(grep -l 'public-entry.css?v=3' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 login/downloads: assets=$v62entryAssets card=$v62entryCard legacy=$v62entryLegacy pages=$v62entryPages (want 1/1/0/2)"
+  v62flatpakRecommended=$(grep -c '<small>Recommended</small>' /opt/stateless/nginx/www/includes/clientDownloadButton.php)
+  v62flatpakPanel=$(grep -c 'Recommended · Installation steps included' /opt/stateless/nginx/www/js/public-entry.js)
+  echo "2.62 Linux recommendation: source=$v62flatpakRecommended panel=$v62flatpakPanel (want 1/1)"
   v62loginSetting=$(grep -c "'loginTheme' => phvPublicTheme" /opt/stateless/nginx/www/admin/adminAPI.php)
   v62loginSelector=$(grep -c 'id="ss-loginTheme"' /opt/stateless/nginx/www/admin/index.php)
   v62loginDefault=$(grep -c "addColumn settings loginTheme.*reforged" /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
@@ -4505,7 +4508,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "4" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
-    && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "0" ] && [ "$v62entryPages" = "2" ] \
+    && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "0" ] && [ "$v62entryPages" = "2" ] \
     && [ "$v62loginSetting" = "1" ] && [ "$v62loginSelector" = "1" ] && [ "$v62loginDefault" = "1" ] && [ "$v62joinOverview" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
