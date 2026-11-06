@@ -19,7 +19,7 @@ Pick mods, edit settings, and update. PhValheim handles dependencies and packagi
 [Play on our servers](https://pub.phvalheim.com/){ .md-button .phv-play-button }
 [Join your friends](play/join.md){ .md-button }
 
-<span class="phv-release">New in 2.61 · Security update for the player portal. Steam sign-in is now verified with Steam. Please upgrade.</span>
+<span class="phv-release">New in 2.62 · Release candidate: Remote Access, player themes and redesigned settings. Stable remains 2.61.</span>
 </div>
 
 <div class="grid cards phv-paths" markdown>
@@ -68,7 +68,7 @@ Pick mods, edit settings, and update. PhValheim handles dependencies and packagi
 
 ## Already running PhValheim?
 
-[Upgrade safely](host/updating.md) · [Fix a problem](host/troubleshooting.md) · [Read the 2.61 release notes](https://github.com/brianmiller/phvalheim-server/releases/tag/v2.61)
+[Upgrade safely](host/updating.md) · [Fix a problem](host/troubleshooting.md) · [Read the 2.62 prerelease notes](https://github.com/brianmiller/phvalheim-server/releases/tag/v2.62)
 
 ## Help build PhValheim
 

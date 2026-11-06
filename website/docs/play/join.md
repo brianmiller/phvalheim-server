@@ -60,7 +60,7 @@ Choose your platform. The client syncs your world's mods and settings, then star
 2. **Choose your world** and click its launch link. Allow your browser to open PhValheim.
 3. **Let the client sync**, then follow the connection dialog in Valheim.
 
-**2.62 development preview:** click **CONNECT: &lt;worldname&gt;** at the bottom of
+**2.62 release candidate:** click **CONNECT: &lt;worldname&gt;** at the bottom of
 Valheim's main menu to open the dialog. It stays closed until you click. Hosts must
 update their container and then update the world to deliver this behavior.
 
@@ -75,12 +75,12 @@ settings. The library shows the recorded installed version separately from the o
 selected version, plus descriptions, dependencies and links to the mod authors' pages.
 “Not recorded” means the server has no installation record; it does not mean a mod is absent.
 
-### Personal mod settings (development preview)
+### Personal mod settings (release candidate)
 
 The library's **Configuration** section shows settings the operator has published to players.
 **Customizable** settings can be saved for your Steam account and that world. Choose
-**Save my choice**, then launch again with the updated **2.0.18 draft client** to apply it.
-Personal web settings require Client 2.0.18 or newer. The 2.0.18 preview remains a draft for Windows, Linux and macOS testing.
+**Save my choice**, then launch again with the updated **2.0.18 prerelease client** to apply it.
+Personal web settings require Client 2.0.18 or newer. Download the [2.0.18 prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.18) for Windows, Linux and macOS testing. Stable download buttons above continue to offer 2.0.17.
 Your game must be restarted to pick up a new choice.
 
 **Use published default** saves the operator's suggested value as your personal choice.
