@@ -382,7 +382,7 @@ def open_lock(path):
 def take_global_lock(trigger):
     """Serialise ENTIRE syncs against each other, across sources.
 
-    `already_running()` below is per-SOURCE, and that is not enough: mod_deps is one
+    The former PID-based guard was per-SOURCE, which was not enough: mod_deps is one
     GLOBAL table, resolved cross-source on purpose (a Hexium mod's dependency reaches
     into Thunderstore rows). Two forced syncs of DIFFERENT sources therefore sailed past
     that guard, both ran DELETE + bulk INSERT on mod_deps, and deadlocked -- observed on a
@@ -439,31 +439,17 @@ def take_global_lock(trigger):
     return None
 
 
-def already_running(source):
-    """True if another sync of this source is genuinely alive.
+def reap_interrupted_runs():
+    """Close interrupted history ONLY while holding the global sync lock.
 
-    A row left at status='running' by a killed process (container restart mid-sync,
-    the admin UI's stop button, an OOM) would otherwise block every future sync
-    forever, so the recorded pid is checked and stale rows are reaped.
+    All catalogue writers take that lock before creating a running row. Owning it
+    proves no previous sync is still active; a stored PID cannot prove that because
+    the OS can reuse it after a crash or container restart. Keep the PID as history,
+    never as an additional lock that can wedge scheduled or forced refreshes.
     """
-    for rid, pid in rows(f"SELECT id, COALESCE(pid,0) FROM mod_sync_runs "
-                         f"WHERE source={q(source)} AND status='running';"):
-        alive = False
-        try:
-            p = int(pid)
-            if p > 0:
-                os.kill(p, 0)
-                alive = p != os.getpid()
-        except (ValueError, ProcessLookupError):
-            alive = False
-        except PermissionError:
-            alive = True
-        if alive:
-            return True
-        sql(f"UPDATE mod_sync_runs SET status='stale', phase='done', "
-            f"error='process disappeared; reaped by a later run' WHERE id={rid};")
-        log(f"reaped stale running row #{rid} for {source}")
-    return False
+    sql("UPDATE mod_sync_runs SET status='stale', phase='done', finished=NOW(), "
+        "error='sync interrupted; recovered after acquiring the global sync lock' "
+        "WHERE status='running';")
 
 
 # ---------------------------------------------------------------- fetch
@@ -876,10 +862,6 @@ def sync_source(source, settings, trigger, force, dry):
         log(f"{cfg['label']}: disabled in settings, skipping")
         return "disabled"
 
-    if not dry and already_running(source):
-        log(f"{cfg['label']}: a sync is already running, skipping")
-        return "busy"
-
     # The operator's configured interval is enforced HERE, not in cron. cron fires hourly
     # and this decides whether enough time has passed, because the interval lives in the
     # settings table and a crontab cannot read it -- offering the setting while cron
@@ -1172,6 +1154,8 @@ def main():
 
     results = {}
     try:
+        if not args.dry_run:
+            reap_interrupted_runs()
         for s in todo:
             results[s] = sync_source(s, settings, args.trigger, args.force, args.dry_run)
     finally:

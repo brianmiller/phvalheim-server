@@ -53,6 +53,10 @@
 .preview-action { background:#62e1e2; color:#122022; font-size:.48rem; padding:4px 8px; border-radius:3px; }
 [data-theme=classic] .settings-theme-preview { background:#18181d; font-family:monospace; }
 [data-theme=classic] .preview-brand { color:#e563c9; }
+[data-theme=classic] .preview-login { background:#131729; outline:1px solid #34e2e2; }
+[data-theme=classic] .preview-login .preview-brand { color:#00ced1; }
+[data-theme=classic] .preview-login .preview-content { color:palegreen; }
+[data-theme=classic] .preview-login .preview-action { background:#588511; color:white; }
 [data-theme=reforged] .settings-theme-preview { background:radial-gradient(ellipse at top,#12343b,#080d13); font-family:monospace; }
 [data-theme=reforged] .preview-brand { color:#20e2e7; }
 [data-theme=reforged] .preview-worlds .preview-action { background:#e65ac2; }

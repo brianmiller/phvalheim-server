@@ -121,6 +121,14 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 # reinstate the hazard.
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
+  v62companionClick=$(sha256sum /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | cut -d " " -f1)
+  echo "2.62 click-only Companion: SHA256=$v62companionClick (want 8705a9b960a48956e1756e116c8feccb4c8891dce92a71bcc42e54332e6dfa54)"
+  v62syncRecovery=$(grep -c 'def reap_interrupted_runs()' /opt/stateless/engine/tools/modSync.py)
+  v62syncPidGuard=$(grep -c 'os.kill(p, 0)' /opt/stateless/engine/tools/modSync.py)
+  echo "2.62 catalogue recovery: recovery=$v62syncRecovery PID guard=$v62syncPidGuard (want 1/0)"
+  v62classicLogin=$(grep -c "require __DIR__ . '/../includes/classicLogin.php'" /opt/stateless/nginx/www/public/index.php)
+  v62classicSteam=$(grep -c 'type="image" name="submit"' /opt/stateless/nginx/www/includes/classicLogin.php)
+  echo "2.62 original Classic login: template=$v62classicLogin Steam image=$v62classicSteam (want 1/1)"
   v62settingsRoute=$(grep -c "define('PHV_SETTINGS_PAGE', true)" /opt/stateless/nginx/www/admin/settings.php)
   v62settingsModal=$(grep -c 'class="mods-modal-overlay" id="serverSettingsOverlay"' /opt/stateless/nginx/www/admin/index.php)
   v62settingsDraft=$(grep -c "window.addEventListener('beforeunload'" /opt/stateless/nginx/www/js/server-settings.js)
@@ -139,7 +147,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62entryCard=$(grep -c 'class="entry-card"' /opt/stateless/nginx/www/public/index.php)
   v62entryLegacy=$(grep -c '/js/login.js' /opt/stateless/nginx/www/public/index.php)
   v62entryPages=$(grep -l 'public-entry.css?v=5' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
-  echo "2.62 login/downloads: assets=$v62entryAssets card=$v62entryCard legacy=$v62entryLegacy pages=$v62entryPages (want 1/1/0/2)"
+  echo "2.62 login/downloads: assets=$v62entryAssets card=$v62entryCard Classic script=$v62entryLegacy pages=$v62entryPages (want 1/1/1/2)"
   v62emptyGuard=$(grep -c 'selected mods but NO plugins' /opt/stateless/engine/includes/0-functions.sh)
   v62emptyPlan=$(grep -c 'refusing to build an incomplete plan' /opt/stateless/engine/tools/worldMods.py)
   v62failedOperations=$(grep -cE 'phvOpEnd failed "(game port assignment|Valheim installation|mod installation) failed' /opt/stateless/engine/phvalheim)
@@ -4524,6 +4532,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62playerViewer" = "1" ] && [ "$v62playerScope" = "1" ] && [ "$v62playerPrivate" = "1" ] \
+    && [ "$v62companionClick" = "8705a9b960a48956e1756e116c8feccb4c8891dce92a71bcc42e54332e6dfa54" ] \
+    && [ "$v62syncRecovery" = "1" ] && [ "$v62syncPidGuard" = "0" ] \
+    && [ "$v62classicLogin" = "1" ] && [ "$v62classicSteam" = "1" ] \
     && [ "$v62settingsRoute" = "1" ] && [ "$v62settingsModal" = "0" ] && [ "$v62settingsDraft" = "1" ] && [ "$v62settingsMobile" = "1" ] \
     && [ "$v62worldOrder" = "1" ] && [ "$v62magentaButton" = "0" ] \
     && [ "$v62offlineGrey" = "1" ] && [ "$v62flatpakLatest" = "1" ] && [ "$v62flatpakAdvanced" = "1" ] && [ "$v62reforgedMagenta" = "1" ] \
@@ -4532,7 +4543,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "4" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && [ "$v62emptyGuard" = "0" ] && [ "$v62emptyPlan" = "1" ] && [ "$v62failedOperations" = "3" ] \
-    && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "0" ] && [ "$v62entryPages" = "2" ] \
+    && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "1" ] && [ "$v62entryPages" = "2" ] \
     && [ "$v62loginSetting" = "1" ] && [ "$v62loginSelector" = "1" ] && [ "$v62loginDefault" = "1" ] && [ "$v62joinOverview" = "1" ] && [ "$v62playersOverview" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
