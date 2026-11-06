@@ -53,6 +53,13 @@ To force a sync immediately, use the per-catalogue `sync` link in the Mod Catalo
 panel. A forced sync ignores change detection and rebuilds the dependency graph, so it takes
 considerably longer than a routine check.
 
+### Interrupted syncs (2.62 development)
+
+An interrupted sync is marked stale when the next normal run acquires the catalogue lock.
+An old process ID being reused by another program no longer blocks scheduled or forced
+refreshes. Only one sync can write catalogues at a time; manual requests can queue behind
+an active sync. A dry run does not change sync history.
+
 > **Upgrading from 2.42 or earlier:** existing mod selections are migrated automatically on
 > first start and the old Thunderstore tables are left untouched, so nothing is discarded.
 > The `Thunderstore Local Sync` and `Thunderstore Chunk Size` settings have been removed —

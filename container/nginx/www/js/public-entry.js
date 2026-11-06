@@ -32,13 +32,14 @@
             if (url.protocol !== 'https:') return;
             const file = url.pathname.split('/').pop();
             const version = file.match(/^phvalheim-client-(\d+\.\d+\.\d+)-/)?.[1];
-            const kind = file.endsWith('.flatpak') ? ['Flatpak', 'Installation steps included'] : file.endsWith('.deb') ? ['DEB package', 'Debian / Ubuntu'] : file.endsWith('.rpm') ? ['RPM package', 'Fedora / RHEL'] : file.endsWith('.msi') ? ['Windows installer', 'MSI · 64-bit'] : file.endsWith('.tar.gz') ? ['Linux archive', 'tar.gz · manual installation'] : null;
+            const kind = file.endsWith('.flatpak') ? ['Flatpak', 'Recommended · Installation steps included'] : file.endsWith('.deb') ? ['DEB package', 'Debian / Ubuntu'] : file.endsWith('.rpm') ? ['RPM package', 'Fedora / RHEL'] : file.endsWith('.msi') ? ['Windows installer', 'MSI · 64-bit'] : file.endsWith('.tar.gz') ? ['Linux archive', 'tar.gz · manual installation'] : null;
             if (!kind || !version) return;
             if (version !== lastVersion) { list.append(make('p', 'client-release-title', 'Version ' + version)); lastVersion = version; }
             const link = make('a', 'client-package'); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
             const icon = original.querySelector('img');
             if (icon) { const img = make('img', ''); img.src = icon.getAttribute('src'); img.alt = ''; link.append(img); }
             const label = make('span', ''); label.append(make('strong', '', kind[0]), make('small', '', kind[1]));
+            if (file.endsWith('.flatpak')) link.classList.add('client-package-recommended');
             link.append(label, make('span', 'client-package-arrow', '↗'));
             if (file.endsWith('.flatpak')) link.addEventListener('click', event => {
                 if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;

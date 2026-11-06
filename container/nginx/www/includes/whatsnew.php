@@ -12,6 +12,7 @@
 function whatsNewNotes() {
     return [
         '2.62' => [
+            '<b>Companion opens on click.</b> The connection dialog stays closed until the player clicks <b>CONNECT: &lt;worldname&gt;</b> at the bottom of Valheim&rsquo;s main menu, including after menu navigation or a failed join. After recreating the container, update each modded world and relaunch the game to receive the bundled fix.',
             '<b>Development preview: public themes.</b> Choose Classic, Classic Reforged, The Gate or Ember independently for the login screen and public website in Server Settings. Classic Reforged is the default for both; existing saved choices are preserved. Join code is directly accessible beside the other connection details. The new themes share boss artwork and Hugin branding.',
             '<b>Steam overlay troubleshooting.</b> Server Settings has a disable toggle, with an inherit/enabled/disabled override in World Options. Overlay controls require PhValheim Client 2.0.18 or newer and apply to direct modded Linux launches only. The overlay is enabled by default. Windows, macOS and vanilla launches use Steam settings.',
             '<b>Built-in Remote Access.</b> Configure a public player website through Tailscale or Cloudflare, with automatic website checks, Server Health reporting and header status for configured connections.',
