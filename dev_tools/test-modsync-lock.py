@@ -158,8 +158,8 @@ check("main() calls take_global_lock at all", True, take_at >= 0)
 check("main() takes the lock BEFORE the source loop", True, 0 <= take_at < loop_at)
 check("...and releases it in a finally, so a crash cannot wedge the next run",
       True, "finally:\n        lock.close()" in src)
-check("the per-source guard is kept -- it still serves its own purpose",
-      True, "def already_running(source):" in src)
+check("interrupted history is recovered after locking and before the source loop",
+      True, take_at < find("reap_interrupted_runs()", take_at) < loop_at)
 
 # ---- the orphan retry ------------------------------------------------------------------
 # The bug this fixes is silent: the version is never retried, so the world installs the mod

@@ -125,7 +125,7 @@ check 'the engine converted lines are many (the conversion did not silently skip
 check 'every converted file sources the conf that defines phvlog' "0" "$(for f in "$E"/tools/*; do [ -f "$f" ] && grep -q 'phvlog ' "$f" && ! grep -q 'phvalheim-static.conf' "$f" && echo "$f"; done | wc -l)"
 check 'the main loop exports the world and opens an operation per command kind' "1" "$(grep -cF 'create|delete|stop|start|update|repackage)' "$E/phvalheim")"
 check '  with PHV_WORLD exported before it' "1" "$(grep -cF 'export PHV_WORLD="$worldName"' "$E/phvalheim")"
-check '  and closes it with an outcome at the end of the loop body (deleted, broken, failed, ok)' "4" "$(grep -cE 'phvOpEnd (ok|failed) ' "$E/phvalheim")"
+check '  and closes it with an outcome at the end of the loop body (deleted, broken, failed, ok)' "4" "$(sed -n '/# Close this world/,$p' "$E/phvalheim" | grep -cE 'phvOpEnd (ok|failed) ')"
 check '  a start records the Valheim session offset' "1" "$(grep -cF 'phvWorldSessionMark "$worldName"' "$E/phvalheim")"
 check '  operations left open by a restart are closed at boot' "1" "$(grep -cF "outcome='interrupted'" "$E/phvalheim")"
 check 'the tools name themselves' "4" "$(grep -l '^PHV_LOG_SOURCE=' "$E/tools/updateApplier" "$E/tools/worldBackup" "$E/tools/worldRestore" "$E/tools/playerMonitor" 2>/dev/null | wc -l)"

@@ -2563,7 +2563,8 @@ function getServerSettingsJson($pdo) {
             'timezone' => $settings['timezone'] ?? 'Etc/UTC',
             'setupComplete' => (int)$settings['setupComplete'],
             'migrationNoticeShown' => (int)$settings['migrationNoticeShown'],
-            'publicTheme' => phvPublicTheme($settings['publicTheme'] ?? 'classic'),
+            'publicTheme' => phvPublicTheme($settings['publicTheme'] ?? 'reforged'),
+            'loginTheme' => phvPublicTheme($settings['loginTheme'] ?? 'reforged'),
             'disableSteamOverlay' => (int)($settings['disableSteamOverlay'] ?? 0),
             'analyticsEnabled' => (int)($settings['analyticsEnabled'] ?? 1),
             // Mod catalogues (2.43). NEITHER key is required: both
@@ -2616,8 +2617,10 @@ function getServerSettingsJson($pdo) {
  * Save server settings
  */
 function saveServerSettingsJson($pdo, $input) {
-    if (array_key_exists('publicTheme', $input) && (!is_string($input['publicTheme']) || !isset(phvPublicThemes()[$input['publicTheme']]))) {
-        echo json_encode(['success' => false, 'error' => 'Choose a valid public UI theme.']); return;
+    foreach (['publicTheme' => 'public UI', 'loginTheme' => 'login screen'] as $field => $label) {
+        if (array_key_exists($field, $input) && (!is_string($input[$field]) || !isset(phvPublicThemes()[$input[$field]]))) {
+            echo json_encode(['success' => false, 'error' => "Choose a valid $label theme."]); return;
+        }
     }
     if (array_key_exists('disableSteamOverlay', $input) && !in_array($input['disableSteamOverlay'], [0, 1], true)) {
         echo json_encode(['success' => false, 'error' => 'Invalid Steam overlay setting.']); return;
@@ -2637,6 +2640,7 @@ function saveServerSettingsJson($pdo, $input) {
         'sessionTimeout' => 'int',
         'timezone' => 'string',
         'publicTheme' => 'string',
+        'loginTheme' => 'string',
         'disableSteamOverlay' => 'int',
         'analyticsEnabled' => 'int',
         // Mod catalogues (2.43)
@@ -2673,6 +2677,7 @@ function saveServerSettingsJson($pdo, $input) {
     // "automatic updates silently never run" -- so reject it here instead.
     $enumFields = [
         'publicTheme' => array_keys(phvPublicThemes()),
+        'loginTheme' => array_keys(phvPublicThemes()),
         'autoUpdateScope' => ['game', 'mods', 'both'],
         'autoUpdateOnTimeout' => ['wait', 'force'],
     ];

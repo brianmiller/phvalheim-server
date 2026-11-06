@@ -26,7 +26,7 @@ A new container does not mean every world's installed files have been rebuilt. U
 ## Automatic world updates
 
 Automatic updates are **off by default**. Configure global defaults in **Server Settings →
-Automatic Updates**, or override them in a world's **Settings**. These policies update
+Updates & Mods** (2.62 development; **Automatic Updates** in stable releases), or override them in a world's **Settings**. These policies update
 world files; they do not upgrade the container image or the desktop client application.
 
 The normal automatic path waits for a recent report of zero players, the quiet period and

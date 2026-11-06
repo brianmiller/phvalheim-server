@@ -236,8 +236,17 @@ function phvBuildLaunchString($world, $password, $gameDNS, $port, $phvalheimHost
                               $httpScheme, $vanilla, $crossplay, $joinCode, $disableSteamOverlay = null) {
         require_once __DIR__ . '/companion.php';
         $refreshToken = phvCompanionToken($world);
+        $personal = '';
+        if (function_exists('getSessionSteamID') && ($player = getSessionSteamID())) {
+            require_once __DIR__ . '/player_config.php';
+            $personal = playerConfigToken($world, $player);
+        }
+        $tail = $disableSteamOverlay !== null || $personal !== ''
+            ? "?$refreshToken?overlay=" . ($disableSteamOverlay ? 'off' : 'on')
+            : ($refreshToken !== '' ? "?$refreshToken" : '');
+        if ($personal !== '') $tail .= "?playerConfig=$personal";
         return base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost"
-                           . "?$httpScheme?$vanilla?$crossplay?$joinCode" . ($disableSteamOverlay !== null ? "?$refreshToken?overlay=" . ($disableSteamOverlay ? 'off' : 'on') : ($refreshToken !== '' ? "?$refreshToken" : '')));
+                           . "?$httpScheme?$vanilla?$crossplay?$joinCode" . $tail);
 }
 
 # The crossplay pair for a world, as the launch string wants them.
