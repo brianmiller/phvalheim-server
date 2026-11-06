@@ -1091,6 +1091,11 @@ function aiConverse($pdo, $provider, $messages, $contextWorld, $onDelta = null, 
     // recorded as 'text' or 'inert' gets the read-only surface: handing a catalogue of
     // state-changing tools to a model that cannot reliably call them invites confident
     // claims that a world was restarted when nothing happened.
+    if (isset($provider['runtime_limits'])) {
+        $limits=aiLimits($provider);
+        $maxRounds=$limits['chat_rounds'];
+        $provider['_deadline']=microtime(true)+$limits['chat_turn_s'];
+    }
     $cap        = (string)($provider['tool_capability'] ?? '');
     $canAct     = !in_array($cap, ['text', 'inert'], true);
     $tools      = aiToolDefinitions($canAct);
@@ -1105,6 +1110,10 @@ function aiConverse($pdo, $provider, $messages, $contextWorld, $onDelta = null, 
     aiUsageBump($pdo, 'chats');
 
     for ($round = 0; $round < $maxRounds; $round++) {
+        if (isset($provider['runtime_limits'])) {
+            try { $messages=aiFitContext($provider,$messages,$system,$tools,$limits['response_tokens']); $provider['_contextPrepared']=true; }
+            catch (RuntimeException $e) { return ['success'=>false,'error'=>$e->getMessage(),'trace'=>$trace]; }
+        }
         $res = aiChat($provider, $messages, $system, $tools, $onDelta);
 
         if (!$res['success']) {
@@ -1151,6 +1160,7 @@ function aiConverse($pdo, $provider, $messages, $contextWorld, $onDelta = null, 
         $sawToolCall = true;
 
         foreach ($res['tool_calls'] as $call) {
+            if (isset($provider['runtime_limits']) && ($why=aiCallStopReason($provider))!==null) return ['success'=>false,'error'=>$why,'trace'=>$trace];
             if ($onTool) $onTool($call['name'], $call['arguments']);
 
             $result = aiRunTool($pdo, $call['name'], is_array($call['arguments']) ? $call['arguments'] : []);
@@ -1196,6 +1206,7 @@ function aiConverse($pdo, $provider, $messages, $contextWorld, $onDelta = null, 
                    . 'rather than calling another tool.',
     ];
 
+    unset($provider['_contextPrepared']);
     $final = aiChat($provider, $messages, $system, [], $onDelta);
 
     if ($final['success'] && trim($final['content']) !== '') {

@@ -387,7 +387,7 @@ fi
 # test step genuinely has nothing to run.
 steps="$(grep -m1 'AI_WIZ_STEPS = ' "$ROOT/container/nginx/www/admin/index.php")"
 case "$steps" in
-	*"'Model', 'Test'"*) ok "the wizard asks for a model before it tests one" ;;
+	*"'Model', 'Limits', 'Test'"*) ok "the wizard asks for a model before it tests one" ;;
 	*) bad "wizard step order puts Test before Model: $steps" ;;
 esac
 

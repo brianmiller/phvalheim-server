@@ -21,3 +21,6 @@ sql "CREATE TABLE IF NOT EXISTS player_mod_configs (
     config_json MEDIUMTEXT NOT NULL,
     PRIMARY KEY (world_id, steam_id)
 ) ENGINE=InnoDB;"
+
+# Hugin provider limits; NULL preserves existing rows until configured.
+addColumn ai_providers runtime_limits 'TEXT NULL'

@@ -386,7 +386,7 @@ $totalCount = count($worlds);
                     // diagnostics -- the one who had configured nothing -- could not
                     // reach them.
                     ?>
-                    <button class="ai-helper-btn" id="aiHelperBtn" onclick="toggleAiPanel()" title="Ask Hugin — the AI Helper">
+                    <button class="ai-helper-btn" id="aiHelperBtn" onclick="toggleAiPanel()" title="Ask Hugin">
                         <?php echo huginSvg('idle ai-btn-hugin', 20); ?>
                         Ask Hugin
                     </button>
@@ -1468,7 +1468,7 @@ $totalCount = count($worlds);
                 <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.55; margin-bottom: 1.25rem; text-align: center;">
                     I need a brain to borrow &mdash; bring your own AI provider (OpenAI, Anthropic,
                     Gemini, or your own local model).<br>
-                    Set one up in <strong style="color: var(--text-secondary);">Server Settings &rarr; AI Helper</strong>,
+                    Set one up in <strong style="color: var(--text-secondary);">Server Settings &rarr; Hugin Setup</strong>,
                     or press <strong style="color: var(--text-secondary);">Ask Hugin</strong> and
                     click <strong style="color: var(--text-secondary);">+ Provider</strong>.
                 </p>
@@ -1660,7 +1660,7 @@ $totalCount = count($worlds);
                 </div>
                 <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
                     Nothing else changed &mdash; same host, same models, no API key needed. Check it under
-                    <strong>Server Settings &rarr; AI Helper</strong>, or open Hugin and use
+                    <strong>Server Settings &rarr; Hugin Setup</strong>, or open Hugin and use
                     <strong>Refresh models</strong>. If the model list comes back empty, confirm the
                     <code>/v1</code> path is reachable from this container.
                 </p>
@@ -2115,7 +2115,7 @@ $totalCount = count($worlds);
         }
     }
 
-    // Worlds the AI Helper's "About" picker can offer.
+    // Worlds Hugin's "About" picker can offer.
     //
     // 2.45: this used to build an <optgroup> of "world:<name>" context values, one per
     // world log, and it ran only ONCE (a `populated` latch) -- so a world created after
@@ -7116,11 +7116,11 @@ $totalCount = count($worlds);
                 </div>
 
                 <div style="margin-bottom: 1.5rem;">
-                    ${sectionHead('AI Helper', 'var(--warning)')}
+                    ${sectionHead('Hugin Setup', 'var(--warning)')}
                     <div style="margin-bottom:0.75rem;font-size:0.75rem;color:var(--text-muted);line-height:1.5;">
                         Add as many providers as you like &mdash; cloud or self-hosted, several of the same kind.
-                        Models are discovered live from each endpoint, so PhValheim never holds a built-in model
-                        list that can go stale.
+                        Refresh models to ask an endpoint for its latest list. Use Limits to tune context, responses and
+                        request concurrency for both Hugin and Hugin’s Vibes.
                     </div>
                     <div id="ss-aiProviderList" class="ai-prov-list"></div>
                     <button type="button" class="action-btn" style="margin-top:0.6rem;" onclick="aiWizOpen()">+ Add AI provider</button>
@@ -7418,7 +7418,7 @@ $totalCount = count($worlds);
     </script>
 
     <!-- ================================================================================
-         AI Helper (2.45)
+         Hugin Setup (2.45)
 
          The 2.44 panel had a "Context" dropdown whose whole job was choosing WHICH single
          log got pasted into the system prompt. That choice is gone: the model has tools
@@ -7434,7 +7434,7 @@ $totalCount = count($worlds);
                      It is also the ORIGINAL that aiHuginNode() clones, so there is exactly
                      one drawing of this bird in the product. -->
                 <?php echo huginSvg('idle ai-panel-hugin', 24); ?>
-                Hugin <span style="opacity:.55;font-weight:400;">· AI Helper</span>
+                Hugin <span style="opacity:.55;font-weight:400;">· Server assistant</span>
             </span>
             <button class="ai-panel-close" onclick="toggleAiPanel()" title="Close">&times;</button>
             <div class="ai-panel-selectors">
@@ -7519,7 +7519,7 @@ $totalCount = count($worlds);
 
     <script>
     /* ================================================================================
-     * AI Helper client
+     * Hugin chat client
      *
      * Talks to three endpoints:
      *   adminAPI.php?action=getAiProviders   registry + live-discovered models
@@ -7536,7 +7536,7 @@ $totalCount = count($worlds);
     let aiHistory     = [];     // [{role, content}] - plain turns only
     let aiKnownWorlds = [];
     let aiBusy        = false;
-    const AI_MAX_HISTORY = 20;
+    const AI_MAX_HISTORY = 500;
 
     /* ---- tiny Markdown renderer -------------------------------------------------
      * Deliberately small and escape-first: every model output is untrusted text, and
@@ -7699,9 +7699,10 @@ $totalCount = count($worlds);
             if (!data.success) return;
             aiProviders = data.providers || [];
             aiKinds     = data.kinds || {};
+            aiLimitSpec = data.limit_spec || {};
             aiRenderModelSelect();
             aiRenderQuickPrompts();
-            if (announce) aiFoot('Model lists refreshed.');
+            if (announce) aiFoot(aiProviders.some(p=>p.models_error) ? 'Some model lists could not be refreshed. Check Hugin Setup.' : 'Model lists refreshed.');
         } catch (e) {
             console.error('AI provider load failed', e);
         }
@@ -7712,7 +7713,7 @@ $totalCount = count($worlds);
         aiFoot('Refreshing model lists...');
         for (const p of aiProviders) await aiLoadProviders(p.id, false);
         aiRenderProviderList();
-        aiFoot('Model lists refreshed from every provider.');
+        aiFoot(aiProviders.some(p=>p.models_error) ? 'Some providers failed to refresh. Previous lists were retained; check Hugin Setup.' : 'Model lists refreshed from every provider.');
     }
 
     function aiRenderModelSelect() {
@@ -7735,8 +7736,9 @@ $totalCount = count($worlds);
             // A provider whose discovery failed still has to be usable: its pinned model
             // goes in the list on its own. Hiding it because api.openai.com had a bad
             // minute would make a transient outage look like a broken install.
-            let models = p.models || [];
-            if (!models.length && p.model) models = [{ id: p.model, label: p.model + ' (pinned)' }];
+            let models = (p.models || []).slice();
+            const previousModel=prev && prev.startsWith(p.id+' ') ? prev.slice(String(p.id).length+1) : '';
+            for (const id of [p.model,previousModel]) if (id && !models.some(m=>m.id===id)) models.push({id:id,label:id+' (not in fetched list)'});
 
             models.forEach(function (m) {
                 const o = document.createElement('option');
@@ -8393,6 +8395,10 @@ $totalCount = count($worlds);
                         acc += ev.text;
                         content.innerHTML = aiMd(acc) + '<span class="ai-cursor"></span>';
                         document.getElementById('aiMessages').scrollTop = 1e9;
+                    } else if (ev.type === 'memory') {
+                        aiHistory=[{role:'user',content:ev.summary},{role:'user',content:text}];
+                    } else if (['compaction','queue','waiting','context'].includes(ev.type)) {
+                        aiFoot(ev.type==='context' ? 'Estimated context: '+ev.tokens+' / '+ev.budget+' tokens · '+ev.reserved+' reserved for reply' : ev.text);
                     } else if (ev.type === 'tool') {
                         // TEXT BEFORE A TOOL CALL IS NOT THE ANSWER.
                         //
@@ -8498,6 +8504,7 @@ $totalCount = count($worlds);
                 const d = await res.json();
                 if (d.success) {
                     content.innerHTML = aiMd(d.reply);
+                    if(d.summary) aiHistory=[{role:'user',content:d.summary},{role:'user',content:text}];
                     aiHistory.push({ role: 'assistant', content: d.reply });
                     aiFoot((d.model || '') + ' · non-streaming fallback');
                 } else {
@@ -8562,8 +8569,9 @@ $totalCount = count($worlds);
     // listed first" -- which on a live Gemini account is an internal preview that refuses
     // system instructions. A good key then fails the wizard with an error about a model the
     // operator never chose. Pick first, then test what was picked.
-    const AI_WIZ_STEPS = ['Type', 'Endpoint', 'Credentials', 'Model', 'Test'];
-    const AI_WIZ_MODEL = 3, AI_WIZ_TEST = 4;
+    const AI_WIZ_STEPS = ['Type', 'Endpoint', 'Credentials', 'Model', 'Limits', 'Test'];
+    const AI_WIZ_MODEL = 3, AI_WIZ_LIMITS = 4, AI_WIZ_TEST = 5;
+    let aiLimitSpec = {};
     let aiWiz = null;
 
     function aiWizOpen(providerId) {
@@ -8578,6 +8586,10 @@ $totalCount = count($worlds);
             has_key: existing ? existing.has_key : false,
             model: existing ? existing.model : '',
             models: existing ? (existing.models || []) : [],
+            fetched_at: existing ? existing.models_fetched_at : 0,
+            models_error: existing ? existing.models_error : '',
+            discovered: false, loading: false,
+            runtime_limits: Object.assign({}, existing ? existing.runtime_limits : {}),
             enabled: existing ? !!existing.enabled : true,
             extra_headers: existing ? (existing.extra_headers || {}) : {}
         };
@@ -8709,38 +8721,39 @@ $totalCount = count($worlds);
             body.innerHTML = '<div id="aiWizTestOut" class="ai-wiz-test">Testing&hellip;</div>';
             aiWizRunTest();
 
-        } else if (!w.models.length) {
-            // Discovery has not run for this draft yet. Ask, then re-render into the picker.
-            body.innerHTML = '<div class="ai-wiz-hint">Asking the endpoint what it can run&hellip;</div>';
-            aiWizDiscover();
-
+        } else if (w.step === AI_WIZ_LIMITS) {
+            const fields = keys => '<div class="hugin-limits">'+keys.map(key=>{
+                const spec=aiLimitSpec[key];
+                return '<label class="ai-wiz-label">'+aiEsc(spec[0])+'<input class="form-control" type="number" step="1" required data-ai-limit="'+key+'" min="'+spec[2]+'" max="'+spec[3]+'" value="'+(w.runtime_limits[key] ?? spec[1])+'"></label>';
+            }).join('')+'</div>';
+            body.innerHTML = '<p class="ai-wiz-hint">Shared by Hugin chat and Hugin’s Vibes. Vibes project limits can be lower. Context is a local budget; it cannot increase the gateway’s capacity. Response tokens can include model reasoning.</p>'
+                + fields(['context_tokens','response_tokens','compact_percent','request_timeout_s','concurrency'])
+                + '<details style="margin-top:1rem"><summary>Advanced execution limits</summary><div style="margin-top:.8rem">'
+                + fields(['connect_timeout_s','discovery_timeout_s','queue_timeout_s','chat_rounds','chat_turn_s'])
+                + '</div></details><p class="ai-wiz-hint">Compaction summarizes older context while reserving room for tools and the reply. Concurrency limits requests from this PhValheim server, not other gateway clients. External proxies may enforce shorter timeouts.</p>';
         } else {
-            const list = w.models.length ? w.models : (w.model ? [{ id: w.model, label: w.model }] : []);
-            body.innerHTML =
-                '<label class="ai-wiz-label">Model</label>'
-              + '<input class="form-control form-control-sm" id="aiWizFilter" placeholder="Filter&hellip;" style="margin-bottom:0.5rem;">'
-              + '<div class="ai-wiz-models" id="aiWizModels"></div>'
-              + '<div class="ai-wiz-hint" style="margin-top:0.75rem;">'
-              +   list.length + ' model(s) reported by this endpoint just now. PhValheim keeps no built-in list, '
-              +   'so anything retired upstream is simply absent here.'
-              + '</div>';
-
-            const render = function () {
-                const q = (document.getElementById('aiWizFilter').value || '').toLowerCase();
-                document.getElementById('aiWizModels').innerHTML = list
-                    .filter(function (m) { return !q || m.id.toLowerCase().indexOf(q) >= 0; })
-                    .map(function (m) {
-                        return '<button class="ai-wiz-model' + (w.model === m.id ? ' sel' : '') + '" data-m="' + aiEsc(m.id) + '">'
-                             +   '<span>' + aiEsc(m.label || m.id) + '</span>'
-                             +   (m.context ? '<span class="ai-wiz-ctx">' + Math.round(m.context / 1000) + 'k</span>' : '')
-                             + '</button>';
-                    }).join('') || '<div class="ai-wiz-hint">No match.</div>';
-                document.getElementById('aiWizModels').querySelectorAll('.ai-wiz-model').forEach(function (b) {
-                    b.addEventListener('click', function () { w.model = b.getAttribute('data-m'); render(); });
-                });
+            body.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><label class="ai-wiz-label">Model</label>'
+                + '<button type="button" class="ai-chip-btn" id="aiWizRefresh"' + (w.loading ? ' disabled' : '') + '>' + (w.loading ? 'Refreshing…' : 'Refresh models') + '</button></div>'
+                + '<input class="form-control form-control-sm" id="aiWizFilter" placeholder="Filter models…" style="margin-bottom:.5rem">'
+                + '<div class="ai-wiz-models" id="aiWizModels"></div>'
+                + '<label class="ai-wiz-label" style="margin-top:.75rem">Selected model / manual model ID<input class="form-control" id="aiWizManual" value="' + aiEsc(w.model) + '"></label>'
+                + '<div class="ai-wiz-hint" id="aiWizModelInfo"></div>'
+                + '<div class="ai-wiz-hint" style="margin-top:.5rem">' + w.models.length + ' models · ' + (w.fetched_at ? 'Last successful fetch: ' + aiEsc(new Date(w.fetched_at*1000).toLocaleString()) : 'No successful fetch in this session.') + '</div>'
+                + (w.models_error ? '<div role="alert" class="ai-wiz-hint" style="color:var(--warning)">Refresh failed: ' + aiEsc(w.models_error) + '. Previous list and selection retained.</div>' : '');
+            const render = function() {
+                const q=document.getElementById('aiWizFilter').value.toLowerCase();
+                document.getElementById('aiWizModels').innerHTML = w.models.filter(m => (m.id+' '+(m.label||'')).toLowerCase().includes(q)).map(m =>
+                    '<button type="button" class="ai-wiz-model' + (w.model===m.id ? ' sel' : '') + '" data-m="'+aiEsc(m.id)+'"><span>'+aiEsc(m.label||m.id)+'</span></button>'
+                ).join('') || '<div class="ai-wiz-hint">No models match. You can enter a model ID manually.</div>';
+                document.querySelectorAll('#aiWizModels [data-m]').forEach(b=>b.onclick=()=>{ w.model=b.dataset.m;document.getElementById('aiWizManual').value=w.model;render(); });
+                const m=w.models.find(m=>m.id===w.model);
+                document.getElementById('aiWizModelInfo').textContent = (m ? (m.context ? 'Gateway-reported context: '+m.context.toLocaleString()+' tokens.' : 'Gateway context limit: unknown.') : 'Selected model is not in the fetched list. It will not be replaced automatically.') + ' Configured budget: '+(w.runtime_limits.context_tokens || 60000).toLocaleString()+' tokens (limited by reported capacity when known).';
             };
             render();
-            document.getElementById('aiWizFilter').addEventListener('input', render);
+            document.getElementById('aiWizManual').oninput=e=>{w.model=e.target.value.trim();render();};
+            document.getElementById('aiWizFilter').oninput=render;
+            document.getElementById('aiWizRefresh').onclick=()=>aiWizDiscover();
+            if (!w.discovered && !w.loading) aiWizDiscover();
         }
 
         document.getElementById('aiWizBack').style.visibility = w.step === 0 ? 'hidden' : 'visible';
@@ -8749,6 +8762,13 @@ $totalCount = count($worlds);
 
     function aiWizCollect() {
         const w = aiWiz;
+        if (w.step === AI_WIZ_LIMITS) {
+            for (const el of document.querySelectorAll('[data-ai-limit]')) {
+                if (!el.checkValidity()) {const details=el.closest('details');if(details) details.open=true;el.reportValidity();return 'Correct the limit above.';}
+                w.runtime_limits[el.dataset.aiLimit]=Number(el.value);
+            }
+            if (w.runtime_limits.response_tokens>w.runtime_limits.context_tokens/2) return 'Maximum response must be at most half the context budget.';
+        }
         if (w.step === 1) {
             w.label = (document.getElementById('aiWizLabel') || {}).value || w.label;
             // `?? w.base_url`, NOT `|| w.base_url`.
@@ -8761,11 +8781,12 @@ $totalCount = count($worlds);
             const base = el ? el.value : w.base_url;
             // A different endpoint has a different catalogue. Dropping the cached list forces
             // rediscovery instead of offering models the new URL may not serve.
-            if (base !== w.base_url) w.models = [];
+            if (base !== w.base_url) {w.models = [];w.discovered=false;w.fetched_at=0;}
             w.base_url = base;
         } else if (w.step === 2) {
             const k = (document.getElementById('aiWizKey') || {}).value || '';
-            if (k && k !== w.api_key) { w.api_key = k; w.models = []; }
+            if (k && k !== w.api_key) { w.api_key = k; w.models = [];w.discovered=false;w.fetched_at=0; }
+            const previousHeaders=JSON.stringify(w.extra_headers);
             const h = ((document.getElementById('aiWizHeaders') || {}).value || '').trim();
             if (h) {
                 try { w.extra_headers = JSON.parse(h); }
@@ -8773,39 +8794,25 @@ $totalCount = count($worlds);
             } else {
                 w.extra_headers = {};
             }
+            if (previousHeaders!==JSON.stringify(w.extra_headers)) {w.models=[];w.discovered=false;w.fetched_at=0;}
         }
         return null;
     }
 
     async function aiWizDiscover() {
-        const w = aiWiz;
+        const w=aiWiz;
+        if (!w || w.loading) return;
+        w.loading=true;w.discovered=true;aiWizRender();
         try {
-            const res = await fetch('adminAPI.php?action=discoverAiModels', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: w.id, kind: w.kind, label: w.label, base_url: w.base_url,
-                    api_key: w.api_key, extra_headers: w.extra_headers
-                })
+            const res=await fetch('adminAPI.php?action=discoverAiModels', {
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({id:w.id,kind:w.kind,base_url:w.base_url,api_key:w.api_key,extra_headers:w.extra_headers,runtime_limits:w.runtime_limits})
             });
-            const d = await res.json();
-            if (!aiWiz || aiWiz !== w) return;               // wizard closed while in flight
-            if (d.success && (d.models || []).length) {
-                w.models = d.models;
-                aiWizRender();
-            } else {
-                // A discovery failure here is almost always the key or the URL, and both are
-                // one step back. Say which, rather than dropping the operator into an empty list.
-                document.getElementById('aiWizBody').innerHTML =
-                    '<div class="ai-wiz-test-row bad"><span>✕</span><b>Model discovery</b><span>'
-                  + aiEsc(d.error || 'the endpoint listed no models') + '</span></div>';
-                aiWizStatus('Go Back and check the base URL and credentials.', 'bad');
-            }
-        } catch (e) {
-            if (!aiWiz || aiWiz !== w) return;
-            document.getElementById('aiWizBody').innerHTML =
-                '<div class="ai-wiz-test-row bad"><span>✕</span><b>Model discovery</b><span>' + aiEsc(e.message) + '</span></div>';
-            aiWizStatus('Discovery failed.', 'bad');
-        }
+            const d=await res.json();
+            if (d.success) {w.models=d.models||[];w.fetched_at=d.fetched_at;w.models_error='';}
+            else w.models_error=d.error||'No models reported';
+        } catch(e) {w.models_error=e.message;}
+        finally {w.loading=false;if(aiWiz===w && w.step===AI_WIZ_MODEL) aiWizRender();}
     }
 
     async function aiWizRunTest() {
@@ -8816,11 +8823,11 @@ $totalCount = count($worlds);
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id: w.id, kind: w.kind, label: w.label, base_url: w.base_url,
-                    api_key: w.api_key, model: w.model, extra_headers: w.extra_headers
+                    api_key: w.api_key, model: w.model, extra_headers: w.extra_headers, runtime_limits: w.runtime_limits
                 })
             });
             const d = await res.json();
-            if (d.models) w.models = d.models;
+            if (d.models && d.models.length) w.models = d.models;
 
             out.innerHTML = (d.steps || [{ name: 'Test', ok: false, detail: d.error || 'failed' }]).map(function (s) {
                 const cls = s.ok ? (s.warn ? 'warn' : 'ok') : 'bad';
@@ -8839,7 +8846,7 @@ $totalCount = count($worlds);
 
     async function aiWizGo(dir) {
         const w = aiWiz;
-        if (!w) return;
+        if (!w || w.loading) return;
 
         if (dir > 0) {
             const err = aiWizCollect();
@@ -8858,7 +8865,7 @@ $totalCount = count($worlds);
                     body: JSON.stringify({
                         id: w.id, kind: w.kind, label: w.label, base_url: w.base_url,
                         api_key: w.api_key, model: w.model, enabled: w.enabled ? 1 : 0,
-                        extra_headers: w.extra_headers
+                        extra_headers: w.extra_headers, runtime_limits: w.runtime_limits
                     })
                 });
                 const d = await res.json();
@@ -8890,7 +8897,7 @@ $totalCount = count($worlds);
             const models = (p.models || []).length;
             const state  = p.models_error
                 ? '<span style="color:var(--danger)">' + aiEsc(p.models_error) + '</span>'
-                : models + ' models available';
+                : models + ' models available' + (p.models_fetched_at ? ' · Fetched '+aiEsc(new Date(p.models_fetched_at*1000).toLocaleString()) : '');
             return '<div class="ai-prov">'
                  +   '<div class="ai-prov-main">'
                  +     '<b>' + aiEsc(p.label) + '</b>'
@@ -8910,12 +8917,16 @@ $totalCount = count($worlds);
                                ? '<button class="ai-chip-btn" data-default="' + p.id + '" '
                                  + 'title="Use this provider unless one is picked in the panel">Make default</button>'
                                : '<button class="ai-chip-btn" disabled title="Enable it first — a disabled provider cannot be the default">Make default</button>'))
+                 +     '<button class="ai-chip-btn" data-refresh="' + p.id + '">Refresh models</button>'
+                 +     '<button class="ai-chip-btn" data-limits="' + p.id + '">Limits</button>'
                  +     '<button class="ai-chip-btn" data-edit="' + p.id + '">Edit</button>'
                  +     '<button class="ai-chip-btn" data-del="' + p.id + '">Delete</button>'
                  +   '</div>'
                  + '</div>';
         }).join('');
 
+        box.querySelectorAll('[data-limits]').forEach(b=>b.onclick=()=>{aiWizOpen(Number(b.dataset.limits));aiWiz.step=AI_WIZ_LIMITS;aiWizRender();});
+        box.querySelectorAll('[data-refresh]').forEach(b=>b.onclick=async()=>{b.disabled=true;b.textContent='Refreshing…';await aiLoadProviders(Number(b.dataset.refresh),false);aiRenderProviderList();});
         box.querySelectorAll('[data-default]').forEach(function (b) {
             b.addEventListener('click', async function () {
                 b.disabled = true;

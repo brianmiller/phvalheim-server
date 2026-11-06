@@ -1,6 +1,6 @@
 <?php
 /**
- * Server-Sent Events endpoint for the AI Helper.
+ * Server-Sent Events endpoint for Hugin chat.
  *
  * Separate from adminAPI.php because that file sets Content-Type: application/json at
  * the top for every action. A streaming response needs text/event-stream and needs to
@@ -108,7 +108,7 @@ if ($message === '') {
 
 $provider = $providerId ? aiProvider($pdo, $providerId) : aiDefaultProvider($pdo);
 if (!$provider) {
-    sse(['type' => 'error', 'error' => 'No AI provider is configured. Add one from Server Settings → AI Helper.']);
+    sse(['type' => 'error', 'error' => 'No AI provider is configured. Add one from Server Settings → Hugin Setup.']);
     exit;
 }
 if (!$provider['enabled']) {
@@ -130,7 +130,7 @@ if (trim($provider['model']) === '') {
 // browser: tool calls and their results are re-derived server-side each turn, so a
 // crafted history cannot inject a fake tool result the model would then trust.
 $messages = [];
-foreach (array_slice($history, -20) as $h) {
+foreach (array_slice($history, -500) as $h) {
     $role = $h['role'] ?? '';
     $text = trim((string)($h['content'] ?? ''));
     if ($text === '' || !in_array($role, ['user', 'assistant'], true)) continue;
@@ -139,6 +139,11 @@ foreach (array_slice($history, -20) as $h) {
 $messages[] = ['role' => 'user', 'content' => $message];
 
 sse(['type' => 'start', 'provider' => $provider['label'], 'model' => $provider['model']]);
+
+$provider['_onRuntime']=function($event) { sse($event); };
+$provider['_isCancelled']=function() { return connection_aborted() !== 0; };
+$heartbeat=0;
+$provider['_onWait']=function() use (&$heartbeat) { if (microtime(true)-$heartbeat>=2) { sse(['type'=>'waiting','text'=>'Waiting for the model; Stop is available.']); $heartbeat=microtime(true); } };
 
 $result = aiConverse(
     $pdo,

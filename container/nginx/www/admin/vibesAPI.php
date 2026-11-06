@@ -309,7 +309,7 @@ function vibesAct_pakInfo($pdo, $in) {
 
 function vibesAct_install($pdo, $in) {
 	$ai = vibesAiStatus($pdo);
-	if (!$ai['ok']) throw new VibesHttpError("Hugin's Vibes needs an AI provider: " . $ai['reason'] . ' Add one in Server Settings > AI Helper.', 412);
+	if (!$ai['ok']) throw new VibesHttpError("Hugin's Vibes needs an AI provider: " . $ai['reason'] . ' Add one in Server Settings > Hugin Setup.', 412);
 	$size = isset($in['pakSizeBytes']) && is_numeric($in['pakSizeBytes']) ? (int)$in['pakSizeBytes'] : null;
 	$disk = vibesDiskStatus($size);
 	if (!$disk['ok']) throw new VibesHttpError('Not enough free space on the data volume: ' . vibesHumanBytes($disk['free'] ?? 0) . ' free, ' . vibesHumanBytes($disk['required']) . ' required.', 412);

@@ -23,6 +23,8 @@
  * `base_url` -- a pre-filled, operator-editable hostname, not a capability claim.
  */
 
+require_once __DIR__ . '/ailimits.php';
+
 if (!defined('AI_HTTP_TIMEOUT'))        define('AI_HTTP_TIMEOUT', 120);
 if (!defined('AI_DISCOVERY_TIMEOUT'))   define('AI_DISCOVERY_TIMEOUT', 12);
 if (!defined('AI_MODEL_CACHE_SECONDS')) define('AI_MODEL_CACHE_SECONDS', 21600); // 6h
@@ -104,8 +106,7 @@ function aiKnownKind($kind) {
  * ==================================================================================== */
 
 function aiProviders($pdo, $onlyEnabled = true) {
-    $sql = "SELECT id, kind, label, base_url, api_key, model, extra_headers, enabled, is_default, sort_order
-            FROM ai_providers";
+    $sql = "SELECT id, kind, label, base_url, api_key, model, extra_headers, enabled, is_default, sort_order, runtime_limits FROM ai_providers";
     if ($onlyEnabled) $sql .= " WHERE enabled = 1";
     $sql .= " ORDER BY sort_order ASC, id ASC";
 
@@ -115,13 +116,19 @@ function aiProviders($pdo, $onlyEnabled = true) {
         // Table missing means the 2.45 migration has not run yet. An empty registry is
         // the correct answer -- the UI renders "no providers configured" and offers the
         // wizard, rather than throwing a fatal into a JSON response.
-        return [];
+        try { $rows=$pdo->query(str_replace(', runtime_limits', '', $sql))->fetchAll(PDO::FETCH_ASSOC); }
+        catch (Exception $legacyError) { return []; }
     }
     foreach ($rows as &$r) {
         $r['id']         = (int)$r['id'];
         $r['enabled']    = (int)$r['enabled'];
         $r['is_default'] = (int)$r['is_default'];
         $r['headers']    = aiDecodeHeaders($r['extra_headers']);
+        $r['runtime_limits'] = aiLimits($r);
+        try {
+            $q=$pdo->prepare('SELECT models_json FROM ai_model_cache WHERE provider_id=?'); $q->execute([$r['id']]);
+            $r['_models']=json_decode((string)$q->fetchColumn(),true) ?: [];
+        } catch (Exception $e) { $r['_models']=[]; }
     }
     return $rows;
 }
@@ -190,11 +197,18 @@ function aiSaveProvider($pdo, $data) {
         'enabled'       => !empty($data['enabled']) ? 1 : 0,
     ];
 
+    if (array_key_exists('runtime_limits', $data)) {
+        try { $fields['runtime_limits'] = json_encode(aiValidateLimits($data['runtime_limits'])); }
+        catch (InvalidArgumentException $e) { return ['success'=>false,'error'=>$e->getMessage()]; }
+    }
+
     $id = (int)($data['id'] ?? 0);
 
     // An empty key on update means "unchanged", so the UI can render a masked field
     // without round-tripping the secret to the browser and back.
     $newKey = $data['api_key'] ?? null;
+    $old=$id ? aiProvider($pdo,$id) : null;
+    $invalidate=!$old || $old['kind']!==$kind || rtrim($old['base_url'],'/')!==$base || $old['headers']!==aiDecodeHeaders(json_encode($headers)) || ($newKey!==null && $newKey!=='' && $newKey!==$old['api_key']);
 
     try {
         if ($id > 0) {
@@ -233,8 +247,10 @@ function aiSaveProvider($pdo, $data) {
 
         // Endpoint or credentials may have moved; the cached catalogue is about the OLD
         // endpoint and must not be shown against the new one.
-        $stmt = $pdo->prepare("DELETE FROM ai_model_cache WHERE provider_id = ?");
-        $stmt->execute([$id]);
+        if ($invalidate) {
+            $stmt = $pdo->prepare("DELETE FROM ai_model_cache WHERE provider_id = ?");
+            $stmt->execute([$id]);
+        }
 
         return ['success' => true, 'id' => $id];
     } catch (Exception $e) {
@@ -300,7 +316,7 @@ function aiHttp($method, $url, $headers, $body = null, $timeout = AI_HTTP_TIMEOU
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $hdr);
     curl_setopt($ch, CURLOPT_TIMEOUT_MS, max(1, (int)ceil($timeout * 1000)));
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, max(1, (int)ceil(min(15, $timeout) * 1000)));
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT_MS, max(1, (int)ceil(min((float)($control['_connect_timeout_s'] ?? 15), $timeout) * 1000)));
     $stopReason = null;
     if ($control) {
         curl_setopt($ch, CURLOPT_NOPROGRESS, false);
@@ -449,7 +465,8 @@ function aiDiscoverModels($provider) {
         default:           $url = "$base/models"; break;
     }
 
-    $res = aiHttp('GET', $url, $h, null, AI_DISCOVERY_TIMEOUT);
+    $limits=aiLimits($provider);
+    $res = aiHttp('GET', $url, $h, null, $limits['discovery_timeout_s'], null, ['_connect_timeout_s'=>$limits['connect_timeout_s']]);
     if (!$res['ok']) {
         return ['success' => false, 'models' => [], 'error' => aiErrorText($res, 'Could not reach the provider')];
     }
@@ -523,35 +540,28 @@ function aiDiscoverModels($provider) {
 function aiCachedModels($pdo, $provider, $force = false) {
     $id = (int)$provider['id'];
 
-    if (!$force) {
-        try {
-            $stmt = $pdo->prepare("SELECT models_json, error, UNIX_TIMESTAMP(fetched_at) AS ts
-                                   FROM ai_model_cache WHERE provider_id = ?");
-            $stmt->execute([$id]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row && (time() - (int)$row['ts']) < AI_MODEL_CACHE_SECONDS) {
-                $models = json_decode((string)$row['models_json'], true);
-                if (is_array($models) && $models) {
-                    return ['success' => true, 'models' => $models, 'error' => '', 'cached' => true];
-                }
-            }
-        } catch (Exception $e) { /* fall through to a live fetch */ }
-    }
-
-    $res = aiDiscoverModels($provider);
-
+    $row = null; $models = [];
     try {
-        $stmt = $pdo->prepare(
-            "INSERT INTO ai_model_cache (provider_id, models_json, error, fetched_at)
-             VALUES (?, ?, ?, NOW())
-             ON DUPLICATE KEY UPDATE models_json = VALUES(models_json),
-                                     error       = VALUES(error),
-                                     fetched_at  = VALUES(fetched_at)"
-        );
-        $stmt->execute([$id, $res['success'] ? json_encode($res['models']) : null, substr($res['error'], 0, 500)]);
-    } catch (Exception $e) { /* cache write is best effort */ }
+        $stmt=$pdo->prepare("SELECT models_json, error, UNIX_TIMESTAMP(fetched_at) AS ts FROM ai_model_cache WHERE provider_id=?");
+        $stmt->execute([$id]); $row=$stmt->fetch(PDO::FETCH_ASSOC);
+        $models=$row ? (json_decode((string)$row['models_json'],true) ?: []) : [];
+    } catch (Exception $e) {}
+    if (!$force && $models && time()-(int)$row['ts'] < AI_MODEL_CACHE_SECONDS) {
+        return ['success'=>true,'models'=>$models,'error'=>$row['error'] ?? '', 'cached'=>true,'fetched_at'=>(int)$row['ts']];
+    }
+    $res=aiDiscoverModels($provider);
+    $res['cached']=false; $res['fetched_at']=$res['success'] ? time() : (int)($row['ts'] ?? 0);
+    if (!$res['success']) { $res['models']=$models; $res['cached']=(bool)$models; }
+    try {
+        if ($res['success']) {
+            $stmt=$pdo->prepare("INSERT INTO ai_model_cache (provider_id,models_json,error,fetched_at) VALUES (?,?,?,NOW()) ON DUPLICATE KEY UPDATE models_json=VALUES(models_json),error=VALUES(error),fetched_at=VALUES(fetched_at)");
+            $stmt->execute([$id,json_encode($res['models']),'']);
+        } else {
+            $stmt=$pdo->prepare('UPDATE ai_model_cache SET error=? WHERE provider_id=?');
+            $stmt->execute([substr($res['error'],0,500),$id]);
+        }
+    } catch (Exception $e) {}
 
-    $res['cached'] = false;
     return $res;
 }
 
@@ -582,6 +592,8 @@ function aiTestProvider($provider) {
     $steps = [];
 
     $disc = aiDiscoverModels($provider);
+    $provider['_models']=$disc['models'] ?? [];
+    if (isset($provider['runtime_limits'])) $provider['_deadline']=microtime(true)+aiLimits($provider)['chat_turn_s'];
     aiLog($disc['success'] ? 'NOTICE' : 'ERROR', sprintf(
         'Provider test: %s at %s — discovery %s',
         $provider['kind'] ?? '?', $provider['base_url'] ?? '?',
@@ -693,18 +705,33 @@ function aiChat($provider, $messages, $system, $tools = [], $onDelta = null, $ma
         return ['success' => false, 'error' => 'No model selected for this provider', 'content' => '', 'tool_calls' => []];
     }
 
-    if (isset($provider['_request_timeout_s']) || isset($provider['_deadline']) || isset($provider['_isCancelled'])) {
-        $provider['_requestDeadline'] = microtime(true) + max(.001, (float)($provider['_request_timeout_s'] ?? AI_HTTP_TIMEOUT));
-    }
+    $slot=null;
     try {
+        if (isset($provider['runtime_limits'])) {
+            $limits=aiLimits($provider);
+            $maxTokens=func_num_args()<6 ? $limits['response_tokens'] : min($maxTokens,$limits['response_tokens']);
+            $provider['_connect_timeout_s']=$limits['connect_timeout_s'];
+            if (empty($provider['_compacting']) && empty($provider['_contextPrepared'])) $messages=aiFitContext($provider,$messages,$system,$tools,$maxTokens);
+            if (aiEstimateContext($messages,$system,$tools)+$maxTokens>aiContextBudget($provider)) throw new RuntimeException('The request and response reserve exceed the context budget.');
+            $slot=aiAcquireSlot($provider);
+            $provider['_request_timeout_s']=min($provider['_request_timeout_s'] ?? $limits['request_timeout_s'], $limits['request_timeout_s']);
+        }
+        if (isset($provider['_request_timeout_s']) || isset($provider['_deadline']) || isset($provider['_isCancelled'])) {
+            $provider['_requestDeadline'] = microtime(true) + max(.001, (float)($provider['_request_timeout_s'] ?? AI_HTTP_TIMEOUT));
+        }
         switch ($provider['kind']) {
             case 'anthropic': $r = aiChatAnthropic($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens); break;
             case 'gemini':    $r = aiChatGemini($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens); break;
             default:          $r = aiChatOpenAI($provider, $model, $messages, $system, $tools, $onDelta, $maxTokens);
         }
     } catch (AiCallInterrupted $e) {
-        $r = ['success' => false, 'error' => $e->getMessage(), 'stop_reason' => $e->reason, 'content' => '', 'tool_calls' => []];
+        $description=['queue_timeout'=>'Timed out waiting for a provider slot. Increase Queue timeout or reduce concurrent activity.', 'model_timeout'=>'Model response timed out. Adjust Model response timeout in Hugin Setup.', 'turn_timeout'=>'The turn time limit was reached.', 'cancelled'=>'Request cancelled.'];
+        $r = ['success' => false, 'error' => $description[$e->reason] ?? $e->getMessage(), 'stop_reason' => $e->reason, 'content' => '', 'tool_calls' => []];
     }
+
+    catch (RuntimeException $e) {
+        $r=['success'=>false,'error'=>$e->getMessage(),'content'=>'','tool_calls'=>[]];
+    } finally { aiReleaseSlot($slot); }
 
     // Single choke point for every upstream call, so no adapter can fail quietly. Only the
     // failure is recorded -- logging successful turns would put conversation content on disk.

@@ -2408,6 +2408,8 @@ function getAiProvidersJson($pdo, $refreshId = 0) {
             'models'       => $models['models'],
             'models_error' => $models['error'],
             'models_cached'=> !empty($models['cached']),
+            'models_fetched_at'=> $models['fetched_at'] ?? 0,
+            'runtime_limits'=>aiLimits($p),
         ];
     }
 
@@ -2415,6 +2417,7 @@ function getAiProvidersJson($pdo, $refreshId = 0) {
         'success'   => true,
         'providers' => $out,
         'kinds'     => aiProviderKinds(),
+        'limit_spec'=>aiLimitSpec(),
     ]);
 }
 
@@ -2448,6 +2451,8 @@ function aiDraftFromInput($pdo, $input) {
         'headers'  => aiDecodeHeaders(json_encode($input['extra_headers'] ?? [])),
     ];
 
+    try { $draft['runtime_limits']=aiValidateLimits($input['runtime_limits'] ?? (aiProvider($pdo,$draft['id'])['runtime_limits'] ?? [])); }
+    catch (InvalidArgumentException $e) { return $e->getMessage(); }
     if ($draft['id'] && $draft['api_key'] === '') {
         $existing = aiProvider($pdo, $draft['id']);
         if ($existing) $draft['api_key'] = $existing['api_key'];
@@ -2470,12 +2475,15 @@ function aiTestProviderJson($pdo, $input) {
 function aiDiscoverModelsJson($pdo, $input) {
     $draft = aiDraftFromInput($pdo, $input);
     if (is_string($draft)) { echo json_encode(['success' => false, 'error' => $draft]); return; }
-    $disc = aiDiscoverModels($draft);
+    $saved=$draft['id'] ? aiProvider($pdo,$draft['id']) : null;
+    $same=$saved && $saved['kind']===$draft['kind'] && rtrim($saved['base_url'],'/')===$draft['base_url'] && $saved['api_key']===$draft['api_key'] && $saved['headers']===$draft['headers'];
+    $disc = $same ? aiCachedModels($pdo,$draft,true) : aiDiscoverModels($draft);
     aiLog($disc['success'] ? 'NOTICE' : 'ERROR', sprintf(
         'Model discovery: %s at %s — %s',
         $draft['kind'], $draft['base_url'],
         $disc['success'] ? count($disc['models']) . ' models' : 'FAILED: ' . $disc['error']
     ));
+    $disc['fetched_at']=$disc['fetched_at'] ?? ($disc['success'] ? time() : 0);
     echo json_encode($disc);
 }
 
@@ -2517,7 +2525,7 @@ function aiHelperJson($pdo, $input) {
     // Tool calls and results are produced server-side so a crafted history cannot feed
     // the model a fabricated log excerpt.
     $messages = [];
-    foreach (array_slice((array)($input['history'] ?? []), -20) as $h) {
+    foreach (array_slice((array)($input['history'] ?? []), -500) as $h) {
         $role = $h['role'] ?? '';
         $text = trim((string)($h['content'] ?? ''));
         if ($text === '' || !in_array($role, ['user', 'assistant'], true)) continue;
@@ -2525,11 +2533,14 @@ function aiHelperJson($pdo, $input) {
     }
     $messages[] = ['role' => 'user', 'content' => $message];
 
+    $summary=null;
+    $provider['_onRuntime']=function($e) use (&$summary) {if ($e['type']==='memory') $summary=$e['summary'];};
     $res = aiConverse($pdo, $provider, $messages, (string)($input['world'] ?? ''));
 
     echo json_encode([
         'success' => $res['success'],
         'reply'   => $res['content'] ?? '',
+        'summary' => $summary,
         'error'   => $res['error'] ?? '',
         'trace'   => $res['trace'] ?? [],
         'usage'   => $res['usage'] ?? null,

@@ -2,6 +2,7 @@
 // Runs shipping adapters and Forge loop, with a fake PDO (no live DB changes).
 require dirname(__DIR__).'/vibes-test-lib.php';
 vibesTestLoad('agent');
+define('AI_LOCK_DIR', VIBES_ROOT.'/provider-locks');
 $now=microtime(true);
 check('curl timer precision retains turn timeout reason',aiCallStopReason(['_deadline'=>$now+.005,'_requestDeadline'=>$now+10],.01)==='turn_timeout');
 check('curl timer precision retains response timeout reason',aiCallStopReason(['_deadline'=>$now+10,'_requestDeadline'=>$now+.005],.01)==='model_timeout');
@@ -55,8 +56,9 @@ class LimitsDb extends PDO {
     public function query(string $query,?int $fetchMode=null,mixed ...$args):PDOStatement|false{return new LimitsStatement($this,$query);}
     public function prepare(string $query,array $options=[]):PDOStatement|false{return new LimitsStatement($this,$query);}
 }
-function turnFixture($mode,$settings=[],$cancel=null,$history=false) {
+function turnFixture($mode,$settings=[],$cancel=null,$history=false,$providerLimits=[]) {
     [$provider,$http]=providerFixture('gemini',$mode);
+    if($providerLimits) $provider['runtime_limits']=aiValidateLimits($providerLimits);
     $doc=vibesMergeSettings(vibesSettingsDefaults(),['agent'=>$settings]);$db=new LimitsDb($doc,$provider);
     $id=count($GLOBALS['servers']);$slug='limits'.$id;$dir=vibesProjectDir($slug);mkdir($dir.'/.vibes/sessions',0775,true);
     $project=['id'=>$id,'slug'=>$slug,'name'=>'Fixture','namespace'=>'Fixture','description'=>'Test','version'=>'1.0.0','template'=>'basic-plugin','created'=>'2026-01-01','provider_id'=>1,'model'=>'fixture-flash'];
@@ -94,6 +96,12 @@ if(!getenv('LIMITS_QUICK')) {
     [$r,$ev,,,$elapsed]=turnFixture('stall',['model_timeout_s'=>60,'turn_timeout_s'=>30]);
     check('real Forge turn limit bounds longer response limit',$r['stop_reason']==='turn_timeout' && $elapsed>=29 && $elapsed<34);
 }
+[$r,$ev,,$http,$elapsed]=turnFixture('stall',['model_timeout_s'=>30,'turn_timeout_s'=>60],null,false,['request_timeout_s'=>5,'response_tokens'=>777,'concurrency'=>1]);
+check('shared provider response limit governs Vibes',$r['stop_reason']==='model_timeout' && $elapsed>=4.8 && $elapsed<8);
+$request=json_decode(file_get_contents($http.'/request-1.json'),true);
+check('shared provider output limit governs Vibes',$request['generationConfig']['maxOutputTokens']===777);
+check('queue timeout is not misreported as operator Stop',str_contains(forgeStopMessage('queue_timeout',10,900,120),'waiting for a provider slot'));
+check('response timeout explains provider limit',str_contains(forgeStopMessage('model_timeout',10,900,120),'Hugin Setup'));
 check('legacy settings get response default',vibesMergeSettings(vibesSettingsDefaults(),['agent'=>['max_rounds'=>7]])['agent']['model_timeout_s']===900);
 foreach([29,7201,'invalid'] as $bad){[, $errors]=vibesSettingsApplyClient(vibesSettingsDefaults(),['agent'=>['model_timeout_s'=>$bad]]);check('invalid response limit rejected: '.$bad,count($errors)===1);}
 foreach([30,7200] as $value){[, $errors]=vibesSettingsApplyClient(vibesSettingsDefaults(),['agent'=>['model_timeout_s'=>$value]]);check('response boundary accepted: '.$value,$errors===[]);}

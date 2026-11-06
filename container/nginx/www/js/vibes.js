@@ -345,7 +345,7 @@ const Vibes = {};
 		if (disk.free === null || disk.free === undefined) setCheck('vbCheckDisk', 'bad', 'Free space could not be read on ', h('b', st.root || '/opt/stateful/vibes'), '.');
 		else setCheck('vbCheckDisk', disk.ok ? 'ok' : 'bad', h('b', fmtBytes(disk.free) + ' free'), ' on the data volume · ', need + ' required', ' (2 × pak + 1 GiB)', disk.ok ? '' : ' — free up space before installing.');
 		if (ai.ok) setCheck('vbCheckAi', 'ok', h('b', 'AI provider: ' + ai.provider), ' · ' + ai.model);
-		else setCheck('vbCheckAi', 'bad', h('b', 'Hugin’s Vibes needs an AI provider.'), ' Add one in ', h('a', { href: 'index.php', target: '_blank', rel: 'noopener' }, 'Server Settings → AI Helper'), '. ', h('span.vb-muted', ai.reason || ''));
+		else setCheck('vbCheckAi', 'bad', h('b', 'Hugin’s Vibes needs an AI provider.'), ' Add one in ', h('a', { href: 'index.php', target: '_blank', rel: 'noopener' }, 'Server Settings → Hugin Setup'), '. ', h('span.vb-muted', ai.reason || ''));
 		// A failed attempt in the last day is shown here, with its log one click away: the intro
 		// is what the router shows after a fast failure, so this is where the answer has to be.
 		const last = st.lastJob;
