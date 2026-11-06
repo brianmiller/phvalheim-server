@@ -68,6 +68,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const t0 = Date.now();
     await page.locator('#vbComposerSend').click();
     await page.waitForFunction(() => document.getElementById('vbComposerSend').disabled && !document.getElementById('vbWsJob').hidden, null, { timeout: 15000 });
+    // The library card of a Vibe with a turn running carries a spinning ring and "turn…".
+    const libraryCard = () => page.evaluate(() => { const c = document.querySelector('#vbLibList .vb-lib-card.active'); return c ? { ring: !!c.querySelector('.vb-ring'), text: c.querySelector('.vb-lib-card-meta').textContent } : null; });
+    let ringWhileRunning = false;
+    try { await page.waitForFunction(() => !!document.querySelector('#vbLibList .vb-lib-card.active .vb-ring'), null, { timeout: 15000 }); ringWhileRunning = true; } catch (e) { /* reported below */ }
     const stopText = 'Stopped after ' + rounds + ' tool rounds';
     await page.waitForFunction(t => document.getElementById('vbTranscript').textContent.includes(t), stopText, { timeout: Number(process.env.TURN_WAIT_MS || 300000) });
     const took = (Date.now() - t0) / 1000;
@@ -80,9 +84,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     let c = await composer();
     check('after the limit: Send is enabled, the job ring and Stop are gone', usable(c), JSON.stringify(c));
     check('after the limit: status says how to resume', c.live.includes('Continue'), c.live);
+    check('STIMULUS: the library card showed a ring while the turn ran', ringWhileRunning);
+    let card = await libraryCard();
+    check('after the turn: the library card has stopped spinning', card && !card.ring && !card.text.includes('turn'), JSON.stringify(card));
     await sleep(26000);  // one full 20-second poll cycle must not lock it again
     c = await composer();
     check('26 seconds later it is still usable', usable(c), JSON.stringify(c));
+    card = await libraryCard();
+    check('26 seconds later the library card is still at rest', card && !card.ring && !card.text.includes('turn'), JSON.stringify(card));
 
     // ---- 3. The next message goes through WITHOUT a reload --------------------------------
     fixture('mode', 'finish'); fixture('delay_ms', 200);

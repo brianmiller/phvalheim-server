@@ -229,7 +229,7 @@ const Vibes = {};
 
 	async function refreshState(quiet) {
 		// reconcile() runs here and not in applyState(): it must only ever see a FRESH answer.
-		try { S.state = (await api('state')); applyState(); if (Vibes.vibeTab) Vibes.vibeTab.reconcile(S.state); }
+		try { S.state = (await api('state')); if (Vibes.library) Vibes.library.syncJobs(S.state.jobs); applyState(); if (Vibes.vibeTab) Vibes.vibeTab.reconcile(S.state); }
 		catch (e) { if (!quiet) fail(e, 'Could not read the state'); }
 		return S.state;
 	}
@@ -508,6 +508,26 @@ const Vibes = {};
 				p.openJob ? h('span', { title: p.openJob.step || '' }, p.openJob.kind + '…') : h('span', fmtAgo(p.updated))));
 		return el;
 	}
+	/**
+	 * A card's ring and "turn…" come from p.openJob, and the project list is only fetched now and
+	 * then: at the start of a turn, for one. Nothing fetched it again when the turn ended, so the
+	 * card went on spinning until some other job finished or the page was reloaded. The open jobs
+	 * are known from two fresher places -- the project answer and every state poll -- and both
+	 * now correct the cards. Returns true when a card changed.
+	 */
+	function setJob(projectId, job) {
+		const p = (S.projects || []).find(x => x.id === projectId);
+		if (!p) return false;
+		const was = p.openJob || null, now = job || null;
+		if ((was && was.id) === (now && now.id) && (!now || (was.step === now.step && was.progress === now.progress))) return false;
+		p.openJob = now;
+		return true;
+	}
+	function syncJobs(jobs) {
+		let changed = false;
+		for (const p of S.projects || []) changed = setJob(p.id, (jobs || []).find(j => j.project_id === p.id) || null) || changed;
+		return changed;
+	}
 	function ring(job) {
 		const r = h('span.vb-ring', { title: job.kind + (job.step ? ': ' + job.step : '') });
 		if (job.progress === -1 || !job.progress) r.classList.add('indeterminate'); else r.style.setProperty('--p', job.progress);
@@ -524,7 +544,7 @@ const Vibes = {};
 		const lib = $('vbLibrary'), open = force === undefined ? !lib.classList.contains('open') : force;
 		lib.classList.toggle('open', open); $('vbLibraryScrim').hidden = !open;
 	}
-	Vibes.library = { load, render, wire, toggleDrawer };
+	Vibes.library = { load, render, wire, toggleDrawer, setJob, syncJobs };
 })();
 
 /* =====================================================================================
@@ -724,6 +744,7 @@ const Vibes = {};
 		// every turn long enough for one poll to have seen it. So correct the poll's copy for
 		// this project (openFor() reads it) and lock from the fresh answer only.
 		if (S.state) S.state.jobs = (S.state.jobs || []).filter(j => j.project_id !== S.project.id).concat(S.project.openJob ? [S.project.openJob] : []);
+		if (Vibes.library.setJob(S.project.id, S.project.openJob || null)) Vibes.library.render();
 		if (opts && opts.keepSession && keep && Vibes.vibeTab.isAttached(keep.id)) { S.session = keep; renderSessions(); }
 		else await Vibes.vibeTab.openSession(keep || sessions[0] || null);
 		// openSession() has already locked for a turn the transcript says is running.

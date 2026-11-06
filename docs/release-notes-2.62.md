@@ -21,6 +21,7 @@ The image security gate still reports one existing HIGH finding in Tailscale's `
 - Long Vibes conversations open quickly and no longer go blank: a 3,845-event session took
   5.7 seconds to open and now takes under 0.1; the chat is not reloaded after each turn,
   build, package or publish.
+- A Vibe's library card no longer keeps its spinning ring and "turn…" after the turn ends.
 - After a turn stops at a limit, Send works without reloading the page. The same fix covers
   any turn longer than about 20 seconds, and a turn whose live connection dropped.
 

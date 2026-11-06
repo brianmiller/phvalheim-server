@@ -186,6 +186,9 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62replayMeasure=$(grep -cF 'if (f.scrollHeight - f.scrollTop - f.clientHeight < 180) f.scrollTop = f.scrollHeight' /opt/stateless/nginx/www/js/vibes.js)
   v62replayOwner=$(grep -cF 'if (gen !== openGen) return;' /opt/stateless/nginx/www/js/vibes.js)
   v62replayKeep=$(grep -cF 'opts.keepSession && keep && Vibes.vibeTab.isAttached(keep.id)' /opt/stateless/nginx/www/js/vibes.js)
+  v62cardProject=$(grep -cF 'Vibes.library.setJob(S.project.id, S.project.openJob || null)' /opt/stateless/nginx/www/js/vibes.js)
+  v62cardPoll=$(grep -cF 'Vibes.library.syncJobs(S.state.jobs)' /opt/stateless/nginx/www/js/vibes.js)
+  echo "2.62 Vibes library card follows open jobs: from the project answer=$v62cardProject from every state poll=$v62cardPoll (want 1/1)"
   echo "2.62 Vibes long conversations: live-only scroll=$v62replayLive per-event measure=$v62replayMeasure single owner=$v62replayOwner keep session=$v62replayKeep (want 1/0/1/1)"
   echo "2.62 Vibes turn limits: default=$v62turnDefault ceiling=$v62turnCeiling upgrade=$v62turnUpgrade form=$v62turnForm (want 1/1/1/1); composer unlock=$v62turnUnlock stale lock=$v62turnStale watchdog=$v62turnWatchdog (want 1/0/1)"
   v62presentationMigration=$(grep -c '^addColumn ' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
@@ -4564,7 +4567,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "5" ] && [ "$v62huginLimits" = "3" ] && [ "$v62huginMigration" = "1" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62turnDefault" = "1" ] && [ "$v62turnCeiling" = "1" ] && [ "$v62turnUpgrade" = "1" ] && [ "$v62turnForm" = "1" ] && [ "$v62turnUnlock" = "1" ] && [ "$v62turnStale" = "0" ] && [ "$v62turnWatchdog" = "1" ] \
-    && [ "$v62replayLive" = "1" ] && [ "$v62replayMeasure" = "0" ] && [ "$v62replayOwner" = "1" ] && [ "$v62replayKeep" = "1" ] \
+    && [ "$v62replayLive" = "1" ] && [ "$v62replayMeasure" = "0" ] && [ "$v62replayOwner" = "1" ] && [ "$v62replayKeep" = "1" ] && [ "$v62cardProject" = "1" ] && [ "$v62cardPoll" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && [ "$v62emptyGuard" = "0" ] && [ "$v62emptyPlan" = "1" ] && [ "$v62failedOperations" = "3" ] \
     && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "1" ] && [ "$v62entryPages" = "2" ] \

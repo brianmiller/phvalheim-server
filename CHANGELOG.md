@@ -24,6 +24,10 @@ requested, and the whole conversation was fetched and rebuilt after every turn, 
 and publish. History is now replayed without measuring, swapped in one step, and left in
 place when a turn or job ends.
 
+A Vibe's card in the library kept its spinning ring and "turn…" after the turn had ended,
+until another job finished or the page was reloaded: the project list was fetched when a turn
+started and never again. The cards now follow the project's own answer and every state poll.
+
 Docker `:rc` carries this candidate; `:latest` and `:2.61` remain stable. The existing
 HIGH Tailscale dependency finding (CVE-2026-116591) remains disclosed in the release
 notes; functional checks passing does not waive the security gate.
