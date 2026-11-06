@@ -3,7 +3,7 @@ require __DIR__.'/../container/nginx/www/includes/presentation.php';
 $n=0;
 function check($yes,$label) { global $n; if (!$yes) {fwrite(STDERR,"FAIL $label\n");exit(1);} $n++; }
 foreach (['classic','reforged','gate','ember'] as $theme) check(phvPublicTheme($theme)===$theme,'allowlisted theme');
-foreach ([null,'','../gate','<script>',[],1,'GATE'] as $bad) check(phvPublicTheme($bad)==='classic','safe Classic fallback');
+foreach ([null,'','../gate','<script>',[],1,'GATE'] as $bad) check(phvPublicTheme($bad)==='reforged','safe Reforged fallback');
 foreach ([[0,null,false],[1,null,true],[1,0,false],[0,1,true],[1,1,true],[0,0,false]] as [$server,$world,$expected]) check(phvOverlayPolicy($server,$world)===$expected,'overlay inheritance');
 // Execute the real builder, replacing only its external token dependency.
 $source=file_get_contents(__DIR__.'/../container/nginx/www/includes/db_gets.php');

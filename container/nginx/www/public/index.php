@@ -44,103 +44,49 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 
 
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>PhValheim Login</title>
-  <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
-  <!--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/5.0.0/normalize.min.css">-->
-  <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css?refreshcss=<?php echo rand(100, 1000)?>'>
-  <link rel="stylesheet" href="/css/login.css?refreshcss=<?php echo rand(100, 1000)?>">
-  <link rel="stylesheet" href="/css/phvalheimStyles.css?refreshcss=<?php echo rand(100, 1000)?>">
-
-                <!-- Google Fonts -->
-                <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic?refreshcss=<?php echo rand(100, 1000)?>">
-
-                <!-- CSS Reset -->
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css?refreshcss=<?php echo rand(100, 1000)?>">
-
-<?php if ($publicTheme !== 'classic') { ?>
-<link rel="stylesheet" href="/css/public-themes.css?v=3">
-<script defer src="/js/public-themes.js?v=2"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · PhValheim</title>
+<link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
+<?php if ($loginTheme === 'classic') { ?>
+<link rel="stylesheet" href="/css/login.css">
+<link rel="stylesheet" href="/css/phvalheimStyles.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+<?php } else { ?>
+<link rel="stylesheet" href="/css/phvalheimStyles.css">
+<link rel="stylesheet" href="/css/public-themes.css?v=7">
+<script defer src="/js/public-themes.js?v=8"></script>
+<link rel="stylesheet" href="/css/public-entry.css?v=5">
 <?php } ?>
 </head>
-<body data-public-theme="<?php echo htmlspecialchars($publicTheme, ENT_QUOTES); ?>">
-<!-- partial:index.partial.html -->
-
-<div class="login_header">Welcome to PhValheim</div>
-
-<div class="user-modal">
-		<div class="user-modal-container">
-			<ul class="switcher">
-				<li><a href="#0">Sign in</a></li>
-				<li><a href="#0">About</a></li>
-			</ul>
-
-			<div id="login">
-			
-				<p class="center pri-color" style="width:auto !important;">Welcome to PhValheim's World Dashboard</p>
-				
-				<form class="form" id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login">
-					<p class="center alt-color" style="width:auto !important;">Click below to sign in with Steam</p>
-<?php if (($_GET['auth'] ?? '') === 'failed') { ?>
-					<p class="center" id="steamAuthFailed" style="width:auto !important;color:#e06666;">Steam did not confirm that sign-in. Please try again.</p>
-<?php } ?>
-					<div class="centered" id="steamSignInButton">
+<body class="<?php echo $loginTheme === 'classic' ? 'classic-login' : 'entry-login'; ?>" data-public-theme="<?php echo htmlspecialchars($loginTheme, ENT_QUOTES); ?>">
+<?php if ($loginTheme === 'classic') { require __DIR__ . '/../includes/classicLogin.php'; } else { ?>
+<header class="entry-header"><a class="entry-brand" href="/" aria-label="PhValheim home"><?php echo huginSvg('idle', 36); ?><span>Ph<span>Valheim</span></span></a></header>
+<main class="entry-main">
+<section class="entry-card" aria-labelledby="entry-title">
+<p class="entry-eyebrow">Your Valheim worlds, together</p>
+<h1 id="entry-title">Welcome<span class="entry-punctuation">,</span> Viking<span class="entry-punctuation">.</span></h1>
+<p class="entry-intro">Sign in to find your worlds, explore their mods, and join your friends.</p>
+<form id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login">
 						<input type="hidden" name="openid.identity" value="http://specs.openid.net/auth/2.0/identifier_select">
 						<input type="hidden" name="openid.claimed_id" value="http://specs.openid.net/auth/2.0/identifier_select">
 						<input type="hidden" name="openid.ns" value="http://specs.openid.net/auth/2.0">
 						<input type="hidden" name="openid.mode" value="checkid_setup">
-						<input type="hidden" name="openid.realm" value="<?php echo $steamRealm?>">
-						<input type="hidden" name="openid.return_to" value="<?php echo $steamRealm?>/authenticated.php">
-						<!-- <input type="image" name="submit" src="https://steamcommunity-a.akamaihd.net/public/images/signinthroughsteam/sits_01.png" border="0" alt="Submit"> -->
-						<input type="image" name="submit" src="https://steamcdn-a.akamaihd.net/steamcommunity/public/images/steamworks_docs/english/sits_large_border.png" border="0" alt="Submit">
-
-					</div>
-				</form>
-				
-				<!--<p class="form-bottom-message"><a href="#0">Forgot your password?</a></p>-->
-			</div>
-
-			<div id="signup">
-				<form class="form">
-
-					<p>
-						<label class="full-width alt-color">What is PhValheim?</label>
-					</p>
-			
-                                        <p>
-                                                <label class="full-width">PhValheim is a server+client combination that keeps remote Valheim worlds in-sync with remote clients, ensuring all players have a controlled and identical experience with any combination of mods.</label>
-                                        </p>
-
-                                        <p>
-                                                <label class="full-width">For more information, visit PhValheim's <a target="_blank" href="https://github.com/brianmiller/phvalheim-server">GitHub page</a> and <a target="_blank" href="https://discord.gg/8RMMrJVQgy">Discord community</a>.</label>
-                                        </p>
-
-				</form>
-
-			</div>
-
-			<div id="reset-password">
-				<p class="form-message">Lost your password? Please enter your email address.</br> You will receive a link to create a new password.</p>
-
-				<form class="form">
-					<p class="fieldset">
-						<label class="image-replace email" for="reset-email">E-mail</label>
-						<input class="full-width has-padding has-border" id="reset-email" type="email" placeholder="E-mail">
-						<span class="error-message">An account with this email does not exist!</span>
-					</p>
-
-					<p class="fieldset">
-						<input class="full-width has-padding" type="submit" value="Reset password">
-					</p>
-				</form>
-
-				<p class="form-bottom-message"><a href="#0">Back to log-in</a></p>
-			</div>
-		</div>
-	</div>
-<!-- partial -->
+						<input type="hidden" name="openid.realm" value="<?php echo htmlspecialchars($steamRealm, ENT_QUOTES, 'UTF-8')?>">
+						<input type="hidden" name="openid.return_to" value="<?php echo htmlspecialchars($steamRealm, ENT_QUOTES, 'UTF-8')?>/authenticated.php">
+<?php if (($_GET['auth'] ?? '') === 'failed') { ?>
+<p class="entry-error" id="steamAuthFailed" role="alert">Steam did not confirm that sign-in. Please try again.</p>
+<?php } ?>
+<div id="steamSignInButton"><button class="entry-steam" type="submit">Sign in through Steam <span aria-hidden="true">→</span></button></div>
+<p class="entry-signin-note">You’ll sign in on Steam, then return here.</p>
+</form>
+<div class="entry-next"><strong>Ready when you are</strong><p>Install the PhValheim client, choose a world, and launch. Your world’s mods stay in sync.</p></div>
+<details class="entry-about"><summary>New to PhValheim?</summary><p>PhValheim connects your Valheim client to worlds managed by this server. After signing in, you can see the worlds available to you, browse their mods, and download the client.</p><a href="https://phvalheim.com" target="_blank" rel="noopener noreferrer">Read the field guide ↗</a></details>
+</section>
+</main>
+<?php } ?>
 	<div class="public-footer">
 		<a href="https://phvalheim.com" target="_blank" rel="noopener noreferrer" class="social-link field-guide-link" aria-label="PhValheim Field Guide" title="PhValheim Field Guide"><?php echo huginSvg('idle field-guide-hugin', 34); ?></a>
 		<a href="https://github.com/brianmiller/phvalheim-server" target="_blank" rel="noopener" class="social-link" title="View on GitHub">
@@ -151,8 +97,9 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 		</a>
 	</div>
 
-	<script src="/js/jquery-3.6.0.js"></script><script  src="/js/login.js"></script>
-
+<?php if ($loginTheme === 'classic') { ?>
+<script src="/js/jquery-3.6.0.js"></script>
+<script src="/js/login.js"></script>
+<?php } ?>
 </body>
 </html>
-

@@ -86,7 +86,13 @@ check "php.ini does not force cookie_secure for everyone" \
 echo "== login page"
 check "jQuery is served locally, not from a CDN pinned to 2.1.3" \
 	"$(grep -c 'cdnjs.cloudflare.com/ajax/libs/jquery' "$W/public/index.php")" 0
-check "...the local 3.6.0 copy" "$(grep -c 'src="/js/jquery-3.6.0.js"' "$W/public/index.php")" 1
+check "login uses a native Steam POST form" "$(grep -c 'id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login"' "$W/public/index.php")" 1
+check "original login script is restored only in the Classic branch" "$(python3 - "$W/public/index.php" <<'PYCODE'
+import re, sys
+text = open(sys.argv[1]).read()
+print(int(len(re.findall(r"<\?php if \(\$loginTheme === 'classic'\) \{ \?>\s*<script src=\"/js/jquery-3.6.0.js\"></script>\s*<script src=\"/js/login.js\"></script>\s*<\?php \} \?>", text)) == 1 and text.count('/js/login.js') == 1))
+PYCODE
+)" 1
 
 echo
 echo "$pass passed, $fail failed"

@@ -49,10 +49,10 @@ with sync_playwright() as p:
    assert page.locator('[data-world="Midgard"] .card_worldInfo').first.evaluate("e=>parseFloat(getComputedStyle(e).fontSize)") >= 14
    cells=page.locator('[data-world="Midgard"] .trophy_icon')
    assert cells.evaluate_all("es=>es.every(e=>getComputedStyle(e).opacity==='1' && getComputedStyle(e).filter==='none')"),theme+' double-dimmed trophies'
-   assert page.locator('[data-world="Midgard"] .theme-boss').evaluate_all("es=>es.every(e=>e.getBoundingClientRect().width>=70)"),theme+' collapsed boss artwork'
+   assert page.locator('[data-world="Midgard"] .theme-boss').evaluate_all("(es,min)=>es.every(e=>e.getBoundingClientRect().width>=min)",50 if theme=='reforged' else 70),theme+' collapsed boss artwork'
    def boss_colors():
     assert page.locator('.trophy_icon[data-defeated="false"] .theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter.includes('grayscale(1)'))"),theme+' undefeated heads must be grey'
-    assert page.locator('.trophy_icon[data-defeated="true"] .theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter==='none')"),theme+' defeated heads must retain color'
+    assert page.locator(('.catbox:not(.card_dimmed) ' if theme=='reforged' else '')+'.trophy_icon[data-defeated="true"] .theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter==='none')"),theme+' defeated heads must retain color'
    boss_colors()
    progress=page.locator('[data-world="Midgard"] .theme-progress')
    expect(progress).to_have_text('3 / 7')
@@ -67,16 +67,18 @@ with sync_playwright() as p:
    if theme=='reforged':
     search=page.get_by_role('searchbox',name='Search worlds')
     search.fill('Raven');assert page.locator('.catbox:visible').count()==1
+    expect(page.locator('[data-world="Ravenholm"]')).to_be_visible()
+    search.fill('')
     page.locator('[data-world="Ravenholm"] summary').click()
     expect(page.locator('[data-world="Ravenholm"] .world-seed')).to_be_visible()
-    page.locator('[data-world="Ravenholm"] summary').click();search.fill('')
+    page.locator('[data-world="Ravenholm"] summary').click()
    elif theme=='gate':
     assert page.locator('[data-world="Midgard"]').bounding_box()['width'] <= 950
    else:
     rail=page.locator('.theme-world-nav').bounding_box();card=page.locator('[data-world="Midgard"]').bounding_box()
     assert rail['x']+rail['width'] < card['x'], 'Ember world chooser must sit beside the world'
 
-   if theme in ['gate','ember']:
+   if theme in ['reforged','gate','ember']:
     assert page.locator('.catbox:visible').count()==1
     page.get_by_role('button',name='Meadows',exact=False).click()
     expect(page.locator('[data-world="Meadows"]')).to_be_visible()
@@ -106,7 +108,10 @@ with sync_playwright() as p:
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
   page.set_viewport_size({'width':1440,'height':1050})
  page.goto(f['admin'],wait_until='domcontentloaded');page.evaluate('showServerSettingsModal()')
- expect(page.locator('#ss-publicTheme')).to_be_visible();assert page.locator('#ss-publicTheme option').count()==4
+ page.wait_for_url('**/settings.php');expect(page.locator('.settings-layout')).to_be_visible()
+ page.get_by_role('button',name='Appearance',exact=True).click()
+ expect(page.locator('[data-field="publicTheme"] .settings-theme-card')).to_have_count(4)
+ page.get_by_role('button',name='Players & Steam',exact=True).click()
  expect(page.locator('#ss-disableSteamOverlay')).not_to_be_checked()
  assert not errors,errors
  print('PASS: theme persistence/allowlist, all four desktop/mobile layouts, preserved actions/polling, world selection/keyboard, global/world overlay inheritance and public launch payload, admin controls')

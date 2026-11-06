@@ -242,4 +242,4 @@ All fourteen renderings were revised to restore boss-head progression and the cu
 
 ## Selected for implementation
 
-Classic Reforged, The Gate and Ember are being implemented as operator-selectable themes alongside the existing Classic default. See [the controls and compatibility guide](../host/presentation.md). The images above remain design concepts; they are not screenshots of a released feature.
+Classic Reforged, The Gate and Ember are being implemented as operator-selectable themes alongside Classic, with Classic Reforged as the default for both the login screen and world dashboard. See [the controls and compatibility guide](../host/presentation.md). The images above remain design concepts; they are not screenshots of a released feature.

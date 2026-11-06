@@ -4,7 +4,7 @@ function phvPublicThemes() {
     return ['classic' => 'Classic', 'reforged' => 'Classic Reforged', 'gate' => 'The Gate', 'ember' => 'Ember'];
 }
 function phvPublicTheme($value) {
-    return is_string($value) && isset(phvPublicThemes()[$value]) ? $value : 'classic';
+    return is_string($value) && isset(phvPublicThemes()[$value]) ? $value : 'reforged';
 }
 function phvOverlayPolicy($serverDisabled, $worldOverride) {
     return (int)($worldOverride === null ? $serverDisabled : $worldOverride) === 1;

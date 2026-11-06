@@ -121,6 +121,47 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 # reinstate the hazard.
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
+  v62companionClick=$(sha256sum /opt/stateless/games/valheim/custom_plugins/PhValheimCompanion/PhValheimCompanion.dll | cut -d " " -f1)
+  echo "2.62 click-only Companion: SHA256=$v62companionClick (want 8705a9b960a48956e1756e116c8feccb4c8891dce92a71bcc42e54332e6dfa54)"
+  v62syncRecovery=$(grep -c 'def reap_interrupted_runs()' /opt/stateless/engine/tools/modSync.py)
+  v62syncPidGuard=$(grep -c 'os.kill(p, 0)' /opt/stateless/engine/tools/modSync.py)
+  echo "2.62 catalogue recovery: recovery=$v62syncRecovery PID guard=$v62syncPidGuard (want 1/0)"
+  v62classicLogin=$(grep -c "require __DIR__ . '/../includes/classicLogin.php'" /opt/stateless/nginx/www/public/index.php)
+  v62classicSteam=$(grep -c 'type="image" name="submit"' /opt/stateless/nginx/www/includes/classicLogin.php)
+  echo "2.62 original Classic login: template=$v62classicLogin Steam image=$v62classicSteam (want 1/1)"
+  v62settingsRoute=$(grep -c "define('PHV_SETTINGS_PAGE', true)" /opt/stateless/nginx/www/admin/settings.php)
+  v62settingsModal=$(grep -c 'class="mods-modal-overlay" id="serverSettingsOverlay"' /opt/stateless/nginx/www/admin/index.php)
+  v62settingsDraft=$(grep -c "window.addEventListener('beforeunload'" /opt/stateless/nginx/www/js/server-settings.js)
+  v62settingsMobile=$(grep -c 'settings-mobile,.settings-mobile-label { display:block; }' /opt/stateless/nginx/www/css/server-settings.css)
+  echo "2.62 settings page: route=$v62settingsRoute obsolete modal=$v62settingsModal draft guard=$v62settingsDraft mobile=$v62settingsMobile (want 1/0/1/1)"
+  v62offlineGrey=$(grep -cF '.catbox.card_dimmed { filter:grayscale(1)!important;' /opt/stateless/nginx/www/css/public-themes.css)
+  v62flatpakLatest=$(grep -cF 'href="https://github.com/brianmiller/phvalheim-client/releases/latest"' /opt/stateless/nginx/www/public/authenticated.php)
+  v62flatpakAdvanced=$(grep -cF '<details class="flatpak-troubleshooting">' /opt/stateless/nginx/www/public/authenticated.php)
+  v62reforgedMagenta=$(grep -cF 'body.entry-login[data-public-theme="reforged"] .entry-punctuation { color:#ff36cf; }' /opt/stateless/nginx/www/css/public-entry.css)
+  echo "2.62 Classic polish: offline=$v62offlineGrey latest=$v62flatpakLatest advanced=$v62flatpakAdvanced magenta=$v62reforgedMagenta (want 1/1/1/1)"
+  v62worldOrder=$(grep -cF 'wrapper.after(reforgedNav);' /opt/stateless/nginx/www/js/public-themes.js)
+  v62magentaButton=$(grep -cF 'body.entry-login[data-public-theme="reforged"] .entry-steam' /opt/stateless/nginx/www/css/public-entry.css)
+  echo "2.62 world order: below=$v62worldOrder magenta button=$v62magentaButton (want 1/0)"
+  v62entryAssets=0
+  if [ -s /opt/stateless/nginx/www/css/public-entry.css ] && [ -s /opt/stateless/nginx/www/js/public-entry.js ]; then v62entryAssets=1; fi
+  v62entryCard=$(grep -c 'class="entry-card"' /opt/stateless/nginx/www/public/index.php)
+  v62entryLegacy=$(grep -c '/js/login.js' /opt/stateless/nginx/www/public/index.php)
+  v62entryPages=$(grep -l 'public-entry.css?v=5' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  echo "2.62 login/downloads: assets=$v62entryAssets card=$v62entryCard Classic script=$v62entryLegacy pages=$v62entryPages (want 1/1/1/2)"
+  v62emptyGuard=$(grep -c 'selected mods but NO plugins' /opt/stateless/engine/includes/0-functions.sh)
+  v62emptyPlan=$(grep -c 'refusing to build an incomplete plan' /opt/stateless/engine/tools/worldMods.py)
+  v62failedOperations=$(grep -cE 'phvOpEnd failed "(game port assignment|Valheim installation|mod installation) failed' /opt/stateless/engine/phvalheim)
+  echo "2.62 empty mod selection: obsolete guard=$v62emptyGuard invalid plan=$v62emptyPlan failed operations=$v62failedOperations (want 0/1/3)"
+  v62flatpakRecommended=$(grep -c '<small>Recommended</small>' /opt/stateless/nginx/www/includes/clientDownloadButton.php)
+  v62flatpakPanel=$(grep -c 'Recommended · Installation steps included' /opt/stateless/nginx/www/js/public-entry.js)
+  echo "2.62 Linux recommendation: source=$v62flatpakRecommended panel=$v62flatpakPanel (want 1/1)"
+  v62loginSetting=$(grep -c "'loginTheme' => phvPublicTheme" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v62loginSelector=$(grep -c 'id="ss-loginTheme"' /opt/stateless/nginx/www/admin/index.php)
+  v62loginDefault=$(grep -c "addColumn settings loginTheme.*reforged" /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
+  v62playersOverview=$(grep -cF "row.querySelector('.world-players')" /opt/stateless/nginx/www/js/public-themes.js)
+  echo "2.62 visible player count: overview=$v62playersOverview (want 1)"
+  v62joinOverview=$(grep -cF "row.querySelector('.world-joincode')" /opt/stateless/nginx/www/js/public-themes.js)
+  echo "2.62 login choice: setting=$v62loginSetting selector=$v62loginSelector default=$v62loginDefault join overview=$v62joinOverview (want 1/1/1/1)"
   # 2.62 operator presentation: verify the actual assets and policy paths shipped.
   v62themes=$(grep -c "^function phvPublicThemes" /opt/stateless/nginx/www/includes/presentation.php)
   v62themePages=$(grep -l "public-themes.css" /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
@@ -128,13 +169,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62presentationMigration=$(grep -c '^addColumn ' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
   v62presentationAssets=0
   if [ -x /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh ] && [ -s /opt/stateless/nginx/www/images/themes/bosses.png ] && [ -s /opt/stateless/nginx/www/images/themes/gate.png ] && [ -s /opt/stateless/nginx/www/images/themes/ember.png ] && [ -s /opt/stateless/nginx/www/images/themes/hugin.svg ] && [ -s /opt/stateless/nginx/www/js/public-themes.js ]; then v62presentationAssets=1; fi
-  echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/3/1)"
+  echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/4/1)"
   v62portalLayout=$(grep -c 'portal.id = .publicPortal.;' /opt/stateless/nginx/www/js/public-themes.js)
   v62portalLegacy=$(grep -c 'const accountBody ='  /opt/stateless/nginx/www/js/public-themes.js)
-  v62portalCache=$(grep -l 'public-themes.js?v=2' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62portalCache=$(grep -l 'public-themes.js?v=8' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 corrected portal: layout=$v62portalLayout old header=$v62portalLegacy cache=$v62portalCache (want 1/0/2)"
   v62bossGrey=$(grep -cF 'filter:grayscale(1) brightness(.65);' /opt/stateless/nginx/www/css/public-themes.css)
-  v62bossGreyCache=$(grep -l 'public-themes.css?v=3' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62bossGreyCache=$(grep -l 'public-themes.css?v=7' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 undefeated bosses: grey=$v62bossGrey cache=$v62bossGreyCache (want 1/2)"
   v62playerViewer=$(grep -cF 'dialog.showModal()' /opt/stateless/nginx/www/js/player-mods.js)
   v62playerScope=$(grep -cF 'playerConfigTokenPlayer($world' /opt/stateless/nginx/www/public/api.php)
@@ -1450,7 +1491,8 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   wi=$(echo "$wcode" | grep -c "client_download_cell")
   wj=$(echo "$wcode" | grep -c "return openFlatpakInstall(this)")
   wacode=$(grep -vE "^[[:space:]]*(//|#)" /opt/stateless/nginx/www/public/authenticated.php)
-  wk=$(echo "$wacode" | grep -c "flatpakInstallModal")
+  # Keep the original modal wiring count separate from the 2.62 disclosure reset.
+  wk=$(echo "$wacode" | grep -v 'flatpak-troubleshooting' | grep -c "flatpakInstallModal")
   wl=$(echo "$wacode" | grep -c "var FLATPAK_CMDS")
   # wm is the single-source guard. The command blocks must be EMPTY in the markup and filled
   # from FLATPAK_CMDS when the modal opens, so the text on screen and the text on the
@@ -3999,7 +4041,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v59bz=$(for page in admin/index.php admin/hugins_vibes.php public/index.php public/authenticated.php; do grep -qE 'href="https://(brianmiller.github.io/phvalheim-server/|phvalheim.com)"' /opt/stateless/nginx/www/$page && echo yes; done | wc -l)
   v59ca=$(grep -cF "https://github.com/brianmiller/phvalheim-server#backups" /opt/stateless/nginx/www/admin/index.php)
   v59cb=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF "huginSvg('idle field-guide-hugin', 34)")
-  v59cc=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'href="https://phvalheim.com"')
+  v59cc=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep field-guide-link | grep -cF 'href="https://phvalheim.com"')
   v59cd=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'href="https://brianmiller.github.io/phvalheim-server/"')
   v59ce=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'class="social-link field-guide-link"')
   v59cf=$(grep -cF '.public-footer .social-link { width:44px; height:44px; flex:0 0 44px; box-sizing:border-box; padding:0; }' /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -4490,10 +4532,19 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62playerViewer" = "1" ] && [ "$v62playerScope" = "1" ] && [ "$v62playerPrivate" = "1" ] \
+    && [ "$v62companionClick" = "8705a9b960a48956e1756e116c8feccb4c8891dce92a71bcc42e54332e6dfa54" ] \
+    && [ "$v62syncRecovery" = "1" ] && [ "$v62syncPidGuard" = "0" ] \
+    && [ "$v62classicLogin" = "1" ] && [ "$v62classicSteam" = "1" ] \
+    && [ "$v62settingsRoute" = "1" ] && [ "$v62settingsModal" = "0" ] && [ "$v62settingsDraft" = "1" ] && [ "$v62settingsMobile" = "1" ] \
+    && [ "$v62worldOrder" = "1" ] && [ "$v62magentaButton" = "0" ] \
+    && [ "$v62offlineGrey" = "1" ] && [ "$v62flatpakLatest" = "1" ] && [ "$v62flatpakAdvanced" = "1" ] && [ "$v62reforgedMagenta" = "1" ] \
     && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
-    && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "3" ] && [ "$v62presentationAssets" = "1" ] \
+    && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "4" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
+    && [ "$v62emptyGuard" = "0" ] && [ "$v62emptyPlan" = "1" ] && [ "$v62failedOperations" = "3" ] \
+    && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "1" ] && [ "$v62entryPages" = "2" ] \
+    && [ "$v62loginSetting" = "1" ] && [ "$v62loginSelector" = "1" ] && [ "$v62loginDefault" = "1" ] && [ "$v62joinOverview" = "1" ] && [ "$v62playersOverview" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 
