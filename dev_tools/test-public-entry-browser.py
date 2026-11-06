@@ -13,7 +13,7 @@ with sync_playwright() as p:
  for theme in ['classic','reforged','gate','ember']:
   ctx=b.new_context(viewport={'width':1440,'height':900},user_agent='Mozilla/5.0 (X11; Linux x86_64) Chrome/130.0')
   page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
-  assert page.request.post(f['admin']+'/adminAPI.php?action=saveServerSettings',data={'publicTheme':theme}).json()['success']
+  assert page.request.post(f['admin']+'/adminAPI.php?action=saveServerSettings',data={'publicTheme':theme,'loginTheme':theme}).json()['success']
   page.goto(f['public']+'/index.php',wait_until='networkidle')
   expect(page.locator('.entry-card')).to_be_visible()
   expect(page.get_by_role('heading',name='Welcome, Viking.')).to_be_visible()

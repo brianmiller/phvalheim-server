@@ -705,9 +705,9 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 
         <?php if ($publicTheme !== 'classic') { ?>
 <link rel="stylesheet" href="/css/public-themes.css?v=5">
-<script defer src="/js/public-themes.js?v=4"></script>
+<script defer src="/js/public-themes.js?v=5"></script>
 <?php } ?>
-<link rel="stylesheet" href="/css/public-entry.css?v=1">
+<link rel="stylesheet" href="/css/public-entry.css?v=2">
 <script defer src="/js/public-entry.js?v=1"></script>
 <link rel="stylesheet" href="/css/player-mods.css?v=1">
 <script defer src="/js/player-mods.js?v=1"></script>

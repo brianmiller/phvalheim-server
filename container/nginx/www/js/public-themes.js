@@ -88,7 +88,7 @@
         if (theme === 'reforged') {
             // Keep real action nodes in the overview, including offline mod libraries.
             const overview = make('table', 'theme-facts theme-overview'); overview.append(document.createElement('tbody'));
-            [...groups[0].rows].filter(row => /^(Type|Mods|Access|Password|Server)$/.test(row.cells[0].textContent)).forEach(row => overview.tBodies[0].append(row));
+            [...groups[0].rows].filter(row => /^(Type|Mods|Access|Password|Server)$/.test(row.cells[0].textContent) || row.querySelector('.world-joincode')).forEach(row => overview.tBodies[0].append(row));
             const disclosure = make('details', 'theme-disclosure');
             const summary = make('summary', '', 'World details');
             summary.setAttribute('aria-label', 'World details for ' + card.dataset.world);

@@ -65,3 +65,9 @@ body.entry-login .entry-brand { color:var(--entry-text); }
 .client-download-panel a.client-download-more { color:var(--entry-accent); }
 body.entry-login .public-footer .social-link { color:var(--entry-accent); background:var(--entry-panel); border-color:var(--entry-border); }
 body.entry-login .public-footer .social-link:hover { border-color:var(--entry-accent); }
+
+/* Each login can be chosen independently of the world dashboard. */
+body.entry-login[data-public-theme="reforged"] .entry-brand { color:#20e2e7; }
+body.entry-login[data-public-theme="reforged"] .entry-brand > span > span { color:#f000c8; }
+body.entry-login[data-public-theme="gate"] .entry-main { width:100%; max-width:1180px; margin:0 auto; justify-items:start; }
+body.entry-login[data-public-theme="ember"] .entry-card { border-top:3px solid var(--entry-accent); }

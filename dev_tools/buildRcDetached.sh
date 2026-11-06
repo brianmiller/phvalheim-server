@@ -125,8 +125,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   if [ -s /opt/stateless/nginx/www/css/public-entry.css ] && [ -s /opt/stateless/nginx/www/js/public-entry.js ]; then v62entryAssets=1; fi
   v62entryCard=$(grep -c 'class="entry-card"' /opt/stateless/nginx/www/public/index.php)
   v62entryLegacy=$(grep -c '/js/login.js' /opt/stateless/nginx/www/public/index.php)
-  v62entryPages=$(grep -l 'public-entry.css?v=1' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62entryPages=$(grep -l 'public-entry.css?v=2' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 login/downloads: assets=$v62entryAssets card=$v62entryCard legacy=$v62entryLegacy pages=$v62entryPages (want 1/1/0/2)"
+  v62loginSetting=$(grep -c "'loginTheme' => phvPublicTheme" /opt/stateless/nginx/www/admin/adminAPI.php)
+  v62loginSelector=$(grep -c 'id="ss-loginTheme"' /opt/stateless/nginx/www/admin/index.php)
+  v62loginDefault=$(grep -c "addColumn settings loginTheme.*reforged" /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
+  v62joinOverview=$(grep -cF "row.querySelector('.world-joincode')" /opt/stateless/nginx/www/js/public-themes.js)
+  echo "2.62 login choice: setting=$v62loginSetting selector=$v62loginSelector default=$v62loginDefault join overview=$v62joinOverview (want 1/1/1/1)"
   # 2.62 operator presentation: verify the actual assets and policy paths shipped.
   v62themes=$(grep -c "^function phvPublicThemes" /opt/stateless/nginx/www/includes/presentation.php)
   v62themePages=$(grep -l "public-themes.css" /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
@@ -134,10 +139,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62presentationMigration=$(grep -c '^addColumn ' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
   v62presentationAssets=0
   if [ -x /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh ] && [ -s /opt/stateless/nginx/www/images/themes/bosses.png ] && [ -s /opt/stateless/nginx/www/images/themes/gate.png ] && [ -s /opt/stateless/nginx/www/images/themes/ember.png ] && [ -s /opt/stateless/nginx/www/images/themes/hugin.svg ] && [ -s /opt/stateless/nginx/www/js/public-themes.js ]; then v62presentationAssets=1; fi
-  echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/3/1)"
+  echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/4/1)"
   v62portalLayout=$(grep -c 'portal.id = .publicPortal.;' /opt/stateless/nginx/www/js/public-themes.js)
   v62portalLegacy=$(grep -c 'const accountBody ='  /opt/stateless/nginx/www/js/public-themes.js)
-  v62portalCache=$(grep -l 'public-themes.js?v=4' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62portalCache=$(grep -l 'public-themes.js?v=5' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 corrected portal: layout=$v62portalLayout old header=$v62portalLegacy cache=$v62portalCache (want 1/0/2)"
   v62bossGrey=$(grep -cF 'filter:grayscale(1) brightness(.65);' /opt/stateless/nginx/www/css/public-themes.css)
   v62bossGreyCache=$(grep -l 'public-themes.css?v=5' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
@@ -4498,9 +4503,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62playerViewer" = "1" ] && [ "$v62playerScope" = "1" ] && [ "$v62playerPrivate" = "1" ] \
     && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
-    && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "3" ] && [ "$v62presentationAssets" = "1" ] \
+    && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "4" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "0" ] && [ "$v62entryPages" = "2" ] \
+    && [ "$v62loginSetting" = "1" ] && [ "$v62loginSelector" = "1" ] && [ "$v62loginDefault" = "1" ] && [ "$v62joinOverview" = "1" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 

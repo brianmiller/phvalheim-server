@@ -6941,9 +6941,16 @@ $totalCount = count($worlds);
                     <div class="mb-3">
                         <label for="ss-publicTheme">Public website theme</label>
                         <select class="form-control form-control-sm" id="ss-publicTheme">
-                            ${Object.entries({classic:'Classic',reforged:'Classic Reforged',gate:'The Gate',ember:'Ember'}).map(([v,n]) => `<option value="${v}" ${s.publicTheme === v ? 'selected' : ''}>${n}</option>`).join('')}
+                            ${Object.entries({classic:'Classic',reforged:'Classic Reforged',gate:'The Gate',ember:'Ember'}).map(([v,n]) => `<option value="${v}" ${(s.publicTheme || 'reforged') === v ? 'selected' : ''}>${n}</option>`).join('')}
                         </select>
-                        <small class="text-muted">Applies to sign-in and the player world dashboard. Classic preserves the original appearance. Players see changes on their next page load.</small>
+                        <small style="display:block;margin-top:.35rem;color:var(--text-secondary)">Applies to the player world dashboard and its mod viewer. Default: Classic Reforged. Players see changes on their next page load.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ss-loginTheme">Login screen theme</label>
+                        <select class="form-control form-control-sm" id="ss-loginTheme">
+                            ${Object.entries({classic:'Classic',reforged:'Classic Reforged',gate:'The Gate',ember:'Ember'}).map(([v,n]) => `<option value="${v}" ${(s.loginTheme || 'reforged') === v ? 'selected' : ''}>${n}</option>`).join('')}
+                        </select>
+                        <small style="display:block;margin-top:.35rem;color:var(--text-secondary)">Choose the appearance before players sign in. Independent of the public website theme. Default: Classic Reforged.</small>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
@@ -7314,6 +7321,7 @@ $totalCount = count($worlds);
             timezone: document.getElementById('ss-timezone').value.trim() || 'Etc/UTC',
             steamAPIKey: document.getElementById('ss-steamAPIKey').value.trim(),
             publicTheme: document.getElementById('ss-publicTheme').value,
+            loginTheme: document.getElementById('ss-loginTheme').value,
             disableSteamOverlay: document.getElementById('ss-disableSteamOverlay').checked ? 1 : 0,
             analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),
             thunderstoreApiKey: document.getElementById('ss-thunderstoreApiKey').value.trim(),

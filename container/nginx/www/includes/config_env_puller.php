@@ -28,9 +28,10 @@ $phvalheimVersion = getenv('phvalheimVersion');
 # Host is derived from the request (not stored in DB)
 $phvalheimHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
-# Public presentation is allowlisted; old databases keep Classic.
+# Independent presentation choices are allowlisted; missing values use Reforged.
 require_once __DIR__ . '/presentation.php';
-$publicTheme = phvPublicTheme($_settingsRow['publicTheme'] ?? 'classic');
+$publicTheme = phvPublicTheme($_settingsRow['publicTheme'] ?? 'reforged');
+$loginTheme = phvPublicTheme($_settingsRow['loginTheme'] ?? 'reforged');
 
 # All other settings from database
 require_once __DIR__ . '/gameports.php';
