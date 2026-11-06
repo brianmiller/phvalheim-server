@@ -10,9 +10,9 @@ Choose your platform. The client syncs your world's mods and settings, then star
 <div class="phv-downloads">
   <a class="phv-download" data-client-package="windows" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.msi"><img src="../assets/platforms/windows.svg" alt="" width="28" height="28"><span>Windows<small>MSI installer</small></span></a>
   <a class="phv-download" data-client-package="macos" data-install-dialog="mac-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-macos-universal.pkg"><img src="../assets/platforms/apple.svg" alt="" width="28" height="28"><span>macOS<small>Intel &amp; Apple Silicon</small></span></a>
+  <a class="phv-download" data-client-package="flatpak" data-install-dialog="flatpak-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.flatpak"><img src="../assets/platforms/flatpak.svg" alt="" width="28" height="28"><span>Flatpak<small>Recommended for Linux</small></span></a>
   <a class="phv-download" data-client-package="deb" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.deb"><img src="../assets/platforms/ubuntu.svg" alt="" width="28" height="28"><span>Ubuntu / Debian<small>DEB package</small></span></a>
   <a class="phv-download" data-client-package="rpm" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.rpm"><img src="../assets/platforms/fedora.svg" alt="" width="28" height="28"><span>Fedora / RHEL<small>RPM package</small></span></a>
-  <a class="phv-download" data-client-package="flatpak" data-install-dialog="flatpak-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.flatpak"><img src="../assets/platforms/flatpak.svg" alt="" width="28" height="28"><span>Flatpak<small>SteamOS, Bazzite &amp; Linux</small></span></a>
   <a class="phv-download" data-client-package="linux" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-universal-x86_64.tar.gz"><img src="../assets/platforms/linux.svg" alt="" width="28" height="28"><span>Other Linux<small>Tarball · manual install</small></span></a>
 </div>
 
@@ -60,8 +60,39 @@ Choose your platform. The client syncs your world's mods and settings, then star
 2. **Choose your world** and click its launch link. Allow your browser to open PhValheim.
 3. **Let the client sync**, then follow the connection dialog in Valheim.
 
+**2.62 development preview:** click **CONNECT: &lt;worldname&gt;** at the bottom of
+Valheim's main menu to open the dialog. It stays closed until you click. Hosts must
+update their container and then update the world to deliver this behavior.
+
 Launch from the website each time to get your host's latest mods and shared settings.
 Your personal settings are preserved. [How settings work →](../host/mods.md#change-configurations)
+
+### Explore a world's mods
+
+Choose **View mods** on a world card to open its library, including while the world is offline.
+Search by mod, author or setting, or filter for player mods, server mods and customizable
+settings. The library shows the recorded installed version separately from the operator's
+selected version, plus descriptions, dependencies and links to the mod authors' pages.
+“Not recorded” means the server has no installation record; it does not mean a mod is absent.
+
+### Personal mod settings (development preview)
+
+The library's **Configuration** section shows settings the operator has published to players.
+**Customizable** settings can be saved for your Steam account and that world. Choose
+**Save my choice**, then launch again with the updated **2.0.18 draft client** to apply it.
+Personal web settings require Client 2.0.18 or newer. The 2.0.18 preview remains a draft for Windows, Linux and macOS testing.
+Your game must be restarted to pick up a new choice.
+
+**Use published default** saves the operator's suggested value as your personal choice.
+**Use local config** stops applying that saved choice and leaves the last value in your local
+file, so you can edit it with your usual config tool. Saved web choices are reapplied at each
+launch until you remove them. The browser cannot read your existing local config, so a
+published default displayed here may differ from what you currently use.
+
+**Operator controlled** settings are read-only. Private server settings are never displayed.
+If no settings appear, the operator may need to run the mod once, enable **Config Client**
+and publish its configuration. A mod's own runtime synchronization may still control a value
+in game.
 
 ## Join a vanilla world
 

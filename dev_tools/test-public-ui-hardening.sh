@@ -38,7 +38,7 @@ echo "== api.php: no unauthenticated identity"
 check "the steamID query-parameter fallback is gone" \
 	"$(grep -c "\$_GET\['steamID'\]" "$W/public/api.php")" 0
 check "getMyWorldsStatus answers 401 with no session" \
-	"$(grep -c 'http_response_code(401)' "$W/public/api.php")" 1
+	"$(sed -n '/if ($mode == "getMyWorldsStatus")/,$p' "$W/public/api.php" | grep -c 'http_response_code(401)')" 1
 check "a world name is allowlisted before any query runs" \
 	"$(grep -c "preg_match('/^\[A-Za-z0-9_-\]{1,64}\$/', (string)\$world)" "$W/public/api.php")" 1
 
@@ -86,7 +86,13 @@ check "php.ini does not force cookie_secure for everyone" \
 echo "== login page"
 check "jQuery is served locally, not from a CDN pinned to 2.1.3" \
 	"$(grep -c 'cdnjs.cloudflare.com/ajax/libs/jquery' "$W/public/index.php")" 0
-check "...the local 3.6.0 copy" "$(grep -c 'src="/js/jquery-3.6.0.js"' "$W/public/index.php")" 1
+check "login uses a native Steam POST form" "$(grep -c 'id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login"' "$W/public/index.php")" 1
+check "original login script is restored only in the Classic branch" "$(python3 - "$W/public/index.php" <<'PYCODE'
+import re, sys
+text = open(sys.argv[1]).read()
+print(int(len(re.findall(r"<\?php if \(\$loginTheme === 'classic'\) \{ \?>\s*<script src=\"/js/jquery-3.6.0.js\"></script>\s*<script src=\"/js/login.js\"></script>\s*<\?php \} \?>", text)) == 1 and text.count('/js/login.js') == 1))
+PYCODE
+)" 1
 
 echo
 echo "$pass passed, $fail failed"

@@ -34,3 +34,7 @@ World **Activity** groups PhValheim operations and their outcomes. **Valheim** c
 - The operation's error and the steps that reproduce it.
 
 Remove passwords, API keys, access tokens and private player information before sharing logs or screenshots.
+
+## Public presentation and overlay controls in development
+
+See [Public themes and Steam overlay](presentation.md) for the operator settings and platform limitations. These controls are not in the published stable releases yet.

@@ -1,4 +1,5 @@
 <?php
+$settingsPage = defined('PHV_SETTINGS_PAGE') && PHV_SETTINGS_PAGE;
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
 include '../includes/db_sets.php';
@@ -55,28 +56,28 @@ if ($setupComplete === 0) {
 }
 
 // Handle world actions via traditional GET (preserving existing behavior)
-if (!empty($_GET['delete_world'])) {
+if (!$settingsPage && !empty($_GET['delete_world'])) {
     $world = $_GET['delete_world'];
     deleteWorld($pdo, $world);
     header('Location: /');
     exit;
 }
 
-if (!empty($_GET['stop_world'])) {
+if (!$settingsPage && !empty($_GET['stop_world'])) {
     $world = $_GET['stop_world'];
     stopWorld($pdo, $world);
     header('Location: /');
     exit;
 }
 
-if (!empty($_GET['start_world'])) {
+if (!$settingsPage && !empty($_GET['start_world'])) {
     $world = $_GET['start_world'];
     startWorld($pdo, $world);
     header('Location: /');
     exit;
 }
 
-if (!empty($_GET['update_world'])) {
+if (!$settingsPage && !empty($_GET['update_world'])) {
     $world = $_GET['update_world'];
     updateWorld($pdo, $world);
     header('Location: /');
@@ -117,7 +118,7 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
             phvLaunchCrossplayFields($pdo, $row['name'], $row['mode'] === 'running');
         $launchString = phvBuildLaunchString($row['name'], $password, $gameDNS, $row['port'],
                                              $phvalheimHost, $httpScheme, $vanilla,
-                                             $lsCrossplay, $lsJoinCode);
+                                             $lsCrossplay, $lsJoinCode, phvWorldOverlay($pdo, $row['name'])['disabled']);
 
         // A vanilla world has no client payload and no BepInEx, so phvalheim:// is
         // meaningless for it -- handing that link to the client makes it try to sync mods
@@ -181,6 +182,8 @@ function getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme) {
     return $worlds;
 }
 
+if (!defined('PHV_PLAYER_GLYPH')) define('PHV_PLAYER_GLYPH', '<svg class="status-players-glyph" viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><circle cx="8" cy="4.5" r="3" fill="currentColor"/><path d="M2 14.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5z" fill="currentColor"/></svg>');
+
 $worlds = getWorldsData($pdo, $gameDNS, $phvalheimHost, $httpScheme);
 $runningCount = count(array_filter($worlds, fn($w) => $w['mode'] === 'running'));
 $totalCount = count($worlds);
@@ -190,15 +193,19 @@ $totalCount = count($worlds);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PhValheim Admin</title>
+    <title><?= $settingsPage ? 'Server Settings · ' : '' ?>PhValheim Admin</title>
     <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
     <link rel="stylesheet" type="text/css" href="/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="/css/phvalheimStyles.css?v=<?php echo time()?>">
     <script type="text/javascript" charset="utf8" src="/js/jquery-3.6.0.js"></script>
     <script type="text/javascript" charset="utf8" src="/js/bootstrap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<?php if ($settingsPage): ?>
+    <link rel="stylesheet" href="/css/server-settings.css?v=<?= filemtime(__DIR__ . '/../css/server-settings.css') ?>">
+    <script defer src="/js/server-settings.js?v=<?= filemtime(__DIR__ . '/../js/server-settings.js') ?>"></script>
+    <?php endif; ?>
 </head>
-<body>
+<body class="<?= $settingsPage ? 'server-settings-page' : '' ?>">
     <div class="admin-layout">
         <!-- Sidebar -->
         <aside class="admin-sidebar" id="sidebar">
@@ -210,7 +217,7 @@ $totalCount = count($worlds);
             <nav class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">Main</div>
-                    <a href="/" class="nav-item active">
+                    <a href="/" class="nav-item<?= $settingsPage ? '' : ' active' ?>">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
                         </svg>
@@ -276,7 +283,7 @@ $totalCount = count($worlds);
                         <svg class="nav-icon" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a17 17 0 010 18 17 17 0 010-18z"/></svg>
                         <span>Remote Access</span>
                     </a>
-                    <a href="#" onclick="showServerSettingsModal(); return false;" class="nav-item">
+                    <a href="settings.php" class="nav-item<?= $settingsPage ? ' active' : '' ?>">
                         <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
                         </svg>
@@ -418,6 +425,14 @@ $totalCount = count($worlds);
                  The "Critical Configuration Missing" banner that was here is the first of those checks. -->
             <div id="serverHealthStrip" style="display:none; margin: 0.75rem 0; padding: 0.75rem 1.1rem 0.4rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px;"></div>
 
+            <?php if ($settingsPage): ?>
+            <section class="settings-page" id="serverSettingsOverlay" aria-label="Server Settings">
+                <div class="settings-heading"><div><p class="settings-eyebrow">Administration</p><h2>Server Settings</h2><p>Configure your server, your players’ experience, and everyday maintenance.</p></div>
+                    <a href="https://brianmiller.github.io/phvalheim-server/" target="_blank" rel="noopener">Field Guide ↗</a></div>
+                <div id="serverSettingsBody" aria-live="polite">Loading settings…</div>
+                <noscript>JavaScript is required to edit server settings.</noscript>
+            </section>
+            <?php else: ?>
             <!-- Stats Cards -->
             <div class="stats-grid" id="statsGrid">
                 <div class="stat-card">
@@ -595,7 +610,6 @@ $totalCount = count($worlds);
                     }
                     // The glyph that marks the pill's number as a PLAYER count (2.58): "Running · 0" said
                     // nothing about what the 0 was. One literal, used by the PHP render and its JS twin.
-                    if (!defined('PHV_PLAYER_GLYPH')) define('PHV_PLAYER_GLYPH', '<svg class="status-players-glyph" viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><circle cx="8" cy="4.5" r="3" fill="currentColor"/><path d="M2 14.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5z" fill="currentColor"/></svg>');
                     function updateBadgeHtml($world) {
                         $game = !empty($world['update_available_game']) ? 1 : 0;
                         $mods = (int)($world['update_available_mods'] ?? 0);
@@ -930,6 +944,7 @@ $totalCount = count($worlds);
                 <!-- The "Additional Logs" card that was here moved to logs.php (2.56). -->
             </div>
 
+            <?php endif; ?>
         </main>
     </div>
 
@@ -1708,25 +1723,6 @@ $totalCount = count($worlds);
     </script>
     <?php endif; ?>
 
-    <!-- Server Settings Modal -->
-    <div class="mods-modal-overlay" id="serverSettingsOverlay" onclick="closeServerSettingsModal(event)">
-        <div class="mods-modal" onclick="event.stopPropagation()" style="max-width: 700px;">
-            <div class="mods-modal-header">
-                <h3 class="mods-modal-title">Server Settings</h3>
-                <div style="display:flex;align-items:center;gap:0.75rem;">
-                    <a href="https://brianmiller.github.io/phvalheim-server/" target="_blank" rel="noopener noreferrer" title="PhValheim Field Guide" style="color:var(--text-muted);font-size:0.75rem;text-decoration:none;display:flex;align-items:center;gap:0.3rem;opacity:0.7;transition:opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                        Docs
-                    </a>
-                    <button class="mods-modal-close" onclick="closeServerSettingsModal()">&times;</button>
-                </div>
-            </div>
-            <div class="mods-modal-body" id="serverSettingsBody">
-                <div style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading...</div>
-            </div>
-        </div>
-    </div>
-
     <!-- Server Health Modal (2.56): every check, including the ones that are OK -->
     <!-- Update a world (2.58): what will happen, then the engine's own event stream while it does. -->
     <div class="mods-modal-overlay" id="updateWorldOverlay" onclick="closeUpdateWorldModal(event)">
@@ -1837,13 +1833,17 @@ $totalCount = count($worlds);
         });
     }
 
+    const isServerSettingsPage = <?= $settingsPage ? 'true' : 'false' ?>;
+
     // Start polling on page load
     document.addEventListener('DOMContentLoaded', function() {
+        if (!isServerSettingsPage) {
         initSectionCollapse();
         initCharts();
         initWorldCharts();
         startPolling();
         startStatsPolling();
+        }
         fetchServerHealth();
         setInterval(fetchServerHealth, 60000);
         updateTime();
@@ -5225,6 +5225,16 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="pv-section">
+                        <h6 class="pv-section-title">Steam overlay</h6>
+                        <label for="settingsOverlay">Overlay preference for this world</label>
+                        <select id="settingsOverlay" class="form-control pv-input">
+                            <option value="inherit" ${options.overlay?.override == null ? 'selected' : ''}>Use server setting (${options.overlay?.serverDisabled ? 'disabled' : 'enabled'})</option>
+                            <option value="0" ${options.overlay?.override === 0 ? 'selected' : ''}>Enabled</option>
+                            <option value="1" ${options.overlay?.override === 1 ? 'selected' : ''}>Disabled</option>
+                        </select>
+                        <p class="pv-field-hint">Optional troubleshooting for hangs or lockups. Requires PhValheim Client 2.0.18 or newer for modded Linux launches. Other platforms and vanilla launches use Steam's own overlay settings. Applies on the next client launch, without a server restart.</p>
+                    </div>
+                    <div class="pv-section">
                         <h6 class="pv-section-title">Custom Launch Parameters</h6>
                         <div class="pv-panel" style="padding: 0.9rem;">
                             <label class="pv-field-label" for="settingsLaunchParams">Appended to the Valheim server command line, after everything PhValheim generates.</label>
@@ -5233,7 +5243,7 @@ $totalCount = count($worlds);
                         </div>
                     </div>
                     <div class="pv-actions">
-                        <p class="pv-section-hint pv-actions-hint">Changes here need a world restart to take effect.</p>
+                        <p class="pv-section-hint pv-actions-hint">World launch options need a world restart. The overlay setting applies on the next client launch.</p>
                         <span class="pv-status" id="settingsOptionsSaveStatus"></span>
                         <button class="action-btn success" onclick="saveWorldOptions()">Save World Options</button>
                     </div>
@@ -5649,6 +5659,7 @@ $totalCount = count($worlds);
                     crossplay: document.getElementById('settingsCrossplayToggle').checked ? 1 : 0,
                     listed: document.getElementById('settingsListedToggle').checked ? 1 : 0,
                     passwordPublic: document.getElementById('settingsPasswordPublicToggle').checked ? 1 : 0,
+                    disableSteamOverlay: document.getElementById('settingsOverlay').value === 'inherit' ? null : Number(document.getElementById('settingsOverlay').value),
                     launchParams: document.getElementById('settingsLaunchParams').value
                 })
             });
@@ -6194,7 +6205,7 @@ $totalCount = count($worlds);
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        refreshModSyncPanel();
+        if (!isServerSettingsPage) refreshModSyncPanel();
     });
 
     // Initialize world resource mini charts
@@ -6361,10 +6372,10 @@ $totalCount = count($worlds);
     }
 
     // Poll world stats every 3 seconds
-    setInterval(fetchWorldStats, 3000);
+    if (!isServerSettingsPage) setInterval(fetchWorldStats, 3000);
 
     // Poll world health every 5 seconds (matches plugin flush interval)
-    setInterval(fetchWorldHealth, 5000);
+    if (!isServerSettingsPage) setInterval(fetchWorldHealth, 5000);
 
     // Intercept world action links (start/stop/update/delete) and use AJAX instead of page reload
     document.addEventListener('click', function(e) {
@@ -6427,7 +6438,7 @@ $totalCount = count($worlds);
     <?php endif; ?>
 
     // ===== Auto-open Server Settings when critical config is missing =====
-    <?php if (!empty($missingSettings)): ?>
+    <?php if (!$settingsPage && !empty($missingSettings)): ?>
     document.addEventListener('DOMContentLoaded', function() {
         // Small delay so migration notice (if present) renders first
         setTimeout(function() { showServerSettingsModal(); }, 500);
@@ -6846,6 +6857,9 @@ $totalCount = count($worlds);
     }
 
     async function showServerSettingsModal() {
+        if (!isServerSettingsPage) { window.location.assign('settings.php'); return; }
+        // Existing callers can open settings without resetting a draft already on this page.
+        if (window.serverSettingsPage) return;
         const overlay = document.getElementById('serverSettingsOverlay');
         const body = document.getElementById('serverSettingsBody');
         body.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)">Loading...</div>';
@@ -6867,7 +6881,7 @@ $totalCount = count($worlds);
 
             const keyField = (id, val) => `
                 <div style="position:relative">
-                    <input type="password" class="form-control form-control-sm" id="${id}" value="${val || ''}" style="font-family:var(--font-mono);padding-right:3.5rem">
+                    <input type="password" class="form-control form-control-sm" id="${id}" value="${escapeHtmlBasic(val || '')}" style="font-family:var(--font-mono);padding-right:3.5rem">
                     <button onclick="togglePasswordField('${id}')" style="position:absolute;right:0.5rem;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.7rem;padding:0.15rem 0.4rem;border-radius:3px;border:1px solid var(--border-color);transition:all 0.15s;" onmouseover="this.style.borderColor='var(--accent-primary)';this.style.color='var(--accent-primary)'" onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-muted)'" title="Toggle visibility">show</button>
                 </div>`;
             const sectionHead = (label, color) => `
@@ -6920,17 +6934,33 @@ $totalCount = count($worlds);
                     ['Pacific/Apia',         '(GMT +13:00) Apia, Nukualofa'],
                     ['Pacific/Kiritimati',   '(GMT +14:00) Line Islands, Tokelau'],
                 ];
+                // Keep valid custom IANA zones that are not in the common-zone shortlist.
+                if (selected && !tzList.some(([val]) => val === selected)) tzList.unshift([selected, selected]);
                 return tzList.map(([val, label]) =>
-                    `<option value="${val}" ${val === selected ? 'selected' : ''}>${label}</option>`
+                    `<option value="${escapeHtmlBasic(val)}" ${val === selected ? 'selected' : ''}>${escapeHtmlBasic(label)}</option>`
                 ).join('');
             };
             body.innerHTML = `
                 <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('Server', 'var(--accent-primary)')}
+                    <div class="mb-3">
+                        <label for="ss-publicTheme">Public website theme</label>
+                        <select class="form-control form-control-sm" id="ss-publicTheme">
+                            ${Object.entries({classic:'Classic',reforged:'Classic Reforged',gate:'The Gate',ember:'Ember'}).map(([v,n]) => `<option value="${v}" ${(s.publicTheme || 'reforged') === v ? 'selected' : ''}>${n}</option>`).join('')}
+                        </select>
+                        <small style="display:block;margin-top:.35rem;color:var(--text-secondary)">Applies to the player world dashboard and its mod viewer. Default: Classic Reforged. Players see changes on their next page load.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ss-loginTheme">Login screen theme</label>
+                        <select class="form-control form-control-sm" id="ss-loginTheme">
+                            ${Object.entries({classic:'Classic',reforged:'Classic Reforged',gate:'The Gate',ember:'Ember'}).map(([v,n]) => `<option value="${v}" ${(s.loginTheme || 'reforged') === v ? 'selected' : ''}>${n}</option>`).join('')}
+                        </select>
+                        <small style="display:block;margin-top:.35rem;color:var(--text-secondary)">Choose the appearance before players sign in. Independent of the public website theme. Default: Classic Reforged.</small>
+                    </div>
                     <div class="row mb-2">
                         <div class="col-6">
                             <label style="font-size:0.8rem;color:orchid" ${tip('The DNS name or IP that game clients use to connect to your Valheim worlds')}>Game DNS <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
-                            <input type="text" class="form-control form-control-sm" id="ss-gameDNS" value="${s.gameDNS || ''}" style="font-family:var(--font-mono)" ${tip('Public hostname or IP for Valheim client connections (e.g. valheim.example.com). Changing this requires updating every world before players get the new address.')}>
+                            <input type="text" class="form-control form-control-sm" id="ss-gameDNS" value="${escapeHtmlBasic(s.gameDNS || '')}" style="font-family:var(--font-mono)" ${tip('Public hostname or IP for Valheim client connections (e.g. valheim.example.com). Changing this requires updating every world before players get the new address.')}>
                         </div>
                         <div class="col-3">
                             <label style="font-size:0.8rem;color:orchid" ${tip('Starting UDP port for world servers. Each world uses 2 consecutive ports.')}>Base Port <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
@@ -6959,6 +6989,10 @@ $totalCount = count($worlds);
 
                 <div style="margin-bottom: 1.5rem;">
                     ${sectionHead('Steam', '#1b9fff')}
+                    <div class="mb-3">
+                        <label><input type="checkbox" id="ss-disableSteamOverlay" ${s.disableSteamOverlay == 1 ? 'checked' : ''}> Disable Steam overlay</label>
+                        <p class="text-muted" style="font-size:.78rem;margin:.4rem 0">Optional troubleshooting for game hangs or lockups. Requires PhValheim Client 2.0.18 or newer for modded Linux launches. Windows, macOS and vanilla launches use the player's Steam settings. Worlds can override this default. Changes apply on the next client launch.</p>
+                    </div>
                     <div class="mb-2">
                         <label style="font-size:0.8rem;color:orchid" ${tip('Required for Steam authentication and player identity resolution')}>Steam API Key <span style="color:var(--danger);font-size:0.7rem">(required)</span></label>
                         ${keyField('ss-steamAPIKey', s.steamAPIKey)}
@@ -7250,6 +7284,7 @@ $totalCount = count($worlds);
             // The AI section is rendered from the live provider registry rather than
             // from the settings payload -- providers are rows in ai_providers now, not
             // four fixed columns in `settings`.
+            window.initServerSettingsPage(s);
             aiRenderProviderList();
             // Highlight empty required fields with red border
             ['ss-gameDNS', 'ss-basePort', 'ss-steamAPIKey'].forEach(id => {
@@ -7277,49 +7312,53 @@ $totalCount = count($worlds);
     }
 
     async function saveServerSettings() {
+        if (window.serverSettingsPage && !window.serverSettingsPage.beforeSave()) return;
         const btn = document.getElementById('ssSubmitBtn');
         const status = document.getElementById('ssStatus');
         btn.disabled = true;
         btn.textContent = 'Saving...';
         status.textContent = '';
 
+        const settingInt = (id, fallback) => { const n = Number(document.getElementById(id).value); return Number.isSafeInteger(n) ? n : fallback; };
         const payload = {
             gameDNS: document.getElementById('ss-gameDNS').value.trim(),
-            basePort: parseInt(document.getElementById('ss-basePort').value) || 25000,
-            defaultSeed: '',
-            sessionTimeout: parseInt(document.getElementById('ss-sessionTimeout').value) || 2592000,
-            maxLogSize: parseInt(document.getElementById('ss-maxLogSize').value) || 1000000,
+            basePort: settingInt('ss-basePort', 25000),
+            sessionTimeout: settingInt('ss-sessionTimeout', 2592000),
+            maxLogSize: settingInt('ss-maxLogSize', 1000000),
             timezone: document.getElementById('ss-timezone').value.trim() || 'Etc/UTC',
             steamAPIKey: document.getElementById('ss-steamAPIKey').value.trim(),
+            publicTheme: document.getElementById('ss-publicTheme').value,
+            loginTheme: document.getElementById('ss-loginTheme').value,
+            disableSteamOverlay: document.getElementById('ss-disableSteamOverlay').checked ? 1 : 0,
             analyticsEnabled: parseInt(document.getElementById('ss-analyticsEnabled').value),
             thunderstoreApiKey: document.getElementById('ss-thunderstoreApiKey').value.trim(),
             hexiumApiKey: document.getElementById('ss-hexiumApiKey').value.trim(),
             thunderstoreEnabled: parseInt(document.getElementById('ss-thunderstoreEnabled').value),
             hexiumEnabled: parseInt(document.getElementById('ss-hexiumEnabled').value),
-            modSyncIntervalHours: parseInt(document.getElementById('ss-modSyncIntervalHours').value) || 6,
+            modSyncIntervalHours: settingInt('ss-modSyncIntervalHours', 6),
             // Automatic updates (2.47). autoUpdateWindowStart uses ?? rather than || so an
             // explicit 0 (midnight) survives -- `|| -1` would turn a window starting at
             // midnight into "any time of day", which is not what was configured.
-            autoUpdateMode: parseInt(document.getElementById('ss-autoUpdateMode').value) || 0,
+            autoUpdateMode: settingInt('ss-autoUpdateMode', 0),
             autoUpdateScope: document.getElementById('ss-autoUpdateScope').value,
-            autoUpdateCheckIntervalHours: parseInt(document.getElementById('ss-autoUpdateCheckIntervalHours').value) || 6,
-            autoUpdateIdleMinutes: parseInt(document.getElementById('ss-autoUpdateIdleMinutes').value) || 30,
-            autoUpdateMaxWaitHours: parseInt(document.getElementById('ss-autoUpdateMaxWaitHours').value) || 24,
+            autoUpdateCheckIntervalHours: settingInt('ss-autoUpdateCheckIntervalHours', 6),
+            autoUpdateIdleMinutes: settingInt('ss-autoUpdateIdleMinutes', 30),
+            autoUpdateMaxWaitHours: settingInt('ss-autoUpdateMaxWaitHours', 24),
             autoUpdateOnTimeout: document.getElementById('ss-autoUpdateOnTimeout').value,
             autoUpdateBackupFirst: parseInt(document.getElementById('ss-autoUpdateBackupFirst').value),
             autoUpdateWindowStart: (v => Number.isNaN(v) ? -1 : v)(parseInt(document.getElementById('ss-autoUpdateWindowStart').value)),
-            autoUpdateWindowHours: parseInt(document.getElementById('ss-autoUpdateWindowHours').value) || 0,
-            backupIntervalMinutes: parseInt(document.getElementById('ss-backupIntervalMinutes').value) || 30,
+            autoUpdateWindowHours: settingInt('ss-autoUpdateWindowHours', 0),
+            backupIntervalMinutes: settingInt('ss-backupIntervalMinutes', 30),
             backupRequireActivity: parseInt(document.getElementById('ss-backupRequireActivity').value),
             backupCompression: document.getElementById('ss-backupCompression').value,
             backupCompressionHour: parseInt(document.getElementById('ss-backupCompressionHour').value),
-            backupRetainAllHours: parseInt(document.getElementById('ss-backupRetainAllHours').value) || 24,
-            backupRetainDailyDays: parseInt(document.getElementById('ss-backupRetainDailyDays').value) || 7,
-            backupRetainWeeklyDays: parseInt(document.getElementById('ss-backupRetainWeeklyDays').value) || 30,
-            backupRetainMonthlyMonths: parseInt(document.getElementById('ss-backupRetainMonthlyMonths').value) || 6,
+            backupRetainAllHours: settingInt('ss-backupRetainAllHours', 24),
+            backupRetainDailyDays: settingInt('ss-backupRetainDailyDays', 7),
+            backupRetainWeeklyDays: settingInt('ss-backupRetainWeeklyDays', 30),
+            backupRetainMonthlyMonths: settingInt('ss-backupRetainMonthlyMonths', 6),
             backupCpuPriority: parseInt(document.getElementById('ss-backupCpuPriority').value),
             backupIoPriority: document.getElementById('ss-backupIoPriority').value,
-            backupCompressionLevel: parseInt(document.getElementById('ss-backupCompressionLevel').value) || 0,
+            backupCompressionLevel: settingInt('ss-backupCompressionLevel', 0),
         };
 
         try {
@@ -7336,17 +7375,18 @@ $totalCount = count($worlds);
                 // world's quick_connect_servers.cfg is only rewritten when that world is
                 // updated. Say so, and block the reload -- a status line would be wiped by
                 // the reload a second later, which is how this has gone unnoticed for years.
+                window.serverSettingsPage?.saved(payload);
                 const newDns = payload.gameDNS;
                 if (typeof window._ssOriginalGameDNS === 'string' && newDns !== window._ssOriginalGameDNS) {
                     status.textContent = 'Settings saved.';
-                    document.getElementById('serverSettingsOverlay').classList.remove('show');
+                    window._ssOriginalGameDNS = newDns;
                     document.getElementById('gameDnsNoticeNew').textContent = newDns || '(empty)';
                     document.getElementById('gameDnsNoticeOverlay').classList.add('show');
                     return;
                 }
 
-                status.textContent = 'Settings saved. Reloading...';
-                setTimeout(() => window.location.reload(), 1000);
+                window._ssOriginalGameDNS = newDns;
+                status.textContent = 'Settings saved.';
                 return;
             } else {
                 status.style.color = 'var(--danger)';
@@ -7357,11 +7397,11 @@ $totalCount = count($worlds);
             status.textContent = 'Network error.';
         }
 
-        btn.disabled = false;
-        btn.textContent = 'Save Settings';
+        window.serverSettingsPage?.saveFailed();
     }
 
     function closeServerSettingsModal(event) {
+        if (isServerSettingsPage || !document.getElementById('serverSettingsOverlay')) return;
         if (!event || event.target === document.getElementById('serverSettingsOverlay')) {
             document.getElementById('serverSettingsOverlay').classList.remove('show');
         }

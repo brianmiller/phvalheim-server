@@ -2,6 +2,11 @@
 
 A world's mod selection is the shared setup its players receive. Change the selection, update the world, then have players sync with the launcher.
 
+A modded world can have no catalogue mods selected. It still receives the bundled
+PhValheim plugins. Mods assigned only to the client do not need a server plugin.
+If an installation fails, check the world operation log, correct the reported cause,
+and **Update** the world to retry.
+
 ## Find and select mods
 
 The picker offers **Thunderstore**, **Hexium** and **Hugin's Vibes**. The last contains mods you publish locally from the workbench.
@@ -44,6 +49,19 @@ Older launchers are blocked before they can overwrite personal configs; some sho
 “world not found”. Existing worlds also start with Client delivery off after upgrading;
 previously saved operator settings remain available. Saving a shared setting enables delivery
 for its mod; Server-only edits and resets leave the Client switch unchanged.
+
+## Player mod library and personal settings
+
+The public **View mods** panel follows your selected theme and works for offline worlds too.
+It shows installation records and selected versions separately, avoiding claims that a
+pending update is already installed. Players can inspect published configuration and save
+personal choices for **Overridable** entries with the updated 2.0.18 draft client.
+These choices are stored separately for each Steam account and world; they do not edit
+operator settings or shared archives. Removing access to a world, disabling client delivery,
+or clearing Overridable prevents subsequent personal-setting delivery. Server-only entries
+are excluded even if an older published policy still contains them.
+
+[Player controls and current client availability →](../play/join.md#personal-mod-settings-development-preview)
 
 ## Catalogue sync
 
