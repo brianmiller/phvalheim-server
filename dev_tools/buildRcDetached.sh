@@ -166,10 +166,13 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62themes=$(grep -c "^function phvPublicThemes" /opt/stateless/nginx/www/includes/presentation.php)
   v62themePages=$(grep -l "public-themes.css" /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   v62overlayWriters=$(grep -h -c 'phvWorldOverlay.*disabled.*);' /opt/stateless/nginx/www/includes/db_gets.php /opt/stateless/nginx/www/admin/adminAPI.php /opt/stateless/nginx/www/admin/index.php | awk '{s+=$1} END {print s}')
+  v62huginLimits=$(grep -cE '^function ai(ValidateLimits|AcquireSlot|FitContext)' /opt/stateless/nginx/www/includes/ailimits.php)
+  v62huginMigration=$(grep -cF 'addColumn ai_providers runtime_limits' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
+  echo "2.62 Hugin Setup: limits=$v62huginLimits migration=$v62huginMigration (want 3/1)"
   v62presentationMigration=$(grep -c '^addColumn ' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
   v62presentationAssets=0
   if [ -x /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh ] && [ -s /opt/stateless/nginx/www/images/themes/bosses.png ] && [ -s /opt/stateless/nginx/www/images/themes/gate.png ] && [ -s /opt/stateless/nginx/www/images/themes/ember.png ] && [ -s /opt/stateless/nginx/www/images/themes/hugin.svg ] && [ -s /opt/stateless/nginx/www/js/public-themes.js ]; then v62presentationAssets=1; fi
-  echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/4/1)"
+  echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/5/1)"
   v62portalLayout=$(grep -c 'portal.id = .publicPortal.;' /opt/stateless/nginx/www/js/public-themes.js)
   v62portalLegacy=$(grep -c 'const accountBody ='  /opt/stateless/nginx/www/js/public-themes.js)
   v62portalCache=$(grep -l 'public-themes.js?v=8' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
@@ -838,7 +841,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   # The old NO APOSTROPHES rule no longer applies here -- quoted heredoc, run from a file.
   # (The dots standing in for quotes below are left as they were: `.` matches the quote fine,
   # and rewriting working patterns buys nothing.)
-  hx=$(grep -c "Credentials., .Model., .Test." /opt/stateless/nginx/www/admin/index.php)
+  hx=$(grep -c "Credentials., .Model., .Limits., .Test." /opt/stateless/nginx/www/admin/index.php)
   hy=$(grep -vE "^[[:space:]]*(\*|//|#)" /opt/stateless/nginx/www/includes/aiproviders.php | grep -cE "models.{0,3}\[0\]")
   hz=$(grep -c "case .discoverAiModels." /opt/stateless/nginx/www/admin/adminAPI.php)
   # And the helper must leave a trace on disk when it fails. Anchor on the definition.
@@ -4540,7 +4543,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62offlineGrey" = "1" ] && [ "$v62flatpakLatest" = "1" ] && [ "$v62flatpakAdvanced" = "1" ] && [ "$v62reforgedMagenta" = "1" ] \
     && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
-    && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "4" ] && [ "$v62presentationAssets" = "1" ] \
+    && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "5" ] && [ "$v62huginLimits" = "3" ] && [ "$v62huginMigration" = "1" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && [ "$v62emptyGuard" = "0" ] && [ "$v62emptyPlan" = "1" ] && [ "$v62failedOperations" = "3" ] \
     && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "1" ] && [ "$v62entryPages" = "2" ] \
