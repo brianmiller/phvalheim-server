@@ -24,10 +24,40 @@ with sync_playwright() as p:
   expect(button).to_have_attribute('aria-pressed','true')
   expect(page.locator('.catbox:visible')).to_have_count(1)
   card=page.locator('[data-world="'+world+'"]');expect(card).to_be_visible()
+  assert card.evaluate("e=>Boolean(e.compareDocumentPosition(document.querySelector('.theme-world-nav')) & Node.DOCUMENT_POSITION_FOLLOWING)"), 'world tiles must follow details in reading order'
+  assert card.evaluate("e=>e.getBoundingClientRect().bottom <= document.querySelector('.theme-world-nav').getBoundingClientRect().top"), 'world tiles must appear below selected details'
   return card
  # This fails on the previous build: world cards had no selection action.
  raven=choose('Ravenholm')
  expect(page.locator('[data-world="Midgard"]')).to_be_hidden()
+ # Offline status must mute the entire card on every animation frame, even for defeated bosses.
+ assert raven.evaluate("e=>getComputedStyle(e).filter.includes('grayscale(1)')"), 'offline box must be grey'
+ expect(nav.get_by_role('button',name='Ravenholm')).to_have_attribute('data-online','false')
+ assert raven.locator('.theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter.includes('grayscale(1)'))")
+ assert page.evaluate("""async () => {
+   const card=document.querySelector('[data-world="Ravenholm"]');
+   for(let i=0;i<12;i++) {
+     card.hidden=!card.hidden;
+     await new Promise(requestAnimationFrame);
+     if(!getComputedStyle(card).filter.includes('grayscale(1)')) return false;
+   }
+   card.hidden=false; return true;
+ }"""), 'offline selection must never flash color'
+ page.screenshot(path='/tmp/phv-reforged-offline.png',full_page=True)
+ # Exercise the real polling renderer across online/offline transitions, retaining boss progress.
+ page.evaluate("""async () => {
+   const data=await fetch('api.php?mode=getMyWorldsStatus').then(r=>r.json());
+   window.polishWorlds=data.worlds;
+   data.worlds.find(w=>w.name==='Ravenholm').online=true;
+   updateWorldCards(data.worlds);
+ }""")
+ expect(raven).not_to_have_class(__import__('re').compile(r'card_dimmed'))
+ expect(nav.get_by_role('button',name='Ravenholm')).to_have_attribute('data-online','true')
+ assert raven.evaluate("e=>getComputedStyle(e).filter==='none' && getComputedStyle(e).boxShadow!=='none'")
+ page.evaluate("polishWorlds.find(w=>w.name==='Ravenholm').online=false; updateWorldCards(polishWorlds)")
+ expect(nav.get_by_role('button',name='Ravenholm')).to_have_attribute('data-online','false')
+ assert raven.evaluate("e=>getComputedStyle(e).filter.includes('grayscale(1)')")
+
  raven.get_by_role('button',name='View mods').click()
  expect(page.locator('#playerMods')).to_be_visible();page.keyboard.press('Escape')
  raven.locator('summary').click();expect(raven.locator('.world-seed')).to_be_visible()
