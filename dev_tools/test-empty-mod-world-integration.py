@@ -5,6 +5,7 @@ Uses the image's actual engine world loop, SQL, resolver, installers and packagi
 Only Steam/loader downloads, process detection, supervisor config and background
 update checks are stubbed. This is not a Valheim gameplay test.
 """
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -13,6 +14,7 @@ import tempfile
 import zipfile
 from fixture_analytics import verify_no_enrollment
 
+EXPECTED_COMPANION = '8705a9b960a48956e1756e116c8feccb4c8891dce92a71bcc42e54332e6dfa54'
 c = sys.argv[1]
 assert c.startswith('phv-presentation-'), 'use a disposable presentation fixture'
 verify_no_enrollment(c)
@@ -71,7 +73,7 @@ with tempfile.TemporaryDirectory() as td:
         dest = td / (world + '.zip')
         run('docker','cp',c+':'+path+'/'+world+'.zip',str(dest))
         with zipfile.ZipFile(dest) as z:
-            assert any(n.endswith('/PhValheimCompanion.dll') for n in z.namelist())
+            assert hashlib.sha256(z.read('BepInEx/plugins/PhValheimCompanion/PhValheimCompanion.dll')).hexdigest() == EXPECTED_COMPANION
             assert any(n.endswith('/phvalheim-world.cfg') for n in z.namelist())
             assert any(n.endswith('/ProbeClient.dll') for n in z.namelist()) == (world == 'installprobeclient')
         assert sql(f"SELECT outcome FROM phv_operations WHERE world='{world}' AND kind='update' ORDER BY started DESC LIMIT 1") == 'ok'
@@ -85,6 +87,19 @@ with tempfile.TemporaryDirectory() as td:
     # Retry an already-failed world alongside a succeeding rebuild. Retain old bytes/md5.
     ex('bash','-c',f"echo previous-payload > /opt/stateful/games/valheim/worlds/{bad}/{bad}.zip")
     sql(f"UPDATE worlds SET mode='update',world_md5='previous-md5' WHERE name='{bad}'")
+    # Seed an old installed plugin in ALL trees and an old downloadable archive.
+    # A successful Update must replace each copy and advertise the new archive checksum.
+    healthy_path = '/opt/stateful/games/valheim/worlds/installprobehealthy'
+    stale = td / 'PhValheimCompanion.dll'
+    stale.write_bytes(b'old Companion from the previous container')
+    stale_archive = td / 'stale.zip'
+    with zipfile.ZipFile(stale_archive, 'w') as z:
+        z.write(stale, 'BepInEx/plugins/PhValheimCompanion/PhValheimCompanion.dll')
+    for rel in ['custom_plugins', 'game/BepInEx/plugins', 'client/BepInEx/plugins']:
+        run('docker','cp',str(stale),c+':'+healthy_path+'/'+rel+'/PhValheimCompanion/PhValheimCompanion.dll')
+    run('docker','cp',str(stale_archive),c+':'+healthy_path+'/installprobehealthy.zip')
+    old_md5 = hashlib.md5(stale_archive.read_bytes()).hexdigest()
+    sql(f"UPDATE worlds SET world_md5='{old_md5}' WHERE name='installprobehealthy'")
     sql("UPDATE worlds SET mode='update' WHERE name='installprobehealthy'")
     ex('bash','/tmp/installprobe/tick.sh')
     assert ex('cat',f'/opt/stateful/games/valheim/worlds/{bad}/{bad}.zip') == 'previous-payload'
@@ -93,4 +108,16 @@ with tempfile.TemporaryDirectory() as td:
     assert sql("SELECT COUNT(*) FROM phv_operations WHERE world LIKE 'installprobe%' AND finished IS NULL") == '0'
     assert sql("SELECT COUNT(*) FROM phv_operations WHERE world='installprobehealthy' AND kind='update' AND outcome='ok'") == '2'
     print('PASS failed operation isolation, failed retry, prior payload preservation and later healthy rebuild')
+
+    for rel in ['custom_plugins', 'game/BepInEx/plugins', 'client/BepInEx/plugins']:
+        digest = ex('sha256sum',healthy_path+'/'+rel+'/PhValheimCompanion/PhValheimCompanion.dll').split()[0]
+        assert digest == EXPECTED_COMPANION, (rel,digest)
+    delivered = td / 'updated.zip'
+    run('docker','cp',c+':'+healthy_path+'/installprobehealthy.zip',str(delivered))
+    with zipfile.ZipFile(delivered) as z:
+        assert hashlib.sha256(z.read('BepInEx/plugins/PhValheimCompanion/PhValheimCompanion.dll')).hexdigest() == EXPECTED_COMPANION
+    new_md5 = hashlib.md5(delivered.read_bytes()).hexdigest()
+    assert new_md5 != old_md5
+    assert sql("SELECT world_md5 FROM worlds WHERE name='installprobehealthy'") == new_md5
+    print('PASS existing world Update replaces old Companion in all trees and client ZIP, with new download checksum')
 print('All disposable install pipeline checks passed; remove this fixture and its volume.')
