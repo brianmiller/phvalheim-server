@@ -883,7 +883,10 @@ function downloadAndInstallTsModsForWorld() {
         #per-dependency `mysql` process against an unindexed table. It also walks the
         #version the world will ACTUALLY install -- the pinned one if pinned -- not
         #whatever happens to be newest.
-        /opt/stateless/engine/tools/worldMods.py --world "$worldName" --resolve
+        if ! /opt/stateless/engine/tools/worldMods.py --world "$worldName" --resolve; then
+                phvlog ERROR "Could not resolve mods for '$worldName'. Refusing to continue."
+                return 1
+        fi
 
         #The install plan is one tab-separated line per mod:
         #  source  owner  name  version  download_url  filename  pinned|latest  is_dep
@@ -1017,8 +1020,10 @@ function downloadAndInstallTsModsForWorld() {
                 #warnings". A backslash-packed BepInEx pack returned 1 and this silently skipped
                 #copying the loader into the world.
                 if [ $RESULT -le 1 ]; then
-                        cp -prfv /tmp/BepInEx_tmp/BepInExPack_Valheim/* $treeRoot/. > /dev/null 2>&1
+                        cp -prfv /tmp/BepInEx_tmp/BepInExPack_Valheim/* $treeRoot/. > /dev/null 2>&1 || modDestFailures=$((modDestFailures+1))
                         rm -rf /tmp/BepInEx_tmp
+                elif [ "$RESULT" -ne 11 ]; then
+                        modDestFailures=$((modDestFailures+1))
                 fi
 
                 #unzip -d creates only the LAST path component; it will NOT create missing
@@ -1032,10 +1037,10 @@ function downloadAndInstallTsModsForWorld() {
                 #Deterministic, not a race: it happens to every newly created modded world.
                 #The client staging tree is newly created on EVERY rebuild, so it needs this
                 #every bit as much as game/ ever did.
-                mkdir -p $treeRoot/BepInEx/plugins
-                mkdir -p $treeRoot/BepInEx/patchers
-                mkdir -p $treeRoot/BepInEx/config
-                mkdir -p $treeRoot/BepInEx/core
+                mkdir -p $treeRoot/BepInEx/plugins || modDestFailures=$((modDestFailures+1))
+                mkdir -p $treeRoot/BepInEx/patchers || modDestFailures=$((modDestFailures+1))
+                mkdir -p $treeRoot/BepInEx/config || modDestFailures=$((modDestFailures+1))
+                mkdir -p $treeRoot/BepInEx/core || modDestFailures=$((modDestFailures+1))
 
                 #Plugins
                 unzip -o $tsModsDir/$modFileConstructed -x config/* core/* patchers/* BepInExPack_Valheim/* README.md icon.png manifest.json -d $treeRoot/BepInEx/plugins/$modName/ > /dev/null 2>&1
@@ -1066,19 +1071,33 @@ function downloadAndInstallTsModsForWorld() {
 
                 #Core
                 unzip -o $tsModsDir/$modFileConstructed core/* -d $treeRoot/BepInEx/core/ > /dev/null 2>&1
+                RESULT=$?
+                if [ "$RESULT" -gt 1 ] && [ "$RESULT" -ne 11 ]; then
+                        modDestFailures=$((modDestFailures+1))
+                fi
 
                 #Config
                 rm -rf /tmp/BepInEx_tmp
                 mkdir /tmp/BepInEx_tmp
                 unzip -o $tsModsDir/$modFileConstructed config/* -d /tmp/BepInEx_tmp/ > /dev/null 2>&1
-                cp -prfv /tmp/BepInEx_tmp/config/* $treeRoot/BepInEx/config/. > /dev/null 2>&1
+                configResult=$?
+                if [ "$configResult" -le 1 ]; then
+                        cp -prfv /tmp/BepInEx_tmp/config/* $treeRoot/BepInEx/config/. > /dev/null 2>&1 || modDestFailures=$((modDestFailures+1))
+                elif [ "$configResult" -ne 11 ]; then
+                        modDestFailures=$((modDestFailures+1))
+                fi
 
                 #Patchers
                 unzip -j -o $tsModsDir/$modFileConstructed patchers/* -d $treeRoot/BepInEx/patchers/$modName/ > /dev/null 2>&1
+                RESULT=$?
+                if [ "$RESULT" -gt 1 ] && [ "$RESULT" -ne 11 ]; then
+                        modDestFailures=$((modDestFailures+1))
+                fi
 
                 done
 
                 if [ $modDestFailures -gt 0 ]; then
+                        phvlog ERROR "Installation failed for '$modName' in '$worldName' ($modDestFailures extraction/copy error(s))."
                         modInstallFailures=$((modInstallFailures+1))
                 else
                         #This version is now on disk in every tree it was destined for.
@@ -1160,29 +1179,16 @@ function downloadAndInstallTsModsForWorld() {
         #payload zip and shipped to every player.
         [ -d "$(clientStagingRoot "$worldName")/BepInEx" ] && chmod -R u+rwX "$(clientStagingRoot "$worldName")/BepInEx"
 
-        #### Did any of that actually work? ####
-        #
-        #Everything above swallows its own errors: the unzips redirect stderr to /dev/null and
-        #nothing checked a return code, so "Mods download and installation sequence complete"
-        #was printed whether 15 mods installed or none did. A modded world would then be
-        #packaged, given an md5, marked ready and started -- and BepInEx would report
-        #"0 plugins to load" with nothing anywhere saying why.
-        #
-        #A world that asked for mods and ended up with an empty plugins directory is never
-        #correct, whatever the underlying cause (failed download, bad archive, full disk).
-        pluginRoot="$worldsDirectoryRoot/$worldName/game/BepInEx/plugins"
-        if [ ! -d "$pluginRoot" ] || [ -z "$(ls -A "$pluginRoot" 2>/dev/null)" ]; then
-                phvlog ERROR "World '$worldName' selected mods but NO plugins were installed. Refusing to publish it as ready."
-                phvlog ERROR "Check the download errors above; the world's plugins directory is '$pluginRoot'."
-                return 1
-        fi
-
+        # A successful empty plan is valid: bundled/custom plugins are installed next.
+        # Client-only, config-only and patcher-only packages also need no server plugins.
+        # Judge the requested installs by their download/extraction results, not by the
+        # contents of one destination directory.
         if [ "${modInstallFailures:-0}" -gt 0 ]; then
-                phvlog ERROR "World '$worldName': $modInstallFailures mod(s) failed to download and are MISSING."
+                phvlog ERROR "World '$worldName': $modInstallFailures mod(s) failed to download or install."
                 return 1
         fi
 
-        phvlog NOTICE "Mod install verified for '$worldName': $(ls -A "$pluginRoot" | wc -l) plugin(s) present."
+        phvlog NOTICE "Mod install verified for '$worldName': all planned packages installed."
         return 0
 }
 

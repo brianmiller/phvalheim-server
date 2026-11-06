@@ -14,6 +14,8 @@ volumes:
 
 If no dedicated backup volume is detected, the admin UI will display a warning and automatic backups are disabled. Manual backups can still be created.
 
+In the [2.62 settings page](server-settings.md), open **Backups** for schedule and retention controls. Expand **Advanced backup options** for compression and resource priorities.
+
 ## Scheduling
 
 | Setting | Default | Description |

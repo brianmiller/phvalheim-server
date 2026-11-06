@@ -50,19 +50,24 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sign in · PhValheim</title>
 <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
+<?php if ($loginTheme === 'classic') { ?>
+<link rel="stylesheet" href="/css/login.css">
 <link rel="stylesheet" href="/css/phvalheimStyles.css">
-<?php if ($loginTheme !== 'classic') { ?>
-<link rel="stylesheet" href="/css/public-themes.css?v=5">
-<script defer src="/js/public-themes.js?v=5"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+<?php } else { ?>
+<link rel="stylesheet" href="/css/phvalheimStyles.css">
+<link rel="stylesheet" href="/css/public-themes.css?v=7">
+<script defer src="/js/public-themes.js?v=8"></script>
+<link rel="stylesheet" href="/css/public-entry.css?v=5">
 <?php } ?>
-<link rel="stylesheet" href="/css/public-entry.css?v=3">
 </head>
-<body class="entry-login" data-public-theme="<?php echo htmlspecialchars($loginTheme, ENT_QUOTES); ?>">
+<body class="<?php echo $loginTheme === 'classic' ? 'classic-login' : 'entry-login'; ?>" data-public-theme="<?php echo htmlspecialchars($loginTheme, ENT_QUOTES); ?>">
+<?php if ($loginTheme === 'classic') { require __DIR__ . '/../includes/classicLogin.php'; } else { ?>
 <header class="entry-header"><a class="entry-brand" href="/" aria-label="PhValheim home"><?php echo huginSvg('idle', 36); ?><span>Ph<span>Valheim</span></span></a></header>
 <main class="entry-main">
 <section class="entry-card" aria-labelledby="entry-title">
 <p class="entry-eyebrow">Your Valheim worlds, together</p>
-<h1 id="entry-title">Welcome, Viking.</h1>
+<h1 id="entry-title">Welcome<span class="entry-punctuation">,</span> Viking<span class="entry-punctuation">.</span></h1>
 <p class="entry-intro">Sign in to find your worlds, explore their mods, and join your friends.</p>
 <form id="authenticated_form" method="post" action="https://steamcommunity.com/openid/login">
 						<input type="hidden" name="openid.identity" value="http://specs.openid.net/auth/2.0/identifier_select">
@@ -81,6 +86,7 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 <details class="entry-about"><summary>New to PhValheim?</summary><p>PhValheim connects your Valheim client to worlds managed by this server. After signing in, you can see the worlds available to you, browse their mods, and download the client.</p><a href="https://phvalheim.com" target="_blank" rel="noopener noreferrer">Read the field guide ↗</a></details>
 </section>
 </main>
+<?php } ?>
 	<div class="public-footer">
 		<a href="https://phvalheim.com" target="_blank" rel="noopener noreferrer" class="social-link field-guide-link" aria-label="PhValheim Field Guide" title="PhValheim Field Guide"><?php echo huginSvg('idle field-guide-hugin', 34); ?></a>
 		<a href="https://github.com/brianmiller/phvalheim-server" target="_blank" rel="noopener" class="social-link" title="View on GitHub">
@@ -91,5 +97,9 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 		</a>
 	</div>
 
+<?php if ($loginTheme === 'classic') { ?>
+<script src="/js/jquery-3.6.0.js"></script>
+<script src="/js/login.js"></script>
+<?php } ?>
 </body>
 </html>
