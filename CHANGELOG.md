@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.62 release candidate (2026-11-06)
+
+See [release notes](docs/release-notes-2.62.md) for upgrade steps and validation limits.
+This prerelease adds public Remote Access through Tailscale Funnel or Cloudflare,
+independent login/player themes, a dedicated Server Settings page, personal mod
+configuration with Client 2.0.18, and Linux overlay controls. Companion opens its
+dialog only after clicking CONNECT. World updates accept empty mod selections and
+report failures correctly; catalogue syncs recover interrupted runs without trusting
+reused process IDs. Pull/recreate the container, update modded worlds, and relaunch
+Valheim to receive the Companion fix.
+
+Docker `:rc` carries this candidate; `:latest` and `:2.61` remain stable. The existing
+HIGH Tailscale dependency finding (CVE-2026-116591) remains disclosed in the release
+notes; functional checks passing does not waive the security gate.
+
 ## v2.61 (2026-11-03)
 
 Security release for the player portal (port 8080); see `docs/RELEASE-NOTES-2.61.md`.
