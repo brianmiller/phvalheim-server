@@ -115,6 +115,7 @@
                 const online = !card.classList.contains('card_dimmed');
                 state.textContent = (online ? 'Online' : 'Offline') + ' · ' + (card.classList.contains('catbox-vanilla') ? 'Vanilla' : 'Modded');
                 state.dataset.online = String(online);
+                button.dataset.online = String(online);
             };
             refresh(); new MutationObserver(refresh).observe(card, {attributes:true, attributeFilter:['class']});
             button.addEventListener('click', () => { selectedWorld = card; filterWorlds(); });

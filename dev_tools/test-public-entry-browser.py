@@ -17,6 +17,12 @@ with sync_playwright() as p:
   page.goto(f['public']+'/index.php',wait_until='networkidle')
   expect(page.locator('.entry-card')).to_be_visible()
   expect(page.get_by_role('heading',name='Welcome, Viking.')).to_be_visible()
+  if theme=='reforged':
+   assert page.locator('.entry-punctuation').evaluate_all("es=>es.length===2 && es.every(e=>getComputedStyle(e).color==='rgb(255, 54, 207)')")
+   assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor==='rgb(182, 0, 142)' && getComputedStyle(e).boxShadow!=='none'")
+  else:
+   assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor!=='rgb(182, 0, 142)'")
+   assert page.locator('.entry-punctuation').evaluate_all("es=>es.every(e=>getComputedStyle(e).color!=='rgb(255, 54, 207)')")
   expect(page.locator('#authenticated_form')).to_have_attribute('method','post')
   page.locator('.entry-about summary').click();expect(page.get_by_role('link',name='Read the field guide')).to_be_visible()
   for width in [1440,390,320]:
@@ -46,13 +52,29 @@ with sync_playwright() as p:
   panel.get_by_role('link',name='Flatpak').click();expect(page.locator('#flatpakInstallModal')).to_be_visible();expect(panel).to_be_hidden()
   expect(page.locator('#flatpakDownloadBtn')).to_have_attribute('href',__import__('re').compile(r'\.flatpak$'))
   assert page.locator('#flatpakDownloadBtn').evaluate("e=>getComputedStyle(e).backgroundImage==='none' && getComputedStyle(e).fontFamily.includes('system-ui')")
+  expect(page.locator('#flatpakInstallModal')).to_be_focused()
+  expect(page.locator('#flatpakInstallModal .mac-install-ref-link')).to_have_attribute('href','https://github.com/brianmiller/phvalheim-client/releases/latest')
+  expect(page.locator('#fpCmdPath')).to_be_hidden()
+  expect(page.locator('#fpCmdInstall')).to_be_visible()
+  assert page.locator('#flatpakDownloadBtn').bounding_box()['y'] < page.locator('#fpCmdInstall').bounding_box()['y']
+  page.locator('.flatpak-troubleshooting summary').click();expect(page.locator('#fpCmdPath')).to_be_visible()
+  for key,element in [('install','fpCmdInstall'),('path','fpCmdPath'),('check','fpCmdCheck'),('run','fpCmdRun')]:
+   assert page.locator('#'+element).inner_text()==page.evaluate('FLATPAK_CMDS.'+key)
+  page.locator('.flatpak-troubleshooting summary').click()
   page.screenshot(path=f'/tmp/phv-entry-{theme}-flatpak.png',full_page=True)
-  expect(page.locator('#flatpakInstallModal')).to_be_focused();page.keyboard.press('Escape');expect(page.locator('#flatpakInstallModal')).to_be_hidden()
+  page.keyboard.press('Escape');expect(page.locator('#flatpakInstallModal')).to_be_hidden()
   for width in [390,320]:
    page.set_viewport_size({'width':width,'height':700});button.click();expect(panel).to_be_visible()
    box=panel.bounding_box();assert box['x']>=0 and box['x']+box['width']<=width+1 and box['y']>=0 and box['y']+box['height']<=701,box
    page.screenshot(path=f'/tmp/phv-entry-{theme}-downloads-{width}.png',full_page=True)
-   panel.get_by_role('button',name='Close downloads').click();expect(button).to_be_focused()
+   panel.get_by_role('link',name='Flatpak').click();expect(page.locator('#flatpakInstallModal')).to_be_visible()
+   expect(page.locator('#fpCmdPath')).to_be_hidden()
+   download=page.locator('#flatpakDownloadBtn').bounding_box()
+   assert download['x']>=0 and download['x']+download['width']<=width+1 and download['y']+download['height']<=700,download
+   assert page.locator('#flatpakInstallModal .modal-body').evaluate('e=>e.scrollWidth<=e.clientWidth')
+   page.screenshot(path=f'/tmp/phv-entry-{theme}-flatpak-{width}.png',full_page=True)
+   expect(page.locator('#flatpakInstallModal')).to_be_focused()
+   page.keyboard.press('Escape');expect(page.locator('#flatpakInstallModal')).to_be_hidden();expect(button).to_be_focused()
   button.click();page.locator('body').click(position={'x':1,'y':1});expect(panel).to_be_hidden()
   ctx.close()
  for platform,ua in [('Windows','Mozilla/5.0 (Windows NT 10.0; Win64; x64)'),('macOS','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')]:
