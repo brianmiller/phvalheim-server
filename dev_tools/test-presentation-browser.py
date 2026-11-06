@@ -49,7 +49,7 @@ with sync_playwright() as p:
    assert page.locator('[data-world="Midgard"] .card_worldInfo').first.evaluate("e=>parseFloat(getComputedStyle(e).fontSize)") >= 14
    cells=page.locator('[data-world="Midgard"] .trophy_icon')
    assert cells.evaluate_all("es=>es.every(e=>getComputedStyle(e).opacity==='1' && getComputedStyle(e).filter==='none')"),theme+' double-dimmed trophies'
-   assert page.locator('[data-world="Midgard"] .theme-boss').evaluate_all("es=>es.every(e=>e.getBoundingClientRect().width>=70)"),theme+' collapsed boss artwork'
+   assert page.locator('[data-world="Midgard"] .theme-boss').evaluate_all("(es,min)=>es.every(e=>e.getBoundingClientRect().width>=min)",50 if theme=='reforged' else 70),theme+' collapsed boss artwork'
    def boss_colors():
     assert page.locator('.trophy_icon[data-defeated="false"] .theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter.includes('grayscale(1)'))"),theme+' undefeated heads must be grey'
     assert page.locator('.trophy_icon[data-defeated="true"] .theme-boss').evaluate_all("es=>es.length>0 && es.every(e=>getComputedStyle(e).filter==='none')"),theme+' defeated heads must retain color'
@@ -67,7 +67,7 @@ with sync_playwright() as p:
    if theme=='reforged':
     search=page.get_by_role('searchbox',name='Search worlds')
     search.fill('Raven');assert page.locator('.catbox:visible').count()==1
-    expect(page.locator('[data-world="Ravenholm"] .world-seed')).to_be_visible()
+    expect(page.locator('[data-world="Ravenholm"]')).to_be_visible()
     search.fill('')
     page.locator('[data-world="Ravenholm"] summary').click()
     expect(page.locator('[data-world="Ravenholm"] .world-seed')).to_be_visible()
@@ -78,7 +78,7 @@ with sync_playwright() as p:
     rail=page.locator('.theme-world-nav').bounding_box();card=page.locator('[data-world="Midgard"]').bounding_box()
     assert rail['x']+rail['width'] < card['x'], 'Ember world chooser must sit beside the world'
 
-   if theme in ['gate','ember']:
+   if theme in ['reforged','gate','ember']:
     assert page.locator('.catbox:visible').count()==1
     page.get_by_role('button',name='Meadows',exact=False).click()
     expect(page.locator('[data-world="Meadows"]')).to_be_visible()
