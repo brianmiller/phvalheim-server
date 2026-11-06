@@ -106,7 +106,7 @@
     if (theme === 'reforged') {
         reforgedNav = make('nav', 'theme-world-nav');
         reforgedNav.setAttribute('aria-label', 'Choose a world');
-        wrapper.before(reforgedNav);
+        wrapper.after(reforgedNav);
         cards.forEach(card => {
             const button = make('button', 'theme-world-choice'); button.type = 'button';
             button.append(make('strong', '', card.dataset.world));

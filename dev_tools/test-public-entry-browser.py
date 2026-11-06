@@ -15,20 +15,34 @@ with sync_playwright() as p:
   page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
   assert page.request.post(f['admin']+'/adminAPI.php?action=saveServerSettings',data={'publicTheme':theme,'loginTheme':theme}).json()['success']
   page.goto(f['public']+'/index.php',wait_until='networkidle')
-  expect(page.locator('.entry-card')).to_be_visible()
-  expect(page.get_by_role('heading',name='Welcome, Viking.')).to_be_visible()
-  if theme=='reforged':
-   assert page.locator('.entry-punctuation').evaluate_all("es=>es.length===2 && es.every(e=>getComputedStyle(e).color==='rgb(255, 54, 207)')")
-   assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor==='rgb(182, 0, 142)' && getComputedStyle(e).boxShadow!=='none'")
+  if theme=='classic':
+   expect(page.locator('.login_header')).to_have_text('Welcome to PhValheim')
+   expect(page.locator('.user-modal-container')).to_be_visible()
+   expect(page.locator('.entry-card')).to_have_count(0)
+   expect(page.locator('link[href*="public-entry.css"],link[href*="public-themes.css"]')).to_have_count(0)
+   expect(page.locator('#steamSignInButton input[type="image"]')).to_be_visible()
+   expect(page.locator('#login')).to_contain_text("Welcome to PhValheim's World Dashboard")
+   page.get_by_role('link',name='About',exact=True).focus();page.keyboard.press('Enter')
+   expect(page.locator('#signup')).to_be_visible();expect(page.locator('#login')).to_be_hidden()
+   expect(page.locator('#signup')).to_contain_text('What is PhValheim?')
+   page.get_by_role('link',name='Sign in',exact=True).click();expect(page.locator('#login')).to_be_visible()
+   assert page.locator('.user-modal-container').evaluate("e=>getComputedStyle(e).outlineColor==='rgb(52, 226, 226)'")
   else:
-   assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor!=='rgb(182, 0, 142)'")
-   assert page.locator('.entry-punctuation').evaluate_all("es=>es.every(e=>getComputedStyle(e).color!=='rgb(255, 54, 207)')")
+   expect(page.locator('.entry-card')).to_be_visible()
+   expect(page.get_by_role('heading',name='Welcome, Viking.')).to_be_visible()
+   expect(page.locator('link[href="/css/login.css"],script[src="/js/login.js"]')).to_have_count(0)
+   if theme=='reforged':
+    assert page.locator('.entry-punctuation').evaluate_all("es=>es.length===2 && es.every(e=>getComputedStyle(e).color==='rgb(255, 54, 207)')")
+    assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor==='rgb(117, 228, 237)' && getComputedStyle(e).color==='rgb(16, 24, 36)'")
+   else:
+    assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor!=='rgb(182, 0, 142)'")
+    assert page.locator('.entry-punctuation').evaluate_all("es=>es.every(e=>getComputedStyle(e).color!=='rgb(255, 54, 207)')")
+   page.locator('.entry-about summary').click();expect(page.get_by_role('link',name='Read the field guide')).to_be_visible()
   expect(page.locator('#authenticated_form')).to_have_attribute('method','post')
-  page.locator('.entry-about summary').click();expect(page.get_by_role('link',name='Read the field guide')).to_be_visible()
   for width in [1440,390,320]:
    page.set_viewport_size({'width':width,'height':900})
    assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
-   assert page.locator('.entry-card').bounding_box()['width']<=461
+   assert page.locator('.user-modal-container' if theme=='classic' else '.entry-card').bounding_box()['width'] <= (601 if theme=='classic' else 461)
    page.screenshot(path=f'/tmp/phv-entry-{theme}-login-{width}.png',full_page=True)
   # Intercept the actual form POST; never sign in to Steam during a fixture test.
   sent=[]
@@ -103,6 +117,13 @@ with sync_playwright() as p:
   expect(page.get_by_role('link',name='All platforms & releases')).to_have_attribute('href','https://github.com/brianmiller/phvalheim-client/releases')
  finally:
   subprocess.run(['docker','exec','-i',f['name'],'sh','-c','cat > '+cache],input=original,check=True)
+ page.close()
+ # Original Classic also renders its Steam form before JavaScript runs.
+ page=b.new_page(java_script_enabled=False)
+ assert page.request.post(f['admin']+'/adminAPI.php?action=saveServerSettings',data={'loginTheme':'classic'}).json()['success']
+ page.goto(f['public']+'/index.php');expect(page.get_by_role('button',name='Sign in through Steam')).to_be_visible()
+ expect(page.locator('#signup')).to_contain_text('What is PhValheim?');expect(page.locator('#signup')).to_be_visible()
+ assert page.request.post(f['admin']+'/adminAPI.php?action=saveServerSettings',data={'loginTheme':'ember'}).json()['success']
  page.close()
  # Login is usable without JavaScript, including About and Steam's native form.
  page=b.new_page(java_script_enabled=False);page.goto(f['public']+'/index.php');expect(page.get_by_role('button',name='Sign in through Steam')).to_be_visible();page.locator('summary').click();expect(page.get_by_role('link',name='Read the field guide')).to_be_visible()

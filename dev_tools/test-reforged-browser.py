@@ -24,6 +24,8 @@ with sync_playwright() as p:
   expect(button).to_have_attribute('aria-pressed','true')
   expect(page.locator('.catbox:visible')).to_have_count(1)
   card=page.locator('[data-world="'+world+'"]');expect(card).to_be_visible()
+  assert card.evaluate("e=>Boolean(e.compareDocumentPosition(document.querySelector('.theme-world-nav')) & Node.DOCUMENT_POSITION_FOLLOWING)"), 'world tiles must follow details in reading order'
+  assert card.evaluate("e=>e.getBoundingClientRect().bottom <= document.querySelector('.theme-world-nav').getBoundingClientRect().top"), 'world tiles must appear below selected details'
   return card
  # This fails on the previous build: world cards had no selection action.
  raven=choose('Ravenholm')
