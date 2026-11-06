@@ -20,6 +20,8 @@
 
 > **Latest: 2.61 — security update for the player portal.** Steam sign-in is now verified with Steam and the public download path serves client payloads only. Please upgrade. [Release notes](https://github.com/brianmiller/phvalheim-server/releases/tag/v2.61)
 
+> **2.62 release candidate:** Remote Access, player themes, personal mod settings, and a redesigned Server Settings page. Test with `theoriginalbrian/phvalheim-server:rc`. [Prerelease notes](https://github.com/brianmiller/phvalheim-server/releases/tag/v2.62)
+
 ## Where would you like to start?
 
 | I'm hosting | I'm playing | I have a mod idea |

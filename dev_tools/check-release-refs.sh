@@ -28,6 +28,13 @@ if [ -z "$version" ]; then
 	exit 1
 fi
 
+# Prereleases use :rc; a numeric Docker tag must continue to mean a stable release.
+channel=${1:-}
+case "$channel" in
+    "") imageTag="$version" ;;
+    --prerelease) imageTag=rc ;;
+    *) echo "usage: $0 [--prerelease]"; exit 2 ;;
+esac
 fail=0
 check() { # label, got, want
 	if [ "$2" = "$3" ]; then echo "PASS  $1"
@@ -44,8 +51,8 @@ check "landing page links the v$version release notes" \
 	"$(grep -c "releases/tag/v$version" "$INDEX")" 1
 check "landing page links no OLDER release notes" \
 	"$(grep -oE 'releases/tag/v[0-9.]+' "$INDEX" | grep -vc "v$version\$")" 0
-check "updating guide uses :$version as its example tag" \
-	"$(grep -c ":$version\`" "$UPDATING")" 1
+check "updating guide uses :$imageTag as its example tag" \
+	"$(grep -c ":$imageTag\`" "$UPDATING")" 1
 check "updating guide has a 'For $version:' note for operators" \
 	"$(grep -c "^\*\*For $version:\*\*" "$UPDATING")" 1
 

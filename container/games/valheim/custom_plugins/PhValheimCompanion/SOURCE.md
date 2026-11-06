@@ -14,5 +14,6 @@ players launch through the website again. Updating a world in an older container
 installing that container's older Companion. Already-running games must be restarted.
 
 Validation: Release build, click-transition tests and built-assembly reachability checks.
-Original unpublicized client-assembly access checks and real Valheim UI behavior remain
-unverified; this revision introduces no new game API calls. PR #7 remains unmerged.
+Brian confirmed the click-only behavior works in Valheim on 2026-11-06. Original
+unpublicized client-assembly access checks remain unverified; this revision introduces
+no new game API calls. PR #7 was merged with Brian's approval for the 2.62 release candidate.
