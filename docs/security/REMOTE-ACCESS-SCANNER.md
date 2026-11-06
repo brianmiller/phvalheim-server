@@ -73,3 +73,41 @@ image, verify their SHA256 values, and run
 control, create a Go module requiring `golang.org/x/net v0.61.0`, compile the
 recorded source, and scan that binary identically. The module-only result is not
 a blanket claim about every x/net consumer or other vulnerabilities.
+
+## zstd decoder panic in Tailscale's compress dependency (2026-11-06)
+
+Docker Scout reports **CVE-2026-116591** (HIGH, [GO-2026-6865](https://pkg.go.dev/vuln/GO-2026-6865),
+[GHSA-fpmh-frq8-7rj8](https://github.com/klauspost/compress/security/advisories/GHSA-fpmh-frq8-7rj8))
+against `github.com/klauspost/compress` 1.20.0, linked into the pinned Tailscale
+1.104.5 binaries. A crafted two-block zstd frame makes the decoder panic; the fix is
+in compress 1.20.2. cloudflared 2026.10.7 already carries 1.20.3.
+
+There is no fixed Tailscale to move to: 1.104.5 is the latest stable release, and
+both its tag and Tailscale's `main` branch pin compress v1.20.0 (checked 2026-11-06).
+
+The assessment is about who can reach the decoder, not about the library being
+patched. In the v1.104.5 source:
+
+- `go list -deps ./cmd/tailscaled ./cmd/tailscale` shows klauspost zstd imported only
+  by `tailscale.com/util/zstdframe` and `tailscale.com/tsweb/compserve`.
+  `control/tsp`, which also decodes zstd, is imported by `cmd/tsp` only and is absent
+  from both shipped binaries.
+- A zstd decoder is used in two places. `controlclient.(*mapSession).decodeMsg`
+  decodes `MapResponse` messages from the coordination server, which arrive over the
+  authenticated ts2021 Noise channel. `compserve.decompressZstd` decodes
+  pre-compressed web-client assets from the filesystem embedded in the binary.
+- Nothing decodes zstd from a Funnel visitor's request or from a tailnet peer.
+
+So the input is controlled by the coordination server the operator enrolled the node
+with, and by Tailscale's own build. A hostile coordination server could crash
+`tailscaled`, which the Remote Access service restarts with a
+backoff; that server can already reconfigure the
+node. The VEX statement is therefore `not_affected` with
+`vulnerable_code_cannot_be_controlled_by_adversary`, for these exact binaries only.
+
+To reproduce: check out `tailscale/tailscale` at `v1.104.5`, run the `go list`
+command above and filter for `klauspost/compress`, then search non-test code for
+`AppendDecode`, `GetDecoder`, `DecodeAll` and `zstd.NewReader`. Reassess when the
+Tailscale pin changes; the checksum check above forces that. Replace the binaries,
+and remove this statement, when a Tailscale release carries compress 1.20.2 or later.
+
