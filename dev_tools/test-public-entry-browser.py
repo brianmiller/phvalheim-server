@@ -42,6 +42,7 @@ with sync_playwright() as p:
   button.press('ArrowDown');expect(panel).to_be_visible()
   panel.get_by_role('link',name='Flatpak').click();expect(page.locator('#flatpakInstallModal')).to_be_visible();expect(panel).to_be_hidden()
   expect(page.locator('#flatpakDownloadBtn')).to_have_attribute('href',__import__('re').compile(r'\.flatpak$'))
+  assert page.locator('#flatpakDownloadBtn').evaluate("e=>getComputedStyle(e).backgroundImage==='none' && getComputedStyle(e).fontFamily.includes('system-ui')")
   page.screenshot(path=f'/tmp/phv-entry-{theme}-flatpak.png',full_page=True)
   expect(page.locator('#flatpakInstallModal')).to_be_focused();page.keyboard.press('Escape');expect(page.locator('#flatpakInstallModal')).to_be_hidden()
   for width in [390,320]:

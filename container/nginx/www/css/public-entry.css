@@ -56,10 +56,12 @@ body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.mac-inst
 
 body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.flatpak-step-title,.flatpak-step-num) { color:var(--entry-accent); border-color:var(--entry-accent); }
 body[data-public-theme] #flatpakInstallModal .flatpak-step { border-color:var(--entry-border); }
-body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.btn,.btn-outline-download) { font:500 13px/1.4 system-ui,sans-serif; border:1px solid var(--entry-border); color:var(--entry-text); background:transparent; box-shadow:none; }
-body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .flatpak-download-btn { color:#101824; background:var(--entry-accent); border-color:var(--entry-accent); }
-body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .btn:hover { border-color:var(--entry-accent); }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.btn,.btn-outline-download) { font:500 13px/1.4 system-ui,sans-serif!important; border:1px solid var(--entry-border)!important; color:var(--entry-text)!important; background:transparent!important; box-shadow:none!important; transform:none!important; }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .flatpak-download-btn { color:#101824!important; background:var(--entry-accent)!important; border-color:var(--entry-accent)!important; }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .btn:hover { border-color:var(--entry-accent)!important; }
 body[data-public-theme] #flatpakInstallModal :is(.flatpak-inline,.flatpak-lead code) { color:var(--entry-accent); }
 
 body.entry-login .entry-brand { color:var(--entry-text); }
 .client-download-panel a.client-download-more { color:var(--entry-accent); }
+body.entry-login .public-footer .social-link { color:var(--entry-accent); background:var(--entry-panel); border-color:var(--entry-border); }
+body.entry-login .public-footer .social-link:hover { border-color:var(--entry-accent); }
