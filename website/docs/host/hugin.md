@@ -36,7 +36,7 @@ the live capability list, and works with no provider configured.
 If your model cannot call tools — some smaller self-hosted models cannot — Hugin answers anyway
 and tells you it could not inspect anything and cannot make changes.
 
-## Provider limits (2.62 development preview)
+## Provider limits
 
 In **Hugin Setup**, edit a provider and open **Limits**. These controls apply to both Hugin
 chat and Hugin’s Vibes. Vibes retains its own project context, response-time, turn-time and

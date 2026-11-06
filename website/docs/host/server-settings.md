@@ -1,7 +1,7 @@
 # Server Settings
 
-!!! info "2.62 development preview"
-    The dedicated settings page is available in the 2.62 development branch. Stable releases still use the Server Settings dialog.
+!!! info "New in 2.62"
+    Releases before 2.62 use the Server Settings dialog instead of this page.
 
 Open **Server Settings** in the admin sidebar. Choose a category on the left, or use the category menu on a phone. **Find a setting** searches across categories, including advanced options.
 

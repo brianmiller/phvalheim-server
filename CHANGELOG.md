@@ -1,9 +1,9 @@
 # Changelog
 
-## v2.62 release candidate (2026-11-06)
+## v2.62 (2026-11-06)
 
 See [release notes](docs/release-notes-2.62.md) for upgrade steps and validation limits.
-This prerelease adds public Remote Access through Tailscale Funnel or Cloudflare,
+This release adds public Remote Access through Tailscale Funnel or Cloudflare,
 independent login/player themes, a dedicated Server Settings page, personal mod
 configuration with Client 2.0.18, and Linux overlay controls. Companion opens its
 dialog only after clicking CONNECT. World updates accept empty mod selections and
@@ -28,9 +28,19 @@ A Vibe's card in the library kept its spinning ring and "turn…" after the turn
 until another job finished or the page was reloaded: the project list was fetched when a turn
 started and never again. The cards now follow the project's own answer and every state poll.
 
-Docker `:rc` carries this candidate; `:latest` and `:2.61` remain stable. The existing
-HIGH Tailscale dependency finding (CVE-2026-116591) remains disclosed in the release
-notes; functional checks passing does not waive the security gate.
+Hugin Setup fetches the current model list from the configured endpoint, with a Refresh
+action and the time of the last successful fetch, instead of reusing a cached list for six
+hours; a failed refresh keeps the saved selection. Each provider has Limits for context and
+response size, compaction, timeouts, concurrent requests and queueing, enforced for both
+Hugin chat and Hugin's Vibes.
+
+Docker `:2.62` and `:latest` carry this release. Docker Scout lists one HIGH finding in the
+bundled Tailscale 1.104.5 binaries (CVE-2026-116591, a zstd decoder panic in
+`klauspost/compress` 1.20.0); no Tailscale release carries the fix yet. It is assessed as not
+reachable by an adversary in this image, because Tailscale decodes zstd only from its own
+coordination server and from assets built into the binary. See
+`docs/security/REMOTE-ACCESS-SCANNER.md`; this is a reachability assessment, not a patched
+library.
 
 ## v2.61 (2026-11-03)
 

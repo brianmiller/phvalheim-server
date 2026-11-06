@@ -2,8 +2,8 @@
   "@context": "https://openvex.dev/ns/v0.2.0",
   "@id": "https://github.com/brianmiller/phvalheim-server/blob/feature/remote-access-262/docs/security/remote-access.vex.json",
   "author": "PhValheim development assessment",
-  "timestamp": "2026-11-04T22:47:00Z",
-  "version": 4,
+  "timestamp": "2026-11-06T19:40:00Z",
+  "version": 5,
   "statements": [
     {
       "vulnerability": {
@@ -75,6 +75,19 @@
       "status": "not_affected",
       "justification": "vulnerable_code_not_present",
       "impact_statement": "For the three SHA256-pinned Linux amd64 binaries listed in remote-access-binaries.sha256 only. Go advisory GO-2026-6860 affects golang.org/x/net/html parsing. govulncheck v1.9.0 binary scans report module metadata only, with no affected html package or symbols in tailscale, tailscaled or cloudflared. A v0.61.0 html.Parse positive-control binary reports the affected package and Parse/ParseWithOptions symbols. Build verification requires all three exact binary checksums before applying this assessment. Evidence: remote-access-html-scan.json; https://pkg.go.dev/vuln/GO-2026-6860"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-116591"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/klauspost/compress@1.20.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "For the SHA256-pinned Tailscale 1.104.5 Linux amd64 binaries listed in remote-access-binaries.sha256 only; cloudflared carries the fixed v1.20.3. GO-2026-6865 is a panic in the zstd decoder (huff0.ReadTable/fse) on a crafted two-block frame. No Tailscale release or its main branch ships compress v1.20.2 as of 2026-11-06. In the v1.104.5 build graph of cmd/tailscaled and cmd/tailscale, klauspost zstd is imported only by util/zstdframe and tsweb/compserve, and a zstd decoder is used in exactly two places: controlclient.(*mapSession).decodeMsg, on MapResponse bytes received from the coordination server over the authenticated ts2021 Noise channel, and compserve.decompressZstd, on asset files embedded in the binary at build time. Funnel visitors and tailnet peers cannot supply zstd input. A coordination server the node is enrolled with could crash tailscaled, which the Remote Access service restarts; that server is already trusted to configure the node. This is a reachability assessment, not a patched library. https://pkg.go.dev/vuln/GO-2026-6865 https://github.com/klauspost/compress/security/advisories/GHSA-fpmh-frq8-7rj8"
     }
   ]
 }

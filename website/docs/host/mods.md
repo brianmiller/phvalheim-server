@@ -55,7 +55,7 @@ for its mod; Server-only edits and resets leave the Client switch unchanged.
 The public **View mods** panel follows your selected theme and works for offline worlds too.
 It shows installation records and selected versions separately, avoiding claims that a
 pending update is already installed. Players can inspect published configuration and save
-personal choices for **Overridable** entries with the updated 2.0.18 draft client.
+personal choices for **Overridable** entries with Client 2.0.18 or newer.
 These choices are stored separately for each Steam account and world; they do not edit
 operator settings or shared archives. Removing access to a world, disabling client delivery,
 or clearing Overridable prevents subsequent personal-setting delivery. Server-only entries

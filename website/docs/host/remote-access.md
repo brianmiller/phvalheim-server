@@ -1,11 +1,11 @@
-# Remote Access (development build)
+# Remote Access
 
-Remote Access is available for testing in the `:dev` image. It connects the player
+Remote Access is built in from 2.62. It connects the player
 website using your own Cloudflare or Tailscale account. It does not open game ports
 or expose the admin interface. Existing player/world permissions still apply.
 
 Cloudflare and Tailscale are **built into the PhValheim container**. Update your
-existing instance to `theoriginalbrian/phvalheim-server:dev`, keeping its existing
+existing instance to 2.62 or later (`theoriginalbrian/phvalheim-server:latest`), keeping its existing
 data volume, environment, and port mappings. Then open **Remote Access** in admin.
 No additional container, volume, published port, TUN device, or Docker capability
 is required. Both clients stay stopped until you choose to connect or sign in.

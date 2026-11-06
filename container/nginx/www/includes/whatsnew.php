@@ -12,6 +12,7 @@
 function whatsNewNotes() {
     return [
         '2.62' => [
+            '<b>Hugin Setup: current model lists and provider limits.</b> The Model step fetches the list from your endpoint, with a Refresh button and the time of the last successful fetch. Each provider has a Limits panel for context and response size, timeouts and concurrent requests; the limits apply to both Hugin and Hugin&rsquo;s Vibes.',
             '<b>Hugin&rsquo;s Vibes stays responsive in long conversations.</b> A session with thousands of events used to take several seconds to open and went blank while it loaded &mdash; again after every turn, build, package and publish. It now opens in a fraction of a second, keeps the conversation on screen while it refreshes, and no longer reloads it when a turn or job finishes. A Vibe&rsquo;s card in the library also stops spinning when its turn ends.',
             '<b>Longer Hugin&rsquo;s Vibes turns.</b> A turn now allows 300 tool rounds and 60 minutes by default, and Settings &rarr; Turn limits accepts up to 10,000 rounds and 24 hours. Saved limits that were an earlier default or preset (40, 100 or 200 rounds; 15 or 30 minutes) move to the new defaults; a limit you typed yourself is kept. When a turn does stop at a limit, Send works straight away &mdash; no page reload before &ldquo;Continue&rdquo;.',
             '<b>Focused Server Settings.</b> Categories, search, visual theme choices and a persistent Save/Discard bar replace the long modal.',

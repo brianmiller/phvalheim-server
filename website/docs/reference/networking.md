@@ -22,14 +22,14 @@ to localhost.
 
 Keep both mounts through container replacement. A backup archive of a world is not a complete server-data backup. On Unraid, [pin appdata to the pool](../start/other-platforms.md#unraid).
 
-## Remote Access development preview
+## Remote Access
 
-The `:dev` image includes built-in clients for Cloudflare Tunnel and
+From 2.62 the image includes built-in clients for Cloudflare Tunnel and
 public Tailscale Funnel. See [Remote Access setup](../host/remote-access.md) for
 guided configuration, live checks, and current limits. Its Game connections tab
 shows each world’s actual UDP pair and explains direct forwarding versus crossplay. No extra container or
 mount is required. Game UDP
-ports remain separate. This preview does not change the stable installation.
+ports remain separate. Nothing connects until you set it up.
 
 ## Public website behind NGINX
 

@@ -8,15 +8,15 @@ PhValheim website address.
 Choose your platform. The client syncs your world's mods and settings, then starts Valheim.
 
 <div class="phv-downloads">
-  <a class="phv-download" data-client-package="windows" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.msi"><img src="../assets/platforms/windows.svg" alt="" width="28" height="28"><span>Windows<small>MSI installer</small></span></a>
-  <a class="phv-download" data-client-package="macos" data-install-dialog="mac-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-macos-universal.pkg"><img src="../assets/platforms/apple.svg" alt="" width="28" height="28"><span>macOS<small>Intel &amp; Apple Silicon</small></span></a>
-  <a class="phv-download" data-client-package="flatpak" data-install-dialog="flatpak-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.flatpak"><img src="../assets/platforms/flatpak.svg" alt="" width="28" height="28"><span>Flatpak<small>Recommended for Linux</small></span></a>
-  <a class="phv-download" data-client-package="deb" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.deb"><img src="../assets/platforms/ubuntu.svg" alt="" width="28" height="28"><span>Ubuntu / Debian<small>DEB package</small></span></a>
-  <a class="phv-download" data-client-package="rpm" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.rpm"><img src="../assets/platforms/fedora.svg" alt="" width="28" height="28"><span>Fedora / RHEL<small>RPM package</small></span></a>
-  <a class="phv-download" data-client-package="linux" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-universal-x86_64.tar.gz"><img src="../assets/platforms/linux.svg" alt="" width="28" height="28"><span>Other Linux<small>Tarball · manual install</small></span></a>
+  <a class="phv-download" data-client-package="windows" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-x86_64.msi"><img src="../assets/platforms/windows.svg" alt="" width="28" height="28"><span>Windows<small>MSI installer</small></span></a>
+  <a class="phv-download" data-client-package="macos" data-install-dialog="mac-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-macos-universal.pkg"><img src="../assets/platforms/apple.svg" alt="" width="28" height="28"><span>macOS<small>Intel &amp; Apple Silicon</small></span></a>
+  <a class="phv-download" data-client-package="flatpak" data-install-dialog="flatpak-install" aria-haspopup="dialog" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-x86_64.flatpak"><img src="../assets/platforms/flatpak.svg" alt="" width="28" height="28"><span>Flatpak<small>Recommended for Linux</small></span></a>
+  <a class="phv-download" data-client-package="deb" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-x86_64.deb"><img src="../assets/platforms/ubuntu.svg" alt="" width="28" height="28"><span>Ubuntu / Debian<small>DEB package</small></span></a>
+  <a class="phv-download" data-client-package="rpm" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-x86_64.rpm"><img src="../assets/platforms/fedora.svg" alt="" width="28" height="28"><span>Fedora / RHEL<small>RPM package</small></span></a>
+  <a class="phv-download" data-client-package="linux" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-universal-x86_64.tar.gz"><img src="../assets/platforms/linux.svg" alt="" width="28" height="28"><span>Other Linux<small>Tarball · manual install</small></span></a>
 </div>
 
-<p class="phv-download-note">Client <span data-client-version>2.0.17</span> · Windows and Linux: x86_64 · <a href="https://github.com/brianmiller/phvalheim-client#installation">All install instructions</a></p>
+<p class="phv-download-note">Client <span data-client-version>2.0.18</span> · Windows and Linux: x86_64 · <a href="https://github.com/brianmiller/phvalheim-client#installation">All install instructions</a></p>
 
 <noscript>macOS and Flatpak: follow the <a href="https://github.com/brianmiller/phvalheim-client#installation">install instructions</a> after downloading.</noscript>
 
@@ -31,7 +31,7 @@ Choose your platform. The client syncs your world's mods and settings, then star
   </ol>
   <div class="phv-command"><code id="mac-command">curl -fsSL https://raw.githubusercontent.com/brianmiller/phvalheim-client/master/macinstall.sh | bash</code><button type="button" data-copy-command="mac-command">Copy command</button></div>
   <p>The installer downloads the latest client and registers world launch links. When it finishes, return to your host's website and launch a world.</p>
-  <p><a href="https://github.com/brianmiller/phvalheim-client#macos">Full macOS guide</a> · <a data-client-package="macos" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-macos-universal.pkg">Download PKG instead</a></p>
+  <p><a href="https://github.com/brianmiller/phvalheim-client#macos">Full macOS guide</a> · <a data-client-package="macos" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-macos-universal.pkg">Download PKG instead</a></p>
   <p class="phv-copy-status" role="status" aria-live="polite"></p>
 </dialog>
 <dialog class="phv-install" id="flatpak-install" aria-labelledby="flatpak-install-title">
@@ -39,10 +39,10 @@ Choose your platform. The client syncs your world's mods and settings, then star
   <h2 id="flatpak-install-title">Install with Flatpak</h2>
   <p>For SteamOS, Bazzite and other Linux desktops with Flatpak installed.</p>
   <ol>
-    <li><a class="md-button md-button--primary" data-client-package="flatpak" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.17/phvalheim-client-2.0.17-x86_64.flatpak">Download the Flatpak</a></li>
+    <li><a class="md-button md-button--primary" data-client-package="flatpak" href="https://github.com/brianmiller/phvalheim-client/releases/download/2.0.18/phvalheim-client-2.0.18-x86_64.flatpak">Download the Flatpak</a></li>
     <li>Open a terminal in your <strong>Downloads</strong> folder and run:</li>
   </ol>
-  <div class="phv-command"><code id="flatpak-command">flatpak install --user ./phvalheim-client-2.0.17-x86_64.flatpak</code><button type="button" data-copy-command="flatpak-command">Copy command</button></div>
+  <div class="phv-command"><code id="flatpak-command">flatpak install --user ./phvalheim-client-2.0.18-x86_64.flatpak</code><button type="button" data-copy-command="flatpak-command">Copy command</button></div>
   <p>Then return to your host's website and launch a world. GNOME and KDE register launch links automatically.</p>
   <details class="note">
     <summary>Using Hyprland, Sway or i3?</summary>
@@ -60,7 +60,7 @@ Choose your platform. The client syncs your world's mods and settings, then star
 2. **Choose your world** and click its launch link. Allow your browser to open PhValheim.
 3. **Let the client sync**, then follow the connection dialog in Valheim.
 
-**2.62 release candidate:** click **CONNECT: &lt;worldname&gt;** at the bottom of
+**From 2.62:** click **CONNECT: &lt;worldname&gt;** at the bottom of
 Valheim's main menu to open the dialog. It stays closed until you click. Hosts must
 update their container and then update the world to deliver this behavior.
 
@@ -75,12 +75,12 @@ settings. The library shows the recorded installed version separately from the o
 selected version, plus descriptions, dependencies and links to the mod authors' pages.
 “Not recorded” means the server has no installation record; it does not mean a mod is absent.
 
-### Personal mod settings (release candidate) {#personal-mod-settings-development-preview}
+### Personal mod settings {#personal-mod-settings-development-preview}
 
 The library's **Configuration** section shows settings the operator has published to players.
 **Customizable** settings can be saved for your Steam account and that world. Choose
-**Save my choice**, then launch again with the updated **2.0.18 prerelease client** to apply it.
-Personal web settings require Client 2.0.18 or newer. Download the [2.0.18 prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.18) for Windows, Linux and macOS testing. Stable download buttons above continue to offer 2.0.17.
+**Save my choice**, then launch again with **Client 2.0.18 or newer** to apply it.
+Personal web settings require Client 2.0.18 or newer; the download buttons above offer it.
 Your game must be restarted to pick up a new choice.
 
 **Use published default** saves the operator's suggested value as your personal choice.

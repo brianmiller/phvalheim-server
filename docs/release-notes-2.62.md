@@ -1,8 +1,8 @@
 # v2.62 — Remote Access, player themes and redesigned settings
 
-**Release candidate.** Use `theoriginalbrian/phvalheim-server:rc` for testing. The stable `latest` and `2.61` images remain unchanged. Client 2.0.18 is also a prerelease; ordinary client download buttons continue to select stable 2.0.17.
+Stable release. `theoriginalbrian/phvalheim-server:latest` and `:2.62` carry it. [Client 2.0.18](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.18) is released alongside; Client 2.0.17 remains the minimum.
 
-The image security gate still reports one existing HIGH finding in Tailscale's `github.com/klauspost/compress` dependency (CVE-2026-116591). Image content checks pass; this is not a clean security-gate result.
+**Security scan.** Docker Scout lists one HIGH finding in the bundled Tailscale 1.104.5 binaries: CVE-2026-116591, a crash in the zstd decoder of `github.com/klauspost/compress` 1.20.0. No Tailscale release carries the fixed library yet. It is assessed as not exploitable in this image: Tailscale decodes zstd only from its own coordination server, over its authenticated control channel, and from asset files built into the binary. Website visitors and tailnet peers cannot supply that input. The worst case, a hostile coordination server, is a restart of the optional Tailscale connector. The finding stays in the raw scan; the [assessment](security/REMOTE-ACCESS-SCANNER.md) is a reachability judgment, not a patched library.
 
 ## Changes
 
@@ -15,6 +15,10 @@ The image security gate still reports one existing HIGH finding in Tailscale's `
 - Simpler Flatpak installation guidance and release-note links that follow the latest release.
 - Correct installation of modded worlds with no selected catalogue mods, accurate failed-update reporting, and automatic recovery of interrupted catalogue sync records without PID-reuse false positives.
 - Quieter analytics status and clearer local library/tool health in Hugin's Vibes.
+- Hugin Setup fetches the current model list from your endpoint, with a Refresh action and
+  the time of the last successful fetch; a failed refresh keeps the saved selection. Each
+  provider has Limits for context and response size, compaction, timeouts, concurrent
+  requests and queueing, applied to both Hugin and Hugin's Vibes.
 - Longer Hugin's Vibes turns: 300 tool rounds and 60 minutes by default, configurable up to
   10,000 rounds and 24 hours. Saved limits equal to an earlier default or preset (40, 100 or
   200 rounds; 15 or 30 minutes) move to the new defaults; other saved limits are kept.
@@ -27,10 +31,10 @@ The image security gate still reports one existing HIGH finding in Tailscale's `
 
 ## Update
 
-1. Pull the `:rc` image and recreate the container with its existing data volume and settings.
+1. Pull `:latest` (or `:2.62`) and recreate the container with its existing data volume and settings.
 2. Update each modded world to install the new Companion and rebuild its client download.
 3. Quit Valheim and launch through the player website again. The main-menu CONNECT entry now opens the dialog.
-4. Install the [Client 2.0.18 prerelease](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.18) to test overlay controls and personal web settings. Redownload/reinstall earlier 2.0.18 Linux candidates.
+4. Install [Client 2.0.18](https://github.com/brianmiller/phvalheim-client/releases/tag/2.0.18) for overlay controls and personal web settings. If you installed a 2.0.18 Linux candidate before November 6, download and install it again.
 
 Updating a world in an old container continues to install the old Companion. No manual database cleanup is needed for interrupted catalogue syncs. Remote Access is configured separately; it is not silently enabled by upgrading.
 
@@ -38,4 +42,4 @@ Updating a world in an old container continues to install the old Companion. No 
 
 Server standalone suites, published-image world-update/HTTP-download checks and UI browser tests passed during development. Brian confirmed the corrected Flatpak overlay toggle on Bazzite Desktop Mode and the click-only Companion dialog in Valheim. These reports do not establish every OS, graphics-driver, Steam packaging or multiplayer scenario. Companion's original unpublicized client-assembly access check remains unavailable; the change introduces no new game API calls.
 
-The remaining dependency finding above is tracked separately from functional validation. This prerelease does not promote the stable image or client release.
+The dependency finding above is assessed separately from functional validation.

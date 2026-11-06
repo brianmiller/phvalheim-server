@@ -24,9 +24,9 @@ Analytics is excluded from Server Health and warning badges; diagnostic records 
 Health reads the Remote Access service’s background observations. Other checks run when the dashboard asks; GitHub and Steam lookups are cached so a dead network costs one short wait every five minutes,
 never one per page load.
 
-## Analytics enrollment in 2.62 development
+## Analytics enrollment
 
-The 2.62 development branch includes authenticated analytics enrollment. When
+From 2.62, analytics uses authenticated enrollment. When
 analytics is enabled, the server enrolls automatically and keeps a private
 credential at `/opt/stateful/analytics/credential.json`. Preserve that file with
 your private server backups; do not copy it into a different installation.
