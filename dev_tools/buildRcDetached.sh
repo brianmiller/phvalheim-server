@@ -121,6 +121,12 @@ echo "=== expecting image version $EXPECT_VER (read from Dockerfile) ==="
 # reinstate the hazard.
 VERIFY_SH=/tmp/phvalheim-rc-verify.sh
 cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
+  v62entryAssets=0
+  if [ -s /opt/stateless/nginx/www/css/public-entry.css ] && [ -s /opt/stateless/nginx/www/js/public-entry.js ]; then v62entryAssets=1; fi
+  v62entryCard=$(grep -c 'class="entry-card"' /opt/stateless/nginx/www/public/index.php)
+  v62entryLegacy=$(grep -c '/js/login.js' /opt/stateless/nginx/www/public/index.php)
+  v62entryPages=$(grep -l 'public-entry.css?v=1' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  echo "2.62 login/downloads: assets=$v62entryAssets card=$v62entryCard legacy=$v62entryLegacy pages=$v62entryPages (want 1/1/0/2)"
   # 2.62 operator presentation: verify the actual assets and policy paths shipped.
   v62themes=$(grep -c "^function phvPublicThemes" /opt/stateless/nginx/www/includes/presentation.php)
   v62themePages=$(grep -l "public-themes.css" /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
@@ -3999,7 +4005,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v59bz=$(for page in admin/index.php admin/hugins_vibes.php public/index.php public/authenticated.php; do grep -qE 'href="https://(brianmiller.github.io/phvalheim-server/|phvalheim.com)"' /opt/stateless/nginx/www/$page && echo yes; done | wc -l)
   v59ca=$(grep -cF "https://github.com/brianmiller/phvalheim-server#backups" /opt/stateless/nginx/www/admin/index.php)
   v59cb=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF "huginSvg('idle field-guide-hugin', 34)")
-  v59cc=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'href="https://phvalheim.com"')
+  v59cc=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep field-guide-link | grep -cF 'href="https://phvalheim.com"')
   v59cd=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'href="https://brianmiller.github.io/phvalheim-server/"')
   v59ce=$(cat /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | grep -cF 'class="social-link field-guide-link"')
   v59cf=$(grep -cF '.public-footer .social-link { width:44px; height:44px; flex:0 0 44px; box-sizing:border-box; padding:0; }' /opt/stateless/nginx/www/css/phvalheimStyles.css)
@@ -4494,6 +4500,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "3" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62remote" = "1" ] \
+    && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "0" ] && [ "$v62entryPages" = "2" ] \
     && echo "IMAGE VERIFY OK" || { echo "IMAGE VERIFY FAILED"; nameTheFailures; }
 PHVVERIFYEOF
 

@@ -707,6 +707,8 @@ function populateTable($pdo,$gameDNS,$phvalheimHost,$steamAPIKey,$backupsToKeep,
 <link rel="stylesheet" href="/css/public-themes.css?v=5">
 <script defer src="/js/public-themes.js?v=4"></script>
 <?php } ?>
+<link rel="stylesheet" href="/css/public-entry.css?v=1">
+<script defer src="/js/public-entry.js?v=1"></script>
 <link rel="stylesheet" href="/css/player-mods.css?v=1">
 <script defer src="/js/player-mods.js?v=1"></script>
 </head>
@@ -729,7 +731,7 @@ if (phvDevSteamID() !== NULL) {
 
                 $(document).ready(function(){
                   // Bootstrap 5 popover initialization
-                  var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+                  var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]:not(.client_download_button_font)'));
                   var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
                     return new bootstrap.Popover(popoverTriggerEl, {
                       sanitize: false,

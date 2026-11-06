@@ -1,0 +1,65 @@
+/* Shared entry and installation surfaces; scoped to avoid changing world layouts. */
+body[data-public-theme] { --entry-panel:#171b2b; --entry-border:#3c4057; --entry-accent:#c4a5ff; --entry-text:#f0f2f8; --entry-muted:#b4bdd0; }
+body[data-public-theme="reforged"],body[data-public-theme="gate"] { --entry-panel:#101e30; --entry-border:#334c65; --entry-accent:#75e4ed; --entry-muted:#b1c2d4; }
+body[data-public-theme="ember"] { --entry-panel:#251c17; --entry-border:#654b37; --entry-accent:#ffc185; --entry-muted:#cdbbaa; }
+body.entry-login { margin:0!important; padding:0!important; min-height:100vh; display:flex; flex-direction:column; background:#0d1220; color:var(--entry-text); font-family:system-ui,sans-serif!important; }
+.entry-login *, .client-download-panel * { box-sizing:border-box; }
+.entry-header { width:100%; max-width:1180px; margin:0 auto; padding:24px 28px; }
+.entry-brand { display:inline-flex; gap:10px; align-items:center; color:var(--entry-text); font-size:22px; font-weight:750; text-decoration:none; }
+.entry-brand > span > span { color:var(--entry-accent); }
+.entry-brand svg { width:36px; height:36px; flex:none; }
+.entry-main { flex:1; display:grid; place-items:center; padding:24px 20px 48px; }
+.entry-card { width:100%; max-width:460px; padding:32px; background:var(--entry-panel); border:1px solid var(--entry-border); border-radius:16px; box-shadow:0 20px 70px #0005; }
+.entry-eyebrow { margin:0 0 12px; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--entry-accent); }
+.entry-card h1 { margin:0 0 14px; font-family:inherit; font-size:30px; line-height:1.2; font-weight:700; color:var(--entry-text); }
+.entry-intro { margin:0 0 26px; font-size:15px; line-height:1.65; color:var(--entry-muted); }
+.entry-card form { margin:0; text-align:center; }
+.entry-card #steamSignInButton { margin:0; }
+.entry-card .entry-steam { display:flex; align-items:center; justify-content:center; gap:16px; width:100%; min-height:48px; padding:12px 20px; border:1px solid var(--entry-accent); border-radius:8px; background:var(--entry-accent); color:#101824; font:600 15px/1.4 system-ui,sans-serif; cursor:pointer; }
+.entry-card .entry-steam:hover { filter:brightness(1.1); }
+.entry-signin-note { margin:12px 0 26px; color:var(--entry-muted); font-size:12px; line-height:1.5; }
+.entry-next { border-top:1px solid var(--entry-border); padding-top:22px; font-size:13px; line-height:1.6; }
+.entry-next strong { color:var(--entry-text); font-size:14px; }
+.entry-next p { margin:6px 0 20px; color:var(--entry-muted); }
+.entry-about { border-top:1px solid var(--entry-border); padding-top:16px; font-size:13px; line-height:1.65; }
+.entry-about summary { color:var(--entry-accent); cursor:pointer; }
+.entry-about p { color:var(--entry-muted); margin:12px 0; }
+.entry-about a { color:var(--entry-accent); }
+.entry-error { color:#ffd4ce; background:#6b292950; border:1px solid #b06e69; padding:12px; border-radius:8px; font-size:14px; line-height:1.5; }
+body.entry-login .public-footer { position:static; margin:0; padding:16px 20px 24px; }
+.entry-login :focus-visible,.client-download-panel :focus-visible { outline:2px solid var(--entry-accent); outline-offset:4px; }
+.client-download-panel { position:fixed; z-index:1080; box-sizing:border-box; overflow:auto; overscroll-behavior:contain; padding:18px; border:1px solid var(--entry-border); border-radius:12px; background:var(--entry-panel); color:var(--entry-text); box-shadow:0 16px 48px #0008; font:14px/1.45 system-ui,sans-serif; text-align:left; }
+.client-download-panel[hidden] { display:none!important; }
+.client-download-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:16px; }
+.client-download-heading strong { font-size:17px; font-weight:650; }
+.client-download-heading p { color:var(--entry-muted); font-size:12px; margin:4px 0 0; }
+.client-download-panel .client-download-close { flex:none; width:28px; height:28px; padding:0; border:0; border-radius:5px; background:transparent; color:var(--entry-muted); font:24px/1 system-ui,sans-serif; cursor:pointer; }
+.client-download-panel .client-release-title { margin:14px 0 7px; color:var(--entry-muted); font-size:11px; letter-spacing:.04em; }
+.client-download-panel .client-package { display:flex; align-items:center; gap:12px; width:100%; padding:11px 10px; margin:0 0 4px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--entry-text); text-decoration:none; text-align:left; font:inherit; cursor:pointer; }
+.client-download-panel .client-package:hover,.client-download-panel .client-package:focus-visible,.client-download-close:hover { background:#ffffff0a; border-color:var(--entry-border); }
+.client-package img { width:28px; height:28px; object-fit:contain; flex:none; }
+.client-package strong { display:block; font-size:14px; font-weight:600; }
+.client-package small { display:block; color:var(--entry-muted); font-size:11px; margin-top:3px; }
+.client-package-arrow { margin-left:auto; color:var(--entry-accent); }
+.client-download-more { display:block; margin-top:12px; padding-top:14px; border-top:1px solid var(--entry-border); font-size:12px; color:var(--entry-accent); text-decoration:none; }
+.client-download-more:hover { color:var(--entry-accent); text-decoration:underline; }
+.client-download-empty { color:var(--entry-muted); }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .modal-content { background:var(--entry-panel)!important; color:var(--entry-text); border:1px solid var(--entry-border); font-family:system-ui,sans-serif; }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.modal-header,.modal-footer) { border-color:var(--entry-border); background:transparent; }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .modal-title { color:var(--entry-text); font-size:20px; }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .modal-body { color:var(--entry-muted); font-size:14px; line-height:1.6; }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) a { color:var(--entry-accent); }
+@media(max-width:540px) { .entry-header { padding:20px; } .entry-main { padding:12px 16px 28px; } .entry-card { padding:26px 22px; } .entry-card h1 { font-size:27px; } }
+
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.mac-install-command,.flatpak-step-number) { color:var(--entry-accent); }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.mac-install-command-wrap,.mac-install-copy-btn) { border-color:var(--entry-border); }
+
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.flatpak-step-title,.flatpak-step-num) { color:var(--entry-accent); border-color:var(--entry-accent); }
+body[data-public-theme] #flatpakInstallModal .flatpak-step { border-color:var(--entry-border); }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) :is(.btn,.btn-outline-download) { font:500 13px/1.4 system-ui,sans-serif; border:1px solid var(--entry-border); color:var(--entry-text); background:transparent; box-shadow:none; }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .flatpak-download-btn { color:#101824; background:var(--entry-accent); border-color:var(--entry-accent); }
+body[data-public-theme] :is(#macInstallModal,#flatpakInstallModal) .btn:hover { border-color:var(--entry-accent); }
+body[data-public-theme] #flatpakInstallModal :is(.flatpak-inline,.flatpak-lead code) { color:var(--entry-accent); }
+
+body.entry-login .entry-brand { color:var(--entry-text); }
+.client-download-panel a.client-download-more { color:var(--entry-accent); }
