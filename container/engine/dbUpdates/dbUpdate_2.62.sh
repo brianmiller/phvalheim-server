@@ -6,7 +6,10 @@ addColumn() {
         sql "ALTER TABLE $1 ADD COLUMN $2 $3;"
     fi
 }
-addColumn settings publicTheme "VARCHAR(16) NOT NULL DEFAULT 'classic'"
+addColumn settings publicTheme "VARCHAR(16) NOT NULL DEFAULT 'reforged'"
+addColumn settings loginTheme "VARCHAR(16) NOT NULL DEFAULT 'reforged'"
+# Update the schema default on existing prerelease databases without rewriting saved choices.
+sql "ALTER TABLE settings ALTER COLUMN publicTheme SET DEFAULT 'reforged';"
 addColumn settings disableSteamOverlay 'TINYINT NOT NULL DEFAULT 0'
 # NULL means inherit the operator default. A world can explicitly enable or disable.
 addColumn worlds disableSteamOverlay 'TINYINT NULL DEFAULT NULL'
