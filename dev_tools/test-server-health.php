@@ -38,7 +38,6 @@ if ($child !== false && $child !== '') { $SRC = $child; }
 define('PHV_HEALTH_STEAM_CACHE', "$TMP/steam.json");
 define('PHV_HEALTH_STEAM_TTL', 6 * 3600);
 define('PHV_HEALTH_STEAM_BACKOFF', 300);
-define('PHV_HEALTH_ANALYTICS_RECORD', "$TMP/analytics.json");
 define('PHV_RELEASE_CACHE_TTL', 3600);
 require $SRC;
 
@@ -170,12 +169,28 @@ echo "\n-- 8. housekeeping and analytics --\n";
 check('nothing recorded: unknown', 'unknown', st(phvHealthRuleHousekeeping(null, null)));
 check('both idle: ok', 'ok', st(phvHealthRuleHousekeeping('idle', 'idle')));
 check('log rotation error: warn naming it', ['warn', true], [st($i = phvHealthRuleHousekeeping('error', 'idle')), str_contains($i['detail'], 'log rotation')]);
-check('analytics off: ok', 'ok', st(phvHealthRuleAnalytics(false, null, $NOW)));
-check('on, never pushed: unknown', 'unknown', st(phvHealthRuleAnalytics(true, null, $NOW)));
-check('on, last push ok: ok', 'ok', st(phvHealthRuleAnalytics(true, ['at' => $NOW - 3600, 'ok' => true, 'http_code' => '200'], $NOW)));
-check('on, last push failed: warn (not fail: nothing depends on it)', 'warn', st(phvHealthRuleAnalytics(true, ['at' => $NOW - 3600, 'ok' => false, 'http_code' => '000'], $NOW)));
-check('the shell record shape pushAnalytics.sh writes is the one read', 'ok',
-	st(phvHealthRuleAnalytics(true, json_decode('{"at":1800000000,"http_code":"200","ok":true}', true), $NOW)));
+$remote = ['success'=>true,'available'=>true,'config'=>['provider'=>'tailscale','enabled'=>true,'revision'=>2],
+    'observed'=>['state'=>'Connected','time'=>$NOW,'details'=>['startedAt'=>$NOW-30]],
+    'test'=>['state'=>'URL verified from this server','revision'=>2,'started'=>$NOW-5,'steps'=>array_fill_keys(['local','provider','dns','tls','route','transfer'], ['state'=>'Passed'])]];
+check('Tailscale fresh six passing checks: ok', 'ok', st(phvHealthRuleRemoteAccess($remote,$NOW)));
+foreach (['tailscale','cloudflare'] as $provider) {
+    $r=$remote; $r['config']['provider']=$provider;
+    check($provider . ' fresh verified website: ok','ok',st(phvHealthRuleRemoteAccess($r,$NOW)));
+    $r['test']['state']='Check failed'; $r['test']['steps']['tls']['state']='Failed';
+    check($provider . ' TLS failure: actionable warning',['warn','remote-access'],array_values(array_intersect_key(phvHealthRuleRemoteAccess($r,$NOW),array_flip(['state','action']))));
+    $r['config']['enabled']=false;
+    check($provider . ' intentional disconnect ignores previous failure','ok',st(phvHealthRuleRemoteAccess($r,$NOW)));
+}
+$r=$remote;$r['config']['provider']='';check('unconfigured: quiet','ok',st(phvHealthRuleRemoteAccess($r,$NOW)));
+check('stopped service: warning','warn',st(phvHealthRuleRemoteAccess(['available'=>false],$NOW)));
+$r=$remote;$r['observed']['time']=$NOW-30;check('stale live status: warning','warn',st(phvHealthRuleRemoteAccess($r,$NOW)));
+$r=$remote;$r['authUrl']='https://login.tailscale.com/a/test';check('approval needed: warning','warn',st(phvHealthRuleRemoteAccess($r,$NOW)));
+$r=$remote;$r['test']['started']=$NOW-301;check('old verification is not healthy','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+$r=$remote;$r['test']['revision']=1;check('old configuration result is not healthy','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+$r=$remote;$r['test']['steps']['route']['state']='Failed';check('partial result is not healthy','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+$r=$remote;$r['test']['state']='Running';check('checking: no alarm','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+$r=$remote;$r['observed']['state']='Connecting';check('brief startup: no alarm','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+$r['observed']['details']['startedAt']=$NOW-121;check('stuck startup: warning','warn',st(phvHealthRuleRemoteAccess($r,$NOW)));
 
 echo "\n-- 8b. recent errors (the event log) --\n";
 check('event log unreadable: unknown', 'unknown', st(phvHealthRuleRecentErrors(null, $NOW)));
@@ -195,13 +210,14 @@ $in = [
 	               'hexium' => ['running' => null, 'last' => ['status' => 'error', 'finished' => $ago(1), 'error' => 'boom']]],
 	'backup' => ['status' => 'idle', 'lastRun' => '', 'mounted' => false, 'perc' => 10],
 	'housekeeping' => ['logRotate' => 'idle', 'utilization' => 'idle'],
-	'analyticsRecord' => null,
+	'analyticsRecord' => ['ok'=>false,'http_code'=>'000'],
+	'remoteAccess' => ['success'=>true,'available'=>true,'config'=>['provider'=>'']],
 	'recentErrors' => ['count' => 0, 'last_t' => null, 'last' => null],
 ];
 $h = phvServerHealth(null, $in);
-check('ten checks, in a fixed order', ['settings', 'steam_key', 'client_downloads', 'data_volume', 'mod_sync_thunderstore', 'mod_sync_hexium', 'backups', 'housekeeping', 'analytics', 'recent_errors'],
+check('eleven checks, in a fixed order', ['settings', 'steam_key', 'client_downloads', 'data_volume', 'mod_sync_thunderstore', 'mod_sync_hexium', 'vibes_library', 'backups', 'housekeeping', 'remote_access', 'recent_errors'],
 	array_column($h['checks'], 'id'));
-check('counts match the states', ['ok' => 9, 'warn' => 0, 'fail' => 1, 'unknown' => 0], $h['counts']);
+check('counts match the states', ['ok' => 10, 'warn' => 0, 'fail' => 1, 'unknown' => 0], $h['counts']);
 check('every check has the same record shape', true,
 	count(array_filter($h['checks'], fn($c) => array_keys($c) !== ['id', 'name', 'state', 'detail', 'action', 'since'])) === 0);
 check('checked_at is the clock it was given', $NOW, $h['checked_at']);
@@ -209,7 +225,24 @@ $in2 = $in; $in2['settings']['steamApiKey'] = ''; $in2['steamProbe'] = null; $in
 $h2 = phvServerHealth(null, $in2);
 check('a missing key, an unwritable volume and no release record: 2 fail + the hexium fail, 1 unknown',
 	['fail' => 3, 'unknown' => 1], ['fail' => $h2['counts']['fail'], 'unknown' => $h2['counts']['unknown']]);
-check('an unknown state is never counted as ok', 6, $h2['counts']['ok']);
+check('an unknown state is never counted as ok', 7, $h2['counts']['ok']);
+
+$withVibes=$in;$withVibes['syncRuns']['vibes']=['last'=>null];
+$withVibes['vibesLibrary']=['state'=>'warn','detail'=>'Harvested references are missing.'];
+$vh=phvServerHealth(null,$withVibes);
+check('Vibes is never a scheduled sync', false, in_array('mod_sync_vibes',array_column($vh['checks'],'id')));
+check('Vibes health reports actual library problem', ['warn','vibes'], array_values(array_intersect_key(array_values(array_filter($vh['checks'],fn($c)=>$c['id']==='vibes_library'))[0],array_flip(['state','action']))));
+foreach (['tailscale','cloudflare'] as $provider) {
+    $r=$remote;$r['config']['provider']=$provider;$r['test']['state']='Running';
+    $r['lastVerified']=['revision'=>$r['config']['revision'],'at'=>$NOW-241];
+    check($provider.' stays healthy during scheduled refresh','ok',st(phvHealthRuleRemoteAccess($r,$NOW)));
+    $r['test']['state']='Check failed';$r['test']['steps']['dns']['state']='Failed';
+    check($provider.' new failure overrides earlier success','warn',st(phvHealthRuleRemoteAccess($r,$NOW)));
+    $r['test']['state']='Running';$r['lastVerified']['revision']=-1;
+    check($provider.' previous configuration cannot stay healthy','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+    $r['lastVerified']['revision']=$r['config']['revision'];$r['lastVerified']['at']=$NOW-301;
+    check($provider.' expired success is not green','unknown',st(phvHealthRuleRemoteAccess($r,$NOW)));
+}
 
 echo "\n-- 10. wiring --\n";
 $pub = file_get_contents("$WWW/public/authenticated.php");
@@ -229,7 +262,9 @@ check('  the log action only opens a plain file name', 1, substr_count($idx, "if
 $sh = file_get_contents(__DIR__ . '/../container/engine/tools/pushAnalytics.sh');
 check('pushAnalytics.sh records its outcome where the check reads it', [1, 1],
 	[substr_count($sh, 'record_file="/opt/stateful/cache/analyticsPush.json"'), substr_count($sh, '"ok":%s')]);
-check('  the record path is the one health.php defines', 1, substr_count(file_get_contents($SRC), "'/opt/stateful/cache/analyticsPush.json'"));
+check('failed analytics is absent from health even when enabled', false, in_array('analytics', array_column(phvServerHealth(null, array_replace_recursive($in, ['settings'=>['analyticsEnabled'=>1]]))['checks'], 'id')));
+check('analytics log messages do not raise warning badges', 0, substr_count($sh, 'phvlog WARN'));
+check('analytics no longer directs operators to Server Health', 0, substr_count($sh, 'see Server Health'));
 
 echo "\n-- mutation controls -- each must break the case it covers --\n";
 $base = scenarios();

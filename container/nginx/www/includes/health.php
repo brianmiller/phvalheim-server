@@ -25,7 +25,7 @@ if (!defined('PHV_HEALTH_DISK_WARN'))     { define('PHV_HEALTH_DISK_WARN', 90); 
 if (!defined('PHV_HEALTH_STEAM_CACHE'))   { define('PHV_HEALTH_STEAM_CACHE', '/opt/stateful/cache/steamKeyCheck.json'); }
 if (!defined('PHV_HEALTH_STEAM_TTL'))     { define('PHV_HEALTH_STEAM_TTL', 6 * 3600); }
 if (!defined('PHV_HEALTH_STEAM_BACKOFF')) { define('PHV_HEALTH_STEAM_BACKOFF', 300); }
-if (!defined('PHV_HEALTH_ANALYTICS_RECORD')) { define('PHV_HEALTH_ANALYTICS_RECORD', '/opt/stateful/cache/analyticsPush.json'); }
+
 // Any id will do: Steam answers 200 with an empty player list for an id it does not know, and
 // 403 for a key it does not accept. Only the HTTP status is read; no player data is kept.
 if (!defined('PHV_HEALTH_STEAM_PROBE_ID')) { define('PHV_HEALTH_STEAM_PROBE_ID', '76561197960265728'); }
@@ -194,21 +194,71 @@ function phvHealthRuleHousekeeping($logRotate, $utilization) {
 	return phvHealthItem('housekeeping', 'Housekeeping tasks', 'ok', 'Log rotation and the utilisation monitor ran without error.');
 }
 
-/* $record: null or ['at' => unixtime, 'ok' => bool, 'http_code' => string], written by pushAnalytics.sh. */
-function phvHealthRuleAnalytics($enabled, $record, $now) {
-	if (!$enabled) {
-		return phvHealthItem('analytics', 'Usage analytics', 'ok', 'Off.');
-	}
-	if (!is_array($record) || !isset($record['ok'])) {
-		return phvHealthItem('analytics', 'Usage analytics', 'unknown', 'On; no push has been recorded yet (runs at startup and daily).');
-	}
-	$at = (int)($record['at'] ?? 0);
-	if (!empty($record['ok'])) {
-		return phvHealthItem('analytics', 'Usage analytics', 'ok', 'Last push succeeded ' . phvHealthAgo($at, $now) . '.');
-	}
-	return phvHealthItem('analytics', 'Usage analytics', 'warn',
-		'The last push failed ' . phvHealthAgo($at, $now) . ' (HTTP ' . ($record['http_code'] ?? '000') . '). Nothing on your server depends on it; it retries daily.',
-		'log:phvalheim.log', $at);
+/* Read-only controller evidence: checking health never connects or launches a transfer. */
+function phvHealthRuleRemoteAccess($remote, $now) {
+    $item = fn($state, $detail, $name = 'Remote Access') => phvHealthItem('remote_access', $name, $state, $detail, 'remote-access');
+    if (!is_array($remote) || empty($remote['success']) || empty($remote['available'])) {
+        return $item('warn', 'The Remote Access service is unavailable. Open Remote Access to check the connection.');
+    }
+    $config = $remote['config'] ?? [];
+    $provider = $config['provider'] ?? '';
+    if (!in_array($provider, ['cloudflare', 'tailscale'], true)) {
+        return $item('ok', 'No website provider configured. Direct connections keep their existing settings.');
+    }
+    $name = $provider === 'tailscale' ? 'Tailscale public website' : 'Cloudflare public website';
+    if (empty($config['enabled']) && empty($remote['enrolling'])) {
+        return $item('ok', 'Disconnected. Website access is off; saved settings are kept.', $name);
+    }
+    $observed = $remote['observed'] ?? [];
+    $at = (int)($observed['time'] ?? 0);
+    if (!$at || $now - $at > 15 || $at > $now + 30) {
+        return $item('warn', 'No fresh provider status is available. Open Remote Access to check the connection.', $name);
+    }
+    if (!empty($remote['authUrl'])) {
+        return $item('warn', 'Provider approval or sign-in is required. Open Remote Access to continue.', $name);
+    }
+    $state = $observed['state'] ?? '';
+    if ($state !== 'Connected') {
+        if (!empty($remote['error'])) {
+            return $item('warn', 'The website connection needs attention. Open Remote Access for the provider error and next step.', $name);
+        }
+        $started = (int)($observed['details']['startedAt'] ?? 0);
+        return $item($started && $now - $started > 120 ? 'warn' : 'unknown',
+            $state === 'Updating hostname' ? 'Waiting for the provider to apply the website name.' : 'Connecting the public website; it has not been verified yet.', $name);
+    }
+    $test = $remote['test'] ?? null;
+    if (!is_array($test) || ($test['revision'] ?? null) !== ($config['revision'] ?? null)) {
+        return $item('unknown', 'Provider connected. Automatic public website verification is starting.', $name);
+    }
+    $testState = $test['state'] ?? '';
+    if ($testState === 'Check failed') {
+        $labels = ['local'=>'Local player website', 'provider'=>'Provider connection', 'dns'=>'Public DNS', 'tls'=>'HTTPS certificate', 'route'=>'Correct website', 'transfer'=>'Transfer'];
+        foreach ($labels as $key => $label) {
+            if (($test['steps'][$key]['state'] ?? '') === 'Failed') {
+                return $item('warn', $label . ' check failed. Open Remote Access for details and retry.', $name);
+            }
+        }
+        return $item('warn', 'Website verification failed. Open Remote Access for details and retry.', $name);
+    }
+    $verified = $remote['lastVerified'] ?? [];
+    $verifiedAt = (int)($verified['at'] ?? 0);
+    if (($verified['revision'] ?? null) === ($config['revision'] ?? null) && $verifiedAt > 0
+        && $verifiedAt <= $now + 30 && $now - $verifiedAt <= 300) {
+        return $item('ok', 'Provider connected; public website verified ' . phvHealthAgo($verifiedAt, $now)
+            . '. Checks refresh automatically' . ($testState === 'Running' ? ' (refreshing now).' : '.'), $name);
+    }
+    if (in_array($testState, ['Running', 'Retrying public website'], true)) {
+        return $item('unknown', 'Provider connected. Public website checks are running or retrying automatically.', $name);
+    }
+    $tested = (int)($test['started'] ?? 0);
+    $passed = $testState === 'URL verified from this server';
+    foreach (['local', 'provider', 'dns', 'tls', 'route', 'transfer'] as $key) {
+        $passed = $passed && ($test['steps'][$key]['state'] ?? '') === 'Passed';
+    }
+    if ($passed && $tested > 0 && $tested <= $now + 30 && $now - $tested <= 300) {
+        return $item('ok', 'Provider connected; all six public website checks passed ' . phvHealthAgo($tested, $now) . '.', $name);
+    }
+    return $item('unknown', 'Provider connected. Public website verification is refreshing automatically.', $name);
 }
 
 /* $r: null (event log unavailable) or ['count' => n, 'last_t' => ts|null, 'last' => ['message','world']|null]. */
@@ -289,7 +339,7 @@ function phvServerHealth($pdo, $in = []) {
 		try {
 			$cols = [];
 			foreach ($pdo->query("DESCRIBE settings") as $r) { $cols[$r['Field']] = true; }
-			$want = array_values(array_filter(['gameDNS', 'basePort', 'steamApiKey', 'backupsToKeep', 'analyticsEnabled', 'modSyncIntervalHours'],
+			$want = array_values(array_filter(['gameDNS', 'basePort', 'steamApiKey', 'backupsToKeep', 'modSyncIntervalHours'],
 				fn($c) => isset($cols[$c])));
 			if ($want) {
 				$row = $pdo->query("SELECT " . implode(', ', $want) . " FROM settings LIMIT 1")->fetch(PDO::FETCH_ASSOC) ?: [];
@@ -331,8 +381,16 @@ function phvServerHealth($pdo, $in = []) {
 	      : (function_exists('modSyncStatus') ? modSyncStatus($pdo) : []);
 	$stale = phvHealthSyncStaleAfter($s['modSyncIntervalHours'] ?? null);
 	foreach ($runs as $src => $run) {
+		if ($src === 'vibes') continue; // Locally published library, never a remote sync.
 		$checks[] = phvHealthRuleModSync($src, $run, $now, $stale);
 	}
+
+	if (!array_key_exists('vibesLibrary', $in)) {
+		if ($pdo) require_once __DIR__ . '/vibes_summary.php';
+		$in['vibesLibrary'] = $pdo ? phvVibesLibrarySummary($pdo) : ['state'=>'ok', 'detail'=>'Not installed.'];
+	}
+	$vibes = $in['vibesLibrary'];
+	$checks[] = phvHealthItem('vibes_library', "Hugin’s Vibes library", $vibes['state'] ?? 'unknown', $vibes['detail'] ?? 'Library status unavailable.', 'vibes');
 
 	if (!array_key_exists('backup', $in)) {
 		$in['backup'] = [
@@ -353,8 +411,12 @@ function phvServerHealth($pdo, $in = []) {
 	}
 	$checks[] = phvHealthRuleHousekeeping($in['housekeeping']['logRotate'] ?? null, $in['housekeeping']['utilization'] ?? null);
 
-	$record = array_key_exists('analyticsRecord', $in) ? $in['analyticsRecord'] : phvHealthReadJson(PHV_HEALTH_ANALYTICS_RECORD);
-	$checks[] = phvHealthRuleAnalytics((int)($s['analyticsEnabled'] ?? 1) === 1, $record, $now);
+	if (!array_key_exists('remoteAccess', $in)) {
+		require_once __DIR__ . '/remote_access.php';
+		$in['remoteAccess'] = phvRemoteControl(['action' => 'status'], 2);
+	}
+	$remote = $in['remoteAccess'];
+	$checks[] = phvHealthRuleRemoteAccess($remote, $now);
 
 	if (!array_key_exists('recentErrors', $in)) {
 		$in['recentErrors'] = null;

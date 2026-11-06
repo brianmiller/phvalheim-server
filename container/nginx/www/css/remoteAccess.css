@@ -1,0 +1,102 @@
+.ra-modal { max-width: 760px; width: min(96vw,760px); }
+.ra-modal .mods-modal-body { max-height: 78vh; overflow-y: auto; overflow-wrap: anywhere; }
+.ra-modal label { display: block; margin-top: .8rem; font-weight: 600; }
+.ra-modal input, .ra-modal select { box-sizing: border-box; width: 100%; padding: .65rem; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border-color,#46536a); border-radius: 5px; }
+.ra-modal button { cursor: pointer; padding: .55rem .8rem; color: var(--text-primary,#e5eefb); background: var(--bg-secondary,#233248); border: 1px solid var(--border-color,#46536a); border-radius: 6px; font: inherit; font-size: .88rem; }
+.ra-modal button:hover:not(:disabled) { border-color: var(--accent-primary,#74cfff); }
+.ra-modal #raConnect, .ra-modal #raSignIn { background: #075b76; border-color: #32bedb; color: #fff; font-weight: 600; }
+.ra-modal .mods-modal-close { background: transparent; border: 0; font-size: 1.5rem; }
+.ra-modal h3 { font-size: 1.1rem; margin: 1.1rem 0 .6rem; }
+.ra-modal a { color: var(--accent-primary,#8ed9ff); }
+.ra-modal a:visited { color: var(--accent-primary,#8ed9ff); }
+.ra-modal button:disabled { opacity: .55; cursor: default; }
+.ra-modal summary { cursor: pointer; font-weight: 600; padding: .7rem 0; }
+.ra-modal details { border-top: 1px solid var(--border-color,#46536a); margin-top: .8rem; }
+.ra-modal li { margin-bottom: .7rem; }
+.ra-modal code, .ra-modal pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ra-modal [hidden] { display: none !important; }
+.ra-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; }
+.ra-status { padding: .75rem; font-weight: 600; background: var(--bg-primary); margin-top: .8rem; }
+.ra-error { color: var(--danger,#f88); }
+.ra-check { display: grid; grid-template-columns: 1fr auto; gap: .3rem .7rem; padding: .6rem 0; border-bottom: 1px solid var(--border-color,#46536a); }
+.ra-check p { grid-column: 1/-1; margin: 0; }
+.ra-modal dl { display: grid; grid-template-columns: minmax(100px,1fr) 2fr; gap: .4rem; }
+.ra-modal dd { margin: 0; }
+.ra-modal :focus-visible { outline: 2px solid var(--accent-primary,#74cfff); outline-offset: 3px; }
+@media(max-width:480px) { .ra-modal dl { grid-template-columns: 1fr; } .ra-modal .mods-modal-body { padding: .8rem; } }
+/* Keep the first decision short; reveal only the selected method and current step. */
+.ra-modal { max-width: 700px; width: min(96vw,700px); max-height: 92vh; display: flex; flex-direction: column; }
+.ra-modal .mods-modal-header { flex-shrink: 0; padding: 18px 24px; }
+.ra-modal .mods-modal-body { padding: 20px 24px; max-height: none; min-height: 0; }
+.ra-modal p { margin: .65rem 0; line-height: 1.5; }
+.ra-modal h3 { margin-top: 0; }
+.ra-tabs { display: flex; gap: 20px; padding: 0 24px; border-bottom: 1px solid var(--border-color,#46536a); }
+.ra-tabs button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; padding: 12px 0; }
+.ra-tabs [aria-selected="true"] { border-bottom-color: var(--accent-primary,#74cfff); color: var(--accent-primary,#74cfff); }
+.ra-muted { color: var(--text-secondary,#aab7ca); font-size: .86rem; }
+.ra-choices { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 20px 0; }
+.ra-choices button { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 10px; padding: 18px 12px; background: var(--bg-primary); }
+.ra-choices button span:last-child { color: var(--text-secondary,#aab7ca); font-size: .8rem; }
+.ra-choice-icon { font-size: 1.6rem; color: var(--accent-primary,#74cfff); line-height: 1; }
+.ra-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.ra-heading #raStepLabel { margin-left: auto; }
+.ra-heading #raBack { background: transparent; padding: 5px 8px; }
+.ra-modal .ra-primary { background: #075b76; border-color: #32bedb; color: white; }
+.ra-steps { padding-left: 22px; margin: 12px 0; }
+.ra-steps li { padding-left: 4px; margin-bottom: 14px; line-height: 1.55; }
+.ra-copy-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border-radius: 6px; background: var(--bg-primary); }
+.ra-note { padding: 10px 12px; border-left: 3px solid var(--accent-primary,#74cfff); background: var(--bg-primary); margin: 14px 0; font-size: .88rem; }
+.ra-world-heading { display: flex; flex-direction: column; gap: 5px; margin: 18px 0; }
+.ra-modal #raMessage:not(:empty), .ra-modal #raNetworkMessage:not(:empty) { padding: 10px 12px; background: var(--bg-primary); border-radius: 5px; margin-bottom: 14px; }
+.ra-modal #raTokenSaved { font-weight: normal; }
+.ra-modal .ra-status { border-radius: 6px; }
+.ra-modal #raChecks { margin: 14px 0; }
+.ra-modal #raSaveOptions summary { font-size: .85rem; font-weight: normal; }
+.ra-modal .ra-built-in { margin-bottom: 0; }
+@media(max-width:540px) {
+ .ra-choices { grid-template-columns: 1fr; gap: 8px; }
+ .ra-choices button { display: grid; grid-template-columns: 30px 1fr; gap: 5px 10px; padding: 12px; }
+ .ra-choice-icon { grid-row: span 2; align-self: center; }
+ .ra-choices button span:last-child { grid-column: 2; }
+ .ra-modal .mods-modal-body { padding: 16px; }
+ .ra-modal .mods-modal-header { padding: 16px; }
+ .ra-tabs { padding: 0 16px; }
+ .ra-copy-row { align-items: flex-start; flex-direction: column; }
+ .ra-heading #raStepLabel { margin-left: 0; }
+}
+
+/* Persistent website status beside Hugin; words and icons carry state as well as colour. */
+.ra-header-connections { display: flex; align-items: center; gap: 6px; }
+.ra-connection-pill { --pill-color: #94a3b8; display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 6px 10px; border: 1px solid color-mix(in srgb, var(--pill-color) 28%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--pill-color) 7%, var(--bg-primary)); color: var(--text-primary); font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; transition: border-color .2s, background .2s; }
+.ra-connection-pill svg { width: 16px; height: 16px; color: var(--pill-color); flex-shrink: 0; }
+.ra-pill-name { font-weight: 600; }
+.ra-pill-state { color: var(--pill-color); }
+.ra-pill-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pill-color); }
+.ra-connection-pill[data-state="live"] { --pill-color: #4ade80; }
+.ra-connection-pill[data-state="warn"] { --pill-color: #fbbf24; }
+.ra-connection-pill[data-state="pending"] { --pill-color: #38d5ee; }
+.ra-connection-pill[data-state="pending"] .ra-pill-dot { animation: ra-status-breathe 1.8s ease-in-out infinite; }
+.ra-connection-pill:hover { border-color: var(--pill-color); background: color-mix(in srgb, var(--pill-color) 14%, var(--bg-primary)); }
+.ra-connection-pill:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 3px; }
+@keyframes ra-status-breathe { 50% { opacity: .35; } }
+@media(prefers-reduced-motion:reduce) { .ra-connection-pill[data-state="pending"] .ra-pill-dot { animation: none; } }
+.admin-header { gap: 12px; flex-wrap: wrap; }
+.admin-header .header-actions { flex-wrap: wrap; margin-left: auto; }
+@media(max-width:1200px) { .admin-header h1 { font-size: 1.15rem; } .admin-header .header-time { display: none; } }
+@media(max-width:650px) { .admin-header .header-actions { width:100%; margin-left:0; gap:8px; } .ra-header-connections { flex:1; } .ra-connection-pill { padding:6px 8px; gap:5px; } .admin-header .live-indicator { display:none; } }
+.vibes-library { border-left: 2px solid #a78bfa; }
+.vibes-library-open { margin-left: auto; color: #c4b5fd; font-size: 12px; }
+.vibes-library-counts { display:flex; flex-wrap:wrap; gap:12px 28px; margin:16px 0 12px; color:var(--text-secondary); }
+.vibes-library-counts b { font-size:20px; font-weight:600; color:var(--text-primary); margin-right:4px; }
+.vibes-library-tools { display:flex; flex-wrap:wrap; gap:8px 24px; font-size:12px; margin-bottom:8px; color:var(--text-secondary); }
+.vibes-library-tools b { color:var(--text-primary); font-weight:500; margin-left:5px; }
+.vibes-library-jobs { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; color:#c4b5fd; font-size:12px; }
+@media(max-width:768px) {
+    .admin-header h1 { padding-left:54px; min-height:52px; display:flex; align-items:center; }
+    .health-row { display:grid !important; grid-template-columns:10px minmax(0,1fr); }
+    .health-row > button { grid-column:2; justify-self:start; }
+    .health-row > div { overflow-wrap:anywhere; }
+    .health-row > div > div:first-child { flex-wrap:wrap; }
+}
+
+.ra-header-connections[hidden], .ra-connection-pill[hidden] { display: none; }

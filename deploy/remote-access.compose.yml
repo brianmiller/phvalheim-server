@@ -1,0 +1,15 @@
+# Optional reference for a NEW instance. Existing deployments only update the image;
+# retain their existing data volume, environment and port mappings.
+services:
+  phvalheim:
+    image: theoriginalbrian/phvalheim-server:dev
+    volumes:
+      - phvalheim-data:/opt/stateful
+    ports:
+      - '8080:8080'
+      # Admin is for your trusted network only; do not forward it on the router.
+      - '8081:8081'
+      - '25000-25010:25000-25010/udp'
+    restart: unless-stopped
+volumes:
+  phvalheim-data:

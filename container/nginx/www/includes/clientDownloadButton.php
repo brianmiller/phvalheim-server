@@ -69,8 +69,30 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
 
 
                                 if($operatingSystem == "Linux"){
+                                        echo "<div class='client_download_os_icon $release'>";
+                                        // Flatpak: the only one of the four that installs on an immutable
+                                        // system (SteamOS, Bazzite), where there is nowhere to put a .deb or
+                                        // a .rpm. Older client tags have no .flatpak to link to.
+                                        //
+                                        // Unlike the other three this one does NOT download on click -- a
+                                        // Flatpak bundle is useless without the install command, and on a bare
+                                        // window manager it is useless without the XDG_DATA_DIRS step too. The
+                                        // click opens the instructions modal, which carries the download button.
+                                        // href and target stay real so ctrl-click and Save Link As still work,
+                                        // and openFlatpakInstall() reads the URL back off this anchor -- the
+                                        // modal is never told a version, so it cannot disagree with the link.
+                                        if (version_compare($release, PHVALHEIM_CLIENT_FIRST_FLATPAK, '>=')) {
+                                                echo "
+                                                        <td class='client_download_cell'>
+                                                                <a class='client_download_os_icon' target='_blank' rel='noopener' onclick='return openFlatpakInstall(this);' href='$downloadBase/phvalheim-client-$release-x86_64.flatpak'>
+                                                                        <img class='client_download_link_colorizer' src='../images/flatpak.svg'>
+                                                                        <p class='versionLabel'>Flatpak</p><small>Recommended</small>
+                                                                </a>
+                                                        </td>
+                                                ";
+                                        }
+
                                         echo "
-                                                <div class='client_download_os_icon $release'>
                                                         <td class='client_download_cell'>
                                                                 <a class='client_download_os_icon' target='_blank' href='$downloadBase/phvalheim-client-$release-universal-x86_64.tar.gz'>
                                                                         <img class='client_download_link_colorizer' src='../images/linux.png'>
@@ -91,27 +113,6 @@ function populateDownloadMenu($operatingSystem,$phValheimClientGitRepo,$clientVe
                                                         </td>
                                         ";
 
-                                        // Flatpak: the only one of the four that installs on an immutable
-                                        // system (SteamOS, Bazzite), where there is nowhere to put a .deb or
-                                        // a .rpm. Older client tags have no .flatpak to link to.
-                                        //
-                                        // Unlike the other three this one does NOT download on click -- a
-                                        // Flatpak bundle is useless without the install command, and on a bare
-                                        // window manager it is useless without the XDG_DATA_DIRS step too. The
-                                        // click opens the instructions modal, which carries the download button.
-                                        // href and target stay real so ctrl-click and Save Link As still work,
-                                        // and openFlatpakInstall() reads the URL back off this anchor -- the
-                                        // modal is never told a version, so it cannot disagree with the link.
-                                        if (version_compare($release, PHVALHEIM_CLIENT_FIRST_FLATPAK, '>=')) {
-                                                echo "
-                                                        <td class='client_download_cell'>
-                                                                <a class='client_download_os_icon' target='_blank' rel='noopener' onclick='return openFlatpakInstall(this);' href='$downloadBase/phvalheim-client-$release-x86_64.flatpak'>
-                                                                        <img class='client_download_link_colorizer' src='../images/flatpak.svg'>
-                                                                        <p class='versionLabel'>Flatpak</p>
-                                                                </a>
-                                                        </td>
-                                                ";
-                                        }
 
                                         echo "
                                                 </div>

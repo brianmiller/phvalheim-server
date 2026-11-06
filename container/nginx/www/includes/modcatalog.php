@@ -680,3 +680,33 @@ function modCacheStats()
     }
     return ['files' => $files, 'bytes' => $bytes, 'dir' => $dir];
 }
+
+/** Public catalogue details, using the recorded installation instead of modsViewer's cache. */
+function publicWorldMods($pdo, $world) {
+    $st = $pdo->prepare("SELECT m.id, m.name, m.owner, m.source, m.package_url AS url,
+        m.is_deprecated, m.categories, wm.is_dep, wm.deploy_server, wm.deploy_client,
+        wm.installed_at, iv.version AS installed_version, pv.version AS pinned_version,
+        COALESCE(pv.version,lv.version) AS selected_version,
+        COALESCE(iv.description,pv.description,lv.description,'') AS description,
+        COALESCE(iv.website_url,pv.website_url,lv.website_url,'') AS website
+        FROM world_mods wm JOIN worlds w ON w.id=wm.world_id
+        JOIN mods m ON m.id=wm.mod_id
+        LEFT JOIN mod_versions iv ON iv.id=wm.installed_version_id AND iv.mod_id=m.id
+        LEFT JOIN mod_versions pv ON pv.id=wm.pin_version_id AND pv.mod_id=m.id
+        LEFT JOIN mod_versions lv ON lv.mod_id=m.id AND lv.source_rank=0
+        WHERE w.name=? ORDER BY m.name,m.owner,m.source");
+    $st->execute([$world]);
+    $mods = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        foreach (['url','website'] as $key) {
+            if (!preg_match('~^https?://[^\s]+$~i', $row[$key] ?? '')) $row[$key] = '';
+        }
+        $row['id'] = (int)$row['id'];
+        $row['categories'] = json_decode($row['categories'] ?? '[]', true) ?: [];
+        $row['installation'] = !$row['installed_at'] ? 'Not recorded'
+            : ($row['installed_version'] === null ? 'Not installed' : 'Installed');
+        unset($row['installed_at']);
+        $mods[] = $row;
+    }
+    return $mods;
+}

@@ -1,4 +1,5 @@
 #!/bin/bash
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixture-analytics.sh" || exit 1
 # Mutation proof for the action guards.
 #
 # test-ai-actions.sh going green proves the happy paths work. It does NOT prove the guards
@@ -28,7 +29,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 echo "Booting $IMAGE..."
-docker run -d --name "$NAME" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
+docker run -d "${PHV_TEST_ANALYTICS_ARGS[@]}" --name "$NAME" -v "$DATA:/opt/stateful" "$IMAGE" >/dev/null || exit 1
 
 for i in $(seq 1 60); do
 	docker exec "$NAME" mysql --skip-column-names -uroot --database=phvalheim \

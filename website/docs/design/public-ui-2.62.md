@@ -239,3 +239,7 @@ Design decisions and implementation tracking belong in the issue. This gallery i
 Created on 4 November 2026 with OpenAI image generation for PhValheim design review. These are illustrative concept images, not screenshots of a running server; landscape art, symbols, and boss representations are not final production assets. Desktop composition is shown here; mobile layouts and accessible interactions need separate design and validation.
 
 All fourteen renderings were revised to restore boss-head progression and the current UI information. Existing filenames, option numbers, and earlier section links are retained; previous artwork remains in Git history. [Image provenance and file inventory](../assets/ui-concepts/2.62/README.md).
+
+## Selected for implementation
+
+Classic Reforged, The Gate and Ember are being implemented as operator-selectable themes alongside Classic, with Classic Reforged as the default for both the login screen and world dashboard. See [the controls and compatibility guide](../host/presentation.md). The images above remain design concepts; they are not screenshots of a released feature.

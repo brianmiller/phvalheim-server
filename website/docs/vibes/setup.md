@@ -24,6 +24,13 @@ Use a model that supports tools and coding. Hosted and self-hosted providers are
 
 The workbench checks the Build Pak, libraries and available disk space. Follow its action buttons when something is missing or needs updating. If preparation fails, read the job's result before retrying.
 
+In the **2.62 development preview**, the admin dashboard’s Hugin’s Vibes library
+card shows project and publication counts, world usage, Build Pak version and the
+last harvested game references. It opens the workshop directly; locally published
+mods do not have a catalogue sync job. Server Health checks that the installed Build
+Pak tools and harvested references are available. A first harvest is setup work,
+not a failed sync, and an uninstalled workshop remains quiet.
+
 Vibes data lives beneath `/opt/stateful/vibes/`. Keep the persistent volume when upgrading PhValheim.
 
 ## Long conversations

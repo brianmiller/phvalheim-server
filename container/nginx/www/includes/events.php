@@ -126,7 +126,7 @@ function phvEventsSummary($pdo) {
 	// Unseen = not acknowledged, PER EVENT (2.58). The 2.56 design was one watermark id in
 	// settings, which could not express "I looked at this world's log" and -- see
 	// phvEventsAck() -- never moved once ids reached four digits.
-	$s = $pdo->prepare("SELECT level, COUNT(*) AS n FROM phv_events WHERE acked = 0 AND level IN ('warn','error') GROUP BY level");
+	$s = $pdo->prepare("SELECT level, COUNT(*) AS n FROM phv_events WHERE acked = 0 AND COALESCE(source, '') <> 'analytics' AND level IN ('warn','error') GROUP BY level");
 	$s->execute();
 	$unseen = ['warn' => 0, 'error' => 0];
 	foreach ($s->fetchAll(PDO::FETCH_ASSOC) as $r) { $unseen[$r['level']] = (int)$r['n']; }
@@ -163,12 +163,12 @@ function phvEventsAck($pdo, $id, $world = null) {
 
 /* Errors in the last hour, for the Server Health check. */
 function phvRecentErrors($pdo, $seconds = 3600) {
-	$s = $pdo->prepare("SELECT COUNT(*) AS n, MAX(ts) AS last_ts FROM phv_events WHERE level = 'error' AND ts >= NOW() - INTERVAL ? SECOND");
+	$s = $pdo->prepare("SELECT COUNT(*) AS n, MAX(ts) AS last_ts FROM phv_events WHERE COALESCE(source, '') <> 'analytics' AND level = 'error' AND ts >= NOW() - INTERVAL ? SECOND");
 	$s->execute([(int)$seconds]);
 	$r = $s->fetch(PDO::FETCH_ASSOC);
 	$last = null;
 	if ((int)$r['n'] > 0) {
-		$l = $pdo->prepare("SELECT message, world FROM phv_events WHERE level = 'error' ORDER BY id DESC LIMIT 1");
+		$l = $pdo->prepare("SELECT message, world FROM phv_events WHERE COALESCE(source, '') <> 'analytics' AND level = 'error' ORDER BY id DESC LIMIT 1");
 		$l->execute(); $last = $l->fetch(PDO::FETCH_ASSOC) ?: null;
 	}
 	return ['count' => (int)$r['n'], 'last_t' => !empty($r['last_ts']) ? strtotime($r['last_ts']) : null, 'last' => $last];

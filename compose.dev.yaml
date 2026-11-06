@@ -13,6 +13,12 @@ services:
       PHVALHEIM_GAME_PORT_END: "${PHV_DEV_GAME_END:-25109}"
     volumes:
       - data:/opt/stateful
+      - type: bind
+        source: ./dev_tools/fixtures/analytics-disabled.sh
+        target: /opt/stateless/engine/tools/pushAnalytics.sh
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:8081/setup.php"]
       interval: 5s

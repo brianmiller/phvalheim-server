@@ -114,6 +114,41 @@ if ($action !== NULL) {
 	}
 }
 
+// Personal configuration credentials only grant reads for one player and world.
+if (in_array($mode, ['getPlayerMods','savePlayerConfig','getPlayerConfig'], true)) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    require_once __DIR__ . '/../includes/player_mods.php';
+    require_once __DIR__ . '/../includes/player_config.php';
+    $player = $mode === 'getPlayerConfig'
+        ? playerConfigTokenPlayer($world, $_SERVER['HTTP_X_PHVALHEIM_PLAYER_CONFIG'] ?? '') : getSessionSteamID();
+    if (!$player) { http_response_code(401); echo json_encode(['error'=>'Sign in and launch again from the world page.']); exit; }
+    if (!$world || !in_array($world, getMyWorlds($pdo, $player), true)) {
+        http_response_code(404); echo json_encode(['error'=>'World not available.']); exit;
+    }
+    try {
+        $viewer = playerModViewer($pdo, $world);
+        if ($mode === 'savePlayerConfig') {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_SESSION['player_config_csrf'])
+                || !hash_equals($_SESSION['player_config_csrf'], $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) {
+                http_response_code(403); echo json_encode(['error'=>'Reopen the viewer before saving.']); exit;
+            }
+            echo json_encode(playerConfigSave($pdo, $world, $player, json_decode(json_encode($jsonIncoming), true), $viewer)); exit;
+        }
+        $personal = playerConfigRead($pdo, $world, $player);
+        $allowed = playerConfigAllowed($viewer);
+        $personal['entries'] = array_values(array_filter($personal['entries'], fn($e) => isset($allowed[playerConfigKey($e)])));
+        if ($mode === 'getPlayerConfig') { echo json_encode(['version'=>1,'entries'=>$personal['entries']]); exit; }
+        $_SESSION['player_config_csrf'] = $_SESSION['player_config_csrf'] ?? bin2hex(random_bytes(32));
+        $viewer['personal'] = $personal; $viewer['csrf'] = $_SESSION['player_config_csrf'];
+        echo json_encode($viewer, JSON_INVALID_UTF8_SUBSTITUTE);
+    } catch (Throwable $e) {
+        http_response_code($e instanceof InvalidArgumentException ? 400 : ($e->getCode()===409 ? 409 : 503));
+        echo json_encode(['error'=>($e instanceof InvalidArgumentException || $e->getCode()===409) ? $e->getMessage() : 'Mod settings are temporarily unavailable. Please retry.']);
+    }
+    exit;
+}
+
 # Get worlds status for a steamID (for AJAX polling)
 if ($mode == "getMyWorldsStatus") {
     header('Content-Type: application/json');

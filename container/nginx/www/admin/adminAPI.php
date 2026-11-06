@@ -34,6 +34,13 @@ header('Content-Type: application/json');
 $action = $_GET['action'] ?? '';
 
 switch($action) {
+    case 'getRemoteNetwork':
+        header('Cache-Control: no-store');
+        require_once __DIR__ . '/../includes/remote_network.php';
+        try { echo json_encode(phvRemoteNetwork($pdo)); }
+        catch (Throwable $e) { http_response_code(503); echo json_encode(['success'=>false,'error'=>'Network settings are unavailable. Retry in a moment.']); }
+        break;
+
     case 'getWorlds':
         getWorldsJson($pdo);
         break;
@@ -376,11 +383,13 @@ switch($action) {
         break;
 
     case 'getModSyncStatus':
+        require_once __DIR__ . '/../includes/vibes_summary.php';
         echo json_encode([
             'success' => true,
             'sources' => array_values(catalogSources($pdo)),
             'stats'   => catalogStats($pdo),
             'runs'    => modSyncStatus($pdo),
+            'vibes'   => phvVibesLibrarySummary($pdo),
             'cache'   => modCacheStats()
         ]);
         break;
@@ -1213,7 +1222,7 @@ function getWorldsJson($pdo) {
             phvLaunchCrossplayFields($pdo, $row['name'], $row['mode'] === 'running');
         $launchString = phvBuildLaunchString($row['name'], $password, $gameDNS, $row['port'],
                                              $phvalheimHost, $httpScheme, $vanilla,
-                                             $lsCrossplay, $lsJoinCode);
+                                             $lsCrossplay, $lsJoinCode, phvWorldOverlay($pdo, $row['name'])['disabled']);
 
         // Shared with the dashboard's PHP render and the public card, so a crossplay world
         // gets a join code rather than a +connect that can never reach a PlayFab server.
@@ -1705,6 +1714,7 @@ function getWorldOptionsJson($pdo, $world) {
         // NULL for a row that predates the column -- default to visible, matching
         // the column default, or the toggle would read as "off" on every old world.
         'passwordPublic' => ($passwordPublic === NULL || $passwordPublic === false) ? 1 : (int)$passwordPublic,
+        'overlay' => phvWorldOverlay($pdo, $world),
         'launchParams'   => getLaunchParams($pdo, $world) ?: ''
     ]);
 }
@@ -1780,6 +1790,9 @@ function validateLaunchParams($params) {
 }
 
 function saveWorldOptionsJson($pdo, $world, $input) {
+    if (array_key_exists('disableSteamOverlay', $input) && !in_array($input['disableSteamOverlay'], [null, 0, 1], true)) {
+        echo json_encode(['success' => false, 'error' => 'Choose inherit, enabled or disabled for Steam overlay.']); return;
+    }
     $vanilla        = isset($input['vanilla'])        ? (int)$input['vanilla']        : 0;
     $crossplay      = isset($input['crossplay'])      ? (int)$input['crossplay']      : 0;
     $listed         = isset($input['listed'])         ? (int)$input['listed']         : 0;
@@ -1835,6 +1848,10 @@ function saveWorldOptionsJson($pdo, $world, $input) {
     setListed($pdo, $world, $listed);
     setPasswordPublic($pdo, $world, $passwordPublic);
     setLaunchParams($pdo, $world, $launchParams);
+    if (array_key_exists('disableSteamOverlay', $input)) {
+        $q = $pdo->prepare('UPDATE worlds SET disableSteamOverlay = ? WHERE name = ?');
+        $q->execute([$input['disableSteamOverlay'], $world]);
+    }
 
     // Switching a modded world to vanilla means ZERO mods. Clear the selection here as
     // well as gating the UI -- otherwise the mods stay in the database, the Mods column
@@ -1843,7 +1860,7 @@ function saveWorldOptionsJson($pdo, $world, $input) {
     // Says where the reminder now lives. The old wording told you a restart was needed and then
     // vanished with the dialog, while the public card had already started advertising the new
     // setting -- so the only lasting evidence pointed the wrong way.
-    $message = 'World options saved. They take effect when the world restarts; until then it is '
+    $message = 'World options saved. Overlay preferences apply on the next client launch. Server launch options take effect when the world restarts; until then it is '
              . 'marked "restart pending" in the Worlds table and players still see its current settings.';
     if ($vanilla && !$wasVanilla) {
         deleteAllWorldMods($pdo, $world);
@@ -2546,6 +2563,9 @@ function getServerSettingsJson($pdo) {
             'timezone' => $settings['timezone'] ?? 'Etc/UTC',
             'setupComplete' => (int)$settings['setupComplete'],
             'migrationNoticeShown' => (int)$settings['migrationNoticeShown'],
+            'publicTheme' => phvPublicTheme($settings['publicTheme'] ?? 'reforged'),
+            'loginTheme' => phvPublicTheme($settings['loginTheme'] ?? 'reforged'),
+            'disableSteamOverlay' => (int)($settings['disableSteamOverlay'] ?? 0),
             'analyticsEnabled' => (int)($settings['analyticsEnabled'] ?? 1),
             // Mod catalogues (2.43). NEITHER key is required: both
             // thunderstore.io/c/valheim/api/v1/package/ and
@@ -2597,6 +2617,14 @@ function getServerSettingsJson($pdo) {
  * Save server settings
  */
 function saveServerSettingsJson($pdo, $input) {
+    foreach (['publicTheme' => 'public UI', 'loginTheme' => 'login screen'] as $field => $label) {
+        if (array_key_exists($field, $input) && (!is_string($input[$field]) || !isset(phvPublicThemes()[$input[$field]]))) {
+            echo json_encode(['success' => false, 'error' => "Choose a valid $label theme."]); return;
+        }
+    }
+    if (array_key_exists('disableSteamOverlay', $input) && !in_array($input['disableSteamOverlay'], [0, 1], true)) {
+        echo json_encode(['success' => false, 'error' => 'Invalid Steam overlay setting.']); return;
+    }
     try { $input = phvManagedSettingsInput($input); }
     catch (RuntimeException $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -2611,6 +2639,9 @@ function saveServerSettingsJson($pdo, $input) {
         'maxLogSize' => 'int',
         'sessionTimeout' => 'int',
         'timezone' => 'string',
+        'publicTheme' => 'string',
+        'loginTheme' => 'string',
+        'disableSteamOverlay' => 'int',
         'analyticsEnabled' => 'int',
         // Mod catalogues (2.43)
         'thunderstoreApiKey' => 'string',
@@ -2645,6 +2676,8 @@ function saveServerSettingsJson($pdo, $input) {
     // the set saves cleanly and then matches nothing in updateApplier, which presents as
     // "automatic updates silently never run" -- so reject it here instead.
     $enumFields = [
+        'publicTheme' => array_keys(phvPublicThemes()),
+        'loginTheme' => array_keys(phvPublicThemes()),
         'autoUpdateScope' => ['game', 'mods', 'both'],
         'autoUpdateOnTimeout' => ['wait', 'force'],
     ];

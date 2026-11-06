@@ -1,0 +1,80 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/brianmiller/phvalheim-server/blob/feature/remote-access-262/docs/security/remote-access.vex.json",
+  "author": "PhValheim development assessment",
+  "timestamp": "2026-11-04T22:47:00Z",
+  "version": 4,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2020-7669"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/u-root/u-root@0.16.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "u-root v0.16.0 includes the archive fixes from upstream PR2344; Go advisory GO-2022-0805 marks versions before v0.9.0 affected. Scout incorrectly compares against 7.0.0. https://github.com/u-root/u-root/pull/2344 https://pkg.go.dev/vuln/GO-2022-0805"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2020-7665"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/u-root/u-root@0.16.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "u-root v0.16.0 includes the archive fixes from upstream PR2344; Go advisory GO-2022-0793 marks versions before v0.9.0 affected. https://github.com/u-root/u-root/pull/2344 https://pkg.go.dev/vuln/GO-2022-0793"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2020-24356"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/github.com/cloudflare/cloudflared@0.0.0-20261030164329-872b241f9487%2Bdirty"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Official Linux amd64 cloudflared 2026.10.7 (SHA256 pinned in Dockerfile). This advisory affects Windows before 2020.8.1. The Go pseudoversion is incorrectly compared to a calendar release version. https://github.com/cloudflare/cloudflared/security/advisories/GHSA-hgwp-4vp4-qmm2"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-109518"
+      },
+      "products": [
+        {
+          "@id": "pkg:deb/ubuntu/apt@2.4.14?os_distro=jammy&os_name=ubuntu&os_version=22.04"
+        },
+        {
+          "@id": "pkg:deb/ubuntu/apt@2.4.15ubuntu0.1?os_distro=jammy&os_name=ubuntu&os_version=22.04"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "inline_mitigations_already_exist",
+      "impact_statement": "PhValheim sets Acquire::Retries to 0 before the first APT build operation and retains that configuration in the delivered image. Ubuntu states exploitation requires a non-zero Acquire::Retries setting. buildRcDetached.sh checks the effective value inside the built image before publishing or applying this assessment. This is a configuration mitigation, not a patched APT package; overriding the setting invalidates this assessment. https://ubuntu.com/security/CVE-2026-109518"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-78661"
+      },
+      "products": [
+        {
+          "@id": "pkg:golang/golang.org/x/net@0.60.0"
+        },
+        {
+          "@id": "pkg:golang/golang.org/x/net@0.61.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "For the three SHA256-pinned Linux amd64 binaries listed in remote-access-binaries.sha256 only. Go advisory GO-2026-6860 affects golang.org/x/net/html parsing. govulncheck v1.9.0 binary scans report module metadata only, with no affected html package or symbols in tailscale, tailscaled or cloudflared. A v0.61.0 html.Parse positive-control binary reports the affected package and Parse/ParseWithOptions symbols. Build verification requires all three exact binary checksums before applying this assessment. Evidence: remote-access-html-scan.json; https://pkg.go.dev/vuln/GO-2026-6860"
+    }
+  ]
+}

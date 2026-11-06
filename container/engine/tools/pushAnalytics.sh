@@ -27,7 +27,7 @@ fi
 # ── Validate UUID ─────────────────────────────────────────────────
 analyticsUUID=$(SQL "SELECT analyticsUUID FROM settings" 2>/dev/null)
 if [ -z "$analyticsUUID" ]; then
-	phvlog WARN "Analytics UUID not found. Has the engine finished starting?"
+	phvlog INFO "Analytics UUID not found. Has the engine finished starting?"
 	exit 1
 fi
 
@@ -196,7 +196,7 @@ for wid in $world_ids; do
 			"$mods_file" > "$work_file"; then
 			mv "$work_file" "$mods_file"
 		else
-			phvlog WARN "analytics: could not add mod $mod_name, skipping"
+			phvlog INFO "analytics: could not add mod $mod_name, skipping"
 		fi
 	done <<< "$wmodrows"
 
@@ -210,7 +210,7 @@ for wid in $world_ids; do
 		"$worlds_file" > "$work_file"; then
 		mv "$work_file" "$worlds_file"
 	else
-		phvlog WARN "analytics: could not add world ${wname:-unknown}, skipping"
+		phvlog INFO "analytics: could not add world ${wname:-unknown}, skipping"
 	fi
 done
 
@@ -273,7 +273,7 @@ payload=$(jq -n \
 	}')
 
 if [ -z "$payload" ]; then
-	phvlog WARN "Failed to build analytics payload"
+	phvlog INFO "Failed to build analytics payload"
 	exit 1
 fi
 
@@ -291,7 +291,7 @@ push_ok=false
 if [ "$transport_status" = "0" ] && [ "$http_code" = "200" ]; then
     push_ok=true
 else
-    phvlog WARN "Analytics upload failed (HTTP $http_code); see Server Health"
+    phvlog INFO "Analytics upload failed (HTTP $http_code); will retry on the next scheduled run"
 fi
 record_file="/opt/stateful/cache/analyticsPush.json"
 mkdir -p "$(dirname "$record_file")" 2>/dev/null

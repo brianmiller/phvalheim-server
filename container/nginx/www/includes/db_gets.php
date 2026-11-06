@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . "/presentation.php";
 
 include '/opt/stateless/nginx/www/includes/config_env_puller.php';
 include '/opt/stateless/nginx/www/includes/phvalheim-frontend-config.php';
@@ -232,11 +233,20 @@ function getDateUpdated($pdo,$world) {
 # what a positional format breaks on. This makes it structural: add a field here and every
 # caller gets it.
 function phvBuildLaunchString($world, $password, $gameDNS, $port, $phvalheimHost,
-                              $httpScheme, $vanilla, $crossplay, $joinCode) {
+                              $httpScheme, $vanilla, $crossplay, $joinCode, $disableSteamOverlay = null) {
         require_once __DIR__ . '/companion.php';
         $refreshToken = phvCompanionToken($world);
+        $personal = '';
+        if (function_exists('getSessionSteamID') && ($player = getSessionSteamID())) {
+            require_once __DIR__ . '/player_config.php';
+            $personal = playerConfigToken($world, $player);
+        }
+        $tail = $disableSteamOverlay !== null || $personal !== ''
+            ? "?$refreshToken?overlay=" . ($disableSteamOverlay ? 'off' : 'on')
+            : ($refreshToken !== '' ? "?$refreshToken" : '');
+        if ($personal !== '') $tail .= "?playerConfig=$personal";
         return base64_encode("launch?$world?$password?$gameDNS?$port?$phvalheimHost"
-                           . "?$httpScheme?$vanilla?$crossplay?$joinCode" . ($refreshToken !== '' ? "?$refreshToken" : ''));
+                           . "?$httpScheme?$vanilla?$crossplay?$joinCode" . $tail);
 }
 
 # The crossplay pair for a world, as the launch string wants them.
@@ -283,7 +293,7 @@ function getLaunchString($pdo,$world,$gameDNS,$phvalheimHost,$httpScheme) {
 
                 return phvBuildLaunchString($world, $password, $gameDNS, $port,
                                             $phvalheimHost, $httpScheme, $vanilla,
-                                            $crossplay, $joinCode);
+                                            $crossplay, $joinCode, phvWorldOverlay($pdo, $world)['disabled']);
 	}
 }
 

@@ -10,6 +10,7 @@ for the setup and disposable integration checks below.
 From the repository root:
 
 ```bash
+chmod 755 dev_tools/fixtures/analytics-disabled.sh
 docker compose -f compose.dev.yaml build
 docker compose -f compose.dev.yaml up -d --wait --wait-timeout 360
 docker compose -f compose.dev.yaml ps
@@ -17,6 +18,8 @@ docker compose -f compose.dev.yaml ps
 
 The image is `phvalheim-contributor:local`, built from this checkout. After changing
 runtime files, repeat **both** build and up commands; source is not bind-mounted.
+Usage analytics is blocked by a read-only test script mounted before startup.
+The contributor Compose stack never enrolls or uploads development telemetry.
 The initial build needs internet access for Ubuntu packages and SteamCMD. Startup
 may synchronize public mod catalogues; no world is created automatically.
 
@@ -57,6 +60,20 @@ exits zero and prints its check totals. The security test requires outbound HTTP
 to Steam to prove a forged assertion is rejected by Steam rather than by a network
 failure. Do not set the source-overlay variables when verifying a built image.
 The CI container job runs these same two suites against an image built from the PR.
+All disposable server launchers mount `dev_tools/fixtures/analytics-disabled.sh`
+read-only over the scheduled analytics sender **before** the engine starts. This
+also protects tests against older images, restart/recreation, and later fixture
+changes that enable analytics in the database. `dev_tools/devUp.sh` applies the
+same block to the local development server. The retained Remote Access browser
+fixture is inspected before use; recreate an older fixture if it lacks the mount.
+Python harnesses use `fixture_analytics.docker_args()`; shell harnesses source
+`fixture-analytics.sh` and pass `"${PHV_TEST_ANALYTICS_ARGS[@]}"` to Docker.
+Use `--mount` (which refuses a missing source), not a post-start SQL setting.
+
+Analytics-specific tests must stub the receiver or run with `--network none`;
+they must never use the production receiver. Do not run fixture tests against
+operator installations. Normal released servers keep their analytics preference.
+
 These suites cover public security and port allocation, not all runtime behavior.
 
 The legacy `run-oracles.sh --container` bucket also includes tests that expect

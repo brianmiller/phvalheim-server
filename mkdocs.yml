@@ -61,9 +61,11 @@ nav:
   - Play:
       - Join a world: play/join.md
   - Run your server:
+      - Server Settings (development): host/server-settings.md
       - Mods and configurations: host/mods.md
       - Vanilla and crossplay: host/vanilla.md
       - Player access: host/access.md
+      - Remote Access (development): host/remote-access.md
       - Backups and restore: host/backups.md
       - Logs and health: host/logs.md
       - Ask Hugin: host/hugin.md

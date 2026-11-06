@@ -161,14 +161,18 @@ oracleSeed() {
 # citizen of two password worlds. It forges a PHP session, so it gets a scratch container of
 # the image under test, never the live one.
 oracleProbeUp() {
+	source "$_ORACLE_REPO/dev_tools/fixture-analytics.sh" || return 1
 	if docker inspect "$ORACLE_PROBE_NAME" >/dev/null 2>&1; then
-		[ "$(docker inspect --format '{{.State.Running}}' "$ORACLE_PROBE_NAME")" = true ] && { ORACLE_PROBE=1; export ORACLE_PROBE; return 0; }
+		if [ "$(docker inspect --format '{{.State.Running}}' "$ORACLE_PROBE_NAME")" = true ]; then
+            docker inspect "$ORACLE_PROBE_NAME" | PYTHONPATH="$_ORACLE_REPO/dev_tools" python3 -c 'import sys,json; from fixture_analytics import assert_isolated; assert_isolated(json.load(sys.stdin)[0])' || return 1
+            ORACLE_PROBE=1; export ORACLE_PROBE; return 0
+        fi
 		docker rm -f "$ORACLE_PROBE_NAME" >/dev/null 2>&1
 	fi
 	[ -n "$ORACLE_IMAGE" ] || { echo "probe: no image known"; return 1; }
 	echo "probe: starting $ORACLE_PROBE_NAME from $ORACLE_IMAGE on :$ORACLE_PROBE_PORT"
 	docker volume rm "${ORACLE_PROBE_NAME}-data" >/dev/null 2>&1
-	docker run -d --name "$ORACLE_PROBE_NAME" -p "$ORACLE_PROBE_PORT:8080" -p "$ORACLE_PROBE_ADMIN_PORT:8081" -v "${ORACLE_PROBE_NAME}-data:/opt/stateful" "$ORACLE_IMAGE" >/dev/null || return 1
+	docker run -d "${PHV_TEST_ANALYTICS_ARGS[@]}" --name "$ORACLE_PROBE_NAME" -p "$ORACLE_PROBE_PORT:8080" -p "$ORACLE_PROBE_ADMIN_PORT:8081" -v "${ORACLE_PROBE_NAME}-data:/opt/stateful" "$ORACLE_IMAGE" >/dev/null || return 1
 	local psql i
 	psql() { docker exec "$ORACLE_PROBE_NAME" mysql -N -uroot phvalheim -e "$1" 2>/dev/null; }
 	# The schema arrives with the engine's migrations; `worlds.vanilla` is a late one.

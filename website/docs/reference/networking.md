@@ -22,6 +22,15 @@ to localhost.
 
 Keep both mounts through container replacement. A backup archive of a world is not a complete server-data backup. On Unraid, [pin appdata to the pool](../start/other-platforms.md#unraid).
 
+## Remote Access development preview
+
+The `:dev` image includes built-in clients for Cloudflare Tunnel and
+public Tailscale Funnel. See [Remote Access setup](../host/remote-access.md) for
+guided configuration, live checks, and current limits. Its Game connections tab
+shows each world’s actual UDP pair and explains direct forwarding versus crossplay. No extra container or
+mount is required. Game UDP
+ports remain separate. This preview does not change the stable installation.
+
 ## Public website behind NGINX
 
 This example terminates HTTPS for the **player website**, forwarding to port 8080. Replace the domain and certificate paths. Adjust the upstream if NGINX runs in a separate container or on a different host.
@@ -51,4 +60,4 @@ server {
 }
 ```
 
-Set PhValheim's public hostname in Server Settings to match. Website HTTPS does not forward the game's UDP connections; configure those separately.
+Open the player website using this public hostname; PhValheim derives website links from the request host. **Game DNS** in Server Settings is the game's connection address and may be different. Website HTTPS does not forward the game's UDP connections; configure those separately.
