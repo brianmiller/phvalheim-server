@@ -24,6 +24,16 @@ if (!defined('VIBES_PAK_FORMATS'))   define('VIBES_PAK_FORMATS', [1]);     // pa
 if (!defined('VIBES_PAK_BASE'))      define('VIBES_PAK_BASE', 'jammy');    // the image's distro codename; a pak must match
 if (!defined('VIBES_PAK_ASSET'))     define('VIBES_PAK_ASSET', 'phvalheim-vibes-buildpak-%s-linux-x64.tar.gz');
 if (!defined('VIBES_SECRET_MASK'))   define('VIBES_SECRET_MASK', "\u{2022}\u{2022}\u{2022}\u{2022}");
+// Turn limits (2.62). One definition: the defaults, the save validation, the runner's clamp and
+// the Settings form all read these, so a raised ceiling cannot be honoured in one and refused
+// in another. Rounds are a work budget, not a clock -- the time limit is the real brake.
+if (!defined('VIBES_ROUNDS_DEFAULT'))  define('VIBES_ROUNDS_DEFAULT', 300);
+if (!defined('VIBES_ROUNDS_MAX'))      define('VIBES_ROUNDS_MAX', 10000);
+if (!defined('VIBES_TURN_S_DEFAULT'))  define('VIBES_TURN_S_DEFAULT', 3600);
+if (!defined('VIBES_TURN_S_MAX'))      define('VIBES_TURN_S_MAX', 86400);
+if (!defined('VIBES_MODEL_S_DEFAULT')) define('VIBES_MODEL_S_DEFAULT', 900);
+if (!defined('VIBES_MODEL_S_MAX'))     define('VIBES_MODEL_S_MAX', 7200);
+if (!defined('VIBES_SETTINGS_SCHEMA')) define('VIBES_SETTINGS_SCHEMA', 2);
 if (!defined('VIBES_JOB_KINDS'))     define('VIBES_JOB_KINDS', ['install', 'uninstall', 'harvest', 'build', 'package', 'publish', 'unpublish', 'turn', 'push', 'pak-update', 'gc', 'import', 'scm-sync', 'publish-hosted']);
 
 /* ------------------------------------------------------------------------------------------
@@ -66,10 +76,10 @@ function vibesLibsManifest() {
 
 function vibesSettingsDefaults() {
 	return [
-		'schema'   => 1,
+		'schema'   => VIBES_SETTINGS_SCHEMA,
 		'author'   => ['namespace' => '', 'display' => '', 'url' => ''],
 		'defaults' => ['template' => 'basic-plugin', 'provider_id' => null, 'model' => '', 'configuration' => 'Release'],
-		'agent'    => ['max_rounds' => 100, 'turn_timeout_s' => 900, 'model_timeout_s' => 900, 'unrestricted_shell' => false,
+		'agent'    => ['max_rounds' => VIBES_ROUNDS_DEFAULT, 'turn_timeout_s' => VIBES_TURN_S_DEFAULT, 'model_timeout_s' => VIBES_MODEL_S_DEFAULT, 'unrestricted_shell' => false,
 		               'context_budget_tokens' => 60000, 'auto_build' => true, 'auto_commit' => true],
 		'libs'     => ['source_world' => '', 'decompile' => true, 'publicize' => true],
 		'buildpak' => ['repo' => 'brianmiller/phvalheim-vibes-buildpak', 'channel' => 'stable',
@@ -107,17 +117,39 @@ function vibesSettingsGet($pdo) {
 		$raw = $pdo->query("SELECT vibesSettings FROM settings LIMIT 1")->fetchColumn();
 		if ($raw !== false && $raw !== null && $raw !== '') $doc = json_decode((string)$raw, true);
 	} catch (Throwable $e) { $doc = null; }
-	return vibesMergeSettings(vibesSettingsDefaults(), is_array($doc) ? $doc : []);
+	return vibesSettingsUpgrade(vibesMergeSettings(vibesSettingsDefaults(), is_array($doc) ? $doc : []), is_array($doc) ? $doc : []);
+}
+
+/**
+ * Carry a document saved by an older release onto the current limits (2.62).
+ *
+ * Every save persists the WHOLE merged document, so an install that ever saved any Vibes
+ * setting has the limits of its day written down, and a raised default alone would reach
+ * nobody but fresh installs. A stored value that is exactly one PhValheim itself supplied --
+ * a past default or a preset -- was never the operator's own number, so it follows the new
+ * default. Anything else is a choice and is left alone, as is every value at or above the new
+ * default. This is done on READ and is idempotent; the next save writes schema 2, after which
+ * 100 rounds is a choice like any other and stays.
+ */
+function vibesSettingsUpgrade($doc, $stored) {
+	if (!$stored || (int)($stored['schema'] ?? 1) >= VIBES_SETTINGS_SCHEMA) return $doc;
+	$stock = ['max_rounds' => [[40, 100, 200], VIBES_ROUNDS_DEFAULT], 'turn_timeout_s' => [[900, 1800], VIBES_TURN_S_DEFAULT]];
+	foreach ($stock as $key => [$old, $new]) {
+		$v = $stored['agent'][$key] ?? null;
+		if (is_numeric($v) && in_array((int)$v, $old, true) && (float)$v == (int)$v) $doc['agent'][$key] = $new;
+	}
+	$doc['schema'] = VIBES_SETTINGS_SCHEMA;
+	return $doc;
 }
 
 /** Persist a full document (already merged). Returns true/false. */
 function vibesSettingsSave($pdo, $doc) {
-	$doc['schema'] = 1;
+	$doc['schema'] = VIBES_SETTINGS_SCHEMA;
 	$s = $pdo->prepare("UPDATE settings SET vibesSettings = ?");
 	return $s->execute([json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
 }
 
-/** Dotted-path read: vibesSetting($doc, 'agent.max_rounds', 100). */
+/** Dotted-path read: vibesSetting($doc, 'agent.max_rounds', VIBES_ROUNDS_DEFAULT). */
 function vibesSetting($doc, $path, $default = null) {
 	$cur = $doc;
 	foreach (explode('.', $path) as $k) {
@@ -169,7 +201,7 @@ function vibesSettingsApplyClient($stored, $incoming) {
 	// Validation of the fields whose wrong values would hurt later rather than now.
 	$ns = (string)vibesSetting($doc, 'author.namespace', '');
 	if ($ns !== '' && !vibesValidNamespace($ns)) $errors[] = 'Author namespace may contain letters, digits and underscores only (it becomes the catalogue owner).';
-	foreach (['agent.max_rounds' => [1, 200], 'agent.turn_timeout_s' => [30, 7200], 'agent.model_timeout_s' => [30, 7200], 'agent.context_budget_tokens' => [4000, 400000], 'assets.max_upload_mb' => [1, 1024], 'advanced.keep_transcripts_days' => [0, 3650]] as $path => [$lo, $hi]) {
+	foreach (['agent.max_rounds' => [1, VIBES_ROUNDS_MAX], 'agent.turn_timeout_s' => [30, VIBES_TURN_S_MAX], 'agent.model_timeout_s' => [30, VIBES_MODEL_S_MAX], 'agent.context_budget_tokens' => [4000, 400000], 'assets.max_upload_mb' => [1, 1024], 'advanced.keep_transcripts_days' => [0, 3650]] as $path => [$lo, $hi]) {
 		$v = vibesSetting($doc, $path);
 		if (!is_numeric($v) || $v < $lo || $v > $hi) $errors[] = "$path must be a number between $lo and $hi.";
 	}

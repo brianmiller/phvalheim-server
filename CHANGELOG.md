@@ -11,6 +11,12 @@ report failures correctly; catalogue syncs recover interrupted runs without trus
 reused process IDs. Pull/recreate the container, update modded worlds, and relaunch
 Valheim to receive the Companion fix.
 
+Hugin's Vibes turns default to 300 tool rounds and 60 minutes (was 100 and 15), and accept up
+to 10,000 rounds and 24 hours. A saved limit equal to an earlier default or preset moves to
+the new default; a limit the operator entered is kept. Send no longer stays disabled, with
+the job indicator spinning, after a turn ends: the page had locked the composer from a state
+poll taken while the turn was still running.
+
 Docker `:rc` carries this candidate; `:latest` and `:2.61` remain stable. The existing
 HIGH Tailscale dependency finding (CVE-2026-116591) remains disclosed in the release
 notes; functional checks passing does not waive the security gate.

@@ -80,7 +80,7 @@ echo $n["github"]["token"], "|", $n["github"]["owner"], "|", $n["agent"]["max_ro
 [$n2, $e2] = vibesSettingsApplyClient($d, ["github" => ["token" => ""]]); echo "[", $n2["github"]["token"], "]\n";
 [$n3, $e3] = vibesSettingsApplyClient($d, ["author" => ["namespace" => "bad name!"]]); echo count($e3), "\n";')
 l1=$(echo "$r" | sed -n 1p); l2=$(echo "$r" | sed -n 2p); l3=$(echo "$r" | sed -n 3p); l4=$(echo "$r" | sed -n 4p); l5=$(echo "$r" | sed -n 5p)
-[ "$l1" = "7|900|ghp_abcdef1234|brianmiller/phvalheim-vibes-buildpak" ] && ok "partial document merges over defaults (7 kept, 900 and the repo filled in)" || bad "settings merge" "got '$l1'"
+[ "$l1" = "7|3600|ghp_abcdef1234|brianmiller/phvalheim-vibes-buildpak" ] && ok "partial document merges over defaults (7 kept, 3600 and the repo filled in)" || bad "settings merge" "got '$l1'"
 case "$l2" in *1234) [ "${l2#????}" = "1234" ] && [ "$l2" != "ghp_abcdef1234" ] && ok "token is masked for the browser ($l2)" || bad "mask shape" "got '$l2'";; *) bad "token masked" "got '$l2'";; esac
 [ "$l3" = "ghp_abcdef1234|someone|9|0" ] && ok "saving the masked token back leaves the real token unchanged; other fields apply" || bad "masked = unchanged" "got '$l3'"
 [ "$l4" = "[]" ] && ok "an empty token clears it" || bad "empty token clears" "got '$l4'"

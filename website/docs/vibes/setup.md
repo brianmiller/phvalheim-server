@@ -37,17 +37,21 @@ Vibes data lives beneath `/opt/stateful/vibes/`. Keep the persistent volume when
 
 The workbench shows token totals and an estimate of context usage. Automatic compaction summarizes earlier context between tool rounds when the configured budget is approached. Put essential project decisions in **Project Notes**, and use a fresh session for a substantially different task.
 
-### Time and tool limits in 2.60
+### Time and tool limits
 
 Open **Turn limits** beside Send, or **Vibes Settings → Turn limits**. Three limits apply to each new turn:
 
-| Control | Default | When to adjust it |
-| --- | --- | --- |
-| Tool rounds per turn | 100 | A longer task needs more model responses and tool actions |
-| Turn time limit | 15 minutes | The overall task needs more time |
-| Model response limit | 15 minutes | A slow model needs more time for one reply, including streaming |
+| Control | Default | Range | When to adjust it |
+| --- | --- | --- | --- |
+| Tool rounds per turn | 300 | 1–10,000 | A longer task needs more model responses and tool actions |
+| Turn time limit | 60 minutes | 30 seconds–24 hours | The overall task needs more time |
+| Model response limit | 15 minutes | 30 seconds–2 hours | A slow model needs more time for one reply, including streaming |
 
-**Standard** fills 100 rounds / 15-minute turn / 15-minute response. **Long task** fills 200 / 30 / 15; **Slow model** fills 100 / 60 / 30. Presets fill editable fields; click **Save limits** to apply them. Saved settings survive upgrades, including an existing 40-round limit. Choose Standard to adopt the new defaults.
+**Standard** fills 300 rounds / 60-minute turn / 15-minute response. **Long task** fills 1,000 / 180 / 15; **Slow model** fills 300 / 240 / 30. Presets fill editable fields; click **Save limits** to apply them.
+
+Higher limits can increase model usage and cost. A model that is going in circles will use every round it is given, so the turn time limit is the one that stops it.
+
+**Upgrading to 2.62.** The defaults before 2.62 were 100 rounds and 15 minutes (40 rounds before 2.60). A saved limit that is exactly an earlier default or preset — 40, 100 or 200 rounds; a 15- or 30-minute turn — moves to the new default. Any other saved number is one you chose and is kept. To return to a lower limit, enter it and click **Save limits**; it is not changed again.
 
 The first limit reached stops the turn. A tool-round limit is **not a timeout**. The result explains which limit was reached; saved project files remain available. Send **Continue** in the same session to resume, or adjust the relevant limit before sending your next message. If the model is repeating an unsuccessful action, give it a narrower instruction instead of simply increasing the limit.
 

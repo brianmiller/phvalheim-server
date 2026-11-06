@@ -18,14 +18,35 @@ $old = ['schema' => 1, 'author' => ['namespace' => 'MyServer', 'display' => 'Bri
         'buildpak' => ['repo' => 'me/pak'], 'github' => ['enabled' => true, 'token' => 'ghp_abcdefgh1234', 'owner' => 'me'], 'legacy_key' => 'kept'];
 $doc = vibesMergeSettings($defaults, $old);
 check('merge: old values win', $doc['author']['namespace'] === 'MyServer' && $doc['agent']['max_rounds'] === 12 && $doc['buildpak']['repo'] === 'me/pak');
-check('merge: missing keys filled from defaults', $doc['author']['url'] === '' && $doc['agent']['turn_timeout_s'] === 900 && $doc['buildpak']['override_url'] === '' && $doc['assets']['max_upload_mb'] === 64);
+check('merge: missing keys filled from defaults', $doc['author']['url'] === '' && $doc['agent']['turn_timeout_s'] === 3600 && $doc['buildpak']['override_url'] === '' && $doc['assets']['max_upload_mb'] === 64);
 check('merge: nested section partially given keeps other defaults', $doc['github']['visibility'] === 'private' && $doc['github']['api'] === 'https://api.github.com' && $doc['github']['token'] === 'ghp_abcdefgh1234');
 check('merge: an unknown key is kept by the merge (the client filter drops it later)', $doc['legacy_key'] === 'kept');
 check('merge: non-array over -> defaults', vibesMergeSettings($defaults, 'junk') === $defaults);
 check('merge: every default section present', !array_diff(array_keys($defaults), array_keys($doc)));
 
-check('new default: 100 rounds with unchanged time limits', $defaults['agent']['max_rounds'] === 100 && $defaults['agent']['turn_timeout_s'] === 900 && $defaults['agent']['model_timeout_s'] === 900);
-check('upgrade: saved 40-round choice retained', vibesMergeSettings($defaults, ['agent' => ['max_rounds' => 40]])['agent']['max_rounds'] === 40);
+check('2.62 default: 300 rounds, 60-minute turn, 15-minute response', $defaults['agent']['max_rounds'] === 300 && $defaults['agent']['turn_timeout_s'] === 3600 && $defaults['agent']['model_timeout_s'] === 900);
+check('merge alone never rewrites a stored value', vibesMergeSettings($defaults, ['agent' => ['max_rounds' => 40]])['agent']['max_rounds'] === 40);
+
+# 1b. Upgrade on read (2.62). Every save persists the whole document, so the old limits are
+# written down on any install that ever saved a setting. The numbers PhValheim itself supplied
+# follow the new default; a number the operator typed does not. $up() is what vibesSettingsGet()
+# does with the stored column.
+$up = fn($stored) => vibesSettingsUpgrade(vibesMergeSettings($defaults, $stored), $stored)['agent'];
+foreach ([40, 100, 200] as $stock) check("upgrade: stock $stock rounds follows the new default", $up(['schema' => 1, 'agent' => ['max_rounds' => $stock]])['max_rounds'] === 300);
+foreach ([1, 7, 39, 60, 150, 199] as $own) check("upgrade: the operator's own $own rounds is kept", $up(['schema' => 1, 'agent' => ['max_rounds' => $own]])['max_rounds'] === $own);
+foreach ([900, 1800] as $stock) check("upgrade: stock {$stock}s turn follows the new default", $up(['schema' => 1, 'agent' => ['turn_timeout_s' => $stock]])['turn_timeout_s'] === 3600);
+foreach ([61, 600, 3600, 7200] as $own) check("upgrade: the operator's own {$own}s turn is kept", $up(['schema' => 1, 'agent' => ['turn_timeout_s' => $own]])['turn_timeout_s'] === $own);
+check('upgrade: the response limit is never touched', $up(['schema' => 1, 'agent' => ['max_rounds' => 100, 'model_timeout_s' => 900]])['model_timeout_s'] === 900);
+check('upgrade: a document with no schema key is an old one', $up(['agent' => ['max_rounds' => 100]])['max_rounds'] === 300);
+check('upgrade: once saved under 2.62, 100 rounds is a choice and stays', $up(['schema' => 2, 'agent' => ['max_rounds' => 100, 'turn_timeout_s' => 900]]) === ['max_rounds' => 100, 'turn_timeout_s' => 900] + $defaults['agent']);
+check('upgrade: no stored document reads as the defaults', vibesSettingsUpgrade($defaults, []) === $defaults);
+check('upgrade: the upgraded document is marked current', vibesSettingsUpgrade(vibesMergeSettings($defaults, ['schema' => 1]), ['schema' => 1])['schema'] === 2);
+check('upgrade: idempotent', $up(['schema' => 1, 'agent' => $up(['schema' => 1, 'agent' => ['max_rounds' => 200, 'turn_timeout_s' => 1800]])])['max_rounds'] === 300);
+foreach (['agent.max_rounds' => [[1, 300, 10000], [0, 10001]], 'agent.turn_timeout_s' => [[30, 86400], [29, 86401]], 'agent.model_timeout_s' => [[30, 7200], [29, 7201]]] as $path => [$good, $refused]) {
+	[$section, $key] = explode('.', $path);
+	foreach ($good as $v)    { [, $errs] = vibesSettingsApplyClient($defaults, [$section => [$key => $v]]); check("limits: $path accepts $v", $errs === []); }
+	foreach ($refused as $v) { [, $errs] = vibesSettingsApplyClient($defaults, [$section => [$key => $v]]); check("limits: $path refuses $v", count($errs) === 1 && str_contains($errs[0], $path)); }
+}
 
 # 2. Masking for the client
 $client = vibesSettingsForClient($doc);
