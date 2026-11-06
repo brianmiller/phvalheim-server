@@ -100,6 +100,8 @@ if(!getenv('LIMITS_QUICK')) {
 check('shared provider response limit governs Vibes',$r['stop_reason']==='model_timeout' && $elapsed>=4.8 && $elapsed<8);
 $request=json_decode(file_get_contents($http.'/request-1.json'),true);
 check('shared provider output limit governs Vibes',$request['generationConfig']['maxOutputTokens']===777);
+check('queue timeout is not misreported as operator Stop',str_contains(forgeStopMessage('queue_timeout',10,900,120),'waiting for a provider slot'));
+check('response timeout explains provider limit',str_contains(forgeStopMessage('model_timeout',10,900,120),'Hugin Setup'));
 check('legacy settings get response default',vibesMergeSettings(vibesSettingsDefaults(),['agent'=>['max_rounds'=>7]])['agent']['model_timeout_s']===900);
 foreach([29,7201,'invalid'] as $bad){[, $errors]=vibesSettingsApplyClient(vibesSettingsDefaults(),['agent'=>['model_timeout_s'=>$bad]]);check('invalid response limit rejected: '.$bad,count($errors)===1);}
 foreach([30,7200] as $value){[, $errors]=vibesSettingsApplyClient(vibesSettingsDefaults(),['agent'=>['model_timeout_s'=>$value]]);check('response boundary accepted: '.$value,$errors===[]);}

@@ -228,7 +228,8 @@ function forgeStopMessage($reason, $rounds, $turnSeconds, $modelSeconds) {
     switch ($reason) {
         case 'round_limit': return 'Stopped after '.$rounds.' tool rounds; this was not a timeout. Increase Tool rounds per turn for longer tasks.'.$saved.$settings;
         case 'turn_timeout': return 'Stopped at the turn time limit of '.$turnSeconds.' seconds.'.$saved.$settings;
-        case 'model_timeout': return 'Stopped because one model response exceeded '.$modelSeconds.' seconds. Increase Model response limit for slower models, and allow enough Turn time.'.$saved.$settings;
+        case 'model_timeout': return 'Stopped because one model response exceeded '.$modelSeconds.' seconds. Check the provider timeout in Hugin Setup and the Model response limit in Vibes Settings; the lower limit applies.'.$saved.$settings;
+        case 'queue_timeout': return 'Timed out waiting for a provider slot. Check Queue timeout and Concurrent model requests in Hugin Setup.'.$saved;
         default: return 'Stopped by the operator.'.$saved;
     }
 }

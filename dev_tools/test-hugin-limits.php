@@ -19,6 +19,7 @@ check($summaryCalls===1,'summarized long history');
 check($out[1]===$msg[2] && $out[2]===$msg[3] && $out[3]===$msg[4],'latest task and whole opaque tool exchange preserved');
 check(aiEstimateContext($out,'system')+1000<=10000,'result fits');
 check(in_array('memory',array_column($events,'type')),'summary persists to chat history');
+try {aiFitContext($p,$msg,'system',[],1000,fn()=>['success'=>false,'stop_reason'=>'model_timeout','error'=>'timed out']);throw new Exception('lost interruption');}catch(AiCallInterrupted $e){check($e->reason==='model_timeout','summary preserves timeout classification');}
 $small=[['role'=>'user','content'=>'short']];check(aiFitContext($p,$small,'system',[],1000,$summary)===$small,'small control retained');
 try{aiFitContext($p,[['role'=>'user','content'=>str_repeat('X',30000)]],'system',[],1000,$summary);throw new Exception('oversize newest task accepted');}catch(RuntimeException $e){check(str_contains($e->getMessage(),'exceed'),'oversize latest request refused');}
 // Different compaction thresholds change behavior before overflow.

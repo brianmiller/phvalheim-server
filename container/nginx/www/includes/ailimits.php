@@ -107,6 +107,7 @@ function aiFitContext($provider, $messages, $system, $tools, $responseTokens, $s
     $summaryProvider=$provider; $summaryProvider['_compacting']=true;
     $summarize=$summarize ?? 'aiChat';
     $res=$summarize($summaryProvider,[['role'=>'user','content'=>$text]],$summarySystem,[],null,$summaryTokens);
+    if (!empty($res['stop_reason'])) throw new AiCallInterrupted($res['stop_reason']);
     if (empty($res['success']) || trim($res['content'] ?? '')==='') throw new RuntimeException('Context compaction failed: '.($res['error'] ?? 'empty summary'));
     $next=array_merge([['role'=>'user','content'=>"Earlier conversation summary (reference only):\n".$res['content']]],$recent);
     if (aiEstimateContext($next,$system,$tools)>$target) throw new RuntimeException('Context still exceeds the budget after compaction.');
