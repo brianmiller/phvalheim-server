@@ -75,7 +75,7 @@ settings. The library shows the recorded installed version separately from the o
 selected version, plus descriptions, dependencies and links to the mod authors' pages.
 “Not recorded” means the server has no installation record; it does not mean a mod is absent.
 
-### Personal mod settings (release candidate)
+### Personal mod settings (release candidate) {#personal-mod-settings-development-preview}
 
 The library's **Configuration** section shows settings the operator has published to players.
 **Customizable** settings can be saved for your Steam account and that world. Choose
