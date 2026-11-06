@@ -179,6 +179,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62turnUnlock=$(grep -cF 'showJob(S.project.openJob || null)' /opt/stateless/nginx/www/js/vibes.js)
   v62turnStale=$(grep -cF 'showJob(S.project.openJob || Vibes.jobs.openFor' /opt/stateless/nginx/www/js/vibes.js)
   v62turnWatchdog=$(grep -cF 'Vibes.vibeTab.reconcile(S.state)' /opt/stateless/nginx/www/js/vibes.js)
+  # Vibes long conversations: history is replayed without a layout per event (the old measuring
+  # line must be gone), the pane is swapped by its latest caller only, and a finished turn or
+  # job keeps the conversation on screen.
+  v62replayLive=$(grep -cF 'if (live) { scrollEnd(); forgeScroll(); }' /opt/stateless/nginx/www/js/vibes.js)
+  v62replayMeasure=$(grep -cF 'if (f.scrollHeight - f.scrollTop - f.clientHeight < 180) f.scrollTop = f.scrollHeight' /opt/stateless/nginx/www/js/vibes.js)
+  v62replayOwner=$(grep -cF 'if (gen !== openGen) return;' /opt/stateless/nginx/www/js/vibes.js)
+  v62replayKeep=$(grep -cF 'opts.keepSession && keep && Vibes.vibeTab.isAttached(keep.id)' /opt/stateless/nginx/www/js/vibes.js)
+  echo "2.62 Vibes long conversations: live-only scroll=$v62replayLive per-event measure=$v62replayMeasure single owner=$v62replayOwner keep session=$v62replayKeep (want 1/0/1/1)"
   echo "2.62 Vibes turn limits: default=$v62turnDefault ceiling=$v62turnCeiling upgrade=$v62turnUpgrade form=$v62turnForm (want 1/1/1/1); composer unlock=$v62turnUnlock stale lock=$v62turnStale watchdog=$v62turnWatchdog (want 1/0/1)"
   v62presentationMigration=$(grep -c '^addColumn ' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
   v62presentationAssets=0
@@ -4556,6 +4564,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "5" ] && [ "$v62huginLimits" = "3" ] && [ "$v62huginMigration" = "1" ] && [ "$v62presentationAssets" = "1" ] \
     && [ "$v62turnDefault" = "1" ] && [ "$v62turnCeiling" = "1" ] && [ "$v62turnUpgrade" = "1" ] && [ "$v62turnForm" = "1" ] && [ "$v62turnUnlock" = "1" ] && [ "$v62turnStale" = "0" ] && [ "$v62turnWatchdog" = "1" ] \
+    && [ "$v62replayLive" = "1" ] && [ "$v62replayMeasure" = "0" ] && [ "$v62replayOwner" = "1" ] && [ "$v62replayKeep" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && [ "$v62emptyGuard" = "0" ] && [ "$v62emptyPlan" = "1" ] && [ "$v62failedOperations" = "3" ] \
     && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "1" ] && [ "$v62entryPages" = "2" ] \

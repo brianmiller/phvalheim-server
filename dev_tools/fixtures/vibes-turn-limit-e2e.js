@@ -45,6 +45,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       if (!r.url().includes('action=state')) return;
       try { if (((await r.json()).jobs || []).some(j => j.kind === 'turn' && j.project_id === project.id)) pollsThatSawTheTurn++; } catch (e) { /* navigation */ }
     });
+    let transcriptRequests = 0;
+    page.on('request', r => { if (r.url().includes('action=transcript')) transcriptRequests++; });
     await page.goto(base + '/hugins_vibes.php');
     await page.waitForFunction(() => document.body.dataset.vbReady === '1');
     await page.evaluate(id => Vibes.workspace.select(id), project.id);
@@ -86,6 +88,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     fixture('mode', 'finish'); fixture('delay_ms', 200);
     await page.locator('#vbComposerText').fill('Continue');
     let sent = false;
+    const transcriptRequestsBeforeTurn = transcriptRequests;
     try { await page.locator('#vbComposerSend').click({ timeout: 5000 }); sent = true; } catch (e) { /* a disabled button cannot be clicked */ }
     check('Send accepts a click after the limit', sent);
     let finished = false;
@@ -94,6 +97,40 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await sleep(2500);
     c = await composer();
     check('after the follow-up: composer usable, status no longer says stopped', usable(c) && !c.live.includes('Continue'), JSON.stringify(c));
+    // The live stream drew the turn; fetching and rebuilding the whole conversation when it ends
+    // is what blanked the chat after every turn.
+    check('a finished turn does not re-request the transcript', finished && transcriptRequests === transcriptRequestsBeforeTurn, (transcriptRequests - transcriptRequestsBeforeTurn) + ' request(s)');
+
+    // ---- 3b. A long conversation opens quickly and is never shown empty --------------------
+    // Reported on a 3,845-event session: 5.7 seconds to open, 4.6 of them in 2,935 layouts,
+    // because a scroll position was read after every replayed event. Layout COUNT is the oracle,
+    // not a duration: it does not depend on how fast the machine running this is.
+    const events = Number(dex(['sh', '-c', 'cat /opt/stateful/vibes/projects/' + project.slug + '/.vibes/sessions/*.jsonl | wc -l']));
+    check('STIMULUS: the session on screen is a long one', events > 1000, events + ' events');
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Performance.enable');
+    const layoutCount = async () => (await cdp.send('Performance.getMetrics')).metrics.find(m => m.name === 'LayoutCount').value;
+    const nodesBefore = await page.evaluate(() => document.querySelectorAll('#vbTranscript *, #vbForgeList *').length);
+    const layoutsBefore = await layoutCount();
+    await page.evaluate(() => Vibes.vibeTab.openSession(Vibes.S.session));
+    const layouts = (await layoutCount()) - layoutsBefore;
+    const nodesAfter = await page.evaluate(() => document.querySelectorAll('#vbTranscript *, #vbForgeList *').length);
+    check('STIMULUS: reopening rebuilt the whole conversation', nodesAfter > 1000 && Math.abs(nodesAfter - nodesBefore) < 20, nodesBefore + ' nodes live, ' + nodesAfter + ' after reopening');
+    check('reopening it lays the page out a handful of times, not once per event', layouts < 50, layouts + ' layouts for ' + events + ' events');
+    // Slow the transcript down so an emptied pane would be on screen long enough to be painted.
+    const slowTranscript = url => url.href.includes('action=transcript');
+    await page.route(slowTranscript, async r => { await sleep(700); await r.continue(); });
+    const fewestBubbles = await page.evaluate(async () => {
+      const t = document.getElementById('vbTranscript'); let fewest = Infinity, frames = 0, on = true;
+      const tick = () => { fewest = Math.min(fewest, t.children.length); frames++; if (on) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+      await Vibes.vibeTab.openSession(Vibes.S.session);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      on = false; return { fewest, frames };
+    });
+    await page.unroute(slowTranscript);
+    check('STIMULUS: frames were painted while the transcript was on its way', fewestBubbles.frames > 10, fewestBubbles.frames + ' frames');
+    check('the chat is never painted empty while a session reloads', fewestBubbles.fewest > 0, 'fewest children in any frame: ' + fewestBubbles.fewest);
 
     // ---- 4. A turn whose end the page never hears about still unlocks ----------------------
     // The stream is the only messenger of `done`. Cut it (a dropped connection, a slept laptop)
