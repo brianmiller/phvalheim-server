@@ -15,6 +15,11 @@ The image security gate still reports one existing HIGH finding in Tailscale's `
 - Simpler Flatpak installation guidance and release-note links that follow the latest release.
 - Correct installation of modded worlds with no selected catalogue mods, accurate failed-update reporting, and automatic recovery of interrupted catalogue sync records without PID-reuse false positives.
 - Quieter analytics status and clearer local library/tool health in Hugin's Vibes.
+- Longer Hugin's Vibes turns: 300 tool rounds and 60 minutes by default, configurable up to
+  10,000 rounds and 24 hours. Saved limits equal to an earlier default or preset (40, 100 or
+  200 rounds; 15 or 30 minutes) move to the new defaults; other saved limits are kept.
+- After a turn stops at a limit, Send works without reloading the page. The same fix covers
+  any turn longer than about 20 seconds, and a turn whose live connection dropped.
 
 ## Update
 

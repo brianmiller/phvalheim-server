@@ -37,7 +37,7 @@ function check(name, condition) { if (!condition) throw new Error(name); console
     const copy = await page.locator('form[data-stab="limits"]').innerText();
     check('help distinguishes rounds and time and explains continuation', copy.includes('Continue') && copy.includes('between tools') && copy.includes('next turn'));
     const beforePreset = await page.evaluate(async () => (await Vibes.api('settings')).settings.agent);
-    for (const [preset, values] of Object.entries({ standard: ['100', '15', '15'], long: ['200', '30', '15'], slow: ['100', '60', '30'] })) {
+    for (const [preset, values] of Object.entries({ standard: ['300', '60', '15'], long: ['1000', '180', '15'], slow: ['300', '240', '30'] })) {
       await page.locator('[data-limit-preset="' + preset + '"]').click();
       check(preset + ' preset fills all three controls', JSON.stringify(await Promise.all(['max_rounds', 'turn_timeout_s', 'model_timeout_s'].map(k => field(k).inputValue()))) === JSON.stringify(values));
     }
@@ -46,7 +46,7 @@ function check(name, condition) { if (!condition) throw new Error(name); console
     const presetSaved = page.waitForResponse(r => r.url().includes('action=saveSettings'));
     await page.locator('form[data-stab="limits"] button[type="submit"]').click(); await presetSaved;
     const standard = await page.evaluate(async () => (await Vibes.api('settings')).settings.agent);
-    check('Standard saves 100 rounds and 15-minute limits as seconds', standard.max_rounds === 100 && standard.turn_timeout_s === 900 && standard.model_timeout_s === 900);
+    check('Standard saves 300 rounds, a 60-minute turn and a 15-minute response as seconds', standard.max_rounds === 300 && standard.turn_timeout_s === 3600 && standard.model_timeout_s === 900);
     check('saving limits preserves other agent settings', Object.keys(prior).filter(k => !['max_rounds', 'turn_timeout_s', 'model_timeout_s'].includes(k)).every(k => standard[k] === prior[k]));
     await field('turn_timeout_s').fill('1'); await field('model_timeout_s').fill('2');
     check('shorter turn limit explained', (await page.locator('#vbLimitsSummary').textContent()).includes('turn limit is shorter'));

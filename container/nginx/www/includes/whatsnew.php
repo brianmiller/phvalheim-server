@@ -12,6 +12,7 @@
 function whatsNewNotes() {
     return [
         '2.62' => [
+            '<b>Longer Hugin&rsquo;s Vibes turns.</b> A turn now allows 300 tool rounds and 60 minutes by default, and Settings &rarr; Turn limits accepts up to 10,000 rounds and 24 hours. Saved limits that were an earlier default or preset (40, 100 or 200 rounds; 15 or 30 minutes) move to the new defaults; a limit you typed yourself is kept. When a turn does stop at a limit, Send works straight away &mdash; no page reload before &ldquo;Continue&rdquo;.',
             '<b>Focused Server Settings.</b> Categories, search, visual theme choices and a persistent Save/Discard bar replace the long modal.',
             '<b>Personal mod settings.</b> Players can browse their world&rsquo;s mods and save allowed personal settings from View mods. Applying web choices requires Client 2.0.18 or newer; forced operator settings remain enforced.',
             '<b>Reliable world and catalogue updates.</b> Modded worlds with no selected catalogue mods install normally, failed updates report failure, and interrupted catalogue syncs recover even if another process reuses the old PID.',

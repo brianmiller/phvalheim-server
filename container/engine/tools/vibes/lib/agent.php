@@ -256,9 +256,9 @@ function forgeTurn(PDO $pdo, array $session, array $project, $userText, HvEmitte
 	$pdo->prepare("UPDATE hv_sessions SET status='running', title = IF(title = '', ?, title) WHERE id = ?")
 	    ->execute([vibesSubstr(preg_replace('/\s+/', ' ', $userText), 0, 120), (int)$session['id']]);
 
-	$maxRounds = max(1, min(200, (int)vibesSetting($doc, 'agent.max_rounds', 100)));
-	$turnSeconds = max(30, min(7200, (int)vibesSetting($doc, 'agent.turn_timeout_s', 900)));
-	$modelSeconds = max(30, min(7200, (int)vibesSetting($doc, 'agent.model_timeout_s', 900)));
+	$maxRounds = max(1, min(VIBES_ROUNDS_MAX, (int)vibesSetting($doc, 'agent.max_rounds', VIBES_ROUNDS_DEFAULT)));
+	$turnSeconds = max(30, min(VIBES_TURN_S_MAX, (int)vibesSetting($doc, 'agent.turn_timeout_s', VIBES_TURN_S_DEFAULT)));
+	$modelSeconds = max(30, min(VIBES_MODEL_S_MAX, (int)vibesSetting($doc, 'agent.model_timeout_s', VIBES_MODEL_S_DEFAULT)));
 	if (isset($provider['runtime_limits'])) $modelSeconds=min($modelSeconds,aiLimits($provider)['request_timeout_s']);
 	$deadline = microtime(true) + $turnSeconds;
 	$provider['_deadline'] = $deadline;

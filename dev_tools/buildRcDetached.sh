@@ -169,6 +169,17 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62huginLimits=$(grep -cE '^function ai(ValidateLimits|AcquireSlot|FitContext)' /opt/stateless/nginx/www/includes/ailimits.php)
   v62huginMigration=$(grep -cF 'addColumn ai_providers runtime_limits' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
   echo "2.62 Hugin Setup: limits=$v62huginLimits migration=$v62huginMigration (want 3/1)"
+  # Vibes turn limits: 300 by default, a 10,000 ceiling the runner honours too, and old stock
+  # values carried forward. The composer locks from the project's fresh answer only -- the stale
+  # line must be GONE, not merely joined by the new one.
+  v62turnDefault=$(grep -cF "define('VIBES_ROUNDS_DEFAULT', 300)" /opt/stateless/nginx/www/includes/vibes.php)
+  v62turnCeiling=$(grep -cF 'min(VIBES_ROUNDS_MAX,' /opt/stateless/engine/tools/vibes/lib/agent.php)
+  v62turnUpgrade=$(grep -c '^function vibesSettingsUpgrade' /opt/stateless/nginx/www/includes/vibes.php)
+  v62turnForm=$(grep -cF 'max="<?= VIBES_ROUNDS_MAX ?>"' /opt/stateless/nginx/www/admin/hugins_vibes.php)
+  v62turnUnlock=$(grep -cF 'showJob(S.project.openJob || null)' /opt/stateless/nginx/www/js/vibes.js)
+  v62turnStale=$(grep -cF 'showJob(S.project.openJob || Vibes.jobs.openFor' /opt/stateless/nginx/www/js/vibes.js)
+  v62turnWatchdog=$(grep -cF 'Vibes.vibeTab.reconcile(S.state)' /opt/stateless/nginx/www/js/vibes.js)
+  echo "2.62 Vibes turn limits: default=$v62turnDefault ceiling=$v62turnCeiling upgrade=$v62turnUpgrade form=$v62turnForm (want 1/1/1/1); composer unlock=$v62turnUnlock stale lock=$v62turnStale watchdog=$v62turnWatchdog (want 1/0/1)"
   v62presentationMigration=$(grep -c '^addColumn ' /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh)
   v62presentationAssets=0
   if [ -x /opt/stateless/engine/dbUpdates/dbUpdate_2.62.sh ] && [ -s /opt/stateless/nginx/www/images/themes/bosses.png ] && [ -s /opt/stateless/nginx/www/images/themes/gate.png ] && [ -s /opt/stateless/nginx/www/images/themes/ember.png ] && [ -s /opt/stateless/nginx/www/images/themes/hugin.svg ] && [ -s /opt/stateless/nginx/www/js/public-themes.js ]; then v62presentationAssets=1; fi
@@ -242,10 +253,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v60portui=$(grep -c 's.gamePortRange?.enabled' /opt/stateless/nginx/www/admin/index.php)
   echo "2.60 managed UDP range: bounded allocator=$v60ports (want 1) engine guard=$v60portengine (want 1) managed settings UI=$v60portui (want 2)"
   echo "2.60 cURL timeout precision: classified boundary=$v60p (want 1)"
-  v60m=$(grep -c "'max_rounds' => 100" /opt/stateless/nginx/www/includes/vibes.php)
+  v60m=$(grep -c "'max_rounds' => VIBES_ROUNDS_DEFAULT" /opt/stateless/nginx/www/includes/vibes.php)
   v60n=$(grep -c 'data-stab="limits"' /opt/stateless/nginx/www/admin/hugins_vibes.php)
   v60o=$(grep -c 'data-type="minutes"' /opt/stateless/nginx/www/admin/hugins_vibes.php)
-  echo "2.60 limits defaults/UI: 100-round default=$v60m (want 1) dedicated panel=$v60n (want 2) minute fields=$v60o (want 2)"
+  echo "2.60 limits defaults/UI: named round default=$v60m (want 1) dedicated panel=$v60n (want 2) minute fields=$v60o (want 2)"
   v60i=$(grep -c "function aiChatHttp" /opt/stateless/nginx/www/includes/aiproviders.php)
   v60j=$(grep -c "agent.model_timeout_s" /opt/stateless/nginx/www/admin/hugins_vibes.php)
   v60k=$(grep -c "define.*AI_HTTP_TIMEOUT" /opt/stateless/engine/tools/vibes/vibes.php || true)
@@ -4060,7 +4071,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.59 SCM first push: current branch=$v59bx (want 1)  hardcoded main=$v59by (want 0)"
   echo "2.59 catalogue toggles: cached source rows=$v59bu (want 2)  rebuild-time filter=$v59bv (want 0)  saved button state=$v59bw (want 2)"
   echo "2.59 workbench recovery: refresh token=$v59bk (want 1)  endpoint auth=$v59bl (want 1)  round compaction=$v59bm (want 1)  hosted upload=$v59bn (want 1)  SCM import=$v59bo (want 1)  SCM sync=$v59bp (want 1)  unpublish toggle=$v59bq (want 1)  scroll-back=$v59br (want 1)  publishing settings=$v59bs (want 2)  ZIP endpoint=$v59bt (want 1)"
-  echo "2.59 Hugin's Vibes: sidebar link=$v59aa (want 1)  first under Tools=$v59ab (want 1)  catalogue source=$v59ac (want 1)  gate column read=$v59ad (want 1)  pill css=$v59ae (want 1)  nav dot css=$v59af (want 1)  hv tables=$v59ag (want 3)  settings cols=$v59ah (want 4)  migration +x=$v59ai (want 1)  runner subcommands=$v59aj (want 16)  libs=$v59ak (want 13)  knowledge=$v59al (want 11)  template files=$v59am (want 8)  file:// seam=$v59an (want 1)  page->js=$v59ao (want 3)  initial state=$v59ap (want 1)  api guards=$v59aq (want 13)  sse no-buffer=$v59ar (want 2)  innerHTML assigns=$v59as (want 0)  agent own http=$v59at (want 0)  agent aiChat=$v59au (want 1)  core functions=$v59av (want 46)  boot mkdir=$v59aw (want 1)  whatsnew=$v59ax (want 1)  nginx body size=$v59ay (want 1)  php upload=$v59az (want 1)  git/dotnet/node in image=$v59ba (want 0)  tool path safety=$v59bb (want 3)  #94 strict delta guard=$v59bc (want 1)  #94 empty() guard=$v59bd (want 0)  backups from table=$v59be (want 1)  db-is-record rule=$v59bf (want 1)  backup dir glob=$v59bg (want 0)  pak pick fn=$v59bh (want 1)  pakInfo 502=$v59bi (want 0)  last-attempt line=$v59bj (want 1)"
+  echo "2.59 Hugin's Vibes: sidebar link=$v59aa (want 1)  first under Tools=$v59ab (want 1)  catalogue source=$v59ac (want 1)  gate column read=$v59ad (want 1)  pill css=$v59ae (want 1)  nav dot css=$v59af (want 1)  hv tables=$v59ag (want 3)  settings cols=$v59ah (want 4)  migration +x=$v59ai (want 1)  runner subcommands=$v59aj (want 16)  libs=$v59ak (want 13)  knowledge=$v59al (want 11)  template files=$v59am (want 8)  file:// seam=$v59an (want 1)  page->js=$v59ao (want 3)  initial state=$v59ap (want 1)  api guards=$v59aq (want 13)  sse no-buffer=$v59ar (want 2)  innerHTML assigns=$v59as (want 0)  agent own http=$v59at (want 0)  agent aiChat=$v59au (want 1)  core functions=$v59av (want 47)  boot mkdir=$v59aw (want 1)  whatsnew=$v59ax (want 1)  nginx body size=$v59ay (want 1)  php upload=$v59az (want 1)  git/dotnet/node in image=$v59ba (want 0)  tool path safety=$v59bb (want 3)  #94 strict delta guard=$v59bc (want 1)  #94 empty() guard=$v59bd (want 0)  backups from table=$v59be (want 1)  db-is-record rule=$v59bf (want 1)  backup dir glob=$v59bg (want 0)  pak pick fn=$v59bh (want 1)  pakInfo 502=$v59bi (want 0)  last-attempt line=$v59bj (want 1)"
   echo "2.58 seven items: hugin seam=$v58cb (want 1)  per-event ack=$v58cc (want 1)  acked column=$v58cd (want 1)  world-log ack=$v58ce (want 1)  update modal=$v58cf (want 1)  delete modal=$v58cg (want 1)  old confirm=$v58ch (want 0)  autoupdate BETA=$v58ci (want 0)  pill says players=$v58cj (want 2)  updates tab vanilla=$v58ck (want 1)  switch dropped=$v58cl (want 1)  monitor switch=$v58cm (want 0)  watermark cast=$v58cn (want 1)  per-world BETA=$v58co (want 0)"
   echo "2.58 versions + pill + supervisor: clean_version=$v58bq (want 3)  checker norm=$v58br (want 1)  migration repair=$v58bs (want 1)  default on=$v58bt (want 0, switch retired)  php pill running-only=$v58bu (want 1)  js pill running-only=$v58bv (want 1)  program name+port=$v58bw (want 1)  startWorld 2-arg=$v58bx (want 1)  start self-heal=$v58by (want 1)"
   echo "2.58 row consolidation: PLAYERS item=$v58at (want 0)  UPDATE item=$v58au (want 0)  PHP pill count=$v58av (want 1)  PHP settings badge=$v58aw (want 2)  JS pill count=$v58ax (want 1)  JS settings badge=$v58ay (want 1)  poll keeps badge=$v58az (want 1)  css rules=$v58ba (want 2)"
@@ -4517,7 +4528,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v58at" = "0" ] && [ "$v58au" = "0" ] && [ "$v58av" = "1" ] && [ "$v58aw" = "2" ] && [ "$v58ax" = "1" ] && [ "$v58ay" = "1" ] && [ "$v58az" = "1" ] && [ "$v58ba" = "2" ] \
     && [ "$v59aa" = "1" ] && [ "$v59ab" = "1" ] && [ "$v59ac" = "1" ] && [ "$v59ad" = "1" ] && [ "$v59ae" = "1" ] && [ "$v59af" = "1" ] && [ "$v59ag" = "3" ] && [ "$v59ah" = "4" ] && [ "$v59ai" = "1" ] \
     && [ "$v59aj" = "16" ] && [ "$v59ak" = "13" ] && [ "$v59al" = "11" ] && [ "$v59am" = "8" ] && [ "$v59an" = "1" ] && [ "$v59ao" = "3" ] && [ "$v59ap" = "1" ] && [ "$v59aq" = "13" ] && [ "$v59ar" = "2" ] \
-    && [ "$v59as" = "0" ] && [ "$v59at" = "0" ] && [ "$v59au" = "1" ] && [ "$v59av" = "46" ] && [ "$v59aw" = "1" ] && [ "$v59ax" = "1" ] && [ "$v59ay" = "1" ] && [ "$v59az" = "1" ] && [ "$v59ba" = "0" ] && [ "$v59bb" = "3" ] && [ "$v59bc" = "1" ] && [ "$v59bd" = "0" ] && [ "$v59be" = "1" ] && [ "$v59bf" = "1" ] && [ "$v59bg" = "0" ] && [ "$v59bh" = "1" ] && [ "$v59bi" = "0" ] && [ "$v59bj" = "1" ] \
+    && [ "$v59as" = "0" ] && [ "$v59at" = "0" ] && [ "$v59au" = "1" ] && [ "$v59av" = "47" ] && [ "$v59aw" = "1" ] && [ "$v59ax" = "1" ] && [ "$v59ay" = "1" ] && [ "$v59az" = "1" ] && [ "$v59ba" = "0" ] && [ "$v59bb" = "3" ] && [ "$v59bc" = "1" ] && [ "$v59bd" = "0" ] && [ "$v59be" = "1" ] && [ "$v59bf" = "1" ] && [ "$v59bg" = "0" ] && [ "$v59bh" = "1" ] && [ "$v59bi" = "0" ] && [ "$v59bj" = "1" ] \
     && [ "$sb" = "2" ] && [ "$sg" = "1" ] \
     && [ "$v59bk" = "1" ] && [ "$v59bl" = "1" ] && [ "$v59bm" = "1" ] && [ "$v59bn" = "1" ] && [ "$v59bo" = "1" ] && [ "$v59bp" = "1" ] && [ "$v59bq" = "1" ] && [ "$v59br" = "1" ] && [ "$v59bs" = "2" ] && [ "$v59bt" = "1" ] \
     && [ "$v59bu" = "2" ] && [ "$v59bv" = "0" ] && [ "$v59bw" = "2" ] \
@@ -4544,6 +4555,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
     && [ "$v62themes" = "1" ] && [ "$v62themePages" = "2" ] && [ "$v62overlayWriters" = "3" ] && [ "$v62presentationMigration" = "5" ] && [ "$v62huginLimits" = "3" ] && [ "$v62huginMigration" = "1" ] && [ "$v62presentationAssets" = "1" ] \
+    && [ "$v62turnDefault" = "1" ] && [ "$v62turnCeiling" = "1" ] && [ "$v62turnUpgrade" = "1" ] && [ "$v62turnForm" = "1" ] && [ "$v62turnUnlock" = "1" ] && [ "$v62turnStale" = "0" ] && [ "$v62turnWatchdog" = "1" ] \
     && [ "$v62remote" = "1" ] \
     && [ "$v62emptyGuard" = "0" ] && [ "$v62emptyPlan" = "1" ] && [ "$v62failedOperations" = "3" ] \
     && [ "$v62flatpakRecommended" = "1" ] && [ "$v62flatpakPanel" = "1" ] && [ "$v62entryAssets" = "1" ] && [ "$v62entryCard" = "1" ] && [ "$v62entryLegacy" = "1" ] && [ "$v62entryPages" = "2" ] \

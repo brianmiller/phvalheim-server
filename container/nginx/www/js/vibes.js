@@ -228,7 +228,8 @@ const Vibes = {};
 	}
 
 	async function refreshState(quiet) {
-		try { S.state = (await api('state')); applyState(); }
+		// reconcile() runs here and not in applyState(): it must only ever see a FRESH answer.
+		try { S.state = (await api('state')); applyState(); if (Vibes.vibeTab) Vibes.vibeTab.reconcile(S.state); }
 		catch (e) { if (!quiet) fail(e, 'Could not read the state'); }
 		return S.state;
 	}
@@ -550,7 +551,14 @@ const Vibes = {};
 				let ev; try { ev = JSON.parse(m.data); } catch (e) { return; }
 				if (ev.seq) this.after = Math.max(this.after, ev.seq);
 				this.retry = 0;
-				if (ev.type === 'eos') { this.es.close(); this.es = null; this.onEvent(ev); return; }
+				if (ev.type === 'eos') {
+					this.es.close(); this.es = null;
+					// The server ends every stream after two hours. That is its lifetime, not the
+					// end of the work: a session left open over a long turn must keep listening,
+					// or the page sits on "working" until it is reloaded.
+					if (ev.reason === 'timeout' && !this.closed) { this.open(); return; }
+					this.onEvent(ev); return;
+				}
 				this.onEvent(ev);
 			};
 			// The browser reconnects on its own but from the ORIGINAL url (old `after`), which would
@@ -703,8 +711,15 @@ const Vibes = {};
 		Vibes.codeTab.render(); Vibes.buildTab.render(); Vibes.packageTab.render(); Vibes.historyTab.render();
 		const sessions = S.project.sessions || [];
 		const keep = S.session && sessions.find(s => s.id === S.session.id);
+		// The project answer above is the authority on what is open RIGHT NOW. S.state.jobs is a
+		// poll up to 20 seconds old: it still lists a turn that has just ended, and locking the
+		// composer from it left Send dead and the job ring spinning until a page reload -- on
+		// every turn long enough for one poll to have seen it. So correct the poll's copy for
+		// this project (openFor() reads it) and lock from the fresh answer only.
+		if (S.state) S.state.jobs = (S.state.jobs || []).filter(j => j.project_id !== S.project.id).concat(S.project.openJob ? [S.project.openJob] : []);
 		await Vibes.vibeTab.openSession(keep || sessions[0] || null);
-		showJob(S.project.openJob || Vibes.jobs.openFor(S.project.id));
+		// openSession() has already locked for a turn the transcript says is running.
+		if (!Vibes.vibeTab.isRunning()) showJob(S.project.openJob || null);
 		Vibes.emit();
 	}
 	function deselect() { Vibes.vibeTab.detach(); S.project = null; S.session = null; renderEmptyState(); Vibes.library.render(); }
@@ -883,7 +898,7 @@ const Vibes = {};
 			appendUser(text, Date.now() / 1000, true); pendingEcho = text;
 			if (r.session) { S.session = r.session; const i = (S.project.sessions || []).findIndex(s => s.id === r.session.id); if (i >= 0) S.project.sessions[i] = r.session; Vibes.workspace.renderSessions(); }
 			beginRun(r.job || { id: r.jobId, kind: 'turn', project_id: S.project.id });
-		} catch (e) { fail(e, 'Hugin did not take the message'); setLocked(Vibes.jobs.openFor(S.project.id)); }
+		} catch (e) { fail(e, 'Hugin did not take the message'); await Vibes.router.refreshState(true); if (S.project) setLocked(Vibes.jobs.openFor(S.project.id)); }
 	}
 	let pendingEcho = null;
 	function beginRun(job) {
@@ -893,8 +908,23 @@ const Vibes = {};
 		$('vbForgeList').appendChild(h('div.vb-forge-turn', 'turn ' + turnNo + ' · ' + fmtTime(Date.now())));
 		Vibes.library.load();
 	}
+	/**
+	 * Called with every FRESH state poll. The page learns a turn ended from the stream; if that
+	 * frame never arrives (a dropped connection, a sleeping laptop) nothing else unlocks the
+	 * composer. Two consecutive polls with no open job on this Vibe while we still believe a
+	 * turn is running means it is over: reload the session, which re-reads the transcript and
+	 * the job from the server. One miss is not enough -- a poll sent just before the turn was
+	 * queued answers "nothing open" truthfully.
+	 */
+	let missedPolls = 0;
+	function reconcile(st) {
+		if (!running || !S.project || S.project.loading) { missedPolls = 0; return; }
+		if ((st.jobs || []).some(j => j.project_id === S.project.id)) { missedPolls = 0; return; }
+		if (++missedPolls < 2) { setTimeout(() => { if (running) Vibes.router.refreshState(true); }, 3000); return; }
+		missedPolls = 0; running = false; Vibes.workspace.reload();
+	}
 	function endRun(ok, stopped = false) {
-		running = false; if (cur) finalizeAssistant();
+		running = false; missedPolls = 0; if (cur) finalizeAssistant();
 		setHugin(stopped ? 'paused' : ok ? 'done' : 'error'); setLocked(null); Vibes.workspace.showJob(null);
 		Vibes.workspace.reload();
 	}
@@ -1011,7 +1041,7 @@ const Vibes = {};
 		$('vbComposerText').addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); send(); } });
 		Vibes.subscribe(() => { if (S.project && !S.project.loading) loadModels(); });
 	}
-	Vibes.vibeTab = { openSession, detach, setLocked, send, wire, handle };
+	Vibes.vibeTab = { reconcile, isRunning: () => running, openSession, detach, setLocked, send, wire, handle };
 })();
 
 /* =====================================================================================
@@ -1596,7 +1626,7 @@ const Vibes = {};
 		$('vbComposerLimits').onclick = () => open('limits');
 		for (const el of qsa('form[data-stab="limits"] input')) el.addEventListener('input', limitsSummary);
 		for (const b of qsa('[data-limit-preset]')) b.addEventListener('click', () => {
-			const presets = { standard: [100, 15, 15], long: [200, 30, 15], slow: [100, 60, 30] };
+			const presets = { standard: [300, 60, 15], long: [1000, 180, 15], slow: [300, 240, 30] };
 			const values = presets[b.dataset.limitPreset];
 			['max_rounds', 'turn_timeout_s', 'model_timeout_s'].forEach((key, i) => { qs('[data-setting="agent.' + key + '"]').value = values[i]; });
 			limitsSummary();

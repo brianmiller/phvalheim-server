@@ -380,14 +380,14 @@ $themeV = @filemtime('/opt/stateless/nginx/www/css/phvalheimStyles.css') ?: time
 						<h4>Turn limits</h4>
 						<p class="vb-help">These limits apply to the next turn across all Vibes. A running turn keeps the limits it started with.</p>
 						<div class="vb-row-actions" aria-label="Limit presets">
-							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="standard">Standard · 100 rounds / 15 min</button>
-							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="long">Long task · 200 rounds / 30 min</button>
-							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="slow">Slow model · 100 rounds / 60 min</button>
+							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="standard">Standard · 300 rounds / 60 min</button>
+							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="long">Long task · 1,000 rounds / 3 hours</button>
+							<button type="button" class="vb-btn vb-btn-ghost vb-btn-sm" data-limit-preset="slow">Slow model · 300 rounds / 4 hours</button>
 						</div>
-						<p class="vb-help">Presets fill the fields below. Review them, then Save limits. Higher limits can increase model usage and cost.</p>
-						<label class="vb-field">Tool rounds per turn <span class="vb-muted">One model response and its requested actions. Default 100; range 1–200.</span><input type="number" class="vb-input" data-setting="agent.max_rounds" data-type="int" min="1" max="200" required></label>
-						<label class="vb-field">Turn time limit (minutes) <span class="vb-muted">Total time budget for the turn. Default 15; range 0.5–120.</span><input type="number" class="vb-input" data-setting="agent.turn_timeout_s" data-type="minutes" min="0.5" max="120" step="any" required></label>
-						<label class="vb-field">Model response limit (minutes) <span class="vb-muted">Maximum wait for one reply, including streaming. Default 15; range 0.5–120.</span><input type="number" class="vb-input" data-setting="agent.model_timeout_s" data-type="minutes" min="0.5" max="120" step="any" required></label>
+						<p class="vb-help">Presets fill the fields below. Review them, then Save limits. Higher limits can increase model usage and cost; the turn time limit is what stops a model that is going in circles.</p>
+						<label class="vb-field">Tool rounds per turn <span class="vb-muted">One model response and its requested actions. Default <?= VIBES_ROUNDS_DEFAULT ?>; range 1–<?= number_format(VIBES_ROUNDS_MAX) ?>.</span><input type="number" class="vb-input" data-setting="agent.max_rounds" data-type="int" min="1" max="<?= VIBES_ROUNDS_MAX ?>" required></label>
+						<label class="vb-field">Turn time limit (minutes) <span class="vb-muted">Total time budget for the turn. Default <?= VIBES_TURN_S_DEFAULT / 60 ?>; range 0.5–<?= number_format(VIBES_TURN_S_MAX / 60) ?> (24 hours).</span><input type="number" class="vb-input" data-setting="agent.turn_timeout_s" data-type="minutes" min="0.5" max="<?= VIBES_TURN_S_MAX / 60 ?>" step="any" required></label>
+						<label class="vb-field">Model response limit (minutes) <span class="vb-muted">Maximum wait for one reply, including streaming. Default <?= VIBES_MODEL_S_DEFAULT / 60 ?>; range 0.5–<?= VIBES_MODEL_S_MAX / 60 ?>.</span><input type="number" class="vb-input" data-setting="agent.model_timeout_s" data-type="minutes" min="0.5" max="<?= VIBES_MODEL_S_MAX / 60 ?>" step="any" required></label>
 						<p class="vb-help" id="vbLimitsSummary" role="status"></p>
 						<p class="vb-help">A tool-round limit is not a timeout. Model calls obey the remaining turn time, which is also checked between tools. Saved files remain; send “Continue” to resume after a stop. Changes apply to the next turn.</p>
 						<div class="vb-row-actions vb-right"><button type="submit" class="vb-btn vb-btn-accent">Save limits</button></div>
