@@ -52,10 +52,10 @@ require_once '/opt/stateless/nginx/www/includes/hugin.php';
 <link rel="icon" type="image/svg+xml" href="/images/phvalheim_favicon.svg">
 <link rel="stylesheet" href="/css/phvalheimStyles.css">
 <?php if ($loginTheme !== 'classic') { ?>
-<link rel="stylesheet" href="/css/public-themes.css?v=6">
-<script defer src="/js/public-themes.js?v=7"></script>
+<link rel="stylesheet" href="/css/public-themes.css?v=7">
+<script defer src="/js/public-themes.js?v=8"></script>
 <?php } ?>
-<link rel="stylesheet" href="/css/public-entry.css?v=4">
+<link rel="stylesheet" href="/css/public-entry.css?v=5">
 </head>
 <body class="entry-login" data-public-theme="<?php echo htmlspecialchars($loginTheme, ENT_QUOTES); ?>">
 <header class="entry-header"><a class="entry-brand" href="/" aria-label="PhValheim home"><?php echo huginSvg('idle', 36); ?><span>Ph<span>Valheim</span></span></a></header>

@@ -19,7 +19,7 @@ with sync_playwright() as p:
   expect(page.get_by_role('heading',name='Welcome, Viking.')).to_be_visible()
   if theme=='reforged':
    assert page.locator('.entry-punctuation').evaluate_all("es=>es.length===2 && es.every(e=>getComputedStyle(e).color==='rgb(255, 54, 207)')")
-   assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor==='rgb(182, 0, 142)' && getComputedStyle(e).boxShadow!=='none'")
+   assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor==='rgb(117, 228, 237)' && getComputedStyle(e).color==='rgb(16, 24, 36)'")
   else:
    assert page.locator('.entry-steam').evaluate("e=>getComputedStyle(e).backgroundColor!=='rgb(182, 0, 142)'")
    assert page.locator('.entry-punctuation').evaluate_all("es=>es.every(e=>getComputedStyle(e).color!=='rgb(255, 54, 207)')")

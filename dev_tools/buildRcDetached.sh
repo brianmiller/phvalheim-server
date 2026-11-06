@@ -126,11 +126,14 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   v62flatpakAdvanced=$(grep -cF '<details class="flatpak-troubleshooting">' /opt/stateless/nginx/www/public/authenticated.php)
   v62reforgedMagenta=$(grep -cF 'body.entry-login[data-public-theme="reforged"] .entry-punctuation { color:#ff36cf; }' /opt/stateless/nginx/www/css/public-entry.css)
   echo "2.62 Classic polish: offline=$v62offlineGrey latest=$v62flatpakLatest advanced=$v62flatpakAdvanced magenta=$v62reforgedMagenta (want 1/1/1/1)"
+  v62worldOrder=$(grep -cF 'wrapper.after(reforgedNav);' /opt/stateless/nginx/www/js/public-themes.js)
+  v62magentaButton=$(grep -cF 'body.entry-login[data-public-theme="reforged"] .entry-steam' /opt/stateless/nginx/www/css/public-entry.css)
+  echo "2.62 world order: below=$v62worldOrder magenta button=$v62magentaButton (want 1/0)"
   v62entryAssets=0
   if [ -s /opt/stateless/nginx/www/css/public-entry.css ] && [ -s /opt/stateless/nginx/www/js/public-entry.js ]; then v62entryAssets=1; fi
   v62entryCard=$(grep -c 'class="entry-card"' /opt/stateless/nginx/www/public/index.php)
   v62entryLegacy=$(grep -c '/js/login.js' /opt/stateless/nginx/www/public/index.php)
-  v62entryPages=$(grep -l 'public-entry.css?v=4' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62entryPages=$(grep -l 'public-entry.css?v=5' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 login/downloads: assets=$v62entryAssets card=$v62entryCard legacy=$v62entryLegacy pages=$v62entryPages (want 1/1/0/2)"
   v62emptyGuard=$(grep -c 'selected mods but NO plugins' /opt/stateless/engine/includes/0-functions.sh)
   v62emptyPlan=$(grep -c 'refusing to build an incomplete plan' /opt/stateless/engine/tools/worldMods.py)
@@ -156,10 +159,10 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
   echo "2.62 presentation: themes=$v62themes pages=$v62themePages policy writers=$v62overlayWriters migration=$v62presentationMigration assets=$v62presentationAssets (want 1/2/3/4/1)"
   v62portalLayout=$(grep -c 'portal.id = .publicPortal.;' /opt/stateless/nginx/www/js/public-themes.js)
   v62portalLegacy=$(grep -c 'const accountBody ='  /opt/stateless/nginx/www/js/public-themes.js)
-  v62portalCache=$(grep -l 'public-themes.js?v=7' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62portalCache=$(grep -l 'public-themes.js?v=8' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 corrected portal: layout=$v62portalLayout old header=$v62portalLegacy cache=$v62portalCache (want 1/0/2)"
   v62bossGrey=$(grep -cF 'filter:grayscale(1) brightness(.65);' /opt/stateless/nginx/www/css/public-themes.css)
-  v62bossGreyCache=$(grep -l 'public-themes.css?v=6' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
+  v62bossGreyCache=$(grep -l 'public-themes.css?v=7' /opt/stateless/nginx/www/public/index.php /opt/stateless/nginx/www/public/authenticated.php | wc -l)
   echo "2.62 undefeated bosses: grey=$v62bossGrey cache=$v62bossGreyCache (want 1/2)"
   v62playerViewer=$(grep -cF 'dialog.showModal()' /opt/stateless/nginx/www/js/player-mods.js)
   v62playerScope=$(grep -cF 'playerConfigTokenPlayer($world' /opt/stateless/nginx/www/public/api.php)
@@ -4516,6 +4519,7 @@ cat > "$VERIFY_SH" <<'PHVVERIFYEOF'
     && [ "$v62healthRemote" = "1" ] && [ "$v62healthAnalytics" = "0" ] && [ "$v62quietAnalytics" = "0" ] && [ "$v62healthAction" = "1" ] \
     && [ "$v62analyticsCall" = "1" ] && [ "$v62analyticsLegacy" = "0" ] && [ "$v62analyticsIdentity" = "1" ] && [ "$v62analyticsRedirect" = "1" ] && [ "$v62analyticsProtocol" = "1" ] \
     && [ "$v62playerViewer" = "1" ] && [ "$v62playerScope" = "1" ] && [ "$v62playerPrivate" = "1" ] \
+    && [ "$v62worldOrder" = "1" ] && [ "$v62magentaButton" = "0" ] \
     && [ "$v62offlineGrey" = "1" ] && [ "$v62flatpakLatest" = "1" ] && [ "$v62flatpakAdvanced" = "1" ] && [ "$v62reforgedMagenta" = "1" ] \
     && [ "$v62bossGrey" = "1" ] && [ "$v62bossGreyCache" = "2" ] \
     && [ "$v62portalLayout" = "1" ] && [ "$v62portalLegacy" = "0" ] && [ "$v62portalCache" = "2" ] \
