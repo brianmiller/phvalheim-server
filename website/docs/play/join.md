@@ -60,6 +60,10 @@ Choose your platform. The client syncs your world's mods and settings, then star
 2. **Choose your world** and click its launch link. Allow your browser to open PhValheim.
 3. **Let the client sync**, then follow the connection dialog in Valheim.
 
+**2.62 development preview:** click **CONNECT: &lt;worldname&gt;** at the bottom of
+Valheim's main menu to open the dialog. It stays closed until you click. Hosts must
+update their container and then update the world to deliver this behavior.
+
 Launch from the website each time to get your host's latest mods and shared settings.
 Your personal settings are preserved. [How settings work →](../host/mods.md#change-configurations)
 

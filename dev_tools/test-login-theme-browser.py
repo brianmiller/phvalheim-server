@@ -46,10 +46,13 @@ with sync_playwright() as p:
    page.screenshot(path=f'/tmp/phv-login-choice-{theme}-{width}.png',full_page=True)
  # Save both choices through the real Server Settings form, then reopen it.
  page.set_viewport_size({'width':1440,'height':900});page.goto(f['admin'],wait_until='domcontentloaded');page.evaluate('showServerSettingsModal()')
- expect(page.locator('#ss-loginTheme')).to_be_visible();expect(page.locator('#ss-loginTheme option')).to_have_count(4)
- page.locator('#ss-publicTheme').select_option('reforged');page.locator('#ss-loginTheme').select_option('gate')
+ page.wait_for_url('**/settings.php');expect(page.locator('.settings-layout')).to_be_visible()
+ page.get_by_role('button',name='Appearance',exact=True).click()
+ expect(page.locator('#ss-loginTheme option')).to_have_count(4)
+ page.locator('[data-field="publicTheme"] [data-theme="reforged"]').click();page.locator('[data-field="loginTheme"] [data-theme="gate"]').click()
  with page.expect_response('**/adminAPI.php?action=saveServerSettings') as response:page.locator('#ssSubmitBtn').click()
- assert response.value.json()['success'];page.reload(wait_until='domcontentloaded');page.evaluate('showServerSettingsModal()')
+ assert response.value.json()['success'];page.reload(wait_until='domcontentloaded')
+ expect(page.locator('.settings-layout')).to_be_visible()
  expect(page.locator('#ss-publicTheme')).to_have_value('reforged');expect(page.locator('#ss-loginTheme')).to_have_value('gate')
  page.screenshot(path='/tmp/phv-login-choice-settings.png',full_page=True)
  # Crossplay code is real log-derived data, for both modded and vanilla worlds.

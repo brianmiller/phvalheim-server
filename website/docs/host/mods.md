@@ -2,6 +2,11 @@
 
 A world's mod selection is the shared setup its players receive. Change the selection, update the world, then have players sync with the launcher.
 
+A modded world can have no catalogue mods selected. It still receives the bundled
+PhValheim plugins. Mods assigned only to the client do not need a server plugin.
+If an installation fails, check the world operation log, correct the reported cause,
+and **Update** the world to retry.
+
 ## Find and select mods
 
 The picker offers **Thunderstore**, **Hexium** and **Hugin's Vibes**. The last contains mods you publish locally from the workbench.

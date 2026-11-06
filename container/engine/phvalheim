@@ -294,6 +294,8 @@ while [ true ]; do
 				if ! worldPort=$(php /opt/stateless/engine/tools/gamePorts.php assign "$worldID" 2>&1); then
 					phvlog ERROR "$worldPort"
 					SQL "UPDATE worlds SET mode='broken' WHERE id='$worldID'"
+					phvOpEnd failed "game port assignment failed"
+					unset PHV_WORLD
 					continue
 				fi
 			elif [ -z "$worldPort" ] || [ "$worldPort" = "NULL" ]; then
@@ -566,6 +568,8 @@ while [ true ]; do
 				if [ $? -ne 0 ]; then
 					phvlog ERROR "Valheim installation failed for '$worldName', aborting update..."
 					SQL "UPDATE worlds SET mode='stopped', status='failed' WHERE name='$worldName'"
+					phvOpEnd failed "Valheim installation failed; world left stopped"
+					unset PHV_WORLD
 					continue
 				fi
 
@@ -629,12 +633,11 @@ while [ true ]; do
 					#Install mods
 					downloadAndInstallTsModsForWorld "$worldName"
 					if [ $? -ne 0 ]; then
-						#A modded world with no plugins must NOT be published. It used to be
-						#packaged, given an md5, marked ready and started, and the only symptom
-						#was BepInEx reporting "0 plugins to load" in the world log -- which
-						#nobody sees until a player joins and finds a vanilla server.
+						# Preserve the previous client payload when an actual install fails.
 						phvlog ERROR "Mod installation failed for '$worldName' -- leaving it stopped, and NOT touching its client payload or md5."
 						SQL "UPDATE worlds SET mode='stopped', status='failed' WHERE name='$worldName'"
+						phvOpEnd failed "mod installation failed; world left stopped"
+						unset PHV_WORLD
 						continue
 					fi
 

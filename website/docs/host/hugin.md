@@ -2,7 +2,7 @@
 
 Hugin is optional. Use him to investigate your server and propose changes; use [Hugin’s Vibes](../vibes/first-mod.md) to write mods.
 
-Add one or more providers under **Server Settings → AI Setup**. A five-step wizard tests the
+Add one or more providers under **Server Settings → AI Helper**. A five-step wizard tests the
 endpoint, the credential and the model separately, so a failure tells you which of the three
 is wrong instead of surfacing later as a chat error.
 
