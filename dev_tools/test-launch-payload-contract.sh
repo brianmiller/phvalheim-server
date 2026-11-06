@@ -50,30 +50,19 @@ pass "all three files present"
 
 printf '\n== writer: %s ==\n' "$SERVER_PHP"
 
-# phvBuildLaunchString's body is the base64_encode of the interpolated string. Pull the
-# $-variables out in the order they appear, which IS the wire order.
-writer_order=$(
-	sed -n '/function phvBuildLaunchString/,/^}/p' "$SERVER_PHP" \
-		| grep -o '\$[a-zA-Z_][a-zA-Z0-9_]*' \
-		| sed 's/^\$//' \
-		| awk '!seen[$0]++'
+# Execute the real writer with only the external signing dependency stubbed. Its
+# tail is assembled separately, so scanning variable names is not a wire-format test.
+writer_actual=$(php <<'PHP'
+<?php
+$source=file_get_contents('container/nginx/www/includes/db_gets.php');
+preg_match('/function phvBuildLaunchString\(.*?^}/ms',$source,$match);
+if (!$match) exit(1);
+$builder=preg_replace('/require_once __DIR__ \. .*?;/', '', $match[0]);
+function phvCompanionToken($world) { return 'refreshToken'; }
+eval($builder);
+echo str_replace('?', ' ', base64_decode(phvBuildLaunchString('world','password','gameDNS','port','phvalheimHost','httpScheme','vanilla','crossplay','joinCode')));
+PHP
 )
-
-# The overlay boolean selects an optional literal tail; it is not interpolated as a field.
-# test-presentation.php executes that tail and verifies token/overlay positions.
-# The function signature lists the parameters first, so the interpolated order has to be read
-# from the "launch?..." string itself rather than from the whole body.
-writer_fields=$(
-	sed -n '/function phvBuildLaunchString/,/^}/p' "$SERVER_PHP" \
-		| tr -d '\n' \
-		| grep -o '"launch?[^"]*"[^;]*' \
-		| grep -o '\$[a-zA-Z_][a-zA-Z0-9_]*' \
-		| sed 's/^\$//' \
-		| grep -v '^disableSteamOverlay$' \
-		| awk '!seen[$0]++' | tr '\n' ' '
-)
-writer_actual="launch $writer_fields"
-writer_actual=$(printf '%s' "$writer_actual" | tr -s ' ' | sed 's/ *$//')
 
 if [ "$writer_actual" = "$EXPECTED" ]; then
 	pass "field order matches the contract"

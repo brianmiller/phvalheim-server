@@ -11,6 +11,8 @@ preg_match('/function phvBuildLaunchString\(.*?^}/ms',$source,$match);
 check(!empty($match),'builder exists');
 $builder=preg_replace('/require_once __DIR__ \. .*?;/', '',$match[0]);
 function phvCompanionToken($world) { return $GLOBALS['fixtureToken']; }
+function getSessionSteamID() { return $GLOBALS['fixturePlayer'] ?? null; }
+function playerConfigToken($world,$player) { return 'scoped-personal-token'; }
 eval($builder);
 $base=['launch','Midgard','password','game.example','2456','web.example','https','0','1','123456'];
 foreach (['','test-token'] as $token) {
@@ -24,4 +26,9 @@ foreach (['','test-token'] as $token) {
  $legacy=explode('?',base64_decode(phvBuildLaunchString('Midgard','password','game.example',2456,'web.example','https',0,1,'123456')));
  check(count($legacy)===($token===''?10:11),'legacy builder unchanged without policy');
 }
+$GLOBALS['fixturePlayer']='76561198000000001';
+$GLOBALS['fixtureToken']='';
+$personal=explode('?',base64_decode(phvBuildLaunchString('Midgard','password','game.example',2456,'web.example','https',0,1,'123456',false)));
+check(array_slice($personal,0,10)===$base,'personal extension preserves every existing field');
+check($personal[10]==='' && $personal[11]==='overlay=on' && $personal[12]==='playerConfig=scoped-personal-token','personal field 12 cannot shift empty Companion token or overlay');
 echo "$n presentation and launch policy checks passed\n";
