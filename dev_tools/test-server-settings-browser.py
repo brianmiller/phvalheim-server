@@ -50,7 +50,7 @@ with sync_playwright() as p:
         assert int(stored['sessionTimeout'])==90123 and int(stored['maxLogSize'])==1234567
         assert stored['timezone']=='America/Detroit' and int(stored['backupRetainAllHours'])==0
         # Provider actions are still present and use the shared wizard.
-        section('AI Helper');page.get_by_role('button',name='+ Add AI provider',exact=True).click()
+        section('Hugin Setup');page.get_by_role('button',name='+ Add AI provider',exact=True).click()
         expect(page.locator('#aiWizardOverlay')).to_have_class('mods-modal-overlay show')
         page.evaluate('aiWizClose()')
         # Keyboard selection, exact unit conversion, dirty undo and Discard across categories.

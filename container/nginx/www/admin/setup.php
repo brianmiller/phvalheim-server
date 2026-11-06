@@ -347,7 +347,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             </div>
 
             <!--
-                Step 4: AI Helper.
+                Step 4: Hugin Setup.
 
                 2.45 deliberately collects NOTHING here. Four bare key fields could not
                 express what a provider now is (endpoint + credential + a model picked
@@ -355,13 +355,13 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
                 landed in the legacy `settings` columns that dbUpdate_2.45.sh migrates
                 FROM -- on a fresh install that migration has already run by the time the
                 wizard is on screen, so the credential would have sat in a dead column
-                and the AI Helper would have reported no provider configured.
+                and the Hugin Setup would have reported no provider configured.
 
                 Adding a provider needs a live round trip to list its models, which is
                 the admin UI's job, not a setup form's.
             -->
             <div class="setup-step" data-step="4">
-                <div class="setup-step-title">AI Helper</div>
+                <div class="setup-step-title">Hugin Setup</div>
                 <div class="setup-step-desc">Optional, and set up after this wizard.</div>
 
                 <div style="line-height:1.65;font-size:0.9rem;">
@@ -468,7 +468,7 @@ $detectedHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
             ['Base Port', s.basePort],
             ['Backups to Keep', s.backupsToKeep],
             ['Timezone', s.timezone || 'Etc/UTC'],
-            ['AI Helper', 'Add providers from Server Settings after setup'],
+            ['Hugin Setup', 'Add providers from Server Settings after setup'],
         ];
 
         const tbody = document.querySelector('#reviewTable tbody');

@@ -12,7 +12,7 @@ Open **Server Settings** in the admin sidebar. Choose a category on the left, or
 | **Players & Steam** | Steam API key, session duration, Steam overlay default |
 | **Backups** | Storage status, schedule, retention, compression, resource priorities |
 | **Updates & Mods** | Automatic world updates, maintenance window, mod catalogues |
-| **AI Helper** | Providers, connection tests, and models |
+| **Hugin Setup** | Providers, live model refresh, connection tests, and runtime limits |
 | **Advanced** | World log rotation size and usage analytics |
 
 ## Saving changes

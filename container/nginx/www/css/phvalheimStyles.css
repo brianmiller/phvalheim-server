@@ -7546,3 +7546,8 @@ pre.ms-log {
 .dest-sw { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; cursor: pointer; }
 .config-delivery-toolbar summary { cursor: pointer; }
 .config-delivery-toolbar button { margin: .2rem 0; }
+
+/* Hugin provider limits remain usable on narrow screens. */
+.hugin-limits {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem 1.2rem;}
+.hugin-limits input {margin-top:.3rem;}
+@media (max-width:600px) {.hugin-limits {grid-template-columns:1fr;}}

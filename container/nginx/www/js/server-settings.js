@@ -9,7 +9,7 @@
         players: ['Players & Steam', 'Authentication and defaults for your players.'],
         backups: ['Backups', 'Protect your worlds and manage storage.'],
         updates: ['Updates & Mods', 'Keep worlds and mod catalogues up to date.'],
-        ai: ['AI Helper', 'Connect Hugin to your preferred providers and models.'],
+        ai: ['Hugin Setup', 'Connect Hugin to your preferred providers and models.'],
         advanced: ['Advanced', 'Logging and usage reporting.']
     };
     // id, category, label, short explanation, optional disclosure group
