@@ -53,7 +53,9 @@ with sync_playwright() as p:
   expect(card.locator('.world-players')).to_have_text('2 players')
   assert card.locator('details .world-players').count()==0
   title=card.locator('h2');title.evaluate("e=>e.textContent='A very long Viking world name'")
-  a=title.bounding_box();z=card.locator('.launch-link').bounding_box()
+  # Sample both rectangles in one frame: scroll anchoring after reflow can
+  # otherwise move the viewport between two separate protocol calls.
+  a,z=title.evaluate("e=>[e.getBoundingClientRect().toJSON(),e.closest('.catbox').querySelector('.launch-link').getBoundingClientRect().toJSON()]")
   assert a['x']+a['width']<=z['x']+1 or a['y']+a['height']<=z['y']+1 or z['y']+z['height']<=a['y']+1,f'{width}: title/action overlap'
   assert page.evaluate('document.documentElement.scrollWidth<=innerWidth'),f'{width}: overflow'
   assert card.locator('.theme-boss').evaluate_all("es=>es.every(e=>e.getBoundingClientRect().width<=73)"),'boss heads too large'
