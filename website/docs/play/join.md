@@ -76,7 +76,7 @@ selected version, plus descriptions, dependencies and links to the mod authors' 
 The library's **Configuration** section shows settings the operator has published to players.
 **Customizable** settings can be saved for your Steam account and that world. Choose
 **Save my choice**, then launch again with the updated **2.0.18 draft client** to apply it.
-This preview is currently packaged only as a Flatpak; older clients ignore saved web choices.
+Personal web settings require Client 2.0.18 or newer. The 2.0.18 preview remains a draft for Windows, Linux and macOS testing.
 Your game must be restarted to pick up a new choice.
 
 **Use published default** saves the operator's suggested value as your personal choice.
