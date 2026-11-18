@@ -30,8 +30,6 @@ Pick mods, edit settings, and update. PhValheim handles dependencies and packagi
 
     [Start the host guide →](start/install.md)
 
-    [Using Portainer? →](start/portainer.md)
-
 -   **02 · I'm playing**
 
     Get the client, sync your mods, and head into the right world.
@@ -51,6 +49,16 @@ Pick mods, edit settings, and update. PhValheim handles dependencies and packagi
     [Contributor and LLM instructions →](contribute.md)
 
 </div>
+
+## Choose your ship
+
+Pick your platform. Bring your crew.
+
+[Docker Compose](start/install.md){ .md-button }
+[Portainer](start/portainer.md){ .md-button }
+[Unraid](start/other-platforms.md#unraid){ .md-button }
+[TrueNAS](https://apps.truenas.com/catalog/phvalheim-server_community/){ .md-button }
+[Kubernetes](start/other-platforms.md#kubernetes-k3s){ .md-button }
 
 ## A server that brings the group together
 
