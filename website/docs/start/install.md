@@ -4,7 +4,8 @@ You'll need a host that can run Docker and Valheim's dedicated server, space for
 and mods, and a Steam API key for player profile lookups. More worlds and larger mod
 collections need more resources.
 
-This guide uses Docker Compose. [Using Unraid or Kubernetes instead?](other-platforms.md)
+This guide uses Docker Compose. Prefer [Portainer](portainer.md), or
+[Unraid or Kubernetes](other-platforms.md)? Follow the matching guide.
 
 ## 1. Create your Compose file
 

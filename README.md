@@ -53,6 +53,8 @@ Each Vibe has its own **local Git repository**. Package the plugin and publish i
 
 Use **[Docker Compose](https://brianmiller.github.io/phvalheim-server/start/install/)**, **[Unraid or Kubernetes](https://brianmiller.github.io/phvalheim-server/start/other-platforms/)**. The setup wizard handles the settings after the container starts.
 
+For Portainer on Linux x86-64 Docker Standalone, follow the [Portainer stack guide](website/docs/start/portainer.md) for deployment and private admin access.
+
 Image: `theoriginalbrian/phvalheim-server:latest`
 
 Keep `/opt/stateful` persistent and the admin UI private. The install guide includes a ready-to-copy Compose file, storage paths, ports and first-run steps.
