@@ -56,6 +56,7 @@ nav:
   - Get started:
       - Watch the one-minute tour: start/tour.md
       - Install with Docker: start/install.md
+      - Install with Portainer: start/portainer.md
       - Create your first world: start/first-world.md
       - Unraid and Kubernetes: start/other-platforms.md
   - Play:

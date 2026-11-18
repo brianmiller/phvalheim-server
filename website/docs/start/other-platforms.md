@@ -2,6 +2,9 @@
 
 Prefer an app template or Helm chart? These are alternatives to the [Docker Compose guide](install.md).
 
+For Portainer on Linux x86-64 Docker Standalone, see the dedicated
+[Portainer stack guide](portainer.md) for deployment and private admin access.
+
 ## Unraid
 
 <img src="https://raw.githubusercontent.com/brianmiller/phvalheim-server/master/container/nginx/www/images/phvalheim_unraid_icon.svg" alt="PhValheim Unraid Icon" width="48" style="vertical-align:middle;"> Search for **PhValheim** in the Community Apps store.

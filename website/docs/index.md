@@ -30,6 +30,8 @@ Pick mods, edit settings, and update. PhValheim handles dependencies and packagi
 
     [Start the host guide →](start/install.md)
 
+    [Using Portainer? →](start/portainer.md)
+
 -   **02 · I'm playing**
 
     Get the client, sync your mods, and head into the right world.

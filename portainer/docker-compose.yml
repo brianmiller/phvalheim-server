@@ -1,0 +1,23 @@
+version: '2'
+services:
+  phvalheim:
+    # The published image requires a Linux amd64 host.
+    platform: linux/amd64
+    image: theoriginalbrian/phvalheim-server:2.62@sha256:925c68966570452658a22eeda3d1aa74a7eddabd27a6ee7d5ac5e73d15842009
+    restart: unless-stopped
+    ports:
+      - '${PHV_PUBLIC_PORT:-8080}:8080/tcp'
+      # Access the private admin UI through an SSH tunnel to the Docker host.
+      - '127.0.0.1:${PHV_ADMIN_PORT:-8081}:8081/tcp'
+      - '${PHV_GAME_PORT_START:-25000}-${PHV_GAME_PORT_END:-25019}:${PHV_GAME_PORT_START:-25000}-${PHV_GAME_PORT_END:-25019}/udp'
+    environment:
+      PHVALHEIM_GAME_PORT_START: '${PHV_GAME_PORT_START:-25000}'
+      PHVALHEIM_GAME_PORT_END: '${PHV_GAME_PORT_END:-25019}'
+    volumes:
+      - data:/opt/stateful
+      - backups:/opt/stateful/backups
+volumes:
+  # Retain BOTH volumes when upgrading to preserve worlds, settings, and backups.
+  # Same-disk named backups do not provide off-host protection.
+  data:
+  backups:

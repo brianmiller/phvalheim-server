@@ -83,6 +83,67 @@ siblings named `phvalheim-client` and `phvalheim-companion`, install .NET 9, and
 `bash dev_tools/run-oracles.sh --crossrepo`. Record all three commit IDs. Missing
 Companion game assemblies leave the relevant reachability check unverified.
 
+## Portainer packaging validation
+
+From the repository root, use Docker with permission to run a privileged
+Docker-in-Docker (dind) fixture, Git and Python 3. The integration harness uses
+Python's standard library and repository helpers; no Python packages are needed.
+Pull the prerequisite images matching the versions in the harness:
+
+```bash
+docker pull portainer/portainer-ce:2.45.3
+docker pull docker:29.3.0-dind
+python3 dev_tools/test-portainer-integration.py --keep
+```
+
+Portainer manages a new isolated dind daemon on a unique bridge; it never receives
+the host Docker socket. The harness mounts the analytics blocker read-only before
+application startup. A temporary v3 feed changes only the repository transport URL;
+its temporary Git repository adds only that analytics mount to the production
+Compose file. The checked-in feed and Compose file remain unchanged.
+
+The harness pulls and checks the exact application image
+`theoriginalbrian/phvalheim-server:2.62@sha256:925c68966570452658a22eeda3d1aa74a7eddabd27a6ee7d5ac5e73d15842009`
+inside dind. Checks cover template retrieval and stack creation, synthetic setup
+and database rows, bounded port mappings/allocation (including odd-start
+rejection), and settings, data and backup markers surviving restart and forced
+recreation. The engine is stopped before synthetic world operations. These checks
+do not validate live Steam sign-in or gameplay and do not deploy to production.
+
+The command prints its `/tmp/phv-portainer-<run>/evidence.json` path. Wait for the
+full integration run to exit zero and report `"status": "passed"` before browser
+review; replace the placeholder below with that printed path. `--keep` is required
+to leave the fixture and helper processes running, even on failure.
+
+Browser review requires Playwright for Python and its matching Chromium binaries
+in the environment used by `python3`. If missing, use the official
+[library installation](https://playwright.dev/python/docs/library) and
+[browser installation](https://playwright.dev/python/docs/browsers) commands in
+your activated Python environment:
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+```bash
+python3 dev_tools/portainer-browser.py '/tmp/phv-portainer-<run>/evidence.json' --public
+```
+
+This checks the visible template fields/guidance and existing stack, writing
+`browser-evidence.json` and screenshots beside the integration evidence.
+`--public` also attempts the public portal; read its separate `public_portal`
+status because an unavailable portal does not fail the overall browser check.
+Report the actual statuses from both evidence files.
+
+Without `--keep`, conservative default cleanup stops only this run's containers
+and helper processes, preserving containers, volumes, network, evidence and data.
+After a kept review, read `evidence.json` for the owned `host_containers`,
+`nested_containers` and `helper_pids`; verify ownership before stopping only those
+fixtures and helpers. Retain evidence/data and never touch operator resources.
+Read the evidence's `cleanup` status when reporting cleanup; manually stopping a
+kept fixture does not update its recorded `kept_running` value.
+
 ## Inspect and clean up
 
 ```bash
