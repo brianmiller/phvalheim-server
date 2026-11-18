@@ -27,6 +27,12 @@ shipping, that the user-facing notes describe what shipped, and that nothing rea
 
 # Before you build
 
+**0. Plan every production catalog update.** Before building a stable version change or
+same-version stable recut, complete the inventory/planning checkpoint in the
+[mandatory production catalog checklist](#production-release-catalog-checklist).
+Prepare required source changes before stable promotion; record the final digest only
+after the actual stable image is published and verified.
+
 **1. Add What's New entries.** `container/nginx/www/includes/whatsnew.php`, keyed by version.
 `dev_tools/check-whatsnew.sh` fails the release without them. Run it. A missing entry is
 invisible at runtime — the modal just shows nothing — so the gate is the only thing that
@@ -152,9 +158,97 @@ untested and whether the feature is off by default.
 
 Write notes to a file, not inline. Title style: `vX.YZ — <plain-language summary>`.
 
-# TrueNAS catalog updates
+# Production release catalog checklist
 
-After each authorized stable release, follow the [TrueNAS update checklist](truenas/updates.md). The catalog pins a numeric release tag and digest, and standard Renovate Docker versioning prepares image updates and catalog revision bumps without a PhValheim-specific rule. Verify that the bot picks up the release and help resolve any review or validation requirements. Numeric release tags must designate stable builds; use `dev`, `rc` or a suffixed tag for pre-release testing. General Docker users can keep using `:latest`. Retain versioned images and compatible full-data backups for recovery.
+**Mandatory for every stable version change and every same-version stable recut whose
+digest changes.** All maintained catalogs and deployment packages must be reconciled;
+publishing an image alone does not complete the catalog work. Keep `dev`, `rc` and
+suffixed prereleases out of stable catalogs; plain numeric tags designate stable builds.
+General Docker users can continue using `:latest`.
+
+This is the canonical inventory and procedure for
+[issue #155](https://github.com/brianmiller/phvalheim-server/issues/155).
+Extend this inventory whenever a catalog or deployment package is added.
+
+| Catalog/package | Sources and operator documentation to review |
+| --- | --- |
+| Portainer | [Server Compose](../portainer/docker-compose.yml), [server v3 template feed](../portainer/templates.json), upstream [`portainer/templates` v3 `templates.json`](https://github.com/portainer/templates/blob/v3/templates.json), [Portainer guide](../website/docs/start/portainer.md) |
+| TrueNAS | [`truenas/apps`](https://github.com/truenas/apps), [update and recovery details](truenas/updates.md) |
+| Unraid Community Apps | [`brianmiller/docker-templates/phvalheim-server/phvalheim-server.xml`](https://github.com/brianmiller/docker-templates/blob/master/phvalheim-server/phvalheim-server.xml), [Unraid guide](../website/docs/start/other-platforms.md#unraid) |
+| Helm / Kubernetes | [`Chart.yaml`](../helm/phvalheim/Chart.yaml), [`values.yaml`](../helm/phvalheim/values.yaml), [Kubernetes guide](../website/docs/start/other-platforms.md#kubernetes--k3s) |
+
+1. [ ] **Before building, account for every inventory row in the release GitHub issue.**
+   Assign an owner and record the target numeric stable version, planned source changes
+   and validation, existing PRs, and any proposed no-source-change decision with reasons.
+   Stage required owned updates before stable promotion; leave the final digest pending.
+   Do not guess a final digest from an earlier dev/RC build. Keep work tracking in GitHub
+   Issues and linked PRs, without a separate Markdown backlog.
+   Each catalog's receipt must ultimately include the verified target version/digest,
+   source revision, linked PR (or update to an existing PR), validation evidence and owner,
+   status, and a justified reason if no source edit is needed. Distinguish **prepared**,
+   **submitted**, **accepted**, **available**, and **deployed**; cite evidence for each.
+
+2. [ ] **Portainer: reconcile the stack, feed and upstream entry.** Update the server
+   Compose's exact numeric stable tag **and digest**, including digest-only recuts.
+   Reconcile the server feed's release note/version text and the installation guide's pin
+   and upgrade instructions; feed `"version": "3"` is the schema, not the app version.
+   Review the matching entry in upstream's v3 `templates.json`. It references this server
+   repository's stackfile, so the digest lives in the server Compose. Edit upstream only
+   when its entry/metadata needs changing; otherwise record why it remains accurate.
+   Check [PR #292](https://github.com/portainer/templates/pull/292) and other open updates
+   first: update the existing submission while open rather than creating a duplicate.
+
+3. [ ] **TrueNAS: verify the actual Renovate PR, not just bot configuration.** Follow
+   [the TrueNAS checklist](truenas/updates.md) and upstream's current contribution guidance
+   for standard Renovate updates, validation, the existing two-day discovery window and
+   urgent manual fallback. Do not duplicate a bot PR. Check initial
+   [PR #6264](https://github.com/truenas/apps/pull/6264); while open, update that branch;
+   after merge, branch from current upstream `master`. Keep numeric `app_version`
+   aligned with the stable release, increment catalog `version` for image/wrapper changes,
+   and verify the digest pin, including a same-version rebuild. Record review/publication
+   separately from submission; retain versioned images and compatible full-data backups.
+
+4. [ ] **Unraid: inspect the actual XML and selected image.** Its `Repository` currently
+   names `theoriginalbrian/phvalheim-server` (implicit `latest`), without a numeric pin.
+   Review metadata, ports, settings, storage and links against the release. Validate the
+   actual selected stable image/digest and pull/upgrade behavior. A rolling channel alone
+   does not prove catalog completeness. If the existing template remains accurate,
+   record a justified no-source-change receipt with that evidence; do not manufacture a
+   version edit. Prepare a linked template PR when source changes are needed.
+
+5. [ ] **Helm: review application metadata, image reference and defaults.** Currently
+   `appVersion` and `image.tag` are `latest`, with `pullPolicy: IfNotPresent`.
+   Decide and record the intended release policy; reconcile `Chart.yaml`, `values.yaml`
+   and the guide. Increment the chart package `version` whenever chart contents change.
+   If retaining a rolling policy, document the decision and verify actual pulling and
+   rollout behavior: `latest` does not automatically upgrade existing pods, and
+   `IfNotPresent` may reuse a cached image. Record the image digest actually exercised.
+
+6. [ ] **Validate each affected catalog/package at the appropriate scope.** Check feed
+   schemas, Compose configuration, upstream catalog requirements, XML metadata and Helm
+   lint/render output as applicable. For changed wrappers or image pins, test isolated
+   installation and upgrade with the exact selected image, preserving worlds, settings,
+   database and backups. Review default ports, UDP allocator bounds and published ranges,
+   admin privacy, both `/opt/stateful` and `/opt/stateful/backups` mounts, and startup
+   migrations where relevant. Record commands, source revisions, image digest and results;
+   label unavailable platform/install/upgrade/persistence checks **unverified**.
+
+7. [ ] **After authorized stable publication, reconcile the final references.** Inspect
+   the published numeric tag and authorized `latest` tag, confirm the verified digest,
+   then fill pending pins/receipts and repeat checks affected by the final reference.
+   Compare release version/digest across source, docs and every catalog; check what each
+   catalog actually serves. Complete the existing [public version review](#before-you-build),
+   client-delivery check and [documentation/status review](../CONTRIBUTING.md#always-review-dynamic-pages-and-status-content),
+   including download fallbacks. Link the reviewed source revisions and submissions.
+
+8. [ ] **Report catalog completion honestly.** Do not call the release catalog-complete
+   while required owned updates are unprepared or external acceptance/publication is
+   pending. Report, for example, "image published; catalog submitted, acceptance pending."
+   Carry pending upstream work in a linked GitHub issue with an owner and next action.
+   Upstream review does not prevent otherwise authorized image publication. Brian must
+   approve each reviewed revision before its respective merge; external maintainers
+   control upstream acceptance. This procedure grants no build, publication, merge or
+   production deployment authorization, and deployment requires separate evidence.
 
 # Rules that are not about releasing but will bite you here
 
